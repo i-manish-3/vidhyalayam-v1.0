@@ -1,0 +1,311 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { db } from '@/lib/db'
+import { requireRole } from '@/lib/api-auth'
+import { unauthorizedError, internalError, apiError } from '@/lib/api-errors'
+
+// GET /api/school/attendance - Get attendance by date/class/section
+export async function GET(request: NextRequest) {
+  try {
+    const user = requireRole(request, ['SCHOOL_ADMIN', 'TEACHER', 'STAFF'])
+    if (!user || !user.schoolId) {
+      return unauthorizedError()
+    }
+
+    const { searchParams } = new URL(request.url)
+    const dateParam = searchParams.get('date')
+    const today = new Date()
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+    const date = dateParam || todayStr
+    const classId = searchParams.get('classId') || ''
+    const sectionId = searchParams.get('sectionId') || ''
+    const page = parseInt(searchParams.get('page') || '1')
+    const limit = parseInt(searchParams.get('limit') || '200')
+    const skip = (page - 1) * limit
+
+    // Parse date as local midnight to avoid UTC timezone shifts
+    const [year, month, day] = date.split('-').map(Number)
+    const attendanceDate = new Date(year, month - 1, day)
+
+    // Build attendance where clause with student relation filtering
+    const studentFilter: Record<string, unknown> = {
+      schoolId: user.schoolId,
+      deletedAt: null,
+    }
+    if (classId) studentFilter.classId = classId
+    if (sectionId) studentFilter.sectionId = sectionId
+
+    const attendanceWhere: Record<string, unknown> = {
+      schoolId: user.schoolId,
+      date: attendanceDate,
+      student: studentFilter,
+    }
+
+    const [records, total] = await Promise.all([
+      db.attendance.findMany({
+        where: attendanceWhere,
+        include: {
+          student: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              rollNumber: true,
+              classId: true,
+              sectionId: true,
+              class: { select: { name: true } },
+              section: { select: { name: true } },
+            },
+          },
+          markedByUser: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+        },
+        orderBy: { student: { rollNumber: 'asc' } },
+        skip,
+        take: limit,
+      }),
+      db.attendance.count({ where: attendanceWhere }),
+    ])
+
+    // Stats + finalized check
+    const allAttendance = await db.attendance.findMany({
+      where: attendanceWhere,
+      select: { status: true, finalized: true, finalizedAt: true, finalizedBy: true },
+    })
+
+    const stats = {
+      total: allAttendance.length,
+      present: allAttendance.filter((a) => a.status === 'present').length,
+      absent: allAttendance.filter((a) => a.status === 'absent').length,
+      leave: allAttendance.filter((a) => a.status === 'leave').length,
+    }
+
+    // Determine if attendance is finalized (any record finalized = all finalized for that group)
+    const isFinalized = allAttendance.length > 0 && allAttendance.every((a) => a.finalized)
+    const finalizedAt = isFinalized ? allAttendance.find((a) => a.finalizedAt)?.finalizedAt ?? null : null
+
+    return NextResponse.json({
+      records,
+      stats,
+      finalized: isFinalized,
+      finalizedAt,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    })
+  } catch (error) {
+    console.error('Get attendance error:', error)
+    return internalError('loading attendance')
+  }
+}
+
+// POST /api/school/attendance - Mark attendance (bulk)
+export async function POST(request: NextRequest) {
+  try {
+    const user = requireRole(request, ['SCHOOL_ADMIN', 'TEACHER', 'STAFF'])
+    if (!user || !user.schoolId) {
+      return unauthorizedError()
+    }
+
+    const body = await request.json()
+    const { date, records } = body
+
+    if (!date || !records || !Array.isArray(records)) {
+      return apiError(400, 'Please select a date and add attendance entries for at least one student.')
+    }
+
+    // Parse date as local midnight to avoid UTC timezone shifts
+    const [pYear, pMonth, pDay] = date.split('-').map(Number)
+    const attendanceDate = new Date(pYear, pMonth - 1, pDay)
+
+    // Block future dates
+    const now = new Date()
+    const todayDate = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    if (attendanceDate > todayDate) {
+      return apiError(400, 'Attendance cannot be marked for future dates.')
+    }
+    const currentDay = attendanceDate.getDate()
+
+    // Check if any existing attendance is finalized — block edits
+    const existingFinalized = await db.attendance.findFirst({
+      where: {
+        schoolId: user.schoolId,
+        date: attendanceDate,
+        studentId: { in: records.map((r: { studentId: string }) => r.studentId) },
+        finalized: true,
+      },
+    })
+    if (existingFinalized) {
+      return apiError(403, 'Attendance is already finalized and cannot be edited.')
+    }
+
+    // Business rule: Check for unpaid fees after 5th
+    const feeWarnings: string[] = []
+    if (currentDay > 5) {
+      for (const record of records) {
+        if (record.status === 'present' || record.status === 'late') {
+          const unpaidFees = await db.feeCollection.findFirst({
+            where: {
+              schoolId: user.schoolId,
+              studentId: record.studentId,
+              paymentStatus: { in: ['unpaid', 'partial'] },
+              deletedAt: null,
+            },
+          })
+          if (unpaidFees) {
+            const student = await db.student.findUnique({
+              where: { id: record.studentId },
+              select: { firstName: true, lastName: true },
+            })
+            feeWarnings.push(
+              `${student?.firstName} ${student?.lastName} has unpaid fees`
+            )
+          }
+        }
+      }
+    }
+
+    // Create/update attendance records
+    const results = []
+    for (const record of records) {
+      const { studentId, status, remarks } = record
+
+      // Verify student belongs to this school
+      const student = await db.student.findFirst({
+        where: { id: studentId, schoolId: user.schoolId, deletedAt: null },
+      })
+      if (!student) continue
+
+      const attendance = await db.attendance.upsert({
+        where: {
+          schoolId_studentId_date: {
+            schoolId: user.schoolId,
+            studentId,
+            date: attendanceDate,
+          },
+        },
+        create: {
+          schoolId: user.schoolId,
+          studentId,
+          date: attendanceDate,
+          status,
+          remarks,
+          markedBy: user.userId,
+        },
+        update: {
+          status,
+          remarks,
+          markedBy: user.userId,
+        },
+      })
+      results.push(attendance)
+    }
+
+    return NextResponse.json({
+      message: `Attendance has been saved for ${results.length} students.`,
+      count: results.length,
+      feeWarnings: feeWarnings.length > 0 ? feeWarnings : undefined,
+    })
+  } catch (error) {
+    console.error('Mark attendance error:', error)
+    return internalError('marking attendance')
+  }
+}
+
+// PATCH /api/school/attendance - Finalize attendance for a date/class/section
+export async function PATCH(request: NextRequest) {
+  try {
+    const user = requireRole(request, ['SCHOOL_ADMIN', 'TEACHER', 'STAFF'])
+    if (!user || !user.schoolId) {
+      return unauthorizedError()
+    }
+
+    const body = await request.json()
+    const { date, classId, sectionId, action } = body
+
+    if (!date || !classId) {
+      return apiError(400, 'Date and class are required to finalize attendance.')
+    }
+
+    // Parse date as local midnight
+    const [year, month, day] = date.split('-').map(Number)
+    const attendanceDate = new Date(year, month - 1, day)
+
+    // Block future dates
+    const now = new Date()
+    const todayDate = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    if (attendanceDate > todayDate) {
+      return apiError(400, 'Attendance cannot be finalized for future dates.')
+    }
+
+    // Check all students have attendance marked
+    const studentWhere: Record<string, unknown> = {
+      schoolId: user.schoolId,
+      classId,
+      deletedAt: null,
+    }
+    if (sectionId) studentWhere.sectionId = sectionId
+
+    const students = await db.student.findMany({
+      where: studentWhere,
+      select: { id: true },
+    })
+
+    const studentIds = students.map((s) => s.id)
+
+    const existingAttendance = await db.attendance.findMany({
+      where: {
+        schoolId: user.schoolId,
+        date: attendanceDate,
+        studentId: { in: studentIds },
+      },
+      select: { studentId: true, finalized: true },
+    })
+
+    // Check if already finalized
+    const alreadyFinalized = existingAttendance.every((a) => a.finalized)
+    if (action === 'finalize' && alreadyFinalized && existingAttendance.length > 0) {
+      return apiError(400, 'Attendance is already finalized.')
+    }
+
+    // Check all students are marked before finalizing
+    if (action === 'finalize') {
+      const markedStudentIds = new Set(existingAttendance.map((a) => a.studentId))
+      const unmarkedCount = studentIds.filter((id) => !markedStudentIds.has(id)).length
+      if (unmarkedCount > 0) {
+        return apiError(400, `Cannot finalize: ${unmarkedCount} student(s) have no attendance marked. Please mark all students first.`)
+      }
+    }
+
+    // Finalize all attendance records for this date/class/section
+    const result = await db.attendance.updateMany({
+      where: {
+        schoolId: user.schoolId,
+        date: attendanceDate,
+        studentId: { in: studentIds },
+      },
+      data: {
+        finalized: action === 'finalize',
+        finalizedAt: action === 'finalize' ? new Date() : null,
+        finalizedBy: action === 'finalize' ? user.userId : null,
+      },
+    })
+
+    return NextResponse.json({
+      message: action === 'finalize'
+        ? `Attendance finalized for ${result.count} students. No further edits allowed.`
+        : `Attendance unfinalized for ${result.count} students. Editing is now allowed.`,
+      count: result.count,
+      finalized: action === 'finalize',
+    })
+  } catch (error) {
+    console.error('Finalize attendance error:', error)
+    return internalError('finalizing attendance')
+  }
+}

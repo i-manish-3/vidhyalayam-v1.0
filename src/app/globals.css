@@ -1,0 +1,198 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-emerald: oklch(0.596 0.145 163.225);
+  --color-teal: oklch(0.562 0.118 175.5);
+  --color-warning: var(--warning);
+}
+
+:root {
+  --radius: 0.625rem;
+
+  /* Slate-based neutrals — matching landing page theme */
+  --background: oklch(0.984 0.003 248);
+  --foreground: oklch(0.208 0.042 266);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.208 0.042 266);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.208 0.042 266);
+
+  /* Emerald accent — primary brand color */
+  --primary: oklch(0.69 0.15 160);
+  --primary-foreground: oklch(0.98 0.01 160);
+
+  /* Slate neutral shades */
+  --secondary: oklch(0.968 0.007 248);
+  --secondary-foreground: oklch(0.278 0.033 257);
+  --muted: oklch(0.968 0.007 248);
+  --muted-foreground: oklch(0.554 0.046 257);
+  --accent: oklch(0.968 0.007 248);
+  --accent-foreground: oklch(0.278 0.033 257);
+
+  /* Destructive / Error */
+  --destructive: oklch(0.577 0.245 27.325);
+
+  /* Warning */
+  --warning: oklch(0.65 0.18 50);
+
+  /* Borders & Input */
+  --border: oklch(0.929 0.013 256);
+  --input: oklch(0.929 0.013 256);
+  --ring: oklch(0.61 0.16 160);
+
+  /* Chart palette — emerald/teal family */
+  --chart-1: oklch(0.696 0.17 163);
+  --chart-2: oklch(0.657 0.137 175);
+  --chart-3: oklch(0.765 0.177 163);
+  --chart-4: oklch(0.733 0.14 177);
+  --chart-5: oklch(0.508 0.118 166);
+
+  /* Sidebar — dark slate with emerald accents */
+  --sidebar: var(--primary);
+  --sidebar-foreground: var(--primary-foreground);
+  --sidebar-primary: var(--primary-foreground);
+  --sidebar-primary-foreground: var(--primary);
+  --sidebar-accent: oklch(0.59 0.145 160);
+  --sidebar-accent-foreground: var(--primary-foreground);
+  --sidebar-border: oklch(0.58 0.14 160);
+  --sidebar-ring: oklch(0.61 0.16 160);
+}
+
+.dark {
+  /* Slate-950 base — matching landing page dark theme */
+  --background: oklch(0.19 0.035 265);
+  --foreground: oklch(0.984 0.003 248);
+  --card: oklch(0.225 0.035 265);
+  --card-foreground: oklch(0.984 0.003 248);
+  --popover: oklch(0.235 0.035 265);
+  --popover-foreground: oklch(0.984 0.003 248);
+
+  /* Emerald-400 for dark mode — brighter for contrast */
+  --primary: oklch(0.765 0.177 163);
+  --primary-foreground: oklch(0.19 0.035 265);
+
+  /* Slate neutral shades for dark mode */
+  --secondary: oklch(0.285 0.035 265);
+  --secondary-foreground: oklch(0.984 0.003 248);
+  --muted: oklch(0.285 0.035 265);
+  --muted-foreground: oklch(0.76 0.035 257);
+  --accent: oklch(0.3 0.035 265);
+  --accent-foreground: oklch(0.984 0.003 248);
+
+  /* Destructive / Error */
+  --destructive: oklch(0.704 0.191 22.216);
+
+  /* Warning */
+  --warning: oklch(0.78 0.16 70);
+
+  /* Borders & Input */
+  --border: oklch(0.38 0.035 260);
+  --input: oklch(0.38 0.035 260);
+  --ring: oklch(0.765 0.177 163);
+
+  /* Chart palette — brighter for dark mode */
+  --chart-1: oklch(0.765 0.177 163);
+  --chart-2: oklch(0.733 0.14 177);
+  --chart-3: oklch(0.845 0.143 165);
+  --chart-4: oklch(0.696 0.17 163);
+  --chart-5: oklch(0.621 0.134 170);
+
+  /* Sidebar — near-black slate */
+  --sidebar: oklch(0.215 0.038 265);
+  --sidebar-foreground: oklch(0.94 0.006 265);
+  --sidebar-primary: oklch(0.765 0.177 163);
+  --sidebar-primary-foreground: oklch(0.19 0.035 265);
+  --sidebar-accent: oklch(0.3 0.04 265);
+  --sidebar-accent-foreground: oklch(0.94 0.006 265);
+  --sidebar-border: oklch(0.38 0.035 265);
+  --sidebar-ring: oklch(0.765 0.177 163);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Custom scrollbar styling */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: oklch(0.704 0.04 257);
+  border-radius: 3px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: oklch(0.554 0.046 257);
+}
+
+.dark .custom-scrollbar::-webkit-scrollbar-thumb {
+  background: oklch(0.373 0.034 260);
+}
+.dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: oklch(0.446 0.043 260);
+}
+
+/* Infinite marquee animation for testimonials — seamless circular loop */
+@keyframes marquee-fast {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-marquee-fast {
+  animation: marquee-fast 40s linear infinite;
+}
+
+.animate-marquee-fast:hover {
+  animation-play-state: paused;
+}

@@ -1,0 +1,85 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files (can opt-in for committing if needed)
+.env*
+!.env.example
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+local-*
+.claude
+.z-ai-config
+*.log
+*.err
+dev.log
+dev.out.log
+test
+prompt
+
+server.log
+
+# Skills directory
+/skills/
+
+# Database files (SQLite binaries - regenerate with prisma db push + seed)
+db/*.db
+db/*.db-journal
+
+# PostgreSQL data directory
+pgdata/
+
+# Mini services
+mini-services/*/node_modules
+
+# Sandbox / dev tooling
+.zscripts/
+agent-ctx/
+download/
+worklog.md
+
+# Dev scripts / temp files
+keep-alive.sh
+run-dev.sh
+start-dev.sh
+watchdog.sh
+package-lock.json
+
+# Uploads & temp files
+upload/
+daemon.sh
+server.pid
+server.sh

@@ -1,0 +1,782 @@
+'use client'
+
+import { useState, useEffect, useCallback, useMemo } from 'react'
+import { api } from '@/lib/api'
+import { useAppStore } from '@/lib/store'
+import { useToast } from '@/hooks/use-toast'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from '@/components/ui/dialog'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import { Skeleton } from '@/components/ui/skeleton'
+import {
+  Calendar,
+  PlusCircle,
+  Settings2,
+  Trash2,
+  Pencil,
+  ChevronDown,
+  Clock,
+  GraduationCap,
+  Users,
+  X,
+  Check,
+} from 'lucide-react'
+import { cn } from '@/lib/utils'
+
+// ─── Types ───────────────────────────────────────────────────────────────────
+
+interface TimetableEntry {
+  id: string
+  classId: string
+  sectionId: string
+  subjectId: string
+  teacherId: string
+  day: string
+  period: number
+  subject?: { id: string; name: string; code?: string }
+  teacher?: { id: string; firstName: string; lastName: string }
+  section?: { id: string; name: string; class?: { id: string; name: string } }
+}
+
+interface ClassOption { id: string; name: string }
+interface SectionOption { id: string; name: string; classId: string }
+interface SubjectOption { id: string; name: string; code?: string }
+interface TeacherOption { id: string; firstName: string; lastName: string }
+
+interface PeriodConfig {
+  id: string
+  period: number
+  startTime: string
+  endTime: string
+  label: string
+  isBreak: boolean
+}
+
+// ─── Constants ───────────────────────────────────────────────────────────────
+
+const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+
+const SUBJECT_COLORS = [
+  'bg-blue-100 text-blue-800 dark:bg-blue-950/40 dark:text-blue-300 border-blue-200 dark:border-blue-800',
+  'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800',
+  'bg-violet-100 text-violet-800 dark:bg-violet-950/40 dark:text-violet-300 border-violet-200 dark:border-violet-800',
+  'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 border-amber-200 dark:border-amber-800',
+  'bg-rose-100 text-rose-800 dark:bg-rose-950/40 dark:text-rose-300 border-rose-200 dark:border-rose-800',
+  'bg-cyan-100 text-cyan-800 dark:bg-cyan-950/40 dark:text-cyan-300 border-cyan-200 dark:border-cyan-800',
+  'bg-orange-100 text-orange-800 dark:bg-orange-950/40 dark:text-orange-300 border-orange-200 dark:border-orange-800',
+  'bg-teal-100 text-teal-800 dark:bg-teal-950/40 dark:text-teal-300 border-teal-200 dark:border-teal-800',
+  'bg-pink-100 text-pink-800 dark:bg-pink-950/40 dark:text-pink-300 border-pink-200 dark:border-pink-800',
+  'bg-lime-100 text-lime-800 dark:bg-lime-950/40 dark:text-lime-300 border-lime-200 dark:border-lime-800',
+]
+
+type ViewMode = 'class' | 'teacher'
+
+// ─── Main Component ──────────────────────────────────────────────────────────
+
+export function TimetablePage() {
+  const { toast } = useToast()
+  const setCurrentPage = useAppStore((s) => s.setCurrentPage)
+
+  // Data
+  const [entries, setEntries] = useState<TimetableEntry[]>([])
+  const [classes, setClasses] = useState<ClassOption[]>([])
+  const [sections, setSections] = useState<SectionOption[]>([])
+  const [subjects, setSubjects] = useState<SubjectOption[]>([])
+  const [teachers, setTeachers] = useState<TeacherOption[]>([])
+  const [periodConfigs, setPeriodConfigs] = useState<PeriodConfig[]>([])
+  const [loading, setLoading] = useState(true)
+
+  // View
+  const [viewMode, setViewMode] = useState<ViewMode>('class')
+  const [filterClass, setFilterClass] = useState('')
+  const [filterSection, setFilterSection] = useState('')
+  const [filterTeacher, setFilterTeacher] = useState('')
+
+  // Dialogs
+  const [showAdd, setShowAdd] = useState(false)
+  const [showSettings, setShowSettings] = useState(false)
+  const [editEntry, setEditEntry] = useState<TimetableEntry | null>(null)
+
+  // Form
+  const [form, setForm] = useState({
+    classId: '', sectionId: '', subjectId: '', teacherId: '', day: 'Monday', period: '1',
+  })
+  const [submitting, setSubmitting] = useState(false)
+
+  // Period config form
+  const [periodForm, setPeriodForm] = useState<PeriodConfig[]>([])
+  const [savingPeriods, setSavingPeriods] = useState(false)
+
+  // Subject color map
+  const subjectColorMap = useMemo(() => {
+    const map = new Map<string, string>()
+    subjects.forEach((s, i) => {
+      map.set(s.id, SUBJECT_COLORS[i % SUBJECT_COLORS.length])
+    })
+    return map
+  }, [subjects])
+
+  // ── Fetch data ──
+  const fetchData = useCallback(async () => {
+    try {
+      setLoading(true)
+      const [ttRes, clsRes, secRes, subRes, teachRes, periodRes] = await Promise.all([
+        api.get<{ entries: TimetableEntry[] }>('/api/school/timetable').catch(() => ({ entries: [] })),
+        api.get<{ classes: ClassOption[] }>('/api/school/classes').catch(() => ({ classes: [] })),
+        api.get<{ sections: SectionOption[] }>('/api/school/sections').catch(() => ({ sections: [] })),
+        api.get<{ subjects: SubjectOption[] }>('/api/school/subjects').catch(() => ({ subjects: [] })),
+        api.get<{ teachers: TeacherOption[] }>('/api/school/teachers').catch(() => ({ teachers: [] })),
+        api.get<{ periods: PeriodConfig[] }>('/api/school/period-config').catch(() => ({ periods: [] })),
+      ])
+      setEntries(ttRes.entries || [])
+      setClasses(clsRes.classes || [])
+      setSections(secRes.sections || [])
+      setSubjects(subRes.subjects || [])
+      setTeachers(teachRes.teachers || [])
+      setPeriodConfigs(periodRes.periods || [])
+    } catch {
+      toast({
+        title: "Couldn't Load Timetable",
+        description: 'We couldn\'t load the timetable data. Please refresh the page.',
+        variant: 'destructive',
+      })
+    } finally {
+      setLoading(false)
+    }
+  }, [toast])
+
+  useEffect(() => {
+    fetchData()
+  }, [fetchData])
+
+  // ── Filtered sections ──
+  const availableSections = useMemo(() =>
+    filterClass ? sections.filter(s => s.classId === filterClass) : [],
+    [filterClass, sections]
+  )
+
+  const availableFormSections = useMemo(() =>
+    form.classId ? sections.filter(s => s.classId === form.classId) : [],
+    [form.classId, sections]
+  )
+
+  // ── Active periods (non-break) ──
+  const activePeriods = useMemo(() =>
+    periodConfigs.filter(p => !p.isBreak).sort((a, b) => a.period - b.period),
+    [periodConfigs]
+  )
+
+  const breakPeriods = useMemo(() =>
+    new Set(periodConfigs.filter(p => p.isBreak).map(p => p.period)),
+    [periodConfigs]
+  )
+
+  // ── Filtered entries ──
+  const filtered = useMemo(() => {
+    if (viewMode === 'class') {
+      return entries.filter(e => {
+        if (filterSection && e.sectionId !== filterSection) return false
+        if (filterClass && e.classId !== filterClass && !filterSection) return false
+        return true
+      })
+    } else {
+      return entries.filter(e => {
+        if (filterTeacher && e.teacherId !== filterTeacher) return false
+        return true
+      })
+    }
+  }, [entries, viewMode, filterClass, filterSection, filterTeacher])
+
+  // ── Grid cell content ──
+  const getCell = useCallback((day: string, period: number): TimetableEntry | undefined =>
+    filtered.find(e => e.day === day && e.period === period),
+    [filtered]
+  )
+
+  // ── Add/Edit submit ──
+  const handleSubmit = async () => {
+    if (!form.sectionId || !form.subjectId || !form.teacherId || !form.day || !form.period) {
+      toast({ title: 'Missing Fields', description: 'Please fill in all required fields.', variant: 'destructive' })
+      return
+    }
+    try {
+      setSubmitting(true)
+      await api.post('/api/school/timetable', {
+        classId: form.classId,
+        sectionId: form.sectionId,
+        subjectId: form.subjectId,
+        teacherId: form.teacherId,
+        day: form.day,
+        period: Number(form.period),
+      })
+      toast({
+        title: editEntry ? 'Entry Updated' : 'Entry Added',
+        description: `Timetable entry has been ${editEntry ? 'updated' : 'added'} successfully.`,
+      })
+      setShowAdd(false)
+      setEditEntry(null)
+      resetForm()
+      fetchData()
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Something went wrong'
+      toast({ title: 'Conflict Detected', description: msg, variant: 'destructive' })
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  // ── Delete entry ──
+  const handleDelete = async (id: string) => {
+    try {
+      await api.delete(`/api/school/timetable?id=${id}`)
+      toast({ title: 'Entry Deleted', description: 'Timetable entry removed.' })
+      fetchData()
+    } catch {
+      toast({ title: 'Delete Failed', description: 'Could not delete the entry.', variant: 'destructive' })
+    }
+  }
+
+  // ── Open edit dialog ──
+  const openEdit = (entry: TimetableEntry) => {
+    setEditEntry(entry)
+    setForm({
+      classId: entry.classId,
+      sectionId: entry.sectionId,
+      subjectId: entry.subjectId,
+      teacherId: entry.teacherId,
+      day: entry.day,
+      period: String(entry.period),
+    })
+    setShowAdd(true)
+  }
+
+  // ── Open add for cell ──
+  const openAddForCell = (day: string, period: number) => {
+    const existing = getCell(day, period)
+    if (existing) {
+      openEdit(existing)
+      return
+    }
+    resetForm()
+    setForm(f => ({ ...f, day, period: String(period) }))
+    if (filterClass) setForm(f => ({ ...f, classId: filterClass }))
+    if (filterSection) setForm(f => ({ ...f, sectionId: filterSection }))
+    setShowAdd(true)
+  }
+
+  const resetForm = () => {
+    setForm({ classId: '', sectionId: '', subjectId: '', teacherId: '', day: 'Monday', period: '1' })
+  }
+
+  // ── Period config save ──
+  const handleSavePeriods = async () => {
+    try {
+      setSavingPeriods(true)
+      await api.put('/api/school/period-config', { periods: periodForm })
+      setPeriodConfigs(periodForm)
+      setShowSettings(false)
+      toast({ title: 'Periods Saved', description: 'Period configuration updated successfully.' })
+    } catch {
+      toast({ title: 'Save Failed', description: 'Could not save period configuration.', variant: 'destructive' })
+    } finally {
+      setSavingPeriods(false)
+    }
+  }
+
+  const openPeriodSettings = () => {
+    setPeriodForm([...periodConfigs].sort((a, b) => a.period - b.period))
+    setShowSettings(true)
+  }
+
+  // ── Stats ──
+  const totalEntries = filtered.length
+  const uniqueSubjects = new Set(filtered.map(e => e.subjectId)).size
+  const uniqueTeachers = new Set(filtered.map(e => e.teacherId)).size
+
+  // ── Loading state ──
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <Skeleton className="h-8 w-40" />
+          <Skeleton className="h-10 w-32" />
+        </div>
+        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-[500px] w-full" />
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+            <Calendar className="size-6" />
+            Timetable
+          </h1>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            Manage weekly class schedules and period allocations
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={openPeriodSettings} className="gap-2">
+            <Settings2 className="size-4" />
+            Period Settings
+          </Button>
+          <Button size="sm" onClick={() => { resetForm(); setEditEntry(null); setShowAdd(true) }} className="gap-2">
+            <PlusCircle className="size-4" />
+            Add Entry
+          </Button>
+        </div>
+      </div>
+
+      {/* View Mode & Filters */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+            <div className="flex items-center bg-muted rounded-lg p-1">
+              <button
+                className={cn(
+                  'px-3 py-1.5 text-xs font-medium rounded-md transition-colors',
+                  viewMode === 'class' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                )}
+                onClick={() => setViewMode('class')}
+              >
+                <GraduationCap className="size-3.5 inline mr-1.5" />
+                By Class
+              </button>
+              <button
+                className={cn(
+                  'px-3 py-1.5 text-xs font-medium rounded-md transition-colors',
+                  viewMode === 'teacher' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                )}
+                onClick={() => setViewMode('teacher')}
+              >
+                <Users className="size-3.5 inline mr-1.5" />
+                By Teacher
+              </button>
+            </div>
+
+            {viewMode === 'class' ? (
+              <div className="flex flex-wrap items-center gap-3">
+                <Select value={filterClass} onValueChange={v => { setFilterClass(v); setFilterSection('') }}>
+                  <SelectTrigger className="w-[180px] h-9">
+                    <SelectValue placeholder="Select Class" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {classes.map(c => (
+                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {filterClass && (
+                  <Select value={filterSection} onValueChange={setFilterSection}>
+                    <SelectTrigger className="w-[180px] h-9">
+                      <SelectValue placeholder="Select Section" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableSections.map(s => (
+                        <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+            ) : (
+              <div className="flex flex-wrap items-center gap-3">
+                <Select value={filterTeacher} onValueChange={setFilterTeacher}>
+                  <SelectTrigger className="w-[220px] h-9">
+                    <SelectValue placeholder="Select Teacher" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {teachers.map(t => (
+                      <SelectItem key={t.id} value={t.id}>{t.firstName} {t.lastName}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
+
+          {(filterClass || filterTeacher) && (
+            <div className="flex items-center gap-4 mt-3 pt-3 border-t">
+              <span className="text-xs text-muted-foreground">
+                <span className="font-semibold text-foreground">{totalEntries}</span> entries
+              </span>
+              <span className="text-xs text-muted-foreground">
+                <span className="font-semibold text-foreground">{uniqueSubjects}</span> subjects
+              </span>
+              <span className="text-xs text-muted-foreground">
+                <span className="font-semibold text-foreground">{uniqueTeachers}</span> teachers
+              </span>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Timetable Grid */}
+      {!(viewMode === 'class' ? filterClass : filterTeacher) ? (
+        <Card>
+          <CardContent className="p-8">
+            <div className="flex flex-col items-center justify-center text-center gap-3">
+              <div className="size-14 rounded-full bg-muted flex items-center justify-center">
+                <Calendar className="size-7 text-muted-foreground" />
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold">Select a {viewMode === 'class' ? 'Class' : 'Teacher'}</h3>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Choose a {viewMode === 'class' ? 'class and section' : 'teacher'} above to view their timetable
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      ) : filtered.length === 0 ? (
+        <Card>
+          <CardContent className="p-8">
+            <div className="flex flex-col items-center justify-center text-center gap-3">
+              <div className="size-14 rounded-full bg-muted flex items-center justify-center">
+                <Calendar className="size-7 text-muted-foreground" />
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold">No Timetable Entries</h3>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Click on any cell in the grid or use the Add Entry button to start building the schedule
+                </p>
+              </div>
+              <Button size="sm" variant="outline" onClick={() => { resetForm(); setEditEntry(null); setShowAdd(true) }} className="gap-2 mt-2">
+                <PlusCircle className="size-4" />
+                Add First Entry
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card>
+          <CardContent className="p-0">
+            <ScrollArea className="w-full">
+              <div className="min-w-[800px]">
+                <table className="w-full border-collapse">
+                  <thead>
+                    <tr>
+                      <th className="bg-muted/80 p-2 text-xs font-semibold text-center border-b border-r w-[100px]">
+                        <Clock className="size-3.5 inline mr-1" />
+                        Time
+                      </th>
+                      {DAYS.map(day => (
+                        <th key={day} className="bg-muted/80 p-2 text-xs font-semibold text-center border-b border-r last:border-r-0">
+                          {day}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {activePeriods.map((pc) => (
+                      <tr key={pc.period}>
+                        <td className="bg-muted/40 px-2 py-1.5 border-b border-r text-center">
+                          <div className="text-xs font-semibold">{pc.label}</div>
+                          <div className="text-[10px] text-muted-foreground">
+                            {pc.startTime} - {pc.endTime}
+                          </div>
+                        </td>
+                        {DAYS.map(day => {
+                          const cell = getCell(day, pc.period)
+                          const colorClass = cell ? subjectColorMap.get(cell.subjectId) : ''
+
+                          return (
+                            <td
+                              key={`${day}-${pc.period}`}
+                              className={cn(
+                                'border-b border-r last:border-r-0 p-1 min-h-[64px] align-top cursor-pointer transition-colors hover:bg-primary/5',
+                                cell ? '' : 'bg-background'
+                              )}
+                              onClick={() => openAddForCell(day, pc.period)}
+                            >
+                              {cell ? (
+                                <div className={cn('rounded-md px-2 py-1.5 border text-xs', colorClass)}>
+                                  <div className="flex items-start justify-between gap-1">
+                                    <div className="flex-1 min-w-0">
+                                      <p className="font-semibold truncate">{cell.subject?.name || '—'}</p>
+                                      <p className="text-[10px] opacity-80 truncate">
+                                        {cell.teacher ? `${cell.teacher.firstName} ${cell.teacher.lastName}` : '—'}
+                                      </p>
+                                      {viewMode === 'teacher' && cell.section && (
+                                        <p className="text-[10px] opacity-70 truncate">
+                                          {cell.section.class?.name} - {cell.section.name}
+                                        </p>
+                                      )}
+                                    </div>
+                                    <DropdownMenu>
+                                      <DropdownMenuTrigger asChild onClick={e => e.stopPropagation()}>
+                                        <button className="size-5 rounded hover:bg-black/10 dark:hover:bg-white/10 flex items-center justify-center shrink-0">
+                                          <ChevronDown className="size-3" />
+                                        </button>
+                                      </DropdownMenuTrigger>
+                                      <DropdownMenuContent align="end" className="min-w-[120px]">
+                                        <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openEdit(cell) }}>
+                                          <Pencil className="size-3.5 mr-2" />
+                                          Edit
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem
+                                          className="text-destructive focus:text-destructive"
+                                          onClick={(e) => { e.stopPropagation(); handleDelete(cell.id) }}
+                                        >
+                                          <Trash2 className="size-3.5 mr-2" />
+                                          Delete
+                                        </DropdownMenuItem>
+                                      </DropdownMenuContent>
+                                    </DropdownMenu>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="flex items-center justify-center h-[52px]">
+                                  <PlusCircle className="size-4 text-muted-foreground/30" />
+                                </div>
+                              )}
+                            </td>
+                          )
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </ScrollArea>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Legend */}
+      {filtered.length > 0 && viewMode === 'class' && (
+        <Card>
+          <CardContent className="p-4">
+            <h4 className="text-xs font-semibold mb-2 text-muted-foreground">Subjects</h4>
+            <div className="flex flex-wrap gap-2">
+              {subjects.filter(s => filtered.some(e => e.subjectId === s.id)).map(subject => (
+                <Badge key={subject.id} variant="outline" className={cn('text-[10px] font-medium', subjectColorMap.get(subject.id))}>
+                  {subject.name}
+                </Badge>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Add/Edit Dialog */}
+      <Dialog open={showAdd} onOpenChange={(open) => { setShowAdd(open); if (!open) { setEditEntry(null); resetForm() } }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{editEntry ? 'Edit Timetable Entry' : 'Add Timetable Entry'}</DialogTitle>
+            <DialogDescription>
+              {editEntry ? 'Update the subject and teacher for this slot.' : 'Assign a subject and teacher to a time slot.'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-xs font-medium">Class <span className="text-destructive">*</span></Label>
+                <Select value={form.classId} onValueChange={v => setForm(f => ({ ...f, classId: v, sectionId: '' }))}>
+                  <SelectTrigger><SelectValue placeholder="Select class" /></SelectTrigger>
+                  <SelectContent>{classes.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs font-medium">Section <span className="text-destructive">*</span></Label>
+                <Select value={form.sectionId} onValueChange={v => setForm(f => ({ ...f, sectionId: v }))} disabled={!form.classId}>
+                  <SelectTrigger><SelectValue placeholder="Select section" /></SelectTrigger>
+                  <SelectContent>{availableFormSections.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-xs font-medium">Subject <span className="text-destructive">*</span></Label>
+                <Select value={form.subjectId} onValueChange={v => setForm(f => ({ ...f, subjectId: v }))}>
+                  <SelectTrigger><SelectValue placeholder="Select subject" /></SelectTrigger>
+                  <SelectContent>{subjects.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs font-medium">Teacher <span className="text-destructive">*</span></Label>
+                <Select value={form.teacherId} onValueChange={v => setForm(f => ({ ...f, teacherId: v }))}>
+                  <SelectTrigger><SelectValue placeholder="Select teacher" /></SelectTrigger>
+                  <SelectContent>{teachers.map(t => <SelectItem key={t.id} value={t.id}>{t.firstName} {t.lastName}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-xs font-medium">Day <span className="text-destructive">*</span></Label>
+                <Select value={form.day} onValueChange={v => setForm(f => ({ ...f, day: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>{DAYS.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs font-medium">Period <span className="text-destructive">*</span></Label>
+                <Select value={form.period} onValueChange={v => setForm(f => ({ ...f, period: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {activePeriods.map(p => (
+                      <SelectItem key={p.period} value={String(p.period)}>
+                        {p.label} ({p.startTime} - {p.endTime})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setShowAdd(false); setEditEntry(null); resetForm() }}>
+              Cancel
+            </Button>
+            {editEntry && (
+              <Button variant="destructive" onClick={async () => { await handleDelete(editEntry.id); setShowAdd(false); setEditEntry(null); resetForm() }}>
+                <Trash2 className="size-4 mr-1" />
+                Delete
+              </Button>
+            )}
+            <Button onClick={handleSubmit} disabled={submitting || !form.sectionId || !form.subjectId || !form.teacherId}>
+              {submitting ? (
+                <><div className="size-4 animate-spin rounded-full border-2 border-current border-t-transparent mr-1" />Saving...</>
+              ) : (
+                <>{editEntry ? 'Update Entry' : 'Add Entry'}</>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Period Settings Dialog */}
+      <Dialog open={showSettings} onOpenChange={setShowSettings}>
+        <DialogContent className="max-w-2xl max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle>Period Configuration</DialogTitle>
+            <DialogDescription>
+              Define the time slots and break periods for your school day.
+            </DialogDescription>
+          </DialogHeader>
+          <ScrollArea className="max-h-[50vh] pr-4">
+            <div className="space-y-3 py-4">
+              {periodForm.sort((a, b) => a.period - b.period).map((p, idx) => (
+                <div key={idx} className={cn(
+                  'flex items-center gap-3 p-3 rounded-lg border',
+                  p.isBreak ? 'bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800' : 'bg-background'
+                )}>
+                  <span className="text-xs font-bold text-muted-foreground w-6 text-center">{idx + 1}</span>
+                  <div className="flex-1 grid grid-cols-4 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-muted-foreground">Label</Label>
+                      <Input
+                        value={p.label}
+                        onChange={e => setPeriodForm(prev => prev.map((pp, i) => i === idx ? { ...pp, label: e.target.value } : pp))}
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-muted-foreground">Start</Label>
+                      <Input
+                        type="time"
+                        value={p.startTime}
+                        onChange={e => setPeriodForm(prev => prev.map((pp, i) => i === idx ? { ...pp, startTime: e.target.value } : pp))}
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-muted-foreground">End</Label>
+                      <Input
+                        type="time"
+                        value={p.endTime}
+                        onChange={e => setPeriodForm(prev => prev.map((pp, i) => i === idx ? { ...pp, endTime: e.target.value } : pp))}
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-muted-foreground">Type</Label>
+                      <Select
+                        value={p.isBreak ? 'break' : 'period'}
+                        onValueChange={v => setPeriodForm(prev => prev.map((pp, i) => i === idx ? { ...pp, isBreak: v === 'break' } : pp))}
+                      >
+                        <SelectTrigger className="h-8 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="period">Period</SelectItem>
+                          <SelectItem value="break">Break</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-8 shrink-0 text-muted-foreground hover:text-destructive"
+                    onClick={() => setPeriodForm(prev => prev.filter((_, i) => i !== idx))}
+                  >
+                    <X className="size-3.5" />
+                  </Button>
+                </div>
+              ))}
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full gap-2"
+                onClick={() => {
+                  const lastPeriod = periodForm.length > 0 ? Math.max(...periodForm.map(p => p.period)) : 0
+                  setPeriodForm(prev => [...prev, {
+                    id: '',
+                    period: lastPeriod + 1,
+                    startTime: '08:00',
+                    endTime: '08:40',
+                    label: `Period ${prev.filter(p => !p.isBreak).length + 1}`,
+                    isBreak: false,
+                  }])
+                }}
+              >
+                <PlusCircle className="size-4" />
+                Add Period
+              </Button>
+            </div>
+          </ScrollArea>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowSettings(false)}>Cancel</Button>
+            <Button onClick={handleSavePeriods} disabled={savingPeriods}>
+              {savingPeriods ? (
+                <><div className="size-4 animate-spin rounded-full border-2 border-current border-t-transparent mr-1" />Saving...</>
+              ) : (
+                <><Check className="size-4 mr-1" />Save Periods</>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+}
