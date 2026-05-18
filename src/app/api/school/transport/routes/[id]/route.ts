@@ -1,7 +1,60 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { requireRole } from '@/lib/api-auth'
-import { unauthorizedError, notFoundError, internalError, apiError } from '@/lib/api-errors'
+import { requirePermission, requireRole } from '@/lib/api-auth'
+import { unauthorizedError, forbiddenError, notFoundError, internalError, apiError } from '@/lib/api-errors'
+
+const VALID_FEE_MONTHS = new Set(['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'])
+
+function optionalText(value: unknown): string | null {
+  if (typeof value !== 'string') return null
+  const trimmed = value.trim()
+  return trimmed || null
+}
+
+function optionalNumber(value: unknown): number | null {
+  if (value === undefined || value === null || value === '') return null
+  const numberValue = Number(value)
+  return Number.isFinite(numberValue) ? numberValue : Number.NaN
+}
+
+function parseFeeMonths(value: unknown): string[] | null {
+  if (value === undefined || value === null) return null
+  if (!Array.isArray(value)) return null
+
+  const months = value
+    .map((month) => typeof month === 'string' ? month.trim() : '')
+    .filter(Boolean)
+
+  if (months.length === 0) return null
+  if (months.some((month) => !VALID_FEE_MONTHS.has(month))) return null
+  return Array.from(new Set(months))
+}
+
+function parseStops(value: unknown): Array<{ name: string; fare: number }> | null {
+  if (value === undefined || value === null) return null
+  if (!Array.isArray(value)) return null
+
+  const stops = value.map((stop) => {
+    if (typeof stop === 'string') {
+      return { name: stop.trim(), fare: 0 }
+    }
+    if (!stop || typeof stop !== 'object') {
+      return { name: '', fare: Number.NaN }
+    }
+
+    const record = stop as Record<string, unknown>
+    return {
+      name: optionalText(record.name) || '',
+      fare: optionalNumber(record.fare) ?? Number.NaN,
+    }
+  })
+
+  if (stops.some((stop) => !stop.name || Number.isNaN(stop.fare) || stop.fare < 0)) {
+    return null
+  }
+
+  return stops
+}
 
 // PUT /api/school/transport/routes/[id] - Update a transport route
 export async function PUT(
@@ -9,9 +62,13 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const user = requireRole(request, ['SCHOOL_ADMIN'])
+    const user = requireRole(request, ['SCHOOL_ADMIN', 'STAFF'])
     if (!user || !user.schoolId) {
       return unauthorizedError()
+    }
+    const authorized = await requirePermission(request, 'transport:update')
+    if (!authorized) {
+      return forbiddenError()
     }
 
     const { id } = await params
@@ -19,6 +76,8 @@ export async function PUT(
     const {
       routeName,
       routeNumber,
+      academicYear,
+      feeMonths,
       startPoint,
       endPoint,
       stops,
@@ -41,22 +100,71 @@ export async function PUT(
 
     // Validate routeName if provided
     if (routeName !== undefined && !routeName?.trim()) {
-      return apiError(400, 'Please enter a name for this transport route.')
+      return apiError(400, 'Please enter a route code for this transport route.')
+    }
+
+    if (academicYear !== undefined) {
+      const cleanedAcademicYear = optionalText(academicYear)
+      if (!cleanedAcademicYear || !/^\d{4}-\d{4}$/.test(cleanedAcademicYear)) {
+        return apiError(400, 'Please choose a valid academic year.')
+      }
+
+      const academicYearExists = await db.academicYear.findFirst({
+        where: {
+          schoolId: user.schoolId,
+          name: cleanedAcademicYear,
+          isActive: true,
+          deletedAt: null,
+        },
+        select: { id: true },
+      })
+      if (!academicYearExists) {
+        return apiError(400, 'Please choose an active academic year from school settings.')
+      }
+    }
+
+    if (feeMonths !== undefined) {
+      const cleanedFeeMonths = parseFeeMonths(feeMonths)
+      if (!cleanedFeeMonths || cleanedFeeMonths.length === 0) {
+        return apiError(400, 'Please select at least one fee month.')
+      }
+    }
+
+    const cleanedDistance = optionalNumber(distance)
+    if (distance !== undefined && (Number.isNaN(cleanedDistance) || (cleanedDistance !== null && cleanedDistance < 0))) {
+      return apiError(400, 'Please enter a valid route distance.')
+    }
+
+    const cleanedFee = optionalNumber(fee)
+    if (fee !== undefined && (Number.isNaN(cleanedFee) || cleanedFee === null || cleanedFee < 0)) {
+      return apiError(400, 'Please enter a valid transport fee.')
+    }
+
+    const cleanedCapacity = optionalNumber(capacity)
+    if (capacity !== undefined && (Number.isNaN(cleanedCapacity) || cleanedCapacity === null || !Number.isInteger(cleanedCapacity) || cleanedCapacity < 1)) {
+      return apiError(400, 'Please enter a valid vehicle capacity.')
+    }
+
+    const cleanedStops = parseStops(stops)
+    if (stops !== undefined && stops !== null && !cleanedStops) {
+      return apiError(400, 'Please add each stop with a valid stop name and fare.')
     }
 
     // Build update data — only include fields that are explicitly provided
     const updateData: Record<string, unknown> = {}
     if (routeName !== undefined) updateData.routeName = routeName.trim()
-    if (routeNumber !== undefined) updateData.routeNumber = routeNumber || null
-    if (startPoint !== undefined) updateData.startPoint = startPoint || null
-    if (endPoint !== undefined) updateData.endPoint = endPoint || null
-    if (stops !== undefined) updateData.stops = stops ? JSON.stringify(stops) : null
-    if (distance !== undefined) updateData.distance = distance != null ? distance : null
-    if (driverName !== undefined) updateData.driverName = driverName || null
-    if (driverPhone !== undefined) updateData.driverPhone = driverPhone || null
-    if (vehicleNumber !== undefined) updateData.vehicleNumber = vehicleNumber || null
-    if (capacity !== undefined) updateData.capacity = capacity || 40
-    if (fee !== undefined) updateData.fee = fee || 0
+    if (routeNumber !== undefined) updateData.routeNumber = optionalText(routeNumber)
+    if (academicYear !== undefined) updateData.academicYear = optionalText(academicYear)
+    if (feeMonths !== undefined) updateData.feeMonths = JSON.stringify(parseFeeMonths(feeMonths))
+    if (startPoint !== undefined) updateData.startPoint = optionalText(startPoint)
+    if (endPoint !== undefined) updateData.endPoint = optionalText(endPoint)
+    if (stops !== undefined) updateData.stops = cleanedStops && cleanedStops.length > 0 ? JSON.stringify(cleanedStops) : null
+    if (distance !== undefined) updateData.distance = cleanedDistance
+    if (driverName !== undefined) updateData.driverName = optionalText(driverName)
+    if (driverPhone !== undefined) updateData.driverPhone = optionalText(driverPhone)
+    if (vehicleNumber !== undefined) updateData.vehicleNumber = optionalText(vehicleNumber)
+    if (capacity !== undefined) updateData.capacity = cleanedCapacity
+    if (fee !== undefined) updateData.fee = cleanedFee
     if (isActive !== undefined) updateData.isActive = isActive
 
     const updated = await db.transportRoute.update({
@@ -80,9 +188,13 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const user = requireRole(request, ['SCHOOL_ADMIN'])
+    const user = requireRole(request, ['SCHOOL_ADMIN', 'STAFF'])
     if (!user || !user.schoolId) {
       return unauthorizedError()
+    }
+    const authorized = await requirePermission(request, 'transport:delete')
+    if (!authorized) {
+      return forbiddenError()
     }
 
     const { id } = await params

@@ -98,7 +98,7 @@ export function LoginScreen({ onBack }: LoginScreenProps) {
     }
     setIsLoading(true)
     try {
-      const response = await api.post<{ token: string; user: { id: string; email: string; name: string; role: string; schoolId?: string } }>('/api/auth/login', { email, password })
+      const response = await api.post<{ token: string; user: { id: string; email: string; name: string; role: string; schoolId?: string; mustChangePassword?: boolean } }>('/api/auth/login', { email, password })
       login(response.user, response.token)
 
       // Fetch user profile with school info
@@ -120,7 +120,12 @@ export function LoginScreen({ onBack }: LoginScreenProps) {
         setPermissions([])
       }
 
-      toast({ title: 'Welcome!', description: `Logged in as ${response.user.name}` })
+      toast({
+        title: response.user.mustChangePassword ? 'Change Password Required' : 'Welcome!',
+        description: response.user.mustChangePassword
+          ? 'Please change your generated password before continuing.'
+          : `Logged in as ${response.user.name}`,
+      })
     } catch (err) {
       toast({
         title: 'Login Failed',

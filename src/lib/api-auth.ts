@@ -51,7 +51,7 @@ export async function requirePermission(
     const schoolPerm = await db.schoolPermission.findFirst({
       where: {
         schoolId: user.schoolId,
-        permission: { code: permissionCode },
+        permission: { code: permissionCode, isActive: true },
       },
     })
     return schoolPerm ? user : null
@@ -63,9 +63,12 @@ export async function requirePermission(
     where: {
       userId: user.userId,
       role: {
+        schoolId: user.schoolId,
+        deletedAt: null,
+        isActive: true,
         permissions: {
           some: {
-            permission: { code: permissionCode },
+            permission: { code: permissionCode, isActive: true },
           },
         },
       },
@@ -90,7 +93,7 @@ export async function getUserPermissions(userId: string, role: string, schoolId?
   // SCHOOL_ADMIN: get permissions from SchoolPermission
   if (role === 'SCHOOL_ADMIN' && schoolId) {
     const schoolPerms = await db.schoolPermission.findMany({
-      where: { schoolId },
+      where: { schoolId, permission: { isActive: true } },
       include: { permission: { select: { code: true } } },
     })
     return schoolPerms.map(sp => sp.permission.code)
@@ -99,11 +102,21 @@ export async function getUserPermissions(userId: string, role: string, schoolId?
   // Other roles: collect ALL permission codes from assigned roles
   // Flow: User → UserRole → Role → RolePermission → Permission
   const userRoles = await db.userRole.findMany({
-    where: { userId },
+    where: {
+      userId,
+      role: {
+        schoolId,
+        deletedAt: null,
+        isActive: true,
+      },
+    },
     include: {
       role: {
         include: {
           permissions: {
+            where: {
+              permission: { isActive: true },
+            },
             include: {
               permission: { select: { code: true } },
             },

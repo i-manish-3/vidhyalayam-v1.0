@@ -2,9 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
-import { Check, ImagePlus, Loader2, Palette, Save, School, Type, X } from 'lucide-react'
+import { CalendarDays, Check, ImagePlus, Loader2, Palette, PlusCircle, Save, School, Trash2, Type, X } from 'lucide-react'
 import { api } from '@/lib/api'
 import { useAppStore, type School as SchoolInfo } from '@/lib/store'
+import { getCurrentAcademicYear, type AcademicYear } from '@/lib/academic-years'
 import { DASHBOARD_FONT_OPTIONS, SCHOOL_THEME_PALETTES, findDashboardFont, findSchoolThemePalette } from '@/lib/theme-palettes'
 import { cn } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
@@ -29,6 +30,13 @@ export function SettingsPage() {
   const [selectedColor, setSelectedColor] = useState(currentPalette.primary)
   const [selectedFont, setSelectedFont] = useState(findDashboardFont(currentSchool?.dashboardFont).id)
   const [saving, setSaving] = useState(false)
+  const [academicYears, setAcademicYears] = useState<AcademicYear[]>([])
+  const [yearName, setYearName] = useState(getCurrentAcademicYear())
+  const [yearStartDate, setYearStartDate] = useState('')
+  const [yearEndDate, setYearEndDate] = useState('')
+  const [yearIsCurrent, setYearIsCurrent] = useState(false)
+  const [loadingYears, setLoadingYears] = useState(true)
+  const [savingYear, setSavingYear] = useState(false)
 
   useEffect(() => {
     if (!currentSchool || saving) return
@@ -55,6 +63,7 @@ export function SettingsPage() {
     () => findDashboardFont(selectedFont),
     [selectedFont]
   )
+  const currentAcademicYear = academicYears.find((year) => year.isCurrent)
   const hasChanges =
     schoolName.trim() !== (currentSchool?.name || '') ||
     schoolLogo !== (currentSchool?.logo || '') ||
@@ -98,6 +107,105 @@ export function SettingsPage() {
     const reader = new FileReader()
     reader.onload = (event) => onLoad((event.target?.result as string) || '')
     reader.readAsDataURL(file)
+  }
+
+  const fetchAcademicYears = async () => {
+    try {
+      setLoadingYears(true)
+      const res = await api.get<{ years: AcademicYear[] }>('/api/school/academic-years')
+      setAcademicYears(res.years || [])
+    } catch (err) {
+      toast({
+        title: "Couldn't Load Academic Years",
+        description: err instanceof Error ? err.message : 'Please refresh and try again.',
+        variant: 'destructive',
+      })
+    } finally {
+      setLoadingYears(false)
+    }
+  }
+
+  useEffect(() => {
+    if (user?.role === 'SCHOOL_ADMIN') {
+      fetchAcademicYears()
+    }
+  }, [user?.role])
+
+  const createAcademicYear = async () => {
+    if (!/^\d{4}-\d{4}$/.test(yearName.trim())) {
+      toast({
+        title: 'Invalid Academic Year',
+        description: 'Use format like 2026-2027.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    try {
+      setSavingYear(true)
+      await api.post('/api/school/academic-years', {
+        name: yearName.trim(),
+        startDate: yearStartDate || null,
+        endDate: yearEndDate || null,
+        isCurrent: yearIsCurrent,
+      })
+      toast({ title: 'Academic Year Created', description: `${yearName.trim()} is now available for this school.` })
+      if (yearIsCurrent && currentSchool) {
+        setCurrentSchool({ ...currentSchool, academicYear: yearName.trim() })
+      }
+      setYearName('')
+      setYearStartDate('')
+      setYearEndDate('')
+      setYearIsCurrent(false)
+      fetchAcademicYears()
+    } catch (err) {
+      toast({
+        title: "Couldn't Create Academic Year",
+        description: err instanceof Error ? err.message : 'Please try again.',
+        variant: 'destructive',
+      })
+    } finally {
+      setSavingYear(false)
+    }
+  }
+
+  const updateAcademicYear = async (year: AcademicYear, data: Partial<Pick<AcademicYear, 'isActive' | 'isCurrent'>>) => {
+    try {
+      await api.patch(`/api/school/academic-years/${year.id}`, data)
+      if (data.isCurrent && currentSchool) {
+        setCurrentSchool({ ...currentSchool, academicYear: year.name })
+      }
+      toast({
+        title: data.isCurrent ? 'Current Year Updated' : 'Academic Year Updated',
+        description: data.isCurrent ? `${year.name} is now the current academic year.` : `${year.name} has been updated.`,
+      })
+      fetchAcademicYears()
+    } catch (err) {
+      toast({
+        title: "Couldn't Update Academic Year",
+        description: err instanceof Error ? err.message : 'Please try again.',
+        variant: 'destructive',
+      })
+    }
+  }
+
+  const deleteAcademicYear = async (year: AcademicYear) => {
+    try {
+      await api.delete(`/api/school/academic-years/${year.id}`)
+      toast({ title: 'Academic Year Removed', description: `${year.name} has been removed from active setup.` })
+      fetchAcademicYears()
+    } catch (err) {
+      toast({
+        title: "Couldn't Remove Academic Year",
+        description: err instanceof Error ? err.message : 'Please try again.',
+        variant: 'destructive',
+      })
+    }
+  }
+
+  const formatDate = (value: string | null) => {
+    if (!value) return '-'
+    return new Date(value).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
   }
 
   const saveTheme = async () => {
@@ -153,13 +261,128 @@ export function SettingsPage() {
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
-          <p className="text-sm text-muted-foreground">Manage school branding and dashboard appearance.</p>
+          <p className="text-sm text-muted-foreground">Manage school academic years, branding, and dashboard appearance.</p>
         </div>
         <Button onClick={saveTheme} disabled={!hasChanges || saving}>
           {saving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
           Save Branding
         </Button>
       </div>
+
+      <Card>
+        <CardHeader>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <CalendarDays className="size-5 text-primary" />
+                Academic Years
+              </CardTitle>
+              <CardDescription>
+                Create the school years used by admissions, fees, exams, attendance, transport, and reports.
+              </CardDescription>
+            </div>
+            {currentAcademicYear && (
+              <Badge className="self-start" variant="secondary">Current: {currentAcademicYear.name}</Badge>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          <div className="grid gap-3 lg:grid-cols-[160px_160px_160px_auto_auto]">
+            <div className="space-y-2">
+              <Label htmlFor="academic-year-name">Academic Year</Label>
+              <Input
+                id="academic-year-name"
+                value={yearName}
+                onChange={(event) => setYearName(event.target.value)}
+                placeholder="2026-2027"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="academic-year-start">Start Date</Label>
+              <Input
+                id="academic-year-start"
+                type="date"
+                value={yearStartDate}
+                onChange={(event) => setYearStartDate(event.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="academic-year-end">End Date</Label>
+              <Input
+                id="academic-year-end"
+                type="date"
+                value={yearEndDate}
+                onChange={(event) => setYearEndDate(event.target.value)}
+              />
+            </div>
+            <label className="flex items-center gap-2 pt-8 text-sm">
+              <input
+                type="checkbox"
+                checked={yearIsCurrent}
+                onChange={(event) => setYearIsCurrent(event.target.checked)}
+                className="size-4"
+              />
+              Set current
+            </label>
+            <Button type="button" className="mt-0 gap-2 lg:mt-8" onClick={createAcademicYear} disabled={savingYear}>
+              {savingYear ? <Loader2 className="size-4 animate-spin" /> : <PlusCircle className="size-4" />}
+              Add Year
+            </Button>
+          </div>
+
+          <div className="overflow-hidden rounded-lg border">
+            <div className="grid grid-cols-[1fr_150px_150px_130px_170px] gap-3 border-b bg-muted/40 px-4 py-3 text-xs font-medium uppercase text-muted-foreground">
+              <span>Year</span>
+              <span>Start</span>
+              <span>End</span>
+              <span>Status</span>
+              <span className="text-right">Actions</span>
+            </div>
+            {loadingYears ? (
+              <div className="flex items-center justify-center gap-2 px-4 py-8 text-sm text-muted-foreground">
+                <Loader2 className="size-4 animate-spin" />
+                Loading academic years...
+              </div>
+            ) : academicYears.length === 0 ? (
+              <div className="px-4 py-8 text-center text-sm text-muted-foreground">
+                No academic years found. Add the first year to start using year-wise setup.
+              </div>
+            ) : (
+              academicYears.map((year) => (
+                <div key={year.id} className="grid grid-cols-[1fr_150px_150px_130px_170px] items-center gap-3 border-b px-4 py-3 text-sm last:border-b-0">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span className="font-medium">{year.name}</span>
+                    {year.isCurrent && <Badge>Current</Badge>}
+                  </div>
+                  <span className="text-muted-foreground">{formatDate(year.startDate)}</span>
+                  <span className="text-muted-foreground">{formatDate(year.endDate)}</span>
+                  <Badge variant={year.isActive ? 'secondary' : 'outline'}>{year.isActive ? 'Active' : 'Inactive'}</Badge>
+                  <div className="flex justify-end gap-1.5">
+                    {!year.isCurrent && (
+                      <Button type="button" variant="outline" size="sm" onClick={() => updateAcademicYear(year, { isCurrent: true })}>
+                        Set Current
+                      </Button>
+                    )}
+                    <Button type="button" variant="ghost" size="icon" className="size-8" disabled={year.isCurrent} onClick={() => updateAcademicYear(year, { isActive: !year.isActive })}>
+                      {year.isActive ? <X className="size-4" /> : <Check className="size-4" />}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="size-8 text-destructive hover:text-destructive"
+                      disabled={year.isCurrent}
+                      onClick={() => deleteAcademicYear(year)}
+                    >
+                      <Trash2 className="size-4" />
+                    </Button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

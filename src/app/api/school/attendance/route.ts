@@ -3,6 +3,28 @@ import { db } from '@/lib/db'
 import { requireRole } from '@/lib/api-auth'
 import { unauthorizedError, internalError, apiError } from '@/lib/api-errors'
 
+const ACADEMIC_YEAR_PATTERN = /^\d{4}-\d{4}$/
+
+async function resolveAcademicYear(schoolId: string, value: string | null, requireActive = false) {
+  const school = await db.school.findUnique({
+    where: { id: schoolId },
+    select: { academicYear: true },
+  })
+  const academicYear = (value || school?.academicYear || '').trim()
+
+  if (!ACADEMIC_YEAR_PATTERN.test(academicYear)) return null
+
+  if (requireActive) {
+    const exists = await db.academicYear.findFirst({
+      where: { schoolId, name: academicYear, isActive: true, deletedAt: null },
+      select: { id: true },
+    })
+    if (!exists) return null
+  }
+
+  return academicYear
+}
+
 // GET /api/school/attendance - Get attendance by date/class/section
 export async function GET(request: NextRequest) {
   try {
@@ -18,6 +40,7 @@ export async function GET(request: NextRequest) {
     const date = dateParam || todayStr
     const classId = searchParams.get('classId') || ''
     const sectionId = searchParams.get('sectionId') || ''
+    const academicYear = await resolveAcademicYear(user.schoolId, searchParams.get('academicYear'))
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '200')
     const skip = (page - 1) * limit
@@ -31,6 +54,7 @@ export async function GET(request: NextRequest) {
       schoolId: user.schoolId,
       deletedAt: null,
     }
+    if (academicYear) studentFilter.admission = { academicYear }
     if (classId) studentFilter.classId = classId
     if (sectionId) studentFilter.sectionId = sectionId
 
@@ -39,6 +63,7 @@ export async function GET(request: NextRequest) {
       date: attendanceDate,
       student: studentFilter,
     }
+    if (academicYear) attendanceWhere.academicYear = academicYear
 
     const [records, total] = await Promise.all([
       db.attendance.findMany({
@@ -115,9 +140,13 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json()
     const { date, records } = body
+    const academicYear = await resolveAcademicYear(user.schoolId, body.academicYear || null, true)
 
     if (!date || !records || !Array.isArray(records)) {
       return apiError(400, 'Please select a date and add attendance entries for at least one student.')
+    }
+    if (!academicYear) {
+      return apiError(400, 'Please choose an active academic year.')
     }
 
     // Parse date as local midnight to avoid UTC timezone shifts
@@ -137,6 +166,7 @@ export async function POST(request: NextRequest) {
       where: {
         schoolId: user.schoolId,
         date: attendanceDate,
+        academicYear,
         studentId: { in: records.map((r: { studentId: string }) => r.studentId) },
         finalized: true,
       },
@@ -172,13 +202,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Create/update attendance records
-    const results = []
+    const results: Awaited<ReturnType<typeof db.attendance.upsert>>[] = []
     for (const record of records) {
       const { studentId, status, remarks } = record
 
       // Verify student belongs to this school
       const student = await db.student.findFirst({
-        where: { id: studentId, schoolId: user.schoolId, deletedAt: null },
+        where: { id: studentId, schoolId: user.schoolId, deletedAt: null, admission: { academicYear } },
       })
       if (!student) continue
 
@@ -193,6 +223,7 @@ export async function POST(request: NextRequest) {
         create: {
           schoolId: user.schoolId,
           studentId,
+          academicYear,
           date: attendanceDate,
           status,
           remarks,
@@ -228,9 +259,13 @@ export async function PATCH(request: NextRequest) {
 
     const body = await request.json()
     const { date, classId, sectionId, action } = body
+    const academicYear = await resolveAcademicYear(user.schoolId, body.academicYear || null, true)
 
     if (!date || !classId) {
       return apiError(400, 'Date and class are required to finalize attendance.')
+    }
+    if (!academicYear) {
+      return apiError(400, 'Please choose an active academic year.')
     }
 
     // Parse date as local midnight
@@ -249,6 +284,7 @@ export async function PATCH(request: NextRequest) {
       schoolId: user.schoolId,
       classId,
       deletedAt: null,
+      admission: { academicYear },
     }
     if (sectionId) studentWhere.sectionId = sectionId
 
@@ -263,6 +299,7 @@ export async function PATCH(request: NextRequest) {
       where: {
         schoolId: user.schoolId,
         date: attendanceDate,
+        academicYear,
         studentId: { in: studentIds },
       },
       select: { studentId: true, finalized: true },
@@ -288,6 +325,7 @@ export async function PATCH(request: NextRequest) {
       where: {
         schoolId: user.schoolId,
         date: attendanceDate,
+        academicYear,
         studentId: { in: studentIds },
       },
       data: {

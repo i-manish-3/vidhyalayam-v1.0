@@ -1,164 +1,209 @@
 'use client'
 
-import { useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { api } from '@/lib/api'
 import { useAppStore } from '@/lib/store'
+import { getCurrentAcademicYear, toAcademicYearOptions } from '@/lib/academic-years'
 import { useToast } from '@/hooks/use-toast'
-import { PageHeader } from '@/components/shared'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Switch } from '@/components/ui/switch'
 import { Badge } from '@/components/ui/badge'
-import { ArrowLeft, Loader2, Bus, MapPin, PlusCircle, X } from 'lucide-react'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Checkbox } from '@/components/ui/checkbox'
+import { ArrowLeft, Bus, CalendarDays, Eye, Loader2, MapPin, PlusCircle, User, X } from 'lucide-react'
+
+interface DriverOption {
+  id: string
+  name: string
+  phone: string | null
+}
+
+interface RouteStop {
+  name: string
+  fare: string
+}
+
+const FEE_MONTH_OPTIONS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
 export function AddTransportRoutePage() {
   const { toast } = useToast()
   const navigateTo = useAppStore((s) => s.navigateTo)
   const goBack = useAppStore((s) => s.goBack)
+  const currentSchoolAcademicYear = useAppStore((s) => s.currentSchool?.academicYear)
 
-  // Section 1: Route Information
   const [routeName, setRouteName] = useState('')
-  const [routeNumber, setRouteNumber] = useState('')
-  const [startPoint, setStartPoint] = useState('')
-  const [endPoint, setEndPoint] = useState('')
-  const [distance, setDistance] = useState('')
-  const [fee, setFee] = useState('')
-  const [capacity, setCapacity] = useState('40')
-  const [isActive, setIsActive] = useState(true)
-
-  // Section 2: Stops
-  const [stops, setStops] = useState<string[]>([])
-  const [stopInput, setStopInput] = useState('')
-
-  // Section 3: Driver & Vehicle Details
-  const [driverName, setDriverName] = useState('')
-  const [driverPhone, setDriverPhone] = useState('')
-  const [vehicleNumber, setVehicleNumber] = useState('')
-
-  // UI state
+  const [routeCode, setRouteCode] = useState('')
+  const [academicYear, setAcademicYear] = useState(currentSchoolAcademicYear || getCurrentAcademicYear())
+  const [feeMonths, setFeeMonths] = useState<string[]>([])
+  const [drivers, setDrivers] = useState<DriverOption[]>([])
+  const [availableAcademicYears, setAvailableAcademicYears] = useState<string[]>([])
+  const [driverId, setDriverId] = useState('')
+  const [stops, setStops] = useState<RouteStop[]>([])
+  const [stopName, setStopName] = useState('')
+  const [stopFare, setStopFare] = useState('')
+  const [loadingDrivers, setLoadingDrivers] = useState(true)
   const [submitting, setSubmitting] = useState(false)
-  const [nameError, setNameError] = useState('')
-  const [feeError, setFeeError] = useState('')
 
-  // Validate the route name field
-  const validateName = (value: string) => {
-    const trimmed = value.trim()
-    if (!trimmed) {
-      setNameError('Route name is required. Please enter a name like Route A - City Center.')
-      return false
-    }
-    if (trimmed.length < 2) {
-      setNameError('Route name must be at least 2 characters long.')
-      return false
-    }
-    setNameError('')
-    return true
-  }
+  const academicYearOptions = useMemo(
+    () => toAcademicYearOptions(availableAcademicYears, currentSchoolAcademicYear),
+    [availableAcademicYears, currentSchoolAcademicYear]
+  )
 
-  // Validate the fee field
-  const validateFee = (value: string) => {
-    const trimmed = value.trim()
-    if (!trimmed) {
-      setFeeError('Transport fee is required.')
-      return false
+  useEffect(() => {
+    if (!academicYearOptions.some((year) => year.value === academicYear)) {
+      setAcademicYear(academicYearOptions[0]?.value || currentSchoolAcademicYear || getCurrentAcademicYear())
     }
-    const num = parseFloat(trimmed)
-    if (isNaN(num) || num < 0) {
-      setFeeError('Please enter a valid fee amount.')
-      return false
-    }
-    setFeeError('')
-    return true
-  }
+  }, [academicYear, academicYearOptions, currentSchoolAcademicYear])
 
-  // Handle name change with live validation
-  const handleNameChange = (value: string) => {
-    setRouteName(value)
-    if (nameError && value.trim().length >= 2) {
-      setNameError('')
-    }
-  }
+  useEffect(() => {
+    let mounted = true
 
-  // Handle fee change with live validation
-  const handleFeeChange = (value: string) => {
-    setFee(value)
-    if (feeError) {
-      const num = parseFloat(value.trim())
-      if (!isNaN(num) && num >= 0) {
-        setFeeError('')
+    const fetchAcademicYears = async () => {
+      try {
+        const res = await api.get<{ academicYears: string[] }>('/api/school/academic-years')
+        if (mounted) {
+          setAvailableAcademicYears(res.academicYears || [])
+        }
+      } catch {
+        if (mounted) {
+          setAvailableAcademicYears(currentSchoolAcademicYear ? [currentSchoolAcademicYear] : [])
+        }
       }
     }
-  }
 
-  // Add a stop
-  const addStop = () => {
-    const trimmed = stopInput.trim()
-    if (!trimmed) return
-    if (stops.includes(trimmed)) {
+    fetchAcademicYears()
+
+    return () => {
+      mounted = false
+    }
+  }, [currentSchoolAcademicYear])
+
+  const fetchDrivers = useCallback(async () => {
+    try {
+      setLoadingDrivers(true)
+      const res = await api.get<{ drivers: DriverOption[] }>('/api/school/transport/drivers')
+      setDrivers(res.drivers || [])
+    } catch {
       toast({
-        title: 'Duplicate Stop',
-        description: `"${trimmed}" has already been added.`,
+        title: "Couldn't Load Drivers",
+        description: 'Please add staff with the Transport role, then try again.',
         variant: 'destructive',
       })
+    } finally {
+      setLoadingDrivers(false)
+    }
+  }, [toast])
+
+  useEffect(() => {
+    fetchDrivers()
+  }, [fetchDrivers])
+
+  const toggleFeeMonth = (month: string) => {
+    setFeeMonths((current) =>
+      current.includes(month)
+        ? current.filter((item) => item !== month)
+        : [...current, month]
+    )
+  }
+
+  const addStop = () => {
+    const name = stopName.trim()
+    const fare = Number(stopFare)
+
+    if (!name) {
+      toast({ title: 'Stop Name Required', description: 'Please enter the stop name.', variant: 'destructive' })
       return
     }
-    setStops(prev => [...prev, trimmed])
-    setStopInput('')
+
+    if (!Number.isFinite(fare) || fare < 0) {
+      toast({ title: 'Invalid Stop Fare', description: 'Please enter a valid stop fare.', variant: 'destructive' })
+      return
+    }
+
+    if (stops.some((stop) => stop.name.toLowerCase() === name.toLowerCase())) {
+      toast({ title: 'Duplicate Stop', description: `"${name}" has already been added.`, variant: 'destructive' })
+      return
+    }
+
+    setStops((current) => [...current, { name, fare: stopFare }])
+    setStopName('')
+    setStopFare('')
   }
 
-  // Remove a stop
   const removeStop = (index: number) => {
-    setStops(prev => prev.filter((_, i) => i !== index))
+    setStops((current) => current.filter((_, itemIndex) => itemIndex !== index))
   }
 
-  // Handle stop input key press (Enter to add)
-  const handleStopKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      e.preventDefault()
+  const handleStopKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Enter') {
+      event.preventDefault()
       addStop()
     }
   }
 
-  // Form validity check
-  const isFormValid = routeName.trim().length >= 2 && fee.trim() !== '' && !submitting
+  const canSubmit = useMemo(() =>
+    routeName.trim().length >= 2 &&
+    routeCode.trim().length >= 2 &&
+    academicYear &&
+    feeMonths.length > 0 &&
+    stops.length > 0 &&
+    !submitting
+  , [academicYear, feeMonths.length, routeCode, routeName, stops.length, submitting])
 
-  // Submit handler
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault()
 
-    if (!validateName(routeName)) return
-    if (!validateFee(fee)) return
-    if (submitting) return
+    if (!routeName.trim()) {
+      toast({ title: 'Route Name Required', description: 'Please enter the route name.', variant: 'destructive' })
+      return
+    }
+
+    if (!routeCode.trim()) {
+      toast({ title: 'Route Code Required', description: 'Please enter the route code.', variant: 'destructive' })
+      return
+    }
+
+    if (!academicYear) {
+      toast({ title: 'Academic Year Required', description: 'Please choose the academic year.', variant: 'destructive' })
+      return
+    }
+
+    if (feeMonths.length === 0) {
+      toast({ title: 'Fee Months Required', description: 'Please select at least one month for the route fee.', variant: 'destructive' })
+      return
+    }
+
+    if (stops.length === 0) {
+      toast({ title: 'Stop Required', description: 'Please add at least one stop with fare.', variant: 'destructive' })
+      return
+    }
 
     try {
       setSubmitting(true)
 
       await api.post('/api/school/transport/routes', {
         routeName: routeName.trim(),
-        routeNumber: routeNumber.trim() || undefined,
-        startPoint: startPoint.trim() || undefined,
-        endPoint: endPoint.trim() || undefined,
-        distance: distance ? parseFloat(distance) : undefined,
-        fee: parseFloat(fee.trim()),
-        capacity: capacity ? parseInt(capacity, 10) : undefined,
-        isActive,
-        stops: stops.length > 0 ? stops : undefined,
-        driverName: driverName.trim() || undefined,
-        driverPhone: driverPhone.trim() || undefined,
-        vehicleNumber: vehicleNumber.trim() || undefined,
+        routeNumber: routeCode.trim(),
+        academicYear,
+        feeMonths,
+        driverId: driverId || null,
+        stops: stops.map((stop) => ({
+          name: stop.name,
+          fare: Number(stop.fare),
+        })),
       })
 
       toast({
-        title: 'Route Added Successfully',
-        description: `"${routeName.trim()}" has been added to your transport routes.`,
+        title: 'Route Created',
+        description: `"${routeName.trim()}" has been added successfully.`,
       })
 
       navigateTo('transport')
     } catch (err) {
       toast({
-        title: 'Failed to Add Route',
+        title: 'Failed to Create Route',
         description: err instanceof Error ? err.message : 'Something went wrong. Please try again.',
         variant: 'destructive',
       })
@@ -169,307 +214,197 @@ export function AddTransportRoutePage() {
 
   return (
     <div className="space-y-6">
-      {/* Header with back button */}
-      <div className="flex items-center gap-3">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="size-9 shrink-0"
-          onClick={() => goBack('transport')}
-          disabled={submitting}
-        >
-          <ArrowLeft className="size-4" />
-        </Button>
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Create Route</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            Add a new transport route for your school
-          </p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-9 shrink-0"
+            onClick={() => goBack('transport')}
+            disabled={submitting}
+          >
+            <ArrowLeft className="size-4" />
+          </Button>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Create Route</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">Set the route name, route code, fee months, stop fares, and optional driver</p>
+          </div>
         </div>
+        <Button type="button" variant="outline" className="gap-2 self-start sm:self-auto" onClick={() => navigateTo('transport')} disabled={submitting}>
+          <Eye className="size-4" />
+          View Routes
+        </Button>
       </div>
 
-      {/* Form */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
+          <CardTitle className="flex items-center gap-2 text-base">
             <Bus className="size-4" />
             Route Details
           </CardTitle>
-          <CardDescription>
-            Fill in the details below to add a new transport route
-          </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Section 1: Route Information */}
-            <div>
-              <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
-                <div className="size-1.5 rounded-full bg-primary" />
-                Route Information
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Route Name */}
-                <div className="space-y-2">
-                  <Label htmlFor="route-name" className="text-xs font-medium">
-                    Route Name <span className="text-destructive">*</span>
-                  </Label>
-                  <Input
-                    id="route-name"
-                    placeholder="e.g., Route A - City Center"
-                    value={routeName}
-                    onChange={(e) => handleNameChange(e.target.value)}
-                    onBlur={() => validateName(routeName)}
-                    className="h-10"
-                    aria-invalid={!!nameError}
-                    aria-describedby={nameError ? 'route-name-error' : undefined}
-                  />
-                  {nameError && (
-                    <p id="route-name-error" className="text-xs text-destructive mt-1">
-                      {nameError}
-                    </p>
-                  )}
-                </div>
-
-                {/* Route Number */}
-                <div className="space-y-2">
-                  <Label htmlFor="route-number" className="text-xs font-medium">
-                    Route Number
-                  </Label>
-                  <Input
-                    id="route-number"
-                    placeholder="e.g., R-001"
-                    value={routeNumber}
-                    onChange={(e) => setRouteNumber(e.target.value)}
-                    className="h-10"
-                  />
-                </div>
-
-                {/* Start Point */}
-                <div className="space-y-2">
-                  <Label htmlFor="start-point" className="text-xs font-medium">
-                    Start Point
-                  </Label>
-                  <Input
-                    id="start-point"
-                    placeholder="e.g., School Campus"
-                    value={startPoint}
-                    onChange={(e) => setStartPoint(e.target.value)}
-                    className="h-10"
-                  />
-                </div>
-
-                {/* End Point */}
-                <div className="space-y-2">
-                  <Label htmlFor="end-point" className="text-xs font-medium">
-                    End Point
-                  </Label>
-                  <Input
-                    id="end-point"
-                    placeholder="e.g., City Bus Stand"
-                    value={endPoint}
-                    onChange={(e) => setEndPoint(e.target.value)}
-                    className="h-10"
-                  />
-                </div>
-
-                {/* Distance */}
-                <div className="space-y-2">
-                  <Label htmlFor="distance" className="text-xs font-medium">
-                    Distance
-                  </Label>
-                  <Input
-                    id="distance"
-                    type="number"
-                    placeholder="e.g., 15.5"
-                    value={distance}
-                    onChange={(e) => setDistance(e.target.value)}
-                    min="0"
-                    step="0.1"
-                    className="h-10"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Distance in kilometers
-                  </p>
-                </div>
-
-                {/* Fee */}
-                <div className="space-y-2">
-                  <Label htmlFor="route-fee" className="text-xs font-medium">
-                    Fee <span className="text-destructive">*</span>
-                  </Label>
-                  <Input
-                    id="route-fee"
-                    type="number"
-                    placeholder="e.g., 1500"
-                    value={fee}
-                    onChange={(e) => handleFeeChange(e.target.value)}
-                    onBlur={() => validateFee(fee)}
-                    min="0"
-                    className="h-10"
-                    aria-invalid={!!feeError}
-                    aria-describedby={feeError ? 'route-fee-error' : undefined}
-                  />
-                  {feeError && (
-                    <p id="route-fee-error" className="text-xs text-destructive mt-1">
-                      {feeError}
-                    </p>
-                  )}
-                  <p className="text-xs text-muted-foreground">
-                    Monthly transport fee in ₹
-                  </p>
-                </div>
-
-                {/* Capacity */}
-                <div className="space-y-2">
-                  <Label htmlFor="capacity" className="text-xs font-medium">
-                    Capacity
-                  </Label>
-                  <Input
-                    id="capacity"
-                    type="number"
-                    placeholder="e.g., 40"
-                    value={capacity}
-                    onChange={(e) => setCapacity(e.target.value)}
-                    min="1"
-                    className="h-10"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Maximum students per trip
-                  </p>
-                </div>
-
-                {/* Status Toggle */}
-                <div className="space-y-2">
-                  <Label className="text-xs font-medium">Status</Label>
-                  <div className="flex items-center gap-3 h-10">
-                    <Switch
-                      id="route-status"
-                      checked={isActive}
-                      onCheckedChange={setIsActive}
-                    />
-                    <Label htmlFor="route-status" className="text-sm cursor-pointer">
-                      {isActive ? 'Active' : 'Inactive'}
-                    </Label>
-                  </div>
-                </div>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+              <div className="space-y-2">
+                <Label htmlFor="route-name" className="text-xs font-medium">
+                  Route Name <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="route-name"
+                  placeholder="e.g., City Center Route"
+                  value={routeName}
+                  onChange={(event) => setRouteName(event.target.value)}
+                  className="h-10"
+                />
               </div>
-            </div>
 
-            {/* Section 2: Stops */}
-            <div>
-              <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
-                <div className="size-1.5 rounded-full bg-primary" />
-                <MapPin className="size-4" />
-                Stops
-              </h3>
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <Input
-                    placeholder="Enter a stop name"
-                    value={stopInput}
-                    onChange={(e) => setStopInput(e.target.value)}
-                    onKeyDown={handleStopKeyDown}
-                    className="h-10"
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-10 gap-1.5 shrink-0"
-                    onClick={addStop}
-                    disabled={!stopInput.trim()}
-                  >
-                    <PlusCircle className="size-4" />
-                    Add Stop
-                  </Button>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Add pickup/drop-off points along the route
-                </p>
-                {stops.length > 0 && (
-                  <div className="flex flex-wrap gap-2">
-                    {stops.map((stop, index) => (
-                      <Badge
-                        key={index}
-                        variant="secondary"
-                        className="gap-1.5 py-1.5 px-3 text-sm"
-                      >
-                        <MapPin className="size-3" />
-                        {stop}
-                        <button
-                          type="button"
-                          className="ml-0.5 rounded-full hover:bg-muted-foreground/20 p-0.5 transition-colors"
-                          onClick={() => removeStop(index)}
-                          aria-label={`Remove stop ${stop}`}
-                        >
-                          <X className="size-3" />
-                        </button>
-                      </Badge>
+              <div className="space-y-2">
+                <Label htmlFor="route-code" className="text-xs font-medium">
+                  Route Code <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="route-code"
+                  placeholder="e.g., TR-001"
+                  value={routeCode}
+                  onChange={(event) => setRouteCode(event.target.value)}
+                  className="h-10"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="academic-year" className="text-xs font-medium">
+                  Academic Year <span className="text-destructive">*</span>
+                </Label>
+                <Select value={academicYear} onValueChange={setAcademicYear}>
+                  <SelectTrigger id="academic-year" className="h-10">
+                    <SelectValue placeholder="Select academic year" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {academicYearOptions.map((year) => (
+                      <SelectItem key={year.value} value={year.value}>
+                        {year.label}
+                      </SelectItem>
                     ))}
-                  </div>
-                )}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
-            {/* Section 3: Driver & Vehicle Details */}
-            <div>
-              <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
-                <div className="size-1.5 rounded-full bg-primary" />
-                <Bus className="size-4" />
-                Driver & Vehicle Details
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Driver Name */}
-                <div className="space-y-2">
-                  <Label htmlFor="driver-name" className="text-xs font-medium">
-                    Driver Name
-                  </Label>
-                  <Input
-                    id="driver-name"
-                    placeholder="e.g., Ramesh Kumar"
-                    value={driverName}
-                    onChange={(e) => setDriverName(e.target.value)}
-                    className="h-10"
-                  />
-                </div>
-
-                {/* Driver Phone */}
-                <div className="space-y-2">
-                  <Label htmlFor="driver-phone" className="text-xs font-medium">
-                    Driver Phone
-                  </Label>
-                  <Input
-                    id="driver-phone"
-                    placeholder="e.g., +91 98765 43210"
-                    value={driverPhone}
-                    onChange={(e) => setDriverPhone(e.target.value)}
-                    className="h-10"
-                  />
-                </div>
-
-                {/* Vehicle Number */}
-                <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="vehicle-number" className="text-xs font-medium">
-                    Vehicle Number
-                  </Label>
-                  <Input
-                    id="vehicle-number"
-                    placeholder="e.g., KA-01-AB-1234"
-                    value={vehicleNumber}
-                    onChange={(e) => setVehicleNumber(e.target.value.toUpperCase())}
-                    className="h-10"
-                  />
-                </div>
+            <div className="space-y-3">
+              <Label className="text-xs font-medium">
+                Fees Applied Months <span className="text-destructive">*</span>
+              </Label>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+                {FEE_MONTH_OPTIONS.map((month) => {
+                  const checked = feeMonths.includes(month)
+                  return (
+                    <label
+                      key={month}
+                      className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm"
+                    >
+                      <Checkbox checked={checked} onCheckedChange={() => toggleFeeMonth(month)} />
+                      <span>{month}</span>
+                    </label>
+                  )
+                })}
               </div>
+              {feeMonths.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {feeMonths.map((month) => (
+                    <Badge key={month} variant="secondary" className="gap-1.5 py-1.5 px-3 text-sm">
+                      <CalendarDays className="size-3" />
+                      {month}
+                      <button
+                        type="button"
+                        className="ml-0.5 rounded-full p-0.5 transition-colors hover:bg-muted-foreground/20"
+                        onClick={() => toggleFeeMonth(month)}
+                        aria-label={`Remove month ${month}`}
+                      >
+                        <X className="size-3" />
+                      </button>
+                    </Badge>
+                  ))}
+                </div>
+              )}
             </div>
 
-            {/* Action Buttons */}
+            <div className="space-y-3">
+              <Label className="text-xs font-medium">
+                Stops <span className="text-destructive">*</span>
+              </Label>
+              <div className="grid grid-cols-1 gap-2 md:grid-cols-[1fr_160px_auto]">
+                <Input
+                  placeholder="Stop name"
+                  value={stopName}
+                  onChange={(event) => setStopName(event.target.value)}
+                  onKeyDown={handleStopKeyDown}
+                  className="h-10"
+                />
+                <Input
+                  type="number"
+                  min="0"
+                  placeholder="Stop fare"
+                  value={stopFare}
+                  onChange={(event) => setStopFare(event.target.value)}
+                  onKeyDown={handleStopKeyDown}
+                  className="h-10"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-10 gap-1.5"
+                  onClick={addStop}
+                  disabled={!stopName.trim() || !stopFare.trim()}
+                >
+                  <PlusCircle className="size-4" />
+                  Add Stop
+                </Button>
+              </div>
+
+              {stops.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {stops.map((stop, index) => (
+                    <Badge key={`${stop.name}-${index}`} variant="secondary" className="gap-1.5 px-3 py-1.5 text-sm">
+                      <MapPin className="size-3" />
+                      {stop.name}: {stop.fare}
+                      <button
+                        type="button"
+                        className="ml-0.5 rounded-full p-0.5 transition-colors hover:bg-muted-foreground/20"
+                        onClick={() => removeStop(index)}
+                        aria-label={`Remove stop ${stop.name}`}
+                      >
+                        <X className="size-3" />
+                      </button>
+                    </Badge>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="driver" className="text-xs font-medium">
+                Driver
+              </Label>
+              <Select value={driverId} onValueChange={setDriverId} disabled={loadingDrivers || submitting}>
+                <SelectTrigger id="driver" className="h-10">
+                  <SelectValue placeholder={loadingDrivers ? 'Loading drivers...' : 'Choose driver later or now'} />
+                </SelectTrigger>
+                <SelectContent>
+                  {drivers.map((driver) => (
+                    <SelectItem key={driver.id} value={driver.id}>
+                      {driver.name}{driver.phone ? ` - ${driver.phone}` : ''}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {!loadingDrivers && drivers.length === 0 && (
+                <p className="text-xs text-muted-foreground">No drivers found. You can create the route now and assign a driver later.</p>
+              )}
+            </div>
+
             <div className="flex items-center gap-3">
-              <Button
-                type="submit"
-                disabled={!isFormValid}
-                className="gap-2 min-w-[140px]"
-              >
+              <Button type="submit" disabled={!canSubmit} className="min-w-[140px] gap-2">
                 {submitting ? (
                   <>
                     <Loader2 className="size-4 animate-spin" />
@@ -477,17 +412,12 @@ export function AddTransportRoutePage() {
                   </>
                 ) : (
                   <>
-                    <Bus className="size-4" />
+                    <User className="size-4" />
                     Create Route
                   </>
                 )}
               </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => goBack('transport')}
-                disabled={submitting}
-              >
+              <Button type="button" variant="outline" onClick={() => goBack('transport')} disabled={submitting}>
                 Cancel
               </Button>
             </div>

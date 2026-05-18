@@ -4,25 +4,8 @@ import { requireRole } from '@/lib/api-auth'
 import { hashPassword } from '@/lib/auth'
 import { unauthorizedError, internalError, apiError } from '@/lib/api-errors'
 
-// Mapping of predefined role names to User.role values
-const ROLE_NAME_TO_USER_ROLE: Record<string, string> = {
-  'Teacher': 'TEACHER',
-  'Student': 'STUDENT',
-  'Parent': 'PARENT',
-  'School Admin': 'SCHOOL_ADMIN',
-  'Principal': 'STAFF',
-  'Manager': 'STAFF',
-  'Accountant': 'STAFF',
-  'Sr. Accountant': 'STAFF',
-  'Librarian': 'STAFF',
-  'Office Controller': 'STAFF',
-  'Reception': 'STAFF',
-  'Transport': 'STAFF',
-  'Security': 'STAFF',
-}
-
 // Roles that cannot be assigned via staff creation
-// School Admin is singular and managed only by Super Admin
+// Staff creation always creates a STAFF account, then assigns a staff permission role.
 const RESTRICTED_STAFF_ROLES = new Set(['School Admin', 'Student', 'Parent', 'Staff'])
 
 // GET /api/school/users - List all users in the school (for role assignment)
@@ -109,14 +92,12 @@ export async function POST(request: NextRequest) {
       return apiError(400, "The role you selected doesn't exist in your school. Please refresh and try again.")
     }
 
-    // Block restricted roles from being assigned via staff creation
-    // Only SUPER_ADMIN can assign School Admin role
-    if (RESTRICTED_STAFF_ROLES.has(role.name) && authUser.role !== 'SUPER_ADMIN') {
-      return apiError(403, `The "${role.name}" role is assigned automatically and can't be selected here. Please choose a different role. ${role.name === 'School Admin' ? 'School Admin permissions are managed exclusively by Super Admin.' : 'This role is auto-assigned through other processes.'}`)
+    // Block identity/system roles from staff creation for every admin.
+    // Parent, Student, Teacher, School Admin, and generic Staff are primary profile concepts,
+    // not selectable staff permission roles.
+    if (RESTRICTED_STAFF_ROLES.has(role.name) || role.name === 'Teacher') {
+      return apiError(403, `The "${role.name}" role cannot be selected while creating staff. Please choose a staff permission role like Accountant, Transport, Reception, or a custom staff role.`)
     }
-
-    // Determine User.role from the predefined role name
-    const userRole = ROLE_NAME_TO_USER_ROLE[role.name] || 'STAFF'
 
     // Hash the password
     const hashedPwd = await hashPassword(password)
@@ -130,7 +111,7 @@ export async function POST(request: NextRequest) {
           password: hashedPwd,
           name: name.trim(),
           phone: phone || null,
-          role: userRole,
+          role: 'STAFF',
           schoolId: authUser.schoolId!,
           isActive: true,
         },

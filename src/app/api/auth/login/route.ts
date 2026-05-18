@@ -78,6 +78,7 @@ export async function POST(request: NextRequest) {
         role: user.role,
         phone: user.phone,
         avatar: user.avatar,
+        mustChangePassword: user.mustChangePassword,
         schoolId: user.schoolId,
         school: user.school
           ? {

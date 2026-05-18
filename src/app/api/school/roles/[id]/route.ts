@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { requireRole, requirePermission } from '@/lib/api-auth'
 import { unauthorizedError, forbiddenError, notFoundError, internalError, apiError } from '@/lib/api-errors'
+import { findIncompatibleRoleAssignment, validatePermissionsWithinSchoolGrant } from '@/lib/rbac'
 
 // GET /api/school/roles/[id] - Get role details with its permissions
 export async function GET(
@@ -68,7 +69,7 @@ export async function GET(
         email: ur.user.email,
         role: ur.user.role,
         phone: ur.user.phone,
-        assignedAt: ur.assignedAt,
+        assignedAt: ur.createdAt,
       })),
       permissions: role.permissions.map((rp) => ({
         id: rp.permission.id,
@@ -119,6 +120,10 @@ export async function PUT(
     }
 
     // School Admin role is protected — only SUPER_ADMIN can modify its permissions
+    if (role.name === 'Staff' && userIds !== undefined) {
+      return apiError(403, 'The generic Staff role is not assignable. Use a specific staff permission role like Accountant, Transport, Reception, or a custom role.')
+    }
+
     if (role.name === 'School Admin' && user.role !== 'SUPER_ADMIN') {
       // Allow SCHOOL_ADMIN to view but NOT modify the School Admin role
       if (permissionIds !== undefined || name !== undefined || description !== undefined || color !== undefined || userIds !== undefined) {
@@ -146,32 +151,12 @@ export async function PUT(
       }
     }
 
-    // If permissionIds are provided, validate they are available to this school
+    // If permissionIds are provided, validate they are available to this school.
+    // SchoolPermission is the maximum boundary for every role in the school.
     if (permissionIds !== undefined && Array.isArray(permissionIds)) {
-      if (user.role === 'SCHOOL_ADMIN') {
-        // Get permissions available to this school
-        const schoolPerms = await db.schoolPermission.findMany({
-          where: { schoolId: user.schoolId },
-          select: { permissionId: true },
-        })
-        const availablePermIds = new Set(schoolPerms.map((sp) => sp.permissionId))
-        const invalidPermIds = permissionIds.filter((pid: string) => !availablePermIds.has(pid))
-        if (invalidPermIds.length > 0) {
-          return apiError(400, 'Some permissions you selected aren\'t available for your school. Please contact the Super Admin to enable them.')
-        }
-      } else {
-        // SUPER_ADMIN - just validate permission IDs exist
-        if (permissionIds.length > 0) {
-          const validPerms = await db.permission.findMany({
-            where: { id: { in: permissionIds }, isActive: true },
-            select: { id: true },
-          })
-          const validIds = new Set(validPerms.map((p) => p.id))
-          const invalidIds = permissionIds.filter((pid: string) => !validIds.has(pid))
-          if (invalidIds.length > 0) {
-            return apiError(400, "Some of the permissions you selected are invalid. Please refresh and try again.")
-          }
-        }
+      const invalidPermIds = await validatePermissionsWithinSchoolGrant(user.schoolId, permissionIds)
+      if (invalidPermIds.length > 0) {
+        return apiError(400, 'Some permissions you selected are not available for this school. Super Admin must enable them first.')
       }
     }
 
@@ -209,6 +194,27 @@ export async function PUT(
 
       // Update assigned users if provided
       if (userIds !== undefined && Array.isArray(userIds)) {
+        if (userIds.length > 0) {
+          const validUsers = await tx.user.findMany({
+            where: {
+              id: { in: userIds },
+              schoolId: user.schoolId,
+              deletedAt: null,
+            },
+            select: { id: true, name: true, email: true, role: true },
+          })
+          const validUserIds = new Set(validUsers.map((targetUser) => targetUser.id))
+          const invalidUserIds = userIds.filter((userId: string) => !validUserIds.has(userId))
+          if (invalidUserIds.length > 0) {
+            throw new Error('INVALID_ROLE_USERS')
+          }
+
+          const incompatibleAssignment = findIncompatibleRoleAssignment(validUsers, [role])
+          if (incompatibleAssignment) {
+            throw new Error(`INCOMPATIBLE_ROLE_ASSIGNMENT:${incompatibleAssignment.user.name}:${incompatibleAssignment.user.role}:${incompatibleAssignment.roleName}`)
+          }
+        }
+
         // Delete existing user assignments for this role
         await tx.userRole.deleteMany({
           where: { roleId: id },
@@ -267,7 +273,7 @@ export async function PUT(
         email: ur.user.email,
         role: ur.user.role,
         phone: ur.user.phone,
-        assignedAt: ur.assignedAt,
+        assignedAt: ur.createdAt,
       })),
       permissions: updatedRole!.permissions.map((rp) => ({
         id: rp.permission.id,
@@ -278,6 +284,16 @@ export async function PUT(
       })),
     })
   } catch (error) {
+    if (error instanceof Error && error.message === 'INVALID_ROLE_USERS') {
+      return apiError(400, "Some users you selected don't belong to this school. Please refresh and try again.")
+    }
+    if (error instanceof Error && error.message.startsWith('INCOMPATIBLE_ROLE_ASSIGNMENT:')) {
+      const [, userName, userRole, roleName] = error.message.split(':')
+      return apiError(
+        400,
+        `${userName} is a ${userRole.replaceAll('_', ' ')} user and cannot be assigned the "${roleName}" role. Convert the user's primary profile type first, or create a separate account for that profile.`
+      )
+    }
     console.error('Update role error:', error)
     return internalError('updating the role')
   }

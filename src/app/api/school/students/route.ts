@@ -3,6 +3,17 @@ import { db } from '@/lib/db'
 import { requireRole } from '@/lib/api-auth'
 import { unauthorizedError, internalError, apiError } from '@/lib/api-errors'
 
+const ACADEMIC_YEAR_PATTERN = /^\d{4}-\d{4}$/
+
+async function resolveAcademicYear(schoolId: string, value: string | null) {
+  const school = await db.school.findUnique({
+    where: { id: schoolId },
+    select: { academicYear: true },
+  })
+  const academicYear = (value || school?.academicYear || '').trim()
+  return ACADEMIC_YEAR_PATTERN.test(academicYear) ? academicYear : null
+}
+
 // GET /api/school/students - List students with pagination, search, filter
 export async function GET(request: NextRequest) {
   try {
@@ -17,6 +28,7 @@ export async function GET(request: NextRequest) {
     const sectionId = searchParams.get('sectionId') || ''
     const gender = searchParams.get('gender') || ''
     const isActiveParam = searchParams.get('isActive') || ''
+    const academicYear = await resolveAcademicYear(user.schoolId, searchParams.get('academicYear'))
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '20')
     const skip = (page - 1) * limit
@@ -24,6 +36,9 @@ export async function GET(request: NextRequest) {
     const where: Record<string, unknown> = {
       schoolId: user.schoolId,
       deletedAt: null,
+    }
+    if (academicYear) {
+      where.admission = { academicYear }
     }
 
     if (search) {

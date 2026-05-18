@@ -188,7 +188,7 @@ export const MENUS: Record<string, MenuItem[]> = {
     { label: 'Notifications', page: 'notifications', icon: Bell },
     { label: 'Announcements', page: 'announcements', icon: Megaphone },
     {
-      label: 'Teacher/Staff',
+      label: 'Staff',
       page: 'staff',
       icon: Users,
       children: [
@@ -196,15 +196,7 @@ export const MENUS: Record<string, MenuItem[]> = {
         { label: 'Staff List', page: 'staff', icon: Users },
       ],
     },
-    {
-      label: 'Roles & Permissions',
-      page: 'school-roles',
-      icon: ShieldCheck,
-      children: [
-        { label: 'Roles', page: 'school-roles', icon: ShieldCheck },
-        { label: 'User Permissions', page: 'school-permissions', icon: Shield },
-      ],
-    },
+    { label: 'Roles & Permissions', page: 'school-roles', icon: ShieldCheck },
     { label: 'Settings', page: 'settings', icon: Settings },
   ],
   TEACHER: [

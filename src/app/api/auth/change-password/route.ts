@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
     const hashedNewPassword = await hashPassword(newPassword)
     await db.user.update({
       where: { id: user.userId },
-      data: { password: hashedNewPassword },
+      data: { password: hashedNewPassword, mustChangePassword: false },
     })
 
     return NextResponse.json({ message: 'Your password has been changed successfully. Please use your new password next time you log in.' })

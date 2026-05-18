@@ -3,6 +3,27 @@ import { db } from '@/lib/db'
 import { requireRole } from '@/lib/api-auth'
 import { unauthorizedError, internalError, apiError } from '@/lib/api-errors'
 
+const ACADEMIC_YEAR_PATTERN = /^\d{4}-\d{4}$/
+
+async function resolveAcademicYear(schoolId: string, value: string | null, requireActive = false) {
+  const school = await db.school.findUnique({
+    where: { id: schoolId },
+    select: { academicYear: true },
+  })
+  const academicYear = (value || school?.academicYear || '').trim()
+  if (!ACADEMIC_YEAR_PATTERN.test(academicYear)) return null
+
+  if (requireActive) {
+    const exists = await db.academicYear.findFirst({
+      where: { schoolId, name: academicYear, isActive: true, deletedAt: null },
+      select: { id: true },
+    })
+    if (!exists) return null
+  }
+
+  return academicYear
+}
+
 // GET /api/school/timetable - Get timetable entries
 export async function GET(request: NextRequest) {
   try {
@@ -16,11 +37,13 @@ export async function GET(request: NextRequest) {
     const sectionId = searchParams.get('sectionId') || ''
     const day = searchParams.get('day') || ''
     const teacherId = searchParams.get('teacherId') || ''
+    const academicYear = await resolveAcademicYear(user.schoolId, searchParams.get('academicYear'))
 
     const where: Record<string, unknown> = {
       schoolId: user.schoolId,
       deletedAt: null,
     }
+    if (academicYear) where.academicYear = academicYear
     if (classId) where.classId = classId
     if (sectionId) where.sectionId = sectionId
     if (day) where.day = day
@@ -55,9 +78,13 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json()
     const { classId, sectionId, subjectId, teacherId, day, period } = body
+    const academicYear = await resolveAcademicYear(user.schoolId, body.academicYear || null, true)
 
     if (!sectionId || !subjectId || !teacherId || !day || !period) {
       return apiError(400, 'Please fill in all required fields: section, subject, teacher, day, and period.')
+    }
+    if (!academicYear) {
+      return apiError(400, 'Please choose an active academic year.')
     }
 
     // Verify section belongs to this school
@@ -89,6 +116,7 @@ export async function POST(request: NextRequest) {
     const teacherConflict = await db.timetable.findFirst({
       where: {
         schoolId: user.schoolId,
+        academicYear,
         teacherId,
         day,
         period: Number(period),
@@ -108,8 +136,9 @@ export async function POST(request: NextRequest) {
     // Upsert the entry
     const entry = await db.timetable.upsert({
       where: {
-        schoolId_sectionId_day_period: {
+        schoolId_academicYear_sectionId_day_period: {
           schoolId: user.schoolId,
+          academicYear,
           sectionId,
           day,
           period: Number(period),
@@ -117,6 +146,7 @@ export async function POST(request: NextRequest) {
       },
       create: {
         schoolId: user.schoolId,
+        academicYear,
         classId: classId || section.classId,
         sectionId,
         subjectId,
@@ -155,13 +185,14 @@ export async function DELETE(request: NextRequest) {
 
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
+    const academicYear = await resolveAcademicYear(user.schoolId, searchParams.get('academicYear'))
 
     if (!id) {
       return apiError(400, 'Please provide the timetable entry ID to delete.')
     }
 
     const entry = await db.timetable.findFirst({
-      where: { id, schoolId: user.schoolId },
+      where: { id, schoolId: user.schoolId, ...(academicYear ? { academicYear } : {}) },
     })
 
     if (!entry) {

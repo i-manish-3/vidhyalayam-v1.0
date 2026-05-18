@@ -4,6 +4,28 @@ import { requireRole, requirePermission } from '@/lib/api-auth'
 import { unauthorizedError, internalError, apiError, forbiddenError } from '@/lib/api-errors'
 import { hashPassword } from '@/lib/auth'
 
+const ACADEMIC_YEAR_PATTERN = /^\d{4}-\d{4}$/
+
+async function resolveAcademicYear(schoolId: string, value: string | null, requireActive = false) {
+  const school = await db.school.findUnique({
+    where: { id: schoolId },
+    select: { academicYear: true },
+  })
+  const academicYear = (value || school?.academicYear || '').trim()
+
+  if (!ACADEMIC_YEAR_PATTERN.test(academicYear)) return null
+
+  if (requireActive) {
+    const exists = await db.academicYear.findFirst({
+      where: { schoolId, name: academicYear, isActive: true, deletedAt: null },
+      select: { id: true },
+    })
+    if (!exists) return null
+  }
+
+  return academicYear
+}
+
 // Helper: Check if an admission number exists in either Admission or Student table
 async function admissionNumberExists(admissionNumber: string): Promise<boolean> {
   const [inAdmission, inStudent] = await Promise.all([
@@ -117,6 +139,7 @@ export async function GET(request: NextRequest) {
     const classId = searchParams.get('classId') || ''
     const search = searchParams.get('search') || ''
     const admissionType = searchParams.get('admissionType') || ''
+    const academicYear = await resolveAcademicYear(user.schoolId, searchParams.get('academicYear'))
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '20')
     const skip = (page - 1) * limit
@@ -124,6 +147,9 @@ export async function GET(request: NextRequest) {
     const where: Record<string, unknown> = {
       schoolId: user.schoolId,
       deletedAt: null,
+    }
+    if (academicYear) {
+      where.academicYear = academicYear
     }
 
     if (status) {
@@ -326,6 +352,11 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
+    const requestedAcademicYear = await resolveAcademicYear(user.schoolId, body.academicYear || null, true)
+
+    if (!requestedAcademicYear) {
+      return apiError(400, 'Please choose an active academic year.')
+    }
 
     // Validate required fields with comprehensive rules
     const fieldErrors: Record<string, string> = {}
@@ -506,6 +537,7 @@ export async function POST(request: NextRequest) {
         where: {
           schoolId: user.schoolId,
           classId: body.classId,
+          academicYear: requestedAcademicYear,
           deletedAt: null,
         },
       })
@@ -521,8 +553,6 @@ export async function POST(request: NextRequest) {
       body.classId
     )
 
-    const currentYear = new Date().getFullYear()
-
     // Use transaction for atomicity — all records created or none
     const admission = await db.$transaction(async (tx) => {
       // 1. Create Admission record
@@ -530,7 +560,7 @@ export async function POST(request: NextRequest) {
         data: {
           schoolId: user.schoolId!,
           admissionNumber,
-          academicYear: body.academicYear || `${currentYear}-${currentYear + 1}`,
+          academicYear: requestedAcademicYear,
           admissionType: 'new',
           status: 'admitted',
           // Personal info
@@ -594,7 +624,7 @@ export async function POST(request: NextRequest) {
           // General Details
           classId: body.classId || null,
           sectionId: body.sectionId || null,
-          admissionSession: body.academicYear || null,
+          admissionSession: requestedAcademicYear,
           mediumOfInstruction: body.mediumOfInstruction || null,
           area: body.area || null,
           // Last Institution
@@ -765,6 +795,10 @@ export async function POST(request: NextRequest) {
         })
 
         if (existingUser) {
+          if (existingUser.role !== 'PARENT') {
+            throw new Error('PARENT_ACCOUNT_CONFLICT')
+          }
+
           // Link existing user to the father's parent record
           const fatherLink = await tx.studentParent.findFirst({
             where: { studentId: student.id, relation: 'Father' },
@@ -873,6 +907,12 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(admission, { status: 201 })
   } catch (error) {
+    if (error instanceof Error && error.message === 'PARENT_ACCOUNT_CONFLICT') {
+      return apiError(
+        400,
+        'This parent phone number already belongs to a non-parent user. Please use a separate parent account, or change the existing user profile type first.'
+      )
+    }
     console.error('Create admission error:', error)
     return internalError('creating the admission')
   }

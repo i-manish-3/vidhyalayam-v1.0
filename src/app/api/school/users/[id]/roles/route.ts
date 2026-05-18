@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { requireRole, requirePermission } from '@/lib/api-auth'
 import { unauthorizedError, forbiddenError, notFoundError, internalError, apiError } from '@/lib/api-errors'
+import { findIncompatibleRoleAssignment } from '@/lib/rbac'
 
 // GET /api/school/users/[id]/roles - Get user's assigned roles
 export async function GET(
@@ -90,13 +91,10 @@ export async function PUT(
 
     const { id } = await params
     const body = await request.json()
-    const { roleIds, assignedBy } = body
+    const { roleIds } = body
 
     if (!Array.isArray(roleIds)) {
       return apiError(400, 'Please provide a valid list of roles to assign.')
-    }
-    if (!assignedBy) {
-      return apiError(400, 'Please specify who is assigning these roles.')
     }
 
     // Verify the target user belongs to the same school
@@ -121,12 +119,20 @@ export async function PUT(
           deletedAt: null,
           isActive: true,
         },
-        select: { id: true },
+        select: { id: true, name: true },
       })
       const validIds = new Set(validRoles.map((r) => r.id))
       const invalidIds = roleIds.filter((rid: string) => !validIds.has(rid))
       if (invalidIds.length > 0) {
         return apiError(400, "Some of the roles you selected don't exist in your school. Please refresh and try again.")
+      }
+
+      const incompatibleAssignment = findIncompatibleRoleAssignment([targetUser], validRoles)
+      if (incompatibleAssignment) {
+        return apiError(
+          400,
+          `${targetUser.name} is a ${targetUser.role.replaceAll('_', ' ')} user and cannot be assigned the "${incompatibleAssignment.roleName}" role. Convert the user's primary profile type first, or create a separate account for that profile.`
+        )
       }
     }
 
@@ -143,7 +149,7 @@ export async function PUT(
           data: roleIds.map((roleId: string) => ({
             userId: targetUser.id,
             roleId,
-            assignedBy,
+            assignedBy: user.userId,
           })),
         })
       }

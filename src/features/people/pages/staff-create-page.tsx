@@ -50,8 +50,9 @@ interface AvailableRole {
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
-// Roles excluded from staff creation - these are auto-assigned or singular
-const EXCLUDED_ROLES = new Set(['School Admin', 'Student', 'Parent', 'Staff'])
+// Staff creation only shows staff permission roles.
+// Primary identity roles are created from their own modules.
+const EXCLUDED_ROLES = new Set(['School Admin', 'Teacher', 'Student', 'Parent', 'Staff'])
 
 const ROLE_ICONS: Record<string, LucideIcon> = {
   'Teacher': GraduationCap,
@@ -120,7 +121,7 @@ export function StaffCreatePage() {
     try {
       setLoadingRoles(true)
       const res = await api.get<{ roles: AvailableRole[] }>('/api/school/roles')
-      // Filter out School Admin, Student, Parent from role selection
+      // Hide primary identity roles; staff users should choose permission roles only.
       const staffRoles = (res.roles || []).filter(
         (r) => !EXCLUDED_ROLES.has(r.name)
       )
@@ -296,11 +297,11 @@ export function StaffCreatePage() {
                 <div className="space-y-4">
                   <div className="space-y-2">
                     <Label className="text-xs font-medium">
-                      Select Role <span className="text-destructive">*</span>
+                      Staff Permission Role <span className="text-destructive">*</span>
                     </Label>
                     <Select value={selectedRoleId} onValueChange={setSelectedRoleId}>
                       <SelectTrigger className="h-10">
-                        <SelectValue placeholder="Choose a role for this staff member" />
+                        <SelectValue placeholder="Choose access for this staff member" />
                       </SelectTrigger>
                       <SelectContent>
                         {availableRoles.map((role) => {
@@ -320,42 +321,41 @@ export function StaffCreatePage() {
 
                   {/* Selected Role Preview */}
                   {selectedRole && (
-                    <Card className="border-l-4 border-l-primary/40 bg-muted/30">
-                      <CardContent className="p-4">
-                        <div className="flex items-start gap-3">
-                          <div className={`size-10 rounded-lg flex items-center justify-center shrink-0 ${ROLE_COLORS[selectedRole.name] || 'bg-muted'}`}>
-                            {RoleIcon && <RoleIcon className="size-5" />}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <h4 className="text-sm font-semibold">{selectedRole.name}</h4>
-                              {selectedRole.isSystem && (
-                                <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-4">
-                                  System
-                                </Badge>
-                              )}
-                            </div>
-                            {selectedRole.description && (
-                              <p className="text-xs text-muted-foreground mt-0.5">
-                                {selectedRole.description}
-                              </p>
-                            )}
-                            <div className="flex items-center gap-3 mt-2">
-                              <span className="text-xs text-muted-foreground flex items-center gap-1">
-                                <ShieldCheck className="size-3" />
-                                {selectedRole.permissionCount} permissions
-                              </span>
-                              <span className="text-muted-foreground/40">·</span>
-                              <span className="text-xs text-muted-foreground flex items-center gap-1">
-                                <UserPlus className="size-3" />
-                                {selectedRole.userCount} staff assigned
-                              </span>
-                            </div>
-                          </div>
-                          <CheckCircle2 className="size-5 text-primary shrink-0" />
+                    <div className="rounded-lg border bg-card p-4 shadow-sm ring-1 ring-primary/10">
+                      <div className="flex items-start gap-3">
+                        <div className="flex size-11 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+                          {RoleIcon && <RoleIcon className="size-5" />}
                         </div>
-                      </CardContent>
-                    </Card>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h4 className="text-sm font-semibold text-foreground">{selectedRole.name}</h4>
+                            {selectedRole.isSystem && (
+                              <Badge variant="secondary" className="h-5 px-2 text-[10px]">
+                                System
+                              </Badge>
+                            )}
+                          </div>
+                          {selectedRole.description && (
+                            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                              {selectedRole.description}
+                            </p>
+                          )}
+                          <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                            <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1">
+                              <ShieldCheck className="size-3" />
+                              {selectedRole.permissionCount} permissions
+                            </span>
+                            <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1">
+                              <UserPlus className="size-3" />
+                              {selectedRole.userCount} staff assigned
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                          <CheckCircle2 className="size-4" />
+                        </div>
+                      </div>
+                    </div>
                   )}
                 </div>
               </div>

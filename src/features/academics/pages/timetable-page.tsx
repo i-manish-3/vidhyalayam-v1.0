@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { api } from '@/lib/api'
 import { useAppStore } from '@/lib/store'
+import { getCurrentAcademicYear, toAcademicYearOptions } from '@/lib/academic-years'
 import { useToast } from '@/hooks/use-toast'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -100,6 +101,7 @@ type ViewMode = 'class' | 'teacher'
 export function TimetablePage() {
   const { toast } = useToast()
   const setCurrentPage = useAppStore((s) => s.setCurrentPage)
+  const currentSchoolAcademicYear = useAppStore((s) => s.currentSchool?.academicYear)
 
   // Data
   const [entries, setEntries] = useState<TimetableEntry[]>([])
@@ -108,7 +110,13 @@ export function TimetablePage() {
   const [subjects, setSubjects] = useState<SubjectOption[]>([])
   const [teachers, setTeachers] = useState<TeacherOption[]>([])
   const [periodConfigs, setPeriodConfigs] = useState<PeriodConfig[]>([])
+  const [availableAcademicYears, setAvailableAcademicYears] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
+  const [academicYear, setAcademicYear] = useState(currentSchoolAcademicYear || getCurrentAcademicYear())
+  const academicYearOptions = useMemo(
+    () => toAcademicYearOptions(availableAcademicYears, currentSchoolAcademicYear),
+    [availableAcademicYears, currentSchoolAcademicYear]
+  )
 
   // View
   const [viewMode, setViewMode] = useState<ViewMode>('class')
@@ -144,13 +152,14 @@ export function TimetablePage() {
   const fetchData = useCallback(async () => {
     try {
       setLoading(true)
-      const [ttRes, clsRes, secRes, subRes, teachRes, periodRes] = await Promise.all([
-        api.get<{ entries: TimetableEntry[] }>('/api/school/timetable').catch(() => ({ entries: [] })),
+      const [ttRes, clsRes, secRes, subRes, teachRes, periodRes, academicYearRes] = await Promise.all([
+        api.get<{ entries: TimetableEntry[] }>('/api/school/timetable', { academicYear }).catch(() => ({ entries: [] })),
         api.get<{ classes: ClassOption[] }>('/api/school/classes').catch(() => ({ classes: [] })),
         api.get<{ sections: SectionOption[] }>('/api/school/sections').catch(() => ({ sections: [] })),
         api.get<{ subjects: SubjectOption[] }>('/api/school/subjects').catch(() => ({ subjects: [] })),
         api.get<{ teachers: TeacherOption[] }>('/api/school/teachers').catch(() => ({ teachers: [] })),
         api.get<{ periods: PeriodConfig[] }>('/api/school/period-config').catch(() => ({ periods: [] })),
+        api.get<{ academicYears: string[] }>('/api/school/academic-years').catch(() => ({ academicYears: [] })),
       ])
       setEntries(ttRes.entries || [])
       setClasses(clsRes.classes || [])
@@ -158,6 +167,7 @@ export function TimetablePage() {
       setSubjects(subRes.subjects || [])
       setTeachers(teachRes.teachers || [])
       setPeriodConfigs(periodRes.periods || [])
+      setAvailableAcademicYears(academicYearRes.academicYears || [])
     } catch {
       toast({
         title: "Couldn't Load Timetable",
@@ -167,11 +177,17 @@ export function TimetablePage() {
     } finally {
       setLoading(false)
     }
-  }, [toast])
+  }, [academicYear, toast])
 
   useEffect(() => {
     fetchData()
   }, [fetchData])
+
+  useEffect(() => {
+    if (!academicYearOptions.some((year) => year.value === academicYear)) {
+      setAcademicYear(academicYearOptions[0]?.value || currentSchoolAcademicYear || getCurrentAcademicYear())
+    }
+  }, [academicYear, academicYearOptions, currentSchoolAcademicYear])
 
   // ── Filtered sections ──
   const availableSections = useMemo(() =>
@@ -232,6 +248,7 @@ export function TimetablePage() {
         teacherId: form.teacherId,
         day: form.day,
         period: Number(form.period),
+        academicYear,
       })
       toast({
         title: editEntry ? 'Entry Updated' : 'Entry Added',
@@ -252,7 +269,7 @@ export function TimetablePage() {
   // ── Delete entry ──
   const handleDelete = async (id: string) => {
     try {
-      await api.delete(`/api/school/timetable?id=${id}`)
+      await api.delete(`/api/school/timetable?id=${id}&academicYear=${encodeURIComponent(academicYear)}`)
       toast({ title: 'Entry Deleted', description: 'Timetable entry removed.' })
       fetchData()
     } catch {
@@ -360,6 +377,20 @@ export function TimetablePage() {
       <Card>
         <CardContent className="p-4">
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+            <div className="flex items-center gap-2">
+              <Label className="text-xs font-medium text-muted-foreground">Year</Label>
+              <Select value={academicYear} onValueChange={setAcademicYear}>
+                <SelectTrigger className="h-9 w-[150px]">
+                  <SelectValue placeholder="Select year" />
+                </SelectTrigger>
+                <SelectContent>
+                  {academicYearOptions.map((year) => (
+                    <SelectItem key={year.value} value={year.value}>{year.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             <div className="flex items-center bg-muted rounded-lg p-1">
               <button
                 className={cn(

@@ -7,7 +7,12 @@ import { useAppStore, type PageName } from '@/lib/store'
 import { AppSidebar, MENUS } from './app-sidebar'
 import { isPageVisible } from '@/lib/permission-mappings'
 import { SCHOOL_THEME_VARIABLE_NAMES, findDashboardFont, getSchoolThemeVariables } from '@/lib/theme-palettes'
+import { api } from '@/lib/api'
+import { useToast } from '@/hooks/use-toast'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,7 +24,7 @@ import {
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { Sun, Moon, Bell, LogOut, User, ChevronRight, PanelLeftClose, PanelLeftOpen, Search, ArrowRight } from 'lucide-react'
+import { Sun, Moon, Bell, LogOut, User, ChevronRight, PanelLeftClose, PanelLeftOpen, Search, ArrowRight, Lock } from 'lucide-react'
 import dynamic from 'next/dynamic'
 import { motion, AnimatePresence } from 'framer-motion'
 
@@ -52,6 +57,7 @@ const ExamsPage = dynamic(() => import('@/features/exams/pages/exams-page').then
 const ExamResultsPage = dynamic(() => import('@/features/exams/pages/exam-results-page').then(mod => ({ default: mod.ExamResultsPage })), { ssr: false, loading: PageLoader })
 const TransportPage = dynamic(() => import('@/features/transport/pages/transport-page').then(mod => ({ default: mod.TransportPage })), { ssr: false, loading: PageLoader })
 const AddTransportRoutePage = dynamic(() => import('@/features/transport/pages/add-transport-route-page').then(mod => ({ default: mod.AddTransportRoutePage })), { ssr: false, loading: PageLoader })
+const AddDriverPage = dynamic(() => import('@/features/transport/pages/add-driver-page').then(mod => ({ default: mod.AddDriverPage })), { ssr: false, loading: PageLoader })
 const LibraryPage = dynamic(() => import('@/features/operations/pages/library-page').then(mod => ({ default: mod.LibraryPage })), { ssr: false, loading: PageLoader })
 const InventoryPage = dynamic(() => import('@/features/operations/pages/inventory-page').then(mod => ({ default: mod.InventoryPage })), { ssr: false, loading: PageLoader })
 const PettyCashPage = dynamic(() => import('@/features/operations/pages/petty-cash-page').then(mod => ({ default: mod.PettyCashPage })), { ssr: false, loading: PageLoader })
@@ -135,7 +141,7 @@ const PAGE_TITLES: Record<PageName, string> = {
   'super-admin-permissions': 'School Permissions',
   'super-admin-roles': 'Roles',
   'school-roles': 'Roles',
-  'school-permissions': 'User Permissions',
+  'school-permissions': 'Role Assignments',
   'school-users': 'School Users',
   'staff': 'Staff List',
   'staff-create': 'Create Staff',
@@ -173,7 +179,7 @@ const PAGE_COMPONENTS: Partial<Record<PageName, React.ComponentType>> = {
   'transport': TransportPage,
   'add-transport-route': AddTransportRoutePage,
   'drivers': TransportPage,
-  'add-driver': TransportPage,
+  'add-driver': AddDriverPage,
   'library': LibraryPage,
   'inventory': InventoryPage,
   'petty-cash': PettyCashPage,
@@ -263,7 +269,6 @@ const SEARCH_ITEMS: { label: string; page: PageName; keywords: string[] }[] = [
   { label: 'School Details', page: 'school-detail', keywords: ['school info', 'school edit', 'school view'] },
   { label: 'School Permissions', page: 'super-admin-permissions', keywords: ['permission', 'module access', 'school access'] },
   { label: 'Roles', page: 'super-admin-roles', keywords: ['role', 'custom role', 'create role', 'role management'] },
-  { label: 'User Permissions', page: 'school-permissions', keywords: ['user permission', 'direct permission', 'permission override', 'grant deny'] },
   { label: 'Support Tickets', page: 'support', keywords: ['help', 'issue', 'complaint'] },
   { label: 'Contact Requests', page: 'contact-requests', keywords: ['contact', 'demo', 'request', 'inquiry', 'lead'] },
   { label: 'Testimonials', page: 'testimonials', keywords: ['testimonial', 'review', 'feedback', 'rating'] },
@@ -476,7 +481,12 @@ function HamburgerIcon({ className }: { className?: string }) {
 export function AppLayout() {
   const { user, currentSchool, logout, sidebarOpen, setSidebarOpen, sidebarCollapsed, toggleSidebarCollapse, currentPage, token } = useAppStore()
   const { theme, setTheme, resolvedTheme } = useTheme()
+  const { toast } = useToast()
   const [unreadCount, setUnreadCount] = useState(0)
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [changingPassword, setChangingPassword] = useState(false)
 
   const initials = user?.name
     ? user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
@@ -543,6 +553,43 @@ export function AppLayout() {
     const interval = setInterval(fetchUnread, 30000)
     return () => clearInterval(interval)
   }, [token])
+
+  const handleRequiredPasswordChange = async () => {
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      toast({ title: 'Missing Details', description: 'Please enter your current password and new password.', variant: 'destructive' })
+      return
+    }
+    if (newPassword.length < 6) {
+      toast({ title: 'Password Too Short', description: 'Your new password must be at least 6 characters long.', variant: 'destructive' })
+      return
+    }
+    if (newPassword !== confirmPassword) {
+      toast({ title: "Passwords Don't Match", description: 'Please enter the same new password twice.', variant: 'destructive' })
+      return
+    }
+
+    try {
+      setChangingPassword(true)
+      await api.post('/api/auth/change-password', { currentPassword, newPassword })
+      const updatedUser = user ? { ...user, mustChangePassword: false } : user
+      useAppStore.setState({ user: updatedUser })
+      if (typeof window !== 'undefined' && updatedUser) {
+        localStorage.setItem('erp_user', JSON.stringify(updatedUser))
+      }
+      setCurrentPassword('')
+      setNewPassword('')
+      setConfirmPassword('')
+      toast({ title: 'Password Changed', description: 'Your new password is active now.' })
+    } catch (err) {
+      toast({
+        title: "Couldn't Change Password",
+        description: err instanceof Error ? err.message : 'Please check the password and try again.',
+        variant: 'destructive',
+      })
+    } finally {
+      setChangingPassword(false)
+    }
+  }
 
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-background font-sans" style={schoolThemeStyle}>
@@ -681,6 +728,61 @@ export function AppLayout() {
           </footer>
         </main>
       </div>
+
+      <Dialog open={!!user?.mustChangePassword}>
+        <DialogContent className="sm:max-w-md [&>button]:hidden">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Lock className="size-4" />
+              Change Password
+            </DialogTitle>
+            <DialogDescription>
+              You logged in with a generated password. Set a new password before continuing.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="required-current-password">Current Password</Label>
+              <Input
+                id="required-current-password"
+                type="password"
+                value={currentPassword}
+                onChange={(event) => setCurrentPassword(event.target.value)}
+                autoComplete="current-password"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="required-new-password">New Password</Label>
+              <Input
+                id="required-new-password"
+                type="password"
+                value={newPassword}
+                onChange={(event) => setNewPassword(event.target.value)}
+                autoComplete="new-password"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="required-confirm-password">Confirm New Password</Label>
+              <Input
+                id="required-confirm-password"
+                type="password"
+                value={confirmPassword}
+                onChange={(event) => setConfirmPassword(event.target.value)}
+                autoComplete="new-password"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              onClick={handleRequiredPasswordChange}
+              disabled={changingPassword}
+              className="w-full sm:w-auto"
+            >
+              {changingPassword ? 'Saving...' : 'Change Password'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

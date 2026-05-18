@@ -124,6 +124,8 @@ const ROLE_BADGE_COLORS: Record<string, string> = {
   SUPER_ADMIN: 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400',
 }
 
+const STAFF_CREATE_EXCLUDED_ROLES = new Set(['School Admin', 'Teacher', 'Student', 'Parent', 'Staff'])
+
 const MODULE_ICONS: Record<string, LucideIcon> = {
   Students: GraduationCap,
   Admissions: ClipboardList,
@@ -595,7 +597,7 @@ export function SchoolUsersPage() {
     setLoadingCreateRoles(true)
     try {
       const res = await api.get<{ roles: AvailableRole[] }>('/api/school/roles')
-      setCreateUserRoles(res.roles || [])
+      setCreateUserRoles((res.roles || []).filter((role) => !STAFF_CREATE_EXCLUDED_ROLES.has(role.name)))
     } catch {
       toast({ title: "Couldn't Load Roles", description: "We couldn't load the available roles. Please try again.", variant: 'destructive' })
     } finally {
@@ -1093,7 +1095,7 @@ export function SchoolUsersPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label>Role <span className="text-destructive">*</span></Label>
+              <Label>Staff Permission Role <span className="text-destructive">*</span></Label>
               {loadingCreateRoles ? (
                 <div className="flex items-center gap-2 h-9 px-3 rounded-md border bg-muted/50">
                   <Skeleton className="h-4 w-24" />
@@ -1104,12 +1106,12 @@ export function SchoolUsersPage() {
                   onValueChange={(value) => setCreateUserForm((prev) => ({ ...prev, roleId: value }))}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select a role..." />
+                    <SelectValue placeholder="Select staff access..." />
                   </SelectTrigger>
                   <SelectContent>
                     {createUserRoles.length === 0 ? (
                       <div className="px-2 py-4 text-center text-sm text-muted-foreground">
-                        No roles available
+                        No staff permission roles available
                       </div>
                     ) : (
                       createUserRoles.map((role) => (

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useAppStore } from '@/lib/store'
 import { api } from '@/lib/api'
+import { getCurrentAcademicYear, toAcademicYearOptions } from '@/lib/academic-years'
 import { useToast } from '@/hooks/use-toast'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -33,12 +34,6 @@ const WIZARD_STEPS = [
   { number: 4, label: 'Accounts Info', icon: Banknote },
   { number: 5, label: 'Documents', icon: FileText },
   { number: 6, label: 'Review & Submit', icon: ShieldCheck },
-]
-
-const ACADEMIC_YEAR_OPTIONS = [
-  { value: '2024-2025', label: '2024-2025' },
-  { value: '2025-2026', label: '2025-2026' },
-  { value: '2026-2027', label: '2026-2027' },
 ]
 
 const GENDER_OPTIONS = [
@@ -201,7 +196,7 @@ interface WizardForm {
 
 const DEFAULT_FORM: WizardForm = {
   profileImage: '',
-  academicYear: '2025-2026',
+  academicYear: getCurrentAcademicYear(),
   registrationNumber: '',
   firstName: '',
   lastName: '',
@@ -346,6 +341,11 @@ export function AdmissionFormPage() {
   const [sections, setSections] = useState<SectionOption[]>([])
   const [transportRoutes, setTransportRoutes] = useState<TransportRouteOption[]>([])
   const [feesGroups, setFeesGroups] = useState<FeesGroupOption[]>([])
+  const [availableAcademicYears, setAvailableAcademicYears] = useState<string[]>([])
+  const academicYearOptions = useMemo(
+    () => toAcademicYearOptions(availableAcademicYears, currentSchool?.academicYear),
+    [availableAcademicYears, currentSchool?.academicYear]
+  )
 
   // Validation state
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
@@ -380,24 +380,37 @@ export function AdmissionFormPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [clsData, secData, transportData, feesGroupData, admNumData] = await Promise.allSettled([
+        const [clsData, secData, transportData, feesGroupData, admNumData, academicYearData] = await Promise.allSettled([
           api.get<{ classes: ClassOption[] }>('/api/school/classes', undefined, { skipLogoutOn401: true }),
           api.get<{ sections: SectionOption[] }>('/api/school/sections', undefined, { skipLogoutOn401: true }),
           api.get<{ routes: TransportRouteOption[] }>('/api/school/transport/routes', undefined, { skipLogoutOn401: true }),
           api.get<{ groups: FeesGroupOption[] }>('/api/school/fees/groups', undefined, { skipLogoutOn401: true }),
           api.get<{ nextAdmissionNumber: string }>('/api/school/admissions/next-number', undefined, { skipLogoutOn401: true }),
+          api.get<{ academicYears: string[] }>('/api/school/academic-years', undefined, { skipLogoutOn401: true }),
         ])
         if (clsData.status === 'fulfilled' && clsData.value?.classes) setClasses(clsData.value.classes)
         if (secData.status === 'fulfilled' && secData.value?.sections) setSections(secData.value.sections)
         if (transportData.status === 'fulfilled' && transportData.value?.routes) setTransportRoutes(transportData.value.routes)
         if (feesGroupData.status === 'fulfilled' && feesGroupData.value?.groups) setFeesGroups(feesGroupData.value.groups)
         if (admNumData.status === 'fulfilled' && admNumData.value?.nextAdmissionNumber) setNextAdmissionNumber(admNumData.value.nextAdmissionNumber)
+        if (academicYearData.status === 'fulfilled' && academicYearData.value?.academicYears) {
+          setAvailableAcademicYears(academicYearData.value.academicYears)
+        }
       } catch {
         // Silently handle - use empty arrays
       }
     }
     fetchData()
   }, [])
+
+  useEffect(() => {
+    if (!academicYearOptions.some((year) => year.value === form.academicYear)) {
+      setForm((prev) => ({
+        ...prev,
+        academicYear: academicYearOptions[0]?.value || currentSchool?.academicYear || getCurrentAcademicYear(),
+      }))
+    }
+  }, [academicYearOptions, currentSchool?.academicYear, form.academicYear])
 
   const filteredSections = useMemo(
     () => form.classId ? sections.filter(s => s.classId === form.classId) : [],
@@ -992,7 +1005,7 @@ export function AdmissionFormPage() {
             <Select value={form.academicYear} onValueChange={v => updateForm('academicYear', v)}>
               <SelectTrigger className={ec('academicYear')}><SelectValue placeholder="Select year" /></SelectTrigger>
               <SelectContent>
-                {ACADEMIC_YEAR_OPTIONS.map(y => <SelectItem key={y.value} value={y.value}>{y.label}</SelectItem>)}
+                {academicYearOptions.map(y => <SelectItem key={y.value} value={y.value}>{y.label}</SelectItem>)}
               </SelectContent>
             </Select>
             <FieldError message={touched.academicYear ? fieldErrors.academicYear : null} />

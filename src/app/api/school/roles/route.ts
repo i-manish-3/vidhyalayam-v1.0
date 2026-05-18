@@ -23,6 +23,7 @@ export async function GET(request: NextRequest) {
       where: {
         schoolId: user.schoolId,
         deletedAt: null,
+        name: { not: 'Staff' },
       },
       include: {
         _count: {
@@ -52,12 +53,19 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST /api/school/roles - Create a new role (SUPER_ADMIN only)
+// POST /api/school/roles - Create a new school role
 export async function POST(request: NextRequest) {
   try {
-    const user = requireRole(request, ['SUPER_ADMIN'])
+    const user = requireRole(request, ['SUPER_ADMIN', 'SCHOOL_ADMIN'])
     if (!user || !user.schoolId) {
       return unauthorizedError()
+    }
+
+    if (user.role !== 'SUPER_ADMIN') {
+      const permCheck = await requirePermission(request, 'role:create')
+      if (!permCheck) {
+        return forbiddenError()
+      }
     }
 
     const body = await request.json()
@@ -68,7 +76,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Block reserved role names
-    const RESERVED_ROLE_NAMES = new Set(['School Admin', 'Staff'])
+    const RESERVED_ROLE_NAMES = new Set(['School Admin', 'Staff', 'Teacher', 'Student', 'Parent'])
     if (RESERVED_ROLE_NAMES.has(name.trim())) {
       return apiError(400, `The name "${name.trim()}" is reserved for system use. Please choose a different name.`)
     }

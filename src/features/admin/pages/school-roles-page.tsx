@@ -71,6 +71,7 @@ import {
   ChevronRight,
   Eye,
   Info,
+  HelpCircle,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -130,6 +131,55 @@ interface SchoolUser {
   isActive: boolean
 }
 
+const PRIMARY_ROLE_COMPATIBILITY: Record<string, string[]> = {
+  'School Admin': ['SCHOOL_ADMIN'],
+  Teacher: ['TEACHER'],
+  Student: ['STUDENT'],
+  Parent: ['PARENT'],
+  Staff: ['STAFF'],
+}
+
+const STAFF_PERMISSION_ROLES = new Set([
+  'Transport',
+  'Accountant',
+  'Sr. Accountant',
+  'Librarian',
+  'Office',
+  'Controller',
+  'Reception',
+  'Security',
+])
+
+function getCompatibleUserRolesForRoleName(roleName?: string | null) {
+  if (!roleName) return []
+  if (PRIMARY_ROLE_COMPATIBILITY[roleName]) return PRIMARY_ROLE_COMPATIBILITY[roleName]
+  if (STAFF_PERMISSION_ROLES.has(roleName)) return ['STAFF']
+  return ['STAFF']
+}
+
+function formatUserRole(role: string) {
+  return role.replaceAll('_', ' ')
+}
+
+const ROLE_INSTRUCTIONS = [
+  {
+    title: '1. School permissions come first',
+    body: 'The Super Admin decides which modules your school can use. If a module is not enabled for the school, it cannot be added to any role.',
+  },
+  {
+    title: '2. Roles group permissions',
+    body: 'Create roles like Transport, Accountant, Reception, or a custom role, then switch permissions on or off for that role only.',
+  },
+  {
+    title: '3. Users inherit from roles',
+    body: 'A user does not get permissions directly. Instead, assign the user to one or more roles and they automatically inherit the role permissions.',
+  },
+  {
+    title: '4. Assign users from the role',
+    body: 'Open the Users tab on a selected role to attach staff, drivers, or other compatible accounts to that role.',
+  },
+]
+
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const PRESET_COLORS = [
@@ -179,28 +229,6 @@ const MODULE_COLORS: Record<string, string> = {
   Subjects: 'text-purple-600 bg-purple-50 dark:bg-purple-950/40',
   Settings: 'text-gray-600 bg-gray-50 dark:bg-gray-950/40',
   'Roles & Permissions': 'text-slate-600 bg-slate-50 dark:bg-slate-950/40',
-}
-
-const MODULE_BORDER_COLORS: Record<string, string> = {
-  Students: 'border-l-emerald-500',
-  Admissions: 'border-l-teal-500',
-  Teachers: 'border-l-violet-500',
-  Parents: 'border-l-pink-500',
-  Attendance: 'border-l-amber-500',
-  Fees: 'border-l-green-500',
-  Salary: 'border-l-orange-500',
-  Timetable: 'border-l-cyan-500',
-  Exams: 'border-l-blue-500',
-  Transport: 'border-l-sky-500',
-  Library: 'border-l-rose-500',
-  Inventory: 'border-l-lime-500',
-  'Petty Cash': 'border-l-yellow-500',
-  Notifications: 'border-l-red-500',
-  Announcements: 'border-l-fuchsia-500',
-  Classes: 'border-l-indigo-500',
-  Subjects: 'border-l-purple-500',
-  Settings: 'border-l-gray-500',
-  'Roles & Permissions': 'border-l-slate-500',
 }
 
 const MODULE_BAR_COLORS: Record<string, string> = {
@@ -254,10 +282,6 @@ function ModuleIcon({ module, className }: { module: string; className?: string 
 
 function getModuleColor(module: string): string {
   return MODULE_COLORS[module] || 'text-gray-600 bg-gray-50 dark:bg-gray-950/40'
-}
-
-function getModuleBorderColor(module: string): string {
-  return MODULE_BORDER_COLORS[module] || 'border-l-gray-500'
 }
 
 function getModuleBarColor(module: string): string {
@@ -332,14 +356,14 @@ function RoleListItemCard({
   return (
     <button
       onClick={onClick}
-      className={`w-full flex items-center gap-3 p-3 rounded-lg text-left transition-all duration-150 ${
+      className={`group w-full flex items-center gap-3 p-3 rounded-lg text-left transition-all duration-150 ${
         isSelected
-          ? 'bg-primary/10 border border-primary/20 shadow-sm'
-          : 'hover:bg-muted/60 border border-transparent'
+          ? 'bg-primary/10 border border-primary/25 shadow-sm'
+          : 'hover:bg-muted/70 border border-transparent'
       }`}
     >
       <div
-        className={`size-9 rounded-md flex items-center justify-center shrink-0 ${
+        className={`size-10 rounded-lg flex items-center justify-center shrink-0 ring-1 ring-inset ${
           isSelected ? 'bg-primary/20' : 'bg-muted'
         }`}
         style={role.color && !isSelected ? { backgroundColor: `${role.color}20` } : undefined}
@@ -350,21 +374,35 @@ function RoleListItemCard({
         />
       </div>
       <div className="flex-1 min-w-0">
-        <p className={`text-sm font-medium truncate ${isSelected ? 'text-primary' : ''}`}>
-          {role.name}
-        </p>
+        <div className="flex items-center gap-2">
+          <p className={`text-sm font-semibold truncate ${isSelected ? 'text-primary' : ''}`}>
+            {role.name}
+          </p>
+          {role.isSystem && (
+            <Badge variant="secondary" className="h-5 px-1.5 text-[10px] shrink-0">
+              System
+            </Badge>
+          )}
+        </div>
         <div className="flex items-center gap-2 mt-0.5">
           <span className="text-[11px] text-muted-foreground flex items-center gap-1">
             <ShieldCheck className="size-3" />
-            {role.permissionCount}
+            {role.permissionCount} perms
           </span>
           <span className="text-muted-foreground/40">·</span>
           <span className="text-[11px] text-muted-foreground flex items-center gap-1">
             <Users className="size-3" />
-            {role.userCount}
+            {role.userCount} users
           </span>
         </div>
       </div>
+      <ChevronRight
+        className={`size-4 shrink-0 transition-transform ${
+          isSelected
+            ? 'translate-x-0 text-primary'
+            : 'text-muted-foreground/40 group-hover:translate-x-0.5 group-hover:text-muted-foreground'
+        }`}
+      />
     </button>
   )
 }
@@ -385,7 +423,6 @@ function ModulePermissionsCard({
   readOnly?: boolean
 }) {
   const colorClass = useMemo(() => getModuleColor(moduleName), [moduleName])
-  const borderColorClass = useMemo(() => getModuleBorderColor(moduleName), [moduleName])
   const barColorClass = useMemo(() => getModuleBarColor(moduleName), [moduleName])
   const barBgClass = useMemo(() => getModuleBarBg(moduleName), [moduleName])
 
@@ -408,48 +445,52 @@ function ModulePermissionsCard({
   }
 
   return (
-    <Card className={`overflow-hidden border-l-4 ${borderColorClass} transition-shadow hover:shadow-md`}>
-      <CardHeader className="pb-2 pt-4 px-4">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 min-w-0">
-            <div className={`size-7 rounded-md flex items-center justify-center shrink-0 ${colorClass}`}>
+    <Card className="overflow-hidden border bg-card shadow-sm transition-all hover:border-primary/30 hover:shadow-md">
+      <CardHeader className="pb-3 pt-4 px-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex min-w-0 items-start gap-3">
+            <div className={`flex size-9 shrink-0 items-center justify-center rounded-md ${colorClass}`}>
               <ModuleIcon module={moduleName} className="size-3.5" />
             </div>
-            <CardTitle className="text-sm font-semibold truncate">{moduleName}</CardTitle>
+            <div className="min-w-0">
+              <CardTitle className="truncate text-sm font-semibold leading-5">{moduleName}</CardTitle>
+              <p className="mt-0.5 text-[11px] text-muted-foreground">
+                {grantedCount} of {totalCount} granted
+              </p>
+            </div>
           </div>
           <Badge
             variant={allGranted ? 'default' : noneGranted ? 'secondary' : 'outline'}
-            className="text-[10px] px-2 shrink-0"
+            className="h-5 shrink-0 px-2 text-[10px]"
           >
             {allGranted ? 'All' : noneGranted ? 'None' : `${grantedCount}/${totalCount}`}
           </Badge>
         </div>
-        <div className={`h-1.5 rounded-full mt-2 ${barBgClass}`}>
+        <div className={`mt-3 h-1.5 rounded-full ${barBgClass}`}>
           <div
             className={`h-full rounded-full transition-all duration-300 ${barColorClass}`}
             style={{ width: `${progressPercent}%` }}
           />
         </div>
-        <p className="text-[11px] text-muted-foreground mt-1">
-          {grantedCount} of {totalCount} granted
-        </p>
       </CardHeader>
-      <CardContent className="px-4 pb-3 pt-0">
-        <div className="space-y-0.5">
+      <CardContent className="px-4 pb-4 pt-0">
+        <div className="space-y-1">
           {permissions.map((perm) => {
             const isGranted = grantedIds.has(perm.id)
             return (
               <div
                 key={perm.id}
-                className={`flex items-center justify-between py-1 px-2 rounded-md transition-colors ${
-                  isGranted ? 'bg-emerald-50/60 dark:bg-emerald-950/20' : 'hover:bg-muted/40'
+                className={`flex items-center justify-between rounded-md border px-2.5 py-2 transition-colors ${
+                  isGranted
+                    ? 'border-emerald-200/70 bg-emerald-50/60 dark:border-emerald-900/40 dark:bg-emerald-950/20'
+                    : 'border-transparent bg-muted/20 hover:border-border hover:bg-muted/40'
                 }`}
               >
-                <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                  <span className={`text-xs truncate ${isGranted ? 'text-foreground' : 'text-muted-foreground'}`}>
+                <div className="flex min-w-0 flex-1 items-center gap-1.5">
+                  <span className={`truncate text-xs ${isGranted ? 'text-foreground' : 'text-muted-foreground'}`}>
                     {perm.name}
                   </span>
-                  <Badge variant="outline" className="text-[9px] px-1 py-0 h-3.5 leading-none shrink-0">
+                  <Badge variant="outline" className="h-3.5 shrink-0 px-1 py-0 text-[9px] leading-none">
                     {perm.action}
                   </Badge>
                 </div>
@@ -464,26 +505,26 @@ function ModulePermissionsCard({
           })}
         </div>
         <>
-          <Separator className="my-2" />
-          <div className="flex items-center gap-1.5">
+        <Separator className="my-2" />
+          <div className="grid grid-cols-2 gap-2">
             <Button
               variant="outline"
               size="sm"
-              className="h-6 text-[10px] px-2 flex-1"
+              className="h-8 px-2 text-xs"
               onClick={handleSelectAll}
               disabled={allGranted || readOnly}
             >
-              <CheckCircle2 className="size-2.5 mr-0.5" />
+              <CheckCircle2 className="mr-1 size-3" />
               All
             </Button>
             <Button
               variant="outline"
               size="sm"
-              className="h-6 text-[10px] px-2 flex-1"
+              className="h-8 px-2 text-xs"
               onClick={handleDeselectAll}
               disabled={noneGranted || readOnly}
             >
-              <XCircle className="size-2.5 mr-0.5" />
+              <XCircle className="mr-1 size-3" />
               None
             </Button>
           </div>
@@ -544,6 +585,7 @@ export function SchoolRolesPage() {
 
   // Add User confirmation dialog state
   const [showConfirmAddDialog, setShowConfirmAddDialog] = useState(false)
+  const [showInstructionsDialog, setShowInstructionsDialog] = useState(false)
 
   // ── Fetch roles ──
   const fetchRoles = useCallback(async () => {
@@ -826,7 +868,14 @@ export function SchoolRolesPage() {
   // Filter users for the "Add User" dialog: exclude already assigned
   const availableUsers = useMemo(() => {
     const assignedIds = new Set((roleDetail?.users || []).map((u) => u.id))
-    return schoolUsers.filter((u) => !assignedIds.has(u.id))
+    const compatibleUserRoles = getCompatibleUserRolesForRoleName(roleDetail?.name)
+    return schoolUsers.filter((u) => !assignedIds.has(u.id) && compatibleUserRoles.includes(u.role))
+  }, [schoolUsers, roleDetail])
+
+  const incompatibleAvailableUserCount = useMemo(() => {
+    const assignedIds = new Set((roleDetail?.users || []).map((u) => u.id))
+    const compatibleUserRoles = getCompatibleUserRolesForRoleName(roleDetail?.name)
+    return schoolUsers.filter((u) => !assignedIds.has(u.id) && !compatibleUserRoles.includes(u.role)).length
   }, [schoolUsers, roleDetail])
 
   const filteredAvailableUsers = useMemo(() => {
@@ -864,32 +913,60 @@ export function SchoolRolesPage() {
     [roleDetail?.name, user?.role]
   )
 
-  // Only SUPER_ADMIN can create, edit, and delete roles
+  // School Admin can create roles and manage permissions within the school's grant.
   const isSuperAdmin = user?.role === 'SUPER_ADMIN'
+  const canCreateRole = user?.role === 'SUPER_ADMIN' || user?.role === 'SCHOOL_ADMIN'
 
   // ── Render ──
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Roles & Permissions</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            {isSuperAdmin
-              ? 'Manage roles, permissions, and user assignments — users inherit permissions exclusively through roles'
-              : 'Manage role permissions and assign users — users inherit permissions exclusively through roles'
-            }
-          </p>
+      <div className="rounded-lg border bg-card px-4 py-3 shadow-sm">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary/10">
+              <ShieldCheck className="size-4 text-primary" />
+            </div>
+            <div className="min-w-0">
+              <h1 className="text-xl font-semibold tracking-tight">Roles & Permissions</h1>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Manage role access, permission inheritance, and user assignments.
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              onClick={() => setShowInstructionsDialog(true)}
+            >
+              <HelpCircle className="size-4" />
+              Instructions
+            </Button>
+            {selectedRoleId && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2"
+                onClick={() => setActiveTab('users')}
+              >
+                <Users className="size-4" />
+                Assign Users
+              </Button>
+            )}
+            {canCreateRole && (
+              <Button
+                onClick={() => setShowCreateDialog(true)}
+                className="gap-2 shrink-0"
+                size="sm"
+              >
+                <Plus className="size-4" />
+                Create Role
+              </Button>
+            )}
+          </div>
         </div>
-        {isSuperAdmin && (
-          <Button
-            onClick={() => setShowCreateDialog(true)}
-            className="gap-2 shrink-0"
-          >
-            <Plus className="size-4" />
-            Create Role
-          </Button>
-        )}
       </div>
 
       {/* Two-panel layout */}
@@ -922,8 +999,18 @@ export function SchoolRolesPage() {
                 <div className="flex flex-col items-center justify-center py-10 text-center px-4">
                   <ShieldCheck className="size-8 text-muted-foreground/40 mb-2" />
                   <p className="text-sm text-muted-foreground">
-                    {roleSearch ? 'No roles match your search' : isSuperAdmin ? 'No roles yet — create your first role to grant permissions to users' : 'No roles available'}
+                    {roleSearch ? 'No roles match your search' : canCreateRole ? 'No roles yet. Create your first role to grant permissions to users.' : 'No roles available'}
                   </p>
+                  {!roleSearch && canCreateRole && (
+                    <Button
+                      size="sm"
+                      className="mt-3 gap-2"
+                      onClick={() => setShowCreateDialog(true)}
+                    >
+                      <Plus className="size-4" />
+                      Create Role
+                    </Button>
+                  )}
                 </div>
               ) : (
                 <ScrollArea className="h-[calc(100vh-320px)] min-h-[300px]">
@@ -961,23 +1048,22 @@ export function SchoolRolesPage() {
             <div className="space-y-4">
               {/* Role info card */}
               <Card>
-                <CardContent className="py-4">
-                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="flex items-center gap-3">
+                <CardContent className="px-4 py-3">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex min-w-0 items-center gap-3">
                       <div
-                        className="size-10 rounded-md flex items-center justify-center shrink-0"
+                        className="size-8 rounded-md flex items-center justify-center shrink-0"
                         style={{ backgroundColor: `${roleDetail.color || '#6b7280'}20` }}
                       >
-                        <ShieldCheck className="size-5" style={{ color: roleDetail.color || '#6b7280' }} />
+                        <ShieldCheck className="size-4" style={{ color: roleDetail.color || '#6b7280' }} />
                       </div>
-                      <div>
-                        <h2 className="text-base font-semibold">{roleDetail.name}</h2>
-                        <div className="flex items-center gap-3 mt-0.5">
+                      <div className="min-w-0">
+                        <h2 className="truncate text-sm font-semibold">{roleDetail.name}</h2>
+                        <div className="mt-0.5 flex flex-wrap items-center gap-2">
                           <span className="text-xs text-muted-foreground flex items-center gap-1">
                             <ShieldCheck className="size-3" />
                             {roleDetail.permissions.length} of {totalSchoolPerms} permissions
                           </span>
-                          <span className="text-muted-foreground/40">·</span>
                           <span className="text-xs text-muted-foreground flex items-center gap-1">
                             <Users className="size-3" />
                             {roleDetail.users.length} user{roleDetail.users.length !== 1 ? 's' : ''}
@@ -990,7 +1076,7 @@ export function SchoolRolesPage() {
                         <Button
                           variant="destructive"
                           size="sm"
-                          className="gap-1.5 h-8 text-xs"
+                          className="h-8 gap-1.5 text-xs"
                           onClick={() => setShowDeleteDialog(true)}
                           disabled={roleDetail.users.length > 0}
                         >
@@ -1001,10 +1087,10 @@ export function SchoolRolesPage() {
                       <Button
                         onClick={handleSave}
                         disabled={!hasChanges || saving || isSchoolAdminRoleProtected}
-                        className="gap-2 shrink-0"
+                        className="h-8 shrink-0 gap-1.5 text-xs"
                         size="sm"
                       >
-                        <Save className="size-4" />
+                        <Save className="size-3.5" />
                         {saving ? 'Saving...' : 'Save Changes'}
                       </Button>
                     </div>
@@ -1121,7 +1207,39 @@ export function SchoolRolesPage() {
                       These permissions are automatically inherited by all {roleDetail.users.length} user{roleDetail.users.length !== 1 ? 's' : ''} assigned to this role
                     </span>
                   </div>
-                  <ScrollArea className="h-[calc(100vh-640px)] min-h-[200px]">
+                  <div className="mb-3 flex flex-col gap-2 rounded-lg border bg-card px-3 py-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-sm font-medium">Permission Matrix</p>
+                      <p className="text-xs text-muted-foreground">
+                        {grantedPermissionIds.size} selected from {totalSchoolPerms} available permissions
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 text-xs"
+                        disabled={isSchoolAdminRoleProtected}
+                        onClick={() =>
+                          setGrantedPermissionIds(
+                            new Set(Object.values(schoolPermissions).flat().map((permission) => permission.id))
+                          )
+                        }
+                      >
+                        Select All
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 text-xs"
+                        disabled={isSchoolAdminRoleProtected}
+                        onClick={() => setGrantedPermissionIds(new Set())}
+                      >
+                        Clear
+                      </Button>
+                    </div>
+                  </div>
+                  <ScrollArea className="h-[calc(100vh-500px)] min-h-[420px]">
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pr-1 pb-2">
                       {moduleNames.map((moduleName) => (
                         <ModulePermissionsCard
@@ -1277,14 +1395,14 @@ export function SchoolRolesPage() {
                                             .map(([moduleName, perms]) => (
                                               <div
                                                 key={moduleName}
-                                                className={`rounded-md border-l-4 ${getModuleBorderColor(moduleName)} bg-muted/30 pl-3 py-1.5 pr-2`}
+                                                className="rounded-md border bg-card px-3 py-2 shadow-sm"
                                               >
-                                                <div className="flex items-center gap-1.5 mb-1">
-                                                  <div className={`size-4 rounded flex items-center justify-center ${getModuleColor(moduleName)}`}>
+                                                <div className="flex items-center gap-2 mb-2">
+                                                  <div className={`size-5 rounded-md flex items-center justify-center ${getModuleColor(moduleName)}`}>
                                                     <ModuleIcon module={moduleName} className="size-2.5" />
                                                   </div>
                                                   <span className="text-xs font-semibold">{moduleName}</span>
-                                                  <Badge variant="secondary" className="text-[8px] px-1 py-0 h-3 leading-none ml-auto">
+                                                  <Badge variant="secondary" className="ml-auto h-3.5 px-1 py-0 text-[8px] leading-none">
                                                     {perms.length}
                                                   </Badge>
                                                 </div>
@@ -1292,7 +1410,7 @@ export function SchoolRolesPage() {
                                                   {perms.map((perm) => (
                                                     <span
                                                       key={perm.id}
-                                                      className="inline-flex items-center text-[10px] px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-800/40"
+                                                      className="inline-flex items-center rounded-md border bg-muted/40 px-1.5 py-0.5 text-[10px] text-muted-foreground"
                                                     >
                                                       {perm.action}
                                                     </span>
@@ -1318,6 +1436,66 @@ export function SchoolRolesPage() {
           ) : null}
         </div>
       </div>
+
+      {/* Instructions Dialog */}
+      <Dialog open={showInstructionsDialog} onOpenChange={setShowInstructionsDialog}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <HelpCircle className="size-5" />
+              Roles & Permissions Instructions
+            </DialogTitle>
+            <DialogDescription>
+              Use this flow to decide what each staff member can access.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="rounded-lg border bg-muted/30 p-4">
+              <div className="flex items-start gap-3">
+                <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+                  <ShieldCheck className="size-4" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold">How access is decided</p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Permissions are not assigned directly to users. Users receive access from the roles assigned to them.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              {ROLE_INSTRUCTIONS.map((item) => (
+                <div key={item.title} className="rounded-lg border bg-card p-4 shadow-sm">
+                  <p className="text-sm font-semibold">{item.title}</p>
+                  <p className="mt-1 text-xs leading-5 text-muted-foreground">{item.body}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="rounded-lg border bg-card p-4">
+              <p className="text-sm font-semibold">Recommended workflow</p>
+              <div className="mt-3 grid gap-2 text-xs text-muted-foreground sm:grid-cols-3">
+                <div className="rounded-md bg-muted/40 px-3 py-2">
+                  <span className="font-medium text-foreground">Create role</span>
+                  <p className="mt-1">Add a role for the job type.</p>
+                </div>
+                <div className="rounded-md bg-muted/40 px-3 py-2">
+                  <span className="font-medium text-foreground">Enable permissions</span>
+                  <p className="mt-1">Turn on only the modules they need.</p>
+                </div>
+                <div className="rounded-md bg-muted/40 px-3 py-2">
+                  <span className="font-medium text-foreground">Assign users</span>
+                  <p className="mt-1">Attach staff accounts to that role.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setShowInstructionsDialog(false)}>Got it</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Create Role Dialog */}
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
@@ -1409,6 +1587,14 @@ export function SchoolRolesPage() {
                 className="pl-8 h-9"
               />
             </div>
+            {roleDetail && (
+              <div className="rounded-md border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+                Only {getCompatibleUserRolesForRoleName(roleDetail.name).map(formatUserRole).join(', ')} users can be assigned to this role.
+                {incompatibleAvailableUserCount > 0 && (
+                  <span> {incompatibleAvailableUserCount} incompatible user{incompatibleAvailableUserCount !== 1 ? 's are' : ' is'} hidden.</span>
+                )}
+              </div>
+            )}
             {selectedUserIds.size > 0 && (
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-xs text-muted-foreground">{selectedUserIds.size} selected:</span>
@@ -1555,14 +1741,14 @@ export function SchoolRolesPage() {
                     .map(([moduleName, perms]) => (
                       <div
                         key={moduleName}
-                        className={`rounded-md border-l-4 ${getModuleBorderColor(moduleName)} bg-muted/30 pl-3 py-1.5 pr-2`}
+                        className="rounded-md border bg-card px-3 py-2 shadow-sm"
                       >
-                        <div className="flex items-center gap-1.5 mb-1">
-                          <div className={`size-4 rounded flex items-center justify-center ${getModuleColor(moduleName)}`}>
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className={`size-5 rounded-md flex items-center justify-center ${getModuleColor(moduleName)}`}>
                             <ModuleIcon module={moduleName} className="size-2.5" />
                           </div>
                           <span className="text-xs font-semibold">{moduleName}</span>
-                          <Badge variant="secondary" className="text-[8px] px-1 py-0 h-3 leading-none ml-auto">
+                          <Badge variant="secondary" className="ml-auto h-3.5 px-1 py-0 text-[8px] leading-none">
                             {perms.length}
                           </Badge>
                         </div>
@@ -1570,7 +1756,7 @@ export function SchoolRolesPage() {
                           {perms.map((perm) => (
                             <span
                               key={perm.id}
-                              className="inline-flex items-center text-[10px] px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-800/40"
+                              className="inline-flex items-center rounded-md border bg-muted/40 px-1.5 py-0.5 text-[10px] text-muted-foreground"
                             >
                               {perm.action}
                             </span>

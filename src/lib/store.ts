@@ -24,6 +24,7 @@ export interface User {
   schoolId?: string
   phone?: string
   avatar?: string
+  mustChangePassword?: boolean
 }
 
 export interface School {

@@ -1,8 +1,10 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { PageHeader, EmptyState, LoadingState } from '@/components/shared'
 import { api } from '@/lib/api'
+import { useAppStore } from '@/lib/store'
+import { getCurrentAcademicYear, toAcademicYearOptions } from '@/lib/academic-years'
 import { useToast } from '@/hooks/use-toast'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -130,13 +132,19 @@ function getInstallmentPeriods(frequency: FeeFrequency): string[] {
 
 export function FeesStructuresPage() {
   const { toast } = useToast()
+  const currentSchoolAcademicYear = useAppStore((s) => s.currentSchool?.academicYear)
 
   // Data
   const [structures, setStructures] = useState<FeeStructure[]>([])
   const [feeGroups, setFeeGroups] = useState<FeeGroup[]>([])
   const [classes, setClasses] = useState<ClassOption[]>([])
   const [sections, setSections] = useState<SectionOption[]>([])
+  const [availableAcademicYears, setAvailableAcademicYears] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
+  const academicYearOptions = useMemo(
+    () => toAcademicYearOptions(availableAcademicYears, currentSchoolAcademicYear),
+    [availableAcademicYears, currentSchoolAcademicYear]
+  )
 
   // Expanded cards
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
@@ -149,7 +157,7 @@ export function FeesStructuresPage() {
     feeGroupId: '',
     classId: '',
     sectionId: '',
-    academicYear: new Date().getFullYear().toString(),
+    academicYear: currentSchoolAcademicYear || getCurrentAcademicYear(),
   })
   // Installment rows for the add dialog
   const [installmentRows, setInstallmentRows] = useState<{
@@ -165,16 +173,18 @@ export function FeesStructuresPage() {
   // Fetch data
   const fetchData = useCallback(async () => {
     try {
-      const [structRes, groupsRes, clsRes, secRes] = await Promise.all([
+      const [structRes, groupsRes, clsRes, secRes, academicYearRes] = await Promise.all([
         api.get<{ structures: FeeStructure[] }>('/api/school/fees/structures'),
         api.get<{ groups: FeeGroup[] }>('/api/school/fees/groups'),
         api.get<{ classes: ClassOption[] }>('/api/school/classes'),
         api.get<{ sections: SectionOption[] }>('/api/school/sections'),
+        api.get<{ academicYears: string[] }>('/api/school/academic-years'),
       ])
       setStructures(structRes.structures || [])
       setFeeGroups(groupsRes.groups || [])
       setClasses(clsRes.classes || [])
       setSections(secRes.sections || [])
+      setAvailableAcademicYears(academicYearRes.academicYears || [])
     } catch {
       toast({ title: 'Couldn\'t Load Fee Structures', description: 'We couldn\'t load the fee structures. Please refresh the page.', variant: 'destructive' })
     } finally {
@@ -185,6 +195,15 @@ export function FeesStructuresPage() {
   useEffect(() => {
     fetchData()
   }, [fetchData])
+
+  useEffect(() => {
+    if (!academicYearOptions.some((year) => year.value === form.academicYear)) {
+      setForm((current) => ({
+        ...current,
+        academicYear: academicYearOptions[0]?.value || currentSchoolAcademicYear || getCurrentAcademicYear(),
+      }))
+    }
+  }, [academicYearOptions, currentSchoolAcademicYear, form.academicYear])
 
   // Filtered sections
   const filteredSections = form.classId ? sections.filter((s) => s.classId === form.classId) : []
@@ -279,7 +298,7 @@ export function FeesStructuresPage() {
       })
       toast({ title: 'Success', description: 'Fee structure created successfully' })
       setShowAdd(false)
-      setForm({ name: '', feeGroupId: '', classId: '', sectionId: '', academicYear: new Date().getFullYear().toString() })
+      setForm({ name: '', feeGroupId: '', classId: '', sectionId: '', academicYear: academicYearOptions[0]?.value || currentSchoolAcademicYear || getCurrentAcademicYear() })
       setInstallmentRows([])
       fetchData()
     } catch (err) {
@@ -460,11 +479,16 @@ export function FeesStructuresPage() {
               </div>
               <div className="space-y-2">
                 <Label>Academic Year</Label>
-                <Input
-                  value={form.academicYear}
-                  onChange={(e) => setForm((f) => ({ ...f, academicYear: e.target.value }))}
-                  placeholder="e.g., 2025"
-                />
+                <Select value={form.academicYear} onValueChange={(value) => setForm((f) => ({ ...f, academicYear: value }))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select academic year" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {academicYearOptions.map((year) => (
+                      <SelectItem key={year.value} value={year.value}>{year.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
             <div className="grid gap-4 sm:grid-cols-3">

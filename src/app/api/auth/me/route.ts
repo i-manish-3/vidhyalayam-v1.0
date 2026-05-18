@@ -45,6 +45,7 @@ export async function GET(request: NextRequest) {
       role: dbUser.role,
       phone: dbUser.phone,
       avatar: dbUser.avatar,
+      mustChangePassword: dbUser.mustChangePassword,
       schoolId: dbUser.schoolId,
       isActive: dbUser.isActive,
       lastLoginAt: dbUser.lastLoginAt,

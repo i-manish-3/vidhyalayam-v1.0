@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { requireRole } from '@/lib/api-auth'
 import { unauthorizedError, notFoundError, internalError, apiError } from '@/lib/api-errors'
+import { syncSchoolAdminRoleWithSchoolPermissions } from '@/lib/rbac'
 
 // GET /api/super-admin/schools/[id]/permissions - Get permissions assigned to a specific school
 export async function GET(
@@ -62,13 +63,10 @@ export async function PUT(
 
     const { id } = await params
     const body = await request.json()
-    const { permissionIds, grantedBy } = body
+    const { permissionIds } = body
 
     if (!Array.isArray(permissionIds)) {
       return apiError(400, 'Please provide a valid list of permissions to assign.')
-    }
-    if (!grantedBy) {
-      return apiError(400, 'Please specify who is granting these permissions.')
     }
 
     const school = await db.school.findUnique({ where: { id } })
@@ -102,10 +100,19 @@ export async function PUT(
           data: permissionIds.map((permissionId: string) => ({
             schoolId: id,
             permissionId,
-            grantedBy,
+            grantedBy: user.userId,
           })),
         })
       }
+
+      await tx.rolePermission.deleteMany({
+        where: {
+          role: { schoolId: id },
+          permissionId: { notIn: permissionIds },
+        },
+      })
+
+      await syncSchoolAdminRoleWithSchoolPermissions(id, tx)
     })
 
     // Fetch the updated permissions for the response

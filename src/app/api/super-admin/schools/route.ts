@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 import { requireRole } from '@/lib/api-auth'
 import { hashPassword } from '@/lib/auth'
 import { unauthorizedError, internalError, apiError } from '@/lib/api-errors'
+import { assignUserToRoleByName, provisionDefaultRolesForSchool } from '@/lib/rbac'
 
 // GET /api/super-admin/schools - List all schools with stats
 export async function GET(request: NextRequest) {
@@ -148,6 +149,7 @@ export async function POST(request: NextRequest) {
 
     // Determine initial status
     const initialStatus = body.status || 'trial'
+    const initialAcademicYear = academicYear || '2025-2026'
 
     // ========================================
     // Create school with full provisioning
@@ -164,7 +166,7 @@ export async function POST(request: NextRequest) {
         contactPhone,
         contactEmail,
         website,
-        academicYear: academicYear || '2025-2026',
+        academicYear: initialAcademicYear,
         board: board || 'CBSE',
         status: initialStatus,
         trialEndsAt: initialStatus === 'trial' ? new Date(Date.now() + 14 * 24 * 60 * 60 * 1000) : null,
@@ -182,7 +184,14 @@ export async function POST(request: NextRequest) {
         // Create default admission settings
         admissionSetting: {
           create: {
-            academicYear: academicYear || '2025-2026',
+            academicYear: initialAcademicYear,
+          },
+        },
+        academicYears: {
+          create: {
+            name: initialAcademicYear,
+            isCurrent: true,
+            isActive: true,
           },
         },
       },
@@ -224,32 +233,12 @@ export async function POST(request: NextRequest) {
     }
 
     // ========================================
-    // 2. Create predefined roles for the school
+    // 2. Create predefined roles and assign school admin role
     // ========================================
-    const PREDEFINED_ROLES = [
-      { name: 'Accountant', description: 'Manages fee collections and financial records', color: '#10b981' },
-      { name: 'Sr. Accountant', description: 'Senior accounting staff with broader financial access', color: '#059669' },
-      { name: 'Librarian', description: 'Manages library books and book issues', color: '#8b5cf6' },
-      { name: 'Office', description: 'General office staff handling administrative tasks', color: '#6366f1' },
-      { name: 'Controller', description: 'Oversees operations and administrative control', color: '#ec4899' },
-      { name: 'Reception', description: 'Front desk and visitor management', color: '#f59e0b' },
-      { name: 'Transport', description: 'Manages transport routes and vehicle operations', color: '#06b6d4' },
-      { name: 'Security', description: 'Campus security and access control', color: '#ef4444' },
-      { name: 'Teacher', description: 'Teaching staff with class and attendance management', color: '#0ea5e9' },
-      { name: 'Student', description: 'Students with access to their own academic info', color: '#14b8a6' },
-      { name: 'Parent', description: 'Parents with access to their children\'s information', color: '#f97316' },
-    ]
-
-    const createdRoles = await db.role.createMany({
-      data: PREDEFINED_ROLES.map((r) => ({
-        schoolId,
-        name: r.name,
-        description: r.description,
-        color: r.color,
-        isSystem: true,
-        isActive: true,
-      })),
-      skipDuplicates: true,
+    const createdRoles = await db.$transaction(async (tx) => {
+      const roles = await provisionDefaultRolesForSchool(schoolId, tx)
+      await assignUserToRoleByName(adminUser.id, schoolId, 'School Admin', authUser.userId, tx)
+      return roles
     })
 
     return NextResponse.json(
@@ -268,7 +257,7 @@ export async function POST(request: NextRequest) {
         },
         provisioning: {
           permissionsGranted: grantedPermissions.length,
-          rolesCreated: createdRoles.count,
+          rolesCreated: createdRoles.length,
           admissionSettingsCreated: true,
         },
       },

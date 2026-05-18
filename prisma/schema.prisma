@@ -16,19 +16,22 @@ datasource db {
 // ============================================
 
 model User {
-  id          String    @id @default(cuid())
-  email       String    @unique
-  password    String
-  name        String
-  phone       String?
-  avatar      String?
-  role        String // SUPER_ADMIN, SCHOOL_ADMIN, TEACHER, STUDENT, PARENT
-  schoolId    String?
-  isActive    Boolean   @default(true)
-  lastLoginAt DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  deletedAt   DateTime?
+  id                   String    @id @default(cuid())
+  email                String    @unique
+  password             String
+  name                 String
+  phone                String?
+  avatar               String?
+  dob                  DateTime?
+  drivingLicenseNumber String?
+  mustChangePassword   Boolean   @default(false)
+  role                 String // SUPER_ADMIN, SCHOOL_ADMIN, TEACHER, STUDENT, PARENT
+  schoolId             String?
+  isActive             Boolean   @default(true)
+  lastLoginAt          DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  deletedAt            DateTime?
 
   school           School?          @relation(fields: [schoolId], references: [id])
   userRoles        UserRole[]
@@ -100,6 +103,7 @@ model School {
   supportTickets    SupportTicket[]
   admissions        Admission[]
   admissionSetting  AdmissionSetting?
+  academicYears     AcademicYear[]
   schoolPermissions SchoolPermission[]
   roles             Role[]
 
@@ -110,6 +114,26 @@ model School {
 // ============================================
 // ACADEMIC STRUCTURE
 // ============================================
+
+model AcademicYear {
+  id        String    @id @default(cuid())
+  schoolId  String
+  name      String
+  startDate DateTime?
+  endDate   DateTime?
+  isCurrent Boolean   @default(false)
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  school School @relation(fields: [schoolId], references: [id])
+
+  @@unique([schoolId, name])
+  @@index([schoolId])
+  @@index([isCurrent])
+  @@index([isActive])
+}
 
 model Class {
   id        String    @id @default(cuid())
@@ -690,18 +714,19 @@ model FeeCollection {
 // ============================================
 
 model Attendance {
-  id          String    @id @default(cuid())
-  schoolId    String
-  studentId   String
-  date        DateTime
-  status      String // present, absent, leave, late, half_day
-  remarks     String?
-  markedBy    String?
-  finalized   Boolean   @default(false)
-  finalizedAt DateTime?
-  finalizedBy String?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id           String    @id @default(cuid())
+  schoolId     String
+  studentId    String
+  academicYear String    @default("2025-2026")
+  date         DateTime
+  status       String // present, absent, leave, late, half_day
+  remarks      String?
+  markedBy     String?
+  finalized    Boolean   @default(false)
+  finalizedAt  DateTime?
+  finalizedBy  String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   school       School  @relation(fields: [schoolId], references: [id])
   student      Student @relation(fields: [studentId], references: [id])
@@ -710,6 +735,7 @@ model Attendance {
   @@unique([schoolId, studentId, date])
   @@index([schoolId])
   @@index([studentId])
+  @@index([academicYear])
   @@index([date])
 }
 
@@ -718,28 +744,30 @@ model Attendance {
 // ============================================
 
 model Timetable {
-  id        String    @id @default(cuid())
-  schoolId  String
-  classId   String
-  sectionId String
-  subjectId String
-  teacherId String
-  day       String // Monday-Saturday
-  period    Int // 1-8
-  startTime String?
-  endTime   String?
-  roomNo    String?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime?
+  id           String    @id @default(cuid())
+  schoolId     String
+  academicYear String    @default("2025-2026")
+  classId      String
+  sectionId    String
+  subjectId    String
+  teacherId    String
+  day          String // Monday-Saturday
+  period       Int // 1-8
+  startTime    String?
+  endTime      String?
+  roomNo       String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
 
   school  School  @relation(fields: [schoolId], references: [id])
   section Section @relation(fields: [sectionId], references: [id])
   subject Subject @relation(fields: [subjectId], references: [id])
   teacher Teacher @relation(fields: [teacherId], references: [id])
 
-  @@unique([schoolId, sectionId, day, period])
+  @@unique([schoolId, academicYear, sectionId, day, period])
   @@index([schoolId])
+  @@index([academicYear])
   @@index([sectionId])
   @@index([teacherId, day, period])
 }
@@ -911,6 +939,8 @@ model TransportRoute {
   schoolId      String
   routeName     String
   routeNumber   String?
+  academicYear  String    @default("2025-2026")
+  feeMonths     String    @default("[]")
   startPoint    String?
   endPoint      String?
   stops         String? // JSON array of stops
@@ -932,20 +962,22 @@ model TransportRoute {
 }
 
 model TransportAllocation {
-  id          String   @id @default(cuid())
-  schoolId    String
-  studentId   String
-  routeId     String
-  pickupPoint String?
-  dropPoint   String?
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id           String   @id @default(cuid())
+  schoolId     String
+  studentId    String
+  routeId      String
+  academicYear String   @default("2025-2026")
+  pickupPoint  String?
+  dropPoint    String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   route TransportRoute @relation(fields: [routeId], references: [id])
 
   @@index([schoolId])
   @@index([studentId])
+  @@index([academicYear])
 }
 
 // ============================================

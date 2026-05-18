@@ -15,6 +15,7 @@ import {
   IndianRupee,
   Megaphone,
   PlusCircle,
+  ShieldCheck,
   TrendingUp,
   Users,
 } from 'lucide-react'
@@ -210,6 +211,7 @@ export function SchoolAdminDashboard() {
     { label: 'New Admission', page: 'admission-form', icon: PlusCircle, description: 'Register a student' },
     { label: 'Mark Attendance', page: 'mark-attendance', icon: CalendarCheck, description: 'Daily attendance' },
     { label: 'Collect Fees', page: 'fee-collections', icon: IndianRupee, description: 'Record payment' },
+    { label: 'Roles', page: 'school-roles', icon: ShieldCheck, description: 'Manage access' },
     { label: 'Announcement', page: 'announcements', icon: Bell, description: 'Share update' },
   ]
 

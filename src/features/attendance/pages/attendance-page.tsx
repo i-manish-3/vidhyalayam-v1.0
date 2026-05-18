@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { EmptyState, LoadingState } from '@/components/shared'
 import { api } from '@/lib/api'
 import { useAppStore } from '@/lib/store'
+import { getCurrentAcademicYear, toAcademicYearOptions } from '@/lib/academic-years'
 import { useToast } from '@/hooks/use-toast'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -153,8 +154,11 @@ function getInitials(firstName: string, lastName: string): string {
 export function AttendancePage() {
   const { toast } = useToast()
   const goBack = useAppStore((s) => s.goBack)
+  const currentSchoolAcademicYear = useAppStore((s) => s.currentSchool?.academicYear)
 
   // Filter state
+  const [academicYear, setAcademicYear] = useState(currentSchoolAcademicYear || getCurrentAcademicYear())
+  const [availableAcademicYears, setAvailableAcademicYears] = useState<string[]>([])
   const [date, setDate] = useState(getTodayString())
   const [classId, setClassId] = useState('')
   const [sectionId, setSectionId] = useState('')
@@ -169,6 +173,10 @@ export function AttendancePage() {
   // Reference data
   const [classes, setClasses] = useState<ClassOption[]>([])
   const [sections, setSections] = useState<SectionOption[]>([])
+  const academicYearOptions = useMemo(
+    () => toAcademicYearOptions(availableAcademicYears, currentSchoolAcademicYear),
+    [availableAcademicYears, currentSchoolAcademicYear]
+  )
 
   // Derived: does the selected class have no sections?
   const classHasNoSections = classId ? sections.filter((s) => s.classId === classId).length === 0 : false
@@ -187,12 +195,14 @@ export function AttendancePage() {
   useEffect(() => {
     const init = async () => {
       try {
-        const [clsRes, secRes] = await Promise.all([
+        const [clsRes, secRes, academicYearRes] = await Promise.all([
           api.get<{ classes: ClassOption[] }>('/api/school/classes'),
           api.get<{ sections: SectionOption[] }>('/api/school/sections'),
+          api.get<{ academicYears: string[] }>('/api/school/academic-years'),
         ])
         setClasses(clsRes.classes || [])
         setSections(secRes.sections || [])
+        setAvailableAcademicYears(academicYearRes.academicYears || [])
       } catch {
         toast({ title: 'Error', description: 'Failed to load classes. Please refresh.', variant: 'destructive' })
       } finally {
@@ -201,6 +211,12 @@ export function AttendancePage() {
     }
     init()
   }, [toast])
+
+  useEffect(() => {
+    if (!academicYearOptions.some((year) => year.value === academicYear)) {
+      setAcademicYear(academicYearOptions[0]?.value || currentSchoolAcademicYear || getCurrentAcademicYear())
+    }
+  }, [academicYear, academicYearOptions, currentSchoolAcademicYear])
 
   const filteredSections = classId ? sections.filter((s) => s.classId === classId) : []
 
@@ -223,8 +239,8 @@ export function AttendancePage() {
     setIsFinalized(false)
 
     try {
-      const studentParams: Record<string, string> = { classId, limit: '500' }
-      const attendanceParams: Record<string, string> = { classId, date }
+      const studentParams: Record<string, string> = { classId, limit: '500', academicYear }
+      const attendanceParams: Record<string, string> = { classId, date, academicYear }
       if (effectiveSectionId) {
         studentParams.sectionId = effectiveSectionId
         attendanceParams.sectionId = effectiveSectionId
@@ -244,8 +260,10 @@ export function AttendancePage() {
       const statusMap = new Map<string, AttendanceStatus>()
       const remMap = new Map<string, string>()
       existing.forEach((a) => {
-        let status: AttendanceStatus = a.status as AttendanceStatus
-        if (status === 'late' || status === 'half_day') status = 'leave'
+        const rawStatus = a.status as string
+        let status: AttendanceStatus = rawStatus === 'late' || rawStatus === 'half_day'
+          ? 'leave'
+          : a.status as AttendanceStatus
         statusMap.set(a.studentId, status)
         if (a.remarks) remMap.set(a.studentId, a.remarks)
       })
@@ -256,7 +274,7 @@ export function AttendancePage() {
     } finally {
       setLoading(false)
     }
-  }, [classId, effectiveSectionId, date, classHasNoSections, toast])
+  }, [academicYear, classId, effectiveSectionId, date, classHasNoSections, toast])
 
   useEffect(() => {
     if (classId && date && (effectiveSectionId || classHasNoSections)) fetchAttendanceData()
@@ -303,7 +321,7 @@ export function AttendancePage() {
     }))
 
     try {
-      await api.post('/api/school/attendance', { date, records })
+      await api.post('/api/school/attendance', { date, academicYear, records })
       const allStudentsMarked = records.every((r) => attendanceMap.has(r.studentId))
       toast({
         title: 'Attendance Saved',
@@ -324,7 +342,7 @@ export function AttendancePage() {
     if (!classHasNoSections && !sectionId) return
     setFinalizing(true)
     try {
-      const payload: Record<string, string> = { date, classId, action: 'finalize' }
+      const payload: Record<string, string> = { date, classId, academicYear, action: 'finalize' }
       if (effectiveSectionId) payload.sectionId = effectiveSectionId
       await api.patch('/api/school/attendance', payload)
       toast({
@@ -480,6 +498,22 @@ export function AttendancePage() {
       <Card className="shadow-sm">
         <CardContent className="px-3 py-2">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+            <div className="flex items-center gap-1.5">
+              <Label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap">Year</Label>
+              <Select value={academicYear} onValueChange={setAcademicYear}>
+                <SelectTrigger className="h-7 w-[135px] text-xs">
+                  <SelectValue placeholder="Select year" />
+                </SelectTrigger>
+                <SelectContent>
+                  {academicYearOptions.map((year) => (
+                    <SelectItem key={year.value} value={year.value}>{year.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <Separator orientation="vertical" className="hidden lg:block h-5" />
+
             {/* Date navigation */}
             <div className="flex items-center gap-1">
               <Button variant="outline" size="icon" className="size-7 shrink-0" onClick={() => setDate(navigateDate(date, -1))}>
