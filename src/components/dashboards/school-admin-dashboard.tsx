@@ -262,9 +262,9 @@ export function SchoolAdminDashboard() {
                 key={action.label}
                 type="button"
                 onClick={() => setCurrentPage(action.page)}
-                className="inline-flex h-9 items-center gap-2 rounded-full border bg-background px-3 text-xs font-semibold text-foreground shadow-sm transition-all hover:border-primary/50 hover:bg-primary/5 hover:text-primary"
+                className="inline-flex h-9 items-center gap-2 rounded-full border border-transparent bg-[var(--button-primary,var(--primary))] px-3 text-xs font-semibold text-[var(--button-primary-foreground,var(--primary-foreground))] shadow-sm transition-all hover:bg-[var(--button-primary-hover,var(--primary))]"
               >
-                <action.icon className="size-3.5 text-primary" />
+                <action.icon className="size-3.5" />
                 <span>{action.label}</span>
               </button>
             ))}

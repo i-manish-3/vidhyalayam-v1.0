@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { cacheSchoolBranding } from '@/lib/branding'
 
 export type PageName = 
   | 'dashboard'
@@ -29,9 +30,15 @@ export interface School {
   id: string
   name: string
   logo?: string
+  favicon?: string
   address?: string
   city?: string
   state?: string
+  pincode?: string
+  country?: string
+  contactPhone?: string
+  contactEmail?: string
+  website?: string
   subdomain: string
   status: string
   primaryColor?: string
@@ -175,8 +182,13 @@ export const useAppStore = create<AppStore>((set) => ({
   // School
   currentSchool: null,
   setCurrentSchool: (school) => {
+    cacheSchoolBranding(school)
     if (typeof window !== 'undefined') {
-      localStorage.setItem('erp_currentSchool', JSON.stringify(school))
+      try {
+        localStorage.setItem('erp_currentSchool', JSON.stringify(school))
+      } catch {
+        // Keep the live app branding updated even if a large logo/favicon exceeds storage quota.
+      }
     }
     set({ currentSchool: school })
   },

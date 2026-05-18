@@ -18,6 +18,7 @@ export async function GET(req: NextRequest) {
       id: true,
       name: true,
       logo: true,
+      favicon: true,
       subdomain: true,
       status: true,
       primaryColor: true,
@@ -49,22 +50,37 @@ export async function PATCH(req: NextRequest) {
     }
 
     const body = await req.json()
+    const name = typeof body.name === 'string' ? body.name.trim() : undefined
+    const logo = typeof body.logo === 'string' ? body.logo.trim() : undefined
+    const favicon = typeof body.favicon === 'string' ? body.favicon.trim() : undefined
     const primaryColor = typeof body.primaryColor === 'string' ? body.primaryColor.trim() : undefined
     const dashboardFont = typeof body.dashboardFont === 'string' ? body.dashboardFont.trim() : undefined
 
+    if (name !== undefined && !name) {
+      return apiError(400, 'Please enter a school name.')
+    }
+    if (logo !== undefined && logo && !/^data:image\/(png|jpeg|jpg|webp|gif);base64,[A-Za-z0-9+/=]+$/.test(logo)) {
+      return apiError(400, 'Please upload a valid school logo image.')
+    }
+    if (favicon !== undefined && favicon && !/^data:image\/(png|jpeg|jpg|webp|gif|x-icon|vnd\.microsoft\.icon);base64,[A-Za-z0-9+/=]+$/.test(favicon)) {
+      return apiError(400, 'Please upload a valid favicon image.')
+    }
     if (primaryColor !== undefined && !/^#[0-9a-fA-F]{6}$/.test(primaryColor)) {
       return apiError(400, 'Please select a valid theme color.')
     }
     if (dashboardFont !== undefined && !['system', 'segoe', 'arial', 'verdana', 'trebuchet', 'georgia'].includes(dashboardFont)) {
       return apiError(400, 'Please select a valid dashboard font.')
     }
-    if (primaryColor === undefined && dashboardFont === undefined) {
-      return apiError(400, 'Please select a color palette or dashboard font.')
+    if (name === undefined && logo === undefined && favicon === undefined && primaryColor === undefined && dashboardFont === undefined) {
+      return apiError(400, 'Please provide at least one branding update.')
     }
 
     const school = await db.school.update({
       where: { id: user.schoolId },
       data: {
+        ...(name !== undefined ? { name } : {}),
+        ...(logo !== undefined ? { logo: logo || null } : {}),
+        ...(favicon !== undefined ? { favicon: favicon || null } : {}),
         ...(primaryColor !== undefined ? { primaryColor } : {}),
         ...(dashboardFont !== undefined ? { dashboardFont } : {}),
       },
@@ -72,6 +88,7 @@ export async function PATCH(req: NextRequest) {
         id: true,
         name: true,
         logo: true,
+        favicon: true,
         subdomain: true,
         status: true,
         primaryColor: true,
@@ -81,6 +98,11 @@ export async function PATCH(req: NextRequest) {
         address: true,
         city: true,
         state: true,
+        pincode: true,
+        country: true,
+        contactPhone: true,
+        contactEmail: true,
+        website: true,
       },
     })
 

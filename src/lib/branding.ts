@@ -1,0 +1,104 @@
+import type { School } from '@/lib/store'
+
+const DEFAULT_TITLE = 'My Digital Academy - School Management System'
+const DEFAULT_ICON = '/icon.svg'
+const BRANDING_STORAGE_KEY = 'erp_schoolBranding'
+const ICON_SELECTOR = "link[rel~='icon'], link[rel='shortcut icon'], link[rel='apple-touch-icon']"
+
+type SchoolBranding = Pick<School, 'name' | 'favicon' | 'logo'>
+
+let managedIconUrl: string | null = null
+
+export function getSchoolBrowserTitle(school?: Pick<School, 'name'> | null) {
+  return school?.name ? `${school.name} Dashboard` : DEFAULT_TITLE
+}
+
+export function getSchoolBrowserIcon(school?: Pick<School, 'favicon' | 'logo'> | null) {
+  return school?.favicon || school?.logo || DEFAULT_ICON
+}
+
+function getImageMimeType(source: string) {
+  const match = source.match(/^data:(image\/[^;,]+)[;,]/)
+  return match?.[1] || undefined
+}
+
+function getFreshIconHref(source: string) {
+  if (managedIconUrl) {
+    URL.revokeObjectURL(managedIconUrl)
+    managedIconUrl = null
+  }
+
+  if (!source.startsWith('data:image/')) {
+    return source.includes('?') ? `${source}&v=${Date.now()}` : `${source}?v=${Date.now()}`
+  }
+
+  try {
+    const [meta, data] = source.split(',', 2)
+    const mime = getImageMimeType(source) || 'image/png'
+    const isBase64 = meta.includes(';base64')
+    const binary = isBase64 ? atob(data) : decodeURIComponent(data)
+    const bytes = new Uint8Array(binary.length)
+    for (let index = 0; index < binary.length; index += 1) {
+      bytes[index] = binary.charCodeAt(index)
+    }
+    managedIconUrl = URL.createObjectURL(new Blob([bytes], { type: mime }))
+    return managedIconUrl
+  } catch {
+    return source
+  }
+}
+
+function upsertIconLink(rel: string, source: string, href: string) {
+  let icon = document.querySelector<HTMLLinkElement>(`link[data-school-branding='favicon'][rel='${rel}']`)
+  if (!icon) {
+    icon = document.createElement('link')
+    icon.rel = rel
+    icon.setAttribute('data-school-branding', 'favicon')
+    document.head.appendChild(icon)
+  }
+
+  const type = getImageMimeType(source)
+  if (type) icon.type = type
+  else icon.removeAttribute('type')
+  icon.sizes = 'any'
+  icon.setAttribute('data-school-icon-source', source)
+  icon.href = href
+}
+
+export function cacheSchoolBranding(school?: SchoolBranding | null) {
+  if (typeof window === 'undefined' || !school?.name) return
+
+  const branding: SchoolBranding = {
+    name: school.name,
+    favicon: school.favicon || undefined,
+    logo: school.logo || undefined,
+  }
+
+  try {
+    localStorage.setItem(BRANDING_STORAGE_KEY, JSON.stringify(branding))
+  } catch {
+    try {
+      sessionStorage.setItem(BRANDING_STORAGE_KEY, JSON.stringify(branding))
+    } catch {
+      // Branding still updates in the current tab even if storage is full.
+    }
+  }
+}
+
+export function applySchoolBranding(school?: SchoolBranding | null) {
+  if (typeof document === 'undefined') return
+
+  document.title = getSchoolBrowserTitle(school)
+
+  document.querySelectorAll<HTMLLinkElement>(ICON_SELECTOR).forEach((icon) => {
+    if (icon.getAttribute('data-school-branding') !== 'favicon') {
+      icon.remove()
+    }
+  })
+
+  const iconSource = getSchoolBrowserIcon(school)
+  const iconHref = getFreshIconHref(iconSource)
+  upsertIconLink('icon', iconSource, iconHref)
+  upsertIconLink('shortcut icon', iconSource, iconHref)
+  cacheSchoolBranding(school)
+}

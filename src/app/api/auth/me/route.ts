@@ -18,6 +18,7 @@ export async function GET(request: NextRequest) {
             id: true,
             name: true,
             logo: true,
+            favicon: true,
             status: true,
             subdomain: true,
             primaryColor: true,

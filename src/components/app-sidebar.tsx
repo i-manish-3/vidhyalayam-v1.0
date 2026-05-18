@@ -339,13 +339,22 @@ function filterChildren(children: MenuChild[], permissions: string[], role: stri
 }
 
 export function AppSidebar() {
-  const { user, currentPage, setCurrentPage, sidebarOpen, setSidebarOpen, sidebarCollapsed, permissions } = useAppStore()
+  const { user, currentSchool, currentPage, setCurrentPage, sidebarOpen, setSidebarOpen, sidebarCollapsed, permissions } = useAppStore()
   const [menuStack, setMenuStack] = useState<Array<{ label: string; items: SidebarMenuEntry[] }>>([])
   const [menuPanelPos, setMenuPanelPos] = useState({ top: 0, left: 0 })
   const [flyoutMenu, setFlyoutMenu] = useState<string | null>(null)
   const [flyoutPos, setFlyoutPos] = useState({ top: 0, left: 0 })
   const flyoutTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const role = user?.role || 'SCHOOL_ADMIN' as const
+  const schoolDisplayName = role === 'SUPER_ADMIN'
+    ? 'My Digital Academy'
+    : currentSchool?.name || 'My Digital Academy'
+  const schoolSubLabel = role === 'SUPER_ADMIN'
+    ? 'Platform Admin'
+    : currentSchool?.subdomain
+    ? `${currentSchool.subdomain} dashboard`
+    : 'School Management'
+  const schoolLogo = role === 'SUPER_ADMIN' ? undefined : currentSchool?.logo
 
   const menus = useMemo(() => {
     const roleMenus = MENUS[role] || MENUS.SCHOOL_ADMIN
@@ -469,15 +478,19 @@ export function AppSidebar() {
             'shrink-0 flex items-center border-b border-sidebar-border h-14 transition-[padding,gap] duration-300 ease-in-out',
             isCollapsed ? 'justify-center px-2' : 'gap-2.5 px-4'
           )}>
-            <div className="flex size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground shrink-0">
-              <GraduationCap className="size-4" />
+            <div className="flex size-8 items-center justify-center overflow-hidden rounded-lg bg-sidebar-primary text-sidebar-primary-foreground shrink-0">
+              {schoolLogo ? (
+                <img src={schoolLogo} alt={`${schoolDisplayName} logo`} className="size-full object-cover" />
+              ) : (
+                <GraduationCap className="size-4" />
+              )}
             </div>
             <div className={cn(
               'flex flex-col min-w-0 transition-[opacity,max-width] duration-300 ease-in-out',
               isCollapsed ? 'opacity-0 max-w-0' : 'opacity-100 max-w-[200px]'
             )}>
-              <span className="text-sm font-bold text-sidebar-foreground truncate">My Digital Academy</span>
-              <span className="text-[10px] text-sidebar-foreground/60 truncate">School Management</span>
+              <span className="text-sm font-bold text-sidebar-foreground truncate">{schoolDisplayName}</span>
+              <span className="text-[10px] text-sidebar-foreground/60 truncate">{schoolSubLabel}</span>
             </div>
             <Button
               variant="ghost"
@@ -599,21 +612,25 @@ export function AppSidebar() {
           <div className={cn('shrink-0 border-t border-sidebar-border transition-[padding] duration-300 ease-in-out', isCollapsed ? 'p-2' : 'p-3')}>
             {!isCollapsed ? (
               <div className="rounded-lg bg-sidebar-accent/50 p-3">
-                <p className="text-xs font-medium text-sidebar-foreground/80">My Digital Academy v1.0</p>
-                <p className="text-[10px] text-sidebar-foreground/50 mt-1">School Management</p>
+                <p className="truncate text-xs font-medium text-sidebar-foreground/80">{schoolDisplayName}</p>
+                <p className="mt-1 truncate text-[10px] text-sidebar-foreground/50">{schoolSubLabel}</p>
               </div>
             ) : (
               <TooltipProvider delayDuration={0}>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <div className="flex justify-center py-2">
-                      <div className="size-7 rounded-md bg-sidebar-accent/50 flex items-center justify-center">
-                        <span className="text-[10px] font-bold text-sidebar-foreground/60">v1</span>
+                      <div className="size-7 overflow-hidden rounded-md bg-sidebar-accent/50 flex items-center justify-center">
+                        {schoolLogo ? (
+                          <img src={schoolLogo} alt={`${schoolDisplayName} logo`} className="size-full object-cover" />
+                        ) : (
+                          <GraduationCap className="size-3.5 text-sidebar-foreground/60" />
+                        )}
                       </div>
                     </div>
                   </TooltipTrigger>
                   <TooltipContent side="right" sideOffset={8}>
-                    My Digital Academy v1.0
+                    {schoolDisplayName}
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>

@@ -152,13 +152,13 @@ export function StudentDashboard() {
             </CardHeader>
             <CardContent className="space-y-2">
               <Button variant="outline" className="w-full justify-start gap-3 h-11" onClick={() => setCurrentPage('my-attendance')}>
-                <ClipboardList className="size-4 text-primary" /> My Attendance
+                <ClipboardList className="size-4 text-[var(--button-primary,var(--primary))]" /> My Attendance
               </Button>
               <Button variant="outline" className="w-full justify-start gap-3 h-11" onClick={() => setCurrentPage('exam-results')}>
-                <Award className="size-4 text-primary" /> Exam Results
+                <Award className="size-4 text-[var(--button-primary,var(--primary))]" /> Exam Results
               </Button>
               <Button variant="outline" className="w-full justify-start gap-3 h-11" onClick={() => setCurrentPage('timetable')}>
-                <Clock className="size-4 text-primary" /> View Timetable
+                <Clock className="size-4 text-[var(--button-primary,var(--primary))]" /> View Timetable
               </Button>
             </CardContent>
           </Card>

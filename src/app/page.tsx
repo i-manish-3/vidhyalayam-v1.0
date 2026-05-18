@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import { ThemeProvider } from 'next-themes'
 import { useAppStore } from '@/lib/store'
+import { BrandHeadManager } from '@/components/brand-head-manager'
 
 // Dynamic imports with ssr: false to avoid hydration mismatches from framer-motion animations
 const AppLayout = dynamic(
@@ -157,6 +158,7 @@ function AppContent() {
 export default function Home() {
   return (
     <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
+      <BrandHeadManager />
       <AppContent />
     </ThemeProvider>
   )

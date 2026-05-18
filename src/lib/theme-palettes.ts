@@ -61,6 +61,16 @@ export const DEFAULT_DASHBOARD_FONT = DASHBOARD_FONT_OPTIONS[0]
 
 export const SCHOOL_THEME_PALETTES: ThemePalette[] = [
   {
+    id: 'white',
+    name: 'White',
+    primary: '#ffffff',
+    foreground: '#0f172a',
+    ring: '#94a3b8',
+    sidebarAccent: '#f1f5f9',
+    sidebarBorder: '#e2e8f0',
+    chart: ['#0f172a', '#64748b', '#94a3b8', '#cbd5e1', '#e2e8f0'],
+  },
+  {
     id: 'emerald',
     name: 'Emerald',
     primary: '#10b981',
@@ -221,6 +231,9 @@ export const SCHOOL_THEME_VARIABLE_NAMES = [
   '--chart-3',
   '--chart-4',
   '--chart-5',
+  '--button-primary',
+  '--button-primary-foreground',
+  '--button-primary-hover',
 ] as const
 
 export function findSchoolThemePalette(primaryColor?: string | null) {
@@ -242,6 +255,11 @@ export function getSchoolThemeVariables(primaryColor?: string | null, isDarkThem
   if (isDarkTheme) return undefined
 
   const palette = findSchoolThemePalette(primaryColor)
+  const isWhitePalette = palette.primary.toLowerCase() === '#ffffff'
+  const buttonPrimary = isWhitePalette ? '#0f172a' : palette.primary
+  const buttonPrimaryForeground = isWhitePalette ? '#ffffff' : palette.foreground
+  const buttonPrimaryHover = isWhitePalette ? '#1e293b' : palette.sidebarAccent
+
   return {
     '--primary': palette.primary,
     '--primary-foreground': palette.foreground,
@@ -259,6 +277,9 @@ export function getSchoolThemeVariables(primaryColor?: string | null, isDarkThem
     '--chart-3': palette.chart[2],
     '--chart-4': palette.chart[3],
     '--chart-5': palette.chart[4],
+    '--button-primary': buttonPrimary,
+    '--button-primary-foreground': buttonPrimaryForeground,
+    '--button-primary-hover': buttonPrimaryHover,
   } as CSSProperties
 }
 

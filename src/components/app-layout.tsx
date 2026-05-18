@@ -474,7 +474,7 @@ function HamburgerIcon({ className }: { className?: string }) {
 }
 
 export function AppLayout() {
-  const { user, currentSchool, setCurrentSchool, logout, sidebarOpen, setSidebarOpen, sidebarCollapsed, toggleSidebarCollapse, currentPage, token } = useAppStore()
+  const { user, currentSchool, logout, sidebarOpen, setSidebarOpen, sidebarCollapsed, toggleSidebarCollapse, currentPage, token } = useAppStore()
   const { theme, setTheme, resolvedTheme } = useTheme()
   const [unreadCount, setUnreadCount] = useState(0)
 
@@ -521,27 +521,6 @@ export function AppLayout() {
       document.documentElement.style.removeProperty('--font-sans')
     }
   }, [dashboardFont.stack])
-
-  useEffect(() => {
-    if (!token || currentSchool || user?.role === 'SUPER_ADMIN') return
-
-    const fetchProfile = async () => {
-      try {
-        const res = await fetch('/api/auth/me', {
-          headers: { Authorization: `Bearer ${token}` },
-        })
-        if (!res.ok) return
-        const profile = await res.json()
-        if (profile.school) {
-          setCurrentSchool(profile.school)
-        }
-      } catch {
-        // Keep the app usable if the profile refresh fails.
-      }
-    }
-
-    fetchProfile()
-  }, [currentSchool, setCurrentSchool, token, user?.role])
 
   // Fetch unread notification count
   useEffect(() => {

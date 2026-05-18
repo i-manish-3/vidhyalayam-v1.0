@@ -47,6 +47,7 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  ArrowLeft,
   ShieldOff,
   ShieldCheck,
   Loader2,
@@ -257,6 +258,7 @@ export function StudentsPage() {
   const { toast } = useToast()
   const setCurrentPage = useAppStore((s) => s.setCurrentPage)
   const navigateTo = useAppStore((s) => s.navigateTo)
+  const goBack = useAppStore((s) => s.goBack)
   const setSelectedStudentId = useAppStore((s) => s.setSelectedStudentId)
 
   // Data states
@@ -503,9 +505,14 @@ export function StudentsPage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Students</h1>
-          <p className="text-sm text-muted-foreground mt-1">Manage all students</p>
+        <div className="flex items-start gap-3">
+          <Button variant="outline" size="icon" onClick={() => goBack('dashboard')} className="mt-0.5 size-9 shrink-0">
+            <ArrowLeft className="size-4" />
+          </Button>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Students</h1>
+            <p className="text-sm text-muted-foreground mt-1">Manage all students</p>
+          </div>
         </div>
         <Button onClick={() => navigateTo('admission-form')} className="gap-2 shrink-0">
           <GraduationCap className="size-4" /> Admit Student

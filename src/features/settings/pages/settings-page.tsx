@@ -1,8 +1,8 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
-import { Check, Loader2, Palette, Save, School, Type } from 'lucide-react'
+import { Check, ImagePlus, Loader2, Palette, Save, School, Type, X } from 'lucide-react'
 import { api } from '@/lib/api'
 import { useAppStore, type School as SchoolInfo } from '@/lib/store'
 import { DASHBOARD_FONT_OPTIONS, SCHOOL_THEME_PALETTES, findDashboardFont, findSchoolThemePalette } from '@/lib/theme-palettes'
@@ -11,17 +11,41 @@ import { useToast } from '@/hooks/use-toast'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 
 export function SettingsPage() {
   const { toast } = useToast()
   const { currentSchool, setCurrentSchool, user } = useAppStore()
+  const logoInputRef = useRef<HTMLInputElement>(null)
+  const faviconInputRef = useRef<HTMLInputElement>(null)
   const currentPalette = useMemo(
     () => findSchoolThemePalette(currentSchool?.primaryColor),
     [currentSchool?.primaryColor]
   )
+  const [schoolName, setSchoolName] = useState(currentSchool?.name || '')
+  const [schoolLogo, setSchoolLogo] = useState(currentSchool?.logo || '')
+  const [schoolFavicon, setSchoolFavicon] = useState(currentSchool?.favicon || '')
   const [selectedColor, setSelectedColor] = useState(currentPalette.primary)
   const [selectedFont, setSelectedFont] = useState(findDashboardFont(currentSchool?.dashboardFont).id)
   const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    if (!currentSchool || saving) return
+
+    setSchoolName(currentSchool.name || '')
+    setSchoolLogo(currentSchool.logo || '')
+    setSchoolFavicon(currentSchool.favicon || '')
+    setSelectedColor(findSchoolThemePalette(currentSchool.primaryColor).primary)
+    setSelectedFont(findDashboardFont(currentSchool.dashboardFont).id)
+  }, [
+    currentSchool?.dashboardFont,
+    currentSchool?.favicon,
+    currentSchool?.logo,
+    currentSchool?.name,
+    currentSchool?.primaryColor,
+    saving,
+  ])
 
   const selectedPalette = useMemo(
     () => findSchoolThemePalette(selectedColor),
@@ -32,21 +56,78 @@ export function SettingsPage() {
     [selectedFont]
   )
   const hasChanges =
+    schoolName.trim() !== (currentSchool?.name || '') ||
+    schoolLogo !== (currentSchool?.logo || '') ||
+    schoolFavicon !== (currentSchool?.favicon || '') ||
     selectedColor.toLowerCase() !== (currentSchool?.primaryColor || currentPalette.primary).toLowerCase() ||
     selectedFont !== findDashboardFont(currentSchool?.dashboardFont).id
 
+  const readImageFile = (
+    file: File | undefined,
+    {
+      title,
+      maxSize,
+      onLoad,
+    }: {
+      title: string
+      maxSize: number
+      onLoad: (value: string) => void
+    }
+  ) => {
+    if (!file) return
+
+    const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/x-icon', 'image/vnd.microsoft.icon']
+    if (!validTypes.includes(file.type)) {
+      toast({
+        title: `Invalid ${title} Format`,
+        description: 'Please upload a JPG, PNG, WebP, GIF, or ICO image.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    if (file.size > maxSize) {
+      toast({
+        title: `${title} Too Large`,
+        description: `The ${title.toLowerCase()} must be smaller than ${Math.round(maxSize / 1024 / 1024)}MB.`,
+        variant: 'destructive',
+      })
+      return
+    }
+
+    const reader = new FileReader()
+    reader.onload = (event) => onLoad((event.target?.result as string) || '')
+    reader.readAsDataURL(file)
+  }
+
   const saveTheme = async () => {
+    const trimmedName = schoolName.trim()
+    if (!trimmedName) {
+      toast({
+        title: 'School Name Required',
+        description: 'Please enter the school name shown in the menu bar.',
+        variant: 'destructive',
+      })
+      return
+    }
+
     setSaving(true)
     try {
       const res = await api.patch<{ school: SchoolInfo }>('/api/school/info', {
+        name: trimmedName,
+        logo: schoolLogo,
+        favicon: schoolFavicon,
         primaryColor: selectedColor,
         dashboardFont: selectedFont,
       })
       setCurrentSchool(res.school)
-      toast({ title: 'Theme Updated', description: 'School dashboard theme has been applied.' })
+      setSchoolName(res.school.name)
+      setSchoolLogo(res.school.logo || '')
+      setSchoolFavicon(res.school.favicon || '')
+      toast({ title: 'Branding Updated', description: 'School name, logo, favicon, and dashboard theme have been applied.' })
     } catch (err) {
       toast({
-        title: "Couldn't Update Theme",
+        title: "Couldn't Update Branding",
         description: err instanceof Error ? err.message : 'Please try again.',
         variant: 'destructive',
       })
@@ -76,9 +157,158 @@ export function SettingsPage() {
         </div>
         <Button onClick={saveTheme} disabled={!hasChanges || saving}>
           {saving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
-          Save Theme
+          Save Branding
         </Button>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <School className="size-5 text-primary" />
+            School Identity
+          </CardTitle>
+          <CardDescription>
+            School name, logo, favicon, and browser title are used across school branding surfaces.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-5 lg:grid-cols-[1fr_280px]">
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="school-name">School Name</Label>
+              <Input
+                id="school-name"
+                value={schoolName}
+                onChange={(event) => setSchoolName(event.target.value)}
+                placeholder="Enter school name"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>School Logo</Label>
+              <input
+                ref={logoInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                className="hidden"
+                onChange={(event) => readImageFile(event.target.files?.[0], {
+                  title: 'Logo',
+                  maxSize: 2 * 1024 * 1024,
+                  onLoad: setSchoolLogo,
+                })}
+              />
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex size-16 items-center justify-center overflow-hidden rounded-lg border bg-muted">
+                  {schoolLogo ? (
+                    <img src={schoolLogo} alt="School logo preview" className="size-full object-cover" />
+                  ) : (
+                    <School className="size-7 text-muted-foreground" />
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button type="button" variant="outline" onClick={() => logoInputRef.current?.click()}>
+                    <ImagePlus className="size-4" />
+                    {schoolLogo ? 'Change Logo' : 'Upload Logo'}
+                  </Button>
+                  {schoolLogo && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="text-destructive hover:text-destructive"
+                      onClick={() => {
+                        setSchoolLogo('')
+                        if (logoInputRef.current) logoInputRef.current.value = ''
+                      }}
+                    >
+                      <X className="size-4" />
+                      Remove
+                    </Button>
+                  )}
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">Use a square JPG, PNG, WebP, GIF, or ICO image. Max 2MB.</p>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Browser Favicon</Label>
+              <input
+                ref={faviconInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif,image/x-icon,image/vnd.microsoft.icon"
+                className="hidden"
+                onChange={(event) => readImageFile(event.target.files?.[0], {
+                  title: 'Favicon',
+                  maxSize: 512 * 1024,
+                  onLoad: setSchoolFavicon,
+                })}
+              />
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex size-12 items-center justify-center overflow-hidden rounded-md border bg-muted">
+                  {schoolFavicon ? (
+                    <img src={schoolFavicon} alt="School favicon preview" className="size-full object-cover" />
+                  ) : schoolLogo ? (
+                    <img src={schoolLogo} alt="School logo fallback preview" className="size-full object-cover" />
+                  ) : (
+                    <School className="size-5 text-muted-foreground" />
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button type="button" variant="outline" onClick={() => faviconInputRef.current?.click()}>
+                    <ImagePlus className="size-4" />
+                    {schoolFavicon ? 'Change Favicon' : 'Upload Favicon'}
+                  </Button>
+                  {schoolFavicon && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="text-destructive hover:text-destructive"
+                      onClick={() => {
+                        setSchoolFavicon('')
+                        if (faviconInputRef.current) faviconInputRef.current.value = ''
+                      }}
+                    >
+                      <X className="size-4" />
+                      Remove
+                    </Button>
+                  )}
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">Use a small square PNG, ICO, WebP, JPG, or GIF image. Max 512KB.</p>
+            </div>
+          </div>
+
+          <div className="rounded-lg border bg-card p-4">
+            <p className="mb-3 text-xs font-medium uppercase text-muted-foreground">Menu Preview</p>
+            <div className="flex items-center gap-2.5 rounded-lg border bg-sidebar p-3 text-sidebar-foreground">
+              <div className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+                {schoolLogo ? (
+                  <img src={schoolLogo} alt="" className="size-full object-cover" />
+                ) : (
+                  <School className="size-4" />
+                )}
+              </div>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-bold">{schoolName.trim() || 'School Name'}</p>
+                <p className="truncate text-[10px] text-sidebar-foreground/60">{currentSchool?.subdomain || 'school'} dashboard</p>
+              </div>
+            </div>
+            <div className="mt-4 border-t pt-4">
+              <p className="mb-2 text-xs font-medium uppercase text-muted-foreground">Browser Preview</p>
+              <div className="flex items-center gap-2 rounded-md border bg-background px-3 py-2">
+                <div className="flex size-5 shrink-0 items-center justify-center overflow-hidden rounded-sm bg-muted">
+                  {schoolFavicon ? (
+                    <img src={schoolFavicon} alt="" className="size-full object-cover" />
+                  ) : schoolLogo ? (
+                    <img src={schoolLogo} alt="" className="size-full object-cover" />
+                  ) : (
+                    <School className="size-3 text-muted-foreground" />
+                  )}
+                </div>
+                <span className="truncate text-xs font-medium">{schoolName.trim() || 'School Name'} Dashboard</span>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

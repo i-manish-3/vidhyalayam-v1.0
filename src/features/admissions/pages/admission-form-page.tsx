@@ -13,7 +13,6 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Progress } from '@/components/ui/progress'
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden'
 import {
@@ -1967,12 +1966,6 @@ export function AdmissionFormPage() {
   }
 
   // ============================================
-  // Progress
-  // ============================================
-
-  const progressPercent = ((currentStep - 1) / (WIZARD_STEPS.length - 1)) * 100
-
-  // ============================================
   // Render
   // ============================================
 
@@ -1996,11 +1989,6 @@ export function AdmissionFormPage() {
 
       {/* Step Indicator */}
       <div className="mb-6">
-        {/* Progress bar */}
-        <div className="mb-4">
-          <Progress value={progressPercent} className="h-2" />
-        </div>
-
         {/* Step circles */}
         <div className="flex items-start justify-between">
           {WIZARD_STEPS.map((step, index) => {
@@ -2023,7 +2011,7 @@ export function AdmissionFormPage() {
                       isCompleted
                         ? 'border-emerald-500 bg-emerald-500 text-white'
                         : isCurrent
-                        ? 'border-primary bg-primary text-primary-foreground shadow-md scale-110'
+                        ? 'border-[var(--button-primary,var(--primary))] bg-[var(--button-primary,var(--primary))] text-[var(--button-primary-foreground,var(--primary-foreground))] shadow-md scale-110'
                         : 'border-muted-foreground/30 bg-background text-muted-foreground'
                     }`}
                   >
@@ -2031,7 +2019,7 @@ export function AdmissionFormPage() {
                   </div>
                   <span
                     className={`text-[10px] sm:text-xs font-medium transition-colors text-center leading-tight ${
-                      isCurrent ? 'text-primary' : isCompleted ? 'text-emerald-600' : 'text-muted-foreground'
+                      isCurrent ? 'text-[var(--button-primary,var(--primary))]' : isCompleted ? 'text-emerald-600' : 'text-muted-foreground'
                     }`}
                   >
                     <span className="hidden sm:inline">{step.label}</span>

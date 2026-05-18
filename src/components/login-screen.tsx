@@ -103,9 +103,9 @@ export function LoginScreen({ onBack }: LoginScreenProps) {
 
       // Fetch user profile with school info
       try {
-        const profile = await api.get<{ user: { id: string; email: string; name: string; role: string; schoolId?: string }; school?: { id: string; name: string; logo?: string; subdomain: string; status: string; primaryColor?: string; dashboardFont?: string; academicYear?: string; board?: string; address?: string; city?: string; state: string } }>('/api/auth/me')
+        const profile = await api.get<{ user: { id: string; email: string; name: string; role: string; schoolId?: string }; school?: { id: string; name: string; logo?: string; favicon?: string; subdomain: string; status: string; primaryColor?: string; dashboardFont?: string; academicYear?: string; board?: string; address?: string; city?: string; state: string } }>('/api/auth/me')
         if (profile.school) {
-          setCurrentSchool(profile.school as { id: string; name: string; logo?: string; subdomain: string; status: string; primaryColor?: string; dashboardFont?: string; academicYear?: string; board?: string; address?: string; city?: string; state: string })
+          setCurrentSchool(profile.school as { id: string; name: string; logo?: string; favicon?: string; subdomain: string; status: string; primaryColor?: string; dashboardFont?: string; academicYear?: string; board?: string; address?: string; city?: string; state: string })
         }
       } catch {
         // Profile fetch failed, but login succeeded - continue

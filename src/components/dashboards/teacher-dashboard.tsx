@@ -143,13 +143,13 @@ export function TeacherDashboard() {
             </CardHeader>
             <CardContent className="space-y-2">
               <Button variant="outline" className="w-full justify-start gap-3 h-11" onClick={() => setCurrentPage('attendance')}>
-                <ClipboardList className="size-4 text-primary" /> Mark Attendance
+                <ClipboardList className="size-4 text-[var(--button-primary,var(--primary))]" /> Mark Attendance
               </Button>
               <Button variant="outline" className="w-full justify-start gap-3 h-11" onClick={() => setCurrentPage('exams')}>
-                <BookOpen className="size-4 text-primary" /> Enter Exam Marks
+                <BookOpen className="size-4 text-[var(--button-primary,var(--primary))]" /> Enter Exam Marks
               </Button>
               <Button variant="outline" className="w-full justify-start gap-3 h-11" onClick={() => setCurrentPage('timetable')}>
-                <Clock className="size-4 text-primary" /> View Timetable
+                <Clock className="size-4 text-[var(--button-primary,var(--primary))]" /> View Timetable
               </Button>
             </CardContent>
           </Card>
