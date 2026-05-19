@@ -8,7 +8,7 @@ export type PageName =
   | 'fees-heads' | 'fees-groups' | 'fees-structures' | 'fee-collections'
   | 'salary' | 'salary-structure' | 'salary-payments' | 'salary-advance'
   | 'timetable' | 'exams' | 'exam-results'
-  | 'transport' | 'add-transport-route' | 'drivers' | 'add-driver' | 'library' | 'inventory' | 'petty-cash'
+  | 'transport' | 'add-transport-route' | 'edit-transport-route' | 'drivers' | 'add-driver' | 'library' | 'inventory' | 'petty-cash'
   | 'notifications' | 'announcements'
   | 'classes' | 'subjects' | 'add-subject' | 'add-class' | 'edit-class' | 'edit-subject'
   | 'settings' | 'support'
@@ -69,6 +69,7 @@ interface NavigationState {
   selectedSuperAdminRoleId: string | null
   selectedClassId: string | null
   selectedSubjectId: string | null
+  selectedTransportRouteId: string | null
   setCurrentPage: (page: PageName) => void
   navigateTo: (page: PageName) => void  // push current page to history then navigate
   goBack: (fallback?: PageName) => void  // go back to previous page
@@ -82,6 +83,7 @@ interface NavigationState {
   setSelectedSuperAdminRoleId: (id: string | null) => void
   setSelectedClassId: (id: string | null) => void
   setSelectedSubjectId: (id: string | null) => void
+  setSelectedTransportRouteId: (id: string | null) => void
 }
 
 interface SchoolState {
@@ -121,6 +123,7 @@ export const useAppStore = create<AppStore>((set) => ({
       pageHistory: [],
       sidebarOpen: true,
       permissions: [],
+      selectedTransportRouteId: null,
     })
   },
   setPermissions: (permissions) => {
@@ -141,6 +144,7 @@ export const useAppStore = create<AppStore>((set) => ({
   selectedSuperAdminRoleId: null,
   selectedClassId: null,
   selectedSubjectId: null,
+  selectedTransportRouteId: null,
   setCurrentPage: (page) => {
     if (typeof window !== 'undefined') {
       localStorage.setItem('erp_currentPage', page)
@@ -179,6 +183,7 @@ export const useAppStore = create<AppStore>((set) => ({
   setSelectedSuperAdminRoleId: (id) => set({ selectedSuperAdminRoleId: id }),
   setSelectedClassId: (id) => set({ selectedClassId: id }),
   setSelectedSubjectId: (id) => set({ selectedSubjectId: id }),
+  setSelectedTransportRouteId: (id) => set({ selectedTransportRouteId: id }),
 
   // School
   currentSchool: null,

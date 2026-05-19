@@ -152,7 +152,7 @@ async function seed() {
 
   // Transport routes
   for (const r of [{ name: 'Central Delhi', num: 'R1', stops: ['Connaught Place', 'Rajiv Chowk', 'Patel Chowk'], fee: 1500 }, { name: 'South Delhi', num: 'R2', stops: ['Hauz Khas', 'Green Park', 'Saket'], fee: 1800 }, { name: 'North Delhi', num: 'R3', stops: ['Civil Lines', 'DU', 'Kashmere Gate'], fee: 1500 }]) {
-    await db.transportRoute.create({ data: { schoolId: school.id, routeName: r.name, routeNumber: r.num, stops: JSON.stringify(r.stops), fee: r.fee, driverName: `Driver ${r.num}`, driverPhone: '+91-9912345678', vehicleNumber: `DL01AB1234`, capacity: 40, isActive: true } })
+    await db.transportRoute.create({ data: { schoolId: school.id, routeName: r.name, routeNumber: r.num, stops: JSON.stringify(r.stops), fee: r.fee, driverName: `Driver ${r.num}`, driverPhone: '+91-9912345678', vehicleNumber: `DL01AB1234`, isActive: true } })
   }
   console.log('✅ Created transport routes')
 

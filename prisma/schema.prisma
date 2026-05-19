@@ -948,7 +948,6 @@ model TransportRoute {
   driverName    String?
   driverPhone   String?
   vehicleNumber String?
-  capacity      Int       @default(40)
   fee           Float     @default(0)
   isActive      Boolean   @default(true)
   createdAt     DateTime  @default(now())
@@ -957,8 +956,29 @@ model TransportRoute {
 
   school      School                @relation(fields: [schoolId], references: [id])
   allocations TransportAllocation[]
+  stopFares   TransportStopFare[]
 
   @@index([schoolId])
+}
+
+model TransportStopFare {
+  id           String   @id @default(cuid())
+  schoolId     String
+  routeId      String
+  academicYear String
+  stopName     String
+  fare         Float    @default(0)
+  feeMonths    String   @default("[]")
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  route TransportRoute @relation(fields: [routeId], references: [id])
+
+  @@unique([routeId, academicYear, stopName])
+  @@index([schoolId])
+  @@index([routeId])
+  @@index([academicYear])
 }
 
 model TransportAllocation {
@@ -969,6 +989,9 @@ model TransportAllocation {
   academicYear String   @default("2025-2026")
   pickupPoint  String?
   dropPoint    String?
+  stopName     String?
+  fareAmount   Float    @default(0)
+  feeMonths    String   @default("[]")
   isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt

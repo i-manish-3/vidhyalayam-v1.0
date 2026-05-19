@@ -57,6 +57,7 @@ const ExamsPage = dynamic(() => import('@/features/exams/pages/exams-page').then
 const ExamResultsPage = dynamic(() => import('@/features/exams/pages/exam-results-page').then(mod => ({ default: mod.ExamResultsPage })), { ssr: false, loading: PageLoader })
 const TransportPage = dynamic(() => import('@/features/transport/pages/transport-page').then(mod => ({ default: mod.TransportPage })), { ssr: false, loading: PageLoader })
 const AddTransportRoutePage = dynamic(() => import('@/features/transport/pages/add-transport-route-page').then(mod => ({ default: mod.AddTransportRoutePage })), { ssr: false, loading: PageLoader })
+const EditTransportRoutePage = dynamic(() => import('@/features/transport/pages/edit-transport-route-page').then(mod => ({ default: mod.EditTransportRoutePage })), { ssr: false, loading: PageLoader })
 const AddDriverPage = dynamic(() => import('@/features/transport/pages/add-driver-page').then(mod => ({ default: mod.AddDriverPage })), { ssr: false, loading: PageLoader })
 const LibraryPage = dynamic(() => import('@/features/operations/pages/library-page').then(mod => ({ default: mod.LibraryPage })), { ssr: false, loading: PageLoader })
 const InventoryPage = dynamic(() => import('@/features/operations/pages/inventory-page').then(mod => ({ default: mod.InventoryPage })), { ssr: false, loading: PageLoader })
@@ -115,6 +116,7 @@ const PAGE_TITLES: Record<PageName, string> = {
   'exam-results': 'Exam Results',
   'transport': 'Transport',
   'add-transport-route': 'Create Transport Route',
+  'edit-transport-route': 'Edit Transport Route',
   'drivers': 'Drivers',
   'add-driver': 'Add Driver',
   'library': 'Library',
@@ -178,6 +180,7 @@ const PAGE_COMPONENTS: Partial<Record<PageName, React.ComponentType>> = {
   'exam-results': ExamResultsPage,
   'transport': TransportPage,
   'add-transport-route': AddTransportRoutePage,
+  'edit-transport-route': EditTransportRoutePage,
   'drivers': TransportPage,
   'add-driver': AddDriverPage,
   'library': LibraryPage,

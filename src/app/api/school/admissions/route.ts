@@ -35,6 +35,73 @@ async function admissionNumberExists(admissionNumber: string): Promise<boolean> 
   return !!(inAdmission || inStudent)
 }
 
+async function resolveTransportFare(
+  schoolId: string,
+  routeId: string | null | undefined,
+  stopName: string | null | undefined,
+  academicYear: string
+) {
+  if (!routeId || !stopName) return null
+
+  const stopFare = await db.transportStopFare.findFirst({
+    where: {
+      schoolId,
+      routeId,
+      academicYear,
+      stopName,
+      isActive: true,
+    },
+    select: {
+      fare: true,
+      feeMonths: true,
+    },
+  })
+
+  if (stopFare) return stopFare
+
+  const route = await db.transportRoute.findFirst({
+    where: {
+      id: routeId,
+      schoolId,
+      academicYear,
+      deletedAt: null,
+      isActive: true,
+    },
+    select: {
+      stops: true,
+      feeMonths: true,
+    },
+  })
+
+  if (!route?.stops) return null
+
+  try {
+    const stops = JSON.parse(route.stops)
+    if (!Array.isArray(stops)) return null
+    const legacyStop = stops.find((stop) => {
+      if (typeof stop === 'string') return stop === stopName
+      return stop && typeof stop === 'object' && stop.name === stopName
+    })
+    if (!legacyStop) return null
+    return {
+      fare: typeof legacyStop === 'object' && typeof legacyStop.fare === 'number' ? legacyStop.fare : 0,
+      feeMonths: route.feeMonths,
+    }
+  } catch {
+    return null
+  }
+}
+
+function parseFeeMonths(value: string | null | undefined): string[] {
+  if (!value) return []
+  try {
+    const parsed = JSON.parse(value)
+    return Array.isArray(parsed) ? parsed.filter((month): month is string => typeof month === 'string' && !!month.trim()) : []
+  } catch {
+    return value.split(',').map((month) => month.trim()).filter(Boolean)
+  }
+}
+
 // Helper: Generate admission number from settings
 async function generateAdmissionNumber(
   schoolId: string,
@@ -203,8 +270,8 @@ export async function GET(request: NextRequest) {
       sectionIds.length > 0 ? db.section.findMany({ where: { id: { in: sectionIds } }, select: { id: true, name: true } }) : [],
     ])
 
-    const classMap = new Map(classList.map(c => [c.id, c.name]))
-    const sectionMap = new Map(sectionList.map(s => [s.id, s.name]))
+    const classMap = new Map<string, string | null>(classList.map(c => [c.id, c.name] as const))
+    const sectionMap = new Map<string, string | null>(sectionList.map(s => [s.id, s.name] as const))
 
     const formattedAdmissions = admissions.map((a) => ({
       id: a.id,
@@ -519,6 +586,23 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    const requestedTransportFare = await resolveTransportFare(
+      user.schoolId,
+      body.transportRouteId || null,
+      body.transportStop || null,
+      requestedAcademicYear
+    )
+
+    if (body.transportRouteId || body.transportStop) {
+      if (!body.transportRouteId || !body.transportStop) {
+        return apiError(400, 'Please select both transport route and stop, or leave transport blank.')
+      }
+
+      if (!requestedTransportFare) {
+        return apiError(400, 'The selected stop does not have a fare for this academic year. Please update transport stop fare details first.')
+      }
+    }
+
     // Check admission window if settings exist
     const settings = await db.admissionSetting.findUnique({
       where: { schoolId: user.schoolId },
@@ -706,6 +790,43 @@ export async function POST(request: NextRequest) {
         where: { id: adm.id },
         data: { studentId: student.id },
       })
+
+      if (body.transportRouteId && body.transportStop) {
+        const feeMonths = parseFeeMonths(requestedTransportFare?.feeMonths)
+        await tx.transportAllocation.create({
+          data: {
+            schoolId: user.schoolId!,
+            studentId: student.id,
+            routeId: body.transportRouteId,
+            academicYear: requestedAcademicYear,
+            pickupPoint: body.transportStop,
+            dropPoint: null,
+            stopName: body.transportStop,
+            fareAmount: requestedTransportFare?.fare || 0,
+            feeMonths: JSON.stringify(feeMonths),
+            isActive: true,
+          },
+        })
+
+        if (requestedTransportFare && requestedTransportFare.fare > 0 && feeMonths.length > 0) {
+          await tx.feeCollection.createMany({
+            data: feeMonths.map((month) => ({
+              schoolId: user.schoolId!,
+              studentId: student.id,
+              amount: requestedTransportFare.fare,
+              paidAmount: 0,
+              discount: 0,
+              concession: 0,
+              scholarship: 0,
+              fine: 0,
+              paymentStatus: 'unpaid',
+              installmentName: month,
+              feeHeadName: 'Transport Fee',
+              notes: `Transport fee for ${body.transportStop} (${requestedAcademicYear})`,
+            })),
+          })
+        }
+      }
 
       // 4. Create Parent record(s) and StudentParent links
       // Since StudentParent has a unique constraint on [studentId, parentId],

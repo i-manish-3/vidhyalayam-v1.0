@@ -1,25 +1,17 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { PageHeader, EmptyState, LoadingState } from '@/components/shared'
 import { api } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
 import { useAppStore } from '@/lib/store'
-import { toAcademicYearOptions } from '@/lib/academic-years'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Switch } from '@/components/ui/switch'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Checkbox } from '@/components/ui/checkbox'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { PlusCircle, Bus, MapPin, User, MoreVertical, Pencil, Trash2, Search, X, Route as RouteIcon, Users, ArrowRight, CheckCircle2, CircleOff, Wallet } from 'lucide-react'
-
-const FEE_MONTH_OPTIONS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
 interface TransportRoute {
   id: string
@@ -34,7 +26,6 @@ interface TransportRoute {
   driverName: string | null
   driverPhone: string | null
   vehicleNumber: string | null
-  capacity: number
   fee: number
   isActive: boolean
   _count?: { allocations: number }
@@ -46,35 +37,14 @@ interface TransportStop {
   fare?: number
 }
 
-interface EditableTransportStop {
-  name: string
-  fare: string
-}
-
 export function TransportPage() {
   const { toast } = useToast()
-  const { navigateTo, currentSchool } = useAppStore()
+  const { navigateTo, setSelectedTransportRouteId } = useAppStore()
   const [routes, setRoutes] = useState<TransportRoute[]>([])
-  const [availableAcademicYears, setAvailableAcademicYears] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
-  const [showEdit, setShowEdit] = useState(false)
-  const [editRoute, setEditRoute] = useState<TransportRoute | null>(null)
-  const [editForm, setEditForm] = useState({
-    routeName: '', routeNumber: '', startPoint: '', endPoint: '',
-    stops: '', distance: '', driverName: '', driverPhone: '',
-    vehicleNumber: '', capacity: '40', fee: '', academicYear: '2025-2026', feeMonths: [] as string[], isActive: true,
-  })
-  const [editStops, setEditStops] = useState<EditableTransportStop[]>([])
-  const [newStopName, setNewStopName] = useState('')
-  const [newStopFare, setNewStopFare] = useState('')
-  const [saving, setSaving] = useState(false)
   const [deleteRoute, setDeleteRoute] = useState<TransportRoute | null>(null)
   const [deleting, setDeleting] = useState(false)
-  const academicYearOptions = useMemo(
-    () => toAcademicYearOptions(availableAcademicYears, currentSchool?.academicYear),
-    [availableAcademicYears, currentSchool?.academicYear]
-  )
 
   const fetchData = useCallback(async () => {
     try {
@@ -88,17 +58,6 @@ export function TransportPage() {
   }, [toast])
 
   useEffect(() => { fetchData() }, [fetchData])
-
-  const fetchAcademicYears = useCallback(async () => {
-    try {
-      const res = await api.get<{ academicYears: string[] }>('/api/school/academic-years')
-      setAvailableAcademicYears(res.academicYears || [])
-    } catch {
-      setAvailableAcademicYears(currentSchool?.academicYear ? [currentSchool.academicYear] : [])
-    }
-  }, [currentSchool?.academicYear])
-
-  useEffect(() => { fetchAcademicYears() }, [fetchAcademicYears])
 
   const parseStops = (stops: string | null | undefined): TransportStop[] => {
     if (!stops) return []
@@ -139,133 +98,8 @@ export function TransportPage() {
   }
 
   const handleEdit = (route: TransportRoute) => {
-    setEditRoute(route)
-    const stopsList = parseStops(route.stops)
-    setEditStops(stopsList.map(stop => ({
-      name: stop.name,
-      fare: stop.fare != null ? String(stop.fare) : String(route.fee || 0),
-    })))
-    setNewStopName('')
-    setNewStopFare('')
-    setEditForm({
-      routeName: route.routeName,
-      routeNumber: route.routeNumber || '',
-      startPoint: route.startPoint || '',
-      endPoint: route.endPoint || '',
-      stops: '',
-      distance: route.distance != null ? String(route.distance) : '',
-      driverName: route.driverName || '',
-      driverPhone: route.driverPhone || '',
-      vehicleNumber: route.vehicleNumber || '',
-      capacity: String(route.capacity || 40),
-      fee: String(route.fee || 0),
-      academicYear: route.academicYear || '2025-2026',
-      feeMonths: parseFeeMonths(route.feeMonths),
-      isActive: route.isActive !== false,
-    })
-    setShowEdit(true)
-  }
-
-  const handleAddEditStop = () => {
-    const name = newStopName.trim()
-    const fare = Number(newStopFare)
-    if (!name) return
-
-    if (!newStopFare.trim() || !Number.isFinite(fare) || fare < 0) {
-      toast({ title: 'Invalid Stop Fare', description: 'Please enter a valid fare for this stop.' })
-      return
-    }
-
-    if (editStops.some(stop => stop.name.toLowerCase() === name.toLowerCase())) {
-      toast({ title: 'Duplicate Stop', description: 'This stop already exists in the list.' })
-      return
-    }
-    setEditStops(prev => [...prev, { name, fare: String(fare) }])
-    setNewStopName('')
-    setNewStopFare('')
-  }
-
-  const handleRemoveEditStop = (index: number) => {
-    setEditStops(prev => prev.filter((_, i) => i !== index))
-  }
-
-  const toggleEditFeeMonth = (month: string) => {
-    setEditForm((form) => ({
-      ...form,
-      feeMonths: form.feeMonths.includes(month)
-        ? form.feeMonths.filter((item) => item !== month)
-        : [...form.feeMonths, month],
-    }))
-  }
-
-  const handleUpdate = async () => {
-    if (!editRoute) return
-
-    const routeCode = editForm.routeName.trim()
-    const fareAmount = Number(editForm.fee)
-    const capacity = Number(editForm.capacity)
-    const stops = editStops.map(stop => ({
-      name: stop.name.trim(),
-      fare: Number(stop.fare),
-    }))
-
-    if (!routeCode) {
-      toast({ title: 'Route Code Required', description: 'Please enter the route code.', variant: 'destructive' })
-      return
-    }
-
-    if (!editForm.academicYear) {
-      toast({ title: 'Academic Year Required', description: 'Please choose the academic year.', variant: 'destructive' })
-      return
-    }
-
-    if (!editForm.fee.trim() || !Number.isFinite(fareAmount) || fareAmount < 0) {
-      toast({ title: 'Invalid Fare', description: 'Please enter a valid fare for the selected academic year.', variant: 'destructive' })
-      return
-    }
-
-    if (editForm.feeMonths.length === 0) {
-      toast({ title: 'Fee Months Required', description: 'Please select at least one fee month.', variant: 'destructive' })
-      return
-    }
-
-    if (!Number.isInteger(capacity) || capacity < 1) {
-      toast({ title: 'Invalid Capacity', description: 'Please enter a valid vehicle capacity.', variant: 'destructive' })
-      return
-    }
-
-    if (stops.length === 0 || stops.some(stop => !stop.name || !Number.isFinite(stop.fare) || stop.fare < 0)) {
-      toast({ title: 'Stops Required', description: 'Please add each stop with a valid fare.', variant: 'destructive' })
-      return
-    }
-
-    setSaving(true)
-    try {
-      await api.put(`/api/school/transport/routes/${editRoute.id}`, {
-        routeName: routeCode,
-        routeNumber: editForm.routeNumber || null,
-        startPoint: editForm.startPoint || null,
-        endPoint: editForm.endPoint || null,
-        stops,
-        distance: editForm.distance ? parseFloat(editForm.distance) : null,
-        driverName: editForm.driverName || null,
-        driverPhone: editForm.driverPhone || null,
-        vehicleNumber: editForm.vehicleNumber || null,
-        capacity,
-        fee: fareAmount,
-        academicYear: editForm.academicYear,
-        feeMonths: editForm.feeMonths,
-        isActive: editForm.isActive,
-      })
-      toast({ title: 'Route Updated', description: `"${routeCode}" has been updated successfully.` })
-      setShowEdit(false)
-      setEditRoute(null)
-      fetchData()
-    } catch (err) {
-      toast({ title: "Couldn't Update Route", description: err instanceof Error ? err.message : 'Something went wrong. Please try again.', variant: 'destructive' })
-    } finally {
-      setSaving(false)
-    }
+    setSelectedTransportRouteId(route.id)
+    navigateTo('edit-transport-route')
   }
 
   const handleDelete = async () => {
@@ -304,11 +138,9 @@ export function TransportPage() {
   const activeCount = routes.filter(r => r.isActive !== false).length
   const inactiveCount = routes.length - activeCount
   const totalAllocations = routes.reduce((sum, route) => sum + (route._count?.allocations || 0), 0)
-  const totalCapacity = routes.reduce((sum, route) => sum + (route.capacity || 0), 0)
   const averageFee = routes.length
     ? Math.round(routes.reduce((sum, route) => sum + (Number(route.fee) || 0), 0) / routes.length)
     : 0
-  const capacityUsedPercent = totalCapacity > 0 ? Math.round((totalAllocations / totalCapacity) * 100) : 0
 
   if (loading) return <LoadingState />
 
@@ -345,20 +177,7 @@ export function TransportPage() {
                 <Users className="size-5" />
               </div>
             </div>
-            <p className="mt-2 text-xs text-muted-foreground">{capacityUsedPercent}% of {totalCapacity} seats used</p>
-          </div>
-
-          <div className="rounded-lg border bg-card p-4">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-xs font-medium uppercase text-muted-foreground">Total Seats</p>
-                <p className="mt-1 text-2xl font-semibold">{totalCapacity}</p>
-              </div>
-              <div className="flex size-10 items-center justify-center rounded-md bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300">
-                <Bus className="size-5" />
-              </div>
-            </div>
-            <p className="mt-2 text-xs text-muted-foreground">{Math.max(totalCapacity - totalAllocations, 0)} seats available</p>
+            <p className="mt-2 text-xs text-muted-foreground">Active student route assignments</p>
           </div>
 
           <div className="rounded-lg border bg-card p-4">
@@ -430,7 +249,6 @@ export function TransportPage() {
                   <TableHead className="min-w-[320px] px-4">Route</TableHead>
                   <TableHead className="min-w-[220px]">Driver</TableHead>
                   <TableHead className="min-w-[180px]">Fee Year</TableHead>
-                  <TableHead className="min-w-[170px]">Capacity</TableHead>
                   <TableHead className="min-w-[130px]">Fare</TableHead>
                   <TableHead className="min-w-[120px]">Status</TableHead>
                   <TableHead className="w-[52px]" />
@@ -439,9 +257,6 @@ export function TransportPage() {
               <TableBody>
                 {filteredRoutes.map(route => {
                   const stopsList = parseStops(route.stops)
-                  const allocationCount = route._count?.allocations || 0
-                  const capacity = route.capacity || 0
-                  const usedPercent = capacity > 0 ? Math.min(100, Math.round((allocationCount / capacity) * 100)) : 0
                   const isInactive = route.isActive === false
                   const feeMonths = parseFeeMonths(route.feeMonths)
 
@@ -522,18 +337,6 @@ export function TransportPage() {
                       </TableCell>
 
                       <TableCell className="py-4 align-top">
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between gap-3 text-sm">
-                            <span className="font-medium">{allocationCount}/{capacity}</span>
-                            <span className="text-xs text-muted-foreground">{usedPercent}%</span>
-                          </div>
-                          <div className="h-2 overflow-hidden rounded-full bg-muted">
-                            <div className="h-full rounded-full bg-emerald-500" style={{ width: `${usedPercent}%` }} />
-                          </div>
-                        </div>
-                      </TableCell>
-
-                      <TableCell className="py-4 align-top">
                         <div className="space-y-1">
                           <p className="font-semibold">{formatCurrency(route.fee)}</p>
                           <p className="text-xs text-muted-foreground">for academic year</p>
@@ -607,147 +410,6 @@ export function TransportPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      <Dialog open={showEdit} onOpenChange={setShowEdit}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Edit Transport Route</DialogTitle>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Route Code <span className="text-destructive">*</span></Label>
-                <Input value={editForm.routeName} onChange={e => setEditForm(f => ({ ...f, routeName: e.target.value }))} placeholder="e.g., TR-001" />
-              </div>
-              <div className="space-y-2">
-                <Label>Route Number</Label>
-                <Input value={editForm.routeNumber} onChange={e => setEditForm(f => ({ ...f, routeNumber: e.target.value }))} placeholder="e.g., R-001" />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Academic Year <span className="text-destructive">*</span></Label>
-                <Select value={editForm.academicYear} onValueChange={value => setEditForm(f => ({ ...f, academicYear: value }))}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select year" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {academicYearOptions.map((year) => (
-                      <SelectItem key={year.value} value={year.value}>
-                        {year.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Fare for Academic Year <span className="text-destructive">*</span></Label>
-                <Input type="number" value={editForm.fee} onChange={e => setEditForm(f => ({ ...f, fee: e.target.value }))} placeholder="e.g., 1500" />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Fees Applied Months <span className="text-destructive">*</span></Label>
-              <div className="grid grid-cols-3 gap-2">
-                {FEE_MONTH_OPTIONS.map((month) => (
-                  <label key={month} className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm">
-                    <Checkbox checked={editForm.feeMonths.includes(month)} onCheckedChange={() => toggleEditFeeMonth(month)} />
-                    <span>{month}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Start Point</Label>
-                <Input value={editForm.startPoint} onChange={e => setEditForm(f => ({ ...f, startPoint: e.target.value }))} placeholder="e.g., School Campus" />
-              </div>
-              <div className="space-y-2">
-                <Label>End Point</Label>
-                <Input value={editForm.endPoint} onChange={e => setEditForm(f => ({ ...f, endPoint: e.target.value }))} placeholder="e.g., City Bus Stand" />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Capacity</Label>
-                <Input type="number" value={editForm.capacity} onChange={e => setEditForm(f => ({ ...f, capacity: e.target.value }))} placeholder="e.g., 40" />
-              </div>
-              <div className="space-y-2 flex items-end">
-                <div className="flex items-center gap-3 rounded-lg border p-3 w-full">
-                  <Switch checked={editForm.isActive} onCheckedChange={checked => setEditForm(f => ({ ...f, isActive: checked }))} />
-                  <Label className="text-sm cursor-pointer">{editForm.isActive ? 'Active' : 'Inactive'}</Label>
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Stops</Label>
-              <div className="grid grid-cols-1 gap-2 md:grid-cols-[1fr_120px_auto]">
-                <Input
-                  value={newStopName}
-                  onChange={e => setNewStopName(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddEditStop() } }}
-                  placeholder="Stop name"
-                />
-                <Input
-                  type="number"
-                  min="0"
-                  value={newStopFare}
-                  onChange={e => setNewStopFare(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddEditStop() } }}
-                  placeholder="Fare"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={handleAddEditStop}
-                  className="shrink-0"
-                  disabled={!newStopName.trim() || !newStopFare.trim()}
-                >
-                  <PlusCircle className="size-4" />
-                </Button>
-              </div>
-              {editStops.length > 0 && (
-                <div className="flex flex-wrap gap-1 mt-2">
-                  {editStops.map((stop, i) => (
-                    <Badge key={`${stop.name}-${i}`} variant="outline" className="text-xs gap-1 pr-1">
-                      {stop.name}: {formatCurrency(Number(stop.fare))}
-                      <button type="button" onClick={() => handleRemoveEditStop(i)} className="hover:text-destructive">
-                        <X className="size-3" />
-                      </button>
-                    </Badge>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Driver Name</Label>
-                <Input value={editForm.driverName} onChange={e => setEditForm(f => ({ ...f, driverName: e.target.value }))} />
-              </div>
-              <div className="space-y-2">
-                <Label>Driver Phone</Label>
-                <Input value={editForm.driverPhone} onChange={e => setEditForm(f => ({ ...f, driverPhone: e.target.value }))} placeholder="e.g., +91 98765 43210" />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label>Vehicle Number</Label>
-              <Input value={editForm.vehicleNumber} onChange={e => setEditForm(f => ({ ...f, vehicleNumber: e.target.value.toUpperCase() }))} placeholder="e.g., KA-01-AB-1234" />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowEdit(false)}>Cancel</Button>
-            <Button onClick={handleUpdate} disabled={!editForm.routeName || saving}>
-              {saving ? 'Saving...' : 'Save Changes'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }

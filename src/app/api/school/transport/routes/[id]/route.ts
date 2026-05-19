@@ -56,6 +56,46 @@ function parseStops(value: unknown): Array<{ name: string; fare: number }> | nul
   return stops
 }
 
+async function syncStopFares(
+  routeId: string,
+  schoolId: string,
+  academicYear: string,
+  stops: Array<{ name: string; fare: number }>,
+  feeMonths: string[]
+) {
+  await db.$transaction([
+    db.transportStopFare.updateMany({
+      where: { routeId, schoolId, academicYear },
+      data: { isActive: false },
+    }),
+    ...stops.map((stop) =>
+      db.transportStopFare.upsert({
+        where: {
+          routeId_academicYear_stopName: {
+            routeId,
+            academicYear,
+            stopName: stop.name,
+          },
+        },
+        create: {
+          routeId,
+          schoolId,
+          academicYear,
+          stopName: stop.name,
+          fare: stop.fare,
+          feeMonths: JSON.stringify(feeMonths),
+          isActive: true,
+        },
+        update: {
+          fare: stop.fare,
+          feeMonths: JSON.stringify(feeMonths),
+          isActive: true,
+        },
+      })
+    ),
+  ])
+}
+
 // PUT /api/school/transport/routes/[id] - Update a transport route
 export async function PUT(
   request: NextRequest,
@@ -85,7 +125,7 @@ export async function PUT(
       driverName,
       driverPhone,
       vehicleNumber,
-      capacity,
+      driverId,
       fee,
       isActive,
     } = body
@@ -140,17 +180,43 @@ export async function PUT(
       return apiError(400, 'Please enter a valid transport fee.')
     }
 
-    const cleanedCapacity = optionalNumber(capacity)
-    if (capacity !== undefined && (Number.isNaN(cleanedCapacity) || cleanedCapacity === null || !Number.isInteger(cleanedCapacity) || cleanedCapacity < 1)) {
-      return apiError(400, 'Please enter a valid vehicle capacity.')
-    }
-
     const cleanedStops = parseStops(stops)
     if (stops !== undefined && stops !== null && !cleanedStops) {
       return apiError(400, 'Please add each stop with a valid stop name and fare.')
     }
 
     // Build update data — only include fields that are explicitly provided
+    let selectedDriver: { name: string; phone: string | null } | null = null
+    const cleanedDriverId = optionalText(driverId)
+    if (driverId !== undefined && cleanedDriverId) {
+      selectedDriver = await db.user.findFirst({
+        where: {
+          id: cleanedDriverId,
+          schoolId: user.schoolId,
+          deletedAt: null,
+          isActive: true,
+          userRoles: {
+            some: {
+              role: {
+                schoolId: user.schoolId,
+                name: 'Transport',
+                deletedAt: null,
+                isActive: true,
+              },
+            },
+          },
+        },
+        select: {
+          name: true,
+          phone: true,
+        },
+      })
+
+      if (!selectedDriver) {
+        return apiError(400, 'Please choose a valid driver from the driver list.')
+      }
+    }
+
     const updateData: Record<string, unknown> = {}
     if (routeName !== undefined) updateData.routeName = routeName.trim()
     if (routeNumber !== undefined) updateData.routeNumber = optionalText(routeNumber)
@@ -162,8 +228,11 @@ export async function PUT(
     if (distance !== undefined) updateData.distance = cleanedDistance
     if (driverName !== undefined) updateData.driverName = optionalText(driverName)
     if (driverPhone !== undefined) updateData.driverPhone = optionalText(driverPhone)
+    if (driverId !== undefined) {
+      updateData.driverName = selectedDriver?.name || null
+      updateData.driverPhone = selectedDriver?.phone || null
+    }
     if (vehicleNumber !== undefined) updateData.vehicleNumber = optionalText(vehicleNumber)
-    if (capacity !== undefined) updateData.capacity = cleanedCapacity
     if (fee !== undefined) updateData.fee = cleanedFee
     if (isActive !== undefined) updateData.isActive = isActive
 
@@ -171,6 +240,15 @@ export async function PUT(
       where: { id },
       data: updateData,
     })
+
+    const updatedAcademicYear = typeof updateData.academicYear === 'string' ? updateData.academicYear : existing.academicYear
+    const updatedFeeMonths = feeMonths !== undefined ? parseFeeMonths(feeMonths) || [] : parseFeeMonths(existing.feeMonths) || []
+    if (stops !== undefined || feeMonths !== undefined || academicYear !== undefined) {
+      const normalizedStops = cleanedStops || parseStops(existing.stops) || []
+      if (normalizedStops.length > 0) {
+        await syncStopFares(updated.id, user.schoolId, updatedAcademicYear, normalizedStops, updatedFeeMonths)
+      }
+    }
 
     return NextResponse.json({
       route: updated,

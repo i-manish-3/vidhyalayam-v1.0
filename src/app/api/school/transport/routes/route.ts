@@ -66,6 +66,46 @@ function parseFeeMonths(value: unknown): string[] | null {
   return Array.from(new Set(months))
 }
 
+async function syncStopFares(
+  routeId: string,
+  schoolId: string,
+  academicYear: string,
+  stops: Array<{ name: string; fare: number }>,
+  feeMonths: string[]
+) {
+  await db.$transaction([
+    db.transportStopFare.updateMany({
+      where: { routeId, schoolId, academicYear },
+      data: { isActive: false },
+    }),
+    ...stops.map((stop) =>
+      db.transportStopFare.upsert({
+        where: {
+          routeId_academicYear_stopName: {
+            routeId,
+            academicYear,
+            stopName: stop.name,
+          },
+        },
+        create: {
+          routeId,
+          schoolId,
+          academicYear,
+          stopName: stop.name,
+          fare: stop.fare,
+          feeMonths: JSON.stringify(feeMonths),
+          isActive: true,
+        },
+        update: {
+          fare: stop.fare,
+          feeMonths: JSON.stringify(feeMonths),
+          isActive: true,
+        },
+      })
+    ),
+  ])
+}
+
 // GET /api/school/transport/routes - List routes
 export async function GET(request: NextRequest) {
   try {
@@ -94,6 +134,36 @@ export async function GET(request: NextRequest) {
       },
       orderBy: { routeName: 'asc' },
     })
+
+    if (academicYear && routes.length > 0) {
+      const fares = await db.transportStopFare.findMany({
+        where: {
+          schoolId: user.schoolId,
+          routeId: { in: routes.map((route) => route.id) },
+          academicYear,
+          isActive: true,
+        },
+        orderBy: { stopName: 'asc' },
+      })
+      const fareMap = new Map<string, typeof fares>()
+      for (const fare of fares) {
+        fareMap.set(fare.routeId, [...(fareMap.get(fare.routeId) || []), fare])
+      }
+
+      const routesWithYearFares = routes.map((route) => {
+        const routeFares = fareMap.get(route.id)
+        if (!routeFares || routeFares.length === 0) return route
+        return {
+          ...route,
+          academicYear,
+          feeMonths: routeFares[0]?.feeMonths || route.feeMonths,
+          stops: JSON.stringify(routeFares.map((fare) => ({ name: fare.stopName, fare: fare.fare }))),
+          fee: routeFares.length > 0 ? Math.round(routeFares.reduce((sum, fare) => sum + fare.fare, 0) / routeFares.length) : route.fee,
+        }
+      })
+
+      return NextResponse.json({ routes: routesWithYearFares })
+    }
 
     return NextResponse.json({ routes })
   } catch (error) {
@@ -127,7 +197,6 @@ export async function POST(request: NextRequest) {
       driverName,
       driverPhone,
       vehicleNumber,
-      capacity,
       isActive,
       driverId,
     } = body
@@ -171,11 +240,6 @@ export async function POST(request: NextRequest) {
     const cleanedDistance = optionalNumber(distance)
     if (Number.isNaN(cleanedDistance) || (cleanedDistance !== null && cleanedDistance < 0)) {
       return apiError(400, 'Please enter a valid route distance.')
-    }
-
-    const cleanedCapacity = optionalNumber(capacity) ?? 40
-    if (Number.isNaN(cleanedCapacity) || !Number.isInteger(cleanedCapacity) || cleanedCapacity < 1) {
-      return apiError(400, 'Please enter a valid vehicle capacity.')
     }
 
     const cleanedStops = parseStops(stops)
@@ -231,11 +295,12 @@ export async function POST(request: NextRequest) {
         driverName: selectedDriver?.name || optionalText(driverName),
         driverPhone: selectedDriver?.phone || optionalText(driverPhone),
         vehicleNumber: optionalText(vehicleNumber),
-        capacity: cleanedCapacity,
         fee: 0,
         isActive: typeof isActive === 'boolean' ? isActive : true,
       },
     })
+
+    await syncStopFares(route.id, user.schoolId, cleanedAcademicYear, cleanedStops, cleanedFeeMonths)
 
     return NextResponse.json(route, { status: 201 })
   } catch (error) {

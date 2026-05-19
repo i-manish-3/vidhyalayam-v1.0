@@ -288,8 +288,31 @@ function fieldHasError(field: string, touched: Record<string, boolean>, errors: 
 
 interface ClassOption { id: string; name: string }
 interface SectionOption { id: string; name: string; classId: string }
-interface TransportRouteOption { id: string; routeName: string }
+interface TransportRouteStopOption { name: string; fare?: number }
+interface TransportRouteOption { id: string; routeName: string; stops?: string | null; feeMonths?: string | null }
 interface FeesGroupOption { id: string; name: string }
+
+function parseTransportStops(value: string | null | undefined): TransportRouteStopOption[] {
+  if (!value) return []
+  try {
+    const parsed = JSON.parse(value)
+    if (!Array.isArray(parsed)) return []
+    return parsed
+      .map((stop) => {
+        if (typeof stop === 'string') return { name: stop }
+        if (stop && typeof stop === 'object' && typeof stop.name === 'string') {
+          return {
+            name: stop.name,
+            fare: typeof stop.fare === 'number' ? stop.fare : undefined,
+          }
+        }
+        return null
+      })
+      .filter((stop): stop is TransportRouteStopOption => !!stop && !!stop.name)
+  } catch {
+    return []
+  }
+}
 
 function calculateAge(dob: string): string {
   if (!dob) return ''
@@ -380,17 +403,15 @@ export function AdmissionFormPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [clsData, secData, transportData, feesGroupData, admNumData, academicYearData] = await Promise.allSettled([
+        const [clsData, secData, feesGroupData, admNumData, academicYearData] = await Promise.allSettled([
           api.get<{ classes: ClassOption[] }>('/api/school/classes', undefined, { skipLogoutOn401: true }),
           api.get<{ sections: SectionOption[] }>('/api/school/sections', undefined, { skipLogoutOn401: true }),
-          api.get<{ routes: TransportRouteOption[] }>('/api/school/transport/routes', undefined, { skipLogoutOn401: true }),
           api.get<{ groups: FeesGroupOption[] }>('/api/school/fees/groups', undefined, { skipLogoutOn401: true }),
           api.get<{ nextAdmissionNumber: string }>('/api/school/admissions/next-number', undefined, { skipLogoutOn401: true }),
           api.get<{ academicYears: string[] }>('/api/school/academic-years', undefined, { skipLogoutOn401: true }),
         ])
         if (clsData.status === 'fulfilled' && clsData.value?.classes) setClasses(clsData.value.classes)
         if (secData.status === 'fulfilled' && secData.value?.sections) setSections(secData.value.sections)
-        if (transportData.status === 'fulfilled' && transportData.value?.routes) setTransportRoutes(transportData.value.routes)
         if (feesGroupData.status === 'fulfilled' && feesGroupData.value?.groups) setFeesGroups(feesGroupData.value.groups)
         if (admNumData.status === 'fulfilled' && admNumData.value?.nextAdmissionNumber) setNextAdmissionNumber(admNumData.value.nextAdmissionNumber)
         if (academicYearData.status === 'fulfilled' && academicYearData.value?.academicYears) {
@@ -412,9 +433,54 @@ export function AdmissionFormPage() {
     }
   }, [academicYearOptions, currentSchool?.academicYear, form.academicYear])
 
+  useEffect(() => {
+    let mounted = true
+
+    const fetchTransportRoutes = async () => {
+      if (!form.academicYear) {
+        setTransportRoutes([])
+        return
+      }
+
+      try {
+        const data = await api.get<{ routes: TransportRouteOption[] }>(
+          '/api/school/transport/routes',
+          { academicYear: form.academicYear },
+          { skipLogoutOn401: true }
+        )
+        if (!mounted) return
+        const routes = data.routes || []
+        setTransportRoutes(routes)
+        setForm((prev) => {
+          if (!prev.transportRouteId || prev.transportRouteId === 'none') return prev
+          if (routes.some((route) => route.id === prev.transportRouteId)) return prev
+          return { ...prev, transportRouteId: '', transportStop: '' }
+        })
+      } catch {
+        if (mounted) setTransportRoutes([])
+      }
+    }
+
+    fetchTransportRoutes()
+
+    return () => {
+      mounted = false
+    }
+  }, [form.academicYear])
+
   const filteredSections = useMemo(
     () => form.classId ? sections.filter(s => s.classId === form.classId) : [],
     [form.classId, sections]
+  )
+
+  const selectedTransportRoute = useMemo(
+    () => transportRoutes.find((route) => route.id === form.transportRouteId),
+    [form.transportRouteId, transportRoutes]
+  )
+
+  const selectedTransportStops = useMemo(
+    () => parseTransportStops(selectedTransportRoute?.stops),
+    [selectedTransportRoute?.stops]
   )
 
   // Sibling search handler
@@ -1566,7 +1632,7 @@ export function AdmissionFormPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Transport Route</Label>
-          <Select value={form.transportRouteId} onValueChange={v => updateForm('transportRouteId', v)}>
+          <Select value={form.transportRouteId} onValueChange={v => setForm(prev => ({ ...prev, transportRouteId: v === 'none' ? '' : v, transportStop: '' }))}>
             <SelectTrigger><SelectValue placeholder="Select route" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="none">No Transport</SelectItem>
@@ -1576,7 +1642,20 @@ export function AdmissionFormPage() {
         </div>
         <div className="space-y-2">
           <Label>Transport Stop</Label>
-          <Input value={form.transportStop} onChange={e => updateForm('transportStop', e.target.value)} placeholder="Pickup / Drop point" />
+          <Select
+            value={form.transportStop}
+            onValueChange={v => updateForm('transportStop', v)}
+            disabled={!form.transportRouteId || form.transportRouteId === 'none' || selectedTransportStops.length === 0}
+          >
+            <SelectTrigger><SelectValue placeholder={form.transportRouteId ? 'Select stop' : 'Select route first'} /></SelectTrigger>
+            <SelectContent>
+              {selectedTransportStops.map((stop) => (
+                <SelectItem key={stop.name} value={stop.name}>
+                  {stop.name}{stop.fare != null ? ` - Rs. ${stop.fare.toLocaleString('en-IN')}` : ''}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
