@@ -55,10 +55,10 @@ interface StudentRow {
 }
 
 const CHECKLIST = [
-  { number: 1, title: 'New session', description: 'Open setup', link: true, tone: 'normal' },
-  { number: 2, title: 'Fee structure', description: 'Ready for next session', tone: 'normal' },
+  { number: 1, title: 'Create a new session', description: 'Open session setup',  link: true, tone: 'normal' },
+  { number: 2, title: 'Update fee structure', description: 'Prepare fee plans for the incoming session.', tone: 'normal' },
   { number: 3, title: 'Promote higher to lower', description: 'Move 10→11, then 9→10, then 8→9 and so on.', tone: 'danger' },
-  { number: 4, title: 'Activate session', description: 'Set default first', tone: 'normal' },
+  { number: 4, title: 'Activate the new session', description: 'Set it as default before promoting.', tone: 'normal' },
 ] as const
 
 function studentName(student: StudentRow) {
@@ -268,8 +268,8 @@ export function PromoteClassPage() {
 
       <div className="rounded-lg border bg-card p-3 shadow-sm">
         <div className="mb-2 flex items-center justify-between gap-3">
-          <h2 className="text-sm font-semibold">Readiness Checklist</h2>
-          <Badge variant="outline" className="rounded-md">Lower to higher</Badge>
+          <h2 className="text-sm font-semibold">Promotion Checklist</h2>
+          {/* <Badge variant="outline" className="rounded-md">Lower to higher</Badge> */}
         </div>
         <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
             {CHECKLIST.map((item) => (
