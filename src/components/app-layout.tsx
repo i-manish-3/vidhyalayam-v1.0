@@ -48,6 +48,8 @@ const AttendancePage = dynamic(() => import('@/features/attendance/pages/attenda
 const FeesHeadsPage = dynamic(() => import('@/features/fees/pages/fees-heads-page').then(mod => ({ default: mod.FeesHeadsPage })), { ssr: false, loading: PageLoader })
 const FeesGroupsPage = dynamic(() => import('@/features/fees/pages/fees-groups-page').then(mod => ({ default: mod.FeesGroupsPage })), { ssr: false, loading: PageLoader })
 const FeesStructuresPage = dynamic(() => import('@/features/fees/pages/fees-structures-page').then(mod => ({ default: mod.FeesStructuresPage })), { ssr: false, loading: PageLoader })
+const FeeAssignmentsPage = dynamic(() => import('@/features/fees/pages/fee-assignments-page').then(mod => ({ default: mod.FeeAssignmentsPage })), { ssr: false, loading: PageLoader })
+const FeeInvoicesPage = dynamic(() => import('@/features/fees/pages/fee-invoices-page').then(mod => ({ default: mod.FeeInvoicesPage })), { ssr: false, loading: PageLoader })
 const FeeCollectionsPage = dynamic(() => import('@/features/fees/pages/fee-collections-page').then(mod => ({ default: mod.FeeCollectionsPage })), { ssr: false, loading: PageLoader })
 const SalaryStructurePage = dynamic(() => import('@/features/salary/pages/salary-structure-page').then(mod => ({ default: mod.SalaryStructurePage })), { ssr: false, loading: PageLoader })
 const SalaryPaymentsPage = dynamic(() => import('@/features/salary/pages/salary-payments-page').then(mod => ({ default: mod.SalaryPaymentsPage })), { ssr: false, loading: PageLoader })
@@ -75,6 +77,7 @@ const SchoolsPage = dynamic(() => import('@/features/admin/pages/schools-page').
 const SchoolDetailPage = dynamic(() => import('@/features/admin/pages/school-detail-page').then(mod => ({ default: mod.SchoolDetailPage })), { ssr: false, loading: PageLoader })
 const SupportPage = dynamic(() => import('@/features/communications/pages/support-page').then(mod => ({ default: mod.SupportPage })), { ssr: false, loading: PageLoader })
 const SettingsPage = dynamic(() => import('@/features/settings/pages/settings-page').then(mod => ({ default: mod.SettingsPage })), { ssr: false, loading: PageLoader })
+const AcademicYearsPage = dynamic(() => import('@/features/settings/pages/academic-years-page').then(mod => ({ default: mod.AcademicYearsPage })), { ssr: false, loading: PageLoader })
 const PlaceholderPage = dynamic(() => import('./placeholder-page').then(mod => ({ default: mod.PlaceholderPage })), { ssr: false, loading: PageLoader })
 const SuperAdminPermissionsPage = dynamic(() => import('@/features/admin/pages/super-admin-permissions-page').then(mod => ({ default: mod.SuperAdminPermissionsPage })), { ssr: false, loading: PageLoader })
 const SuperAdminRolesPage = dynamic(() => import('@/features/admin/pages/super-admin-roles-page').then(mod => ({ default: mod.SuperAdminRolesPage })), { ssr: false, loading: PageLoader })
@@ -106,6 +109,8 @@ const PAGE_TITLES: Record<PageName, string> = {
   'fees-heads': 'Fee Heads',
   'fees-groups': 'Fee Groups',
   'fees-structures': 'Fee Structures',
+  'fee-assignments': 'Fee Assignments',
+  'fee-invoices': 'Fee Invoices',
   'fee-collections': 'Fee Collections',
   'salary': 'Salary',
   'salary-structure': 'Salary Structure',
@@ -126,6 +131,7 @@ const PAGE_TITLES: Record<PageName, string> = {
   'announcements': 'Announcements',
   'classes': 'Classes',
   'subjects': 'Subjects',
+  'academic-years': 'Academic Years',
   'add-subject': 'Add Subject',
   'add-class': 'Add Class',
   'edit-class': 'Edit Class',
@@ -169,6 +175,8 @@ const PAGE_COMPONENTS: Partial<Record<PageName, React.ComponentType>> = {
   'fees-heads': FeesHeadsPage,
   'fees-groups': FeesGroupsPage,
   'fees-structures': FeesStructuresPage,
+  'fee-assignments': FeeAssignmentsPage,
+  'fee-invoices': FeeInvoicesPage,
   'fee-collections': FeeCollectionsPage,
   'fee-details': FeeCollectionsPage,
   'salary-structure': SalaryStructurePage,
@@ -190,6 +198,7 @@ const PAGE_COMPONENTS: Partial<Record<PageName, React.ComponentType>> = {
   'announcements': AnnouncementsPage,
   'classes': ClassesPage,
   'subjects': SubjectsPage,
+  'academic-years': AcademicYearsPage,
   'add-subject': AddSubjectPage,
   'add-class': AddClassPage,
   'schools': SchoolsPage,
@@ -247,6 +256,8 @@ const SEARCH_ITEMS: { label: string; page: PageName; keywords: string[] }[] = [
   { label: 'Fee Heads', page: 'fees-heads', keywords: ['fee type', 'tuition', 'charge'] },
   { label: 'Fee Groups', page: 'fees-groups', keywords: ['fee category', 'group fees'] },
   { label: 'Fee Structures', page: 'fees-structures', keywords: ['fee plan', 'class fees', 'amount'] },
+  { label: 'Fee Assignments', page: 'fee-assignments', keywords: ['student fee', 'fee snapshot', 'assign fees'] },
+  { label: 'Fee Invoices', page: 'fee-invoices', keywords: ['invoice', 'demand', 'bill'] },
   { label: 'Fee Collections', page: 'fee-collections', keywords: ['payment', 'collect', 'receipt', 'pay'] },
   { label: 'Salary Structure', page: 'salary-structure', keywords: ['pay scale', 'ctc', 'compensation'] },
   { label: 'Salary Payments', page: 'salary-payments', keywords: ['payroll', 'salary slip', 'month pay'] },
@@ -265,6 +276,7 @@ const SEARCH_ITEMS: { label: string; page: PageName; keywords: string[] }[] = [
   { label: 'Announcements', page: 'announcements', keywords: ['notice', 'broadcast', 'news'] },
   { label: 'Classes', page: 'classes', keywords: ['grade', 'standard', 'section'] },
   { label: 'Subjects', page: 'subjects', keywords: ['course', 'discipline', 'math', 'science'] },
+  { label: 'Academic Years', page: 'academic-years', keywords: ['session', 'year', 'current year', 'school year'] },
   { label: 'Add Subject', page: 'add-subject', keywords: ['new subject', 'create subject', 'add course'] },
   { label: 'Add Class', page: 'add-class', keywords: ['new class', 'create class', 'add grade'] },
   { label: 'Settings', page: 'settings', keywords: ['config', 'preference', 'system'] },

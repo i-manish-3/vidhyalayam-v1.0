@@ -143,6 +143,8 @@ export const MENUS: Record<string, MenuItem[]> = {
         { label: 'Fee Heads', page: 'fees-heads', icon: IndianRupee },
         { label: 'Fee Groups', page: 'fees-groups', icon: Layers },
         { label: 'Fee Structures', page: 'fees-structures', icon: FileText },
+        { label: 'Fee Assignments', page: 'fee-assignments', icon: FileText },
+        { label: 'Fee Invoices', page: 'fee-invoices', icon: Receipt },
         { label: 'Fee Collections', page: 'fee-collections', icon: DollarSign },
       ],
     },
@@ -197,6 +199,7 @@ export const MENUS: Record<string, MenuItem[]> = {
       ],
     },
     { label: 'Roles & Permissions', page: 'school-roles', icon: ShieldCheck },
+    { label: 'Academic Years', page: 'academic-years', icon: Calendar },
     { label: 'Settings', page: 'settings', icon: Settings },
   ],
   TEACHER: [
@@ -250,6 +253,8 @@ export const MENUS: Record<string, MenuItem[]> = {
       page: 'fee-collections',
       icon: Receipt,
       children: [
+        { label: 'Fee Assignments', page: 'fee-assignments', icon: FileText },
+        { label: 'Fee Invoices', page: 'fee-invoices', icon: Receipt },
         { label: 'Fee Collections', page: 'fee-collections', icon: DollarSign },
       ],
     },

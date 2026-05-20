@@ -12,6 +12,88 @@ function parseDate(value: unknown) {
   return Number.isNaN(date.getTime()) ? null : date
 }
 
+async function getSwitchPreview(schoolId: string, targetYear: string) {
+  const school = await db.school.findUnique({
+    where: { id: schoolId },
+    select: { academicYear: true },
+  })
+  const currentYear = school?.academicYear || null
+
+  const [
+    activeStudents,
+    admissions,
+    feeStructures,
+    feeAssignments,
+    feeInvoices,
+    attendance,
+    timetable,
+    exams,
+    transportRoutes,
+    transportAllocations,
+  ] = await Promise.all([
+    db.student.count({ where: { schoolId, isActive: true, deletedAt: null } }),
+    db.admission.count({ where: { schoolId, academicYear: targetYear, deletedAt: null } }),
+    db.feesStructure.count({ where: { schoolId, academicYear: targetYear, deletedAt: null } }),
+    db.studentFeeAssignment.count({ where: { schoolId, academicYear: targetYear, deletedAt: null } }),
+    db.studentFeeInvoice.count({ where: { schoolId, assignment: { academicYear: targetYear }, deletedAt: null } }),
+    db.attendance.count({ where: { schoolId, academicYear: targetYear } }),
+    db.timetable.count({ where: { schoolId, academicYear: targetYear, deletedAt: null } }),
+    db.exam.count({ where: { schoolId, academicYear: targetYear, deletedAt: null } }),
+    db.transportRoute.count({ where: { schoolId, academicYear: targetYear, deletedAt: null } }),
+    db.transportAllocation.count({ where: { schoolId, academicYear: targetYear, isActive: true } }),
+  ])
+
+  return {
+    currentYear,
+    targetYear,
+    counts: {
+      activeStudents,
+      admissions,
+      feeStructures,
+      feeAssignments,
+      feeInvoices,
+      attendance,
+      timetable,
+      exams,
+      transportRoutes,
+      transportAllocations,
+    },
+    warnings: [
+      feeStructures === 0 ? 'No fee structures exist for the target year.' : null,
+      activeStudents > 0 && feeAssignments === 0 ? 'No student fee assignments exist for the target year.' : null,
+      timetable === 0 ? 'No timetable entries exist for the target year.' : null,
+      transportRoutes === 0 ? 'No transport routes exist for the target year.' : null,
+    ].filter(Boolean),
+  }
+}
+
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const user = requireRole(request, ['SCHOOL_ADMIN'])
+    if (!user || !user.schoolId) {
+      return unauthorizedError()
+    }
+
+    const { id } = await params
+    const includeDeleted = request.nextUrl.searchParams.get('includeDeleted') === 'true'
+    const existing = await db.academicYear.findFirst({
+      where: { id, schoolId: user.schoolId, ...(includeDeleted ? {} : { deletedAt: null }) },
+    })
+    if (!existing) {
+      return notFoundError('AcademicYear')
+    }
+
+    const preview = await getSwitchPreview(user.schoolId, existing.name)
+    return NextResponse.json({ year: existing, preview })
+  } catch (error) {
+    console.error('Academic year switch preview error:', error)
+    return internalError('loading academic year switch preview')
+  }
+}
+
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -37,17 +119,50 @@ export async function PATCH(
       return apiError(400, 'Start date must be before end date.')
     }
 
+    const isRestore = body.restoreAcademicYear === true
     const existing = await db.academicYear.findFirst({
-      where: { id, schoolId: user.schoolId, deletedAt: null },
+      where: { id, schoolId: user.schoolId, ...(isRestore ? {} : { deletedAt: null }) },
     })
     if (!existing) {
       return notFoundError('AcademicYear')
+    }
+    if (isRestore) {
+      const confirmed =
+        body.confirmAcademicYearRestore === true &&
+        body.acknowledgedImpact === true &&
+        body.confirmationText === existing.name
+
+      if (!confirmed) {
+        return apiError(409, `Type ${existing.name} and confirm the academic-year impact before restoring it.`)
+      }
+
+      const year = await db.academicYear.update({
+        where: { id },
+        data: {
+          deletedAt: null,
+          isActive: true,
+          isCurrent: false,
+        },
+      })
+
+      return NextResponse.json({ year })
     }
     if (existing.isCurrent && body.isActive === false) {
       return apiError(400, 'Current academic year cannot be inactive. Set another year as current first.')
     }
 
     const isCurrent = body.isCurrent === true
+    if (isCurrent && !existing.isCurrent) {
+      const confirmed =
+        body.confirmAcademicYearSwitch === true &&
+        body.acknowledgedImpact === true &&
+        body.confirmationText === existing.name
+
+      if (!confirmed) {
+        return apiError(409, `Type ${existing.name} and confirm the academic-year impact before switching current year.`)
+      }
+    }
+
     const updateData: Record<string, unknown> = {}
 
     if (startDate !== undefined) updateData.startDate = startDate
@@ -111,6 +226,16 @@ export async function DELETE(
     }
     if (existing.isCurrent) {
       return apiError(400, 'Current academic year cannot be deleted. Set another year as current first.')
+    }
+
+    const body = await request.json().catch(() => ({}))
+    const confirmed =
+      body.confirmAcademicYearDelete === true &&
+      body.acknowledgedImpact === true &&
+      body.confirmationText === existing.name
+
+    if (!confirmed) {
+      return apiError(409, `Type ${existing.name} and confirm the academic-year impact before deleting it.`)
     }
 
     await db.academicYear.update({

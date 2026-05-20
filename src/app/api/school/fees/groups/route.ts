@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
       include: {
         items: {
           include: {
-            feeHead: { select: { id: true, name: true, frequency: true } },
+            feeHead: { select: { id: true, name: true, frequency: true, headType: true, isOptional: true } },
           },
         },
       },
@@ -48,20 +48,20 @@ export async function POST(request: NextRequest) {
       return apiError(400, 'Please enter a name for the fee group.')
     }
 
-    if (!feeHeadIds || !Array.isArray(feeHeadIds) || feeHeadIds.length === 0) {
-      return apiError(400, 'Please select at least one fee type to include in this group.')
-    }
+    const selectedFeeHeadIds = Array.isArray(feeHeadIds) ? feeHeadIds : []
 
-    // Verify fee heads belong to this school
-    const feeHeads = await db.feesHead.findMany({
-      where: {
-        id: { in: feeHeadIds },
-        schoolId: user.schoolId,
-        deletedAt: null,
-      },
-    })
-    if (feeHeads.length !== feeHeadIds.length) {
-      return apiError(400, 'Some of the fee types you selected no longer exist. Please refresh the page and try again.')
+    if (selectedFeeHeadIds.length > 0) {
+      // Verify fee heads belong to this school
+      const feeHeads = await db.feesHead.findMany({
+        where: {
+          id: { in: selectedFeeHeadIds },
+          schoolId: user.schoolId,
+          deletedAt: null,
+        },
+      })
+      if (feeHeads.length !== selectedFeeHeadIds.length) {
+        return apiError(400, 'Some of the fee types you selected no longer exist. Please refresh the page and try again.')
+      }
     }
 
     const feeGroup = await db.feesGroup.create({
@@ -69,9 +69,9 @@ export async function POST(request: NextRequest) {
         schoolId: user.schoolId,
         name,
         description,
-        items: {
-          create: feeHeadIds.map((feeHeadId: string) => ({ feeHeadId })),
-        },
+        ...(selectedFeeHeadIds.length > 0
+          ? { items: { create: selectedFeeHeadIds.map((feeHeadId: string) => ({ feeHeadId })) } }
+          : {}),
       },
       include: {
         items: {

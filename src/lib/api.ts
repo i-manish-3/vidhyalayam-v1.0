@@ -109,11 +109,24 @@ class ApiClient {
     }, options?.skipLogoutOn401)
   }
 
-  async delete<T>(path: string, options?: { skipLogoutOn401?: boolean }): Promise<T> {
+  async delete<T>(
+    path: string,
+    bodyOrOptions?: unknown | { skipLogoutOn401?: boolean },
+    options?: { skipLogoutOn401?: boolean }
+  ): Promise<T> {
+    const isOptionsOnly =
+      bodyOrOptions &&
+      typeof bodyOrOptions === 'object' &&
+      'skipLogoutOn401' in bodyOrOptions &&
+      Object.keys(bodyOrOptions).length === 1
+    const body = isOptionsOnly ? undefined : bodyOrOptions
+    const requestOptions = isOptionsOnly ? bodyOrOptions as { skipLogoutOn401?: boolean } : options
+
     return this.fetchWithRetry<T>(`${BASE_URL}${path}`, {
       method: 'DELETE',
       headers: this.getHeaders(),
-    }, options?.skipLogoutOn401)
+      body: body ? JSON.stringify(body) : undefined,
+    }, requestOptions?.skipLogoutOn401)
   }
 
   /**

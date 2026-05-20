@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { PageHeader, EmptyState, LoadingState } from '@/components/shared'
+import { EmptyState, LoadingState } from '@/components/shared'
 import { api } from '@/lib/api'
+import { useAppStore } from '@/lib/store'
 import { useToast } from '@/hooks/use-toast'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -10,14 +11,28 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Checkbox } from '@/components/ui/checkbox'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
-import { ScrollArea } from '@/components/ui/scroll-area'
-import { PlusCircle, Layers, Tag } from 'lucide-react'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { ArrowLeft, Edit2, Layers, MoreHorizontal, PlusCircle, Tag, Trash2 } from 'lucide-react'
 
 // ── Types ──────────────────────────────────────────────────────────────
 
-type FeeFrequency = 'ONE_TIME' | 'MONTHLY' | 'QUARTERLY' | 'HALF_YEARLY' | 'YEARLY' | 'CUSTOM'
+type FeeFrequency = 'ONE_TIME' | 'MONTHLY' | 'QUARTERLY' | 'HALF_YEARLY' | 'YEARLY' | 'CUSTOM' | 'INSTALLMENT' | 'ON_DEMAND'
 
 interface FeeHead {
   id: string
@@ -49,6 +64,8 @@ const FREQUENCY_BADGE_CLASSES: Record<FeeFrequency, string> = {
   ONE_TIME: 'bg-amber-100 text-amber-800 hover:bg-amber-100',
   QUARTERLY: 'bg-teal-100 text-teal-800 hover:bg-teal-100',
   HALF_YEARLY: 'bg-pink-100 text-pink-800 hover:bg-pink-100',
+  INSTALLMENT: 'bg-blue-100 text-blue-800 hover:bg-blue-100',
+  ON_DEMAND: 'bg-orange-100 text-orange-800 hover:bg-orange-100',
   CUSTOM: 'bg-gray-100 text-gray-800 hover:bg-gray-100',
 }
 
@@ -58,6 +75,8 @@ const FREQUENCY_LABELS: Record<FeeFrequency, string> = {
   QUARTERLY: 'Quarterly',
   HALF_YEARLY: 'Half Yearly',
   YEARLY: 'Yearly',
+  INSTALLMENT: 'Installment Based',
+  ON_DEMAND: 'On Demand',
   CUSTOM: 'Custom',
 }
 
@@ -65,30 +84,32 @@ const FREQUENCY_LABELS: Record<FeeFrequency, string> = {
 
 export function FeesGroupsPage() {
   const { toast } = useToast()
+  const goBack = useAppStore((s) => s.goBack)
 
   // Data
   const [feeGroups, setFeeGroups] = useState<FeeGroup[]>([])
-  const [feeHeads, setFeeHeads] = useState<FeeHead[]>([])
   const [loading, setLoading] = useState(true)
 
   // Dialog state
   const [showAdd, setShowAdd] = useState(false)
+  const [editingGroup, setEditingGroup] = useState<FeeGroup | null>(null)
+  const [deletingGroup, setDeletingGroup] = useState<FeeGroup | null>(null)
   const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const [form, setForm] = useState({
     name: '',
     description: '',
   })
-  const [selectedFeeHeadIds, setSelectedFeeHeadIds] = useState<string[]>([])
+  const [editForm, setEditForm] = useState({
+    name: '',
+    description: '',
+  })
 
   // Fetch data
   const fetchData = useCallback(async () => {
     try {
-      const [groupsRes, headsRes] = await Promise.all([
-        api.get<{ groups: FeeGroup[] }>('/api/school/fees/groups'),
-        api.get<{ heads: FeeHead[] }>('/api/school/fees/heads'),
-      ])
+      const groupsRes = await api.get<{ groups: FeeGroup[] }>('/api/school/fees/groups')
       setFeeGroups(groupsRes.groups || [])
-      setFeeHeads((headsRes.heads || []).filter((h) => h.isActive))
     } catch {
       toast({ title: 'Couldn\'t Load Fee Groups', description: 'We couldn\'t load the fee groups. Please refresh the page.', variant: 'destructive' })
     } finally {
@@ -100,35 +121,21 @@ export function FeesGroupsPage() {
     fetchData()
   }, [fetchData])
 
-  // Toggle fee head selection
-  const toggleFeeHead = (headId: string) => {
-    setSelectedFeeHeadIds((prev) =>
-      prev.includes(headId) ? prev.filter((id) => id !== headId) : [...prev, headId]
-    )
-  }
-
   // Add fee group
   const handleAdd = async () => {
     if (!form.name.trim()) {
       toast({ title: 'Missing Information', description: 'Please enter the name.', variant: 'destructive' })
       return
     }
-    if (selectedFeeHeadIds.length === 0) {
-      toast({ title: 'Missing Information', description: 'Please select at least one fee head.', variant: 'destructive' })
-      return
-    }
-
     setSaving(true)
     try {
       await api.post('/api/school/fees/groups', {
         name: form.name,
         description: form.description,
-        feeHeadIds: selectedFeeHeadIds,
       })
       toast({ title: 'Success', description: 'Fee group added successfully' })
       setShowAdd(false)
       setForm({ name: '', description: '' })
-      setSelectedFeeHeadIds([])
       fetchData()
     } catch (err) {
       toast({
@@ -141,6 +148,62 @@ export function FeesGroupsPage() {
     }
   }
 
+  const openEdit = (group: FeeGroup) => {
+    setEditingGroup(group)
+    setEditForm({
+      name: group.name,
+      description: group.description || '',
+    })
+  }
+
+  const handleEdit = async () => {
+    if (!editingGroup) return
+    if (!editForm.name.trim()) {
+      toast({ title: 'Missing Information', description: 'Please enter the group name.', variant: 'destructive' })
+      return
+    }
+
+    setSaving(true)
+    try {
+      await api.patch(`/api/school/fees/groups/${editingGroup.id}`, {
+        name: editForm.name.trim(),
+        description: editForm.description.trim(),
+      })
+      toast({ title: 'Success', description: 'Fee group updated successfully' })
+      setEditingGroup(null)
+      setEditForm({ name: '', description: '' })
+      fetchData()
+    } catch (err) {
+      toast({
+        title: 'Something Went Wrong',
+        description: err instanceof Error ? err.message : 'Something went wrong. Please try again.',
+        variant: 'destructive',
+      })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!deletingGroup) return
+
+    setDeleting(true)
+    try {
+      await api.delete(`/api/school/fees/groups/${deletingGroup.id}`)
+      toast({ title: 'Success', description: 'Fee group deleted successfully' })
+      setDeletingGroup(null)
+      fetchData()
+    } catch (err) {
+      toast({
+        title: 'Could Not Delete Fee Group',
+        description: err instanceof Error ? err.message : 'Something went wrong. Please try again.',
+        variant: 'destructive',
+      })
+    } finally {
+      setDeleting(false)
+    }
+  }
+
   // ── Render ──────────────────────────────────────────────────────────
 
   if (loading) {
@@ -149,21 +212,27 @@ export function FeesGroupsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Fee Groups"
-        description={`${feeGroups.length} fee groups configured`}
-        action={{
-          label: 'Add Fee Group',
-          icon: PlusCircle,
-          onClick: () => setShowAdd(true),
-        }}
-      />
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-start gap-3">
+          <Button variant="outline" size="icon" onClick={() => goBack('dashboard')} className="mt-0.5 size-9 shrink-0">
+            <ArrowLeft className="size-4" />
+          </Button>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Fee Groups</h1>
+            <p className="mt-1 text-sm text-muted-foreground">{feeGroups.length} fee groups configured</p>
+          </div>
+        </div>
+        <Button onClick={() => setShowAdd(true)} className="gap-2 shrink-0">
+          <PlusCircle className="size-4" />
+          Add Fee Group
+        </Button>
+      </div>
 
       {feeGroups.length === 0 ? (
         <EmptyState
           icon={Layers}
           title="No Fee Groups"
-          description="Create fee groups to bundle multiple fee heads together (e.g., Academic Fees, Transport Fees)."
+          description="Create fee groups such as New Admission, Regular Student, or Staff Ward."
           action={{ label: 'Add Fee Group', onClick: () => setShowAdd(true) }}
         />
       ) : (
@@ -172,15 +241,37 @@ export function FeesGroupsPage() {
             <Card key={group.id} className="relative overflow-hidden">
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between">
-                  <div className="space-y-1">
+                  <div className="min-w-0 space-y-1">
                     <CardTitle className="text-lg">{group.name}</CardTitle>
                     {group.description && (
                       <p className="text-sm text-muted-foreground">{group.description}</p>
                     )}
                   </div>
-                  <Badge variant="secondary" className="shrink-0">
-                    {(group.items || []).length} head{(group.items || []).length !== 1 ? 's' : ''}
-                  </Badge>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <Badge variant="secondary">
+                      {(group.items || []).length} head{(group.items || []).length !== 1 ? 's' : ''}
+                    </Badge>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="size-8">
+                          <MoreHorizontal className="size-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => openEdit(group)}>
+                          <Edit2 className="mr-2 size-4" />
+                          Edit Name
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          className="text-destructive focus:text-destructive"
+                          onClick={() => setDeletingGroup(group)}
+                        >
+                          <Trash2 className="mr-2 size-4" />
+                          Delete Group
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent className="pt-0">
@@ -246,45 +337,6 @@ export function FeesGroupsPage() {
                 rows={2}
               />
             </div>
-            <div className="space-y-2">
-              <Label>Select Fee Heads</Label>
-              {feeHeads.length === 0 ? (
-                <p className="text-sm text-muted-foreground py-4 text-center border rounded-lg">
-                  No active fee heads available. Create fee heads first.
-                </p>
-              ) : (
-                <ScrollArea className="h-64 rounded-lg border">
-                  <div className="p-3 space-y-3">
-                    {feeHeads.map((head) => (
-                      <div
-                        key={head.id}
-                        className="flex items-center gap-3 rounded-md px-3 py-2 hover:bg-muted/50 cursor-pointer"
-                        onClick={() => toggleFeeHead(head.id)}
-                      >
-                        <Checkbox
-                          checked={selectedFeeHeadIds.includes(head.id)}
-                          onCheckedChange={() => toggleFeeHead(head.id)}
-                        />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium">{head.name}</p>
-                        </div>
-                        <Badge
-                          className={FREQUENCY_BADGE_CLASSES[head.frequency]}
-                          variant="secondary"
-                        >
-                          {FREQUENCY_LABELS[head.frequency]}
-                        </Badge>
-                      </div>
-                    ))}
-                  </div>
-                </ScrollArea>
-              )}
-              {selectedFeeHeadIds.length > 0 && (
-                <p className="text-xs text-muted-foreground">
-                  {selectedFeeHeadIds.length} fee head{selectedFeeHeadIds.length !== 1 ? 's' : ''} selected
-                </p>
-              )}
-            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowAdd(false)}>
@@ -292,13 +344,77 @@ export function FeesGroupsPage() {
             </Button>
             <Button
               onClick={handleAdd}
-              disabled={saving || !form.name.trim() || selectedFeeHeadIds.length === 0}
+              disabled={saving || !form.name.trim()}
             >
               {saving ? 'Adding...' : 'Add Fee Group'}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={!!editingGroup} onOpenChange={(open) => !open && setEditingGroup(null)}>
+        <DialogContent className="max-w-lg max-h-[90vh]">
+          <DialogHeader>
+            <DialogTitle>Edit Fee Group</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-group-name">Group Name</Label>
+              <Input
+                id="edit-group-name"
+                value={editForm.name}
+                onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
+                placeholder="e.g., Academic Fees, Transport Fees"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-group-desc">Description</Label>
+              <Textarea
+                id="edit-group-desc"
+                value={editForm.description}
+                onChange={(e) => setEditForm((f) => ({ ...f, description: e.target.value }))}
+                placeholder="Optional description for this fee group"
+                rows={2}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingGroup(null)} disabled={saving}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleEdit}
+              disabled={saving || !editForm.name.trim()}
+            >
+              {saving ? 'Saving...' : 'Save Changes'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={!!deletingGroup} onOpenChange={(open) => !open && setDeletingGroup(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Fee Group?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will remove "{deletingGroup?.name}" from the active fee group list. Groups already used in fee structures cannot be deleted.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(event) => {
+                event.preventDefault()
+                handleDelete()
+              }}
+              disabled={deleting}
+              className="bg-destructive text-white hover:bg-destructive/90"
+            >
+              {deleting ? 'Deleting...' : 'Delete Group'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

@@ -1,10 +1,10 @@
-# 🎓 My Digital Academy — School Management ERP System
+# ðŸŽ“ My Digital Academy â€” School Management ERP System
 
-A full-featured, multi-tenant SaaS School Management ERP built with **Next.js 16**, **TypeScript**, **Tailwind CSS 4**, and **Prisma ORM**. Manage students, teachers, fees, attendance, exams, payroll, library, transport, and more — all from one platform.
+A full-featured, multi-tenant SaaS School Management ERP built with **Next.js 16**, **TypeScript**, **Tailwind CSS 4**, and **Prisma ORM**. Manage students, teachers, fees, attendance, exams, payroll, library, transport, and more â€” all from one platform.
 
 ---
 
-## 📸 Screenshots
+## ðŸ“¸ Screenshots
 
 | Landing Page | Dashboard |
 |:---:|:---:|
@@ -16,7 +16,7 @@ A full-featured, multi-tenant SaaS School Management ERP built with **Next.js 16
 
 ---
 
-## 🚀 Quick Start (One Command)
+## ðŸš€ Quick Start (One Command)
 
 ```bash
 # Clone the repo
@@ -37,7 +37,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ---
 
-## 📋 Step-by-Step Setup
+## ðŸ“‹ Step-by-Step Setup
 
 If you prefer to run each step manually:
 
@@ -74,7 +74,7 @@ The `.env` file contains:
 # Database - PostgreSQL
 DATABASE_URL=postgresql://z:postgres@127.0.0.1:5432/mydigitalacademy
 
-# JWT Secret — Change this in production!
+# JWT Secret â€” Change this in production!
 JWT_SECRET=school-erp-super-secret-key-2025
 ```
 
@@ -100,7 +100,7 @@ The app runs at **http://localhost:3000**.
 
 ---
 
-## 🔐 Demo Login Credentials
+## ðŸ” Demo Login Credentials
 
 After seeding, you can log in with these accounts:
 
@@ -114,7 +114,7 @@ After seeding, you can log in with these accounts:
 
 ---
 
-## 🏗️ Tech Stack
+## ðŸ—ï¸ Tech Stack
 
 | Technology | Purpose |
 |-----------|---------|
@@ -133,84 +133,84 @@ After seeding, you can log in with these accounts:
 
 ---
 
-## 📦 Project Structure
+## ðŸ“¦ Project Structure
 
 ```
 my-digital-academy/
 +-- prisma/
-�   +-- schema.prisma              # Database schema
-�   +-- seed/                      # Database seed scripts
-�       +-- index.ts               # Core demo data
-�       +-- pricing.ts             # Pricing plans
-�       +-- team.ts                # Team members
-�       +-- notifications.ts       # System notifications
+¦   +-- schema.prisma              # Database schema
+¦   +-- seed/                      # Database seed scripts
+¦       +-- index.ts               # Core demo data
+¦       +-- pricing.ts             # Pricing plans
+¦       +-- team.ts                # Team members
+¦       +-- notifications.ts       # System notifications
 +-- public/                        # Static assets and uploads
 +-- scripts/                       # Local setup/maintenance scripts
 +-- src/
-�   +-- app/                       # Next.js App Router pages and API routes
-�   �   +-- api/                   # REST API route handlers
-�   +-- components/                # App shell, dashboards, shared UI
-�   �   +-- ui/                    # shadcn/ui components
-�   �   +-- shared/                # Reusable app components
-�   �   +-- dashboards/            # Role-specific dashboards
-�   +-- features/                  # Domain-oriented feature pages
-�   �   +-- academics/
-�   �   +-- admin/
-�   �   +-- admissions/
-�   �   +-- attendance/
-�   �   +-- communications/
-�   �   +-- exams/
-�   �   +-- fees/
-�   �   +-- marketing/
-�   �   +-- operations/
-�   �   +-- people/
-�   �   +-- salary/
-�   �   +-- students/
-�   �   +-- transport/
-�   +-- hooks/                     # Custom React hooks
-�   +-- lib/                       # Shared client/server utilities
+¦   +-- app/                       # Next.js App Router pages and API routes
+¦   ¦   +-- api/                   # REST API route handlers
+¦   +-- components/                # App shell, dashboards, shared UI
+¦   ¦   +-- ui/                    # shadcn/ui components
+¦   ¦   +-- shared/                # Reusable app components
+¦   ¦   +-- dashboards/            # Role-specific dashboards
+¦   +-- features/                  # Domain-oriented feature pages
+¦   ¦   +-- academics/
+¦   ¦   +-- admin/
+¦   ¦   +-- admissions/
+¦   ¦   +-- attendance/
+¦   ¦   +-- communications/
+¦   ¦   +-- exams/
+¦   ¦   +-- fees/
+¦   ¦   +-- marketing/
+¦   ¦   +-- operations/
+¦   ¦   +-- people/
+¦   ¦   +-- salary/
+¦   ¦   +-- students/
+¦   ¦   +-- transport/
+¦   +-- hooks/                     # Custom React hooks
+¦   +-- lib/                       # Shared client/server utilities
 +-- .env.example                   # Environment template
 +-- package.json                   # Dependencies and scripts
 ```
 ---
 
-## 🧩 Modules
+## ðŸ§© Modules
 
 | Module | Description |
 |--------|------------|
-| 🏫 **Multi-Tenant Schools** | Manage multiple schools from one platform |
-| 👨‍🎓 **Student Management** | Admissions, profiles, enrollment, siblings |
-| 👨‍🏫 **Teacher Management** | Profiles, qualifications, subject assignments |
-| 👨‍👩‍👧 **Parent Portal** | Parent login, child tracking, communication |
-| 💰 **Fee Management** | Fee heads, groups, structures, collections, receipts |
-| 📋 **Attendance** | Daily attendance marking, reports, export |
-| 📝 **Exam & Results** | Exam scheduling, result entry, report cards |
-| 💵 **Salary & Payroll** | Salary structures, monthly payslips, advance requests |
-| 🚌 **Transport** | Route management, stop allocation, fee tracking |
-| 📚 **Library** | Book catalog, issue/return, fine tracking |
-| 📦 **Inventory** | Asset tracking, procurement, condition monitoring |
-| 🪙 **Petty Cash** | Cash flow, approval workflow, category tracking |
-| 📢 **Announcements** | School-wide, targeted announcements |
-| 🔔 **Notifications** | In-app notifications, type-based alerts |
-| 🎫 **Support Tickets** | Issue tracking, priority, resolution |
-| 🔐 **RBAC** | Role-based access control, permissions, custom roles |
-| 🏠 **Landing Page** | Public website with pricing, testimonials, team |
-| 📊 **Super Admin Dashboard** | Cross-school analytics, school management, contacts |
-| 📈 **School Admin Dashboard** | School-specific analytics, quick actions |
-| 🎓 **Admission Wizard** | Multi-step admission with document verification |
+| ðŸ« **Multi-Tenant Schools** | Manage multiple schools from one platform |
+| ðŸ‘¨â€ðŸŽ“ **Student Management** | Admissions, profiles, enrollment, siblings |
+| ðŸ‘¨â€ðŸ« **Teacher Management** | Profiles, qualifications, subject assignments |
+| ðŸ‘¨â€ðŸ‘©â€ðŸ‘§ **Parent Portal** | Parent login, child tracking, communication |
+| ðŸ’° **Fee Management** | Fee heads, groups, structures, collections, receipts |
+| ðŸ“‹ **Attendance** | Daily attendance marking, reports, export |
+| ðŸ“ **Exam & Results** | Exam scheduling, result entry, report cards |
+| ðŸ’µ **Salary & Payroll** | Salary structures, monthly payslips, advance requests |
+| ðŸšŒ **Transport** | Route management, stop allocation, fee tracking |
+| ðŸ“š **Library** | Book catalog, issue/return, fine tracking |
+| ðŸ“¦ **Inventory** | Asset tracking, procurement, condition monitoring |
+| ðŸª™ **Petty Cash** | Cash flow, approval workflow, category tracking |
+| ðŸ“¢ **Announcements** | School-wide, targeted announcements |
+| ðŸ”” **Notifications** | In-app notifications, type-based alerts |
+| ðŸŽ« **Support Tickets** | Issue tracking, priority, resolution |
+| ðŸ” **RBAC** | Role-based access control, permissions, custom roles |
+| ðŸ  **Landing Page** | Public website with pricing, testimonials, team |
+| ðŸ“Š **Super Admin Dashboard** | Cross-school analytics, school management, contacts |
+| ðŸ“ˆ **School Admin Dashboard** | School-specific analytics, quick actions |
+| ðŸŽ“ **Admission Wizard** | Multi-step admission with document verification |
 
 ---
 
-## 🛠️ Available Scripts
+## ðŸ› ï¸ Available Scripts
 
 | Command | Description |
 |---------|------------|
-| `bun run setup` | Full setup: env → install → db → seed |
+| `bun run setup` | Full setup: env â†’ install â†’ db â†’ seed |
 | `bun run dev` | Start development server (port 3000) |
 | `bun run build` | Build for production |
 | `bun run start` | Start production server |
 | `bun run lint` | Run ESLint checks |
-| `bun run db:push` | Push Prisma schema to database |
+| `bun run db:push` | Push Prisma schema to PostgreSQL |
 | `bun run db:generate` | Generate Prisma client |
 | `bun run seed` | Run all seed scripts |
 | `bun run seed-pricing` | Seed pricing plans |
@@ -219,7 +219,7 @@ my-digital-academy/
 
 ---
 
-## 🎨 Theme Customization
+## ðŸŽ¨ Theme Customization
 
 The project uses an **emerald/slate** color theme defined in CSS variables (`src/app/globals.css`):
 
@@ -233,7 +233,7 @@ Dark mode is fully supported via `next-themes`.
 
 ---
 
-## 📄 Database
+## ðŸ“„ Database
 
 This project uses **PostgreSQL** via Prisma ORM.
 
@@ -251,7 +251,7 @@ bun run seed
 
 ---
 
-## 🤝 Contributing
+## ðŸ¤ Contributing
 
 1. Create a feature branch: `git checkout -b feat/your-feature`
 2. Make your changes
@@ -261,12 +261,12 @@ bun run seed
 
 ---
 
-## 📝 License
+## ðŸ“ License
 
 This project is proprietary. All rights reserved.
 
 ---
 
 <p align="center">
-  Built with ❤️ by <strong>My Digital Academy</strong>
+  Built with â¤ï¸ by <strong>My Digital Academy</strong>
 </p>

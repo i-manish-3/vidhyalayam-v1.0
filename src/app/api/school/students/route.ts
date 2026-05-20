@@ -42,11 +42,17 @@ export async function GET(request: NextRequest) {
     }
 
     if (search) {
-      // Also search in admission.registrationNumber
+      const searchTerms = search.trim().split(/\s+/).filter(Boolean)
+      const nameTermFilters = searchTerms.map((term) => ({
+        OR: [
+          { firstName: { contains: term, mode: 'insensitive' } },
+          { lastName: { contains: term, mode: 'insensitive' } },
+        ],
+      }))
       const matchingAdmissionStudentIds = await db.admission.findMany({
         where: {
           schoolId: user.schoolId,
-          registrationNumber: { contains: search },
+          registrationNumber: { contains: search, mode: 'insensitive' },
         },
         select: { studentId: true },
       })
@@ -55,11 +61,12 @@ export async function GET(request: NextRequest) {
         .filter((id): id is string => id !== null)
 
       where.OR = [
-        { firstName: { contains: search } },
-        { lastName: { contains: search } },
-        { rollNumber: { contains: search } },
-        { aadhaarNumber: { contains: search } },
-        { admissionNumber: { contains: search } },
+        { firstName: { contains: search, mode: 'insensitive' } },
+        { lastName: { contains: search, mode: 'insensitive' } },
+        ...(nameTermFilters.length > 1 ? [{ AND: nameTermFilters }] : []),
+        { rollNumber: { contains: search, mode: 'insensitive' } },
+        { aadhaarNumber: { contains: search, mode: 'insensitive' } },
+        { admissionNumber: { contains: search, mode: 'insensitive' } },
         ...(admissionStudentIds.length > 0 ? [{ id: { in: admissionStudentIds } }] : []),
       ]
     }

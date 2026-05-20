@@ -178,7 +178,7 @@ export function ViewAttendancePage() {
         const [clsRes, secRes, academicYearRes] = await Promise.all([
           api.get<{ classes: ClassOption[] }>('/api/school/classes'),
           api.get<{ sections: SectionOption[] }>('/api/school/sections'),
-          api.get<{ academicYears: string[] }>('/api/school/academic-years'),
+          api.get<{ academicYears: string[] }>('/api/school/academic-years', { includeInactive: 'true' }),
         ])
         setClasses(clsRes.classes || [])
         setSections(secRes.sections || [])

@@ -47,7 +47,7 @@ When Prisma client generation fails on Windows with a locked query engine DLL, s
 bun run dev
 bun run build
 bunx eslint <file-path>
-bunx prisma db push --skip-generate
+bun run db:push
 bunx prisma generate
 ```
 
@@ -260,4 +260,3 @@ src/features/students/pages/student-detail-page.tsx
 Targeted lint has been passing for touched files. Production build has passed after network approval for Google Fonts.
 
 Known full TypeScript check issues existed previously in unrelated older areas like examples, landing page motion typings, and generic table typings. Do not assume a full `tsc --noEmit` failure was caused by recent work unless the error points to touched files.
-

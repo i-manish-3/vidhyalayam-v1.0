@@ -12,6 +12,7 @@ export interface AcademicYear {
   endDate: string | null
   isCurrent: boolean
   isActive: boolean
+  deletedAt?: string | null
 }
 
 export function getCurrentAcademicYear() {

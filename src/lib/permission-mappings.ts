@@ -26,6 +26,7 @@ const MODULE_PERMISSION_MAP: Record<string, string[]> = {
   // Academic
   'classes': ['class:read', 'class:create'],
   'subjects': ['subject:read', 'subject:create'],
+  'academic-years': ['settings:read', 'settings:update'],
   'add-subject': ['subject:read', 'subject:create'],
   'edit-subject': ['subject:read', 'subject:update'],
   'add-class': ['class:read', 'class:create'],
@@ -41,6 +42,8 @@ const MODULE_PERMISSION_MAP: Record<string, string[]> = {
   'fees-heads': ['fees:read'],
   'fees-groups': ['fees:read'],
   'fees-structures': ['fees:read'],
+  'fee-assignments': ['fees:read'],
+  'fee-invoices': ['fees:read'],
   'fee-collections': ['fees:read', 'fees:collect'],
   'fee-details': ['fees:read'],
 

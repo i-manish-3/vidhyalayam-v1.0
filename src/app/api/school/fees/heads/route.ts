@@ -35,22 +35,32 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { name, frequency } = body
+    const { name, frequency, headType, isOptional, isActive, applicability } = body
 
     if (!name || !frequency) {
       return apiError(400, 'Please enter the fee head name and select how often it\'s charged (monthly, yearly, etc.).')
     }
 
-    const validFrequencies = ['ONE_TIME', 'MONTHLY', 'QUARTERLY', 'HALF_YEARLY', 'YEARLY', 'CUSTOM']
+    const validFrequencies = ['ONE_TIME', 'MONTHLY', 'QUARTERLY', 'HALF_YEARLY', 'YEARLY', 'CUSTOM', 'INSTALLMENT', 'ON_DEMAND']
     if (!validFrequencies.includes(frequency)) {
-      return apiError(400, 'The frequency you selected isn\'t valid. Please choose from: One-time, Monthly, Quarterly, Half-yearly, Yearly, or Custom.')
+      return apiError(400, 'The frequency you selected isn\'t valid. Please choose from the supported billing behaviours.')
+    }
+
+    const validHeadTypes = ['STANDARD', 'REFUNDABLE_DEPOSIT', 'NON_REFUNDABLE']
+    const resolvedHeadType = headType || 'STANDARD'
+    if (!validHeadTypes.includes(resolvedHeadType)) {
+      return apiError(400, 'Please choose a valid fee head type.')
     }
 
     const feeHead = await db.feesHead.create({
       data: {
         schoolId: user.schoolId,
-        name,
+        name: name.trim(),
         frequency,
+        headType: resolvedHeadType,
+        isOptional: Boolean(isOptional),
+        isActive: isActive === undefined ? true : Boolean(isActive),
+        applicability: applicability ? JSON.stringify(applicability) : null,
       },
     })
 

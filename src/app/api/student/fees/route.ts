@@ -36,6 +36,46 @@ export async function GET(request: NextRequest) {
       return unauthorizedError()
     }
 
+    const ledgerFees = await db.studentFeeLedgerEntry.findMany({
+      where: {
+        schoolId: user.schoolId,
+        studentId: targetId,
+        entryType: 'DEBIT',
+        status: { not: 'cancelled' },
+        deletedAt: null,
+      },
+      orderBy: { dueDate: 'asc' },
+    })
+
+    if (ledgerFees.length > 0) {
+      const total = ledgerFees.reduce((s, f) => s + f.debit, 0)
+      const pending = ledgerFees.reduce((s, f) => s + f.balanceAmount, 0)
+      const paid = total - pending
+      const overdue = ledgerFees
+        .filter(f => f.status !== 'settled' && f.dueDate && f.dueDate < new Date())
+        .reduce((s, f) => s + f.balanceAmount, 0)
+
+      return NextResponse.json({
+        fees: ledgerFees.map(f => ({
+          id: f.id,
+          feeHead: f.feeHeadName || 'Fee',
+          installment: f.installmentName || '',
+          amount: f.debit,
+          paid: f.debit - f.balanceAmount,
+          discount: 0,
+          concession: 0,
+          scholarship: 0,
+          fine: 0,
+          pending: f.balanceAmount,
+          status: f.status === 'settled' ? 'paid' : f.status === 'partial' ? 'partial' : 'unpaid',
+          dueDate: f.dueDate ? new Date(f.dueDate).toLocaleDateString() : null,
+          paymentDate: f.transactionDate ? new Date(f.transactionDate).toLocaleDateString() : null,
+          receiptNumber: f.receiptNumber,
+        })),
+        summary: { total, paid, pending, overdue },
+      })
+    }
+
     const fees = await db.feeCollection.findMany({
       where: {
         schoolId: user.schoolId,

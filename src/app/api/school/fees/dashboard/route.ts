@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { requireRole } from '@/lib/api-auth'
 import { unauthorizedError, internalError, apiError } from '@/lib/api-errors'
+import { getFeeLedgerSummary, hasFeeLedgerData } from '@/lib/fee-ledger-summary'
 
 // GET /api/school/fees/dashboard - Fee dashboard stats
 export async function GET(request: NextRequest) {
@@ -12,6 +13,53 @@ export async function GET(request: NextRequest) {
     }
 
     const schoolId = user.schoolId
+    const useLedger = await hasFeeLedgerData(schoolId)
+    if (useLedger) {
+      const [summary, paymentsByMethod, recentPayments, waiverTotals, fineTotals] = await Promise.all([
+        getFeeLedgerSummary(schoolId),
+        db.studentFeeLedgerEntry.groupBy({
+          by: ['paymentMethod'],
+          where: { schoolId, deletedAt: null, entryType: 'CREDIT' },
+          _sum: { credit: true },
+          _count: { id: true },
+        }),
+        db.studentFeeLedgerEntry.findMany({
+          where: { schoolId, deletedAt: null, entryType: 'CREDIT' },
+          include: { student: { select: { firstName: true, lastName: true, rollNumber: true } } },
+          orderBy: { transactionDate: 'desc' },
+          take: 5,
+        }),
+        db.studentFeeLedgerEntry.aggregate({
+          where: { schoolId, deletedAt: null, entryType: 'WAIVER' },
+          _sum: { credit: true },
+        }),
+        db.studentFeeLedgerEntry.aggregate({
+          where: { schoolId, deletedAt: null, entryType: 'FINE' },
+          _sum: { debit: true },
+        }),
+      ])
+
+      return NextResponse.json({
+        totalFees: summary.total,
+        collected: summary.collected,
+        pending: summary.pending,
+        overdue: summary.overdue,
+        discounts: waiverTotals._sum.credit || 0,
+        fines: fineTotals._sum.debit || 0,
+        collectionRate: summary.total > 0 ? ((summary.collected / summary.total) * 100).toFixed(1) : '0',
+        paymentsByMethod,
+        recentPayments: recentPayments.map((payment) => ({
+          id: payment.id,
+          studentId: payment.studentId,
+          paidAmount: payment.credit,
+          amount: payment.credit,
+          paymentMethod: payment.paymentMethod,
+          paymentDate: payment.transactionDate,
+          receiptNumber: payment.receiptNumber,
+          student: payment.student,
+        })),
+      })
+    }
 
     // Total fees (all collections)
     const totalFees = await db.feeCollection.aggregate({

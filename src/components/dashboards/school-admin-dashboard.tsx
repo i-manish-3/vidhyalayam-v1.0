@@ -6,7 +6,6 @@ import {
   Activity,
   AlertCircle,
   ArrowRight,
-  Bell,
   BookOpen,
   CalendarCheck,
   ClipboardList,
@@ -15,7 +14,6 @@ import {
   IndianRupee,
   Megaphone,
   PlusCircle,
-  ShieldCheck,
   TrendingUp,
   Users,
 } from 'lucide-react'
@@ -103,6 +101,7 @@ function activityIcon(type: string) {
 export function SchoolAdminDashboard() {
   const [loading, setLoading] = useState(true)
   const [data, setData] = useState<DashboardData | null>(null)
+  const [now, setNow] = useState(() => new Date())
   const { currentSchool, setCurrentPage } = useAppStore()
 
   useEffect(() => {
@@ -137,6 +136,11 @@ export function SchoolAdminDashboard() {
     fetchData()
   }, [])
 
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 1000)
+    return () => window.clearInterval(timer)
+  }, [])
+
   const fallbackData: DashboardData = {
     totalStudents: 0,
     totalTeachers: 0,
@@ -151,7 +155,8 @@ export function SchoolAdminDashboard() {
   const attendancePercent = dashboard.attendanceToday.total > 0
     ? Math.round((dashboard.attendanceToday.present / dashboard.attendanceToday.total) * 100)
     : 0
-  const today = format(new Date(), 'EEEE, d MMM yyyy')
+  const today = format(now, 'EEEE, d MMM yyyy')
+  const currentTime = format(now, 'hh:mm:ss a')
   const collectionRate = Math.min(100, Math.max(0, dashboard.feeStats.collectionRate))
   const pendingRate = dashboard.feeStats.totalFees > 0
     ? Math.round((dashboard.feeStats.totalPending / dashboard.feeStats.totalFees) * 100)
@@ -211,8 +216,6 @@ export function SchoolAdminDashboard() {
     { label: 'New Admission', page: 'admission-form', icon: PlusCircle, description: 'Register a student' },
     { label: 'Mark Attendance', page: 'mark-attendance', icon: CalendarCheck, description: 'Daily attendance' },
     { label: 'Collect Fees', page: 'fee-collections', icon: IndianRupee, description: 'Record payment' },
-    { label: 'Roles', page: 'school-roles', icon: ShieldCheck, description: 'Manage access' },
-    { label: 'Announcement', page: 'announcements', icon: Bell, description: 'Share update' },
   ]
 
   const recentActivities = useMemo(() => {
@@ -233,7 +236,9 @@ export function SchoolAdminDashboard() {
           <div className="space-y-3">
             <Badge variant="secondary" className="w-fit gap-2 bg-primary/10 text-primary hover:bg-primary/10">
               <Clock className="size-3.5" />
-              {today}
+              <span>{today}</span>
+              <span className="text-primary/45">|</span>
+              <span className="font-mono tabular-nums">{currentTime}</span>
             </Badge>
             <div>
               <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">

@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useAppStore } from '@/lib/store'
 import { api } from '@/lib/api'
-import { getCurrentAcademicYear, toAcademicYearOptions } from '@/lib/academic-years'
+import { getCurrentAcademicYear } from '@/lib/academic-years'
 import { useToast } from '@/hooks/use-toast'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -366,8 +366,11 @@ export function AdmissionFormPage() {
   const [feesGroups, setFeesGroups] = useState<FeesGroupOption[]>([])
   const [availableAcademicYears, setAvailableAcademicYears] = useState<string[]>([])
   const academicYearOptions = useMemo(
-    () => toAcademicYearOptions(availableAcademicYears, currentSchool?.academicYear),
-    [availableAcademicYears, currentSchool?.academicYear]
+    () => availableAcademicYears
+      .filter((year) => /^\d{4}-\d{4}$/.test(year))
+      .sort((a, b) => b.localeCompare(a))
+      .map((year) => ({ value: year, label: year })),
+    [availableAcademicYears]
   )
 
   // Validation state
@@ -428,10 +431,10 @@ export function AdmissionFormPage() {
     if (!academicYearOptions.some((year) => year.value === form.academicYear)) {
       setForm((prev) => ({
         ...prev,
-        academicYear: academicYearOptions[0]?.value || currentSchool?.academicYear || getCurrentAcademicYear(),
+        academicYear: academicYearOptions[0]?.value || '',
       }))
     }
-  }, [academicYearOptions, currentSchool?.academicYear, form.academicYear])
+  }, [academicYearOptions, form.academicYear])
 
   useEffect(() => {
     let mounted = true
@@ -1068,12 +1071,15 @@ export function AdmissionFormPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label>Academic Year <span className="text-destructive">*</span></Label>
-            <Select value={form.academicYear} onValueChange={v => updateForm('academicYear', v)}>
-              <SelectTrigger className={ec('academicYear')}><SelectValue placeholder="Select year" /></SelectTrigger>
+            <Select value={form.academicYear} onValueChange={v => updateForm('academicYear', v)} disabled={academicYearOptions.length === 0}>
+              <SelectTrigger className={ec('academicYear')}><SelectValue placeholder="Select active year" /></SelectTrigger>
               <SelectContent>
                 {academicYearOptions.map(y => <SelectItem key={y.value} value={y.value}>{y.label}</SelectItem>)}
               </SelectContent>
             </Select>
+            {academicYearOptions.length === 0 && (
+              <p className="mt-1 text-xs text-destructive">No active academic year is available. Reactivate or create a year before creating admissions.</p>
+            )}
             <FieldError message={touched.academicYear ? fieldErrors.academicYear : null} />
           </div>
           <div className="space-y-2">

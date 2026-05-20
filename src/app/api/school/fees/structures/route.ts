@@ -13,12 +13,16 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url)
     const classId = searchParams.get('classId') || ''
+    const academicYear = searchParams.get('academicYear') || ''
+    const feesGroupId = searchParams.get('feesGroupId') || ''
 
     const where: Record<string, unknown> = {
       schoolId: user.schoolId,
       deletedAt: null,
     }
     if (classId) where.classId = classId
+    if (academicYear) where.academicYear = academicYear
+    if (feesGroupId) where.feesGroupId = feesGroupId
 
     const feeStructures = await db.feesStructure.findMany({
       where,
@@ -35,7 +39,7 @@ export async function GET(request: NextRequest) {
         items: {
           include: {
             feeHead: {
-              select: { id: true, name: true, frequency: true },
+              select: { id: true, name: true, frequency: true, headType: true, isOptional: true },
             },
           },
           orderBy: { installmentName: 'asc' },
@@ -67,6 +71,10 @@ export async function POST(request: NextRequest) {
       classId,
       sectionId,
       academicYear,
+      effectiveFrom,
+      effectiveTo,
+      version,
+      replaceExisting,
       items,
     } = body
 
@@ -98,14 +106,53 @@ export async function POST(request: NextRequest) {
       return apiError(400, 'The class you selected doesn\'t exist anymore. It may have been removed. Please refresh and try again.')
     }
 
+    const normalizedSectionId = sectionId && sectionId !== 'ALL' ? sectionId : null
+    const latestStructure = await db.feesStructure.findFirst({
+      where: {
+        schoolId: user.schoolId,
+        feesGroupId: resolvedFeeGroupId,
+        classId,
+        sectionId: normalizedSectionId,
+        academicYear,
+        deletedAt: null,
+      },
+      orderBy: { version: 'desc' },
+      select: { version: true },
+    })
+    const resolvedVersion = Number.isFinite(Number(version)) && Number(version) > 0
+      ? Number(version)
+      : (latestStructure?.version || 0) + 1
+
+    if (replaceExisting) {
+      await db.feesStructure.updateMany({
+        where: {
+          schoolId: user.schoolId,
+          feesGroupId: resolvedFeeGroupId,
+          classId,
+          sectionId: normalizedSectionId,
+          academicYear,
+          deletedAt: null,
+          status: 'active',
+        },
+        data: {
+          status: 'archived',
+          isActive: false,
+        },
+      })
+    }
+
     const feeStructure = await db.feesStructure.create({
       data: {
         schoolId: user.schoolId,
         feesGroupId: resolvedFeeGroupId,
         classId,
-        sectionId: sectionId && sectionId !== 'ALL' ? sectionId : null,
+        sectionId: normalizedSectionId,
         academicYear,
         name,
+        version: resolvedVersion,
+        status: 'active',
+        effectiveFrom: effectiveFrom ? new Date(effectiveFrom) : null,
+        effectiveTo: effectiveTo ? new Date(effectiveTo) : null,
         items: {
           create: items.map(
             (item: {

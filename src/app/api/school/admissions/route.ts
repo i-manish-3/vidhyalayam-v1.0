@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 import { requireRole, requirePermission } from '@/lib/api-auth'
 import { unauthorizedError, internalError, apiError, forbiddenError } from '@/lib/api-errors'
 import { hashPassword } from '@/lib/auth'
+import { assignStudentFeesFromStructure, createFeeDebitLedgerEntry } from '@/lib/fees'
 
 const ACADEMIC_YEAR_PATTERN = /^\d{4}-\d{4}$/
 
@@ -791,6 +792,21 @@ export async function POST(request: NextRequest) {
         data: { studentId: student.id },
       })
 
+      if (body.feesGroupId) {
+        await assignStudentFeesFromStructure({
+          tx,
+          schoolId: user.schoolId!,
+          studentId: student.id,
+          classId: adm.classId,
+          sectionId: adm.sectionId,
+          feesGroupId: body.feesGroupId,
+          academicYear: requestedAcademicYear,
+          assignedBy: user.userId,
+          source: 'admission',
+          effectiveFrom: adm.dateOfAdmission || new Date(),
+        })
+      }
+
       if (body.transportRouteId && body.transportStop) {
         const feeMonths = parseFeeMonths(requestedTransportFare?.feeMonths)
         await tx.transportAllocation.create({
@@ -809,22 +825,39 @@ export async function POST(request: NextRequest) {
         })
 
         if (requestedTransportFare && requestedTransportFare.fare > 0 && feeMonths.length > 0) {
-          await tx.feeCollection.createMany({
-            data: feeMonths.map((month) => ({
+          for (const month of feeMonths) {
+            const transportCollection = await tx.feeCollection.create({
+              data: {
+                schoolId: user.schoolId!,
+                studentId: student.id,
+                amount: requestedTransportFare.fare,
+                paidAmount: 0,
+                discount: 0,
+                concession: 0,
+                scholarship: 0,
+                fine: 0,
+                paymentStatus: 'unpaid',
+                installmentName: month,
+                feeHeadName: 'Transport Fee',
+                notes: `Transport fee for ${body.transportStop} (${requestedAcademicYear})`,
+              },
+            })
+            await createFeeDebitLedgerEntry({
+              tx,
               schoolId: user.schoolId!,
               studentId: student.id,
-              amount: requestedTransportFare.fare,
-              paidAmount: 0,
-              discount: 0,
-              concession: 0,
-              scholarship: 0,
-              fine: 0,
-              paymentStatus: 'unpaid',
-              installmentName: month,
+              academicYear: requestedAcademicYear,
+              feeCollectionId: transportCollection.id,
+              sourceType: 'transport',
+              sourceId: transportCollection.id,
               feeHeadName: 'Transport Fee',
+              installmentName: month,
+              description: `Transport Fee - ${month}`,
+              amount: requestedTransportFare.fare,
               notes: `Transport fee for ${body.transportStop} (${requestedAcademicYear})`,
-            })),
-          })
+              createdBy: user.userId,
+            })
+          }
         }
       }
 

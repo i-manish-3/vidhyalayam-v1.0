@@ -38,6 +38,77 @@ export async function GET(request: NextRequest) {
 
     const targetStudentIds = studentId ? [studentId] : childIds
 
+    const ledgerFees = await db.studentFeeLedgerEntry.findMany({
+      where: {
+        schoolId: user.schoolId,
+        studentId: { in: targetStudentIds },
+        entryType: 'DEBIT',
+        status: { not: 'cancelled' },
+        deletedAt: null,
+      },
+      include: {
+        student: { select: { id: true, firstName: true, lastName: true, admissionNumber: true } },
+      },
+      orderBy: { dueDate: 'asc' },
+    })
+
+    if (ledgerFees.length > 0) {
+      const byStudent = ledgerFees.reduce((acc, f) => {
+        const key = f.studentId
+        if (!acc[key]) {
+          acc[key] = {
+            studentId: f.studentId,
+            studentName: `${f.student.firstName} ${f.student.lastName}`,
+            admissionNumber: f.student.admissionNumber,
+            fees: [],
+            summary: { total: 0, paid: 0, pending: 0, overdue: 0 },
+          }
+        }
+        const paid = f.debit - f.balanceAmount
+        acc[key].fees.push({
+          id: f.id,
+          feeHead: f.feeHeadName || 'Fee',
+          installment: f.installmentName || '',
+          amount: f.debit,
+          paid,
+          discount: 0,
+          fine: 0,
+          pending: f.balanceAmount,
+          status: f.status === 'settled' ? 'paid' : f.status === 'partial' ? 'partial' : 'unpaid',
+          dueDate: f.dueDate ? new Date(f.dueDate).toLocaleDateString() : null,
+          paymentDate: f.transactionDate ? new Date(f.transactionDate).toLocaleDateString() : null,
+          receiptNumber: f.receiptNumber,
+        })
+        acc[key].summary.total += f.debit
+        acc[key].summary.paid += paid
+        acc[key].summary.pending += f.balanceAmount
+        if (f.status !== 'settled' && f.dueDate && f.dueDate < new Date()) {
+          acc[key].summary.overdue += f.balanceAmount
+        }
+        return acc
+      }, {} as Record<string, {
+        studentId: string
+        studentName: string
+        admissionNumber: string | null
+        fees: Array<{
+          id: string; feeHead: string; installment: string; amount: number; paid: number
+          discount: number; fine: number; pending: number; status: string
+          dueDate: string | null; paymentDate: string | null; receiptNumber: string | null
+        }>
+        summary: { total: number; paid: number; pending: number; overdue: number }
+      }>)
+
+      const allFees = Object.values(byStudent)
+      const summary = {
+        total: allFees.reduce((s, f) => s + f.summary.total, 0),
+        paid: allFees.reduce((s, f) => s + f.summary.paid, 0),
+        pending: allFees.reduce((s, f) => s + f.summary.pending, 0),
+        overdue: allFees.reduce((s, f) => s + f.summary.overdue, 0),
+      }
+
+      return NextResponse.json({ fees: Object.values(byStudent), summary })
+    }
+
     // Get fee collections for children
     const fees = await db.feeCollection.findMany({
       where: {

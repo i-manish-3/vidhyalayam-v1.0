@@ -97,6 +97,8 @@ export async function GET(request: NextRequest) {
       return unauthorizedError()
     }
 
+    const includeDeleted = request.nextUrl.searchParams.get('includeDeleted') === 'true' && user.role === 'SCHOOL_ADMIN'
+    const includeInactive = request.nextUrl.searchParams.get('includeInactive') === 'true'
     let years = await db.academicYear.findMany({
       where: { schoolId: user.schoolId, deletedAt: null },
       orderBy: [{ isCurrent: 'desc' }, { name: 'desc' }],
@@ -110,9 +112,19 @@ export async function GET(request: NextRequest) {
       })
     }
 
+    const deletedYears = includeDeleted
+      ? await db.academicYear.findMany({
+          where: { schoolId: user.schoolId, deletedAt: { not: null } },
+          orderBy: [{ name: 'desc' }],
+        })
+      : []
+
     return NextResponse.json({
-      academicYears: years.filter((year) => year.isActive).map((year) => year.name),
+      academicYears: years
+        .filter((year) => includeInactive || year.isActive)
+        .map((year) => year.name),
       years,
+      deletedYears,
     })
   } catch (error) {
     console.error('List academic years error:', error)
@@ -131,7 +143,6 @@ export async function POST(request: NextRequest) {
     const name = cleanAcademicYear(body.name)
     const startDate = parseDate(body.startDate)
     const endDate = parseDate(body.endDate)
-    const isCurrent = body.isCurrent === true
 
     if (!name) {
       return apiError(400, 'Please enter academic year in YYYY-YYYY format.')
@@ -140,37 +151,15 @@ export async function POST(request: NextRequest) {
       return apiError(400, 'Start date must be before end date.')
     }
 
-    const year = await db.$transaction(async (tx) => {
-      if (isCurrent) {
-        await tx.academicYear.updateMany({
-          where: { schoolId: user.schoolId, deletedAt: null },
-          data: { isCurrent: false },
-        })
-      }
-
-      const created = await tx.academicYear.create({
-        data: {
-          schoolId: user.schoolId!,
-          name,
-          startDate,
-          endDate,
-          isCurrent,
-          isActive: true,
-        },
-      })
-
-      if (isCurrent) {
-        await tx.school.update({
-          where: { id: user.schoolId! },
-          data: { academicYear: name },
-        })
-        await tx.admissionSetting.updateMany({
-          where: { schoolId: user.schoolId! },
-          data: { academicYear: name },
-        })
-      }
-
-      return created
+    const year = await db.academicYear.create({
+      data: {
+        schoolId: user.schoolId!,
+        name,
+        startDate,
+        endDate,
+        isCurrent: false,
+        isActive: true,
+      },
     })
 
     return NextResponse.json({ year }, { status: 201 })
