@@ -408,16 +408,12 @@ export function AdmissionFormPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [clsData, secData, feesGroupData, admNumData, academicYearData] = await Promise.allSettled([
-          api.get<{ classes: ClassOption[] }>('/api/school/classes', undefined, { skipLogoutOn401: true }),
+        const [secData, admNumData, academicYearData] = await Promise.allSettled([
           api.get<{ sections: SectionOption[] }>('/api/school/sections', undefined, { skipLogoutOn401: true }),
-          api.get<{ groups: FeesGroupOption[] }>('/api/school/fees/groups', undefined, { skipLogoutOn401: true }),
           api.get<{ nextAdmissionNumber: string; nextRegistrationNumber: string }>('/api/school/admissions/next-number', undefined, { skipLogoutOn401: true }),
           api.get<{ academicYears: string[] }>('/api/school/academic-years', undefined, { skipLogoutOn401: true }),
         ])
-        if (clsData.status === 'fulfilled' && clsData.value?.classes) setClasses(clsData.value.classes)
         if (secData.status === 'fulfilled' && secData.value?.sections) setSections(secData.value.sections)
-        if (feesGroupData.status === 'fulfilled' && feesGroupData.value?.groups) setFeesGroups(feesGroupData.value.groups)
         if (admNumData.status === 'fulfilled') {
           if (admNumData.value?.nextAdmissionNumber) setNextAdmissionNumber(admNumData.value.nextAdmissionNumber)
           if (admNumData.value?.nextRegistrationNumber) setNextRegistrationNumber(admNumData.value.nextRegistrationNumber)
@@ -431,6 +427,68 @@ export function AdmissionFormPage() {
     }
     fetchData()
   }, [])
+
+  // Classes available for the selected academic year
+  // (restricted to classes that have an active FeesStructure for that year).
+  useEffect(() => {
+    if (!form.academicYear) {
+      setClasses([])
+      return
+    }
+    let mounted = true
+    const fetchClasses = async () => {
+      try {
+        const data = await api.get<{ classes: ClassOption[] }>(
+          '/api/school/classes',
+          { academicYear: form.academicYear },
+          { skipLogoutOn401: true }
+        )
+        if (!mounted) return
+        const list = data?.classes || []
+        setClasses(list)
+        setForm(prev => {
+          if (!prev.classId) return prev
+          if (list.some(c => c.id === prev.classId)) return prev
+          return { ...prev, classId: '', sectionId: '', feesGroupId: '' }
+        })
+      } catch {
+        if (mounted) setClasses([])
+      }
+    }
+    fetchClasses()
+    return () => { mounted = false }
+  }, [form.academicYear])
+
+  // Fees groups available for the selected (class, academic year)
+  // (restricted to groups with an active FeesStructure for that pair).
+  useEffect(() => {
+    if (!form.academicYear || !form.classId) {
+      setFeesGroups([])
+      return
+    }
+    let mounted = true
+    const fetchFeesGroups = async () => {
+      try {
+        const data = await api.get<{ groups: FeesGroupOption[] }>(
+          '/api/school/fees/groups',
+          { academicYear: form.academicYear, classId: form.classId },
+          { skipLogoutOn401: true }
+        )
+        if (!mounted) return
+        const list = data?.groups || []
+        setFeesGroups(list)
+        setForm(prev => {
+          if (!prev.feesGroupId) return prev
+          if (list.some(g => g.id === prev.feesGroupId)) return prev
+          return { ...prev, feesGroupId: '' }
+        })
+      } catch {
+        if (mounted) setFeesGroups([])
+      }
+    }
+    fetchFeesGroups()
+    return () => { mounted = false }
+  }, [form.academicYear, form.classId])
 
   useEffect(() => {
     let mounted = true
@@ -1572,12 +1630,29 @@ export function AdmissionFormPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Class Admitted <span className="text-destructive">*</span></Label>
-          <Select value={form.classId} onValueChange={v => updateForm('classId', v)}>
-            <SelectTrigger className={ec('classId')}><SelectValue placeholder="Select class" /></SelectTrigger>
+          <Select
+            value={form.classId}
+            onValueChange={v => updateForm('classId', v)}
+            disabled={!form.academicYear || classes.length === 0}
+          >
+            <SelectTrigger className={ec('classId')}>
+              <SelectValue placeholder={
+                !form.academicYear
+                  ? 'Select academic year first'
+                  : classes.length === 0
+                    ? 'No classes configured for this year'
+                    : 'Select class'
+              } />
+            </SelectTrigger>
             <SelectContent>
               {classes.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
             </SelectContent>
           </Select>
+          {form.academicYear && classes.length === 0 && (
+            <p className="text-xs text-amber-600">
+              Set up fee structures for {form.academicYear} before admitting students.
+            </p>
+          )}
           <FieldError message={touched.classId ? fieldErrors.classId : null} />
         </div>
         <div className="space-y-2">
@@ -1755,12 +1830,29 @@ export function AdmissionFormPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Fee Group</Label>
-          <Select value={form.feesGroupId} onValueChange={v => updateForm('feesGroupId', v)}>
-            <SelectTrigger><SelectValue placeholder="Select fee group" /></SelectTrigger>
+          <Select
+            value={form.feesGroupId}
+            onValueChange={v => updateForm('feesGroupId', v)}
+            disabled={!form.classId || feesGroups.length === 0}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder={
+                !form.classId
+                  ? 'Select class first'
+                  : feesGroups.length === 0
+                    ? 'No fee groups for this class & year'
+                    : 'Select fee group'
+              } />
+            </SelectTrigger>
             <SelectContent>
               {feesGroups.map(g => <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>)}
             </SelectContent>
           </Select>
+          {form.classId && feesGroups.length === 0 && (
+            <p className="text-xs text-amber-600">
+              No fee structures defined for this class in {form.academicYear}. Configure one in Fees &gt; Structures.
+            </p>
+          )}
         </div>
       </div>
     </div>

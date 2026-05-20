@@ -4,6 +4,8 @@ import { requireRole } from '@/lib/api-auth'
 import { unauthorizedError, internalError, apiError } from '@/lib/api-errors'
 
 // GET /api/school/classes - List classes with sections and subjects
+// Optional query param: academicYear — when present, restricts results to classes
+// that have at least one active FeesStructure for that academic year.
 export async function GET(request: NextRequest) {
   try {
     const user = requireRole(request, ['SUPER_ADMIN', 'SCHOOL_ADMIN', 'TEACHER', 'STAFF'])
@@ -11,10 +13,24 @@ export async function GET(request: NextRequest) {
       return unauthorizedError()
     }
 
+    const academicYear = request.nextUrl.searchParams.get('academicYear')?.trim() || null
+
     const classes = await db.class.findMany({
       where: {
         schoolId: user.schoolId,
         deletedAt: null,
+        ...(academicYear
+          ? {
+              feesStructures: {
+                some: {
+                  academicYear,
+                  isActive: true,
+                  status: 'active',
+                  deletedAt: null,
+                },
+              },
+            }
+          : {}),
       },
       include: {
         sections: {

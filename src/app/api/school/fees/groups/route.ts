@@ -29,6 +29,8 @@ async function ensureDefaultFeeGroup(schoolId: string) {
 }
 
 // GET /api/school/fees/groups - List fee groups with items
+// Optional query params: classId, academicYear — when both present, restricts
+// results to groups that have an active FeesStructure for that (class, year).
 export async function GET(request: NextRequest) {
   try {
     const user = requireRole(request, ['SCHOOL_ADMIN', 'TEACHER', 'STAFF'])
@@ -38,10 +40,27 @@ export async function GET(request: NextRequest) {
 
     await ensureDefaultFeeGroup(user.schoolId)
 
+    const classId = request.nextUrl.searchParams.get('classId')?.trim() || null
+    const academicYear = request.nextUrl.searchParams.get('academicYear')?.trim() || null
+    const restrictByStructure = !!(classId && academicYear)
+
     const feeGroups = await db.feesGroup.findMany({
       where: {
         schoolId: user.schoolId,
         deletedAt: null,
+        ...(restrictByStructure
+          ? {
+              structures: {
+                some: {
+                  classId: classId!,
+                  academicYear: academicYear!,
+                  isActive: true,
+                  status: 'active',
+                  deletedAt: null,
+                },
+              },
+            }
+          : {}),
       },
       include: {
         items: {
