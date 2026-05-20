@@ -57,6 +57,7 @@ function AppContent() {
   const [hydrated, setHydrated] = useState(false)
   const [showLogin, setShowLogin] = useState(false)
   const hydrationDone = useRef(false)
+  const wasAuthenticatedRef = useRef(isAuthenticated)
 
   useEffect(() => {
     if (hydrationDone.current) return
@@ -118,6 +119,18 @@ function AppContent() {
     // Use microtask to avoid synchronous setState in effect
     queueMicrotask(() => setHydrated(true))
   }, [])
+
+  // Handle logout: when user logs out, show login page instead of landing
+  useEffect(() => {
+    if (!hydrated) return
+    
+    // If user was authenticated but now is not, show login page
+    if (wasAuthenticatedRef.current && !isAuthenticated) {
+      setShowLogin(true)
+    }
+    
+    wasAuthenticatedRef.current = isAuthenticated
+  }, [isAuthenticated, hydrated])
 
   // Derive the active view from state
   const activeView = useMemo(() => {
