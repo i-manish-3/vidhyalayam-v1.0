@@ -51,23 +51,81 @@ The component also tracks:
 
 ## 3. Initial Data Fetching
 
-When the admission form loads, it fetches dropdown and helper data:
+When the admission form loads, it fetches the minimal set of dropdown and helper data that does **not** depend on the chosen academic year:
 
 ```ts
-/api/school/classes
 /api/school/sections
-/api/school/transport/routes
-/api/school/fees/groups
 /api/school/admissions/next-number
+/api/school/academic-years
 ```
 
-This data is used for:
+Classes, fees groups, and transport routes are fetched **reactively** based on subsequent user selections — see Section 3a.
 
-- class selection
-- section selection
-- transport route selection
-- fee group selection
+This initial data is used for:
+
+- section selection (filtered client-side by chosen class)
 - admission number preview
+- academic year dropdown options
+
+## 3a. Reactive Dropdowns — Academic Year → Class → Fees Group
+
+The admission form follows a strict hierarchy: a class cannot be picked until an academic year is chosen, and a fees group cannot be picked until a class is chosen. This prevents admins from selecting a class or fees group that has no `FeesStructure` configured for the target year — which would otherwise cause `assignStudentFeesFromStructure()` to silently return null and admit the student with no billing record.
+
+### Classes — depends on `form.academicYear`
+
+When `form.academicYear` changes, the form calls:
+
+```ts
+GET /api/school/classes?academicYear=<year>
+```
+
+The endpoint restricts the result set to classes that have at least one active `FeesStructure` for that academic year:
+
+```ts
+feesStructures: {
+  some: { academicYear, isActive: true, status: 'active', deletedAt: null }
+}
+```
+
+If the previously selected class is not present in the new list, `classId`, `sectionId`, and `feesGroupId` are all cleared automatically.
+
+### Fees Groups — depends on `form.classId` and `form.academicYear`
+
+When either changes, the form calls:
+
+```ts
+GET /api/school/fees/groups?academicYear=<year>&classId=<id>
+```
+
+The endpoint restricts the result set to groups that have an active `FeesStructure` for that exact `(classId, academicYear)` pair:
+
+```ts
+structures: {
+  some: { classId, academicYear, isActive: true, status: 'active', deletedAt: null }
+}
+```
+
+If the previously selected group is not in the new list, `feesGroupId` is cleared automatically.
+
+### Transport Routes — depends on `form.academicYear`
+
+Transport routes follow the same reactive pattern, fetched whenever `form.academicYear` changes:
+
+```ts
+GET /api/school/transport/routes?academicYear=<year>
+```
+
+### Why this matters
+
+The same `FeesStructure` lookup is run by `assignStudentFeesFromStructure()` (`src/lib/fees.ts`) at admission submit time. If a class or fees group shows up in the dropdown, the fee assignment is guaranteed to succeed and an invoice + DEBIT ledger entries will be created. If it doesn't show up, the admin cannot pick it — closing the loophole where students could be admitted with zero billing.
+
+### Backward compatibility
+
+Both `/api/school/classes` and `/api/school/fees/groups` accept their filter params as **optional**. When the params are omitted, the endpoints return the unfiltered list — so existing callers (classes admin page, fees admin pages, etc.) continue to work unchanged.
+
+### Empty-state UI
+
+The Class and Fees Group dropdowns show context-aware placeholders ("Select academic year first", "No classes configured for this year", "Select class first", "No fee groups for this class & year") and amber helper text when their lists are empty, prompting the admin to set up the missing `FeesStructure` in **Fees → Structures** before continuing.
 
 ## 4. Admission Number Preview
 
@@ -344,14 +402,17 @@ POST /api/school/admissions/[id]/documents
 Supporting routes used by the form:
 
 ```txt
-GET /api/school/classes
 GET /api/school/sections
-GET /api/school/transport/routes
-GET /api/school/fees/groups
+GET /api/school/academic-years
+GET /api/school/classes?academicYear=<year>
+GET /api/school/fees/groups?academicYear=<year>&classId=<id>
+GET /api/school/transport/routes?academicYear=<year>
 GET /api/school/students
 GET /api/school/students/[id]/parent-details
 GET /api/school/parents/lookup
 ```
+
+The `academicYear` and `classId` query params on `/api/school/classes` and `/api/school/fees/groups` are optional. When provided, the endpoints filter results to only those tied to an active `FeesStructure` for that scope; when omitted, the full unfiltered list is returned (used by the admin pages for classes and fees groups).
 
 ## 17. Documents Limitation
 
@@ -377,7 +438,12 @@ But the current admission form does not call that route after admission creation
 Sidebar click
   -> currentPage = admission-form
   -> AdmissionFormPage loads
-  -> fetch classes, sections, routes, fee groups, next admission number
+  -> fetch sections, academic years, next admission number (initial, year-independent)
+  -> user selects academic year
+       -> fetch classes for that year (filtered by FeesStructure existence)
+       -> fetch transport routes for that year
+  -> user selects class
+       -> fetch fees groups for (class, year) (filtered by FeesStructure existence)
   -> user fills 6-step wizard
   -> frontend validates
   -> POST /api/school/admissions
@@ -392,9 +458,16 @@ Sidebar click
        create or reuse Parent User
        assign Parent role
        create AdmissionActivity logs
+       assignStudentFeesFromStructure() ->
+         lookup FeesStructure(classId, academicYear, feesGroupId)
+         create StudentFeeAssignment + items (frozen snapshot)
+         create StudentFeeInvoice + lines
+         create DEBIT StudentFeeLedgerEntry per item
   -> return admission
   -> frontend shows success dialog
 ```
+
+Because the Class and Fees Group dropdowns are pre-filtered by the same `FeesStructure` existence rule that drives `assignStudentFeesFromStructure()`, the final fee-assignment step inside the transaction is guaranteed to succeed for any combination the admin could have selected.
 
 ## 19. Production Improvement Notes
 
