@@ -57,7 +57,7 @@ interface StudentRow {
 const CHECKLIST = [
   { number: 1, title: 'New session', description: 'Open setup', link: true, tone: 'normal' },
   { number: 2, title: 'Fee structure', description: 'Ready for next session', tone: 'normal' },
-  { number: 3, title: 'Lower to higher', description: '1 -> 2, 2 -> 3', tone: 'danger' },
+  { number: 3, title: 'Promote higher to lower', description: 'Move 10→11, then 9→10, then 8→9 and so on.', tone: 'danger' },
   { number: 4, title: 'Activate session', description: 'Set default first', tone: 'normal' },
 ] as const
 
