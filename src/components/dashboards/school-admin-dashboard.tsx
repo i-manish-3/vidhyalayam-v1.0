@@ -230,7 +230,6 @@ export function SchoolAdminDashboard() {
   return (
     <div className="space-y-6">
       <section className="overflow-hidden rounded-xl border bg-card shadow-sm">
-        <div className="h-1 bg-primary" />
         <div className="p-5">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
           <div className="space-y-3">
