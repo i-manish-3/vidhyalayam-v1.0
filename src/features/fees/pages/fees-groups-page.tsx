@@ -6,12 +6,18 @@ import { api } from '@/lib/api'
 import { useAppStore } from '@/lib/store'
 import { useToast } from '@/hooks/use-toast'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,69 +28,28 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import { ArrowLeft, Edit2, Layers, MoreHorizontal, PlusCircle, Tag, Trash2 } from 'lucide-react'
+import { AlignLeft, ArrowLeft, Edit2, Layers, ListChecks, PlusCircle, Tag, Trash2 } from 'lucide-react'
 
 // ── Types ──────────────────────────────────────────────────────────────
-
-type FeeFrequency = 'ONE_TIME' | 'MONTHLY' | 'QUARTERLY' | 'HALF_YEARLY' | 'YEARLY' | 'CUSTOM' | 'INSTALLMENT' | 'ON_DEMAND'
-
-interface FeeHead {
-  id: string
-  name: string
-  frequency: FeeFrequency
-  isActive: boolean
-}
-
-interface FeeGroupItem {
-  id: string
-  feeHeadId: string
-  feeHead?: FeeHead
-}
 
 interface FeeGroup {
   id: string
   name: string
   description?: string
-  items: FeeGroupItem[]
   isActive?: boolean
   createdAt?: string
 }
 
-// ── Frequency Badge ────────────────────────────────────────────────────
+// ── Constants ──────────────────────────────────────────────────────────
 
-const FREQUENCY_BADGE_CLASSES: Record<FeeFrequency, string> = {
-  MONTHLY: 'bg-emerald-100 text-emerald-800 hover:bg-emerald-100',
-  YEARLY: 'bg-purple-100 text-purple-800 hover:bg-purple-100',
-  ONE_TIME: 'bg-amber-100 text-amber-800 hover:bg-amber-100',
-  QUARTERLY: 'bg-teal-100 text-teal-800 hover:bg-teal-100',
-  HALF_YEARLY: 'bg-pink-100 text-pink-800 hover:bg-pink-100',
-  INSTALLMENT: 'bg-blue-100 text-blue-800 hover:bg-blue-100',
-  ON_DEMAND: 'bg-orange-100 text-orange-800 hover:bg-orange-100',
-  CUSTOM: 'bg-gray-100 text-gray-800 hover:bg-gray-100',
-}
-
-const FREQUENCY_LABELS: Record<FeeFrequency, string> = {
-  ONE_TIME: 'One Time',
-  MONTHLY: 'Monthly',
-  QUARTERLY: 'Quarterly',
-  HALF_YEARLY: 'Half Yearly',
-  YEARLY: 'Yearly',
-  INSTALLMENT: 'Installment Based',
-  ON_DEMAND: 'On Demand',
-  CUSTOM: 'Custom',
-}
+const DEFAULT_FEE_GROUP_NAME = '_DEFAULT'
 
 // ── Component ──────────────────────────────────────────────────────────
 
 export function FeesGroupsPage() {
   const { toast } = useToast()
   const goBack = useAppStore((s) => s.goBack)
+  const navigateTo = useAppStore((s) => s.navigateTo)
 
   // Data
   const [feeGroups, setFeeGroups] = useState<FeeGroup[]>([])
@@ -186,6 +151,11 @@ export function FeesGroupsPage() {
 
   const handleDelete = async () => {
     if (!deletingGroup) return
+    if (deletingGroup.name === DEFAULT_FEE_GROUP_NAME) {
+      toast({ title: 'Protected Fee Group', description: 'The _DEFAULT fee group is required and cannot be deleted.', variant: 'destructive' })
+      setDeletingGroup(null)
+      return
+    }
 
     setDeleting(true)
     try {
@@ -218,14 +188,20 @@ export function FeesGroupsPage() {
             <ArrowLeft className="size-4" />
           </Button>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">Fee Groups</h1>
+            <h1 className="text-xl font-bold tracking-tight">Fee Groups</h1>
             <p className="mt-1 text-sm text-muted-foreground">{feeGroups.length} fee groups configured</p>
           </div>
         </div>
-        <Button onClick={() => setShowAdd(true)} className="gap-2 shrink-0">
-          <PlusCircle className="size-4" />
-          Add Fee Group
-        </Button>
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          <Button onClick={() => setShowAdd(true)} className="gap-2">
+            <PlusCircle className="size-4" />
+            Add Fee Group
+          </Button>
+          <Button variant="outline" onClick={() => navigateTo('fees-structures')} className="gap-2">
+            <Layers className="size-4" />
+            Fees Structure
+          </Button>
+        </div>
       </div>
 
       {feeGroups.length === 0 ? (
@@ -236,78 +212,80 @@ export function FeesGroupsPage() {
           action={{ label: 'Add Fee Group', onClick: () => setShowAdd(true) }}
         />
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {feeGroups.map((group) => (
-            <Card key={group.id} className="relative overflow-hidden">
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between">
-                  <div className="min-w-0 space-y-1">
-                    <CardTitle className="text-lg">{group.name}</CardTitle>
-                    {group.description && (
-                      <p className="text-sm text-muted-foreground">{group.description}</p>
-                    )}
-                  </div>
-                  <div className="flex shrink-0 items-center gap-2">
-                    <Badge variant="secondary">
-                      {(group.items || []).length} head{(group.items || []).length !== 1 ? 's' : ''}
-                    </Badge>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="size-8">
-                          <MoreHorizontal className="size-4" />
+        <div className="overflow-hidden rounded-lg border bg-background shadow-sm">
+          <Table>
+            <TableHeader className="bg-muted/50">
+              <TableRow className="hover:bg-transparent">
+                <TableHead className="h-11 px-4 text-xs font-semibold uppercase text-muted-foreground">
+                  <span className="flex items-center gap-2">
+                    <Tag className="size-3.5" />
+                    Fee Group Name
+                  </span>
+                </TableHead>
+                <TableHead className="h-11 px-4 text-xs font-semibold uppercase text-muted-foreground">
+                  <span className="flex items-center gap-2">
+                    <AlignLeft className="size-3.5" />
+                    Description
+                  </span>
+                </TableHead>
+                <TableHead className="h-11 w-48 px-4 text-right text-xs font-semibold uppercase text-muted-foreground">
+                  <span className="flex items-center justify-end gap-2">
+                    <ListChecks className="size-3.5" />
+                    Action
+                  </span>
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {feeGroups.map((group) => {
+                const isDefaultGroup = group.name === DEFAULT_FEE_GROUP_NAME
+
+                return (
+                  <TableRow key={group.id} className="group">
+                    <TableCell className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+                          <Layers className="size-4" />
+                        </span>
+                        <span className="font-medium text-foreground">{group.name}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="max-w-md px-4 py-3 text-muted-foreground">
+                      <span className="line-clamp-2 whitespace-normal">
+                        {group.description?.trim() || '-'}
+                      </span>
+                    </TableCell>
+                    <TableCell className="px-4 py-3">
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 gap-1.5 px-3"
+                          onClick={() => openEdit(group)}
+                          aria-label={`Edit ${group.name}`}
+                        >
+                          <Edit2 className="size-4" />
+                          Edit
                         </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => openEdit(group)}>
-                          <Edit2 className="mr-2 size-4" />
-                          Edit Name
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          className="text-destructive focus:text-destructive"
-                          onClick={() => setDeletingGroup(group)}
-                        >
-                          <Trash2 className="mr-2 size-4" />
-                          Delete Group
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="pt-0">
-                {(group.items || []).length > 0 ? (
-                  <div className="space-y-2">
-                    {(group.items || []).map((item) => {
-                      const feeHead = item.feeHead
-                      return (
-                        <div
-                          key={item.id}
-                          className="flex items-center justify-between rounded-md border px-3 py-2"
-                        >
-                          <div className="flex items-center gap-2">
-                            <Tag className="size-3.5 text-muted-foreground" />
-                            <span className="text-sm font-medium">
-                              {feeHead?.name || 'Unknown'}
-                            </span>
-                          </div>
-                          {feeHead?.frequency && (
-                            <Badge
-                              className={FREQUENCY_BADGE_CLASSES[feeHead.frequency]}
-                              variant="secondary"
-                            >
-                              {FREQUENCY_LABELS[feeHead.frequency]}
-                            </Badge>
-                          )}
-                        </div>
-                      )
-                    })}
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">No fee heads in this group</p>
-                )}
-              </CardContent>
-            </Card>
-          ))}
+                        {!isDefaultGroup && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 gap-1.5 border-destructive/30 px-3 text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                            onClick={() => setDeletingGroup(group)}
+                            aria-label={`Delete ${group.name}`}
+                          >
+                            <Trash2 className="size-4" />
+                            Delete
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                )
+              })}
+            </TableBody>
+          </Table>
         </div>
       )}
 
@@ -365,7 +343,11 @@ export function FeesGroupsPage() {
                 value={editForm.name}
                 onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
                 placeholder="e.g., Academic Fees, Transport Fees"
+                disabled={editingGroup?.name === DEFAULT_FEE_GROUP_NAME}
               />
+              {editingGroup?.name === DEFAULT_FEE_GROUP_NAME && (
+                <p className="text-xs text-muted-foreground">The _DEFAULT group name is protected.</p>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="edit-group-desc">Description</Label>

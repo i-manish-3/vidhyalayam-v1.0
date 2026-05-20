@@ -4,6 +4,7 @@ import { requireRole, requirePermission } from '@/lib/api-auth'
 import { unauthorizedError, internalError, apiError, forbiddenError } from '@/lib/api-errors'
 import { hashPassword } from '@/lib/auth'
 import { assignStudentFeesFromStructure, createFeeDebitLedgerEntry } from '@/lib/fees'
+import { generateSchoolNumber } from '@/lib/admission-numbering'
 
 const ACADEMIC_YEAR_PATTERN = /^\d{4}-\d{4}$/
 
@@ -25,15 +26,6 @@ async function resolveAcademicYear(schoolId: string, value: string | null, requi
   }
 
   return academicYear
-}
-
-// Helper: Check if an admission number exists in either Admission or Student table
-async function admissionNumberExists(admissionNumber: string): Promise<boolean> {
-  const [inAdmission, inStudent] = await Promise.all([
-    db.admission.findFirst({ where: { admissionNumber }, select: { id: true } }),
-    db.student.findFirst({ where: { admissionNumber }, select: { id: true } }),
-  ])
-  return !!(inAdmission || inStudent)
 }
 
 async function resolveTransportFare(
@@ -101,89 +93,6 @@ function parseFeeMonths(value: string | null | undefined): string[] {
   } catch {
     return value.split(',').map((month) => month.trim()).filter(Boolean)
   }
-}
-
-// Helper: Generate admission number from settings
-async function generateAdmissionNumber(
-  schoolId: string,
-  classId?: string | null
-): Promise<string> {
-  const settings = await db.admissionSetting.findUnique({
-    where: { schoolId },
-  })
-
-  const currentYear = new Date().getFullYear()
-  const yearShort = currentYear.toString().slice(-2)
-
-  if (settings) {
-    const prefix = settings.admissionNumberPrefix || 'STD'
-    const format = settings.admissionNumberFormat || '{PREFIX}-{YEAR}-{SEQ}'
-    const digits = settings.sequenceDigits || 3
-    const startSeq = settings.sequenceStart || 1
-
-    // Count existing admissions this year for sequence
-    const yearPrefix = `${prefix}-${currentYear}-`
-    const existingCount = await db.admission.count({
-      where: {
-        schoolId,
-        admissionNumber: { startsWith: yearPrefix },
-      },
-    })
-
-    const sequence = (startSeq + existingCount).toString().padStart(digits, '0')
-
-    // Replace format tokens
-    let admissionNumber = format
-      .replace('{PREFIX}', prefix)
-      .replace('{YEAR}', currentYear.toString())
-      .replace('{YY}', yearShort)
-      .replace('{SEQ}', sequence)
-      .replace('{CLASS}', classId ? `C${classId}` : '')
-
-    // Ensure uniqueness across BOTH Admission and Student tables
-    let finalAdmissionNumber = admissionNumber
-    let exists = await admissionNumberExists(finalAdmissionNumber)
-
-    let retryCount = 0
-    while (exists && retryCount < 50) {
-      retryCount++
-      const newSeq = (startSeq + existingCount + retryCount).toString().padStart(digits, '0')
-      finalAdmissionNumber = format
-        .replace('{PREFIX}', prefix)
-        .replace('{YEAR}', currentYear.toString())
-        .replace('{YY}', yearShort)
-        .replace('{SEQ}', newSeq)
-        .replace('{CLASS}', classId ? `C${classId}` : '')
-      exists = await admissionNumberExists(finalAdmissionNumber)
-    }
-
-    return finalAdmissionNumber
-  }
-
-  // Fallback: default format STD-{YEAR}-{SEQ}
-  const yearPrefix = `STD-${currentYear}-`
-  const existingCount = await db.admission.count({
-    where: {
-      schoolId,
-      admissionNumber: { startsWith: yearPrefix },
-    },
-  })
-
-  const sequence = (existingCount + 1).toString().padStart(3, '0')
-  let admissionNumber = `${yearPrefix}${sequence}`
-
-  // Ensure uniqueness across BOTH Admission and Student tables
-  let exists = await admissionNumberExists(admissionNumber)
-
-  let retryCount = 0
-  while (exists && retryCount < 50) {
-    retryCount++
-    const newSeq = (existingCount + 1 + retryCount).toString().padStart(3, '0')
-    admissionNumber = `${yearPrefix}${newSeq}`
-    exists = await admissionNumberExists(admissionNumber)
-  }
-
-  return admissionNumber
 }
 
 // GET /api/school/admissions - List all admissions for the school
@@ -632,11 +541,13 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Generate admission number using settings
-    const admissionNumber = await generateAdmissionNumber(
-      user.schoolId,
-      body.classId
-    )
+    // Generate school-controlled numbers in serial order.
+    const [admissionNumber, registrationNumber] = await Promise.all([
+      generateSchoolNumber(user.schoolId, 'admission', body.classId),
+      typeof body.registrationNumber === 'string' && body.registrationNumber.trim()
+        ? Promise.resolve(String(body.registrationNumber).trim())
+        : generateSchoolNumber(user.schoolId, 'registration', body.classId),
+    ])
 
     // Use transaction for atomicity — all records created or none
     const admission = await db.$transaction(async (tx) => {
@@ -663,7 +574,7 @@ export async function POST(request: NextRequest) {
           bloodGroup: body.bloodGroup || null,
           medicalConditions: body.medicalConditions || null,
           profileImage: body.profileImage || null,
-          registrationNumber: body.registrationNumber || null,
+          registrationNumber: registrationNumber || null,
           penNumber: body.penNumber || null,
           samagraId: body.samagraId || null,
           apaarId: body.apaarId || null,
@@ -790,6 +701,21 @@ export async function POST(request: NextRequest) {
       await tx.admission.update({
         where: { id: adm.id },
         data: { studentId: student.id },
+      })
+
+      await tx.studentAcademicEnrollment.create({
+        data: {
+          schoolId: user.schoolId!,
+          studentId: student.id,
+          academicYear: requestedAcademicYear,
+          classId: adm.classId!,
+          sectionId: adm.sectionId,
+          rollNumber: student.rollNumber,
+          status: 'active',
+          source: 'admission',
+          effectiveFrom: adm.dateOfAdmission || new Date(),
+          createdBy: user.userId,
+        },
       })
 
       if (body.feesGroupId) {

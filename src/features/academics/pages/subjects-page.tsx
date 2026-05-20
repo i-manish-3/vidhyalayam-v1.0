@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { PageHeader, EmptyState, LoadingState } from '@/components/shared'
 import { api } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
@@ -12,16 +12,37 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu'
-import { PlusCircle, BookMarked, BookOpen, FlaskConical, Globe, Music, Calculator, PenTool, Palette, Dumbbell, Languages, Microscope, MoreVertical, Pencil, Trash2, Search, X, Filter } from 'lucide-react'
+import {
+  PlusCircle,
+  BookMarked,
+  BookOpen,
+  FlaskConical,
+  Globe,
+  Music,
+  Calculator,
+  PenTool,
+  Palette,
+  Dumbbell,
+  Languages,
+  Microscope,
+  MoreVertical,
+  Pencil,
+  Trash2,
+  Search,
+  X,
+  Filter,
+  Layers,
+  Loader2,
+  CheckCircle2,
+} from 'lucide-react'
 
 const SUBJECT_TYPES = [
-  { value: 'primary', label: 'Primary', cardBg: 'bg-blue-50 dark:bg-blue-950/30', iconBg: 'bg-blue-100 dark:bg-blue-900/50', iconColor: 'text-blue-600 dark:text-blue-400', badgeBg: 'bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300' },
-  { value: 'optional', label: 'Optional', cardBg: 'bg-amber-50 dark:bg-amber-950/30', iconBg: 'bg-amber-100 dark:bg-amber-900/50', iconColor: 'text-amber-600 dark:text-amber-400', badgeBg: 'bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300' },
-  { value: 'extra', label: 'Extra', cardBg: 'bg-teal-50 dark:bg-teal-950/30', iconBg: 'bg-teal-100 dark:bg-teal-900/50', iconColor: 'text-teal-600 dark:text-teal-400', badgeBg: 'bg-teal-100 text-teal-800 dark:bg-teal-900/50 dark:text-teal-300' },
-  { value: 'special', label: 'Special', cardBg: 'bg-purple-50 dark:bg-purple-950/30', iconBg: 'bg-purple-100 dark:bg-purple-900/50', iconColor: 'text-purple-600 dark:text-purple-400', badgeBg: 'bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-300' },
+  { value: 'primary', label: 'Primary', badge: 'border-primary/20 bg-primary/10 text-primary', dot: 'bg-primary' },
+  { value: 'optional', label: 'Optional', badge: 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-300', dot: 'bg-amber-500' },
+  { value: 'extra', label: 'Extra', badge: 'border-teal-200 bg-teal-50 text-teal-700 dark:border-teal-900/60 dark:bg-teal-950/30 dark:text-teal-300', dot: 'bg-teal-500' },
+  { value: 'special', label: 'Special', badge: 'border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-900/60 dark:bg-violet-950/30 dark:text-violet-300', dot: 'bg-violet-500' },
 ] as const
 
-// Map subject names to relevant icons
 function getSubjectIcon(name: string) {
   const lower = name.toLowerCase()
   if (lower.includes('math') || lower.includes('algebra') || lower.includes('geometry')) return Calculator
@@ -59,10 +80,11 @@ interface ClassItem {
 
 export function SubjectsPage() {
   const { toast } = useToast()
-  const { navigateTo, setSelectedSubjectId } = useAppStore()
+  const { navigateTo, goBack, setSelectedSubjectId } = useAppStore()
   const [subjects, setSubjects] = useState<Subject[]>([])
   const [classes, setClasses] = useState<ClassItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [filtering, setFiltering] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedClassId, setSelectedClassId] = useState<string>('all')
   const [selectedType, setSelectedType] = useState<string>('all')
@@ -74,7 +96,7 @@ export function SubjectsPage() {
       const res = await api.get<{ classes: ClassItem[] }>('/api/school/classes')
       setClasses(res.classes || [])
     } catch {
-      // silently ignore
+      // Classes are only used for filtering, so keep the page usable if they fail.
     }
   }, [])
 
@@ -87,7 +109,10 @@ export function SubjectsPage() {
       setSubjects(res.subjects || [])
     } catch {
       toast({ title: 'Couldn\'t Load Subjects', description: 'We couldn\'t load the subjects. Please refresh the page.', variant: 'destructive' })
-    } finally { setLoading(false) }
+    } finally {
+      setLoading(false)
+      setFiltering(false)
+    }
   }, [toast])
 
   useEffect(() => {
@@ -95,20 +120,15 @@ export function SubjectsPage() {
     fetchData()
   }, [fetchClasses, fetchData])
 
-  // Re-fetch when class filter changes
   const handleClassFilter = (classId: string) => {
     setSelectedClassId(classId)
-    setLoading(true)
+    setFiltering(true)
     fetchData(classId)
   }
 
   const handleEdit = (subject: Subject) => {
     setSelectedSubjectId(subject.id)
     navigateTo('edit-subject')
-  }
-
-  const confirmDelete = (subject: Subject) => {
-    setDeleteSubject(subject)
   }
 
   const handleDelete = async () => {
@@ -126,180 +146,188 @@ export function SubjectsPage() {
     }
   }
 
-  // Filter subjects by search AND type (client-side, on top of server-side class filter)
-  const filteredSubjects = subjects.filter(s => {
-    // Type filter
-    if (selectedType !== 'all' && s.type !== selectedType) return false
-    // Search filter
+  const filteredSubjects = useMemo(() => subjects.filter(subject => {
+    if (selectedType !== 'all' && subject.type !== selectedType) return false
     if (!searchQuery.trim()) return true
-    const q = searchQuery.toLowerCase()
-    return s.name.toLowerCase().includes(q) ||
-      (s.code && s.code.toLowerCase().includes(q)) ||
-      s.type.toLowerCase().includes(q) ||
-      (s.classes && s.classes.some(c => c.name.toLowerCase().includes(q)))
-  })
 
-  const selectedClassName = selectedClassId !== 'all' ? classes.find(c => c.id === selectedClassId)?.name : null
-  const selectedTypeLabel = selectedType !== 'all' ? SUBJECT_TYPES.find(t => t.value === selectedType)?.label : null
+    const q = searchQuery.toLowerCase()
+    return subject.name.toLowerCase().includes(q) ||
+      (subject.code && subject.code.toLowerCase().includes(q)) ||
+      subject.type.toLowerCase().includes(q) ||
+      (subject.classes && subject.classes.some(cls => (cls.name || '').toLowerCase().includes(q)))
+  }), [subjects, selectedType, searchQuery])
+
+  const stats = useMemo(() => {
+    const assignedSubjects = subjects.filter(subject => (subject.classes?.length || 0) > 0).length
+    const activeSubjects = subjects.filter(subject => subject.isActive).length
+    const classLinks = subjects.reduce((sum, subject) => sum + (subject.classes?.length || 0), 0)
+    const typeCount = selectedType === 'all'
+      ? new Set(subjects.map(subject => subject.type)).size
+      : subjects.filter(subject => subject.type === selectedType).length
+
+    return { assignedSubjects, activeSubjects, classLinks, typeCount }
+  }, [subjects, selectedType])
+
+  const selectedClassName = selectedClassId !== 'all' ? classes.find(cls => cls.id === selectedClassId)?.name : null
+  const selectedTypeLabel = selectedType !== 'all' ? SUBJECT_TYPES.find(type => type.value === selectedType)?.label : null
   const hasActiveFilters = selectedClassId !== 'all' || selectedType !== 'all'
 
   if (loading) return <LoadingState />
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <PageHeader
         title="Subject List"
-        description={`${filteredSubjects.length} subject${filteredSubjects.length !== 1 ? 's' : ''}${selectedClassName ? ` in ${selectedClassName}` : ''}${selectedTypeLabel ? ` · ${selectedTypeLabel}` : ''}`}
+        description="Manage curriculum subjects, type, order and class assignment."
+        backAction={{ onClick: () => goBack('dashboard') }}
         action={{ label: 'Add Subject', icon: PlusCircle, onClick: () => navigateTo('add-subject') }}
       />
 
-      {/* Filters Row - always show when subjects exist OR a filter is active */}
       {(subjects.length > 0 || hasActiveFilters) && (
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-          {/* Search Bar */}
-          <div className="relative flex-1 max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-            <Input
-              placeholder="Search subjects by name, code, type, or class..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 pr-9 h-9"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-              >
-                <X className="size-3.5" />
-              </button>
-            )}
+        <>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <StatCard icon={BookMarked} label="Subjects" value={subjects.length} note={`${stats.activeSubjects} active`} />
+            <StatCard icon={Layers} label="Assigned" value={stats.assignedSubjects} note="Subjects linked to classes" />
+            <StatCard icon={BookOpen} label="Class Links" value={stats.classLinks} note="Total assignments" />
+            <StatCard icon={Filter} label={selectedType === 'all' ? 'Types' : 'Filtered'} value={stats.typeCount} note={selectedTypeLabel || 'Subject categories'} />
           </div>
 
-          {/* Spacer to push filters right */}
-          <div className="flex-1" />
+          <Card className="gap-0 py-0 shadow-sm">
+            <CardContent className="flex flex-col gap-3 p-3 xl:flex-row xl:items-center xl:justify-between">
+              <div className="relative w-full xl:max-w-md">
+                <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder="Search subject, code, type, or class"
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  className="h-9 bg-background pl-9 pr-9"
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
+                    aria-label="Clear search"
+                  >
+                    <X className="size-3.5" />
+                  </button>
+                )}
+              </div>
 
-          {/* Filters - Right Side */}
-          <div className="flex items-center gap-2">
-            <Filter className="size-4 text-muted-foreground" />
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <Select value={selectedType} onValueChange={setSelectedType}>
+                  <SelectTrigger className="h-9 w-full bg-background sm:w-[150px]">
+                    <SelectValue placeholder="Subject type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Types</SelectItem>
+                    {SUBJECT_TYPES.map((type) => (
+                      <SelectItem key={type.value} value={type.value}>
+                        <span className="flex items-center gap-2">
+                          <span className={`size-2 rounded-full ${type.dot}`} />
+                          {type.label}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
 
-            {/* Type Filter */}
-            <Select value={selectedType} onValueChange={setSelectedType}>
-              <SelectTrigger className="w-[140px] h-9">
-                <SelectValue placeholder="Subject type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Types</SelectItem>
-                {SUBJECT_TYPES.map((t) => (
-                  <SelectItem key={t.value} value={t.value}>
-                    <div className="flex items-center gap-2">
-                      <div className={`h-2 w-2 rounded-full ${
-                        t.value === 'primary' ? 'bg-blue-400' :
-                        t.value === 'optional' ? 'bg-amber-400' :
-                        t.value === 'extra' ? 'bg-teal-400' :
-                        'bg-purple-400'
-                      }`} />
-                      {t.label}
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+                <Select value={selectedClassId} onValueChange={handleClassFilter}>
+                  <SelectTrigger className="h-9 w-full bg-background sm:w-[190px]">
+                    <SelectValue placeholder="Filter by class" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Classes</SelectItem>
+                    {classes.map((cls) => (
+                      <SelectItem key={cls.id} value={cls.id}>
+                        {cls.name || 'Unnamed'}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
 
-            {/* Class Filter */}
-            <Select value={selectedClassId} onValueChange={handleClassFilter}>
-              <SelectTrigger className="w-[180px] h-9">
-                <SelectValue placeholder="Filter by class" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Classes</SelectItem>
-                {classes.map((cls) => (
-                  <SelectItem key={cls.id} value={cls.id}>
-                    {cls.name || 'Unnamed'}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+                <Badge variant="secondary" className="h-9 w-fit rounded-md px-3 text-xs">
+                  {filtering && <Loader2 className="mr-1.5 size-3 animate-spin" />}
+                  {filteredSubjects.length} showing
+                </Badge>
 
-            {/* Clear all filters */}
-            {hasActiveFilters && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-9 px-2 text-muted-foreground"
-                onClick={() => {
-                  setSelectedType('all')
-                  handleClassFilter('all')
-                }}
-              >
-                <X className="size-3.5" />
-              </Button>
-            )}
-          </div>
-        </div>
+                {hasActiveFilters && (
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="size-9"
+                    onClick={() => {
+                      setSelectedType('all')
+                      handleClassFilter('all')
+                    }}
+                    aria-label="Clear filters"
+                  >
+                    <X className="size-3.5" />
+                  </Button>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </>
       )}
 
-      {subjects.length === 0 && !hasActiveFilters ? (
-        <EmptyState
-          icon={BookMarked}
-          title="No Subjects Yet"
-          description="Add subjects to set up your school's curriculum."
-          action={{ label: 'Add Subject', onClick: () => navigateTo('add-subject') }}
-        />
-      ) : subjects.length === 0 && hasActiveFilters ? (
-        <div className="text-center py-12">
-          <BookMarked className="size-10 text-muted-foreground/40 mx-auto mb-3" />
-          <p className="text-sm text-muted-foreground">
-            No subjects found{selectedClassName ? <> for <strong>{selectedClassName}</strong></> : ''}{selectedTypeLabel ? <> of type <strong>{selectedTypeLabel}</strong></> : ''}
-          </p>
-          <Button variant="link" size="sm" onClick={() => { setSelectedType('all'); handleClassFilter('all') }} className="mt-1">
-            Clear filters
-          </Button>
-        </div>
-      ) : filteredSubjects.length === 0 ? (
-        <div className="text-center py-12">
-          <Search className="size-10 text-muted-foreground/40 mx-auto mb-3" />
-          <p className="text-sm text-muted-foreground">No subjects match &ldquo;{searchQuery}&rdquo;</p>
-          <Button variant="link" size="sm" onClick={() => setSearchQuery('')} className="mt-1">
-            Clear search
-          </Button>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+      <div className={`transition-opacity duration-200 ${filtering ? 'opacity-55' : 'opacity-100'}`}>
+        {subjects.length === 0 && !hasActiveFilters ? (
+          <EmptyState
+            icon={BookMarked}
+            title="No Subjects Yet"
+            description="Add subjects to set up your school's curriculum."
+            action={{ label: 'Add Subject', onClick: () => navigateTo('add-subject') }}
+          />
+        ) : subjects.length === 0 && hasActiveFilters ? (
+          <EmptySearch
+            icon={BookMarked}
+            title="No subjects found"
+            description={`No subjects found${selectedClassName ? ` for ${selectedClassName}` : ''}${selectedTypeLabel ? ` of type ${selectedTypeLabel}` : ''}.`}
+            actionLabel="Clear filters"
+            onAction={() => { setSelectedType('all'); handleClassFilter('all') }}
+          />
+        ) : filteredSubjects.length === 0 ? (
+          <EmptySearch
+            icon={Search}
+            title="No subjects found"
+            description={`No subject matches "${searchQuery}".`}
+            actionLabel="Clear search"
+            onAction={() => setSearchQuery('')}
+          />
+        ) : (
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 2xl:grid-cols-3">
           {filteredSubjects.map((subject) => {
-            const typeConfig = SUBJECT_TYPES.find(t => t.value === subject.type) || SUBJECT_TYPES[0]
+            const typeConfig = SUBJECT_TYPES.find(type => type.value === subject.type) || SUBJECT_TYPES[0]
             const IconComponent = getSubjectIcon(subject.name)
+            const classCount = subject.classes?.length || 0
 
             return (
-              <Card
-                key={subject.id}
-                className="group relative overflow-hidden transition-all duration-200 hover:shadow-md border"
-              >
-                <CardContent className="p-4 space-y-3">
-                  {/* Card Header: Icon + Title + Menu */}
-                  <div className="flex items-start gap-3">
-                    {/* Circular Icon */}
-                    <div className={`size-10 rounded-full flex items-center justify-center shrink-0 ${typeConfig.iconBg}`}>
-                      <IconComponent className={`size-5 ${typeConfig.iconColor}`} />
+              <Card key={subject.id} className="group gap-0 overflow-hidden py-0 shadow-sm transition-all hover:border-primary/30 hover:shadow-md">
+                <CardContent className="p-0">
+                  <div className="flex items-start gap-3 border-b bg-muted/20 p-4">
+                    <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                      <IconComponent className="size-5" />
                     </div>
-
-                    {/* Title + Code */}
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold text-sm leading-tight truncate" title={subject.name}>
-                        {subject.name}
-                      </h3>
-                      {subject.code && (
-                        <p className="text-xs text-muted-foreground font-mono mt-0.5">{subject.code}</p>
-                      )}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                        <h3 className="mr-1 truncate text-base font-semibold leading-tight" title={subject.name}>
+                          {subject.name}
+                        </h3>
+                        <Badge variant="outline" className={`h-5 shrink-0 rounded-md px-1.5 text-[11px] ${typeConfig.badge}`}>
+                          {typeConfig.label}
+                        </Badge>
+                        <Badge variant={subject.isActive ? 'secondary' : 'outline'} className="h-5 shrink-0 rounded-md px-1.5 text-[11px]">
+                          {subject.isActive ? 'Active' : 'Inactive'}
+                        </Badge>
+                      </div>
+                      <p className="mt-1 truncate text-xs text-muted-foreground">
+                        {subject.code || 'No code'} / {classCount} class{classCount !== 1 ? 'es' : ''} assigned
+                      </p>
                     </div>
-
-                    {/* Actions Dropdown */}
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="size-7 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                        >
+                        <Button variant="ghost" size="icon" className="size-8 shrink-0">
                           <MoreVertical className="size-4" />
                         </Button>
                       </DropdownMenuTrigger>
@@ -310,7 +338,7 @@ export function SubjectsPage() {
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
-                          onClick={() => confirmDelete(subject)}
+                          onClick={() => setDeleteSubject(subject)}
                           className="text-destructive focus:text-destructive"
                         >
                           <Trash2 className="mr-2 size-3.5" />
@@ -320,78 +348,67 @@ export function SubjectsPage() {
                     </DropdownMenu>
                   </div>
 
-                  {/* Metadata Badges Row */}
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    {/* Type Badge */}
-                    <Badge className={`text-[10px] px-1.5 py-0 h-5 font-medium ${typeConfig.badgeBg}`}>
-                      {typeConfig.label}
-                    </Badge>
-
-                    {/* Sequence No */}
-                    {subject.sequenceNo != null && (
-                      <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5 font-mono">
-                        Seq: {subject.sequenceNo}
-                      </Badge>
-                    )}
+                  <div className="grid grid-cols-3 border-b text-center">
+                    <Metric label="Classes" value={classCount} />
+                    <Metric label="Sequence" value={subject.sequenceNo ?? 0} />
+                    <Metric label="Status" value={subject.isActive ? 1 : 0} display={subject.isActive ? 'Active' : 'Inactive'} />
                   </div>
 
-                  {/* Assigned Classes */}
-                  {subject.classes && subject.classes.length > 0 && (
-                    <div className="space-y-1.5">
-                      <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Classes</p>
-                      <div className="flex flex-wrap gap-1">
-                        {subject.classes.map(cls => (
-                          <Badge key={cls.id} variant="outline" className="text-[10px] px-1.5 py-0 h-5">
+                  <div className="space-y-2 p-4">
+                    <SectionTitle icon={Layers} label="Assigned Classes" />
+                    {classCount > 0 ? (
+                      <div className="flex flex-wrap gap-1.5">
+                        {subject.classes!.slice(0, 8).map(cls => (
+                          <Badge key={cls.id} variant="secondary" className="h-6 rounded-md px-2 text-xs">
                             {cls.name || 'Unnamed'}
                           </Badge>
                         ))}
+                        {classCount > 8 && (
+                          <Badge variant="outline" className="h-6 rounded-md px-2 text-xs">
+                            +{classCount - 8} more
+                          </Badge>
+                        )}
                       </div>
-                    </div>
-                  )}
+                    ) : (
+                      <p className="rounded-md border border-dashed px-3 py-2 text-xs text-muted-foreground">No classes assigned.</p>
+                    )}
+                  </div>
 
-                  {/* Quick Actions Row */}
-                  <div className="grid grid-cols-2 gap-1.5 pt-1">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-7 text-xs gap-1.5"
-                      onClick={() => handleEdit(subject)}
-                    >
-                      <Pencil className="size-3" />
-                      Edit
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-7 text-xs gap-1.5 text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/20"
-                      onClick={() => confirmDelete(subject)}
-                    >
-                      <Trash2 className="size-3" />
-                      Delete
-                    </Button>
+                  <div className="flex items-center justify-between border-t bg-muted/15 px-4 py-2.5">
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <CheckCircle2 className="size-3.5 text-primary" />
+                      Curriculum item
+                    </div>
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={() => handleEdit(subject)}>
+                        <Pencil className="size-3.5" />
+                        Edit
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 gap-1.5 border-destructive/20 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                        onClick={() => setDeleteSubject(subject)}
+                      >
+                        <Trash2 className="size-3.5" />
+                        Delete
+                      </Button>
+                    </div>
                   </div>
                 </CardContent>
-
-                {/* Type accent line at top */}
-                <div className={`absolute top-0 left-0 right-0 h-0.5 ${
-                  subject.type === 'primary' ? 'bg-blue-400' :
-                  subject.type === 'optional' ? 'bg-amber-400' :
-                  subject.type === 'extra' ? 'bg-teal-400' :
-                  'bg-purple-400'
-                }`} />
               </Card>
             )
           })}
-        </div>
-      )}
+          </div>
+        )}
+      </div>
 
-      {/* Delete Confirmation Dialog */}
       <AlertDialog open={!!deleteSubject} onOpenChange={(open) => { if (!open) setDeleteSubject(null) }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Subject</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete <strong>&ldquo;{deleteSubject?.name}&rdquo;</strong>? This action cannot be undone. All data associated with this subject will be permanently removed.
+              Are you sure you want to delete <strong>&ldquo;{deleteSubject?.name}&rdquo;</strong>? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -401,11 +418,68 @@ export function SubjectsPage() {
               disabled={deleting}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
+              {deleting && <Loader2 className="mr-2 size-4 animate-spin" />}
               {deleting ? 'Deleting...' : 'Yes, Delete'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </div>
+  )
+}
+
+function StatCard({ icon: Icon, label, value, note }: { icon: typeof BookMarked; label: string; value: number; note: string }) {
+  return (
+    <Card className="gap-0 py-0 shadow-sm">
+      <CardContent className="flex items-center gap-3 p-3">
+        <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+          <Icon className="size-4.5" />
+        </div>
+        <div className="min-w-0">
+          <p className="text-xs text-muted-foreground">{label}</p>
+          <p className="text-lg font-semibold leading-tight">{value}</p>
+          <p className="truncate text-[11px] text-muted-foreground">{note}</p>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+function Metric({ label, value, display }: { label: string; value: number; display?: string }) {
+  return (
+    <div className="border-r px-3 py-2 last:border-r-0">
+      <p className="text-sm font-semibold leading-tight">{display || value}</p>
+      <p className="mt-0.5 text-[11px] text-muted-foreground">{label}</p>
+    </div>
+  )
+}
+
+function SectionTitle({ icon: Icon, label }: { icon: typeof Layers; label: string }) {
+  return (
+    <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+      <Icon className="size-3.5" />
+      {label}
+    </div>
+  )
+}
+
+function EmptySearch({ icon: Icon, title, description, actionLabel, onAction }: {
+  icon: typeof Search
+  title: string
+  description: string
+  actionLabel: string
+  onAction: () => void
+}) {
+  return (
+    <Card className="py-0">
+      <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+        <Icon className="mb-3 size-10 text-muted-foreground/40" />
+        <p className="text-sm font-medium">{title}</p>
+        <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+        <Button variant="link" size="sm" onClick={onAction} className="mt-1">
+          {actionLabel}
+        </Button>
+      </CardContent>
+    </Card>
   )
 }

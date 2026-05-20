@@ -54,9 +54,24 @@ export async function GET(request: NextRequest) {
       schoolId: user.schoolId,
       deletedAt: null,
     }
-    if (academicYear) studentFilter.admission = { academicYear }
-    if (classId) studentFilter.classId = classId
-    if (sectionId) studentFilter.sectionId = sectionId
+    if (academicYear) {
+      const enrollmentFilter: Record<string, unknown> = { academicYear, deletedAt: null }
+      if (classId) enrollmentFilter.classId = classId
+      if (sectionId) enrollmentFilter.sectionId = sectionId
+      studentFilter.OR = [
+        { academicEnrollments: { some: enrollmentFilter } },
+        {
+          admission: {
+            academicYear,
+            ...(classId ? { classId } : {}),
+            ...(sectionId ? { sectionId } : {}),
+          },
+        },
+      ]
+    } else {
+      if (classId) studentFilter.classId = classId
+      if (sectionId) studentFilter.sectionId = sectionId
+    }
 
     const attendanceWhere: Record<string, unknown> = {
       schoolId: user.schoolId,
@@ -208,7 +223,15 @@ export async function POST(request: NextRequest) {
 
       // Verify student belongs to this school
       const student = await db.student.findFirst({
-        where: { id: studentId, schoolId: user.schoolId, deletedAt: null, admission: { academicYear } },
+        where: {
+          id: studentId,
+          schoolId: user.schoolId,
+          deletedAt: null,
+          OR: [
+            { academicEnrollments: { some: { academicYear, deletedAt: null } } },
+            { admission: { academicYear } },
+          ],
+        },
       })
       if (!student) continue
 
@@ -282,11 +305,27 @@ export async function PATCH(request: NextRequest) {
     // Check all students have attendance marked
     const studentWhere: Record<string, unknown> = {
       schoolId: user.schoolId,
-      classId,
       deletedAt: null,
-      admission: { academicYear },
+      OR: [
+        {
+          academicEnrollments: {
+            some: {
+              academicYear,
+              classId,
+              ...(sectionId ? { sectionId } : {}),
+              deletedAt: null,
+            },
+          },
+        },
+        {
+          admission: {
+            academicYear,
+            classId,
+            ...(sectionId ? { sectionId } : {}),
+          },
+        },
+      ],
     }
-    if (sectionId) studentWhere.sectionId = sectionId
 
     const students = await db.student.findMany({
       where: studentWhere,

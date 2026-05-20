@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { api } from '@/lib/api'
 import { useAppStore } from '@/lib/store'
 import { useToast } from '@/hooks/use-toast'
+import { PageHeader } from '@/components/shared'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -12,7 +13,7 @@ import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 // Checkbox removed — using custom visual indicator to avoid Radix internal state issues
 import {
-  ArrowLeft,
+  List,
   PlusCircle,
   X,
   GraduationCap,
@@ -225,42 +226,28 @@ export function AddClassPage() {
   const activeSubjectCount = subjects.length
 
   return (
-    <div className="space-y-6">
-      {/* Header with back button */}
-      <div className="flex items-center gap-3">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="size-9 shrink-0"
-          onClick={() => goBack('classes')}
-          disabled={submitting}
-        >
-          <ArrowLeft className="size-4" />
-        </Button>
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Add Class</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            Create a new class, add sections, and assign subjects
-          </p>
-        </div>
-      </div>
-
-
+    <div className="space-y-4">
+      <PageHeader
+        title="Add Class"
+        description="Create a new class, add sections, and assign subjects."
+        backAction={{ onClick: () => goBack('classes') }}
+        action={{ label: 'Class List', icon: List, onClick: () => navigateTo('classes') }}
+      />
 
       {/* Form */}
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit} className="space-y-4">
 
         {/* ── Class Details Card ── */}
-        <Card>
-          <CardHeader>
+        <Card className="gap-0 py-0 shadow-sm">
+          <CardHeader className="border-b bg-muted/20 px-4 py-3">
             <CardTitle className="text-base flex items-center gap-2">
               <Layers className="size-4" />
               Class Details
             </CardTitle>
-            <CardDescription>Enter the basic information for the new class</CardDescription>
+            <CardDescription className="text-xs">Enter the basic information for the new class</CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
+          <CardContent className="p-4">
+            <div className="space-y-1.5">
               <Label htmlFor="class-name" className="text-xs font-medium">
                 Class Name <span className="text-destructive">*</span>
               </Label>
@@ -275,7 +262,7 @@ export function AddClassPage() {
                 aria-describedby={nameError ? 'class-name-error' : undefined}
               />
               {nameError && (
-                <p id="class-name-error" className="text-xs text-destructive mt-1">
+                <p id="class-name-error" className="text-xs text-destructive">
                   {nameError}
                 </p>
               )}
@@ -287,8 +274,8 @@ export function AddClassPage() {
         </Card>
 
         {/* ── Sections Card ── */}
-        <Card>
-          <CardHeader>
+        <Card className="gap-0 py-0 shadow-sm">
+          <CardHeader className="border-b bg-muted/20 px-4 py-3">
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle className="text-base flex items-center gap-2">
@@ -300,7 +287,7 @@ export function AddClassPage() {
                     </Badge>
                   )}
                 </CardTitle>
-                <CardDescription className="mt-1">
+                <CardDescription className="mt-1 text-xs">
                   Add sections to organize students within this class (optional)
                 </CardDescription>
               </div>
@@ -317,8 +304,8 @@ export function AddClassPage() {
               </Button>
             </div>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
+          <CardContent className="p-4">
+            <div className="space-y-2.5">
               {/* Section list header */}
               <div className="hidden sm:grid sm:grid-cols-[1fr_36px] gap-3 px-1">
                 <span className="text-xs font-medium text-muted-foreground">Section Name</span>
@@ -329,7 +316,7 @@ export function AddClassPage() {
               {sections.map((section, index) => (
                 <div
                   key={section.id}
-                  className="grid grid-cols-1 sm:grid-cols-[1fr_36px] gap-3 items-start p-3 rounded-lg border bg-background"
+                  className="grid grid-cols-1 sm:grid-cols-[1fr_36px] gap-2 items-start p-2.5 rounded-lg border bg-background"
                 >
                   <div className="space-y-1 sm:space-y-0">
                     <Label className="text-xs font-medium text-muted-foreground sm:hidden">
@@ -381,8 +368,8 @@ export function AddClassPage() {
         </Card>
 
         {/* ── Subject Assignment Card ── */}
-        <Card>
-          <CardHeader>
+        <Card className="gap-0 py-0 shadow-sm">
+          <CardHeader className="border-b bg-muted/20 px-4 py-3">
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle className="text-base flex items-center gap-2">
@@ -394,7 +381,7 @@ export function AddClassPage() {
                     </Badge>
                   )}
                 </CardTitle>
-                <CardDescription className="mt-1">
+                <CardDescription className="mt-1 text-xs">
                   Select subjects to assign to this class, grouped by type
                 </CardDescription>
               </div>
@@ -411,26 +398,26 @@ export function AddClassPage() {
               )}
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-4">
             {loadingSubjects ? (
-              <div className="flex items-center justify-center py-8 gap-2 text-muted-foreground">
+              <div className="flex items-center justify-center py-6 gap-2 text-muted-foreground">
                 <Loader2 className="size-4 animate-spin" />
                 <span className="text-sm">Loading subjects...</span>
               </div>
             ) : subjectsByType.length === 0 ? (
-              <div className="text-center py-8">
+              <div className="text-center py-6">
                 <BookOpen className="size-8 text-muted-foreground/40 mx-auto mb-2" />
                 <p className="text-sm text-muted-foreground">No subjects available</p>
                 <p className="text-xs text-muted-foreground mt-1">Add subjects first, then assign them to classes.</p>
               </div>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {subjectsByType.map((group) => {
                   const allGroupSelected = group.subjects.every(s => selectedSubjectIds.has(s.id))
                   const someGroupSelected = group.subjects.some(s => selectedSubjectIds.has(s.id))
 
                   return (
-                    <div key={group.value} className="space-y-2">
+                    <div key={group.value} className="space-y-1.5">
                       {/* Type Group Header */}
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
@@ -452,7 +439,7 @@ export function AddClassPage() {
                       </div>
 
                       {/* Subject Cards Grid */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1.5">
                         {group.subjects.map((subject) => {
                           const isSelected = selectedSubjectIds.has(subject.id)
                           return (
@@ -460,7 +447,7 @@ export function AddClassPage() {
                               key={subject.id}
                               onClick={() => toggleSubject(subject.id)}
                               className={`
-                                relative flex items-center gap-3 rounded-lg border p-3 cursor-pointer transition-all duration-150
+                                relative flex items-center gap-2.5 rounded-lg border p-2.5 cursor-pointer transition-all duration-150
                                 ${isSelected
                                   ? `${group.color} ${group.border} ring-1 ring-current/10`
                                   : 'hover:bg-muted/50 border-border'
@@ -533,14 +520,12 @@ export function AddClassPage() {
           </CardContent>
         </Card>
 
-        <Separator />
-
         {/* Action Buttons */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 border-t pt-4">
           <Button
             type="submit"
             disabled={!isFormValid}
-            className="gap-2 min-w-[140px]"
+            className="gap-2 min-w-[130px]"
           >
             {submitting ? (
               <>

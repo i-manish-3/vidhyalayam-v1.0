@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { EmptyState, LoadingState } from '@/components/shared'
+import { EmptyState, LoadingState, PageHeader } from '@/components/shared'
 import { api } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { useAppStore } from '@/lib/store'
@@ -29,7 +29,6 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import {
-  ArrowLeft,
   CalendarDays,
   CheckCircle2,
   IndianRupee,
@@ -96,6 +95,7 @@ function getFrequencyOption(freq: FeeFrequency) {
 export function FeesHeadsPage() {
   const { toast } = useToast()
   const goBack = useAppStore((state) => state.goBack)
+  const navigateTo = useAppStore((state) => state.navigateTo)
 
   const [feeHeads, setFeeHeads] = useState<FeeHead[]>([])
   const [loading, setLoading] = useState(true)
@@ -184,29 +184,14 @@ export function FeesHeadsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-start gap-3">
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => goBack('dashboard')}
-            className="mt-0.5 size-9 shrink-0"
-          >
-            <ArrowLeft className="size-4" />
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Fee Heads</h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Define the fee names and billing behavior used in fee structures.
-            </p>
-          </div>
-        </div>
-        <Button onClick={() => setShowAdd(true)} className="gap-2 shrink-0">
-          <PlusCircle className="size-4" />
-          Add Fee Head
-        </Button>
-      </div>
+    <div className="space-y-4">
+      <PageHeader
+        title="Fee Heads"
+        description="Define the fee names and billing behavior used in fee structures."
+        backAction={{ onClick: () => goBack('dashboard') }}
+        secondaryAction={{ label: 'Fee Groups', icon: Layers3, onClick: () => navigateTo('fees-groups') }}
+        action={{ label: 'Add Fee Head', icon: PlusCircle, onClick: () => setShowAdd(true) }}
+      />
 
       {feeHeads.length === 0 ? (
         <EmptyState
@@ -216,12 +201,12 @@ export function FeesHeadsPage() {
           action={{ label: 'Add Fee Head', onClick: () => setShowAdd(true) }}
         />
       ) : (
-        <Card className="overflow-hidden">
-          <CardHeader className="border-b bg-muted/30">
-            <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+        <Card className="gap-0 overflow-hidden py-0 shadow-sm">
+          <CardHeader className="border-b bg-muted/30 px-4 py-3">
+            <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
               <div>
-                <CardTitle className="text-lg">Fee Head Library</CardTitle>
-                <p className="mt-1 text-sm text-muted-foreground">
+                <CardTitle className="text-base">Fee Head Library</CardTitle>
+                <p className="mt-0.5 text-xs text-muted-foreground">
                   {filteredFeeHeads.length} of {feeHeads.length} heads shown
                 </p>
               </div>
@@ -232,11 +217,11 @@ export function FeesHeadsPage() {
                     value={search}
                     onChange={(event) => setSearch(event.target.value)}
                     placeholder="Search fee heads..."
-                    className="pl-9"
+                    className="h-9 pl-9"
                   />
                 </div>
                 <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as StatusFilter)}>
-                  <SelectTrigger>
+                  <SelectTrigger className="h-9">
                     <SelectValue placeholder="Status" />
                   </SelectTrigger>
                   <SelectContent>
@@ -246,7 +231,7 @@ export function FeesHeadsPage() {
                   </SelectContent>
                 </Select>
                 <Select value={frequencyFilter} onValueChange={(value) => setFrequencyFilter(value as FrequencyFilter)}>
-                  <SelectTrigger>
+                  <SelectTrigger className="h-9">
                     <SelectValue placeholder="Frequency" />
                   </SelectTrigger>
                   <SelectContent>
@@ -265,10 +250,10 @@ export function FeesHeadsPage() {
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/20 hover:bg-muted/20">
-                  <TableHead className="px-4 py-3">Fee Head</TableHead>
-                  <TableHead className="px-4 py-3">Billing Behavior</TableHead>
-                  <TableHead className="px-4 py-3">Status</TableHead>
-                  <TableHead className="w-[52px] px-4 py-3" />
+                  <TableHead className="px-4 py-2.5">Fee Head</TableHead>
+                  <TableHead className="px-4 py-2.5">Billing Behavior</TableHead>
+                  <TableHead className="px-4 py-2.5">Status</TableHead>
+                  <TableHead className="w-[52px] px-4 py-2.5" />
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -285,21 +270,21 @@ export function FeesHeadsPage() {
 
                     return (
                       <TableRow key={head.id} className="group">
-                        <TableCell className="px-4 py-4">
+                        <TableCell className="px-4 py-3">
                           <div className="flex min-w-56 items-center gap-3">
                             <div className={cn(
-                              'flex size-10 items-center justify-center rounded-md border',
+                              'flex size-9 items-center justify-center rounded-md border',
                               head.isActive ? 'border-primary/20 bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
                             )}>
-                              <IndianRupee className="size-5" />
+                              <IndianRupee className="size-4" />
                             </div>
                             <div>
                               <div className="font-semibold leading-tight">{head.name}</div>
-                              <div className="mt-1 text-xs text-muted-foreground">{frequency.description}</div>
+                              <div className="mt-0.5 text-xs text-muted-foreground">{frequency.description}</div>
                             </div>
                           </div>
                         </TableCell>
-                        <TableCell className="px-4 py-4">
+                        <TableCell className="px-4 py-3">
                           <div className="flex flex-wrap items-center gap-2">
                             <Badge variant="outline" className={cn('gap-1.5 border', FREQUENCY_BADGE_CLASSES[head.frequency])}>
                               <FrequencyIcon className="size-3.5" />
@@ -308,7 +293,7 @@ export function FeesHeadsPage() {
                             <span className="text-xs text-muted-foreground">{frequency.shortLabel}</span>
                           </div>
                         </TableCell>
-                        <TableCell className="px-4 py-4">
+                        <TableCell className="px-4 py-3">
                           <div className="flex items-center gap-2">
                             {head.isActive ? (
                               <CheckCircle2 className="size-4 text-emerald-600" />
@@ -320,7 +305,7 @@ export function FeesHeadsPage() {
                             </span>
                           </div>
                         </TableCell>
-                        <TableCell className="px-4 py-4">
+                        <TableCell className="px-4 py-3">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button variant="ghost" size="icon" className="size-8">
@@ -354,8 +339,8 @@ export function FeesHeadsPage() {
               Add Fee Head
             </DialogTitle>
           </DialogHeader>
-          <div className="grid gap-5 py-4">
-            <div className="space-y-2">
+          <div className="grid gap-4 py-3">
+            <div className="space-y-1.5">
               <Label htmlFor="fee-head-name">Fee Head Name</Label>
               <Input
                 id="fee-head-name"
@@ -365,7 +350,7 @@ export function FeesHeadsPage() {
               />
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <Label>Billing Behavior</Label>
               <Select
                 value={form.frequency}
@@ -385,10 +370,10 @@ export function FeesHeadsPage() {
               <p className="text-xs text-muted-foreground">{getFrequencyOption(form.frequency).description}</p>
             </div>
 
-            <div className="flex items-center justify-between gap-4 rounded-md border bg-muted/20 p-4">
+            <div className="flex items-center justify-between gap-4 rounded-md border bg-muted/20 p-3">
               <div>
                 <Label htmlFor="fee-head-active" className="cursor-pointer">Active</Label>
-                <p className="mt-1 text-xs text-muted-foreground">Available while creating fee structures.</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">Available while creating fee structures.</p>
               </div>
               <Switch
                 id="fee-head-active"

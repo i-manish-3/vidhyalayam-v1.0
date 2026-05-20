@@ -17,11 +17,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Switch } from '@/components/ui/switch'
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import {
   Table,
   TableBody,
@@ -30,7 +26,24 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { ArrowLeft, Calendar, CheckCircle2, ChevronDown, ChevronRight, FileText, Info, LayoutGrid, PlusCircle, Trash2 } from 'lucide-react'
+import {
+  ArrowLeft,
+  Calendar,
+  CheckCircle2,
+  ChevronDown,
+  ChevronRight,
+  FileText,
+  Info,
+  LayoutGrid,
+  ListChecks,
+  PlusCircle,
+  School,
+  Settings2,
+  Search,
+  Tags,
+  Trash2,
+  UserPlus,
+} from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 // ── Types ──────────────────────────────────────────────────────────────
@@ -115,6 +128,7 @@ interface StructureInstallmentRow {
 const MONTHS = ['Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar']
 const QUARTERS = ['Q1 (Apr-Jun)', 'Q2 (Jul-Sep)', 'Q3 (Oct-Dec)', 'Q4 (Jan-Mar)']
 const HALF_YEARS = ['H1 (Apr-Sep)', 'H2 (Oct-Mar)']
+const DEFAULT_FEE_GROUP_NAME = '_DEFAULT'
 
 const FREQUENCY_BADGE_CLASSES: Record<FeeFrequency, string> = {
   MONTHLY: 'bg-emerald-100 text-emerald-800 hover:bg-emerald-100',
@@ -187,6 +201,7 @@ export function FeesStructuresPage() {
   const { toast } = useToast()
   const currentSchoolAcademicYear = useAppStore((s) => s.currentSchool?.academicYear)
   const goBack = useAppStore((s) => s.goBack)
+  const navigateTo = useAppStore((s) => s.navigateTo)
 
   // Data
   const [structures, setStructures] = useState<FeeStructure[]>([])
@@ -200,9 +215,21 @@ export function FeesStructuresPage() {
     () => toAcademicYearOptions(availableAcademicYears, currentSchoolAcademicYear),
     [availableAcademicYears, currentSchoolAcademicYear]
   )
+  const activeSessionYear = currentSchoolAcademicYear || academicYearOptions[0]?.value || getCurrentAcademicYear()
+  const structureYearOptions = useMemo(() => {
+    if (academicYearOptions.some((year) => year.value === activeSessionYear)) return academicYearOptions
+    return [{ value: activeSessionYear, label: activeSessionYear }, ...academicYearOptions]
+  }, [academicYearOptions, activeSessionYear])
 
   // Expanded cards
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
+  const [structureSearch, setStructureSearch] = useState('')
+  const [structureClassFilter, setStructureClassFilter] = useState('ALL')
+  const [structureGroupFilter, setStructureGroupFilter] = useState('ALL')
+  const [structureYearFilter, setStructureYearFilter] = useState('')
+  const [classSelectSearch, setClassSelectSearch] = useState('')
+  const [feeGroupSelectSearch, setFeeGroupSelectSearch] = useState('')
+  const selectedStructureYearFilter = structureYearFilter || activeSessionYear
 
   // Dialog state
   const [showAdd, setShowAdd] = useState(false)
@@ -217,8 +244,7 @@ export function FeesStructuresPage() {
   const [classStructureForm, setClassStructureForm] = useState({
     academicYear: currentSchoolAcademicYear || getCurrentAcademicYear(),
     feeGroupId: '',
-    classId: '',
-    sectionId: '',
+    classIds: [] as string[],
   })
   const [classStructureRows, setClassStructureRows] = useState<StructureInstallmentRow[]>([])
   const [classStructureHeadIds, setClassStructureHeadIds] = useState<string[]>([])
@@ -281,13 +307,33 @@ export function FeesStructuresPage() {
     }
   }, [academicYearOptions, classStructureForm.academicYear, currentSchoolAcademicYear, form.academicYear])
 
+  useEffect(() => {
+    const defaultFeeGroup = feeGroups.find((group) => group.name === DEFAULT_FEE_GROUP_NAME)
+    if (!defaultFeeGroup) return
+
+    if (!classStructureForm.feeGroupId) {
+      setClassStructureForm((current) => ({ ...current, feeGroupId: defaultFeeGroup.id }))
+    }
+    if (!form.feeGroupId) {
+      setForm((current) => ({ ...current, feeGroupId: defaultFeeGroup.id }))
+    }
+  }, [classStructureForm.feeGroupId, feeGroups, form.feeGroupId])
+
   // Filtered sections
   const filteredSections = form.classId ? sections.filter((s) => s.classId === form.classId) : []
-  const filteredClassStructureSections = classStructureForm.classId ? sections.filter((s) => s.classId === classStructureForm.classId) : []
   const availableStructureHeads = feeHeads
+  const filteredClassOptions = classes.filter((item) =>
+    item.name.toLowerCase().includes(classSelectSearch.trim().toLowerCase())
+  )
+  const selectedClassNames = classes
+    .filter((item) => classStructureForm.classIds.includes(item.id))
+    .map((item) => item.name)
+  const filteredFeeGroupOptions = feeGroups.filter((item) =>
+    item.name.toLowerCase().includes(feeGroupSelectSearch.trim().toLowerCase())
+  )
 
   useEffect(() => {
-    if (!classStructureForm.academicYear || !classStructureForm.classId || !classStructureForm.feeGroupId) {
+    if (!classStructureForm.academicYear || classStructureForm.classIds.length === 0 || !classStructureForm.feeGroupId) {
       setActiveStructure(null)
       setClassStructureHeadIds([])
       setClassStructureRows([])
@@ -295,16 +341,18 @@ export function FeesStructuresPage() {
       return
     }
 
-    const normalizedSectionId = classStructureForm.sectionId && classStructureForm.sectionId !== 'ALL'
-      ? classStructureForm.sectionId
-      : ''
+    if (classStructureForm.classIds.length !== 1) {
+      setActiveStructure(null)
+      return
+    }
 
+    const selectedClassId = classStructureForm.classIds[0]
     const existing = structures.find((structure) => {
       const structureSectionId = structure.sectionId || ''
       return structure.academicYear === classStructureForm.academicYear
-        && structure.classId === classStructureForm.classId
+        && structure.classId === selectedClassId
         && getStructureFeeGroupId(structure) === classStructureForm.feeGroupId
-        && structureSectionId === normalizedSectionId
+        && structureSectionId === ''
         && structure.status !== 'archived'
         && structure.isActive !== false
     })
@@ -345,6 +393,25 @@ export function FeesStructuresPage() {
     return map
   }, [classStructureRows])
 
+  const filteredStructures = useMemo(() => {
+    const query = structureSearch.trim().toLowerCase()
+
+    return structures.filter((structure) => {
+      const matchesSearch = !query
+        || structure.name.toLowerCase().includes(query)
+        || (structure.feeGroup?.name || '').toLowerCase().includes(query)
+        || (structure.class?.name || '').toLowerCase().includes(query)
+        || (structure.section?.name || '').toLowerCase().includes(query)
+        || structure.academicYear.toLowerCase().includes(query)
+
+      const matchesClass = structureClassFilter === 'ALL' || structure.classId === structureClassFilter
+      const matchesGroup = structureGroupFilter === 'ALL' || getStructureFeeGroupId(structure) === structureGroupFilter
+      const matchesYear = selectedStructureYearFilter === 'ALL' || structure.academicYear === selectedStructureYearFilter
+
+      return matchesSearch && matchesClass && matchesGroup && matchesYear
+    })
+  }, [selectedStructureYearFilter, structureClassFilter, structureGroupFilter, structureSearch, structures])
+
   const toggleClassStructureHead = (feeHead: FeeHead) => {
     const isSelected = classStructureHeadIds.includes(feeHead.id)
     setClassStructureHeadIds((prev) =>
@@ -356,6 +423,15 @@ export function FeesStructuresPage() {
         : sortStructureRows([...rows, ...buildRowsForHead(feeHead)])
     )
     setExpandedHeadId(isSelected ? '' : feeHead.id)
+  }
+
+  const toggleClassStructureClass = (classId: string) => {
+    setClassStructureForm((current) => ({
+      ...current,
+      classIds: current.classIds.includes(classId)
+        ? current.classIds.filter((id) => id !== classId)
+        : [...current.classIds, classId],
+    }))
   }
 
   const updateClassStructureRow = (index: number, field: 'period' | 'amount' | 'dueDate' | 'lateFee', value: string) => {
@@ -393,8 +469,8 @@ export function FeesStructuresPage() {
   }
 
   const saveClassFeeStructure = async () => {
-    if (!classStructureForm.academicYear || !classStructureForm.classId || !classStructureForm.feeGroupId) {
-      toast({ title: 'Missing Information', description: 'Please select session, class, and fee group.', variant: 'destructive' })
+    if (!classStructureForm.academicYear || classStructureForm.classIds.length === 0 || !classStructureForm.feeGroupId) {
+      toast({ title: 'Missing Information', description: 'Please select session, at least one class, and fee group.', variant: 'destructive' })
       return
     }
 
@@ -414,21 +490,25 @@ export function FeesStructuresPage() {
       return
     }
 
-    const className = classes.find((item) => item.id === classStructureForm.classId)?.name || 'Class'
     const groupName = feeGroups.find((item) => item.id === classStructureForm.feeGroupId)?.name || 'Fee Group'
 
     setSavingClassStructure(true)
     try {
-      await api.post('/api/school/fees/structures', {
-        name: `${className} - ${groupName} Fee Structure`,
-        feeGroupId: classStructureForm.feeGroupId,
-        classId: classStructureForm.classId,
-        sectionId: classStructureForm.sectionId || undefined,
-        academicYear: classStructureForm.academicYear,
-        replaceExisting: true,
-        items,
+      await Promise.all(classStructureForm.classIds.map((classId) => {
+        const className = classes.find((item) => item.id === classId)?.name || 'Class'
+        return api.post('/api/school/fees/structures', {
+          name: `${className} - ${groupName} Fee Structure`,
+          feeGroupId: classStructureForm.feeGroupId,
+          classId,
+          academicYear: classStructureForm.academicYear,
+          replaceExisting: true,
+          items,
+        })
+      }))
+      toast({
+        title: 'Success',
+        description: `Fee structure saved for ${classStructureForm.classIds.length} class${classStructureForm.classIds.length !== 1 ? 'es' : ''}.`,
       })
-      toast({ title: 'Success', description: 'Class fee structure updated successfully.' })
       fetchData()
     } catch (err) {
       toast({
@@ -597,20 +677,30 @@ export function FeesStructuresPage() {
             <ArrowLeft className="size-4" />
           </Button>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">Class Fee Structure</h1>
+            <h1 className="text-xl font-bold tracking-tight">Class Fee Structure</h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              Configure fee amounts by session, class, section, and fee group.
+              Configure fee amounts by session, class, and fee group.
             </p>
           </div>
         </div>
-        <Button onClick={() => setShowAdd(true)} className="gap-2 shrink-0">
-          <PlusCircle className="size-4" />
-          Add Structure
-        </Button>
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          <Button onClick={() => setShowAdd(true)} className="gap-2">
+            <PlusCircle className="size-4" />
+            Add Structure
+          </Button>
+          <Button variant="outline" onClick={() => navigateTo('fee-assignments')} className="gap-2">
+            <UserPlus className="size-4" />
+            Fee Assignment
+          </Button>
+          <Button variant="outline" onClick={() => navigateTo('fees-groups')} className="gap-2">
+            <Tags className="size-4" />
+            Fee Group
+          </Button>
+        </div>
       </div>
 
-      <Card className="overflow-hidden">
-        <CardHeader className="border-b bg-muted/30">
+      <Card className="overflow-hidden rounded-lg shadow-sm">
+        <CardHeader className="border-b bg-muted/40">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <CardTitle className="flex items-center gap-2 text-base">
@@ -629,9 +719,12 @@ export function FeesStructuresPage() {
           </div>
         </CardHeader>
         <CardContent className="space-y-6 p-4">
-          <div className="grid gap-4 rounded-md border bg-card p-4 shadow-sm md:grid-cols-4">
+          <div className="grid gap-4 rounded-lg border bg-muted/20 p-4 md:grid-cols-3">
             <div className="space-y-2">
-              <Label>Session</Label>
+              <Label className="flex items-center gap-2">
+                <Calendar className="size-3.5 text-muted-foreground" />
+                Session
+              </Label>
               <Select
                 value={classStructureForm.academicYear}
                 onValueChange={(value) => setClassStructureForm((current) => ({ ...current, academicYear: value }))}
@@ -648,43 +741,68 @@ export function FeesStructuresPage() {
             </div>
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label>Class</Label>
-                {classStructureForm.classId && <span className="text-xs font-medium text-primary">1 selected</span>}
+                <Label className="flex items-center gap-2">
+                  <School className="size-3.5 text-muted-foreground" />
+                  Class
+                </Label>
               </div>
-              <Select
-                value={classStructureForm.classId}
-                onValueChange={(value) => setClassStructureForm((current) => ({ ...current, classId: value, sectionId: '' }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select class" />
-                </SelectTrigger>
-                <SelectContent>
-                  {classes.map((item) => (
-                    <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-10 w-full justify-between px-3 font-normal"
+                  >
+                    <span className="truncate">
+                      {selectedClassNames.length === 0
+                        ? 'Select class'
+                        : selectedClassNames.length === 1
+                          ? selectedClassNames[0]
+                          : `${selectedClassNames.length} classes selected`}
+                    </span>
+                    <ChevronDown className="size-4 opacity-60" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-72 p-0" align="start">
+                  <div className="border-b p-2">
+                    <div className="relative">
+                      <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        value={classSelectSearch}
+                        onChange={(event) => setClassSelectSearch(event.target.value)}
+                        placeholder="Search class..."
+                        className="h-8 pl-8"
+                      />
+                    </div>
+                  </div>
+                  <div className="max-h-64 overflow-y-auto p-1">
+                    {filteredClassOptions.length === 0 ? (
+                      <div className="px-3 py-2 text-sm text-muted-foreground">No class found</div>
+                    ) : (
+                      filteredClassOptions.map((item) => {
+                        const selected = classStructureForm.classIds.includes(item.id)
+                        return (
+                          <button
+                            key={item.id}
+                            type="button"
+                            className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm hover:bg-muted"
+                            onClick={() => toggleClassStructureClass(item.id)}
+                          >
+                            <Checkbox checked={selected} aria-label={`Select ${item.name}`} />
+                            <span>{item.name}</span>
+                          </button>
+                        )
+                      })
+                    )}
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
             <div className="space-y-2">
-              <Label>Section</Label>
-              <Select
-                value={classStructureForm.sectionId}
-                onValueChange={(value) => setClassStructureForm((current) => ({ ...current, sectionId: value }))}
-                disabled={!classStructureForm.classId}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="All sections" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ALL">All Sections</SelectItem>
-                  {filteredClassStructureSections.map((item) => (
-                    <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Fee Group</Label>
+              <Label className="flex items-center gap-2">
+                <Tags className="size-3.5 text-muted-foreground" />
+                Fee Group
+              </Label>
               <Select
                 value={classStructureForm.feeGroupId}
                 onValueChange={(value) => setClassStructureForm((current) => ({ ...current, feeGroupId: value }))}
@@ -693,32 +811,68 @@ export function FeesStructuresPage() {
                   <SelectValue placeholder="Select fee group" />
                 </SelectTrigger>
                 <SelectContent>
-                  {feeGroups.map((item) => (
-                    <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>
-                  ))}
+                  <div className="sticky top-0 z-10 bg-popover p-2">
+                    <div className="relative">
+                      <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        value={feeGroupSelectSearch}
+                        onChange={(event) => setFeeGroupSelectSearch(event.target.value)}
+                        onKeyDown={(event) => event.stopPropagation()}
+                        placeholder="Search fee group..."
+                        className="h-8 pl-8"
+                      />
+                    </div>
+                  </div>
+                  {filteredFeeGroupOptions.length === 0 ? (
+                    <div className="px-3 py-2 text-sm text-muted-foreground">No fee group found</div>
+                  ) : (
+                    filteredFeeGroupOptions.map((item) => (
+                      <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
             </div>
           </div>
 
-          <div className="flex gap-3 rounded-md border border-amber-200 bg-amber-50 p-4 text-amber-950 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200">
-            <Info className="mt-0.5 size-4 shrink-0" />
-            <div className="space-y-1">
-              <h3 className="font-semibold">Before saving</h3>
-              <p className="text-sm">
-                Define each fee head amount for the selected session, class, section, and group. Avoid changing one-time fees after students have already been billed or paid.
-              </p>
-            </div>
+          <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200">
+            <Info className="mt-0.5 size-3.5 shrink-0" />
+            <p>
+              <span className="font-medium">Before saving:</span> define amounts for the selected session, class, and group.
+            </p>
           </div>
 
-          <div className="overflow-hidden rounded-md border bg-card">
+          {classStructureForm.classIds.length === 0 ? (
+            <div className="flex items-center gap-3 rounded-lg border border-dashed bg-muted/20 p-4 text-sm text-muted-foreground">
+              <School className="size-4 shrink-0" />
+              <span>Select one or more classes to configure fee heads.</span>
+            </div>
+          ) : (
+          <div className="overflow-hidden rounded-lg border bg-background shadow-sm">
             <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/40">
-                  <TableHead className="w-[90px]">Enable</TableHead>
-                  <TableHead>Fee Head</TableHead>
-                  <TableHead className="w-[140px]">Schedule</TableHead>
-                  <TableHead className="w-[60px]" />
+              <TableHeader className="bg-muted/50">
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="h-11 w-[110px] px-4 text-xs font-semibold uppercase text-muted-foreground">
+                    <span className="flex items-center gap-2">
+                      <CheckCircle2 className="size-3.5" />
+                      Enable
+                    </span>
+                  </TableHead>
+                  <TableHead className="h-11 px-4 text-xs font-semibold uppercase text-muted-foreground">
+                    <span className="flex items-center gap-2">
+                      <FileText className="size-3.5" />
+                      Fee Head
+                    </span>
+                  </TableHead>
+                  <TableHead className="h-11 w-[150px] px-4 text-xs font-semibold uppercase text-muted-foreground">
+                    <span className="flex items-center gap-2">
+                      <ListChecks className="size-3.5" />
+                      Schedule
+                    </span>
+                  </TableHead>
+                  <TableHead className="h-11 w-[80px] px-4 text-right text-xs font-semibold uppercase text-muted-foreground">
+                    <Settings2 className="ml-auto size-3.5" />
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -735,32 +889,43 @@ export function FeesStructuresPage() {
                     const isExpanded = expandedHeadId === head.id
                     return (
                       <Fragment key={head.id}>
-                        <TableRow className={cn('transition-colors', isSelected ? 'bg-primary/5 hover:bg-primary/10' : 'bg-muted/20')}>
-                          <TableCell>
+                        <TableRow className={cn('transition-colors', isSelected ? 'bg-primary/5 hover:bg-primary/10' : 'hover:bg-muted/40')}>
+                          <TableCell className="px-4 py-3">
                             <Switch
                               checked={isSelected}
                               onCheckedChange={() => toggleClassStructureHead(head)}
-                              disabled={!classStructureForm.classId || !classStructureForm.feeGroupId}
+                              disabled={classStructureForm.classIds.length === 0 || !classStructureForm.feeGroupId}
                             />
                           </TableCell>
-                          <TableCell>
-                            <div className="font-medium">{head.name}</div>
-                            <div className="mt-1 flex items-center gap-2">
+                          <TableCell className="px-4 py-3">
+                            <div className="flex items-start gap-3">
+                              <span className={cn(
+                                'flex size-9 shrink-0 items-center justify-center rounded-md',
+                                isSelected ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
+                              )}>
+                                <FileText className="size-4" />
+                              </span>
+                              <div>
+                                <div className="font-medium text-foreground">{head.name}</div>
+                                <div className="mt-1 flex flex-wrap items-center gap-2">
                               <Badge className={FREQUENCY_BADGE_CLASSES[head.frequency]} variant="secondary">
                                 {FREQUENCY_LABELS[head.frequency]}
                               </Badge>
                               {head.isOptional && <span className="text-xs text-muted-foreground">Optional</span>}
+                                </div>
+                              </div>
                             </div>
                           </TableCell>
-                          <TableCell>
+                          <TableCell className="px-4 py-3">
                             <Badge variant={isSelected ? 'default' : 'secondary'} className={cn(!isSelected && 'bg-muted text-muted-foreground')}>
                               {isSelected ? `${rows.length} row${rows.length !== 1 ? 's' : ''}` : 'Off'}
                             </Badge>
                           </TableCell>
-                          <TableCell className="text-right">
+                          <TableCell className="px-4 py-3 text-right">
                             <Button
-                              variant="ghost"
+                              variant="outline"
                               size="icon"
+                              className="size-8"
                               disabled={!isSelected}
                               onClick={() => setExpandedHeadId(isExpanded ? '' : head.id)}
                               aria-label={`Configure ${head.name}`}
@@ -770,9 +935,9 @@ export function FeesStructuresPage() {
                           </TableCell>
                         </TableRow>
                         {isSelected && isExpanded && (
-                          <TableRow key={`${head.id}-setup`} className="bg-muted/30 hover:bg-muted/30">
+                          <TableRow key={`${head.id}-setup`} className="bg-muted/20 hover:bg-muted/20">
                             <TableCell colSpan={4}>
-                              <div className="space-y-4 rounded-md border bg-background p-4">
+                              <div className="space-y-4 rounded-lg border bg-background p-4 shadow-sm">
                                 <div className="flex flex-wrap items-center justify-between gap-3">
                                   <div className="flex flex-wrap items-center gap-2">
                                     <Badge variant="outline">{FREQUENCY_LABELS[head.frequency]}</Badge>
@@ -792,8 +957,10 @@ export function FeesStructuresPage() {
                                         type="button"
                                         variant="outline"
                                         size="sm"
+                                        className="gap-2"
                                         onClick={() => addClassStructurePeriodRow(head.id)}
                                       >
+                                        <PlusCircle className="size-3.5" />
                                         Add Period
                                       </Button>
                                     )}
@@ -803,7 +970,7 @@ export function FeesStructuresPage() {
                                   {rows.map((row) => {
                                     const globalIdx = classStructureRows.indexOf(row)
                                     return (
-                                      <div key={`${row.feeHeadId}-${row.period}-${globalIdx}`} className="grid gap-2 rounded-md border p-3 md:grid-cols-[minmax(120px,1fr)_1fr_1fr_1fr_36px] md:items-end">
+                                      <div key={`${row.feeHeadId}-${row.period}-${globalIdx}`} className="grid gap-3 rounded-md border bg-muted/10 p-3 md:grid-cols-[minmax(120px,1fr)_1fr_1fr_1fr_36px] md:items-end">
                                         <div className="space-y-1">
                                           <Label className="text-xs">Period</Label>
                                           {isCustomPeriodFrequency(row.frequency) ? (
@@ -873,11 +1040,14 @@ export function FeesStructuresPage() {
               </TableBody>
             </Table>
           </div>
+          )}
 
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-wrap gap-2 text-xs">
-              {classStructureForm.classId && (
-                <Badge variant="secondary">Class: {classes.find((item) => item.id === classStructureForm.classId)?.name}</Badge>
+              {classStructureForm.classIds.length > 0 && (
+                <Badge variant="secondary">
+                  Class{classStructureForm.classIds.length !== 1 ? 'es' : ''}: {selectedClassNames.join(', ')}
+                </Badge>
               )}
               {classStructureForm.feeGroupId && (
                 <Badge variant="secondary">Group: {feeGroups.find((item) => item.id === classStructureForm.feeGroupId)?.name}</Badge>
@@ -888,7 +1058,7 @@ export function FeesStructuresPage() {
             </div>
             <Button
               onClick={saveClassFeeStructure}
-              disabled={savingClassStructure || !classStructureForm.classId || !classStructureForm.feeGroupId}
+              disabled={savingClassStructure || classStructureForm.classIds.length === 0 || !classStructureForm.feeGroupId}
             >
               {savingClassStructure ? 'Saving...' : 'Save Fee Structure'}
             </Button>
@@ -905,121 +1075,210 @@ export function FeesStructuresPage() {
         />
       ) : (
         <div className="space-y-4">
+          <Separator />
           <div className="flex items-center justify-between gap-3">
             <div>
-              <h2 className="text-lg font-semibold tracking-tight">Saved Structures</h2>
-              <p className="text-sm text-muted-foreground">{structures.length} fee structure{structures.length !== 1 ? 's' : ''} configured</p>
+              <h2 className="text-lg font-semibold tracking-tight">Saved Fee Structures</h2>
+              <p className="text-sm text-muted-foreground">
+                {filteredStructures.length} of {structures.length} fee structure{structures.length !== 1 ? 's' : ''} shown
+              </p>
             </div>
           </div>
-          {structures.map((structure) => {
-            const isExpanded = expandedIds.has(structure.id)
-            const groupedItems = groupItemsByFeeHead(structure.items || [])
+          <div className="grid gap-3 rounded-lg border bg-muted/20 p-3 md:grid-cols-[minmax(220px,1fr)_180px_180px_180px]">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={structureSearch}
+                onChange={(event) => setStructureSearch(event.target.value)}
+                placeholder="Search structure, group, class..."
+                className="pl-9"
+              />
+            </div>
+            <Select value={structureClassFilter} onValueChange={setStructureClassFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="All classes" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">All Classes</SelectItem>
+                {classes.map((item) => (
+                  <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={structureGroupFilter} onValueChange={setStructureGroupFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="All fee groups" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">All Fee Groups</SelectItem>
+                {feeGroups.map((item) => (
+                  <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={selectedStructureYearFilter} onValueChange={setStructureYearFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="Current session" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">All Sessions</SelectItem>
+                {structureYearOptions.map((year) => (
+                  <SelectItem key={year.value} value={year.value}>
+                    {year.label}{year.value === activeSessionYear ? ' (Current)' : ''}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="overflow-hidden rounded-lg border bg-background shadow-sm">
+            <Table>
+              <TableHeader className="bg-muted/50">
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="h-11 px-4 text-xs font-semibold uppercase text-muted-foreground">
+                    <span className="flex items-center gap-2">
+                      <FileText className="size-3.5" />
+                      Structure
+                    </span>
+                  </TableHead>
+                  <TableHead className="h-11 px-4 text-xs font-semibold uppercase text-muted-foreground">
+                    <span className="flex items-center gap-2">
+                      <Tags className="size-3.5" />
+                      Fee Group
+                    </span>
+                  </TableHead>
+                  <TableHead className="h-11 px-4 text-xs font-semibold uppercase text-muted-foreground">
+                    <span className="flex items-center gap-2">
+                      <School className="size-3.5" />
+                      Class
+                    </span>
+                  </TableHead>
+                  <TableHead className="h-11 px-4 text-xs font-semibold uppercase text-muted-foreground">Session</TableHead>
+                  <TableHead className="h-11 px-4 text-xs font-semibold uppercase text-muted-foreground">Rows</TableHead>
+                  <TableHead className="h-11 px-4 text-xs font-semibold uppercase text-muted-foreground">Status</TableHead>
+                  <TableHead className="h-11 w-24 px-4 text-right text-xs font-semibold uppercase text-muted-foreground">Action</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredStructures.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="py-8 text-center text-sm text-muted-foreground">
+                      No saved structures match the selected filters.
+                    </TableCell>
+                  </TableRow>
+                ) : filteredStructures.map((structure) => {
+                  const isExpanded = expandedIds.has(structure.id)
+                  const groupedItems = groupItemsByFeeHead(structure.items || [])
 
-            return (
-              <Collapsible
-                key={structure.id}
-                open={isExpanded}
-                onOpenChange={() => toggleExpanded(structure.id)}
-              >
-                <Card className="overflow-hidden">
-                  <CollapsibleTrigger asChild>
-                    <CardHeader className="cursor-pointer border-l-4 border-l-primary/70 pb-4 transition-colors hover:bg-muted/30">
-                      <div className="flex items-start gap-3">
-                        <div className="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-                          <FileText className="size-5" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <CardTitle className="text-base">{structure.name}</CardTitle>
-                            {structure.isActive !== undefined && (
-                              <Badge variant={structure.isActive ? 'default' : 'destructive'} className="gap-1">
-                                {structure.isActive && <CheckCircle2 className="size-3" />}
-                                {structure.isActive ? 'Active' : 'Inactive'}
-                              </Badge>
-                            )}
+                  return (
+                    <Fragment key={structure.id}>
+                      <TableRow className="hover:bg-muted/40">
+                        <TableCell className="px-4 py-3">
+                          <div className="flex items-center gap-3">
+                            <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+                              <FileText className="size-4" />
+                            </span>
+                            <span className="font-medium text-foreground">{structure.name}</span>
                           </div>
-                          <div className="mt-2 flex flex-wrap gap-2 text-xs">
-                            <Badge variant="secondary">Class {structure.class?.name || '-'}</Badge>
-                            {structure.section?.name && (
-                              <Badge variant="secondary">Section {structure.section.name}</Badge>
-                            )}
-                            <Badge variant="secondary">{structure.academicYear}</Badge>
-                            {structure.feeGroup?.name && (
-                              <Badge variant="secondary">{structure.feeGroup.name}</Badge>
-                            )}
+                        </TableCell>
+                        <TableCell className="px-4 py-3 font-medium">
+                          {structure.feeGroup?.name || '-'}
+                        </TableCell>
+                        <TableCell className="px-4 py-3">
+                          <div className="space-y-1">
+                            <div className="font-medium">{structure.class?.name || '-'}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {structure.section?.name ? `Section ${structure.section.name}` : 'All sections'}
+                            </div>
                           </div>
-                        </div>
-                        <div className="flex shrink-0 items-center gap-2">
+                        </TableCell>
+                        <TableCell className="px-4 py-3 text-muted-foreground">{structure.academicYear}</TableCell>
+                        <TableCell className="px-4 py-3">
                           <Badge variant="outline">
                             {(structure.items || []).length} row{(structure.items || []).length !== 1 ? 's' : ''}
                           </Badge>
-                          {isExpanded ? (
-                            <ChevronDown className="size-5 text-muted-foreground" />
+                        </TableCell>
+                        <TableCell className="px-4 py-3">
+                          {structure.isActive !== undefined ? (
+                            <Badge variant={structure.isActive ? 'default' : 'destructive'} className="gap-1">
+                              {structure.isActive && <CheckCircle2 className="size-3" />}
+                              {structure.isActive ? 'Active' : 'Inactive'}
+                            </Badge>
                           ) : (
-                            <ChevronRight className="size-5 text-muted-foreground" />
+                            <span className="text-muted-foreground">-</span>
                           )}
-                        </div>
-                      </div>
-                    </CardHeader>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent>
-                    <CardContent className="border-t bg-muted/10 pt-4">
-                      {groupedItems.length === 0 ? (
-                        <p className="text-sm text-muted-foreground text-center py-4">
-                          No installment details available
-                        </p>
-                      ) : (
-                        <div className="space-y-6">
-                          {groupedItems.map((group, gIdx) => (
-                            <div key={gIdx}>
-                              <div className="mb-2 flex items-center gap-2">
-                                <h4 className="font-medium text-sm">{group.feeHeadName}</h4>
-                                {group.items[0] && (
-                                  <Badge variant="outline" className="text-xs">
-                                    {group.items.length} period{group.items.length !== 1 ? 's' : ''}
-                                  </Badge>
-                                )}
+                        </TableCell>
+                        <TableCell className="px-4 py-3 text-right">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 gap-1.5 px-3"
+                            onClick={() => toggleExpanded(structure.id)}
+                          >
+                            {isExpanded ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
+                            View
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                      {isExpanded && (
+                        <TableRow className="bg-muted/20 hover:bg-muted/20">
+                          <TableCell colSpan={7} className="p-4">
+                            {groupedItems.length === 0 ? (
+                              <p className="py-4 text-center text-sm text-muted-foreground">
+                                No installment details available
+                              </p>
+                            ) : (
+                              <div className="space-y-5">
+                                {groupedItems.map((group, gIdx) => (
+                                  <div key={gIdx}>
+                                    <div className="mb-2 flex items-center gap-2">
+                                      <h4 className="text-sm font-medium">{group.feeHeadName}</h4>
+                                      <Badge variant="outline" className="text-xs">
+                                        {group.items.length} period{group.items.length !== 1 ? 's' : ''}
+                                      </Badge>
+                                    </div>
+                                    <div className="overflow-hidden rounded-md border bg-background">
+                                      <Table>
+                                        <TableHeader className="bg-muted/40">
+                                          <TableRow>
+                                            <TableHead className="w-[140px]">Period</TableHead>
+                                            <TableHead className="w-[120px]">Amount</TableHead>
+                                            <TableHead className="w-[120px]">Due Date</TableHead>
+                                            <TableHead className="w-[100px]">Late Fee</TableHead>
+                                          </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                          {group.items.map((item, iIdx) => (
+                                            <TableRow key={iIdx}>
+                                              <TableCell className="text-sm font-medium">
+                                                {item.period}
+                                              </TableCell>
+                                              <TableCell className="text-sm font-semibold">
+                                                Rs {Number(item.amount).toLocaleString()}
+                                              </TableCell>
+                                              <TableCell className="text-sm text-muted-foreground">
+                                                {item.dueDate || '-'}
+                                              </TableCell>
+                                              <TableCell className="text-sm text-muted-foreground">
+                                                {item.lateFee ? `Rs ${Number(item.lateFee).toLocaleString()}` : '-'}
+                                              </TableCell>
+                                            </TableRow>
+                                          ))}
+                                        </TableBody>
+                                      </Table>
+                                    </div>
+                                  </div>
+                                ))}
                               </div>
-                              <div className="overflow-hidden rounded-md border bg-background">
-                                <Table>
-                                  <TableHeader>
-                                    <TableRow className="bg-muted/30">
-                                      <TableHead className="w-[140px]">Period</TableHead>
-                                      <TableHead className="w-[120px]">Amount</TableHead>
-                                      <TableHead className="w-[120px]">Due Date</TableHead>
-                                      <TableHead className="w-[100px]">Late Fee</TableHead>
-                                    </TableRow>
-                                  </TableHeader>
-                                  <TableBody>
-                                    {group.items.map((item, iIdx) => (
-                                      <TableRow key={iIdx}>
-                                        <TableCell className="font-medium text-sm">
-                                          {item.period}
-                                        </TableCell>
-                                        <TableCell className="font-semibold text-sm">
-                                          Rs {Number(item.amount).toLocaleString()}
-                                        </TableCell>
-                                        <TableCell className="text-sm text-muted-foreground">
-                                          {item.dueDate || '-'}
-                                        </TableCell>
-                                        <TableCell className="text-sm text-muted-foreground">
-                                          {item.lateFee ? `Rs ${Number(item.lateFee).toLocaleString()}` : '-'}
-                                        </TableCell>
-                                      </TableRow>
-                                    ))}
-                                  </TableBody>
-                                </Table>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
+                            )}
+                          </TableCell>
+                        </TableRow>
                       )}
-                    </CardContent>
-                  </CollapsibleContent>
-                </Card>
-              </Collapsible>
-            )
-          })}
+                    </Fragment>
+                  )
+                })}
+              </TableBody>
+            </Table>
+          </div>
         </div>
       )}
 

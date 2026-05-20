@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
-import { ArrowLeft, Check, ImagePlus, Loader2, Palette, Save, School, Type, X } from 'lucide-react'
+import { ArrowLeft, Check, Hash, ImagePlus, Loader2, Palette, Save, School, Type, X } from 'lucide-react'
 import { api } from '@/lib/api'
 import { useAppStore, type School as SchoolInfo } from '@/lib/store'
 import { DASHBOARD_FONT_OPTIONS, SCHOOL_THEME_PALETTES, findDashboardFont, findSchoolThemePalette } from '@/lib/theme-palettes'
@@ -13,6 +13,33 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
+
+type AdmissionSettings = {
+  admissionNumberPrefix: string
+  admissionNumberFormat: string
+  sequenceStart: number
+  sequenceDigits: number
+  resetSequenceYearly: boolean
+  registrationNumberPrefix: string
+  registrationNumberFormat: string
+  registrationSequenceStart: number
+  registrationSequenceDigits: number
+  registrationResetYearly: boolean
+}
+
+const DEFAULT_ADMISSION_SETTINGS: AdmissionSettings = {
+  admissionNumberPrefix: 'STD',
+  admissionNumberFormat: '{PREFIX}-{YEAR}-{SEQ}',
+  sequenceStart: 1,
+  sequenceDigits: 3,
+  resetSequenceYearly: true,
+  registrationNumberPrefix: 'REG',
+  registrationNumberFormat: '{PREFIX}-{YEAR}-{SEQ}',
+  registrationSequenceStart: 1,
+  registrationSequenceDigits: 3,
+  registrationResetYearly: true,
+}
 
 export function SettingsPage() {
   const { toast } = useToast()
@@ -29,6 +56,10 @@ export function SettingsPage() {
   const [selectedColor, setSelectedColor] = useState(currentPalette.primary)
   const [selectedFont, setSelectedFont] = useState(findDashboardFont(currentSchool?.dashboardFont).id)
   const [saving, setSaving] = useState(false)
+  const [admissionSettings, setAdmissionSettings] = useState<AdmissionSettings>(DEFAULT_ADMISSION_SETTINGS)
+  const [admissionSamples, setAdmissionSamples] = useState({ admissionNumber: 'STD-2026-001', registrationNumber: 'REG-2026-001' })
+  const [settingsLoading, setSettingsLoading] = useState(true)
+  const [settingsSaving, setSettingsSaving] = useState(false)
 
   useEffect(() => {
     if (!currentSchool || saving) return
@@ -46,6 +77,36 @@ export function SettingsPage() {
     currentSchool?.primaryColor,
     saving,
   ])
+
+  useEffect(() => {
+    if (user?.role !== 'SCHOOL_ADMIN') return
+
+    let mounted = true
+    const loadSettings = async () => {
+      setSettingsLoading(true)
+      try {
+        const data = await api.get<{ settings: AdmissionSettings; samples: typeof admissionSamples }>('/api/school/admission-settings', undefined, { skipLogoutOn401: true })
+        if (!mounted) return
+        setAdmissionSettings({ ...DEFAULT_ADMISSION_SETTINGS, ...data.settings })
+        setAdmissionSamples(data.samples || admissionSamples)
+      } catch (err) {
+        if (mounted) {
+          toast({
+            title: "Couldn't Load Admission Settings",
+            description: err instanceof Error ? err.message : 'Please try again.',
+            variant: 'destructive',
+          })
+        }
+      } finally {
+        if (mounted) setSettingsLoading(false)
+      }
+    }
+
+    loadSettings()
+    return () => {
+      mounted = false
+    }
+  }, [user?.role])
 
   const selectedPalette = useMemo(
     () => findSchoolThemePalette(selectedColor),
@@ -133,6 +194,28 @@ export function SettingsPage() {
       })
     } finally {
       setSaving(false)
+    }
+  }
+
+  const updateAdmissionSetting = <K extends keyof AdmissionSettings>(key: K, value: AdmissionSettings[K]) => {
+    setAdmissionSettings((prev) => ({ ...prev, [key]: value }))
+  }
+
+  const saveAdmissionSettings = async () => {
+    setSettingsSaving(true)
+    try {
+      const data = await api.patch<{ settings: AdmissionSettings; samples: typeof admissionSamples }>('/api/school/admission-settings', admissionSettings)
+      setAdmissionSettings({ ...DEFAULT_ADMISSION_SETTINGS, ...data.settings })
+      setAdmissionSamples(data.samples || admissionSamples)
+      toast({ title: 'Number Formats Updated', description: 'New admissions will continue with these serial number formats.' })
+    } catch (err) {
+      toast({
+        title: "Couldn't Save Number Formats",
+        description: err instanceof Error ? err.message : 'Please check the format and try again.',
+        variant: 'destructive',
+      })
+    } finally {
+      setSettingsSaving(false)
     }
   }
 
@@ -299,6 +382,145 @@ export function SettingsPage() {
               </div>
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Hash className="size-5 text-primary" />
+                Admission Numbering
+              </CardTitle>
+              <CardDescription>
+                Configure admission and registration number prefixes, formats, and serial sequence for this school.
+              </CardDescription>
+            </div>
+            <Button onClick={saveAdmissionSettings} disabled={settingsLoading || settingsSaving}>
+              {settingsSaving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
+              Save Formats
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          <div className="grid gap-5 lg:grid-cols-2">
+            <div className="space-y-4 rounded-lg border p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-sm font-semibold">Admission Number</h3>
+                  <p className="text-xs text-muted-foreground">Used as the student's main admission number.</p>
+                </div>
+                <Badge variant="outline" className="font-mono">{admissionSamples.admissionNumber}</Badge>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Prefix</Label>
+                  <Input
+                    value={admissionSettings.admissionNumberPrefix}
+                    onChange={(event) => updateAdmissionSetting('admissionNumberPrefix', event.target.value.toUpperCase())}
+                    placeholder="STD"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Format</Label>
+                  <Input
+                    value={admissionSettings.admissionNumberFormat}
+                    onChange={(event) => updateAdmissionSetting('admissionNumberFormat', event.target.value.toUpperCase())}
+                    placeholder="{PREFIX}-{YEAR}-{SEQ}"
+                    className="font-mono"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Start From</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={admissionSettings.sequenceStart}
+                    onChange={(event) => updateAdmissionSetting('sequenceStart', Number(event.target.value) || 1)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Serial Digits</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={10}
+                    value={admissionSettings.sequenceDigits}
+                    onChange={(event) => updateAdmissionSetting('sequenceDigits', Number(event.target.value) || 3)}
+                  />
+                </div>
+              </div>
+              <div className="flex items-center justify-between rounded-md border bg-muted/30 px-3 py-2">
+                <Label htmlFor="reset-admission-number" className="text-sm">Reset serial every year</Label>
+                <Switch
+                  id="reset-admission-number"
+                  checked={admissionSettings.resetSequenceYearly}
+                  onCheckedChange={(checked) => updateAdmissionSetting('resetSequenceYearly', checked)}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-4 rounded-lg border p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-sm font-semibold">Registration Number</h3>
+                  <p className="text-xs text-muted-foreground">Generated automatically when the form is submitted.</p>
+                </div>
+                <Badge variant="outline" className="font-mono">{admissionSamples.registrationNumber}</Badge>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Prefix</Label>
+                  <Input
+                    value={admissionSettings.registrationNumberPrefix}
+                    onChange={(event) => updateAdmissionSetting('registrationNumberPrefix', event.target.value.toUpperCase())}
+                    placeholder="REG"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Format</Label>
+                  <Input
+                    value={admissionSettings.registrationNumberFormat}
+                    onChange={(event) => updateAdmissionSetting('registrationNumberFormat', event.target.value.toUpperCase())}
+                    placeholder="{PREFIX}-{YEAR}-{SEQ}"
+                    className="font-mono"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Start From</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={admissionSettings.registrationSequenceStart}
+                    onChange={(event) => updateAdmissionSetting('registrationSequenceStart', Number(event.target.value) || 1)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Serial Digits</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={10}
+                    value={admissionSettings.registrationSequenceDigits}
+                    onChange={(event) => updateAdmissionSetting('registrationSequenceDigits', Number(event.target.value) || 3)}
+                  />
+                </div>
+              </div>
+              <div className="flex items-center justify-between rounded-md border bg-muted/30 px-3 py-2">
+                <Label htmlFor="reset-registration-number" className="text-sm">Reset serial every year</Label>
+                <Switch
+                  id="reset-registration-number"
+                  checked={admissionSettings.registrationResetYearly}
+                  onCheckedChange={(checked) => updateAdmissionSetting('registrationResetYearly', checked)}
+                />
+              </div>
+            </div>
+          </div>
+
+          <p className="text-xs text-muted-foreground">
+            Available tokens: <span className="font-mono">{'{PREFIX}'}</span>, <span className="font-mono">{'{YEAR}'}</span>, <span className="font-mono">{'{YY}'}</span>, <span className="font-mono">{'{SEQ}'}</span>, <span className="font-mono">{'{CLASS}'}</span>. The serial continues from existing admission records.
+          </p>
         </CardContent>
       </Card>
 

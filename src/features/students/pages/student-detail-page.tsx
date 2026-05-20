@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { api } from '@/lib/api'
 import { useAppStore } from '@/lib/store'
 import { cn } from '@/lib/utils'
@@ -10,6 +10,11 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Separator } from '@/components/ui/separator'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Textarea } from '@/components/ui/textarea'
 import {
   ArrowLeft,
   User,
@@ -42,6 +47,7 @@ import {
   Clock3,
   XCircle,
   BookOpenCheck,
+  Loader2,
 } from 'lucide-react'
 
 // ============================================
@@ -180,6 +186,29 @@ interface StudentData {
   section: { id: string; name: string } | null
   admission: AdmissionData | null
   sibling: SiblingInfo | null
+  academicEnrollments?: Array<{
+    id: string
+    academicYear: string
+    status: string
+    source: string
+    effectiveFrom: string | null
+    effectiveTo: string | null
+    class: { id: string; name: string }
+    section: { id: string; name: string } | null
+  }>
+}
+
+interface ClassOption { id: string; name: string }
+interface SectionOption { id: string; name: string; classId: string }
+interface FeesGroupOption { id: string; name: string }
+
+type PromotionForm = {
+  academicYear: string
+  classId: string
+  sectionId: string
+  feesGroupId: string
+  effectiveFrom: string
+  remarks: string
 }
 
 // ============================================
@@ -281,34 +310,121 @@ export function StudentDetailPage() {
   const { toast } = useToast()
   const goBack = useAppStore((s) => s.goBack)
   const selectedStudentId = useAppStore((s) => s.selectedStudentId)
+  const currentSchoolAcademicYear = useAppStore((s) => s.currentSchool?.academicYear)
 
   const [student, setStudent] = useState<StudentData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [classes, setClasses] = useState<ClassOption[]>([])
+  const [sections, setSections] = useState<SectionOption[]>([])
+  const [feesGroups, setFeesGroups] = useState<FeesGroupOption[]>([])
+  const [academicYears, setAcademicYears] = useState<string[]>([])
+  const [promoteOpen, setPromoteOpen] = useState(false)
+  const [promoting, setPromoting] = useState(false)
+  const [promotionForm, setPromotionForm] = useState<PromotionForm>({
+    academicYear: currentSchoolAcademicYear || '',
+    classId: '',
+    sectionId: '',
+    feesGroupId: 'none',
+    effectiveFrom: new Date().toISOString().slice(0, 10),
+    remarks: '',
+  })
+
+  const fetchStudent = async (studentId: string) => {
+    setLoading(true)
+    try {
+      const data = await api.get<StudentData>(`/api/school/students/${studentId}`, undefined, { skipLogoutOn401: true })
+      if (data) {
+        setStudent(data)
+      } else {
+        toast({ title: 'Not Found', description: 'Student not found', variant: 'destructive' })
+        goBack('students')
+      }
+    } catch {
+      toast({ title: "Couldn't Load Student", description: "We couldn't load the student details. Please go back and try again.", variant: 'destructive' })
+      goBack('students')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   useEffect(() => {
     if (!selectedStudentId) {
       goBack('students')
       return
     }
-    const fetchStudent = async () => {
-      setLoading(true)
+    fetchStudent(selectedStudentId)
+  }, [selectedStudentId, goBack, toast])
+
+  useEffect(() => {
+    const fetchPromotionOptions = async () => {
       try {
-        const data = await api.get<StudentData>(`/api/school/students/${selectedStudentId}`, undefined, { skipLogoutOn401: true })
-        if (data) {
-          setStudent(data)
-        } else {
-          toast({ title: 'Not Found', description: 'Student not found', variant: 'destructive' })
-          goBack('students')
-        }
+        const [classData, sectionData, feesGroupData, yearData] = await Promise.all([
+          api.get<{ classes: ClassOption[] }>('/api/school/classes', undefined, { skipLogoutOn401: true }),
+          api.get<{ sections: SectionOption[] }>('/api/school/sections', undefined, { skipLogoutOn401: true }),
+          api.get<{ groups: FeesGroupOption[] }>('/api/school/fees/groups', undefined, { skipLogoutOn401: true }),
+          api.get<{ academicYears: string[] }>('/api/school/academic-years', undefined, { skipLogoutOn401: true }),
+        ])
+        setClasses(classData.classes || [])
+        setSections(sectionData.sections || [])
+        setFeesGroups(feesGroupData.groups || [])
+        setAcademicYears(yearData.academicYears || [])
       } catch {
-        toast({ title: "Couldn't Load Student", description: "We couldn't load the student details. Please go back and try again.", variant: 'destructive' })
-        goBack('students')
-      } finally {
-        setLoading(false)
+        // Promotion can still be unavailable without blocking the detail page.
       }
     }
-    fetchStudent()
-  }, [selectedStudentId, goBack, toast])
+    fetchPromotionOptions()
+  }, [])
+
+  const filteredPromotionSections = useMemo(
+    () => promotionForm.classId ? sections.filter((section) => section.classId === promotionForm.classId) : [],
+    [promotionForm.classId, sections]
+  )
+
+  const openPromoteDialog = () => {
+    setPromotionForm({
+      academicYear: currentSchoolAcademicYear || academicYears[0] || student?.admission?.academicYear || '',
+      classId: student?.class?.id || '',
+      sectionId: '',
+      feesGroupId: student?.admission?.feesGroupId || 'none',
+      effectiveFrom: new Date().toISOString().slice(0, 10),
+      remarks: '',
+    })
+    setPromoteOpen(true)
+  }
+
+  const submitPromotion = async () => {
+    if (!student || !selectedStudentId) return
+    if (!promotionForm.academicYear || !promotionForm.classId) {
+      toast({ title: 'Missing Details', description: 'Please select target session and class.', variant: 'destructive' })
+      return
+    }
+
+    setPromoting(true)
+    try {
+      const result = await api.post<{ message?: string; previousSessionDue?: number }>(
+        `/api/school/students/${selectedStudentId}/promote`,
+        {
+          ...promotionForm,
+          feesGroupId: promotionForm.feesGroupId === 'none' ? null : promotionForm.feesGroupId,
+          sectionId: promotionForm.sectionId || null,
+        }
+      )
+      toast({
+        title: 'Student Promoted',
+        description: result.message || 'New session enrollment has been created.',
+      })
+      setPromoteOpen(false)
+      await fetchStudent(selectedStudentId)
+    } catch (err) {
+      toast({
+        title: "Couldn't Promote Student",
+        description: err instanceof Error ? err.message : 'Please check promotion details and try again.',
+        variant: 'destructive',
+      })
+    } finally {
+      setPromoting(false)
+    }
+  }
 
   if (loading) {
     return (
@@ -387,6 +503,9 @@ export function StudentDetailPage() {
             <div className="grid grid-cols-2 gap-2 pt-2">
               <Button variant="outline" onClick={() => { useAppStore.getState().navigateTo('edit-student') }} className="gap-1.5">
                 <Edit className="size-4" /> Edit
+              </Button>
+              <Button variant="outline" onClick={openPromoteDialog} className="gap-1.5">
+                <GraduationCap className="size-4" /> Promote
               </Button>
               <Button variant="outline" onClick={() => toast({ title: 'Print', description: 'Print feature coming soon' })} className="gap-1.5">
                 <Printer className="size-4" /> Print
@@ -483,6 +602,23 @@ export function StudentDetailPage() {
                 <InfoRow label="Medium" value={a?.mediumOfInstruction} />
                 <InfoRow label="Area" value={a?.area} />
               </div>
+              {student.academicEnrollments && student.academicEnrollments.length > 0 && (
+                <div className="mt-4 space-y-3">
+                  <Separator />
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Session History</p>
+                  <div className="space-y-2">
+                    {student.academicEnrollments.map((enrollment) => (
+                      <div key={enrollment.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border bg-muted/20 px-3 py-2 text-sm">
+                        <div>
+                          <span className="font-semibold">{enrollment.academicYear}</span>
+                          <span className="text-muted-foreground"> - {enrollment.class.name}{enrollment.section ? ` / ${enrollment.section.name}` : ''}</span>
+                        </div>
+                        <Badge variant="outline" className="rounded-md capitalize">{enrollment.status}</Badge>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               {a?.previousSchool && (
                 <div className="mt-4 space-y-3">
                   <Separator />
@@ -662,6 +798,97 @@ export function StudentDetailPage() {
           </TabsContent>
         )}
       </Tabs>
+
+      <Dialog open={promoteOpen} onOpenChange={setPromoteOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Promote Student</DialogTitle>
+            <DialogDescription>
+              Create a new session enrollment and fee assignment. Any old unpaid dues remain in the previous session ledger.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-4 py-2">
+            <div className="grid gap-2 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Target Session</Label>
+                <Select value={promotionForm.academicYear} onValueChange={(value) => setPromotionForm((current) => ({ ...current, academicYear: value }))}>
+                  <SelectTrigger><SelectValue placeholder="Select session" /></SelectTrigger>
+                  <SelectContent>
+                    {academicYears.map((year) => <SelectItem key={year} value={year}>{year}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Effective From</Label>
+                <Input
+                  type="date"
+                  value={promotionForm.effectiveFrom}
+                  onChange={(event) => setPromotionForm((current) => ({ ...current, effectiveFrom: event.target.value }))}
+                />
+              </div>
+            </div>
+
+            <div className="grid gap-2 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Promote To Class</Label>
+                <Select
+                  value={promotionForm.classId}
+                  onValueChange={(value) => setPromotionForm((current) => ({ ...current, classId: value, sectionId: '' }))}
+                >
+                  <SelectTrigger><SelectValue placeholder="Select class" /></SelectTrigger>
+                  <SelectContent>
+                    {classes.map((item) => <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Section</Label>
+                <Select
+                  value={promotionForm.sectionId || 'none'}
+                  onValueChange={(value) => setPromotionForm((current) => ({ ...current, sectionId: value === 'none' ? '' : value }))}
+                  disabled={!promotionForm.classId}
+                >
+                  <SelectTrigger><SelectValue placeholder="Select section" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No Section</SelectItem>
+                    {filteredPromotionSections.map((item) => <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Fees Group For New Session</Label>
+              <Select value={promotionForm.feesGroupId} onValueChange={(value) => setPromotionForm((current) => ({ ...current, feesGroupId: value }))}>
+                <SelectTrigger><SelectValue placeholder="Select fees group" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Do not assign fees now</SelectItem>
+                  {feesGroups.map((item) => <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Remarks</Label>
+              <Textarea
+                value={promotionForm.remarks}
+                onChange={(event) => setPromotionForm((current) => ({ ...current, remarks: event.target.value }))}
+                placeholder="Optional promotion note"
+                rows={3}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPromoteOpen(false)} disabled={promoting}>Cancel</Button>
+            <Button onClick={submitPromotion} disabled={promoting}>
+              {promoting ? <Loader2 className="size-4 animate-spin" /> : <GraduationCap className="size-4" />}
+              Promote
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

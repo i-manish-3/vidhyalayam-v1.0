@@ -395,9 +395,11 @@ export function AdmissionFormPage() {
 
   // Admission number preview
   const [nextAdmissionNumber, setNextAdmissionNumber] = useState<string>('')
+  const [nextRegistrationNumber, setNextRegistrationNumber] = useState<string>('')
   // Success dialog
   const [showSuccessDialog, setShowSuccessDialog] = useState(false)
   const [assignedAdmissionNumber, setAssignedAdmissionNumber] = useState('')
+  const [assignedRegistrationNumber, setAssignedRegistrationNumber] = useState('')
 
   // ============================================
   // Data Fetching
@@ -410,13 +412,16 @@ export function AdmissionFormPage() {
           api.get<{ classes: ClassOption[] }>('/api/school/classes', undefined, { skipLogoutOn401: true }),
           api.get<{ sections: SectionOption[] }>('/api/school/sections', undefined, { skipLogoutOn401: true }),
           api.get<{ groups: FeesGroupOption[] }>('/api/school/fees/groups', undefined, { skipLogoutOn401: true }),
-          api.get<{ nextAdmissionNumber: string }>('/api/school/admissions/next-number', undefined, { skipLogoutOn401: true }),
+          api.get<{ nextAdmissionNumber: string; nextRegistrationNumber: string }>('/api/school/admissions/next-number', undefined, { skipLogoutOn401: true }),
           api.get<{ academicYears: string[] }>('/api/school/academic-years', undefined, { skipLogoutOn401: true }),
         ])
         if (clsData.status === 'fulfilled' && clsData.value?.classes) setClasses(clsData.value.classes)
         if (secData.status === 'fulfilled' && secData.value?.sections) setSections(secData.value.sections)
         if (feesGroupData.status === 'fulfilled' && feesGroupData.value?.groups) setFeesGroups(feesGroupData.value.groups)
-        if (admNumData.status === 'fulfilled' && admNumData.value?.nextAdmissionNumber) setNextAdmissionNumber(admNumData.value.nextAdmissionNumber)
+        if (admNumData.status === 'fulfilled') {
+          if (admNumData.value?.nextAdmissionNumber) setNextAdmissionNumber(admNumData.value.nextAdmissionNumber)
+          if (admNumData.value?.nextRegistrationNumber) setNextRegistrationNumber(admNumData.value.nextRegistrationNumber)
+        }
         if (academicYearData.status === 'fulfilled' && academicYearData.value?.academicYears) {
           setAvailableAcademicYears(academicYearData.value.academicYears)
         }
@@ -426,6 +431,30 @@ export function AdmissionFormPage() {
     }
     fetchData()
   }, [])
+
+  useEffect(() => {
+    let mounted = true
+
+    const fetchNextNumbers = async () => {
+      try {
+        const data = await api.get<{ nextAdmissionNumber: string; nextRegistrationNumber: string }>(
+          '/api/school/admissions/next-number',
+          form.classId ? { classId: form.classId } : undefined,
+          { skipLogoutOn401: true }
+        )
+        if (!mounted) return
+        if (data.nextAdmissionNumber) setNextAdmissionNumber(data.nextAdmissionNumber)
+        if (data.nextRegistrationNumber) setNextRegistrationNumber(data.nextRegistrationNumber)
+      } catch {
+        // Keep the last preview; the server still assigns final numbers on submit.
+      }
+    }
+
+    fetchNextNumbers()
+    return () => {
+      mounted = false
+    }
+  }, [form.classId])
 
   useEffect(() => {
     if (!academicYearOptions.some((year) => year.value === form.academicYear)) {
@@ -966,9 +995,10 @@ export function AdmissionFormPage() {
     setSubmitting(true)
     try {
       const payload = buildPayload()
-      const result = await api.post<{ admissionNumber?: string }>('/api/school/admissions', payload)
+      const result = await api.post<{ admissionNumber?: string; registrationNumber?: string }>('/api/school/admissions', payload)
       const assignedNum = result?.admissionNumber || nextAdmissionNumber || ''
       setAssignedAdmissionNumber(assignedNum)
+      setAssignedRegistrationNumber(result?.registrationNumber || nextRegistrationNumber || '')
       setShowSuccessDialog(true)
     } catch (err) {
       toast({ title: "Couldn't Submit Application", description: err instanceof Error ? err.message : "We couldn't submit the application. Please try again.", variant: 'destructive' })
@@ -1084,7 +1114,15 @@ export function AdmissionFormPage() {
           </div>
           <div className="space-y-2">
             <Label>Registration Number</Label>
-            <Input value={form.registrationNumber} onChange={e => updateForm('registrationNumber', e.target.value)} placeholder="e.g., ADM-2025-001" />
+            <div className="flex items-center gap-2">
+              <Input
+                value={nextRegistrationNumber || 'Auto-generated on submit'}
+                readOnly
+                className="bg-muted/50 font-mono text-base font-semibold tracking-wide cursor-not-allowed border-dashed"
+              />
+              <Badge variant="outline" className="shrink-0 text-xs">Auto</Badge>
+            </div>
+            <p className="text-xs text-muted-foreground">Uses the school registration format</p>
           </div>
         </div>
 
@@ -1866,7 +1904,7 @@ export function AdmissionFormPage() {
               <div><span className="text-muted-foreground">Blood Group:</span> {form.bloodGroup || '--'}</div>
               <div><span className="text-muted-foreground">Aadhaar:</span> {form.aadhaarNumber || '--'}</div>
               <div><span className="text-muted-foreground">Academic Year:</span> {form.academicYear || '--'}</div>
-              <div><span className="text-muted-foreground">Reg. No:</span> {form.registrationNumber || '--'}</div>
+              <div><span className="text-muted-foreground">Reg. No:</span> {nextRegistrationNumber || '--'}</div>
               <div><span className="text-muted-foreground">PEN:</span> {form.penNumber || '--'}</div>
               <div><span className="text-muted-foreground">Samagra ID:</span> {form.samagraId || '--'}</div>
               <div><span className="text-muted-foreground">Apaar ID:</span> {form.apaarId || '--'}</div>
@@ -2277,9 +2315,17 @@ export function AdmissionFormPage() {
               <p className="text-sm text-muted-foreground mt-1">Student record has been created</p>
             </div>
             {assignedAdmissionNumber && (
-              <div className="bg-muted rounded-lg px-6 py-3 text-center">
-                <p className="text-xs text-muted-foreground mb-1">Admission Number</p>
-                <p className="text-2xl font-bold font-mono tracking-wider text-primary">{assignedAdmissionNumber}</p>
+              <div className="grid gap-2 rounded-lg bg-muted px-6 py-3 text-center">
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">Admission Number</p>
+                  <p className="text-2xl font-bold font-mono tracking-wider text-primary">{assignedAdmissionNumber}</p>
+                </div>
+                {assignedRegistrationNumber && (
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">Registration Number</p>
+                    <p className="text-lg font-bold font-mono tracking-wider">{assignedRegistrationNumber}</p>
+                  </div>
+                )}
               </div>
             )}
             <p className="text-sm font-medium">{form.firstName} {form.lastName}</p>

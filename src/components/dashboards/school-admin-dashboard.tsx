@@ -240,7 +240,7 @@ export function SchoolAdminDashboard() {
               <span className="font-mono tabular-nums">{currentTime}</span>
             </Badge>
             <div>
-              <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
+              <h1 className="text-2xl font-semibold tracking-tight text-foreground/85 sm:text-3xl">
                 {currentSchool?.name || 'School'} Dashboard
               </h1>
               <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
@@ -255,7 +255,7 @@ export function SchoolAdminDashboard() {
                   </div>
                   <div className="min-w-0">
                     <p className="text-xs text-muted-foreground">{item.label}</p>
-                    <p className="text-sm font-bold">{item.value}</p>
+                    <p className="text-sm font-semibold text-foreground/85">{item.value}</p>
                   </div>
                 </div>
               ))}
@@ -286,7 +286,7 @@ export function SchoolAdminDashboard() {
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-sm text-muted-foreground">{metric.label}</p>
-                  <p className="mt-2 text-2xl font-bold tracking-tight">{metric.value}</p>
+                  <p className="mt-2 text-2xl font-semibold tracking-tight text-foreground/85">{metric.value}</p>
                 </div>
                 <div className={cn('flex size-10 items-center justify-center rounded-lg', metric.tone)}>
                   <metric.icon className="size-5" />
@@ -407,7 +407,7 @@ export function SchoolAdminDashboard() {
                 </PieChart>
               </ResponsiveContainer>
               <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-3xl font-bold">{attendancePercent}%</span>
+                <span className="text-3xl font-semibold text-foreground/85">{attendancePercent}%</span>
                 <span className="text-xs text-muted-foreground">Present</span>
               </div>
             </div>
@@ -415,7 +415,7 @@ export function SchoolAdminDashboard() {
               {attendanceData.map((entry) => (
                 <div key={entry.name} className="rounded-lg border bg-background p-3 text-center">
                   <div className="mx-auto mb-2 size-2.5 rounded-full" style={{ backgroundColor: entry.color }} />
-                  <p className="text-lg font-bold">{entry.value}</p>
+                  <p className="text-lg font-semibold text-foreground/85">{entry.value}</p>
                   <p className="text-xs text-muted-foreground">{entry.name}</p>
                 </div>
               ))}
@@ -484,7 +484,7 @@ function InsightCard({ title, value, description, icon: Icon }: { title: string;
         </div>
         <div className="min-w-0">
           <p className="text-sm text-muted-foreground">{title}</p>
-          <p className="mt-1 text-lg font-bold tracking-tight">{value}</p>
+          <p className="mt-1 text-lg font-semibold tracking-tight text-foreground/85">{value}</p>
           <p className="mt-1 text-xs leading-5 text-muted-foreground">{description}</p>
         </div>
       </CardContent>

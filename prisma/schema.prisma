@@ -109,6 +109,7 @@ model School {
   supportTickets    SupportTicket[]
   admissions        Admission[]
   admissionSetting  AdmissionSetting?
+  studentAcademicEnrollments StudentAcademicEnrollment[]
   academicYears     AcademicYear[]
   schoolPermissions SchoolPermission[]
   roles             Role[]
@@ -153,6 +154,7 @@ model Class {
   school         School          @relation(fields: [schoolId], references: [id])
   sections       Section[]
   students       Student[]
+  studentAcademicEnrollments StudentAcademicEnrollment[]
   feesStructures FeesStructure[]
   feeAssignments StudentFeeAssignment[]
   classSubjects  ClassSubject[]
@@ -175,6 +177,7 @@ model Section {
   school         School          @relation(fields: [schoolId], references: [id])
   class          Class           @relation(fields: [classId], references: [id])
   students       Student[]
+  studentAcademicEnrollments StudentAcademicEnrollment[]
   timetables     Timetable[]
   feesStructures FeesStructure[]
   feeAssignments StudentFeeAssignment[]
@@ -267,6 +270,7 @@ model Student {
   attendance     Attendance[]
   feeCollections FeeCollection[]
   feeAssignments StudentFeeAssignment[]
+  academicEnrollments StudentAcademicEnrollment[]
   feeInvoices    StudentFeeInvoice[]
   feePayments    StudentFeePayment[]
   feeLedgerEntries StudentFeeLedgerEntry[]
@@ -279,6 +283,39 @@ model Student {
   @@index([sectionId])
   @@index([admissionNumber])
   @@index([admissionStatus])
+}
+
+model StudentAcademicEnrollment {
+  id             String    @id @default(cuid())
+  schoolId       String
+  studentId      String
+  academicYear   String
+  classId        String
+  sectionId      String?
+  rollNumber     String?
+  status         String    @default("active") // active, promoted, detained, transferred, withdrawn
+  source         String    @default("admission") // admission, promotion, manual
+  effectiveFrom  DateTime?
+  effectiveTo    DateTime?
+  promotedFromId String?
+  remarks        String?
+  createdBy      String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+
+  school  School   @relation(fields: [schoolId], references: [id])
+  student Student  @relation(fields: [studentId], references: [id])
+  class   Class    @relation(fields: [classId], references: [id])
+  section Section? @relation(fields: [sectionId], references: [id])
+
+  @@unique([studentId, academicYear])
+  @@index([schoolId])
+  @@index([studentId])
+  @@index([academicYear])
+  @@index([classId])
+  @@index([sectionId])
+  @@index([status])
 }
 
 // ============================================
@@ -494,6 +531,11 @@ model AdmissionSetting {
   schoolId                String    @unique
   admissionNumberPrefix   String    @default("STD")
   admissionNumberFormat   String    @default("{PREFIX}-{YEAR}-{SEQ}") // {PREFIX}, {YEAR}, {SEQ}, {CLASS}
+  registrationNumberPrefix String   @default("REG")
+  registrationNumberFormat String   @default("{PREFIX}-{YEAR}-{SEQ}") // {PREFIX}, {YEAR}, {YY}, {SEQ}, {CLASS}
+  registrationSequenceStart Int     @default(1)
+  registrationSequenceDigits Int    @default(3)
+  registrationResetYearly  Boolean  @default(true)
   sequenceStart           Int       @default(1)
   sequenceDigits          Int       @default(3) // 001, 0001, etc.
   resetSequenceYearly     Boolean   @default(true)

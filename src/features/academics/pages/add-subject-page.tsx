@@ -16,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { BookOpen, ArrowLeft, Loader2, GraduationCap } from 'lucide-react'
+import { BookOpen, List, Loader2, GraduationCap } from 'lucide-react'
 
 const SUBJECT_TYPES = [
   { value: 'primary', label: 'Primary' },
@@ -136,48 +136,36 @@ export function AddSubjectPage() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header with back button */}
-      <div className="flex items-center gap-3">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="size-9 shrink-0"
-          onClick={() => goBack('subjects')}
-          disabled={submitting}
-        >
-          <ArrowLeft className="size-4" />
-        </Button>
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Add Subject</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            Create a new subject for your school curriculum
-          </p>
-        </div>
-      </div>
+    <div className="space-y-4">
+      <PageHeader
+        title="Add Subject"
+        description="Create a new subject for your school curriculum."
+        backAction={{ onClick: () => goBack('subjects') }}
+        action={{ label: 'Subject List', icon: List, onClick: () => navigateTo('subjects') }}
+      />
 
       {/* Form */}
-      <Card>
-        <CardHeader>
+      <Card className="gap-0 py-0 shadow-sm">
+        <CardHeader className="border-b bg-muted/20 px-4 py-3">
           <CardTitle className="text-base flex items-center gap-2">
             <BookOpen className="size-4" />
             Subject Details
           </CardTitle>
-          <CardDescription>
+          <CardDescription className="text-xs">
             Fill in the details below to add a new subject
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-6">
+        <CardContent className="p-4">
+          <form onSubmit={handleSubmit} className="space-y-5">
             {/* Subject Information */}
             <div>
-              <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
+              <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
                 <div className="size-1.5 rounded-full bg-primary" />
                 Subject Information
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {/* Subject Name */}
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   <Label htmlFor="subject-name" className="text-xs font-medium">
                     Subject Name <span className="text-destructive">*</span>
                   </Label>
@@ -187,19 +175,19 @@ export function AddSubjectPage() {
                     value={name}
                     onChange={(e) => handleNameChange(e.target.value)}
                     onBlur={() => validateName(name)}
-                    className="h-10"
+                    className="h-9"
                     aria-invalid={!!nameError}
                     aria-describedby={nameError ? 'subject-name-error' : undefined}
                   />
                   {nameError && (
-                    <p id="subject-name-error" className="text-xs text-destructive mt-1">
+                    <p id="subject-name-error" className="text-xs text-destructive">
                       {nameError}
                     </p>
                   )}
                 </div>
 
                 {/* Subject Code */}
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   <Label htmlFor="subject-code" className="text-xs font-medium">
                     Subject Code
                   </Label>
@@ -208,7 +196,7 @@ export function AddSubjectPage() {
                     placeholder="e.g., MATH101"
                     value={code}
                     onChange={(e) => setCode(e.target.value.toUpperCase())}
-                    className="h-10"
+                    className="h-9"
                   />
                   <p className="text-xs text-muted-foreground">
                     Must be unique across your school. Duplicate names are allowed, but codes must be different.
@@ -216,7 +204,7 @@ export function AddSubjectPage() {
                 </div>
 
                 {/* Sequence No */}
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   <Label htmlFor="sequence-no" className="text-xs font-medium">
                     Sequence No
                   </Label>
@@ -227,7 +215,7 @@ export function AddSubjectPage() {
                     value={sequenceNo}
                     onChange={(e) => setSequenceNo(e.target.value)}
                     min="0"
-                    className="h-10"
+                    className="h-9"
                   />
                   <p className="text-xs text-muted-foreground">
                     Display order of the subject in lists
@@ -235,12 +223,12 @@ export function AddSubjectPage() {
                 </div>
 
                 {/* Subject Type */}
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   <Label htmlFor="subject-type" className="text-xs font-medium">
                     Subject Type <span className="text-destructive">*</span>
                   </Label>
                   <Select value={type} onValueChange={setType}>
-                    <SelectTrigger className="h-10">
+                    <SelectTrigger className="h-9">
                       <SelectValue placeholder="Select type" />
                     </SelectTrigger>
                     <SelectContent>
@@ -262,13 +250,13 @@ export function AddSubjectPage() {
 
             {/* Class Assignment */}
             <div>
-              <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
+              <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
                 <div className="size-1.5 rounded-full bg-primary" />
                 <GraduationCap className="size-4" />
                 Assign to Classes
               </h3>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
+              <div className="space-y-2.5">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <p className="text-xs text-muted-foreground">
                     Select which classes this subject will be assigned to. You can also assign classes later.
                   </p>
@@ -284,17 +272,17 @@ export function AddSubjectPage() {
                     </Button>
                   )}
                 </div>
-                <div className="border rounded-lg p-3 max-h-48 overflow-y-auto">
+                <div className="border rounded-lg p-2.5 max-h-44 overflow-y-auto">
                   {classes.length === 0 ? (
                     <p className="text-xs text-muted-foreground text-center py-4">
                       No classes found. Please add classes first before assigning subjects.
                     </p>
                   ) : (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-1.5">
                       {classes.map(cls => (
                         <label
                           key={cls.id}
-                          className={`flex items-center gap-2 rounded-md border px-3 py-2 cursor-pointer transition-colors text-sm ${
+                          className={`flex items-center gap-2 rounded-md border px-2.5 py-1.5 cursor-pointer transition-colors text-sm ${
                             selectedClassIds.includes(cls.id)
                               ? 'bg-primary/10 border-primary/30 text-primary'
                               : 'hover:bg-muted/50'
@@ -321,11 +309,11 @@ export function AddSubjectPage() {
             </div>
 
             {/* Action Buttons */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 border-t pt-4">
               <Button
                 type="submit"
                 disabled={!isFormValid}
-                className="gap-2 min-w-[140px]"
+                className="gap-2 min-w-[130px]"
               >
                 {submitting ? (
                   <>

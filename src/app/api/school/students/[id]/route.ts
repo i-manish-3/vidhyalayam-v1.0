@@ -145,6 +145,14 @@ export async function GET(
             },
           },
         },
+        academicEnrollments: {
+          where: { deletedAt: null },
+          include: {
+            class: { select: { id: true, name: true } },
+            section: { select: { id: true, name: true } },
+          },
+          orderBy: { academicYear: 'desc' },
+        },
       },
     })
 

@@ -67,6 +67,7 @@ const PettyCashPage = dynamic(() => import('@/features/operations/pages/petty-ca
 const NotificationsPage = dynamic(() => import('@/features/communications/pages/notifications-page').then(mod => ({ default: mod.NotificationsPage })), { ssr: false, loading: PageLoader })
 const AnnouncementsPage = dynamic(() => import('@/features/communications/pages/announcements-page').then(mod => ({ default: mod.AnnouncementsPage })), { ssr: false, loading: PageLoader })
 const ClassesPage = dynamic(() => import('@/features/academics/pages/classes-page').then(mod => ({ default: mod.ClassesPage })), { ssr: false, loading: PageLoader })
+const PromoteClassPage = dynamic(() => import('@/features/academics/pages/promote-class-page').then(mod => ({ default: mod.PromoteClassPage })), { ssr: false, loading: PageLoader })
 const SubjectsPage = dynamic(() => import('@/features/academics/pages/subjects-page').then(mod => ({ default: mod.SubjectsPage })), { ssr: false, loading: PageLoader })
 const AddSubjectPage = dynamic(() => import('@/features/academics/pages/add-subject-page').then(mod => ({ default: mod.AddSubjectPage })), { ssr: false, loading: PageLoader })
 const AddClassPage = dynamic(() => import('@/features/academics/pages/add-class-page').then(mod => ({ default: mod.AddClassPage })), { ssr: false, loading: PageLoader })
@@ -130,6 +131,7 @@ const PAGE_TITLES: Record<PageName, string> = {
   'notifications': 'Notifications',
   'announcements': 'Announcements',
   'classes': 'Classes',
+  'promote-class': 'Promote Class',
   'subjects': 'Subjects',
   'academic-years': 'Academic Years',
   'add-subject': 'Add Subject',
@@ -197,6 +199,7 @@ const PAGE_COMPONENTS: Partial<Record<PageName, React.ComponentType>> = {
   'notifications': NotificationsPage,
   'announcements': AnnouncementsPage,
   'classes': ClassesPage,
+  'promote-class': PromoteClassPage,
   'subjects': SubjectsPage,
   'academic-years': AcademicYearsPage,
   'add-subject': AddSubjectPage,
@@ -275,6 +278,7 @@ const SEARCH_ITEMS: { label: string; page: PageName; keywords: string[] }[] = [
   { label: 'Notifications', page: 'notifications', keywords: ['alert', 'message', 'reminder'] },
   { label: 'Announcements', page: 'announcements', keywords: ['notice', 'broadcast', 'news'] },
   { label: 'Classes', page: 'classes', keywords: ['grade', 'standard', 'section'] },
+  { label: 'Promote Class', page: 'promote-class', keywords: ['promotion', 'promote students', 'session promotion', 'class promote'] },
   { label: 'Subjects', page: 'subjects', keywords: ['course', 'discipline', 'math', 'science'] },
   { label: 'Academic Years', page: 'academic-years', keywords: ['session', 'year', 'current year', 'school year'] },
   { label: 'Add Subject', page: 'add-subject', keywords: ['new subject', 'create subject', 'add course'] },

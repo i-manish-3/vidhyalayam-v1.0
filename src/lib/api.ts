@@ -2,6 +2,81 @@ import { useAppStore } from './store'
 
 const BASE_URL = ''
 
+// ============================================
+// CACHING LAYER
+// ============================================
+// Cache for expensive API calls (academic years, next admission number, etc.)
+// Improves performance on page reloads and form interactions
+const CACHE_STORE = new Map<string, { data: unknown; timestamp: number }>()
+const CACHE_DURATION = 5 * 60 * 1000 // 5 minutes in milliseconds
+
+// Endpoints that should be cached
+const CACHEABLE_ENDPOINTS = new Set([
+  '/api/school/academic-years',
+  '/api/school/admissions/next-number',
+  '/api/school/admission-settings',
+  '/api/school/classes',
+  '/api/school/sections',
+  '/api/school/fees/groups',
+  '/api/school/transport/routes',
+])
+
+function getCacheKey(url: string): string {
+  return url
+}
+
+function getCachedData<T>(url: string): T | null {
+  const cacheKey = getCacheKey(url)
+  const cached = CACHE_STORE.get(cacheKey)
+  
+  if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+    return cached.data as T
+  }
+  
+  // Clear expired cache
+  if (cached) {
+    CACHE_STORE.delete(cacheKey)
+  }
+  
+  return null
+}
+
+function setCachedData(url: string, data: unknown): void {
+  const cacheKey = getCacheKey(url)
+  CACHE_STORE.set(cacheKey, { data, timestamp: Date.now() })
+}
+
+function shouldCache(url: string): boolean {
+  for (const endpoint of CACHEABLE_ENDPOINTS) {
+    if (url.includes(endpoint)) {
+      return true
+    }
+  }
+  return false
+}
+
+function clearRelatedCache(path: string): void {
+  // On POST/PATCH/DELETE, clear related caches
+  const patterns = [
+    { path: '/api/school/admissions', clear: ['/api/school/admissions/next-number'] },
+    { path: '/api/school/admission-settings', clear: ['/api/school/admission-settings', '/api/school/admissions/next-number'] },
+    { path: '/api/school/students', clear: ['/api/school/students', '/api/school/fees/collections', '/api/school/fees/assignments'] },
+    { path: '/api/school/academic-years', clear: ['/api/school/academic-years'] },
+    { path: '/api/school/classes', clear: ['/api/school/classes', '/api/school/sections'] },
+    { path: '/api/school/sections', clear: ['/api/school/sections'] },
+    { path: '/api/school/fees/groups', clear: ['/api/school/fees/groups'] },
+    { path: '/api/school/transport/routes', clear: ['/api/school/transport/routes'] },
+  ]
+  
+  for (const pattern of patterns) {
+    if (path.includes(pattern.path)) {
+      pattern.clear.forEach(endpoint => {
+        CACHE_STORE.delete(getCacheKey(endpoint))
+      })
+    }
+  }
+}
+
 /**
  * Professional, user-friendly messages for common HTTP status codes.
  * These are used as fallbacks when the server doesn't return a specific message.
@@ -79,34 +154,66 @@ class ApiClient {
       })
     }
 
-    return this.fetchWithRetry<T>(`${BASE_URL}${url.pathname}${url.search}`, {
+    const fullUrl = `${BASE_URL}${url.pathname}${url.search}`
+    
+    // Check cache for GET requests
+    if (shouldCache(fullUrl)) {
+      const cached = getCachedData<T>(fullUrl)
+      if (cached !== null) {
+        return cached
+      }
+    }
+
+    const result = await this.fetchWithRetry<T>(fullUrl, {
       method: 'GET',
       headers: this.getHeaders(),
     }, options?.skipLogoutOn401)
+    
+    // Cache the result
+    if (shouldCache(fullUrl)) {
+      setCachedData(fullUrl, result)
+    }
+    
+    return result
   }
 
   async post<T>(path: string, body?: unknown, options?: { skipLogoutOn401?: boolean }): Promise<T> {
-    return this.fetchWithRetry<T>(`${BASE_URL}${path}`, {
+    const result = await this.fetchWithRetry<T>(`${BASE_URL}${path}`, {
       method: 'POST',
       headers: this.getHeaders(),
       body: body ? JSON.stringify(body) : undefined,
     }, options?.skipLogoutOn401)
+    
+    // Clear related caches after mutation
+    clearRelatedCache(path)
+    
+    return result
   }
 
   async put<T>(path: string, body?: unknown, options?: { skipLogoutOn401?: boolean }): Promise<T> {
-    return this.fetchWithRetry<T>(`${BASE_URL}${path}`, {
+    const result = await this.fetchWithRetry<T>(`${BASE_URL}${path}`, {
       method: 'PUT',
       headers: this.getHeaders(),
       body: body ? JSON.stringify(body) : undefined,
     }, options?.skipLogoutOn401)
+    
+    // Clear related caches after mutation
+    clearRelatedCache(path)
+    
+    return result
   }
 
   async patch<T>(path: string, body?: unknown, options?: { skipLogoutOn401?: boolean }): Promise<T> {
-    return this.fetchWithRetry<T>(`${BASE_URL}${path}`, {
+    const result = await this.fetchWithRetry<T>(`${BASE_URL}${path}`, {
       method: 'PATCH',
       headers: this.getHeaders(),
       body: body ? JSON.stringify(body) : undefined,
     }, options?.skipLogoutOn401)
+    
+    // Clear related caches after mutation
+    clearRelatedCache(path)
+    
+    return result
   }
 
   async delete<T>(
@@ -122,11 +229,16 @@ class ApiClient {
     const body = isOptionsOnly ? undefined : bodyOrOptions
     const requestOptions = isOptionsOnly ? bodyOrOptions as { skipLogoutOn401?: boolean } : options
 
-    return this.fetchWithRetry<T>(`${BASE_URL}${path}`, {
+    const result = await this.fetchWithRetry<T>(`${BASE_URL}${path}`, {
       method: 'DELETE',
       headers: this.getHeaders(),
       body: body ? JSON.stringify(body) : undefined,
     }, requestOptions?.skipLogoutOn401)
+    
+    // Clear related caches after mutation
+    clearRelatedCache(path)
+    
+    return result
   }
 
   /**

@@ -38,7 +38,23 @@ export async function GET(request: NextRequest) {
       deletedAt: null,
     }
     if (academicYear) {
-      where.admission = { academicYear }
+      const enrollmentFilter: Record<string, unknown> = { academicYear, deletedAt: null }
+      if (classId) enrollmentFilter.classId = classId
+      if (sectionId) enrollmentFilter.sectionId = sectionId
+      where.AND = [
+        {
+          OR: [
+            { academicEnrollments: { some: enrollmentFilter } },
+            {
+              admission: {
+                academicYear,
+                ...(classId ? { classId } : {}),
+                ...(sectionId ? { sectionId } : {}),
+              },
+            },
+          ],
+        },
+      ]
     }
 
     if (search) {
@@ -70,8 +86,8 @@ export async function GET(request: NextRequest) {
         ...(admissionStudentIds.length > 0 ? [{ id: { in: admissionStudentIds } }] : []),
       ]
     }
-    if (classId) where.classId = classId
-    if (sectionId) where.sectionId = sectionId
+    if (!academicYear && classId) where.classId = classId
+    if (!academicYear && sectionId) where.sectionId = sectionId
     if (gender) where.gender = gender
     if (isActiveParam === 'true') where.isActive = true
     else if (isActiveParam === 'false') where.isActive = false
