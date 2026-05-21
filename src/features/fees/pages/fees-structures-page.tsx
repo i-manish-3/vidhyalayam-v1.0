@@ -195,6 +195,37 @@ function sortStructureRows(rows: StructureInstallmentRow[]) {
   })
 }
 
+function canAutoFillDueDates(frequency: FeeFrequency) {
+  return frequency === 'MONTHLY' || frequency === 'QUARTERLY' || frequency === 'HALF_YEARLY'
+}
+
+function parseAcademicYear(value: string) {
+  const [startYear, endYear] = value.split('-').map((part) => Number(part))
+  if (!Number.isFinite(startYear) || !Number.isFinite(endYear)) return null
+  return { startYear, endYear }
+}
+
+function formatDateInput(year: number, monthIndex: number, day: number) {
+  const lastDay = new Date(year, monthIndex + 1, 0).getDate()
+  const safeDay = Math.min(day, lastDay)
+  const month = String(monthIndex + 1).padStart(2, '0')
+  const date = String(safeDay).padStart(2, '0')
+  return `${year}-${month}-${date}`
+}
+
+function dueDateForPeriod(period: string, academicYear: string, day: number) {
+  const academic = parseAcademicYear(academicYear)
+  if (!academic) return ''
+
+  const normalizedPeriod = period.trim().toLowerCase()
+  const monthIndex = MONTHS.findIndex((month) => normalizedPeriod.includes(month.toLowerCase()))
+  if (monthIndex === -1) return ''
+
+  const calendarMonthIndex = monthIndex <= 8 ? monthIndex + 3 : monthIndex - 9
+  const year = monthIndex <= 8 ? academic.startYear : academic.endYear
+  return formatDateInput(year, calendarMonthIndex, day)
+}
+
 // ── Component ──────────────────────────────────────────────────────────
 
 export function FeesStructuresPage() {
@@ -468,6 +499,19 @@ export function FeesStructuresPage() {
     )
   }
 
+  const fillHeadDueDates = (feeHeadId: string, selectedDate: string) => {
+    const day = Number(selectedDate.slice(8, 10))
+    if (!selectedDate || !Number.isFinite(day)) return
+
+    setClassStructureRows((prev) =>
+      prev.map((row) => {
+        if (row.feeHeadId !== feeHeadId) return row
+        const dueDate = dueDateForPeriod(row.period, classStructureForm.academicYear, day)
+        return dueDate ? { ...row, dueDate } : row
+      })
+    )
+  }
+
   const saveClassFeeStructure = async () => {
     if (!classStructureForm.academicYear || classStructureForm.classIds.length === 0 || !classStructureForm.feeGroupId) {
       toast({ title: 'Missing Information', description: 'Please select session, at least one class, and fee group.', variant: 'destructive' })
@@ -670,15 +714,15 @@ export function FeesStructuresPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <div className="space-y-4">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-start gap-3">
           <Button variant="outline" size="icon" onClick={() => goBack('dashboard')} className="mt-0.5 size-9 shrink-0">
             <ArrowLeft className="size-4" />
           </Button>
           <div>
             <h1 className="text-xl font-bold tracking-tight">Class Fee Structure</h1>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <p className="mt-0.5 text-sm text-muted-foreground">
               Configure fee amounts by session, class, and fee group.
             </p>
           </div>
@@ -699,15 +743,15 @@ export function FeesStructuresPage() {
         </div>
       </div>
 
-      <Card className="overflow-hidden rounded-lg shadow-sm">
-        <CardHeader className="border-b bg-muted/40">
+      <Card className="overflow-hidden rounded-lg py-0 shadow-sm">
+        <CardHeader className="border-b bg-muted/40 px-4 !pb-2 !pt-2">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <CardTitle className="flex items-center gap-2 text-base">
                 <LayoutGrid className="size-4 text-primary" />
-                Structure Setup
+                Class Fee Structure Setup
               </CardTitle>
-              <p className="mt-1 text-sm text-muted-foreground">
+              <p className="mt-0.5 text-sm text-muted-foreground">
                 Select a class context, turn on fee heads, then enter the amounts to save.
               </p>
             </div>
@@ -718,8 +762,23 @@ export function FeesStructuresPage() {
             )}
           </div>
         </CardHeader>
-        <CardContent className="space-y-6 p-4">
-          <div className="grid gap-4 rounded-lg border bg-muted/20 p-4 md:grid-cols-3">
+        <CardContent className="space-y-4 px-4 pb-2 pt-0">
+          <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200">
+            <Info className="mt-0.5 size-3.5 shrink-0" />
+            <div className="space-y-1">
+              <p className="font-medium">Before Updating Fee Structure</p>
+              <p>
+                Use this page to define amounts for the selected session, class, and group. Structure changes are safest before fee collection starts for the session.
+              </p>
+              <p>
+                <span className="font-medium">Important for One Time fees:</span> do not change a fee head to or from One Time after students have already paid,
+                partially paid, or received that charge. This can recreate dues or cause mismatches for existing students. If correction is needed, review affected
+                students before saving.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid gap-3 rounded-lg border bg-muted/20 p-3 md:grid-cols-3">
             <div className="space-y-2">
               <Label className="flex items-center gap-2">
                 <Calendar className="size-3.5 text-muted-foreground" />
@@ -782,15 +841,23 @@ export function FeesStructuresPage() {
                       filteredClassOptions.map((item) => {
                         const selected = classStructureForm.classIds.includes(item.id)
                         return (
-                          <button
+                          <div
                             key={item.id}
-                            type="button"
-                            className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm hover:bg-muted"
+                            role="option"
+                            aria-selected={selected}
+                            tabIndex={0}
+                            className="flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-left text-sm outline-none hover:bg-muted focus-visible:bg-muted"
                             onClick={() => toggleClassStructureClass(item.id)}
+                            onKeyDown={(event) => {
+                              if (event.key === 'Enter' || event.key === ' ') {
+                                event.preventDefault()
+                                toggleClassStructureClass(item.id)
+                              }
+                            }}
                           >
-                            <Checkbox checked={selected} aria-label={`Select ${item.name}`} />
+                            <Checkbox checked={selected} tabIndex={-1} aria-hidden="true" className="pointer-events-none" />
                             <span>{item.name}</span>
-                          </button>
+                          </div>
                         )
                       })
                     )}
@@ -835,13 +902,6 @@ export function FeesStructuresPage() {
             </div>
           </div>
 
-          <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200">
-            <Info className="mt-0.5 size-3.5 shrink-0" />
-            <p>
-              <span className="font-medium">Before saving:</span> define amounts for the selected session, class, and group.
-            </p>
-          </div>
-
           {classStructureForm.classIds.length === 0 ? (
             <div className="flex items-center gap-3 rounded-lg border border-dashed bg-muted/20 p-4 text-sm text-muted-foreground">
               <School className="size-4 shrink-0" />
@@ -852,25 +912,25 @@ export function FeesStructuresPage() {
             <Table>
               <TableHeader className="bg-muted/50">
                 <TableRow className="hover:bg-transparent">
-                  <TableHead className="h-11 w-[110px] px-4 text-xs font-semibold uppercase text-muted-foreground">
+                  <TableHead className="h-9 w-[90px] px-3 text-xs font-semibold uppercase text-muted-foreground">
                     <span className="flex items-center gap-2">
                       <CheckCircle2 className="size-3.5" />
                       Enable
                     </span>
                   </TableHead>
-                  <TableHead className="h-11 px-4 text-xs font-semibold uppercase text-muted-foreground">
+                  <TableHead className="h-9 px-3 text-xs font-semibold uppercase text-muted-foreground">
                     <span className="flex items-center gap-2">
                       <FileText className="size-3.5" />
                       Fee Head
                     </span>
                   </TableHead>
-                  <TableHead className="h-11 w-[150px] px-4 text-xs font-semibold uppercase text-muted-foreground">
+                  <TableHead className="h-9 w-[130px] px-3 text-xs font-semibold uppercase text-muted-foreground">
                     <span className="flex items-center gap-2">
                       <ListChecks className="size-3.5" />
                       Schedule
                     </span>
                   </TableHead>
-                  <TableHead className="h-11 w-[80px] px-4 text-right text-xs font-semibold uppercase text-muted-foreground">
+                  <TableHead className="h-9 w-[64px] px-3 text-right text-xs font-semibold uppercase text-muted-foreground">
                     <Settings2 className="ml-auto size-3.5" />
                   </TableHead>
                 </TableRow>
@@ -890,25 +950,25 @@ export function FeesStructuresPage() {
                     return (
                       <Fragment key={head.id}>
                         <TableRow className={cn('transition-colors', isSelected ? 'bg-primary/5 hover:bg-primary/10' : 'hover:bg-muted/40')}>
-                          <TableCell className="px-4 py-3">
+                          <TableCell className="px-3 py-1.5">
                             <Switch
                               checked={isSelected}
                               onCheckedChange={() => toggleClassStructureHead(head)}
                               disabled={classStructureForm.classIds.length === 0 || !classStructureForm.feeGroupId}
                             />
                           </TableCell>
-                          <TableCell className="px-4 py-3">
-                            <div className="flex items-start gap-3">
+                          <TableCell className="px-3 py-1.5">
+                            <div className="flex items-center gap-2">
                               <span className={cn(
-                                'flex size-9 shrink-0 items-center justify-center rounded-md',
+                                'flex size-7 shrink-0 items-center justify-center rounded-md',
                                 isSelected ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
                               )}>
-                                <FileText className="size-4" />
+                                <FileText className="size-3.5" />
                               </span>
                               <div>
-                                <div className="font-medium text-foreground">{head.name}</div>
-                                <div className="mt-1 flex flex-wrap items-center gap-2">
-                              <Badge className={FREQUENCY_BADGE_CLASSES[head.frequency]} variant="secondary">
+                                <div className="text-sm font-medium text-foreground">{head.name}</div>
+                                <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
+                              <Badge className={cn('h-5 px-2 text-xs', FREQUENCY_BADGE_CLASSES[head.frequency])} variant="secondary">
                                 {FREQUENCY_LABELS[head.frequency]}
                               </Badge>
                               {head.isOptional && <span className="text-xs text-muted-foreground">Optional</span>}
@@ -916,16 +976,16 @@ export function FeesStructuresPage() {
                               </div>
                             </div>
                           </TableCell>
-                          <TableCell className="px-4 py-3">
-                            <Badge variant={isSelected ? 'default' : 'secondary'} className={cn(!isSelected && 'bg-muted text-muted-foreground')}>
+                          <TableCell className="px-3 py-1.5">
+                            <Badge variant={isSelected ? 'default' : 'secondary'} className={cn('h-5 px-2 text-xs', !isSelected && 'bg-muted text-muted-foreground')}>
                               {isSelected ? `${rows.length} row${rows.length !== 1 ? 's' : ''}` : 'Off'}
                             </Badge>
                           </TableCell>
-                          <TableCell className="px-4 py-3 text-right">
+                          <TableCell className="px-3 py-1.5 text-right">
                             <Button
                               variant="outline"
                               size="icon"
-                              className="size-8"
+                              className="size-7"
                               disabled={!isSelected}
                               onClick={() => setExpandedHeadId(isExpanded ? '' : head.id)}
                               aria-label={`Configure ${head.name}`}
@@ -937,7 +997,7 @@ export function FeesStructuresPage() {
                         {isSelected && isExpanded && (
                           <TableRow key={`${head.id}-setup`} className="bg-muted/20 hover:bg-muted/20">
                             <TableCell colSpan={4}>
-                              <div className="space-y-4 rounded-lg border bg-background p-4 shadow-sm">
+                              <div className="space-y-3 rounded-lg border bg-background p-3 shadow-sm">
                                 <div className="flex flex-wrap items-center justify-between gap-3">
                                   <div className="flex flex-wrap items-center gap-2">
                                     <Badge variant="outline">{FREQUENCY_LABELS[head.frequency]}</Badge>
@@ -951,6 +1011,14 @@ export function FeesStructuresPage() {
                                       if (event.currentTarget.value) fillHeadAmounts(head.id, event.currentTarget.value)
                                     }}
                                   />
+                                  {canAutoFillDueDates(head.frequency) && (
+                                    <Input
+                                      type="date"
+                                      aria-label={`Auto fill due dates for ${head.name}`}
+                                      className="h-8 w-48"
+                                      onChange={(event) => fillHeadDueDates(head.id, event.currentTarget.value)}
+                                    />
+                                  )}
                                   <div className="flex items-center gap-2">
                                     {isCustomPeriodFrequency(head.frequency) && (
                                       <Button
@@ -966,13 +1034,20 @@ export function FeesStructuresPage() {
                                     )}
                                   </div>
                                 </div>
-                                <div className="space-y-2">
+                                <div className="overflow-x-auto">
+                                  <div className="min-w-[760px] space-y-1.5">
+                                    <div className="grid grid-cols-[120px_minmax(160px,1fr)_minmax(160px,1fr)_minmax(160px,1fr)_32px] gap-2 px-1 text-xs font-medium text-muted-foreground">
+                                      <span>Period</span>
+                                      <span>Amount</span>
+                                      <span>Due Date</span>
+                                      <span>Late Fee</span>
+                                      <span />
+                                    </div>
                                   {rows.map((row) => {
                                     const globalIdx = classStructureRows.indexOf(row)
                                     return (
-                                      <div key={`${row.feeHeadId}-${row.period}-${globalIdx}`} className="grid gap-3 rounded-md border bg-muted/10 p-3 md:grid-cols-[minmax(120px,1fr)_1fr_1fr_1fr_36px] md:items-end">
-                                        <div className="space-y-1">
-                                          <Label className="text-xs">Period</Label>
+                                      <div key={`${row.feeHeadId}-${row.period}-${globalIdx}`} className="grid grid-cols-[120px_minmax(160px,1fr)_minmax(160px,1fr)_minmax(160px,1fr)_32px] items-center gap-2">
+                                        <div>
                                           {isCustomPeriodFrequency(row.frequency) ? (
                                             <Input
                                               value={row.period}
@@ -985,8 +1060,7 @@ export function FeesStructuresPage() {
                                             </div>
                                           )}
                                         </div>
-                                        <div className="space-y-1">
-                                          <Label className="text-xs">Amount</Label>
+                                        <div>
                                           <Input
                                             type="number"
                                             placeholder="Amount"
@@ -995,8 +1069,7 @@ export function FeesStructuresPage() {
                                             className="h-8"
                                           />
                                         </div>
-                                        <div className="space-y-1">
-                                          <Label className="text-xs">Due Date</Label>
+                                        <div>
                                           <Input
                                             type="date"
                                             value={row.dueDate}
@@ -1004,8 +1077,7 @@ export function FeesStructuresPage() {
                                             className="h-8"
                                           />
                                         </div>
-                                        <div className="space-y-1">
-                                          <Label className="text-xs">Late Fee</Label>
+                                        <div>
                                           <Input
                                             type="number"
                                             placeholder="Late fee"
@@ -1018,7 +1090,7 @@ export function FeesStructuresPage() {
                                           type="button"
                                           variant="ghost"
                                           size="icon"
-                                          className="h-8 w-8 text-muted-foreground"
+                                          className="size-8 text-muted-foreground"
                                           onClick={() => removeClassStructurePeriodRow(globalIdx)}
                                           disabled={!isCustomPeriodFrequency(row.frequency)}
                                           aria-label="Remove period"
@@ -1028,6 +1100,7 @@ export function FeesStructuresPage() {
                                       </div>
                                     )
                                   })}
+                                  </div>
                                 </div>
                               </div>
                             </TableCell>
@@ -1074,11 +1147,11 @@ export function FeesStructuresPage() {
           action={{ label: 'Add Structure', onClick: () => setShowAdd(true) }}
         />
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-3">
           <Separator />
           <div className="flex items-center justify-between gap-3">
             <div>
-              <h2 className="text-lg font-semibold tracking-tight">Saved Fee Structures</h2>
+              <h2 className="text-lg font-semibold tracking-tight">Saved Class Fee Structures</h2>
               <p className="text-sm text-muted-foreground">
                 {filteredStructures.length} of {structures.length} fee structure{structures.length !== 1 ? 's' : ''} shown
               </p>
@@ -1420,7 +1493,7 @@ export function FeesStructuresPage() {
                           )}
                         >
                           <div className="flex items-center gap-3">
-                            <Checkbox checked={selected} aria-label={`Select ${head.name}`} />
+                            <Checkbox checked={selected} tabIndex={-1} aria-hidden="true" className="pointer-events-none" />
                             <div>
                               <div className="text-sm font-medium">{head.name}</div>
                               <div className="text-xs text-muted-foreground">

@@ -185,7 +185,8 @@ interface StudentData {
   class: { id: string; name: string } | null
   section: { id: string; name: string } | null
   admission: AdmissionData | null
-  sibling: SiblingInfo | null
+  sibling: SiblingInfo | null // legacy: kept for backwards compatibility
+  siblings?: SiblingInfo[]
   academicEnrollments?: Array<{
     id: string
     academicYear: string
@@ -538,10 +539,10 @@ export function StudentDetailPage() {
               <FileText className="size-4" />
               Documents
             </TabsTrigger>
-            {student.sibling && (
+            {(student.siblings?.length || 0) > 0 && (
               <TabsTrigger value="sibling" className="rounded-md px-3 py-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
                 <Heart className="size-4" />
-                Sibling
+                Siblings
               </TabsTrigger>
             )}
           </TabsList>
@@ -779,20 +780,24 @@ export function StudentDetailPage() {
           </SectionCard>
         </TabsContent>
 
-        {student.sibling && (
+        {(student.siblings?.length || 0) > 0 && (
           <TabsContent value="sibling" className="mt-0">
-            <SectionCard title="Sibling" icon={Heart}>
-              <div className="flex items-center gap-3 rounded-md border border-primary/20 bg-primary/10 p-3">
-                <div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-card text-primary shadow-sm">
-                  <Users className="size-5" />
-                </div>
-                <div className="min-w-0">
-                  <p className="font-medium">{student.sibling.firstName} {student.sibling.lastName}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {student.sibling.admissionNumber && <span className="font-mono mr-2">{student.sibling.admissionNumber}</span>}
-                    {student.sibling.className && <span>Class: {student.sibling.className}</span>}
-                  </p>
-                </div>
+            <SectionCard title={student.siblings!.length === 1 ? 'Sibling' : 'Siblings'} icon={Heart}>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {student.siblings!.map(sib => (
+                  <div key={sib.id} className="flex items-center gap-3 rounded-md border border-primary/20 bg-primary/10 p-3">
+                    <div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-card text-primary shadow-sm">
+                      <Users className="size-5" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-medium truncate">{sib.firstName} {sib.lastName}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {sib.admissionNumber && <span className="font-mono mr-2">{sib.admissionNumber}</span>}
+                        {sib.className && <span>Class: {sib.className}</span>}
+                      </p>
+                    </div>
+                  </div>
+                ))}
               </div>
             </SectionCard>
           </TabsContent>

@@ -41,6 +41,7 @@ import {
   BookOpenCheck,
   TrendingUp,
   Layers,
+  ListOrdered,
   ClipboardCheck,
   Shield,
   ShieldCheck,
@@ -121,7 +122,8 @@ export const MENUS: Record<string, MenuItem[]> = {
           children: [
             { label: 'Add Class', page: 'add-class', icon: PlusCircle },
             { label: 'Class List', page: 'classes', icon: Layers },
-            { label: 'Promote Class', page: 'promote-class', icon: TrendingUp },
+            { label: 'Promote Student', page: 'promote-student', icon: TrendingUp },
+            { label: 'Assign Roll No', page: 'assign-roll-numbers', icon: ListOrdered },
           ],
         },
         { label: 'Timetable', page: 'timetable', icon: Calendar },

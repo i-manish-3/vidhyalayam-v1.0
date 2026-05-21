@@ -61,13 +61,15 @@ const TransportPage = dynamic(() => import('@/features/transport/pages/transport
 const AddTransportRoutePage = dynamic(() => import('@/features/transport/pages/add-transport-route-page').then(mod => ({ default: mod.AddTransportRoutePage })), { ssr: false, loading: PageLoader })
 const EditTransportRoutePage = dynamic(() => import('@/features/transport/pages/edit-transport-route-page').then(mod => ({ default: mod.EditTransportRoutePage })), { ssr: false, loading: PageLoader })
 const AddDriverPage = dynamic(() => import('@/features/transport/pages/add-driver-page').then(mod => ({ default: mod.AddDriverPage })), { ssr: false, loading: PageLoader })
+const DriverDirectoryPage = dynamic(() => import('@/features/transport/pages/driver-directory-page').then(mod => ({ default: mod.DriverDirectoryPage })), { ssr: false, loading: PageLoader })
 const LibraryPage = dynamic(() => import('@/features/operations/pages/library-page').then(mod => ({ default: mod.LibraryPage })), { ssr: false, loading: PageLoader })
 const InventoryPage = dynamic(() => import('@/features/operations/pages/inventory-page').then(mod => ({ default: mod.InventoryPage })), { ssr: false, loading: PageLoader })
 const PettyCashPage = dynamic(() => import('@/features/operations/pages/petty-cash-page').then(mod => ({ default: mod.PettyCashPage })), { ssr: false, loading: PageLoader })
 const NotificationsPage = dynamic(() => import('@/features/communications/pages/notifications-page').then(mod => ({ default: mod.NotificationsPage })), { ssr: false, loading: PageLoader })
 const AnnouncementsPage = dynamic(() => import('@/features/communications/pages/announcements-page').then(mod => ({ default: mod.AnnouncementsPage })), { ssr: false, loading: PageLoader })
 const ClassesPage = dynamic(() => import('@/features/academics/pages/classes-page').then(mod => ({ default: mod.ClassesPage })), { ssr: false, loading: PageLoader })
-const PromoteClassPage = dynamic(() => import('@/features/academics/pages/promote-class-page').then(mod => ({ default: mod.PromoteClassPage })), { ssr: false, loading: PageLoader })
+const PromoteStudentPage = dynamic(() => import('@/features/academics/pages/promote-student-page').then(mod => ({ default: mod.PromoteStudentPage })), { ssr: false, loading: PageLoader })
+const AssignRollNumbersPage = dynamic(() => import('@/features/academics/pages/assign-roll-numbers-page').then(mod => ({ default: mod.AssignRollNumbersPage })), { ssr: false, loading: PageLoader })
 const SubjectsPage = dynamic(() => import('@/features/academics/pages/subjects-page').then(mod => ({ default: mod.SubjectsPage })), { ssr: false, loading: PageLoader })
 const AddSubjectPage = dynamic(() => import('@/features/academics/pages/add-subject-page').then(mod => ({ default: mod.AddSubjectPage })), { ssr: false, loading: PageLoader })
 const AddClassPage = dynamic(() => import('@/features/academics/pages/add-class-page').then(mod => ({ default: mod.AddClassPage })), { ssr: false, loading: PageLoader })
@@ -131,7 +133,8 @@ const PAGE_TITLES: Record<PageName, string> = {
   'notifications': 'Notifications',
   'announcements': 'Announcements',
   'classes': 'Classes',
-  'promote-class': 'Promote Class',
+  'promote-student': 'Promote Student',
+  'assign-roll-numbers': 'Assign Roll Numbers',
   'subjects': 'Subjects',
   'academic-years': 'Academic Years',
   'add-subject': 'Add Subject',
@@ -191,7 +194,7 @@ const PAGE_COMPONENTS: Partial<Record<PageName, React.ComponentType>> = {
   'transport': TransportPage,
   'add-transport-route': AddTransportRoutePage,
   'edit-transport-route': EditTransportRoutePage,
-  'drivers': TransportPage,
+  'drivers': DriverDirectoryPage,
   'add-driver': AddDriverPage,
   'library': LibraryPage,
   'inventory': InventoryPage,
@@ -199,7 +202,8 @@ const PAGE_COMPONENTS: Partial<Record<PageName, React.ComponentType>> = {
   'notifications': NotificationsPage,
   'announcements': AnnouncementsPage,
   'classes': ClassesPage,
-  'promote-class': PromoteClassPage,
+  'promote-student': PromoteStudentPage,
+  'assign-roll-numbers': AssignRollNumbersPage,
   'subjects': SubjectsPage,
   'academic-years': AcademicYearsPage,
   'add-subject': AddSubjectPage,
@@ -278,7 +282,8 @@ const SEARCH_ITEMS: { label: string; page: PageName; keywords: string[] }[] = [
   { label: 'Notifications', page: 'notifications', keywords: ['alert', 'message', 'reminder'] },
   { label: 'Announcements', page: 'announcements', keywords: ['notice', 'broadcast', 'news'] },
   { label: 'Classes', page: 'classes', keywords: ['grade', 'standard', 'section'] },
-  { label: 'Promote Class', page: 'promote-class', keywords: ['promotion', 'promote students', 'session promotion', 'class promote'] },
+  { label: 'Promote Student', page: 'promote-student', keywords: ['promotion', 'promote students', 'session promotion', 'student promote'] },
+  { label: 'Assign Roll Numbers', page: 'assign-roll-numbers', keywords: ['roll number', 'roll no', 'assign roll', 'alphabetical', 'class roll'] },
   { label: 'Subjects', page: 'subjects', keywords: ['course', 'discipline', 'math', 'science'] },
   { label: 'Academic Years', page: 'academic-years', keywords: ['session', 'year', 'current year', 'school year'] },
   { label: 'Add Subject', page: 'add-subject', keywords: ['new subject', 'create subject', 'add course'] },

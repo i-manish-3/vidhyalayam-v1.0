@@ -165,9 +165,35 @@ export async function GET(
       return apiError(403, 'This student\'s account has been disabled by the school. Please contact the school administration for more information.')
     }
 
-    // Fetch sibling data if exists
-    let sibling: { id: string; firstName: string; lastName: string; admissionNumber: string | null; className: string | null } | null = null
-    if (student.admission?.siblingId || student.siblingId) {
+    // Fetch siblings via shared familyId. We fall back to the legacy
+    // siblingId pointer only when familyId is missing (pre-backfill data),
+    // so existing single-pointer links don't silently disappear.
+    type SiblingInfo = { id: string; firstName: string; lastName: string; admissionNumber: string | null; className: string | null }
+    let siblings: SiblingInfo[] = []
+    if (student.familyId) {
+      const rows = await db.student.findMany({
+        where: {
+          familyId: student.familyId,
+          id: { not: student.id },
+          deletedAt: null,
+        },
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          admissionNumber: true,
+          class: { select: { name: true } },
+        },
+        orderBy: { admissionNumber: 'asc' },
+      })
+      siblings = rows.map(r => ({
+        id: r.id,
+        firstName: r.firstName,
+        lastName: r.lastName,
+        admissionNumber: r.admissionNumber,
+        className: r.class?.name || null,
+      }))
+    } else {
       const sibId = student.admission?.siblingId || student.siblingId
       if (sibId) {
         const sib = await db.student.findUnique({
@@ -181,20 +207,21 @@ export async function GET(
           },
         })
         if (sib) {
-          sibling = {
+          siblings = [{
             id: sib.id,
             firstName: sib.firstName,
             lastName: sib.lastName,
             admissionNumber: sib.admissionNumber,
             className: sib.class?.name || null,
-          }
+          }]
         }
       }
     }
 
     return NextResponse.json({
       ...student,
-      sibling,
+      siblings,
+      sibling: siblings[0] || null, // legacy field for any frontend not yet updated
     })
   } catch (error) {
     console.error('Get student error:', error)

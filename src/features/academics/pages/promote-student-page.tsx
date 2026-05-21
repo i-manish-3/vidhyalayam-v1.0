@@ -69,7 +69,7 @@ function fatherName(student: StudentRow) {
   return student.parentLinks?.find((link) => link.parent?.fatherName)?.parent?.fatherName || '-'
 }
 
-export function PromoteClassPage() {
+export function PromoteStudentPage() {
   const { toast } = useToast()
   const { goBack, navigateTo, currentSchool } = useAppStore()
   const defaultYear = currentSchool?.academicYear || getCurrentAcademicYear()
@@ -238,7 +238,7 @@ export function PromoteClassPage() {
         }
       )
       toast({
-        title: promotionType === 'alumni' ? 'Students Moved To Alumni' : 'Class Promoted',
+        title: promotionType === 'alumni' ? 'Students Moved To Alumni' : 'Students Promoted',
         description: result.message || `${result.promotedCount || selectedIds.length} student(s) updated successfully.`,
       })
       setConfirmOpen(false)
@@ -261,7 +261,7 @@ export function PromoteClassPage() {
           <ArrowLeft className="size-4" />
         </Button>
         <div>
-          <h1 className="text-lg font-semibold tracking-tight">Promote Student Class</h1>
+          <h1 className="text-lg font-semibold tracking-tight">Promote Student</h1>
           <p className="text-sm text-muted-foreground">Follow the checklist and submit when ready.</p>
         </div>
       </div>
@@ -302,7 +302,7 @@ export function PromoteClassPage() {
             </CardTitle>
             <div className="flex flex-wrap gap-1.5">
               <Badge variant="outline" className="h-5 rounded-md px-1.5 text-[11px] leading-none">{fromAcademicYear || 'Current session'}</Badge>
-              <Badge variant="secondary" className="h-5 rounded-md px-1.5 text-[11px] leading-none">{promotionType === 'alumni' ? 'Alumni promote' : 'Class promote'}</Badge>
+              <Badge variant="secondary" className="h-5 rounded-md px-1.5 text-[11px] leading-none">{promotionType === 'alumni' ? 'Alumni promote' : 'Student promote'}</Badge>
             </div>
           </div>
         </CardHeader>
@@ -373,7 +373,7 @@ export function PromoteClassPage() {
                 <Select value={promotionType} onValueChange={(value: 'class' | 'alumni') => setPromotionType(value)}>
                   <SelectTrigger className="w-full bg-background"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="class">Class Promote</SelectItem>
+                    <SelectItem value="class">Student Promote</SelectItem>
                     <SelectItem value="alumni">Alumni Promote</SelectItem>
                   </SelectContent>
                 </Select>
@@ -496,7 +496,7 @@ export function PromoteClassPage() {
                     <TableHead>Previous Session</TableHead>
                     <TableHead>Promote Session</TableHead>
                     <TableHead>Previous Class / Section</TableHead>
-                    <TableHead>Promote Class / Section</TableHead>
+                    <TableHead>New Class / Section</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -552,7 +552,7 @@ export function PromoteClassPage() {
           <div className="rounded-md border bg-muted/30 p-3 text-sm">
             <div className="grid gap-2 sm:grid-cols-2">
               <div><span className="text-muted-foreground">Students:</span> <strong>{selectedStudents.length}</strong></div>
-              <div><span className="text-muted-foreground">Type:</span> <strong>{promotionType === 'alumni' ? 'Alumni Promote' : 'Class Promote'}</strong></div>
+              <div><span className="text-muted-foreground">Type:</span> <strong>{promotionType === 'alumni' ? 'Alumni Promote' : 'Student Promote'}</strong></div>
               <div><span className="text-muted-foreground">From:</span> <strong>{fromAcademicYear} - {fromClass?.name || '-'}{fromSection ? ` / ${fromSection.name}` : fromSectionId === 'all' ? ' / All Sections' : ''}</strong></div>
               <div><span className="text-muted-foreground">To:</span> <strong>{promotionType === 'alumni' ? 'Alumni' : `${toAcademicYear} - ${toClass?.name || '-'}`}</strong></div>
             </div>

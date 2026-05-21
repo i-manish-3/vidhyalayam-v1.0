@@ -256,7 +256,8 @@ model Student {
   previousClass     String? // Last attended class
   previousResult    String? // Pass/Fail/Percentage
   transferCertNo    String? // TC issued by this school
-  siblingId         String? // Link to sibling student
+  siblingId         String? // Link to sibling student (historical breadcrumb; family group lives in familyId)
+  familyId          String? // Shared id across all members of one family
   admissionStatus   String    @default("admitted") // admitted, promoted, detained, transferred, alumni, withdrawn
   isActive          Boolean   @default(true)
   createdAt         DateTime  @default(now())
@@ -283,6 +284,7 @@ model Student {
   @@index([sectionId])
   @@index([admissionNumber])
   @@index([admissionStatus])
+  @@index([familyId])
 }
 
 model StudentAcademicEnrollment {
@@ -430,7 +432,8 @@ model Admission {
 
   // Family
   annualIncome Float?
-  siblingId    String? // Sibling already in school
+  siblingId    String? // Sibling already in school (historical breadcrumb; family group lives in familyId)
+  familyId     String? // Shared id across all members of one family
 
   // Parent address
   sameAddressAsStudent Boolean @default(true)
@@ -469,6 +472,7 @@ model Admission {
   @@index([status])
   @@index([admissionNumber])
   @@index([classId])
+  @@index([familyId])
 }
 
 model AdmissionDocument {

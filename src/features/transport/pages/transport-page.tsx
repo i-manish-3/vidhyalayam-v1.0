@@ -5,13 +5,16 @@ import { PageHeader, EmptyState, LoadingState } from '@/components/shared'
 import { api } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
 import { useAppStore } from '@/lib/store'
+import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { PlusCircle, Bus, MapPin, User, MoreVertical, Pencil, Trash2, Search, X, Route as RouteIcon, Users, ArrowRight, CheckCircle2, CircleOff, Wallet } from 'lucide-react'
+import { PlusCircle, Bus, User, MoreVertical, Pencil, Trash2, Search, X, CheckCircle2, CircleOff } from 'lucide-react'
 
 interface TransportRoute {
   id: string
@@ -19,8 +22,6 @@ interface TransportRoute {
   routeNumber: string | null
   academicYear: string
   feeMonths: string
-  startPoint: string | null
-  endPoint: string | null
   stops: string | null
   distance: number | null
   driverName: string | null
@@ -37,19 +38,32 @@ interface TransportStop {
   fare?: number
 }
 
+interface TransportDriver {
+  id: string
+  name: string
+  phone: string | null
+  avatar?: string | null
+}
+
 export function TransportPage() {
   const { toast } = useToast()
-  const { navigateTo, setSelectedTransportRouteId } = useAppStore()
+  const { goBack, navigateTo, setSelectedTransportRouteId } = useAppStore()
   const [routes, setRoutes] = useState<TransportRoute[]>([])
+  const [drivers, setDrivers] = useState<TransportDriver[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
+  const [selectedRoute, setSelectedRoute] = useState<TransportRoute | null>(null)
   const [deleteRoute, setDeleteRoute] = useState<TransportRoute | null>(null)
   const [deleting, setDeleting] = useState(false)
 
   const fetchData = useCallback(async () => {
     try {
-      const res = await api.get<{ routes: TransportRoute[] }>('/api/school/transport/routes')
-      setRoutes(res.routes || [])
+      const [routesRes, driversRes] = await Promise.all([
+        api.get<{ routes: TransportRoute[] }>('/api/school/transport/routes'),
+        api.get<{ drivers: TransportDriver[] }>('/api/school/transport/drivers').catch(() => ({ drivers: [] })),
+      ])
+      setRoutes(routesRes.routes || [])
+      setDrivers(driversRes.drivers || [])
     } catch {
       toast({ title: "Couldn't Load Routes", description: "We couldn't load the transport routes. Please refresh the page.", variant: 'destructive' })
     } finally {
@@ -86,6 +100,19 @@ export function TransportPage() {
 
   const formatCurrency = (value: number | null | undefined) =>
     `Rs. ${(Number(value) || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`
+
+  const driverInitials = (name: string | null | undefined) => {
+    const parts = (name || 'Driver').trim().split(/\s+/).filter(Boolean)
+    return parts.slice(0, 2).map((part) => part[0]?.toUpperCase()).join('') || 'D'
+  }
+
+  const findDriver = (route: TransportRoute) =>
+    drivers.find((driver) =>
+      driver.name === route.driverName && (!route.driverPhone || driver.phone === route.driverPhone)
+    )
+
+  const sortedStopsByFare = (route: TransportRoute | null) =>
+    parseStops(route?.stops).sort((a, b) => Number(a.fare || 0) - Number(b.fare || 0))
 
   const parseFeeMonths = (value: string | null | undefined): string[] => {
     if (!value) return []
@@ -127,20 +154,11 @@ export function TransportPage() {
       (r.vehicleNumber && r.vehicleNumber.toLowerCase().includes(q)) ||
       (r.academicYear && r.academicYear.toLowerCase().includes(q)) ||
       parseFeeMonths(r.feeMonths).some(month => month.toLowerCase().includes(q)) ||
-      (r.startPoint && r.startPoint.toLowerCase().includes(q)) ||
-      (r.endPoint && r.endPoint.toLowerCase().includes(q)) ||
       parseStops(r.stops).some(stop =>
         stop.name.toLowerCase().includes(q) ||
         (stop.fare != null && String(stop.fare).includes(q))
       )
   })
-
-  const activeCount = routes.filter(r => r.isActive !== false).length
-  const inactiveCount = routes.length - activeCount
-  const totalAllocations = routes.reduce((sum, route) => sum + (route._count?.allocations || 0), 0)
-  const averageFee = routes.length
-    ? Math.round(routes.reduce((sum, route) => sum + (Number(route.fee) || 0), 0) / routes.length)
-    : 0
 
   if (loading) return <LoadingState />
 
@@ -149,51 +167,9 @@ export function TransportPage() {
       <PageHeader
         title="Transport Routes"
         description={`${routes.length} route${routes.length !== 1 ? 's' : ''} in the transport network`}
+        backAction={{ onClick: () => goBack('dashboard') }}
         action={{ label: 'Add Route', icon: PlusCircle, onClick: () => navigateTo('add-transport-route') }}
       />
-
-      {routes.length > 0 && (
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <div className="rounded-lg border bg-card p-4">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-xs font-medium uppercase text-muted-foreground">Active Routes</p>
-                <p className="mt-1 text-2xl font-semibold">{activeCount}</p>
-              </div>
-              <div className="flex size-10 items-center justify-center rounded-md bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">
-                <RouteIcon className="size-5" />
-              </div>
-            </div>
-            <p className="mt-2 text-xs text-muted-foreground">{inactiveCount} inactive</p>
-          </div>
-
-          <div className="rounded-lg border bg-card p-4">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-xs font-medium uppercase text-muted-foreground">Students Assigned</p>
-                <p className="mt-1 text-2xl font-semibold">{totalAllocations}</p>
-              </div>
-              <div className="flex size-10 items-center justify-center rounded-md bg-sky-100 text-sky-700 dark:bg-sky-950/50 dark:text-sky-300">
-                <Users className="size-5" />
-              </div>
-            </div>
-            <p className="mt-2 text-xs text-muted-foreground">Active student route assignments</p>
-          </div>
-
-          <div className="rounded-lg border bg-card p-4">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-xs font-medium uppercase text-muted-foreground">Average Fee</p>
-                <p className="mt-1 text-2xl font-semibold">{formatCurrency(averageFee)}</p>
-              </div>
-              <div className="flex size-10 items-center justify-center rounded-md bg-violet-100 text-violet-700 dark:bg-violet-950/50 dark:text-violet-300">
-                <Wallet className="size-5" />
-              </div>
-            </div>
-            <p className="mt-2 text-xs text-muted-foreground">Academic year route fare</p>
-          </div>
-        </div>
-      )}
 
       {routes.length === 0 ? (
         <EmptyState
@@ -249,7 +225,6 @@ export function TransportPage() {
                   <TableHead className="min-w-[320px] px-4">Route</TableHead>
                   <TableHead className="min-w-[220px]">Driver</TableHead>
                   <TableHead className="min-w-[180px]">Fee Year</TableHead>
-                  <TableHead className="min-w-[130px]">Fare</TableHead>
                   <TableHead className="min-w-[120px]">Status</TableHead>
                   <TableHead className="w-[52px]" />
                 </TableRow>
@@ -259,9 +234,17 @@ export function TransportPage() {
                   const stopsList = parseStops(route.stops)
                   const isInactive = route.isActive === false
                   const feeMonths = parseFeeMonths(route.feeMonths)
+                  const driver = findDriver(route)
 
                   return (
-                    <TableRow key={route.id} className={isInactive ? 'bg-muted/20 opacity-75' : ''}>
+                    <TableRow
+                      key={route.id}
+                      className={cn(
+                        'cursor-pointer',
+                        isInactive ? 'bg-muted/20 opacity-75' : ''
+                      )}
+                      onClick={() => setSelectedRoute(route)}
+                    >
                       <TableCell className="px-4 py-4 align-top whitespace-normal">
                         <div className="flex min-w-0 gap-3">
                           <div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">
@@ -277,24 +260,13 @@ export function TransportPage() {
                                 <Badge variant="secondary" className="text-[11px]">{route.distance} km</Badge>
                               )}
                             </div>
-
-                            <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-                              <MapPin className="size-3.5 shrink-0" />
-                              <span>{route.startPoint || 'Start not set'}</span>
-                              <ArrowRight className="size-3.5 shrink-0 text-muted-foreground/60" />
-                              <span>{route.endPoint || 'End not set'}</span>
-                            </div>
-
                             {stopsList.length > 0 && (
                               <div className="flex flex-wrap gap-1.5">
-                                {stopsList.slice(0, 4).map((stop, i) => (
+                                {stopsList.map((stop, i) => (
                                   <Badge key={`${route.id}-stop-${i}`} variant="outline" className="max-w-[160px] truncate text-[11px]">
-                                    {stop.name}{stop.fare != null ? `: ${formatCurrency(stop.fare)}` : ''}
+                                    {stop.name}
                                   </Badge>
                                 ))}
-                                {stopsList.length > 4 && (
-                                  <Badge variant="secondary" className="text-[11px]">+{stopsList.length - 4} more</Badge>
-                                )}
                               </div>
                             )}
                           </div>
@@ -302,17 +274,24 @@ export function TransportPage() {
                       </TableCell>
 
                       <TableCell className="py-4 align-top whitespace-normal">
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2 text-sm font-medium">
-                            <User className="size-4 shrink-0 text-muted-foreground" />
-                            <span>{route.driverName || 'Not assigned'}</span>
+                        <div className="flex items-start gap-3">
+                          <Avatar className="size-9 border">
+                            {driver?.avatar ? <AvatarImage src={driver.avatar} alt={route.driverName || 'Driver'} /> : null}
+                            <AvatarFallback className="text-xs font-semibold">
+                              {route.driverName ? driverInitials(route.driverName) : <User className="size-4 text-muted-foreground" />}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="min-w-0 space-y-1">
+                            <div className="truncate text-sm font-medium">
+                              {route.driverName || 'Not assigned'}
+                            </div>
+                            {route.driverPhone && (
+                              <p className="text-xs text-muted-foreground">{route.driverPhone}</p>
+                            )}
+                            {route.vehicleNumber && (
+                              <p className="text-xs font-medium text-muted-foreground">{route.vehicleNumber}</p>
+                            )}
                           </div>
-                          {route.driverPhone && (
-                            <p className="pl-6 text-xs text-muted-foreground">{route.driverPhone}</p>
-                          )}
-                          {route.vehicleNumber && (
-                            <p className="pl-6 text-xs font-medium text-muted-foreground">{route.vehicleNumber}</p>
-                          )}
                         </div>
                       </TableCell>
 
@@ -337,13 +316,6 @@ export function TransportPage() {
                       </TableCell>
 
                       <TableCell className="py-4 align-top">
-                        <div className="space-y-1">
-                          <p className="font-semibold">{formatCurrency(route.fee)}</p>
-                          <p className="text-xs text-muted-foreground">for academic year</p>
-                        </div>
-                      </TableCell>
-
-                      <TableCell className="py-4 align-top">
                         {isInactive ? (
                           <Badge variant="secondary" className="gap-1.5 text-muted-foreground">
                             <CircleOff className="size-3" />
@@ -360,19 +332,30 @@ export function TransportPage() {
                       <TableCell className="py-4 align-top">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="size-8">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="size-8"
+                              onClick={(event) => event.stopPropagation()}
+                            >
                               <MoreVertical className="size-4" />
                               <span className="sr-only">Open route actions</span>
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-36">
-                            <DropdownMenuItem onClick={() => handleEdit(route)}>
+                            <DropdownMenuItem onClick={(event) => {
+                              event.stopPropagation()
+                              handleEdit(route)
+                            }}>
                               <Pencil className="mr-2 size-3.5" />
                               Edit
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
-                              onClick={() => setDeleteRoute(route)}
+                              onClick={(event) => {
+                                event.stopPropagation()
+                                setDeleteRoute(route)
+                              }}
                               className="text-destructive focus:text-destructive"
                             >
                               <Trash2 className="mr-2 size-3.5" />
@@ -389,6 +372,46 @@ export function TransportPage() {
           )}
         </div>
       )}
+
+      <Dialog open={!!selectedRoute} onOpenChange={(open) => { if (!open) setSelectedRoute(null) }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{selectedRoute?.routeName || 'Route Details'}</DialogTitle>
+          </DialogHeader>
+          {selectedRoute && (
+            <div className="space-y-4">
+              <div className="flex flex-wrap gap-2">
+                {selectedRoute.routeNumber && <Badge variant="outline">#{selectedRoute.routeNumber}</Badge>}
+                <Badge variant="secondary">{selectedRoute.academicYear || 'Academic year not set'}</Badge>
+              </div>
+              {sortedStopsByFare(selectedRoute).length === 0 ? (
+                <div className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
+                  No stops added for this route.
+                </div>
+              ) : (
+                <div className="overflow-hidden rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-muted/40 hover:bg-muted/40">
+                        <TableHead>Stop Name</TableHead>
+                        <TableHead className="text-right">Fare</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {sortedStopsByFare(selectedRoute).map((stop, index) => (
+                        <TableRow key={`${selectedRoute.id}-modal-stop-${index}`}>
+                          <TableCell className="font-medium">{stop.name}</TableCell>
+                          <TableCell className="text-right">{formatCurrency(stop.fare || 0)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={!!deleteRoute} onOpenChange={(open) => { if (!open) setDeleteRoute(null) }}>
         <AlertDialogContent>

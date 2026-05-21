@@ -5,12 +5,7 @@ import { hashPassword } from '@/lib/auth'
 import { apiError, forbiddenError, internalError, unauthorizedError } from '@/lib/api-errors'
 import { assignUserToRoleByName } from '@/lib/rbac'
 
-function generateDefaultPassword(): string {
-  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789'
-  const randomValues = new Uint32Array(10)
-  crypto.getRandomValues(randomValues)
-  return Array.from(randomValues, (value) => alphabet[value % alphabet.length]).join('')
-}
+const DEFAULT_DRIVER_PASSWORD = 'driver123'
 
 function localDriverEmail(phone: string, schoolId: string): string {
   const digits = phone.replace(/\D/g, '').slice(-10)
@@ -131,7 +126,7 @@ export async function POST(request: NextRequest) {
       return apiError(400, 'A driver with this driving license number already exists.')
     }
 
-    const defaultPassword = generateDefaultPassword()
+    const defaultPassword = DEFAULT_DRIVER_PASSWORD
     const hashedPassword = await hashPassword(defaultPassword)
     let email = localDriverEmail(phone, user.schoolId)
     const existingEmail = await db.user.findUnique({ where: { email } })
@@ -169,7 +164,6 @@ export async function POST(request: NextRequest) {
         phone: driver.phone,
         dob: driver.dob,
         drivingLicenseNumber: driver.drivingLicenseNumber,
-        defaultPassword,
         message: `"${driver.name}" has been added as a transport driver.`,
       },
       { status: 201 }

@@ -25,7 +25,8 @@ const MODULE_PERMISSION_MAP: Record<string, string[]> = {
 
   // Academic
   'classes': ['class:read', 'class:create'],
-  'promote-class': ['class:read', 'student:update', 'admission:update'],
+  'promote-student': ['class:read', 'student:update', 'admission:update'],
+  'assign-roll-numbers': ['class:read', 'student:update'],
   'subjects': ['subject:read', 'subject:create'],
   'academic-years': ['settings:read', 'settings:update'],
   'add-subject': ['subject:read', 'subject:create'],

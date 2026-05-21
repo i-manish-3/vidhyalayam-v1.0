@@ -21,6 +21,7 @@ import {
   CalendarOff,
   Save,
   ClipboardCheck,
+  ClipboardList,
   CalendarDays,
   Users,
   MessageSquare,
@@ -154,6 +155,7 @@ function getInitials(firstName: string, lastName: string): string {
 export function AttendancePage() {
   const { toast } = useToast()
   const goBack = useAppStore((s) => s.goBack)
+  const setCurrentPage = useAppStore((s) => s.setCurrentPage)
   const currentSchoolAcademicYear = useAppStore((s) => s.currentSchool?.academicYear)
 
   // Filter state
@@ -403,21 +405,25 @@ export function AttendancePage() {
   if (initialLoad) return <LoadingState />
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-3">
       {/* ── Page Header ──────────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-start gap-3">
-          <Button variant="outline" size="icon" onClick={() => goBack('dashboard')} className="mt-0.5 size-9 shrink-0">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <div className="flex items-center gap-3">
+          <Button variant="outline" size="icon" onClick={() => goBack('dashboard')} className="size-9 shrink-0">
             <ArrowLeft className="size-4" />
           </Button>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">Mark Attendance</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Record daily student attendance — Present, Absent, or Leave
-          </p>
+            <h1 className="text-xl font-bold tracking-tight leading-tight">Mark Attendance</h1>
+            <p className="text-xs text-muted-foreground">
+              Record daily student attendance — Present, Absent, or Leave
+            </p>
+          </div>
         </div>
-        </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button variant="outline" size="sm" className="gap-1.5 h-9" onClick={() => setCurrentPage('view-attendance')}>
+            <ClipboardList className="size-4" />
+            View Attendance
+          </Button>
           {isFinalized && (
             <Badge className="gap-1.5 h-9 px-3 bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100">
               <ShieldCheck className="size-4" />

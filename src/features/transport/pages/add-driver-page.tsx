@@ -9,12 +9,11 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { ArrowLeft, Bus, Calendar, Clipboard, IdCard, Loader2, Phone, Upload, UserCheck, UserPlus } from 'lucide-react'
+import { ArrowLeft, Bus, Calendar, IdCard, Loader2, Phone, Upload, UserCheck, UserPlus } from 'lucide-react'
 
 interface CreatedDriver {
   name: string
   phone: string
-  defaultPassword: string
 }
 
 export function AddDriverPage() {
@@ -28,7 +27,6 @@ export function AddDriverPage() {
   const [phone, setPhone] = useState('')
   const [photo, setPhoto] = useState('')
   const [photoError, setPhotoError] = useState('')
-  const [createdDriver, setCreatedDriver] = useState<CreatedDriver | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
   const isFormValid = name.trim() && dob && drivingLicenseNumber.trim() && phone.trim() && !submitting
@@ -68,10 +66,9 @@ export function AddDriverPage() {
         photo: photo || undefined,
       })
 
-      setCreatedDriver(res)
       toast({
         title: 'Driver Added',
-        description: `"${res.name}" can now log in with the generated password.`,
+        description: `"${res.name}" has been created successfully.`,
       })
 
       setName('')
@@ -80,6 +77,7 @@ export function AddDriverPage() {
       setPhone('')
       setPhoto('')
       setPhotoError('')
+      navigateTo('drivers')
     } catch (err) {
       toast({
         title: "Couldn't Add Driver",
@@ -91,27 +89,21 @@ export function AddDriverPage() {
     }
   }
 
-  const copyPassword = async () => {
-    if (!createdDriver?.defaultPassword) return
-    await navigator.clipboard.writeText(createdDriver.defaultPassword)
-    toast({ title: 'Password Copied', description: 'Share it with the driver for first login.' })
-  }
-
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <Button
-            variant="ghost"
+            variant="outline"
             size="icon"
-            className="size-9 shrink-0"
+            className="mt-0.5 size-9 shrink-0"
             onClick={() => goBack('transport')}
             disabled={submitting}
           >
             <ArrowLeft className="size-4" />
           </Button>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">Add Driver</h1>
+            <h1 className="text-xl font-bold tracking-tight">Add Driver</h1>
             <p className="text-sm text-muted-foreground mt-0.5">Create a transport driver account</p>
           </div>
         </div>
@@ -126,28 +118,6 @@ export function AddDriverPage() {
           Driver Directory
         </Button>
       </div>
-
-      {createdDriver && (
-        <Card className="border-emerald-200 bg-emerald-50/70 dark:border-emerald-900 dark:bg-emerald-950/20">
-          <CardContent className="p-4">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-sm font-semibold">{createdDriver.name} was added successfully</p>
-                <p className="text-xs text-muted-foreground">Login phone: {createdDriver.phone}</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <code className="rounded-md bg-background px-3 py-2 text-sm font-semibold">
-                  {createdDriver.defaultPassword}
-                </code>
-                <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={copyPassword}>
-                  <Clipboard className="size-3.5" />
-                  Copy
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       <Card>
         <CardHeader>

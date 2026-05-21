@@ -257,6 +257,14 @@ export function EditTransportRoutePage() {
     setStops((current) => current.filter((_, itemIndex) => itemIndex !== index))
   }
 
+  const updateStop = (index: number, field: keyof RouteStop, value: string) => {
+    setStops((current) =>
+      current.map((stop, itemIndex) => (
+        itemIndex === index ? { ...stop, [field]: value } : stop
+      ))
+    )
+  }
+
   const handleStopKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'Enter') {
       event.preventDefault()
@@ -489,20 +497,37 @@ export function EditTransportRoutePage() {
               </div>
 
               {stops.length > 0 && (
-                <div className="flex flex-wrap gap-2">
+                <div className="space-y-2 rounded-lg border bg-muted/20 p-3">
                   {stops.map((stop, index) => (
-                    <Badge key={`${stop.name}-${index}`} variant="secondary" className="gap-1.5 px-3 py-1.5 text-sm">
-                      <MapPin className="size-3" />
-                      {stop.name}: {stop.fare}
-                      <button
+                    <div key={`${stop.name}-${index}`} className="grid grid-cols-1 gap-2 md:grid-cols-[1fr_160px_40px]">
+                      <div className="relative">
+                        <MapPin className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                        <Input
+                          value={stop.name}
+                          onChange={(event) => updateStop(index, 'name', event.target.value)}
+                          placeholder="Stop name"
+                          className="h-9 pl-9"
+                        />
+                      </div>
+                      <Input
+                        type="number"
+                        min="0"
+                        value={stop.fare}
+                        onChange={(event) => updateStop(index, 'fare', event.target.value)}
+                        placeholder="Fare"
+                        className="h-9"
+                      />
+                      <Button
                         type="button"
-                        className="ml-0.5 rounded-full p-0.5 transition-colors hover:bg-muted-foreground/20"
+                        variant="outline"
+                        size="icon"
+                        className="size-9"
                         onClick={() => removeStop(index)}
                         aria-label={`Remove stop ${stop.name}`}
                       >
-                        <X className="size-3" />
-                      </button>
-                    </Badge>
+                        <X className="size-4" />
+                      </Button>
+                    </div>
                   ))}
                 </div>
               )}

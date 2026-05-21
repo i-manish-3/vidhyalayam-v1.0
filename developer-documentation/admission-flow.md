@@ -313,6 +313,25 @@ The relationship is:
 Student -> StudentParent -> Parent
 ```
 
+## 11a. Family Grouping (`familyId`)
+
+Sibling relationships are represented by a **shared `familyId`** on every member of the family. Both `Student.familyId` and `Admission.familyId` are populated on admission submit:
+
+- If the admin selected a sibling at admission time (`body.siblingId` is present), the new student adopts the sibling's `familyId`. If the sibling has none (pre-backfill data), one is minted and written back to the sibling's row inside the same Prisma transaction before the new student is created.
+- If no sibling is selected, a fresh `familyId` is minted — a "family of one." This makes future linking trivial: any second child admitted later will adopt this id when the admin picks the first child as their sibling.
+
+Reading siblings is then a single query:
+
+```ts
+db.student.findMany({
+  where: { familyId: student.familyId, id: { not: student.id }, deletedAt: null }
+})
+```
+
+The legacy `Student.siblingId` / `Admission.siblingId` fields are kept as a breadcrumb (they record which sibling the admin picked at admission time) but no longer drive the read path. The "Siblings" tab on the student detail page renders every family member, regardless of which admission was created first.
+
+A one-time backfill (`scripts/backfill-family-id.ts`) walks every existing `Student.siblingId` chain via union-find and assigns each connected component a shared `familyId`. The script is idempotent.
+
 ## 12. Parent Login User
 
 The system creates or reuses a parent login account.
@@ -450,9 +469,13 @@ Sidebar click
   -> backend validates again
   -> generate admission number
   -> Prisma transaction:
-       create Admission
-       create Student
+       resolve familyId
+         if body.siblingId: adopt sibling.familyId (mint + backfill if missing)
+         else: mint a fresh familyId (family of one)
+       create Admission (with familyId)
+       create Student (with familyId)
        link Admission to Student
+       create StudentAcademicEnrollment
        create Parent records
        create StudentParent links
        create or reuse Parent User

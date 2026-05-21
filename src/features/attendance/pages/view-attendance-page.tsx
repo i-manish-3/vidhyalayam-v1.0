@@ -20,6 +20,7 @@ import {
   X,
   CalendarOff,
   ClipboardList,
+  ClipboardCheck,
   Search,
   CalendarDays,
   MessageSquare,
@@ -28,6 +29,7 @@ import {
   ChevronRight,
   BarChart3,
   UserCheck,
+  ArrowLeft,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -143,6 +145,8 @@ function getInitials(firstName: string, lastName: string): string {
 export function ViewAttendancePage() {
   const { toast } = useToast()
   const currentSchoolAcademicYear = useAppStore((s) => s.currentSchool?.academicYear)
+  const goBack = useAppStore((s) => s.goBack)
+  const setCurrentPage = useAppStore((s) => s.setCurrentPage)
 
   // Filter state
   const [academicYear, setAcademicYear] = useState(currentSchoolAcademicYear || getCurrentAcademicYear())
@@ -263,19 +267,30 @@ export function ViewAttendancePage() {
   if (initialLoad) return <LoadingState />
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-3">
       {/* ── Page Header ──────────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">View Attendance</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Review and analyze daily student attendance records
-          </p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <div className="flex items-center gap-3">
+          <Button variant="outline" size="icon" onClick={() => goBack('dashboard')} className="size-9 shrink-0">
+            <ArrowLeft className="size-4" />
+          </Button>
+          <div>
+            <h1 className="text-xl font-bold tracking-tight leading-tight">View Attendance</h1>
+            <p className="text-xs text-muted-foreground">
+              Review and analyze daily student attendance records
+            </p>
+          </div>
         </div>
-        <Badge variant="outline" className="w-fit text-xs h-7 gap-1.5 px-3">
-          <CalendarDays className="size-3.5" />
-          {formatDate(date)}
-        </Badge>
+        <div className="flex items-center gap-2 flex-wrap">
+          <Badge variant="outline" className="w-fit text-xs h-7 gap-1.5 px-3">
+            <CalendarDays className="size-3.5" />
+            {formatDate(date)}
+          </Badge>
+          <Button size="sm" onClick={() => setCurrentPage('mark-attendance')} className="gap-1.5">
+            <ClipboardCheck className="size-4" />
+            Mark Attendance
+          </Button>
+        </div>
       </div>
 
       {/* ── Filter Bar ───────────────────────────────────────────────── */}

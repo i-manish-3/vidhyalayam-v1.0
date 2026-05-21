@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { randomUUID } from 'node:crypto'
 import { db } from '@/lib/db'
 import { requireRole, requirePermission } from '@/lib/api-auth'
 import { unauthorizedError, internalError, apiError, forbiddenError } from '@/lib/api-errors'
@@ -551,6 +552,35 @@ export async function POST(request: NextRequest) {
 
     // Use transaction for atomicity — all records created or none
     const admission = await db.$transaction(async (tx) => {
+      // 0. Resolve familyId. If a sibling was selected, adopt the sibling's
+      //    familyId (minting one for the sibling first if it's missing — can
+      //    happen for pre-backfill data). Otherwise mint a fresh family of one.
+      let resolvedFamilyId: string
+      const linkedSiblingId = body.siblingId || null
+      if (linkedSiblingId) {
+        const sibling = await tx.student.findUnique({
+          where: { id: linkedSiblingId },
+          select: { id: true, familyId: true },
+        })
+        if (sibling?.familyId) {
+          resolvedFamilyId = sibling.familyId
+        } else {
+          resolvedFamilyId = randomUUID()
+          if (sibling) {
+            await tx.student.update({
+              where: { id: sibling.id },
+              data: { familyId: resolvedFamilyId },
+            })
+            await tx.admission.updateMany({
+              where: { studentId: sibling.id },
+              data: { familyId: resolvedFamilyId },
+            })
+          }
+        }
+      } else {
+        resolvedFamilyId = randomUUID()
+      }
+
       // 1. Create Admission record
       const adm = await tx.admission.create({
         data: {
@@ -644,6 +674,7 @@ export async function POST(request: NextRequest) {
           feesGroupId: body.feesGroupId || null,
           annualIncome: body.annualIncome || null,
           siblingId: body.siblingId || null,
+          familyId: resolvedFamilyId,
           // Parent address (compatibility)
           sameAddressAsStudent: body.sameAddressAsStudent !== undefined ? body.sameAddressAsStudent : true,
           fatherAddress: body.fatherAddress || null,
@@ -691,6 +722,7 @@ export async function POST(request: NextRequest) {
           previousResult: adm.previousResult,
           transferCertNo: adm.previousSchoolTC,
           siblingId: adm.siblingId,
+          familyId: resolvedFamilyId,
           admissionStatus: 'admitted',
           classId: adm.classId,
           sectionId: adm.sectionId,
