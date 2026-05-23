@@ -159,6 +159,7 @@ interface AdmissionData {
   bankAccountNumber: string | null
   ifscCode: string | null
   feesGroupId: string | null
+  feesGroup: { id: string; name: string } | null
   // Sibling
   siblingId: string | null
   // Other
@@ -271,45 +272,37 @@ function formatFileSize(sizeKb: number | null | undefined): string {
 
 function InfoRow({ label, value, icon: Icon }: { label: string; value: string | null | undefined; icon?: React.ComponentType<{ className?: string }> }) {
   return (
-    <div className="flex min-w-0 items-start gap-2 rounded-md border border-border/70 bg-muted/20 px-3 py-2.5">
-      {Icon && (
-        <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-          <Icon className="size-3.5" />
-        </span>
-      )}
-      <div className="min-w-0 flex-1">
-        <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
-        <p className="mt-0.5 break-words text-sm font-semibold text-foreground">{value || '--'}</p>
-      </div>
+    <div className="min-w-0 space-y-0.5">
+      <p className="flex items-center gap-1 text-[10.5px] font-medium uppercase tracking-wide text-muted-foreground">
+        {Icon && <Icon className="size-3 text-primary/70" />}
+        {label}
+      </p>
+      <p className="break-words text-sm font-medium text-foreground">{value || <span className="text-muted-foreground/60">--</span>}</p>
     </div>
   )
 }
 
 function SectionCard({ title, icon: Icon, children, className = '' }: { title: string; icon: React.ComponentType<{ className?: string }>; children: React.ReactNode; className?: string }) {
   return (
-    <Card className={cn('overflow-hidden border-border/70 shadow-sm', className)}>
-      <CardHeader className="border-b border-border/70 bg-muted/25 px-4 py-3">
-        <CardTitle className="flex items-center gap-2 text-sm font-semibold">
-          <span className="flex size-8 items-center justify-center rounded-md bg-primary/10 text-primary">
-            <Icon className="size-4" />
-          </span>
+    <Card className={cn('overflow-hidden border-border/70 shadow-sm gap-0 py-0', className)}>
+      <CardHeader className="bg-muted/30 px-3 py-2">
+        <CardTitle className="flex items-center gap-2 text-[13px] font-semibold">
+          <Icon className="size-4 text-primary" />
           {title}
         </CardTitle>
       </CardHeader>
-      <CardContent className="p-4">{children}</CardContent>
+      <CardContent className="p-3">{children}</CardContent>
     </Card>
   )
 }
 
 function DetailPill({ label, value, icon: Icon }: { label: string; value: string | null | undefined; icon: React.ComponentType<{ className?: string }> }) {
   return (
-    <div className="flex min-w-0 items-center gap-2 rounded-md border border-border/70 bg-card px-3 py-2 shadow-sm">
-      <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-        <Icon className="size-4" />
-      </span>
-      <div className="min-w-0">
-        <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
-        <p className="truncate text-sm font-semibold">{value || '--'}</p>
+    <div className="flex min-w-0 items-center gap-1.5 rounded-md bg-muted/40 px-2 py-1">
+      <Icon className="size-3.5 shrink-0 text-primary" />
+      <div className="min-w-0 leading-tight">
+        <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{label}: </span>
+        <span className="truncate text-xs font-semibold">{value || '--'}</span>
       </div>
     </div>
   )
@@ -874,6 +867,7 @@ export function StudentDetailPage() {
   const { hasPermission } = usePermissions()
   const canEdit = hasPermission(PERMISSIONS.STUDENT_UPDATE)
   const canPromote = hasPermission(PERMISSIONS.ADMISSION_UPDATE)
+  const canCollectFees = hasPermission(PERMISSIONS.FEES_COLLECT)
   const goBack = useAppStore((s) => s.goBack)
   const selectedStudentId = useAppStore((s) => s.selectedStudentId)
   const currentSchool = useAppStore((s) => s.currentSchool)
@@ -1086,7 +1080,7 @@ export function StudentDetailPage() {
   const localAddressLine = a?.localAddress ? [a.localAddress, a.localCity, a.localState, a.localPincode, a.localCountry].filter(Boolean).join(', ') : ''
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {/* Print stylesheet: visible only at print time. Hides app chrome, shows the form. */}
       <style>{`
         @media print {
@@ -1155,107 +1149,103 @@ export function StudentDetailPage() {
         </div>
       )}
 
-      <div className="grid gap-5 xl:grid-cols-[310px_minmax(0,1fr)]">
-      <Card className="h-fit overflow-hidden border-border/70 shadow-sm">
-        <CardContent className="p-0">
-          <div className="border-b border-border/70 bg-muted/25 p-5">
-            <Button variant="outline" size="icon" onClick={() => goBack('students')} className="size-10 shrink-0">
-              <ArrowLeft className="size-4" />
-            </Button>
-
-            <div className="mt-5 flex flex-col items-center text-center">
-              <div className="flex size-36 shrink-0 items-center justify-center overflow-hidden rounded-md border border-primary/20 bg-primary/10 shadow-sm">
+      {/* Hero strip — replaces left sidebar. Photo + name + quick stats + actions. */}
+      <Card className="overflow-hidden border-border/70 shadow-sm py-0">
+        <CardContent className="p-3 sm:p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
+            <div className="flex items-start gap-3 sm:gap-4">
+              <Button variant="outline" size="icon" onClick={() => goBack('students')} className="size-9 shrink-0 sm:hidden">
+                <ArrowLeft className="size-4" />
+              </Button>
+              <div className="flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-md border border-primary/20 bg-primary/10 shadow-sm sm:size-24">
                 {(student.profileImage || a?.profileImage) ? (
                   <img src={(student.profileImage || a?.profileImage) as string} alt={fullName} className="size-full object-cover" />
                 ) : (
-                  <User className="size-12 text-primary" />
+                  <User className="size-8 text-primary sm:size-10" />
                 )}
               </div>
 
-              <div className="mt-4 min-w-0">
-                <h1 className="break-words text-2xl font-bold tracking-tight text-foreground">{fullName}</h1>
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button variant="outline" size="icon" onClick={() => goBack('students')} className="size-7 shrink-0 hidden sm:inline-flex">
+                    <ArrowLeft className="size-3.5" />
+                  </Button>
+                  <h1 className="break-words text-lg font-bold tracking-tight text-foreground sm:text-xl">{fullName}</h1>
+                  <Badge variant="outline" className={cn('rounded-md font-semibold gap-1 h-5 px-1.5 text-[10.5px]', statusClass(effectiveEnrollmentStatus))}>
+                    <BadgeCheck className="size-3" />
+                    {effectiveEnrollmentStatus || 'Admitted'}
+                  </Badge>
+                </div>
                 {classLabel && (
-                  <p className="mt-1 text-sm font-medium text-muted-foreground">{classLabel}</p>
+                  <p className="mt-0.5 text-xs font-medium text-muted-foreground">{classLabel}</p>
                 )}
-                <Badge variant="outline" className={cn('mt-2 rounded-md font-semibold', statusClass(effectiveEnrollmentStatus))}>
-                  <BadgeCheck className="mr-1 size-3" />
-                  {effectiveEnrollmentStatus || 'Admitted'}
-                </Badge>
+
+                <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                  <DetailPill label="Adm No" value={admissionLabel} icon={Hash} />
+                  {effectiveRollNumber && <DetailPill label="Roll" value={String(effectiveRollNumber)} icon={IdCard} />}
+                  <DetailPill label="DOB" value={formatDate(student.dateOfBirth)} icon={CalendarDays} />
+                  {student.gender && <DetailPill label="Gender" value={student.gender} icon={student.gender === 'Male' ? CircleUser : CircleUserRound} />}
+                  {primaryContact && <DetailPill label="Contact" value={primaryContact} icon={Phone} />}
+                  {(resolvedAcademicYear || currentSchoolAcademicYear || a?.academicYear) && (
+                    <DetailPill
+                      label="Session"
+                      value={resolvedAcademicYear || currentSchoolAcademicYear || a?.academicYear}
+                      icon={CalendarDays}
+                    />
+                  )}
+                </div>
               </div>
             </div>
-          </div>
 
-          <div className="space-y-3 p-4">
-            <DetailPill label="Admission No" value={admissionLabel} icon={Hash} />
-            <DetailPill label="Class & Section" value={classLabel || undefined} icon={BookOpenCheck} />
-            <DetailPill label="Date of Birth" value={formatDate(student.dateOfBirth)} icon={CalendarDays} />
-            <DetailPill label="Primary Contact" value={primaryContact} icon={Phone} />
-
-            <div className="flex flex-wrap gap-2 pt-1">
-              {effectiveRollNumber && (
-                <Badge variant="outline" className="rounded-md font-mono">
-                  Roll {effectiveRollNumber}
-                </Badge>
-              )}
-              {student.gender && (
-                <Badge variant="outline" className="rounded-md gap-1">
-                  {student.gender === 'Male' ? <CircleUser className="size-3" /> : <CircleUserRound className="size-3" />}
-                  {student.gender}
-                </Badge>
-              )}
-              {a?.academicYear && (
-                <span className="inline-flex items-center gap-1.5 rounded-md bg-muted px-2.5 py-1 text-sm text-muted-foreground">
-                  <CalendarDays className="size-3.5 text-primary" />
-                  {a.academicYear}
-                </span>
-              )}
-            </div>
-
-            <div className="grid grid-cols-2 gap-2 pt-2">
+            <div className="flex shrink-0 flex-wrap gap-1.5 sm:ml-auto">
               {canEdit && (
-                <Button variant="outline" onClick={() => { useAppStore.getState().navigateTo('edit-student') }} className="gap-1.5">
-                  <Edit className="size-4" /> Edit
+                <Button variant="outline" size="sm" onClick={() => { useAppStore.getState().navigateTo('edit-student') }} className="h-8 gap-1.5">
+                  <Edit className="size-3.5" /> Edit
                 </Button>
               )}
-              {canPromote && (
-                <Button variant="outline" onClick={openPromoteDialog} className="gap-1.5">
-                  <GraduationCap className="size-4" /> Promote
+              {canCollectFees && (
+                <Button variant="default" size="sm" onClick={() => {
+                  const store = useAppStore.getState()
+                  store.setFeesPreselectStudentId(student.id)
+                  store.navigateTo('fee-collections')
+                }} className="h-8 gap-1.5">
+                  <Banknote className="size-3.5" /> Collect Fees
                 </Button>
               )}
-              <Button variant="outline" onClick={() => window.print()} className="gap-1.5">
-                <Printer className="size-4" /> Print Form
+              <Button variant="outline" size="sm" onClick={() => window.print()} className="h-8 gap-1.5">
+                <Printer className="size-3.5" /> Admission Form
               </Button>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      <Tabs defaultValue="personal" className="min-w-0 gap-4">
-        <div className="flex justify-center overflow-x-auto pb-1">
-          <TabsList className="h-auto w-max rounded-md border border-border/70 bg-muted/50 p-1">
-            <TabsTrigger value="personal" className="rounded-md px-3 py-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-              <User className="size-4" />
-              Personal Details
+      <Tabs defaultValue="personal" className="min-w-0 gap-2">
+        <div className="sticky top-0 z-10 -mx-1 flex justify-center overflow-x-auto bg-background/95 px-1 py-1 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+          <TabsList className="h-9 w-max rounded-md border border-border/70 bg-muted/50 p-0.5">
+            <TabsTrigger value="personal" className="h-8 gap-1.5 rounded-md px-2.5 text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+              <User className="size-3.5" />
+              Personal
             </TabsTrigger>
-            <TabsTrigger value="contact" className="rounded-md px-3 py-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-              <Phone className="size-4" />
-              Contact Info
+            <TabsTrigger value="contact" className="h-8 gap-1.5 rounded-md px-2.5 text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+              <Phone className="size-3.5" />
+              Contact
             </TabsTrigger>
-            <TabsTrigger value="general" className="rounded-md px-3 py-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-              <GraduationCap className="size-4" />
-              General Details
+            <TabsTrigger value="general" className="h-8 gap-1.5 rounded-md px-2.5 text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+              <GraduationCap className="size-3.5" />
+              General
             </TabsTrigger>
-            <TabsTrigger value="accounts" className="rounded-md px-3 py-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-              <Banknote className="size-4" />
-              Accounts Info
+            <TabsTrigger value="accounts" className="h-8 gap-1.5 rounded-md px-2.5 text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+              <Banknote className="size-3.5" />
+              Accounts
             </TabsTrigger>
-            <TabsTrigger value="documents" className="rounded-md px-3 py-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-              <FileText className="size-4" />
+            <TabsTrigger value="documents" className="h-8 gap-1.5 rounded-md px-2.5 text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+              <FileText className="size-3.5" />
               Documents
             </TabsTrigger>
             {(student.siblings?.length || 0) > 0 && (
-              <TabsTrigger value="sibling" className="rounded-md px-3 py-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-                <Heart className="size-4" />
+              <TabsTrigger value="sibling" className="h-8 gap-1.5 rounded-md px-2.5 text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                <Heart className="size-3.5" />
                 Siblings
               </TabsTrigger>
             )}
@@ -1263,9 +1253,9 @@ export function StudentDetailPage() {
         </div>
 
         <TabsContent value="personal" className="mt-0">
-          <div className="grid gap-4 xl:grid-cols-2">
+          <div className="grid gap-3 lg:grid-cols-2">
             <SectionCard title="Personal Information" icon={User}>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-x-3 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
                 <InfoRow label="Date of Birth" value={formatDate(student.dateOfBirth)} icon={CalendarDays} />
                 <InfoRow label="Gender" value={student.gender} />
                 <InfoRow label="Blood Group" value={student.bloodGroup || a?.bloodGroup} icon={Stethoscope} />
@@ -1304,9 +1294,9 @@ export function StudentDetailPage() {
         </TabsContent>
 
         <TabsContent value="general" className="mt-0">
-          <div className="grid gap-4 xl:grid-cols-2">
+          <div className="grid gap-3 lg:grid-cols-2">
             <SectionCard title="Academic Information" icon={GraduationCap}>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-x-3 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
                 <InfoRow label="Admission No" value={student.admissionNumber || a?.admissionNumber} icon={IdCard} />
                 <InfoRow label="Roll Number" value={effectiveRollNumber} />
                 <InfoRow label="Class" value={effectiveClassName} />
@@ -1338,7 +1328,7 @@ export function StudentDetailPage() {
                 <div className="mt-4 space-y-3">
                   <Separator />
                   <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Previous School</p>
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="grid grid-cols-1 gap-x-3 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
                     <InfoRow label="School Name" value={a.previousSchool} icon={Building} />
                     <InfoRow label="Address" value={a.previousSchoolAddress} icon={MapPin} />
                     <InfoRow label="Previous Class" value={a.previousClass} />
@@ -1357,7 +1347,7 @@ export function StudentDetailPage() {
                   {a.transportRouteId && (
                     <div>
                       <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Transport</p>
-                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <div className="grid grid-cols-1 gap-x-3 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
                         <InfoRow label="Route ID" value={a.transportRouteId} icon={Bus} />
                         <InfoRow label="Stop" value={a.transportStop} icon={MapPin} />
                       </div>
@@ -1366,7 +1356,7 @@ export function StudentDetailPage() {
                   {a.hostelName && (
                     <div>
                       <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Hostel</p>
-                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                      <div className="grid grid-cols-1 gap-x-3 gap-y-2 sm:grid-cols-3">
                         <InfoRow label="Hostel" value={a.hostelName} icon={Home} />
                         <InfoRow label="Room No" value={a.hostelRoomNo} />
                         <InfoRow label="Bed No" value={a.hostelBedNo} />
@@ -1380,9 +1370,9 @@ export function StudentDetailPage() {
         </TabsContent>
 
         <TabsContent value="contact" className="mt-0">
-          <div className="grid gap-4 xl:grid-cols-2">
+          <div className="grid gap-3 lg:grid-cols-2">
             <SectionCard title="Father's Details" icon={CircleUser}>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-x-3 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
                 <InfoRow label="Name" value={a?.fatherName} />
                 <InfoRow label="Phone" value={a?.fatherPhone} icon={Phone} />
                 <InfoRow label="Email" value={a?.fatherEmail} icon={Mail} />
@@ -1394,7 +1384,7 @@ export function StudentDetailPage() {
             </SectionCard>
 
             <SectionCard title="Mother's Details" icon={CircleUserRound}>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-x-3 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
                 <InfoRow label="Name" value={a?.motherName} />
                 <InfoRow label="Phone" value={a?.motherPhone} icon={Phone} />
                 <InfoRow label="Email" value={a?.motherEmail} icon={Mail} />
@@ -1415,7 +1405,7 @@ export function StudentDetailPage() {
                         {[a?.address || student.address, a?.city || student.city, a?.state || student.state, a?.pincode || student.pincode, a?.country || student.country].filter(Boolean).join(', ')}
                       </p>
                     </div>
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div className="grid grid-cols-1 gap-x-3 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
                       <InfoRow label="Village" value={a?.village} />
                       <InfoRow label="Post Office" value={a?.postOffice} />
                       <InfoRow label="Police Station" value={a?.policeStation} />
@@ -1444,12 +1434,12 @@ export function StudentDetailPage() {
         </TabsContent>
 
         <TabsContent value="accounts" className="mt-0">
-          <div className="grid gap-4 xl:grid-cols-2">
+          <div className="grid gap-3 lg:grid-cols-2">
             <SectionCard title="Bank Details" icon={CreditCard}>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-x-3 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
                 <InfoRow label="Account Number" value={a?.bankAccountNumber} icon={Banknote} />
                 <InfoRow label="IFSC Code" value={a?.ifscCode} />
-                <InfoRow label="Fees Group" value={a?.feesGroupId} />
+                <InfoRow label="Fees Group" value={a?.feesGroup?.name} />
               </div>
             </SectionCard>
           </div>
@@ -1458,33 +1448,31 @@ export function StudentDetailPage() {
         <TabsContent value="documents" className="mt-0">
           <SectionCard title="Admission Documents" icon={FileText}>
             {documents.length > 0 ? (
-              <div className="grid gap-3 xl:grid-cols-2">
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                 {documents.map((doc) => (
-                  <div key={doc.id} className="min-w-0 rounded-md border border-border/70 bg-muted/20 p-3">
-                    <div className="flex min-w-0 items-start gap-3">
-                      <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-                        <FileText className="size-5" />
-                      </span>
+                  <div key={doc.id} className="min-w-0 rounded-md border border-border/70 bg-muted/20 p-2.5">
+                    <div className="flex min-w-0 items-start gap-2">
+                      <FileText className="mt-0.5 size-4 shrink-0 text-primary" />
                       <div className="min-w-0 flex-1">
-                        <p className="break-words text-sm font-semibold">{doc.documentName}</p>
-                        <p className="mt-0.5 capitalize text-xs text-muted-foreground">{doc.documentType.replace(/_/g, ' ')}</p>
+                        <p className="break-words text-xs font-semibold leading-tight">{doc.documentName}</p>
+                        <p className="mt-0.5 capitalize text-[10.5px] text-muted-foreground">{doc.documentType.replace(/_/g, ' ')}</p>
                       </div>
-                      <Badge variant="outline" className={cn('shrink-0 rounded-md gap-1 text-xs', documentStatusClass(doc.verificationStatus))}>
+                      <Badge variant="outline" className={cn('shrink-0 rounded gap-0.5 h-5 px-1.5 text-[10px]', documentStatusClass(doc.verificationStatus))}>
                         <DocumentStatusIcon status={doc.verificationStatus} />
                         {doc.verificationStatus}
                       </Badge>
                     </div>
-                    <div className="mt-3 grid grid-cols-1 gap-2 text-xs text-muted-foreground sm:grid-cols-2">
-                      <span>Size: {formatFileSize(doc.fileSize)}</span>
-                      <span>Uploaded: {formatDate(doc.uploadedAt)}</span>
-                      <span>{doc.isRequired ? 'Required document' : 'Optional document'}</span>
-                      <span className="truncate">{doc.fileType || '--'}</span>
+                    <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10.5px] text-muted-foreground">
+                      <span>{formatFileSize(doc.fileSize)}</span>
+                      <span>·</span>
+                      <span>{formatDate(doc.uploadedAt)}</span>
+                      {doc.isRequired && <><span>·</span><span className="text-amber-600">Required</span></>}
+                      {doc.fileUrl && (
+                        <a href={doc.fileUrl} target="_blank" rel="noreferrer" className="ml-auto font-semibold text-primary hover:underline">
+                          View
+                        </a>
+                      )}
                     </div>
-                    {doc.fileUrl && (
-                      <a href={doc.fileUrl} target="_blank" rel="noreferrer" className="mt-3 inline-flex text-xs font-semibold text-primary hover:underline">
-                        View document
-                      </a>
-                    )}
                   </div>
                 ))}
               </div>
@@ -1497,17 +1485,18 @@ export function StudentDetailPage() {
         {(student.siblings?.length || 0) > 0 && (
           <TabsContent value="sibling" className="mt-0">
             <SectionCard title={student.siblings!.length === 1 ? 'Sibling' : 'Siblings'} icon={Heart}>
-              <div className="grid gap-2 sm:grid-cols-2">
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                 {student.siblings!.map(sib => (
-                  <div key={sib.id} className="flex items-center gap-3 rounded-md border border-primary/20 bg-primary/10 p-3">
-                    <div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-card text-primary shadow-sm">
-                      <Users className="size-5" />
+                  <div key={sib.id} className="flex items-center gap-2 rounded-md border border-primary/20 bg-primary/5 px-2.5 py-2">
+                    <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary/15 text-primary">
+                      <Users className="size-4" />
                     </div>
                     <div className="min-w-0">
-                      <p className="font-medium truncate">{sib.firstName} {sib.lastName}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {sib.admissionNumber && <span className="font-mono mr-2">{sib.admissionNumber}</span>}
-                        {sib.className && <span>Class: {sib.className}</span>}
+                      <p className="truncate text-sm font-medium">{sib.firstName} {sib.lastName}</p>
+                      <p className="truncate text-[10.5px] text-muted-foreground">
+                        {sib.admissionNumber && <span className="font-mono">{sib.admissionNumber}</span>}
+                        {sib.admissionNumber && sib.className && <span> · </span>}
+                        {sib.className && <span>{sib.className}</span>}
                       </p>
                     </div>
                   </div>
@@ -1643,7 +1632,6 @@ export function StudentDetailPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      </div>
     </div>
   )
 }

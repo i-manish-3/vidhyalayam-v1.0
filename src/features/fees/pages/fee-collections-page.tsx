@@ -432,6 +432,33 @@ export function FeeCollectionsPage() {
     fetchInitialData()
   }, [fetchInitialData])
 
+  // Consume one-shot pre-select from the student detail page (Collect Fees
+  // button). Fetches the student by ID, selects them, then clears the marker
+  // so future visits to this page start fresh.
+  const feesPreselectStudentId = useAppStore((state) => state.feesPreselectStudentId)
+  const setFeesPreselectStudentId = useAppStore((state) => state.setFeesPreselectStudentId)
+  useEffect(() => {
+    if (!feesPreselectStudentId) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const data = await api.get<Student>(`/api/school/students/${feesPreselectStudentId}`)
+        if (cancelled || !data) return
+        handleSelectStudent(data)
+      } catch {
+        toast({
+          title: "Couldn't load student",
+          description: 'We could not load this student. Please search and select manually.',
+          variant: 'destructive',
+        })
+      } finally {
+        if (!cancelled) setFeesPreselectStudentId(null)
+      }
+    })()
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [feesPreselectStudentId])
+
   useEffect(() => {
     const value = search.trim()
     if (selectedStudent || value.length < 2) return

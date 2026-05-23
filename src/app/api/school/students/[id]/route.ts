@@ -278,11 +278,38 @@ export async function GET(
     const sessionSection = activeEnrollment?.section || student.section
     const sessionRollNumber = activeEnrollment ? (activeEnrollment.rollNumber ?? null) : student.rollNumber
 
+    // Resolve fees group for the session being viewed. StudentFeeAssignment
+    // is per-academic-year, so we prefer the active assignment for the
+    // resolved year and fall back to the admission's static feesGroupId only
+    // when no per-session assignment exists.
+    let feesGroup: { id: string; name: string } | null = null
+    const viewYear = requestedAcademicYear || activeEnrollment?.academicYear || null
+    const sessionAssignment = await db.studentFeeAssignment.findFirst({
+      where: {
+        studentId: student.id,
+        schoolId: user.schoolId,
+        deletedAt: null,
+        status: 'active',
+        ...(viewYear ? { academicYear: viewYear } : {}),
+      },
+      orderBy: viewYear ? undefined : { academicYear: 'desc' },
+      select: { feesGroup: { select: { id: true, name: true } } },
+    })
+    if (sessionAssignment?.feesGroup) {
+      feesGroup = sessionAssignment.feesGroup
+    } else if (student.admission?.feesGroupId) {
+      feesGroup = await db.feesGroup.findUnique({
+        where: { id: student.admission.feesGroupId },
+        select: { id: true, name: true },
+      })
+    }
+
     return NextResponse.json({
       ...student,
       class: sessionClass,
       section: sessionSection,
       rollNumber: sessionRollNumber,
+      admission: student.admission ? { ...student.admission, feesGroup } : null,
       siblings,
       sibling: siblings[0] || null, // legacy field for any frontend not yet updated
       transportAllocations,

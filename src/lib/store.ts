@@ -72,6 +72,9 @@ interface NavigationState {
   selectedClassId: string | null
   selectedSubjectId: string | null
   selectedTransportRouteId: string | null
+  // One-shot: when set, fee-collections page pre-selects this student on mount
+  // and clears the value. Used by "Collect Fees" deep-link from student detail.
+  feesPreselectStudentId: string | null
   setCurrentPage: (page: PageName) => void
   navigateTo: (page: PageName) => void  // push current page to history then navigate
   goBack: (fallback?: PageName) => void  // go back to previous page
@@ -86,6 +89,7 @@ interface NavigationState {
   setSelectedClassId: (id: string | null) => void
   setSelectedSubjectId: (id: string | null) => void
   setSelectedTransportRouteId: (id: string | null) => void
+  setFeesPreselectStudentId: (id: string | null) => void
 }
 
 interface SchoolState {
@@ -186,6 +190,7 @@ export const useAppStore = create<AppStore>((set) => ({
   selectedClassId: null,
   selectedSubjectId: null,
   selectedTransportRouteId: null,
+  feesPreselectStudentId: null,
   setCurrentPage: (page) => {
     if (typeof window !== 'undefined') {
       localStorage.setItem('erp_currentPage', page)
@@ -225,6 +230,7 @@ export const useAppStore = create<AppStore>((set) => ({
   setSelectedClassId: (id) => set({ selectedClassId: id }),
   setSelectedSubjectId: (id) => set({ selectedSubjectId: id }),
   setSelectedTransportRouteId: (id) => set({ selectedTransportRouteId: id }),
+  setFeesPreselectStudentId: (id) => set({ feesPreselectStudentId: id }),
 
   // School
   currentSchool: null,
