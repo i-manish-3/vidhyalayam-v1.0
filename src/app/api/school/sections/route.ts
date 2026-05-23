@@ -6,7 +6,7 @@ import { unauthorizedError, internalError, apiError } from '@/lib/api-errors'
 // GET /api/school/sections - List sections
 export async function GET(request: NextRequest) {
   try {
-    const user = requireRole(request, ['SUPER_ADMIN', 'SCHOOL_ADMIN', 'TEACHER'])
+    const user = requireRole(request, ['SUPER_ADMIN', 'SCHOOL_ADMIN', 'TEACHER', 'STAFF'])
     if (!user || !user.schoolId) {
       return unauthorizedError()
     }

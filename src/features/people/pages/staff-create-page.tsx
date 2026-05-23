@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { api } from '@/lib/api'
 import { useAppStore } from '@/lib/store'
 import { useToast } from '@/hooks/use-toast'
@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Separator } from '@/components/ui/separator'
+import { DatePicker } from '@/components/date-picker'
 import {
   Select,
   SelectContent,
@@ -21,8 +22,6 @@ import {
 import {
   UserPlus,
   ArrowLeft,
-  Eye,
-  EyeOff,
   Shield,
   ShieldCheck,
   GraduationCap,
@@ -32,6 +31,9 @@ import {
   Headphones,
   Bus,
   CheckCircle2,
+  Upload,
+  X,
+  KeyRound,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -52,7 +54,7 @@ interface AvailableRole {
 
 // Staff creation only shows staff permission roles.
 // Primary identity roles are created from their own modules.
-const EXCLUDED_ROLES = new Set(['School Admin', 'Teacher', 'Student', 'Parent', 'Staff'])
+const EXCLUDED_ROLES = new Set(['School Admin', 'Teacher', 'Student', 'Parent', 'Staff', 'Transport'])
 
 const ROLE_ICONS: Record<string, LucideIcon> = {
   'Teacher': GraduationCap,
@@ -105,11 +107,12 @@ export function StaffCreatePage() {
 
   // Form state
   const [name, setName] = useState('')
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [showPassword, setShowPassword] = useState(false)
   const [phone, setPhone] = useState('')
+  const [email, setEmail] = useState('')
+  const [dob, setDob] = useState('')
+  const [avatar, setAvatar] = useState<string | null>(null)
   const [selectedRoleId, setSelectedRoleId] = useState<string>('')
+  const photoInputRef = useRef<HTMLInputElement>(null)
 
   // Data state
   const [availableRoles, setAvailableRoles] = useState<AvailableRole[]>([])
@@ -142,7 +145,28 @@ export function StaffCreatePage() {
   const RoleIcon = selectedRole ? (ROLE_ICONS[selectedRole.name] || Shield) : null
 
   // ── Form validation ──
-  const isFormValid = name.trim() && email.trim() && password.trim() && selectedRoleId
+  const phoneDigits = phone.replace(/\D/g, '')
+  const phoneError = phone.trim() && phoneDigits.length !== 10
+    ? 'Phone number must be exactly 10 digits.'
+    : ''
+  const isFormValid = name.trim() && phoneDigits.length === 10 && dob && selectedRoleId
+
+  // ── Photo handler ──
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (file.size > 1 * 1024 * 1024) {
+      toast({ title: 'Photo Too Large', description: 'Please choose a photo under 1 MB.', variant: 'destructive' })
+      // Reset the file input so the user can re-pick the same/different file.
+      if (photoInputRef.current) photoInputRef.current.value = ''
+      return
+    }
+    const reader = new FileReader()
+    reader.onload = () => {
+      if (typeof reader.result === 'string') setAvatar(reader.result)
+    }
+    reader.readAsDataURL(file)
+  }
 
   // ── Submit handler ──
   const handleSubmit = async (e: React.FormEvent) => {
@@ -157,18 +181,18 @@ export function StaffCreatePage() {
         assignedRole: { name: string }
       }>('/api/school/users', {
         name: name.trim(),
-        email: email.trim(),
-        password,
-        phone: phone.trim() || undefined,
+        phone: phoneDigits,
+        email: email.trim() || undefined,
+        dob,
+        avatar,
         roleId: selectedRoleId,
       })
 
       toast({
         title: 'Staff Created',
-        description: `"${res.name}" has been created and assigned the "${res.assignedRole?.name}" role. They now inherit all permissions from this role.`,
+        description: `"${res.name}" can now sign in using phone ${phoneDigits} and the default password "staff123". They will be asked to change it on first login.`,
       })
 
-      // Navigate to staff list
       goBack('staff')
     } catch (err) {
       toast({
@@ -183,7 +207,7 @@ export function StaffCreatePage() {
 
   // ── Render ──
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Header with back button */}
       <div className="flex items-center gap-3">
         <Button
@@ -195,8 +219,8 @@ export function StaffCreatePage() {
           <ArrowLeft className="size-4" />
         </Button>
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Create Staff</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
+          <h1 className="text-xl font-bold tracking-tight">Create Staff</h1>
+          <p className="text-xs text-muted-foreground">
             Add a new staff member and assign them a role — permissions are automatically inherited
           </p>
         </div>
@@ -204,26 +228,73 @@ export function StaffCreatePage() {
 
       {/* Form */}
       <Card>
-        <CardHeader>
+        <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
             <UserPlus className="size-4" />
             Staff Information
           </CardTitle>
-          <CardDescription>Fill in the details below to create a new staff member</CardDescription>
+          <CardDescription className="text-xs">Fill in the details below to create a new staff member</CardDescription>
         </CardHeader>
         <CardContent>
           {loadingRoles ? (
             <FormSkeleton />
           ) : (
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <form onSubmit={handleSubmit} className="space-y-4">
               {/* Personal Details */}
               <div>
-                <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
+                <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
                   <div className="size-1.5 rounded-full bg-primary" />
                   Personal Details
                 </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
+
+                {/* Photo */}
+                <div className="mb-3 flex items-center gap-3">
+                  <div className="relative size-16 shrink-0 overflow-hidden rounded-full border bg-muted">
+                    {avatar ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={avatar} alt="" className="size-full object-cover" />
+                    ) : (
+                      <div className="flex size-full items-center justify-center text-muted-foreground">
+                        <UserPlus className="size-6" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => photoInputRef.current?.click()}
+                      >
+                        <Upload className="size-4" />
+                        {avatar ? 'Change Photo' : 'Upload Photo'}
+                      </Button>
+                      {avatar && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setAvatar(null)}
+                        >
+                          <X className="size-4" />
+                          Remove
+                        </Button>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">JPG or PNG, up to 1 MB.</p>
+                    <input
+                      ref={photoInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handlePhotoChange}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
                     <Label htmlFor="staff-name" className="text-xs font-medium">
                       Full Name <span className="text-destructive">*</span>
                     </Label>
@@ -232,56 +303,62 @@ export function StaffCreatePage() {
                       placeholder="Enter full name"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
-                      className="h-10"
+                      className="h-9"
                     />
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="staff-phone" className="text-xs font-medium">
+                      Phone Number <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      id="staff-phone"
+                      inputMode="numeric"
+                      maxLength={10}
+                      placeholder="10-digit phone number"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                      className={`h-9 ${phoneError ? 'border-destructive focus-visible:ring-destructive/20' : ''}`}
+                      aria-invalid={!!phoneError}
+                    />
+                    {phoneError && (
+                      <p className="text-[11px] text-destructive">{phoneError}</p>
+                    )}
+                  </div>
+                  <div className="space-y-1.5">
                     <Label htmlFor="staff-email" className="text-xs font-medium">
-                      Email Address <span className="text-destructive">*</span>
+                      Email <span className="text-muted-foreground font-normal">(optional)</span>
                     </Label>
                     <Input
                       id="staff-email"
                       type="email"
-                      placeholder="Enter email address"
+                      placeholder="name@example.com"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      className="h-10"
+                      className="h-9"
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="staff-password" className="text-xs font-medium">
-                      Password <span className="text-destructive">*</span>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="staff-dob" className="text-xs font-medium">
+                      Date of Birth <span className="text-destructive">*</span>
                     </Label>
-                    <div className="relative">
-                      <Input
-                        id="staff-password"
-                        type={showPassword ? 'text' : 'password'}
-                        placeholder="Create a password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        className="h-10 pr-10"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                      >
-                        {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-                      </button>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="staff-phone" className="text-xs font-medium">
-                      Phone Number
-                    </Label>
-                    <Input
-                      id="staff-phone"
-                      placeholder="Enter phone number (optional)"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      className="h-10"
+                    <DatePicker
+                      value={dob}
+                      onChange={setDob}
+                      disableFuture
+                      showQuickActions={false}
+                      yearDropdown
+                      yearsBack={70}
+                      placeholder="Select date of birth"
+                      triggerClassName="w-full"
                     />
                   </div>
+                </div>
+
+                <div className="mt-3 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-2.5 text-xs text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-300">
+                  <KeyRound className="mt-0.5 size-3.5 shrink-0" />
+                  <span>
+                    The staff member will sign in with their phone number and the default password <span className="font-mono font-semibold">staff123</span>. They&apos;ll be prompted to change the password on first login.
+                  </span>
                 </div>
               </div>
 
@@ -289,18 +366,18 @@ export function StaffCreatePage() {
 
               {/* Role Selection */}
               <div>
-                <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
+                <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
                   <div className="size-1.5 rounded-full bg-primary" />
                   Role Assignment
                 </h3>
 
-                <div className="space-y-4">
-                  <div className="space-y-2">
+                <div className="space-y-3">
+                  <div className="space-y-1.5">
                     <Label className="text-xs font-medium">
                       Staff Permission Role <span className="text-destructive">*</span>
                     </Label>
                     <Select value={selectedRoleId} onValueChange={setSelectedRoleId}>
-                      <SelectTrigger className="h-10">
+                      <SelectTrigger className="h-9">
                         <SelectValue placeholder="Choose access for this staff member" />
                       </SelectTrigger>
                       <SelectContent>
@@ -321,9 +398,9 @@ export function StaffCreatePage() {
 
                   {/* Selected Role Preview */}
                   {selectedRole && (
-                    <div className="rounded-lg border bg-card p-4 shadow-sm ring-1 ring-primary/10">
+                    <div className="rounded-lg border bg-card p-3 shadow-sm ring-1 ring-primary/10">
                       <div className="flex items-start gap-3">
-                        <div className="flex size-11 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+                        <div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
                           {RoleIcon && <RoleIcon className="size-5" />}
                         </div>
                         <div className="min-w-0 flex-1">
@@ -336,11 +413,11 @@ export function StaffCreatePage() {
                             )}
                           </div>
                           {selectedRole.description && (
-                            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                            <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
                               {selectedRole.description}
                             </p>
                           )}
-                          <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                             <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1">
                               <ShieldCheck className="size-3" />
                               {selectedRole.permissionCount} permissions

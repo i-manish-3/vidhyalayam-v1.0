@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { api } from '@/lib/api'
 import { useAppStore } from '@/lib/store'
-import { getCurrentAcademicYear, toAcademicYearOptions } from '@/lib/academic-years'
+import { getCurrentAcademicYear } from '@/lib/academic-years'
 import { useToast } from '@/hooks/use-toast'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -34,6 +34,7 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
+  ArrowLeft,
   Calendar,
   PlusCircle,
   Settings2,
@@ -100,8 +101,10 @@ type ViewMode = 'class' | 'teacher'
 
 export function TimetablePage() {
   const { toast } = useToast()
-  const setCurrentPage = useAppStore((s) => s.setCurrentPage)
+  const goBack = useAppStore((s) => s.goBack)
   const currentSchoolAcademicYear = useAppStore((s) => s.currentSchool?.academicYear)
+  const viewingAcademicYear = useAppStore((s) => s.viewingAcademicYear)
+  const academicYear = viewingAcademicYear || currentSchoolAcademicYear || getCurrentAcademicYear()
 
   // Data
   const [entries, setEntries] = useState<TimetableEntry[]>([])
@@ -110,13 +113,7 @@ export function TimetablePage() {
   const [subjects, setSubjects] = useState<SubjectOption[]>([])
   const [teachers, setTeachers] = useState<TeacherOption[]>([])
   const [periodConfigs, setPeriodConfigs] = useState<PeriodConfig[]>([])
-  const [availableAcademicYears, setAvailableAcademicYears] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
-  const [academicYear, setAcademicYear] = useState(currentSchoolAcademicYear || getCurrentAcademicYear())
-  const academicYearOptions = useMemo(
-    () => toAcademicYearOptions(availableAcademicYears, currentSchoolAcademicYear),
-    [availableAcademicYears, currentSchoolAcademicYear]
-  )
 
   // View
   const [viewMode, setViewMode] = useState<ViewMode>('class')
@@ -152,14 +149,13 @@ export function TimetablePage() {
   const fetchData = useCallback(async () => {
     try {
       setLoading(true)
-      const [ttRes, clsRes, secRes, subRes, teachRes, periodRes, academicYearRes] = await Promise.all([
+      const [ttRes, clsRes, secRes, subRes, teachRes, periodRes] = await Promise.all([
         api.get<{ entries: TimetableEntry[] }>('/api/school/timetable', { academicYear }).catch(() => ({ entries: [] })),
         api.get<{ classes: ClassOption[] }>('/api/school/classes').catch(() => ({ classes: [] })),
         api.get<{ sections: SectionOption[] }>('/api/school/sections').catch(() => ({ sections: [] })),
         api.get<{ subjects: SubjectOption[] }>('/api/school/subjects').catch(() => ({ subjects: [] })),
         api.get<{ teachers: TeacherOption[] }>('/api/school/teachers').catch(() => ({ teachers: [] })),
         api.get<{ periods: PeriodConfig[] }>('/api/school/period-config').catch(() => ({ periods: [] })),
-        api.get<{ academicYears: string[] }>('/api/school/academic-years').catch(() => ({ academicYears: [] })),
       ])
       setEntries(ttRes.entries || [])
       setClasses(clsRes.classes || [])
@@ -167,7 +163,6 @@ export function TimetablePage() {
       setSubjects(subRes.subjects || [])
       setTeachers(teachRes.teachers || [])
       setPeriodConfigs(periodRes.periods || [])
-      setAvailableAcademicYears(academicYearRes.academicYears || [])
     } catch {
       toast({
         title: "Couldn't Load Timetable",
@@ -182,12 +177,6 @@ export function TimetablePage() {
   useEffect(() => {
     fetchData()
   }, [fetchData])
-
-  useEffect(() => {
-    if (!academicYearOptions.some((year) => year.value === academicYear)) {
-      setAcademicYear(academicYearOptions[0]?.value || currentSchoolAcademicYear || getCurrentAcademicYear())
-    }
-  }, [academicYear, academicYearOptions, currentSchoolAcademicYear])
 
   // ── Filtered sections ──
   const availableSections = useMemo(() =>
@@ -352,14 +341,19 @@ export function TimetablePage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-            <Calendar className="size-6" />
-            Timetable
-          </h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            Manage weekly class schedules and period allocations
-          </p>
+        <div className="flex min-w-0 items-start gap-3">
+          <Button variant="outline" size="icon" onClick={() => goBack('dashboard')} className="mt-0.5 size-9 shrink-0">
+            <ArrowLeft className="size-4" />
+          </Button>
+          <div className="min-w-0">
+            <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+              <Calendar className="size-6" />
+              Timetable
+            </h1>
+            <p className="mt-0.5 text-sm text-muted-foreground">
+              Manage weekly class schedules and period allocations
+            </p>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={openPeriodSettings} className="gap-2">
@@ -377,20 +371,6 @@ export function TimetablePage() {
       <Card>
         <CardContent className="p-4">
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-            <div className="flex items-center gap-2">
-              <Label className="text-xs font-medium text-muted-foreground">Year</Label>
-              <Select value={academicYear} onValueChange={setAcademicYear}>
-                <SelectTrigger className="h-9 w-[150px]">
-                  <SelectValue placeholder="Select year" />
-                </SelectTrigger>
-                <SelectContent>
-                  {academicYearOptions.map((year) => (
-                    <SelectItem key={year.value} value={year.value}>{year.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
             <div className="flex items-center bg-muted rounded-lg p-1">
               <button
                 className={cn(

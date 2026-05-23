@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { LoadingState } from '@/components/shared'
 import { api } from '@/lib/api'
 import { useAppStore } from '@/lib/store'
-import { getCurrentAcademicYear, toAcademicYearOptions } from '@/lib/academic-years'
+import { getCurrentAcademicYear } from '@/lib/academic-years'
 import { useToast } from '@/hooks/use-toast'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -16,10 +16,13 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Separator } from '@/components/ui/separator'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator } from '@/components/ui/dropdown-menu'
+import { DatePicker } from '@/components/date-picker'
 import {
   ArrowLeft,
   Bus,
   CalendarDays,
+  ChevronDown,
   MessageCircle,
   Printer,
   PlusCircle,
@@ -29,6 +32,7 @@ import {
   UserRound,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { buildPrintHeaderHtml } from '@/lib/print-header'
 
 type PaymentStatus = 'PAID' | 'PARTIAL' | 'UNPAID'
 type PaymentMethod = 'CASH' | 'ONLINE' | 'CHEQUE' | 'UPI' | 'SPLIT'
@@ -215,6 +219,35 @@ function isMonthPeriod(period: string) {
   return MONTHS.some((month) => normalizedPeriod(month) === normalizedPeriod(period))
 }
 
+function itemCalendarYearMonth(item: FeeCollectionItem): { year: number; month: number } | null {
+  const period = itemPeriod(item)
+  const ay = typeof item.academicYear === 'string' ? item.academicYear : ''
+  if (!ay) return null
+  const monthIdx = MONTHS.findIndex((m) => normalizedPeriod(m) === normalizedPeriod(period))
+  if (monthIdx === -1) return null
+  const [start] = ay.split('-').map((n) => Number(n))
+  if (Number.isNaN(start)) return null
+  const calendarMonth = monthIdx <= 8 ? monthIdx + 3 : monthIdx - 9
+  const calendarYear = monthIdx <= 8 ? start : start + 1
+  return { year: calendarYear, month: calendarMonth }
+}
+
+function itemIsBeforeToday(item: FeeCollectionItem): boolean {
+  const ym = itemCalendarYearMonth(item)
+  if (!ym) return false
+  const today = new Date()
+  if (ym.year < today.getFullYear()) return true
+  if (ym.year > today.getFullYear()) return false
+  return ym.month < today.getMonth()
+}
+
+function itemIsCurrentCalendarMonth(item: FeeCollectionItem): boolean {
+  const ym = itemCalendarYearMonth(item)
+  if (!ym) return false
+  const today = new Date()
+  return ym.year === today.getFullYear() && ym.month === today.getMonth()
+}
+
 function periodSelectionKey(period: string, transport = false, itemAcademicYear?: string | null) {
   return `${transport ? 'transport' : 'fees'}:${academicYearKey(itemAcademicYear)}:${normalizedPeriod(period)}`
 }
@@ -262,6 +295,23 @@ function isPreviousDue(item: FeeCollectionItem) {
 function periodSortIndex(period: string) {
   const index = MONTHS.findIndex((month) => normalizedPeriod(month) === normalizedPeriod(period))
   return index === -1 ? Number.MAX_SAFE_INTEGER : index
+}
+
+// Allocation order when a partial payment is split across selected items:
+//   1. Non-monthly heads first (Admission, Exam, Term, Registration, …) — they
+//      carry no month context, so they front-load before any month is touched.
+//   2. Then walk monthly items month-by-month (Apr → May → … → Mar).
+//   3. Within the same month, transport is filled before monthly tuition.
+//   4. Due date is the final tiebreaker.
+function allocationSortKey(item: FeeCollectionItem): [number, number, number, string] {
+  const period = itemPeriod(item)
+  const monthIndex = periodSortIndex(period)
+  const isMonthly = monthIndex !== Number.MAX_SAFE_INTEGER
+  // Tier 0 = non-monthly head (admission / exam / etc.), Tier 1 = monthly bucket.
+  const tier = isMonthly ? 1 : 0
+  // Within a month: transport (0) before monthly tuition (1).
+  const withinMonth = item.source === 'transport' ? 0 : 1
+  return [tier, monthIndex, withinMonth, item.dueDate || '']
 }
 
 function sortPeriods(periods: string[]) {
@@ -334,8 +384,11 @@ function numberToWords(value: number) {
 
 export function FeeCollectionsPage() {
   const { toast } = useToast()
-  const currentSchoolAcademicYear = useAppStore((state) => state.currentSchool?.academicYear)
+  const currentSchool = useAppStore((state) => state.currentSchool)
+  const currentSchoolAcademicYear = currentSchool?.academicYear
+  const viewingAcademicYear = useAppStore((state) => state.viewingAcademicYear)
   const goBack = useAppStore((state) => state.goBack)
+  const academicYear = viewingAcademicYear || currentSchoolAcademicYear || getCurrentAcademicYear()
 
   const [loading, setLoading] = useState(true)
   const [students, setStudents] = useState<Student[]>([])
@@ -345,31 +398,25 @@ export function FeeCollectionsPage() {
   const [transportInfo, setTransportInfo] = useState<TransportInfo | null>(null)
   const [selectedCollectionIds, setSelectedCollectionIds] = useState<string[]>([])
   const [search, setSearch] = useState('')
-  const [availableAcademicYears, setAvailableAcademicYears] = useState<string[]>([])
-  const [academicYear, setAcademicYear] = useState(currentSchoolAcademicYear || getCurrentAcademicYear())
   const [paymentDate, setPaymentDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [discountAmount, setDiscountAmount] = useState('')
   const [remarks, setRemarks] = useState('')
   const [paymentSplits, setPaymentSplits] = useState<PaymentSplitRow[]>([
     { id: 'split-1', paymentMethod: 'CASH', amount: '', remarks: '' },
   ])
+  // Tracks whether the user has manually edited the first split's amount. While
+  // false, we keep the first split (Cash by default) auto-synced to the live
+  // total payable, so the cashier can simply hit "Collect" for full payment.
+  const [firstSplitEdited, setFirstSplitEdited] = useState(false)
   const [selectedPeriods, setSelectedPeriods] = useState<string[]>([])
   const [receiptSummary, setReceiptSummary] = useState<ReceiptSummary | null>(null)
   const [saving, setSaving] = useState(false)
   const receiptRef = useRef<HTMLDivElement>(null)
-  const academicYearOptions = useMemo(
-    () => toAcademicYearOptions(availableAcademicYears, currentSchoolAcademicYear),
-    [availableAcademicYears, currentSchoolAcademicYear]
-  )
 
   const fetchInitialData = useCallback(async () => {
     try {
-      const [studentsRes, academicYearRes] = await Promise.all([
-        api.get<{ students: Student[] }>('/api/school/students', { limit: '25', academicYear }),
-        api.get<{ academicYears: string[] }>('/api/school/academic-years').catch(() => ({ academicYears: [] })),
-      ])
+      const studentsRes = await api.get<{ students: Student[] }>('/api/school/students', { limit: '25', academicYear })
       setStudents(studentsRes.students || [])
-      setAvailableAcademicYears(academicYearRes.academicYears || [])
     } catch {
       toast({
         title: "Couldn't Load Collect Fees",
@@ -384,12 +431,6 @@ export function FeeCollectionsPage() {
   useEffect(() => {
     fetchInitialData()
   }, [fetchInitialData])
-
-  useEffect(() => {
-    if (!academicYearOptions.some((year) => year.value === academicYear)) {
-      setAcademicYear(academicYearOptions[0]?.value || currentSchoolAcademicYear || getCurrentAcademicYear())
-    }
-  }, [academicYear, academicYearOptions, currentSchoolAcademicYear])
 
   useEffect(() => {
     const value = search.trim()
@@ -427,13 +468,47 @@ export function FeeCollectionsPage() {
       for (const item of [...(arrearsData.collections || []), ...(currentData.collections || [])]) {
         merged.set(item.ledgerEntryId || item.id, item)
       }
-      setAllStudentCollections(Array.from(merged.values()))
+      const mergedItems = Array.from(merged.values())
+      setAllStudentCollections(mergedItems)
       setReceiptHistory(currentData.receiptHistory || [])
       setTransportInfo(currentData.transportInfo || null)
-      setSelectedCollectionIds([])
-      setSelectedPeriods([])
+
+      // Auto-select previous-AY dues + current-AY monthly fees up to & including the current calendar month.
+      // Skip: current-AY non-monthly (admission/term/exam) and future months. Cashier can adjust manually.
+      const today = new Date()
+      const todayMonth = today.getMonth()
+      const todayYear = today.getFullYear()
+      const monthIsCurrentOrPast = (periodName: string, ay: string) => {
+        const monthIdx = MONTHS.findIndex((m) => normalizedPeriod(m) === normalizedPeriod(periodName))
+        if (monthIdx === -1) return false
+        const [start] = ay.split('-').map((n) => Number(n))
+        if (Number.isNaN(start)) return false
+        const calendarMonth = monthIdx <= 8 ? monthIdx + 3 : monthIdx - 9
+        const calendarYear = monthIdx <= 8 ? start : start + 1
+        if (calendarYear < todayYear) return true
+        if (calendarYear > todayYear) return false
+        return calendarMonth <= todayMonth
+      }
+      const autoIds: string[] = []
+      const autoKeys = new Set<string>()
+      for (const item of mergedItems) {
+        if (item.status === 'PAID') continue
+        const itemAy = typeof item.academicYear === 'string' ? item.academicYear : ''
+        if (itemAy && itemAy < academicYear) {
+          autoIds.push(item.id)
+          autoKeys.add(collectionSelectionKey(item))
+          continue
+        }
+        if (itemAy === academicYear && isMonthPeriod(itemPeriod(item)) && monthIsCurrentOrPast(itemPeriod(item), itemAy)) {
+          autoIds.push(item.id)
+          autoKeys.add(collectionSelectionKey(item))
+        }
+      }
+      setSelectedCollectionIds(autoIds)
+      setSelectedPeriods(Array.from(autoKeys))
       setDiscountAmount('')
       setPaymentSplits([{ id: 'split-1', paymentMethod: 'CASH', amount: '', remarks: '' }])
+      setFirstSplitEdited(false)
     } catch {
       setAllStudentCollections([])
       setReceiptHistory([])
@@ -518,21 +593,28 @@ export function FeeCollectionsPage() {
     () => currentAcademicItems.filter((item) => !isMonthPeriod(itemPeriod(item))),
     [currentAcademicItems]
   )
+  const currentAllOtherTermItems = useMemo(
+    () => currentAllAcademicItems.filter((item) => !isMonthPeriod(itemPeriod(item))),
+    [currentAllAcademicItems]
+  )
   const previousDueItems = useMemo(
-    () => studentCollections.filter((item) => item.academicYear !== academicYear),
+    () => studentCollections.filter((item) =>
+      typeof item.academicYear === 'string' && item.academicYear < academicYear
+    ),
     [academicYear, studentCollections]
   )
   const otherTermOptions = useMemo(() => {
-    const map = new Map<string, { period: string; academicYear?: string | null; amount: number; count: number }>()
-    for (const item of currentOtherTermItems) {
+    const map = new Map<string, { period: string; academicYear?: string | null; amount: number; total: number; count: number }>()
+    for (const item of currentAllOtherTermItems) {
       const key = collectionSelectionKey(item)
-      const option = map.get(key) || { period: itemPeriod(item), academicYear: item.academicYear, amount: 0, count: 0 }
+      const option = map.get(key) || { period: itemPeriod(item), academicYear: item.academicYear, amount: 0, total: 0, count: 0 }
       option.amount += remainingAmount(item)
+      option.total += totalAmount(item)
       option.count += 1
       map.set(key, option)
     }
     return Array.from(map.values()).sort((a, b) => comparePeriods(a.period, b.period))
-  }, [currentOtherTermItems])
+  }, [currentAllOtherTermItems])
   const previousDueOptions = useMemo(() => {
     const map = new Map<string, { period: string; academicYear?: string | null; transport: boolean; amount: number; count: number }>()
     for (const item of previousDueItems) {
@@ -595,7 +677,57 @@ export function FeeCollectionsPage() {
   const splitTotal = paymentSplits.reduce((sum, split) => sum + Number(split.amount || 0), 0)
   const paymentValue = splitTotal || payableTotal
   const balanceDue = Math.max(0, payableTotal - paymentValue)
-  const feeGroupName = allStudentCollections.find((item) => item.feesGroupName)?.feesGroupName || '-'
+
+  // Live allocation preview: as the cashier types amounts into the payment
+  // split rows (or the Discount input), each selected particular shows how
+  // much it will receive and how much will remain due. Uses the SAME order as
+  // collectNow() → admission/exam → month-by-month (transport then tuition).
+  const allocationPreview = useMemo(() => {
+    const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100
+    const map = new Map<string, { paying: number; discount: number; remaining: number; due: number }>()
+    if (collectionItems.length === 0) return map
+    const sorted = [...collectionItems].sort((a, b) => {
+      const keyA = allocationSortKey(a)
+      const keyB = allocationSortKey(b)
+      for (let i = 0; i < keyA.length; i++) {
+        const va = keyA[i]
+        const vb = keyB[i]
+        if (typeof va === 'number' && typeof vb === 'number') {
+          if (va !== vb) return va - vb
+        } else {
+          const cmp = String(va).localeCompare(String(vb))
+          if (cmp !== 0) return cmp
+        }
+      }
+      return 0
+    })
+    let remaining = splitTotal
+    let remainingDiscount = discount
+    for (const item of sorted) {
+      const due = remainingAmount(item)
+      if (due <= 0) {
+        map.set(item.id, { paying: 0, discount: 0, remaining: 0, due: 0 })
+        continue
+      }
+      const discountForRow = remainingDiscount > 0 ? Math.min(remainingDiscount, due) : 0
+      const payableForRow = Math.max(0, due - discountForRow)
+      const paymentForRow = Math.min(payableForRow, Math.max(0, remaining))
+      remaining -= paymentForRow
+      remainingDiscount -= discountForRow
+      const remainingDue = Math.max(0, due - discountForRow - paymentForRow)
+      map.set(item.id, {
+        paying: round2(paymentForRow),
+        discount: round2(discountForRow),
+        remaining: round2(remainingDue),
+        due: round2(due),
+      })
+    }
+    return map
+  }, [collectionItems, splitTotal, discount])
+  const feeGroupName =
+    allStudentCollections.find((item) => item.feesGroupName && item.academicYear === academicYear)?.feesGroupName
+    || allStudentCollections.find((item) => item.feesGroupName)?.feesGroupName
+    || '-'
   const father = selectedStudent?.parentLinks?.find((link) => link.parent?.fatherName)?.parent
   const mother = selectedStudent?.parentLinks?.find((link) => link.parent?.motherName)?.parent
   const contact = father?.phone || mother?.phone || ''
@@ -604,18 +736,32 @@ export function FeeCollectionsPage() {
   const selectedPreviousSessionDue = selectedItems
     .filter((item) => item.academicYear !== academicYear)
     .reduce((sum, item) => sum + remainingAmount(item), 0)
-  const selectedCurrentSessionFee = selectedItems
-    .filter((item) => item.academicYear === academicYear && !isTransportItem(item))
+  const selectedPreviousMonthDueInAY = selectedItems
+    .filter((item) => item.academicYear === academicYear && isMonthPeriod(itemPeriod(item)) && itemIsBeforeToday(item))
+    .reduce((sum, item) => sum + remainingAmount(item), 0)
+  const selectedCurrentMonthFee = selectedItems
+    .filter((item) => item.academicYear === academicYear && isMonthPeriod(itemPeriod(item)) && itemIsCurrentCalendarMonth(item))
+    .reduce((sum, item) => sum + remainingAmount(item), 0)
+  const selectedFutureMonthFee = selectedItems
+    .filter((item) => item.academicYear === academicYear && isMonthPeriod(itemPeriod(item)) && !itemIsBeforeToday(item) && !itemIsCurrentCalendarMonth(item))
+    .reduce((sum, item) => sum + remainingAmount(item), 0)
+  const selectedAdmissionTermFee = selectedItems
+    .filter((item) => item.academicYear === academicYear && !isMonthPeriod(itemPeriod(item)))
     .reduce((sum, item) => sum + remainingAmount(item), 0)
   const selectedTransportFare = selectedItems
     .filter((item) => item.academicYear === academicYear && isTransportItem(item))
     .reduce((sum, item) => sum + remainingAmount(item), 0)
 
   useEffect(() => {
-    if (selectedTotal > 0 && paymentSplits.length === 1 && !paymentSplits[0].amount) {
-      setPaymentSplits((current) => current.map((split, index) => index === 0 ? { ...split, amount: String(payableTotal) } : split))
-    }
-  }, [payableTotal, paymentSplits, selectedTotal])
+    if (firstSplitEdited) return
+    if (paymentSplits.length !== 1) return
+    if (selectedTotal <= 0) return
+    const desired = payableTotal > 0 ? String(payableTotal) : ''
+    if (paymentSplits[0].amount === desired) return
+    setPaymentSplits((current) =>
+      current.map((split, index) => (index === 0 ? { ...split, amount: desired } : split))
+    )
+  }, [firstSplitEdited, payableTotal, paymentSplits, selectedTotal])
 
   const toggleCollection = (id: string) => {
     setSelectedCollectionIds((current) =>
@@ -645,6 +791,11 @@ export function FeeCollectionsPage() {
   const selectAllDues = () => {
     setSelectedPeriods(Array.from(new Set(studentCollections.map(collectionSelectionKey))))
     setSelectedCollectionIds(studentCollections.map((item) => item.id))
+  }
+
+  const clearAllSelections = () => {
+    setSelectedPeriods([])
+    setSelectedCollectionIds([])
   }
 
   const handleSelectStudent = (student: Student) => {
@@ -711,12 +862,34 @@ export function FeeCollectionsPage() {
     })
   }
 
-  const printReceipt = () => {
+  const printReceipt = (mode: 'single' | 'office' | 'parent' | 'both' = 'single') => {
     if (!receiptRef.current) return
     const printWindow = window.open('', '_blank', 'width=430,height=650')
     if (!printWindow) {
       window.print()
       return
+    }
+
+    const headerHtml = buildPrintHeaderHtml(currentSchool, { fallbackToAutoHeader: true })
+    const receiptHtml = receiptRef.current.outerHTML
+
+    const renderCopy = (label: string | null) => `
+      <section class="receipt-copy">
+        ${label ? `<div class="copy-label">${label}</div>` : ''}
+        ${headerHtml ? `<div class="receipt-print-header">${headerHtml}</div>` : ''}
+        <div class="receipt-print-root">${receiptHtml}</div>
+      </section>
+    `
+
+    let body = ''
+    if (mode === 'single') {
+      body = renderCopy(null)
+    } else if (mode === 'office') {
+      body = renderCopy('OFFICE COPY')
+    } else if (mode === 'parent') {
+      body = renderCopy('PARENT COPY')
+    } else {
+      body = `${renderCopy('OFFICE COPY')}<div class="cut-line"><span>✂ &nbsp; cut here &nbsp; ✂</span></div>${renderCopy('PARENT COPY')}`
     }
 
     printWindow.document.write(`
@@ -733,7 +906,37 @@ export function FeeCollectionsPage() {
               color: #000;
               font-family: Arial, Helvetica, sans-serif;
             }
+            .receipt-copy { width: 380px; max-width: 100%; margin: 0 auto; }
+            .copy-label {
+              text-align: center;
+              font-size: 11px;
+              font-weight: 700;
+              letter-spacing: 2px;
+              padding: 4px 0;
+              margin-bottom: 6px;
+              border: 1.5px dashed #000;
+              text-transform: uppercase;
+            }
+            .cut-line {
+              width: 380px;
+              max-width: 100%;
+              margin: 12px auto;
+              border-top: 1.5px dashed #000;
+              position: relative;
+              text-align: center;
+              font-size: 10px;
+              color: #555;
+            }
+            .cut-line span {
+              position: relative;
+              top: -8px;
+              background: #fff;
+              padding: 0 6px;
+              letter-spacing: 1px;
+            }
             .receipt-print-root { width: 375px; max-width: 100%; }
+            .receipt-print-header { width: 375px; max-width: 100%; margin-bottom: 10px; }
+            .receipt-print-header img { display: block; width: 100%; }
             .fee-receipt-slip {
               width: 380px;
               max-width: 100%;
@@ -823,13 +1026,15 @@ export function FeeCollectionsPage() {
               font-weight: 700;
             }
             @media print {
-              @page { margin: 8mm; size: auto; }
+              @page { margin: 10mm; size: A4 portrait; }
               body { padding: 0; }
+              .cut-line { page-break-inside: avoid; }
+              .receipt-copy { page-break-inside: avoid; }
             }
           </style>
         </head>
         <body>
-          <div class="receipt-print-root">${receiptRef.current.outerHTML}</div>
+          ${body}
         </body>
       </html>
     `)
@@ -848,6 +1053,9 @@ export function FeeCollectionsPage() {
   }, [academicYear, fetchStudentCollections, selectedStudent])
 
   const updatePaymentSplit = (id: string, patch: Partial<PaymentSplitRow>) => {
+    if (id === 'split-1' && 'amount' in patch) {
+      setFirstSplitEdited(true)
+    }
     setPaymentSplits((current) =>
       current.map((split) => split.id === id ? { ...split, ...patch } : split)
     )
@@ -883,9 +1091,19 @@ export function FeeCollectionsPage() {
       let remaining = paymentValue
       let remainingDiscount = discount
       const sortedSelectedItems = [...collectionItems].sort((a, b) => {
-        const periodCompare = periodSortIndex(itemPeriod(a)) - periodSortIndex(itemPeriod(b))
-        if (periodCompare !== 0) return periodCompare
-        return (a.dueDate || '').localeCompare(b.dueDate || '')
+        const keyA = allocationSortKey(a)
+        const keyB = allocationSortKey(b)
+        for (let i = 0; i < keyA.length; i++) {
+          const va = keyA[i]
+          const vb = keyB[i]
+          if (typeof va === 'number' && typeof vb === 'number') {
+            if (va !== vb) return va - vb
+          } else {
+            const cmp = String(va).localeCompare(String(vb))
+            if (cmp !== 0) return cmp
+          }
+        }
+        return 0
       })
       const payments: Array<{
         collectionId: string
@@ -962,274 +1180,443 @@ export function FeeCollectionsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="rounded-xl border bg-card p-4 shadow-sm">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-start gap-3">
-            <Button variant="outline" size="icon" onClick={() => goBack('dashboard')} className="mt-0.5 size-9 shrink-0">
-              <ArrowLeft className="size-4" />
-            </Button>
-            <div>
-              <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-2xl font-bold tracking-tight">Collect Fee</h1>
-                <Badge variant="secondary" className="bg-primary/10 text-primary hover:bg-primary/10">
-                  {academicYear}
+    <div className="space-y-4">
+      {/* ── Page Header ──────────────────────────────────────── */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3">
+          <Button variant="outline" size="icon" onClick={() => goBack('dashboard')} className="size-9 shrink-0">
+            <ArrowLeft className="size-4" />
+          </Button>
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-xl font-bold tracking-tight leading-tight">Collect Fee</h1>
+              <Badge variant="outline" className="gap-1 h-5 px-2 text-[10px] font-semibold uppercase tracking-wider">
+                <CalendarDays className="size-3" />
+                {academicYear}
+              </Badge>
+              {currentSchoolAcademicYear && academicYear !== currentSchoolAcademicYear && (
+                <Badge variant="outline" className="h-5 border-amber-300 bg-amber-100 px-2 text-[10px] font-semibold uppercase tracking-wider text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+                  Past session
                 </Badge>
-              </div>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Search a student, select dues, split payment, and print the receipt from one clean workspace.
-              </p>
+              )}
             </div>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Search a student, select dues, split payment, and print the receipt.
+            </p>
           </div>
         </div>
+        {selectedStudent && selectedTotal > 0 && (
+          <div className="flex items-center gap-2">
+            <div className="rounded-md border bg-card px-3 py-1.5 shadow-sm">
+              <div className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wider">Selected</div>
+              <div className="text-sm font-bold tabular-nums leading-tight">{money(selectedTotal)}</div>
+            </div>
+            <div className="rounded-md border border-primary/40 bg-primary/5 px-3 py-1.5 shadow-sm">
+              <div className="text-[9px] font-semibold text-primary uppercase tracking-wider">Payable</div>
+              <div className="text-sm font-bold text-primary tabular-nums leading-tight">{money(payableTotal)}</div>
+            </div>
+          </div>
+        )}
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[1.45fr_1fr]">
-        <div className="space-y-4">
-          <Card className="overflow-hidden shadow-sm">
-            <CardHeader className="border-b bg-muted/30 pb-3">
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Search className="size-4 text-primary" />
-                Student Search
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4 p-4">
-              <div className="grid gap-3 md:grid-cols-[170px_1fr]">
-                <div className="flex items-center gap-3">
-                  <div className="flex size-10 items-center justify-center rounded-md bg-primary/10 text-primary">
-                    <UserRound className="size-4" />
-                  </div>
-                  <Label className="font-semibold">Find Student</Label>
-                </div>
-                <div className="relative">
-                  <Input
-                    placeholder="Search by student name, admission no., registration no., or roll no."
-                    value={search}
-                    onChange={(event) => {
-                      setSearch(event.target.value)
-                      setSelectedStudent(null)
-                      setAllStudentCollections([])
-                      setReceiptHistory([])
-                      setTransportInfo(null)
-                      setSelectedCollectionIds([])
-                    }}
-                  />
-                  {search && !selectedStudent && (
-                    <div className="absolute z-20 mt-1 max-h-72 w-full overflow-y-auto rounded-lg border bg-popover text-popover-foreground shadow-lg">
-                      {filteredStudents.length === 0 ? (
-                        <div className="p-3 text-sm text-muted-foreground">No students found</div>
-                      ) : (
-                        filteredStudents.map((student) => (
-                          <button
-                            key={student.id}
-                            type="button"
-                            className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left text-sm hover:bg-muted"
-                            onClick={() => handleSelectStudent(student)}
-                          >
-                            <span>{studentName(student)}</span>
-                            <span className="text-xs text-muted-foreground">
-                              {student.class?.name || '-'} {student.rollNumber ? `- Roll ${student.rollNumber}` : ''}
-                            </span>
-                          </button>
-                        ))
-                      )}
-                    </div>
+      {/* ── Search Bar + Payment Date ───────────────────────── */}
+      <Card className="!gap-0 !py-0 shadow-sm">
+        <CardContent className="p-2">
+          <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_180px]">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
+              <Input
+                placeholder="Search by name, admission, registration or roll no."
+                className="h-9 pl-8 text-sm"
+                value={search}
+                onChange={(event) => {
+                  setSearch(event.target.value)
+                  setSelectedStudent(null)
+                  setAllStudentCollections([])
+                  setReceiptHistory([])
+                  setTransportInfo(null)
+                  setSelectedCollectionIds([])
+                }}
+              />
+              {search && !selectedStudent && (
+                <div className="absolute z-20 mt-1 max-h-72 w-full overflow-y-auto rounded-lg border bg-popover text-popover-foreground shadow-lg">
+                  {filteredStudents.length === 0 ? (
+                    <div className="p-3 text-sm text-muted-foreground">No students found</div>
+                  ) : (
+                    filteredStudents.map((student) => (
+                      <button
+                        key={student.id}
+                        type="button"
+                        className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left text-sm transition-colors hover:bg-muted"
+                        onClick={() => handleSelectStudent(student)}
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full border bg-muted">
+                            {student.admission?.profileImage ? (
+                              <img src={student.admission.profileImage} alt={studentName(student)} className="h-full w-full object-cover" />
+                            ) : (
+                              <UserRound className="size-3.5 text-muted-foreground" />
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="text-sm font-medium truncate">{studentName(student)}</div>
+                            <div className="text-[11px] text-muted-foreground">
+                              {student.class?.name || '-'}{student.rollNumber ? ` · Roll ${student.rollNumber}` : ''}
+                            </div>
+                          </div>
+                        </div>
+                      </button>
+                    ))
                   )}
                 </div>
-              </div>
+              )}
+            </div>
+            <DatePicker
+              value={paymentDate}
+              onChange={setPaymentDate}
+              disableFuture
+              placeholder="Payment date"
+              triggerClassName="h-9 w-full text-sm"
+            />
+          </div>
+        </CardContent>
+      </Card>
 
-              <div className="grid gap-3 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label>Academic Year</Label>
-                  <Select
-                    value={academicYear}
-                    onValueChange={setAcademicYear}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select academic year" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {academicYearOptions.map((year) => (
-                        <SelectItem key={year.value} value={year.value}>{year.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+      {/* ── Empty state when no student selected ───────────── */}
+      {!selectedStudent && (
+        <Card className="!gap-0 border-dashed !py-0 shadow-sm">
+          <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+            <div className="flex size-14 items-center justify-center rounded-full bg-primary/10 text-primary">
+              <UserRound className="size-6" />
+            </div>
+            <h3 className="mt-3 text-sm font-semibold">Select a student to begin</h3>
+            <p className="mt-1 max-w-sm text-xs text-muted-foreground">
+              Search above. You&apos;ll see pending fees, transport dues, and full payment history right here.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {selectedStudent && (
+        <>
+          {/* ── Student Profile Strip ────────────────────────── */}
+          <Card className="!gap-0 overflow-hidden !py-0 shadow-sm">
+            <div className="grid gap-0 lg:grid-cols-[280px_1fr]">
+              <div className="flex items-center gap-3 border-b bg-muted/30 px-3 py-2 lg:border-b-0 lg:border-r">
+                <div className="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border bg-muted">
+                  {selectedStudent.admission?.profileImage ? (
+                    <img src={selectedStudent.admission.profileImage} alt={studentName(selectedStudent)} className="h-full w-full object-cover" />
+                  ) : (
+                    <UserRound className="size-8 text-muted-foreground" />
+                  )}
                 </div>
-                <div className="space-y-2">
-                  <Label>Payment Date</Label>
-                  <Input
-                    type="date"
-                    value={paymentDate}
-                    onChange={(event) => setPaymentDate(event.target.value)}
-                  />
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-base font-semibold leading-tight">{studentName(selectedStudent)}</div>
+                  <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                    <Badge variant="secondary" className="h-5 px-2 text-[10px]">{selectedStudent.class?.name || '-'}</Badge>
+                    {selectedStudent.section?.name && (
+                      <Badge variant="secondary" className="h-5 px-2 text-[10px]">{selectedStudent.section.name}</Badge>
+                    )}
+                    {selectedStudent.rollNumber && (
+                      <span className="text-[11px] text-muted-foreground">Roll · {selectedStudent.rollNumber}</span>
+                    )}
+                  </div>
                 </div>
               </div>
-            </CardContent>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-2 px-3 py-2 sm:grid-cols-3 lg:grid-cols-4">
+                <ProfileItem label="Adm. No." value={selectedStudent.admissionNumber || '-'} />
+                <ProfileItem label="Reg. No." value={selectedStudent.admission?.registrationNumber || '-'} />
+                <ProfileItem label="Father" value={father?.fatherName || '-'} />
+                <ProfileItem label="Mother" value={mother?.motherName || '-'} />
+                <ProfileItem label="Contact" value={contact || '-'} />
+                <ProfileItem label="Fee Group" value={feeGroupName} />
+                <ProfileItem label="Admission Date" value={formatStudentDate(selectedStudent.admission?.dateOfAdmission)} />
+              </div>
+            </div>
           </Card>
 
-          {selectedStudent && (
-            <>
-              <Card className="overflow-hidden shadow-sm">
-                <CardHeader className="border-b bg-muted/30 pb-3">
-                  <CardTitle className="flex items-center justify-between gap-3 text-base">
+          {/* ── Collection Grid ─────────────────────────────── */}
+          <div className="grid gap-4 xl:grid-cols-[1.5fr_1fr]">
+            <div className="space-y-4">
+              {/* Select Periods */}
+              <Card className="!gap-0 !py-0 shadow-sm">
+                <CardHeader className="border-b px-3 !py-2">
+                  <CardTitle className="flex items-center justify-between gap-3 text-sm">
                     <span className="flex items-center gap-2">
                       <CalendarDays className="size-4 text-primary" />
                       Select Months / Terms
                     </span>
-                    <Button variant="outline" size="sm" onClick={selectAllDues}>
-                      Select All
-                    </Button>
+                    <div className="flex items-center gap-1.5">
+                      <Button variant="outline" size="sm" className="h-7 text-xs" onClick={selectAllDues}>
+                        Select All Pending
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-xs text-muted-foreground hover:text-foreground"
+                        onClick={clearAllSelections}
+                        disabled={selectedPeriods.length === 0 && selectedCollectionIds.length === 0}
+                      >
+                        Clear
+                      </Button>
+                    </div>
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="p-4">
+                <CardContent className="space-y-2.5 px-3 py-2.5">
                   {previousDueOptions.length > 0 && (
-                    <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-500/30 dark:bg-amber-500/10">
-                      <div className="mb-2 text-sm font-semibold text-amber-900">Previous Session Dues</div>
-                      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    <div className="rounded-lg border border-red-200 bg-red-50/60 p-2.5 dark:border-red-500/30 dark:bg-red-500/10">
+                      <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-red-900 dark:text-red-300">
+                        <span className="size-2 rounded-full bg-red-500" />
+                        Previous Session Dues
+                      </div>
+                      <div className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
                         {previousDueOptions.map((option) => {
                           const checked = selectedPeriods.includes(periodSelectionKey(option.period, option.transport, option.academicYear))
                           return (
-                            <label key={`${option.academicYear}-${option.period}`} className="flex items-center gap-2 rounded-md border border-amber-200/70 bg-white/70 p-2 text-sm text-amber-950 dark:bg-background/50">
+                            <label
+                              key={`${option.academicYear}-${option.period}-${option.transport}`}
+                              className={cn(
+                                'flex cursor-pointer items-center gap-2 rounded-md border bg-white px-2 py-1.5 text-xs transition-colors hover:border-red-400 dark:bg-background',
+                                checked && 'border-red-400 bg-red-50 dark:bg-red-500/20'
+                              )}
+                            >
                               <Checkbox
                                 checked={checked}
                                 onCheckedChange={() => togglePeriod(option.period, option.transport, option.academicYear || null)}
                               />
-                              <span>{option.academicYear || 'Previous'} - {option.transport ? 'Transport ' : ''}{option.period}</span>
-                              <span className="ml-auto font-medium">{money(option.amount)}</span>
+                              <span className="truncate">{option.academicYear || 'Past'} · {option.transport ? 'Transport ' : ''}{option.period}</span>
+                              <span className="ml-auto font-semibold tabular-nums text-red-700 dark:text-red-400">{money(option.amount)}</span>
                             </label>
                           )
                         })}
                       </div>
                     </div>
                   )}
+
                   {otherTermOptions.length > 0 && (
-                    <div className="mb-4 rounded-lg border bg-background p-3">
-                      <div className="mb-2 text-sm font-semibold">Admission / Term Fees</div>
-                      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    <div className="rounded-lg border bg-background p-2.5">
+                      <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold">
+                        <span className="size-2 rounded-full bg-slate-500" />
+                        Admission / Term Fees
+                      </div>
+                      <div className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
                         {otherTermOptions.map((option) => {
                           const checked = selectedPeriods.includes(periodSelectionKey(option.period, false, option.academicYear))
+                          const allItemsForOption = currentAllOtherTermItems.filter(
+                            (item) =>
+                              matchesPeriod(item, option.period) &&
+                              academicYearKey(item.academicYear) === academicYearKey(option.academicYear)
+                          )
+                          const state = periodPaymentState(allItemsForOption)
+                          const isSettled = state === 'paid'
                           return (
-                            <label key={`${option.academicYear}-${option.period}`} className="flex items-center gap-2 rounded-md border bg-card p-2 text-sm transition-colors hover:border-primary/40 hover:bg-primary/5">
+                            <label
+                              key={`${option.academicYear}-${option.period}`}
+                              className={cn(
+                                'flex cursor-pointer items-center gap-2 rounded-md border bg-card px-2 py-1.5 text-xs transition-colors hover:border-primary/40 hover:bg-primary/5',
+                                checked && 'border-primary/50 bg-primary/10',
+                                state === 'partial' && !checked && 'border-amber-200 bg-amber-50/60 dark:border-amber-500/30 dark:bg-amber-500/10',
+                                isSettled && 'cursor-default border-emerald-200 bg-emerald-50 text-emerald-900 hover:border-emerald-200 hover:bg-emerald-50 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200'
+                              )}
+                            >
                               <Checkbox
-                                checked={checked}
+                                checked={checked || isSettled}
+                                disabled={isSettled}
                                 onCheckedChange={() => togglePeriod(option.period, false, option.academicYear || null)}
                               />
-                              <span>{option.period}</span>
-                              <span className="ml-auto font-medium">{money(option.amount)}</span>
+                              <span className="truncate">{option.period}</span>
+                              {state && (
+                                <span
+                                  className={cn(
+                                    'inline-block size-1.5 rounded-full',
+                                    state === 'paid' && 'bg-emerald-500',
+                                    state === 'partial' && 'bg-amber-500',
+                                    state === 'unpaid' && 'bg-slate-400'
+                                  )}
+                                  title={periodStateLabel(state)}
+                                />
+                              )}
+                              <span
+                                className={cn(
+                                  'ml-auto font-semibold tabular-nums',
+                                  state === 'partial' && 'text-amber-700 dark:text-amber-300',
+                                  isSettled && 'text-emerald-700 dark:text-emerald-300'
+                                )}
+                              >
+                                {isSettled
+                                  ? `Paid · ${money(option.total)}`
+                                  : state === 'partial'
+                                  ? `Partial · ${money(option.amount)}`
+                                  : money(option.amount)}
+                              </span>
                             </label>
                           )
                         })}
                       </div>
                     </div>
                   )}
-                  <div className="grid gap-2 sm:grid-cols-4 lg:grid-cols-6">
-                    {MONTHS.map((month) => {
-                      const monthItems = currentMonthItems.filter((item) => matchesPeriod(item, month))
-                      const allMonthItems = currentAllMonthItems.filter((item) => matchesPeriod(item, month))
-                      const monthState = periodPaymentState(allMonthItems)
-                      const checked = selectedPeriods.includes(periodSelectionKey(month, false, academicYear))
-                      const isSettled = monthState === 'paid'
-                      return (
-                        <label
-                          key={month}
-                          className={cn(
-                            'flex min-h-9 items-center gap-1.5 rounded-md border bg-card px-2 py-1.5 text-xs transition-colors hover:border-primary/40 hover:bg-primary/5',
-                            checked && 'border-primary/50 bg-primary/10',
-                            isSettled && 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-500/30 dark:bg-emerald-500/10',
-                            allMonthItems.length === 0 && 'bg-muted/40 text-muted-foreground line-through hover:border-border hover:bg-muted/40'
-                          )}
-                        >
-                          <Checkbox
-                            checked={checked || isSettled}
-                            disabled={allMonthItems.length === 0 || isSettled}
-                            onCheckedChange={() => togglePeriod(month, false, academicYear)}
-                          />
-                          <span>{month}</span>
-                          {monthState && (
-                            <Badge
-                              variant="outline"
-                              className={cn(
-                                'ml-auto px-1 py-0 text-[9px]',
-                                monthState === 'paid' && 'border-emerald-200 bg-emerald-50 text-emerald-700',
-                                monthState === 'partial' && 'border-amber-200 bg-amber-50 text-amber-700',
-                                monthState === 'unpaid' && 'border-slate-200 bg-white text-slate-600'
+
+                  <div>
+                    <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold">
+                      <span className="size-2 rounded-full bg-primary" />
+                      Monthly Fees
+                      <span className="text-[10px] font-normal text-muted-foreground">· {academicYear}</span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-4 lg:grid-cols-6">
+                      {MONTHS.map((month) => {
+                        const monthItems = currentMonthItems.filter((item) => matchesPeriod(item, month))
+                        const allMonthItems = currentAllMonthItems.filter((item) => matchesPeriod(item, month))
+                        const monthState = periodPaymentState(allMonthItems)
+                        const checked = selectedPeriods.includes(periodSelectionKey(month, false, academicYear))
+                        const isSettled = monthState === 'paid'
+                        const monthAmount = monthItems.reduce((sum, item) => sum + remainingAmount(item), 0)
+                        const hasFee = allMonthItems.length > 0
+                        const sampleItem = allMonthItems[0]
+                        const isOverdue = !!sampleItem && itemIsBeforeToday(sampleItem) && (monthState === 'unpaid' || monthState === 'partial')
+                        const isCurrentCal = !!sampleItem && itemIsCurrentCalendarMonth(sampleItem)
+                        return (
+                          <label
+                            key={month}
+                            className={cn(
+                              'flex cursor-pointer flex-col gap-0.5 rounded-md border bg-card px-2 py-1.5 text-xs transition-all hover:border-primary/40 hover:bg-primary/5',
+                              checked && 'border-primary bg-primary/10 ring-1 ring-primary/20',
+                              isOverdue && !checked && 'border-red-300 bg-red-50/70 text-red-900 hover:border-red-400 hover:bg-red-50 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-200',
+                              isCurrentCal && !checked && !isOverdue && 'border-primary/40 bg-primary/5',
+                              isSettled && 'cursor-default border-emerald-200 bg-emerald-50 text-emerald-900 hover:border-emerald-200 hover:bg-emerald-50 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200',
+                              !hasFee && 'cursor-default bg-muted/40 text-muted-foreground hover:border-border hover:bg-muted/40'
+                            )}
+                          >
+                            <div className="flex w-full items-center gap-1.5">
+                              <Checkbox
+                                checked={checked || isSettled}
+                                disabled={!hasFee || isSettled}
+                                onCheckedChange={() => togglePeriod(month, false, academicYear)}
+                              />
+                              <span className="font-medium">{month}</span>
+                              {isCurrentCal && hasFee && !isSettled && (
+                                <span className="rounded bg-primary/15 px-1 py-px text-[9px] font-semibold uppercase leading-none tracking-wide text-primary">Now</span>
                               )}
-                            >
-                              {periodStateLabel(monthState)}
-                            </Badge>
-                          )}
-                        </label>
-                      )
-                    })}
+                              {monthState && (
+                                <span
+                                  className={cn(
+                                    'ml-auto inline-block size-1.5 rounded-full',
+                                    monthState === 'paid' && 'bg-emerald-500',
+                                    monthState === 'partial' && 'bg-amber-500',
+                                    monthState === 'unpaid' && (isOverdue ? 'bg-red-500' : 'bg-slate-400')
+                                  )}
+                                  title={isOverdue ? `Overdue · ${periodStateLabel(monthState)}` : periodStateLabel(monthState)}
+                                />
+                              )}
+                            </div>
+                            <div className={cn(
+                              'text-[10px] tabular-nums',
+                              isOverdue ? 'font-semibold text-red-700 dark:text-red-300' : 'text-muted-foreground'
+                            )}>
+                              {!hasFee ? 'No fee' : isSettled ? 'Paid' : isOverdue ? `Due · ${money(monthAmount)}` : money(monthAmount)}
+                            </div>
+                          </label>
+                        )
+                      })}
+                    </div>
                   </div>
                 </CardContent>
               </Card>
 
+              {/* Transport */}
               {currentAllTransportItems.length > 0 && (
-                <Card className="overflow-hidden border-emerald-200 bg-emerald-50 shadow-sm dark:border-emerald-500/30 dark:bg-emerald-500/10">
-                  <CardContent className="p-4">
-                    <div className="mb-3 grid gap-3 sm:grid-cols-[90px_1fr]">
-                      <div className="flex flex-col items-center justify-center text-green-800">
-                        <span className="text-sm font-medium">Transport</span>
-                        <Bus className="mt-2 size-8" />
-                      </div>
-                      <div className="space-y-1 text-sm text-green-900">
-                        <div className="font-semibold">
-                          {transportInfo?.routeName || 'Assigned Transport Route'}
+                <Card className="!gap-0 overflow-hidden !py-0 shadow-sm">
+                  <CardHeader className="border-b border-emerald-200 bg-emerald-50 px-3 !py-2 dark:border-emerald-500/30 dark:bg-emerald-500/10">
+                    <CardTitle className="flex items-center justify-between gap-3 text-sm text-emerald-900 dark:text-emerald-200">
+                      <span className="flex items-center gap-2">
+                        <Bus className="size-4" />
+                        Transport
+                      </span>
+                      {(transportInfo?.fareAmount || currentAllTransportItems[0]?.amount) && (
+                        <Badge variant="outline" className="border-emerald-300 bg-white text-[10px] text-emerald-800 dark:border-emerald-500/30 dark:bg-emerald-500/20 dark:text-emerald-200">
+                          Monthly · {money(transportInfo?.fareAmount || currentAllTransportItems[0]?.amount || 0)}
+                        </Badge>
+                      )}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2.5 px-3 py-2.5">
+                    <div className="grid gap-2 rounded-md border bg-muted/30 p-2.5 text-xs sm:grid-cols-2">
+                      <div>
+                        <span className="text-muted-foreground">Route:</span>
+                        <span className="ml-1 font-medium">
+                          {transportInfo?.routeName || 'Assigned Route'}
                           {transportInfo?.routeNumber ? ` (${transportInfo.routeNumber})` : ''}
-                        </div>
-                        <div>
-                          Stop: {transportInfo?.stopName || transportInfo?.pickupPoint || 'Not set'}
-                          <span className="mx-2 text-green-700">|</span>
-                          Fare: {money(transportInfo?.fareAmount || currentAllTransportItems[0]?.amount || 0)}
-                        </div>
-                        {(transportInfo?.vehicleNumber || transportInfo?.startPoint || transportInfo?.endPoint) && (
-                          <div className="text-xs text-green-700">
-                            {[
-                              transportInfo.vehicleNumber ? `Vehicle ${transportInfo.vehicleNumber}` : null,
-                              transportInfo.startPoint && transportInfo.endPoint ? `${transportInfo.startPoint} to ${transportInfo.endPoint}` : null,
-                            ].filter(Boolean).join(' | ')}
-                          </div>
-                        )}
+                        </span>
                       </div>
+                      <div>
+                        <span className="text-muted-foreground">Stop:</span>
+                        <span className="ml-1 font-medium">{transportInfo?.stopName || transportInfo?.pickupPoint || '-'}</span>
+                      </div>
+                      {transportInfo?.vehicleNumber && (
+                        <div>
+                          <span className="text-muted-foreground">Vehicle:</span>
+                          <span className="ml-1 font-medium">{transportInfo.vehicleNumber}</span>
+                        </div>
+                      )}
+                      {transportInfo?.startPoint && transportInfo?.endPoint && (
+                        <div>
+                          <span className="text-muted-foreground">Path:</span>
+                          <span className="ml-1 font-medium">{transportInfo.startPoint} → {transportInfo.endPoint}</span>
+                        </div>
+                      )}
                     </div>
-                    <div className="grid gap-2 sm:grid-cols-4 lg:grid-cols-6">
-                    {MONTHS.map((month) => {
-                      const monthItems = currentTransportItems.filter((item) => matchesPeriod(item, month))
-                      const allMonthItems = currentAllTransportItems.filter((item) => matchesPeriod(item, month))
-                      const monthState = periodPaymentState(allMonthItems)
-                      const monthKey = periodSelectionKey(month, true, academicYear)
-                      const checked = selectedPeriods.includes(monthKey)
-                      const isSettled = monthState === 'paid'
-                      return (
-                        <label
-                          key={month}
-                          className={cn(
-                            'flex min-h-9 items-center gap-1.5 rounded-md border bg-white/80 px-2 py-1.5 text-xs transition-colors hover:border-emerald-400 hover:bg-white dark:bg-background/60',
-                            checked && 'border-emerald-500 bg-white',
-                            isSettled && 'border-emerald-300 bg-emerald-100 text-emerald-900 dark:bg-emerald-500/20',
-                            allMonthItems.length === 0 && 'bg-muted/40 text-muted-foreground line-through hover:border-border hover:bg-muted/40'
-                          )}
-                        >
-                          <Checkbox
-                            checked={checked || isSettled}
-                            disabled={allMonthItems.length === 0 || isSettled}
-                            onCheckedChange={() => togglePeriod(month, true, academicYear)}
-                          />
-                            <span>{month}</span>
-                            {monthState && (
-                              <Badge
-                                variant="outline"
-                                className={cn(
-                                  'ml-auto px-1 py-0 text-[9px]',
-                                  monthState === 'paid' && 'border-emerald-200 bg-emerald-50 text-emerald-700',
-                                  monthState === 'partial' && 'border-amber-200 bg-amber-50 text-amber-700',
-                                  monthState === 'unpaid' && 'border-slate-200 bg-white text-slate-600'
-                                )}
-                              >
-                                {periodStateLabel(monthState)}
-                              </Badge>
+                    <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-4 lg:grid-cols-6">
+                      {MONTHS.map((month) => {
+                        const monthItems = currentTransportItems.filter((item) => matchesPeriod(item, month))
+                        const allMonthItems = currentAllTransportItems.filter((item) => matchesPeriod(item, month))
+                        const monthState = periodPaymentState(allMonthItems)
+                        const monthKey = periodSelectionKey(month, true, academicYear)
+                        const checked = selectedPeriods.includes(monthKey)
+                        const isSettled = monthState === 'paid'
+                        const monthAmount = monthItems.reduce((sum, item) => sum + remainingAmount(item), 0)
+                        const hasFee = allMonthItems.length > 0
+                        const sampleItem = allMonthItems[0]
+                        const isOverdue = !!sampleItem && itemIsBeforeToday(sampleItem) && (monthState === 'unpaid' || monthState === 'partial')
+                        const isCurrentCal = !!sampleItem && itemIsCurrentCalendarMonth(sampleItem)
+                        return (
+                          <label
+                            key={month}
+                            className={cn(
+                              'flex cursor-pointer flex-col gap-0.5 rounded-md border bg-white px-2 py-1.5 text-xs transition-all hover:border-emerald-400 dark:bg-background',
+                              checked && 'border-emerald-500 bg-emerald-50 ring-1 ring-emerald-200 dark:bg-emerald-500/20',
+                              isOverdue && !checked && 'border-red-300 bg-red-50/70 text-red-900 hover:border-red-400 hover:bg-red-50 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-200',
+                              isCurrentCal && !checked && !isOverdue && 'border-emerald-400 bg-emerald-50/60 dark:bg-emerald-500/10',
+                              isSettled && 'cursor-default border-emerald-300 bg-emerald-100 text-emerald-900 hover:border-emerald-300 dark:bg-emerald-500/20 dark:text-emerald-200',
+                              !hasFee && 'cursor-default bg-muted/40 text-muted-foreground hover:border-border hover:bg-muted/40'
                             )}
+                          >
+                            <div className="flex w-full items-center gap-1.5">
+                              <Checkbox
+                                checked={checked || isSettled}
+                                disabled={!hasFee || isSettled}
+                                onCheckedChange={() => togglePeriod(month, true, academicYear)}
+                              />
+                              <span className="font-medium">{month}</span>
+                              {isCurrentCal && hasFee && !isSettled && (
+                                <span className="rounded bg-emerald-500/20 px-1 py-px text-[9px] font-semibold uppercase leading-none tracking-wide text-emerald-700 dark:text-emerald-300">Now</span>
+                              )}
+                              {monthState && (
+                                <span
+                                  className={cn(
+                                    'ml-auto inline-block size-1.5 rounded-full',
+                                    monthState === 'paid' && 'bg-emerald-500',
+                                    monthState === 'partial' && 'bg-amber-500',
+                                    monthState === 'unpaid' && (isOverdue ? 'bg-red-500' : 'bg-slate-400')
+                                  )}
+                                  title={isOverdue ? `Overdue · ${periodStateLabel(monthState)}` : periodStateLabel(monthState)}
+                                />
+                              )}
+                            </div>
+                            <div className={cn(
+                              'text-[10px] tabular-nums',
+                              isOverdue ? 'font-semibold text-red-700 dark:text-red-300' : 'text-muted-foreground'
+                            )}>
+                              {!hasFee ? 'No fee' : isSettled ? 'Paid' : isOverdue ? `Due · ${money(monthAmount)}` : money(monthAmount)}
+                            </div>
                           </label>
                         )
                       })}
@@ -1237,291 +1624,351 @@ export function FeeCollectionsPage() {
                   </CardContent>
                 </Card>
               )}
-            </>
-          )}
-        </div>
 
-        <Card className="overflow-hidden shadow-sm">
-          <CardHeader className="border-b bg-primary text-primary-foreground">
-            <CardTitle className="flex items-center justify-center gap-2 text-base">
-              Student Detail
-              <UserRound className="size-4" />
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            {!selectedStudent ? (
-              <div className="flex min-h-80 flex-col items-center justify-center p-6 text-center text-muted-foreground">
-                <UserRound className="mb-3 size-10" />
-                Search and select a student to collect fees.
-              </div>
-            ) : (
-              <div>
-                <div className="grid gap-3 p-3 sm:grid-cols-[150px_1fr]">
-                  <div className="flex aspect-square items-center justify-center overflow-hidden rounded-lg border bg-muted">
-                    {selectedStudent.admission?.profileImage ? (
-                      <img src={selectedStudent.admission.profileImage} alt={studentName(selectedStudent)} className="h-full w-full object-cover" />
-                    ) : (
-                      <UserRound className="size-14 text-muted-foreground" />
-                    )}
-                  </div>
-                  <div className="space-y-2 text-sm">
-                    <DetailRow label="Roll No" value={selectedStudent.rollNumber || '-'} />
-                    <DetailRow label="Contact" value={contact || '-'} />
-                    <DetailRow label="Fee Group" value={feeGroupName} />
-                    <DetailRow label="Admission Date" value={formatStudentDate(selectedStudent.admission?.dateOfAdmission)} />
-                    <DetailRow label="Class" value={selectedStudent.class?.name || '-'} />
-                  </div>
-                </div>
-                <Separator />
-                <DetailRow className="px-3 py-2" label="Adm. No." value={selectedStudent.admissionNumber || '-'} />
-                <DetailRow className="px-3 py-2" label="Reg. No." value={selectedStudent.admission?.registrationNumber || '-'} />
-                <DetailRow className="px-3 py-2" label="Name" value={studentName(selectedStudent)} />
-                <DetailRow className="px-3 py-2" label="Father's Name" value={father?.fatherName || '-'} />
-                <DetailRow className="px-3 py-2" label="Mother's Name" value={mother?.motherName || '-'} />
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+              {/* Selected Particulars */}
+              <Card className="!gap-0 !py-0 shadow-sm">
+                <CardHeader className="border-b bg-muted/30 px-3 !py-2">
+                  <CardTitle className="flex items-center justify-between gap-3 text-sm">
+                    <span className="flex items-center gap-2">
+                      <ReceiptText className="size-4 text-primary" />
+                      Selected Particulars
+                    </span>
+                    <Badge variant="secondary" className="bg-primary/10 text-[10px] text-primary hover:bg-primary/10">
+                      Grand Total · {money(payableTotal)}
+                    </Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-1.5 px-3 py-2.5">
+                  {studentCollections.length === 0 ? (
+                    <div className="rounded-md border border-dashed p-6 text-center text-xs text-muted-foreground">
+                      No pending fee rows found. Assign fees during admission or manual assignment first.
+                    </div>
+                  ) : visibleCollectionItems.length === 0 ? (
+                    <div className="rounded-md border border-dashed p-6 text-center text-xs text-muted-foreground">
+                      Tick a month or term above to show its fee heads here.
+                    </div>
+                  ) : (
+                    visibleCollectionItems.map((item) => {
+                      const checked = selectedCollectionIds.includes(item.id)
+                      const carriedForward = !checked && previousMonthDueItems.some((due) => due.id === item.id)
+                      const preview = checked || carriedForward ? allocationPreview.get(item.id) : undefined
+                      const due = preview?.due ?? remainingAmount(item)
+                      const paying = preview?.paying ?? 0
+                      const previewDiscount = preview?.discount ?? 0
+                      const remainingAfter = preview ? preview.remaining : due
+                      const hasPaymentInput = splitTotal > 0 || discount > 0
+                      const isFullyPaid = preview && hasPaymentInput && remainingAfter <= 0 && (paying > 0 || previewDiscount > 0)
+                      const isPartiallyPaid = preview && hasPaymentInput && (paying > 0 || previewDiscount > 0) && remainingAfter > 0
+                      const isUnpaid = preview && hasPaymentInput && paying <= 0 && previewDiscount <= 0
+                      return (
+                        <div
+                          key={item.id}
+                          className={cn(
+                            'grid grid-cols-[24px_1fr_auto] items-center gap-2.5 rounded-md border bg-background p-2.5 transition-colors hover:border-primary/40 hover:bg-primary/5',
+                            checked && 'border-primary/50 bg-primary/10',
+                            carriedForward && 'border-amber-200 bg-amber-50 dark:border-amber-500/30 dark:bg-amber-500/10',
+                            isFullyPaid && 'border-emerald-300 bg-emerald-50 dark:border-emerald-500/30 dark:bg-emerald-500/10',
+                            isPartiallyPaid && 'border-amber-300 bg-amber-50 dark:border-amber-500/30 dark:bg-amber-500/10',
+                          )}
+                        >
+                          <Checkbox checked={checked || carriedForward} disabled={carriedForward} onCheckedChange={() => toggleCollection(item.id)} />
+                          <div className="min-w-0">
+                            <div className="truncate text-sm font-medium leading-tight">{item.feeHeadName || 'Fee'}</div>
+                            <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                              <Badge variant="secondary" className="h-4 px-1.5 text-[10px]">{itemPeriod(item)}</Badge>
+                              {carriedForward && (
+                                <Badge className="h-4 bg-amber-100 px-1.5 text-[10px] text-amber-900 hover:bg-amber-100">Previous Month Due</Badge>
+                              )}
+                              {item.academicYear && item.academicYear !== academicYear && (
+                                <Badge className="h-4 bg-amber-100 px-1.5 text-[10px] text-amber-900 hover:bg-amber-100">Past · {item.academicYear}</Badge>
+                              )}
+                              {isFullyPaid && (
+                                <Badge className="h-4 bg-emerald-100 px-1.5 text-[10px] text-emerald-900 hover:bg-emerald-100">Will Be Paid</Badge>
+                              )}
+                              {isPartiallyPaid && (
+                                <Badge className="h-4 bg-amber-100 px-1.5 text-[10px] text-amber-900 hover:bg-amber-100">Partial</Badge>
+                              )}
+                              {isUnpaid && (
+                                <Badge variant="outline" className="h-4 px-1.5 text-[10px] text-muted-foreground">Unpaid</Badge>
+                              )}
+                              {!hasPaymentInput && (
+                                <span className="text-[10px] text-muted-foreground">{statusLabel(item.status)}</span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex flex-col items-end gap-0.5">
+                            <div className={cn(
+                              'text-sm font-bold tabular-nums',
+                              isFullyPaid && 'text-emerald-700 dark:text-emerald-300',
+                              isPartiallyPaid && 'text-amber-700 dark:text-amber-300',
+                            )}>
+                              {money(due)}
+                            </div>
+                            {preview && hasPaymentInput && (paying > 0 || previewDiscount > 0) && (
+                              <div className="text-[10px] tabular-nums text-emerald-700 dark:text-emerald-300">
+                                Paying {money(paying + previewDiscount)}
+                                {previewDiscount > 0 && ` (incl. ${money(previewDiscount)} disc.)`}
+                              </div>
+                            )}
+                            {preview && hasPaymentInput && remainingAfter > 0 && (
+                              <div className="text-[10px] tabular-nums text-red-600 dark:text-red-400">
+                                {money(remainingAfter)} due
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })
+                  )}
+                </CardContent>
+              </Card>
+            </div>
 
-      {selectedStudent && (
-        <div className="grid gap-4 xl:grid-cols-[1.25fr_1fr]">
-          <Card className="overflow-hidden shadow-sm">
-            <CardHeader className="border-b bg-muted/30 pb-3">
-              <CardTitle className="flex items-center justify-between gap-3 text-base">
-                <span className="flex items-center gap-2">
+            {/* ── Payment Summary Sidebar ────────────────────── */}
+            <Card className="!gap-0 self-start !py-0 shadow-sm xl:sticky xl:top-4">
+              <CardHeader className="border-b px-3 !py-2">
+                <CardTitle className="flex items-center gap-2 text-sm">
                   <ReceiptText className="size-4 text-primary" />
-                  Payment Split
-                </span>
-                <Badge variant="outline">Payable {money(payableTotal)}</Badge>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm text-muted-foreground">Split total: <span className="font-semibold text-foreground">{money(splitTotal)}</span></p>
-                  <Button type="button" variant="outline" size="sm" onClick={addPaymentSplit}>
-                    <PlusCircle className="mr-2 size-4" />
-                    Add Row
-                  </Button>
+                  Payment Summary
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2.5 px-3 py-2.5">
+                {/* Breakdown */}
+                <div className="space-y-1 rounded-md border bg-muted/30 p-2.5 text-xs">
+                  {selectedPreviousSessionDue > 0 && (
+                    <SummaryRow label="Previous Session Dues" value={money(selectedPreviousSessionDue)} accent="amber" />
+                  )}
+                  {selectedPreviousMonthDueInAY > 0 && (
+                    <SummaryRow label="Previous Month Dues" value={money(selectedPreviousMonthDueInAY)} accent="amber" />
+                  )}
+                  {previousMonthDueTotal > 0 && (
+                    <SummaryRow label="Unselected Past Dues" value={money(previousMonthDueTotal)} accent="amber" />
+                  )}
+                  {selectedCurrentMonthFee > 0 && (
+                    <SummaryRow label="Current Month" value={money(selectedCurrentMonthFee)} />
+                  )}
+                  {selectedFutureMonthFee > 0 && (
+                    <SummaryRow label="Future / Advance Months" value={money(selectedFutureMonthFee)} />
+                  )}
+                  {selectedAdmissionTermFee > 0 && (
+                    <SummaryRow label="Admission / Term Fees" value={money(selectedAdmissionTermFee)} />
+                  )}
+                  {selectedTransportFare > 0 && (
+                    <SummaryRow label="Transport Fare (Total)" value={money(selectedTransportFare)} accent="emerald" />
+                  )}
+                  <SummaryRow label="Sub Total" value={money(selectedTotal)} bold />
                 </div>
-                {paymentSplits.map((split) => (
-                  <div key={split.id} className="grid gap-2 rounded-lg border bg-background p-2 md:grid-cols-[150px_1fr_1fr_40px]">
-                    <Select
-                      value={split.paymentMethod}
-                      onValueChange={(value) => updatePaymentSplit(split.id, { paymentMethod: value as Exclude<PaymentMethod, 'SPLIT'> })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {SELECTABLE_PAYMENT_METHODS.map((method) => (
-                          <SelectItem key={method} value={method}>{PAYMENT_METHOD_LABELS[method]}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Input
-                      type="number"
-                      value={split.amount}
-                      onChange={(event) => updatePaymentSplit(split.id, { amount: event.target.value })}
-                      placeholder="Paid amount"
-                    />
-                    <Input
-                      value={split.remarks}
-                      onChange={(event) => updatePaymentSplit(split.id, { remarks: event.target.value })}
-                      placeholder="Remarks?"
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      onClick={() => removePaymentSplit(split.id)}
-                      disabled={paymentSplits.length === 1}
-                    >
-                      <Trash2 className="size-4" />
+
+                {/* Discount */}
+                <div className="space-y-1">
+                  <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Discount</Label>
+                  <Input
+                    type="number"
+                    value={discountAmount}
+                    onChange={(event) => setDiscountAmount(event.target.value)}
+                    placeholder="0"
+                    className="h-9 text-sm"
+                  />
+                </div>
+
+                {/* Total Payable */}
+                <div className="rounded-md border-2 border-primary/30 bg-primary/5 p-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-primary">Total Payable</span>
+                    <span className="text-lg font-bold tabular-nums text-primary">{money(payableTotal)}</span>
+                  </div>
+                </div>
+
+                {/* Payment Splits */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Payment Method</Label>
+                    <Button type="button" variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={addPaymentSplit}>
+                      <PlusCircle className="mr-1 size-3" />
+                      Split
                     </Button>
                   </div>
-                ))}
-              </div>
-              <div className="grid gap-3 rounded-lg border bg-muted/20 p-3 md:grid-cols-[220px_1fr]">
-                {selectedPreviousSessionDue > 0 && (
-                  <>
-                    <Label>Previous Session Dues</Label>
-                    <Input value={money(selectedPreviousSessionDue)} readOnly />
-                  </>
-                )}
-                <Label>Previous Month Dues</Label>
-                <Input value={money(previousMonthDueTotal)} readOnly />
-                <Label>Selected Fees</Label>
-                <Input value={money(selectedCurrentSessionFee)} readOnly />
-                <Label>Transport Fare</Label>
-                <Input value={money(selectedTransportFare)} readOnly />
-                <Label>Discount Amount</Label>
-                <Input type="number" value={discountAmount} onChange={(event) => setDiscountAmount(event.target.value)} />
-                <div>
-                  <div className="text-lg font-semibold text-destructive">Actual Payment</div>
-                  {transportItems.length > 0 && <div className="text-sm text-green-700">Transport fee applicable</div>}
+                  {paymentSplits.map((split, splitIdx) => (
+                    <div key={split.id} className="space-y-1.5 rounded-md border bg-background p-2">
+                      <div className="grid grid-cols-[110px_1fr_28px] gap-1.5">
+                        <Select
+                          value={split.paymentMethod}
+                          onValueChange={(value) => updatePaymentSplit(split.id, { paymentMethod: value as Exclude<PaymentMethod, 'SPLIT'> })}
+                        >
+                          <SelectTrigger className="h-8 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {SELECTABLE_PAYMENT_METHODS.map((method) => (
+                              <SelectItem key={method} value={method}>{PAYMENT_METHOD_LABELS[method]}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Input
+                          type="number"
+                          value={split.amount}
+                          onChange={(event) => updatePaymentSplit(split.id, { amount: event.target.value })}
+                          placeholder="Amount"
+                          className="h-8 text-xs"
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="size-8 text-muted-foreground"
+                          onClick={() => removePaymentSplit(split.id)}
+                          disabled={paymentSplits.length === 1}
+                        >
+                          <Trash2 className="size-3.5" />
+                        </Button>
+                      </div>
+                      <Input
+                        value={split.remarks}
+                        onChange={(event) => updatePaymentSplit(split.id, { remarks: event.target.value })}
+                        placeholder={paymentSplits.length > 1 ? `Remarks for split ${splitIdx + 1} (optional)` : 'Remarks (optional)'}
+                        className="h-7 text-xs"
+                      />
+                    </div>
+                  ))}
+                  {paymentSplits.length > 1 && (
+                    <div className="flex items-center justify-between rounded-md bg-muted/40 px-2 py-1 text-[11px]">
+                      <span className="text-muted-foreground">Split total</span>
+                      <span className="font-semibold tabular-nums">{money(splitTotal)}</span>
+                    </div>
+                  )}
                 </div>
-                <Input value={money(paymentValue)} readOnly />
-                <Label>Balance/Due Amount</Label>
-                <Input value={money(balanceDue)} readOnly />
-              </div>
-              <Button className="h-11 w-full text-base font-semibold" size="lg" onClick={collectNow} disabled={saving || collectionItems.length === 0}>
-                {saving ? 'Collecting...' : `Collect Now (${money(paymentValue)})`}
-              </Button>
-            </CardContent>
-          </Card>
 
-          <Card className="overflow-hidden shadow-sm">
-            <CardHeader className="border-b bg-muted/30 pb-3">
-              <CardTitle className="flex items-center justify-between text-base">
-                <span className="flex items-center gap-2">
-                  <ReceiptText className="size-4 text-primary" />
-                  Select Particular
-                </span>
-                <Badge variant="secondary" className="bg-primary/10 text-primary hover:bg-primary/10">Grand Total {money(payableTotal)}</Badge>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {studentCollections.length === 0 ? (
-                <div className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
-                  No pending fee rows found. Assign fees during admission or manual assignment first.
-                </div>
-              ) : visibleCollectionItems.length === 0 ? (
-                <div className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
-                  Tick a month or term to show its fee heads here.
+                {/* Balance Due (if any) */}
+                {balanceDue > 0 && (
+                  <div className="rounded-md border border-red-200 bg-red-50 px-2.5 py-1.5 text-xs dark:border-red-500/30 dark:bg-red-500/10">
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium text-red-700 dark:text-red-300">Balance Due</span>
+                      <span className="font-bold tabular-nums text-red-700 dark:text-red-300">{money(balanceDue)}</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Collect Button */}
+                <Button
+                  className="h-11 w-full text-sm font-semibold"
+                  onClick={collectNow}
+                  disabled={saving || collectionItems.length === 0}
+                >
+                  {saving ? 'Collecting…' : `Collect ${money(paymentValue)}`}
+                </Button>
+
+                <p className="text-center text-[10px] text-muted-foreground">
+                  Receipt is generated on successful collection.
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* ── Tabs: History / Comment / Expected ────────── */}
+          <Tabs defaultValue="history" className="w-full">
+            <TabsList className="grid h-auto w-full grid-cols-3 gap-1.5 bg-transparent p-0">
+              <TabsTrigger
+                value="history"
+                className="h-10 gap-1.5 rounded-lg border bg-background text-xs font-semibold data-[state=active]:border-primary/50 data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm"
+              >
+                <ReceiptText className="size-3.5" />
+                Payment History
+              </TabsTrigger>
+              <TabsTrigger
+                value="comment"
+                className="h-10 gap-1.5 rounded-lg border bg-background text-xs font-semibold data-[state=active]:border-primary/50 data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm"
+              >
+                <MessageCircle className="size-3.5" />
+                Special Comment
+              </TabsTrigger>
+              <TabsTrigger
+                value="expected"
+                className="h-10 gap-1.5 rounded-lg border bg-background text-xs font-semibold data-[state=active]:border-primary/50 data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm"
+              >
+                <CalendarDays className="size-3.5" />
+                Expected Payment
+              </TabsTrigger>
+            </TabsList>
+            <TabsContent value="history" className="mt-2 rounded-lg border bg-card p-0 shadow-sm">
+              {paymentHistory.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-10 text-center">
+                  <ReceiptText className="mb-2 size-8 text-muted-foreground/40" />
+                  <p className="text-sm font-medium">No payment history</p>
+                  <p className="text-xs text-muted-foreground">Payments for {academicYear} will appear here.</p>
                 </div>
               ) : (
-                visibleCollectionItems.map((item) => {
-                  const checked = selectedCollectionIds.includes(item.id)
-                  const carriedForward = !checked && previousMonthDueItems.some((due) => due.id === item.id)
-                  return (
-                    <div key={item.id} className={cn(
-                      'grid grid-cols-[32px_1fr_110px] items-center gap-3 rounded-lg border bg-background p-3 transition-colors hover:border-primary/40 hover:bg-primary/5',
-                      checked && 'border-primary/50 bg-primary/10',
-                      carriedForward && 'border-amber-200 bg-amber-50 dark:border-amber-500/30 dark:bg-amber-500/10'
-                    )}>
-                      <Checkbox checked={checked || carriedForward} disabled={carriedForward} onCheckedChange={() => toggleCollection(item.id)} />
-                      <div>
-                        <div className="font-medium">{item.feeHeadName || 'Fee'}</div>
-                        <div className="mt-1 flex items-center gap-2">
-                          <Badge variant="secondary">{itemPeriod(item)}</Badge>
-                          {carriedForward && (
-                            <Badge className="bg-amber-100 text-amber-900 hover:bg-amber-100">Previous Month Due</Badge>
-                          )}
-                          {item.academicYear && item.academicYear !== academicYear && (
-                            <Badge className="bg-amber-100 text-amber-900 hover:bg-amber-100">Previous {item.academicYear}</Badge>
-                          )}
-                          <span className="text-xs text-muted-foreground">{statusLabel(item.status)}</span>
-                        </div>
-                      </div>
-                      <Input value={money(remainingAmount(item))} readOnly className="text-right" />
-                    </div>
-                  )
-                })
-              )}
-              <div className="rounded-lg border bg-muted/40 p-3 text-right font-semibold">
-                Grand Total {money(payableTotal)}
-              </div>
-              <Button variant="outline" className="w-full gap-2">
-                <MessageCircle className="size-4" />
-                Message For Cashier/Accountant
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {selectedStudent && (
-        <Tabs defaultValue="history" className="w-full">
-          <TabsList className="grid h-auto w-full grid-cols-3 gap-2 bg-transparent p-0">
-            <TabsTrigger
-              value="history"
-              className="h-14 gap-2 rounded-xl border bg-background text-base font-semibold data-[state=active]:border-primary/50 data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm"
-            >
-              <ReceiptText className="size-4" />
-              Payment History
-            </TabsTrigger>
-            <TabsTrigger
-              value="comment"
-              className="h-14 gap-2 rounded-xl border bg-background text-base font-semibold data-[state=active]:border-primary/50 data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm"
-            >
-              <MessageCircle className="size-4" />
-              Special Comment
-            </TabsTrigger>
-            <TabsTrigger
-              value="expected"
-              className="h-14 gap-2 rounded-xl border bg-background text-base font-semibold data-[state=active]:border-primary/50 data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm"
-            >
-              <CalendarDays className="size-4" />
-              Expected Payment
-            </TabsTrigger>
-          </TabsList>
-          <TabsContent value="history" className="rounded-lg border bg-card p-0 shadow-sm">
-            {paymentHistory.length === 0 ? (
-              <p className="p-4 text-sm text-muted-foreground">No payment history found for this academic year.</p>
-            ) : (
-              <div className="max-h-96 overflow-auto">
-                <table className="w-full min-w-[920px] border-collapse text-sm">
-                  <thead className="sticky top-0 z-10 bg-muted">
-                    <tr className="border-b">
-                      <th className="px-3 py-3 text-left font-bold">#</th>
-                      <th className="px-3 py-3 text-left font-bold">Receipt</th>
-                      <th className="px-3 py-3 text-left font-bold">Name</th>
-                      <th className="px-3 py-3 text-left font-bold">Class</th>
-                      <th className="px-3 py-3 text-left font-bold">Fee Month</th>
-                      <th className="px-3 py-3 text-left font-bold">Tr. Month</th>
-                      <th className="px-3 py-3 text-left font-bold">Hostel Month</th>
-                      <th className="px-3 py-3 text-left font-bold">Date</th>
-                      <th className="px-3 py-3 text-right font-bold">Discount</th>
-                      <th className="px-3 py-3 text-right font-bold">Paid</th>
-                      <th className="px-3 py-3 text-right font-bold">Dues</th>
-                      <th className="px-3 py-3 text-center font-bold">Receipt</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr className="border-b bg-muted/60">
-                      <td colSpan={12} className="px-3 py-3 text-center text-base font-extrabold">
-                        SESSION : {academicYear}
-                      </td>
-                    </tr>
-                    {paymentHistory.map((row, index) => (
-                      <tr key={row.id} className="border-b hover:bg-muted/40">
-                        <td className="px-3 py-3">{index + 1}</td>
-                        <td className="px-3 py-3">{row.receiptNumber || '-'}</td>
-                        <td className="px-3 py-3">{row.studentName || studentName(selectedStudent)}</td>
-                        <td className="px-3 py-3">{row.className || selectedStudent.class?.name || '-'}</td>
-                        <td className="px-3 py-3">{row.feeMonth || '-'}</td>
-                        <td className="px-3 py-3">{row.transportMonth || '-'}</td>
-                        <td className="px-3 py-3">{row.hostelMonth || '-'}</td>
-                        <td className="px-3 py-3">{formatHistoryDateTime(row.date)}</td>
-                        <td className="px-3 py-3 text-right">{row.discount > 0 ? receiptMoney(row.discount) : '-'}</td>
-                        <td className="px-3 py-3 text-right font-semibold text-emerald-700">{receiptMoney(row.paid)}</td>
-                        <td className="px-3 py-3 text-right font-semibold text-red-700">{row.dues > 0 ? receiptMoney(row.dues) : '-'}</td>
-                        <td className="px-3 py-3 text-center">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-8 rounded-full border-red-300 px-3 text-xs text-red-600 hover:bg-red-50 hover:text-red-700"
-                            onClick={() => openHistoryReceipt(row)}
-                          >
-                            Receipt
-                          </Button>
+                <div className="max-h-[420px] overflow-auto">
+                  <table className="w-full min-w-[920px] border-collapse text-xs">
+                    <thead className="sticky top-0 z-10 bg-muted">
+                      <tr>
+                        <th className="w-10 px-2.5 py-2 text-left font-semibold">#</th>
+                        <th className="px-2.5 py-2 text-left font-semibold">Receipt</th>
+                        <th className="px-2.5 py-2 text-left font-semibold">Student</th>
+                        <th className="px-2.5 py-2 text-left font-semibold">Class</th>
+                        <th className="px-2.5 py-2 text-left font-semibold">Fee Month</th>
+                        <th className="px-2.5 py-2 text-left font-semibold">Tr. Month</th>
+                        <th className="px-2.5 py-2 text-left font-semibold">Hostel</th>
+                        <th className="px-2.5 py-2 text-left font-semibold">Date</th>
+                        <th className="px-2.5 py-2 text-right font-semibold">Disc.</th>
+                        <th className="px-2.5 py-2 text-right font-semibold">Paid</th>
+                        <th className="px-2.5 py-2 text-right font-semibold">Dues</th>
+                        <th className="px-2.5 py-2 text-center font-semibold">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr className="border-y bg-primary/5">
+                        <td colSpan={12} className="px-2.5 py-1.5 text-center text-[11px] font-bold uppercase tracking-wider text-primary">
+                          Session {academicYear}
                         </td>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                      {paymentHistory.map((row, index) => (
+                        <tr key={row.id} className="border-b transition-colors hover:bg-muted/40">
+                          <td className="px-2.5 py-2 text-muted-foreground">{index + 1}</td>
+                          <td className="px-2.5 py-2 font-mono text-[11px]">{row.receiptNumber || '-'}</td>
+                          <td className="px-2.5 py-2">{row.studentName || studentName(selectedStudent)}</td>
+                          <td className="px-2.5 py-2">{row.className || selectedStudent.class?.name || '-'}</td>
+                          <td className="px-2.5 py-2">{row.feeMonth || '-'}</td>
+                          <td className="px-2.5 py-2">{row.transportMonth || '-'}</td>
+                          <td className="px-2.5 py-2">{row.hostelMonth || '-'}</td>
+                          <td className="px-2.5 py-2 text-[11px]">{formatHistoryDateTime(row.date)}</td>
+                          <td className="px-2.5 py-2 text-right tabular-nums">{row.discount > 0 ? receiptMoney(row.discount) : '-'}</td>
+                          <td className="px-2.5 py-2 text-right font-semibold tabular-nums text-emerald-700">{receiptMoney(row.paid)}</td>
+                          <td className="px-2.5 py-2 text-right font-semibold tabular-nums text-red-700">{row.dues > 0 ? receiptMoney(row.dues) : '-'}</td>
+                          <td className="px-2.5 py-2 text-center">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 gap-1 px-2 text-[11px]"
+                              onClick={() => openHistoryReceipt(row)}
+                            >
+                              <Printer className="size-3" />
+                              View
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </TabsContent>
+            <TabsContent value="comment" className="mt-2 rounded-lg border bg-card px-3 py-2 shadow-sm">
+              <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Remarks for cashier / accountant</Label>
+              <Input
+                value={remarks}
+                onChange={(event) => setRemarks(event.target.value)}
+                placeholder="e.g. Approved by Principal for partial waiver…"
+                className="mt-1.5"
+              />
+            </TabsContent>
+            <TabsContent value="expected" className="mt-2 rounded-lg border bg-card px-3 py-2 shadow-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-sm">Expected selected payment</span>
+                <span className="text-base font-bold tabular-nums text-primary">{money(payableTotal)}</span>
               </div>
-            )}
-          </TabsContent>
-          <TabsContent value="comment" className="rounded-lg border bg-card p-4 shadow-sm">
-            <Input value={remarks} onChange={(event) => setRemarks(event.target.value)} placeholder="Remarks for cashier/accountant" />
-          </TabsContent>
-          <TabsContent value="expected" className="rounded-lg border bg-card p-4 text-sm shadow-sm">
-            Expected selected payment: <span className="font-semibold">{money(payableTotal)}</span>
-          </TabsContent>
-        </Tabs>
+            </TabsContent>
+          </Tabs>
+        </>
       )}
 
       <Dialog open={!!receiptSummary} onOpenChange={(open) => { if (!open) setReceiptSummary(null) }}>
@@ -1592,10 +2039,32 @@ export function FeeCollectionsPage() {
 
               <div className="flex justify-end gap-2">
                 <Button variant="outline" onClick={() => setReceiptSummary(null)}>Close</Button>
-                <Button onClick={printReceipt} className="gap-2">
-                  <Printer className="size-4" />
-                  Print
-                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button className="gap-2">
+                      <Printer className="size-4" />
+                      Print
+                      <ChevronDown className="size-3.5" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48">
+                    <DropdownMenuLabel className="text-xs">Print mode</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => printReceipt('both')} className="gap-2">
+                      <Printer className="size-3.5" /> Office + Parent
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => printReceipt('office')} className="gap-2">
+                      <Printer className="size-3.5" /> Office Copy
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => printReceipt('parent')} className="gap-2">
+                      <Printer className="size-3.5" /> Parent Copy
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => printReceipt('single')} className="gap-2 text-muted-foreground">
+                      <Printer className="size-3.5" /> Single (no label)
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </div>
           )}
@@ -1619,6 +2088,57 @@ function DetailRow({ label, value, className }: { label: string; value: string; 
     <div className={cn('grid grid-cols-[120px_1fr] border-b pb-1', className)}>
       <span className="text-muted-foreground">{label}</span>
       <span className="font-medium">{value}</span>
+    </div>
+  )
+}
+
+function ProfileItem({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0">
+      <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">{label}</div>
+      <div className="truncate text-xs font-medium">{value || '-'}</div>
+    </div>
+  )
+}
+
+function SummaryRow({
+  label,
+  value,
+  accent,
+  bold,
+}: {
+  label: string
+  value: string
+  accent?: 'amber' | 'emerald'
+  bold?: boolean
+}) {
+  return (
+    <div
+      className={cn(
+        'flex items-center justify-between gap-3',
+        bold && 'border-t pt-1.5 font-semibold',
+      )}
+    >
+      <span
+        className={cn(
+          'text-muted-foreground',
+          accent === 'amber' && 'text-amber-700 dark:text-amber-300',
+          accent === 'emerald' && 'text-emerald-700 dark:text-emerald-300',
+          bold && 'text-foreground',
+        )}
+      >
+        {label}
+      </span>
+      <span
+        className={cn(
+          'tabular-nums',
+          accent === 'amber' && 'text-amber-700 dark:text-amber-300',
+          accent === 'emerald' && 'text-emerald-700 dark:text-emerald-300',
+          bold && 'text-foreground',
+        )}
+      >
+        {value}
+      </span>
     </div>
   )
 }

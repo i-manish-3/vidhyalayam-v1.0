@@ -71,7 +71,11 @@ function clearRelatedCache(path: string): void {
   for (const pattern of patterns) {
     if (path.includes(pattern.path)) {
       pattern.clear.forEach(endpoint => {
-        CACHE_STORE.delete(getCacheKey(endpoint))
+        for (const key of Array.from(CACHE_STORE.keys())) {
+          if (key === endpoint || key.startsWith(`${endpoint}?`)) {
+            CACHE_STORE.delete(key)
+          }
+        }
       })
     }
   }

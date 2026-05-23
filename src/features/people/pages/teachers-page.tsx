@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { DatePicker } from '@/components/date-picker'
 import { UserPlus } from 'lucide-react'
 
 interface Teacher {
@@ -82,7 +83,7 @@ export function TeachersPage() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2"><Label>Experience (Years)</Label><Input type="number" value={form.experience} onChange={e => setForm(f => ({ ...f, experience: Number(e.target.value) }))} /></div>
-              <div className="space-y-2"><Label>Join Date</Label><Input type="date" value={form.joinDate} onChange={e => setForm(f => ({ ...f, joinDate: e.target.value }))} /></div>
+              <div className="space-y-2"><Label>Join Date</Label><DatePicker value={form.joinDate} onChange={(v) => setForm(f => ({ ...f, joinDate: v }))} disableFuture placeholder="Select join date" triggerClassName="w-full" /></div>
             </div>
           </div>
           <DialogFooter>

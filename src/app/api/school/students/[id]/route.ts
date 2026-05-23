@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { requireRole } from '@/lib/api-auth'
-import { unauthorizedError, notFoundError, internalError, apiError } from '@/lib/api-errors'
+import { requireRole, requirePermission } from '@/lib/api-auth'
+import { unauthorizedError, internalError, apiError, forbiddenError } from '@/lib/api-errors'
 
 // GET /api/school/students/[id] - Get full student details
 export async function GET(
@@ -9,12 +9,24 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const user = requireRole(request, ['SUPER_ADMIN', 'SCHOOL_ADMIN', 'TEACHER', 'PARENT'])
+    const user = requireRole(request, ['SUPER_ADMIN', 'SCHOOL_ADMIN', 'TEACHER', 'PARENT', 'STAFF'])
     if (!user || !user.schoolId) {
       return unauthorizedError()
     }
 
+    if (user.role !== 'SUPER_ADMIN' && user.role !== 'TEACHER' && user.role !== 'PARENT') {
+      const authorized = await requirePermission(request, 'student:read')
+      if (!authorized) return forbiddenError("You don't have permission to view student details.")
+    }
+
     const { id } = await params
+
+    // Optional academicYear context: when provided we overlay class / section /
+    // rollNumber / enrollment status from that year's StudentAcademicEnrollment
+    // snapshot, instead of the (current) values stored on Student. Personal
+    // info, parents, admission record stay the same — those are year-independent.
+    const { searchParams } = new URL(request.url)
+    const requestedAcademicYear = (searchParams.get('academicYear') || '').trim() || null
 
     // If PARENT role, verify this student belongs to the parent
     if (user.role === 'PARENT') {
@@ -160,6 +172,21 @@ export async function GET(
       return apiError(404, 'Student not found.')
     }
 
+    // Surface active transport allocations (per academic year) so the UI can
+    // conditionally show transport-related actions (e.g. carry forward on
+    // promotion) without an extra round-trip.
+    const transportAllocations = await db.transportAllocation.findMany({
+      where: {
+        schoolId: user.schoolId,
+        studentId: student.id,
+        isActive: true,
+      },
+      include: {
+        route: { select: { id: true, routeName: true, routeNumber: true } },
+      },
+      orderBy: { academicYear: 'desc' },
+    })
+
     // If PARENT role and student is disabled, block access
     if (user.role === 'PARENT' && !student.isActive) {
       return apiError(403, 'This student\'s account has been disabled by the school. Please contact the school administration for more information.')
@@ -218,10 +245,48 @@ export async function GET(
       }
     }
 
+    // Resolve the academic-year overlay. If the caller asked for a specific
+    // year, find that enrollment row and surface its class/section/roll/status
+    // so the UI can show the student's state *in that year* instead of today.
+    type EnrollmentRow = (typeof student.academicEnrollments)[number]
+    const enrollments: EnrollmentRow[] = student.academicEnrollments || []
+    let activeEnrollment: EnrollmentRow | undefined
+    if (requestedAcademicYear) {
+      activeEnrollment = enrollments.find((enrollment) => enrollment.academicYear === requestedAcademicYear)
+    }
+
+    const academicYearContext = {
+      requestedAcademicYear,
+      resolvedAcademicYear: activeEnrollment?.academicYear || null,
+      availableYears: Array.from(new Set(enrollments.map((enrollment) => enrollment.academicYear))).sort().reverse(),
+      hasEnrollmentForRequestedYear: !!activeEnrollment,
+      yearScoped: activeEnrollment
+        ? {
+            classId: activeEnrollment.class?.id || null,
+            className: activeEnrollment.class?.name || null,
+            sectionId: activeEnrollment.section?.id || null,
+            sectionName: activeEnrollment.section?.name || null,
+            rollNumber: activeEnrollment.rollNumber || null,
+            status: activeEnrollment.status,
+            effectiveFrom: activeEnrollment.effectiveFrom,
+            effectiveTo: activeEnrollment.effectiveTo,
+          }
+        : null,
+    }
+
+    const sessionClass = activeEnrollment?.class || student.class
+    const sessionSection = activeEnrollment?.section || student.section
+    const sessionRollNumber = activeEnrollment ? (activeEnrollment.rollNumber ?? null) : student.rollNumber
+
     return NextResponse.json({
       ...student,
+      class: sessionClass,
+      section: sessionSection,
+      rollNumber: sessionRollNumber,
       siblings,
       sibling: siblings[0] || null, // legacy field for any frontend not yet updated
+      transportAllocations,
+      academicYearContext,
     })
   } catch (error) {
     console.error('Get student error:', error)
@@ -235,13 +300,30 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const user = requireRole(request, ['SCHOOL_ADMIN'])
+    const user = requireRole(request, ['SCHOOL_ADMIN', 'STAFF'])
     if (!user || !user.schoolId) {
       return unauthorizedError()
     }
 
     const { id } = await params
     const body = await request.json()
+
+    // If isActive is being toggled, the user needs student:enable_disable.
+    // Any other field updates require student:update. We allow both at once
+    // (e.g., disable + edit) as long as the user has both permissions.
+    if (user.role !== 'SUPER_ADMIN') {
+      const isTogglingActive = body && typeof body === 'object' && 'isActive' in body
+      const hasOtherFields = body && typeof body === 'object' && Object.keys(body).some(k => k !== 'isActive')
+
+      if (isTogglingActive) {
+        const authorized = await requirePermission(request, 'student:enable_disable')
+        if (!authorized) return forbiddenError("You don't have permission to enable or disable students.")
+      }
+      if (hasOtherFields) {
+        const authorized = await requirePermission(request, 'student:update')
+        if (!authorized) return forbiddenError("You don't have permission to edit students.")
+      }
+    }
 
     // Verify student belongs to this school
     const student = await db.student.findFirst({
@@ -446,9 +528,14 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const user = requireRole(request, ['SCHOOL_ADMIN'])
+    const user = requireRole(request, ['SCHOOL_ADMIN', 'STAFF'])
     if (!user || !user.schoolId) {
       return unauthorizedError()
+    }
+
+    if (user.role !== 'SUPER_ADMIN') {
+      const authorized = await requirePermission(request, 'student:delete')
+      if (!authorized) return forbiddenError("You don't have permission to delete students.")
     }
 
     const { id } = await params

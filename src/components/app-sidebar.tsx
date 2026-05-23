@@ -50,6 +50,7 @@ import {
   CreditCard,
   UsersRound,
   LayoutTemplate,
+  RefreshCw,
 } from 'lucide-react'
 
 export interface MenuChild {
@@ -146,9 +147,8 @@ export const MENUS: Record<string, MenuItem[]> = {
         { label: 'Fee Heads', page: 'fees-heads', icon: IndianRupee },
         { label: 'Fee Groups', page: 'fees-groups', icon: Layers },
         { label: 'Fee Structures', page: 'fees-structures', icon: FileText },
-        { label: 'Fee Assignments', page: 'fee-assignments', icon: FileText },
-        { label: 'Fee Invoices', page: 'fee-invoices', icon: Receipt },
         { label: 'Fee Collections', page: 'fee-collections', icon: DollarSign },
+        { label: 'Change Fee Group', page: 'fee-change-group', icon: RefreshCw },
       ],
     },
     {
@@ -174,6 +174,7 @@ export const MENUS: Record<string, MenuItem[]> = {
           children: [
             { label: 'Create Route', page: 'add-transport-route', icon: PlusCircle },
             { label: 'Route List', page: 'transport', icon: Bus },
+            { label: 'Annual Setup', page: 'transport-annual-setup', icon: RefreshCw },
           ],
         },
         {
@@ -256,9 +257,11 @@ export const MENUS: Record<string, MenuItem[]> = {
       page: 'fee-collections',
       icon: Receipt,
       children: [
-        { label: 'Fee Assignments', page: 'fee-assignments', icon: FileText },
-        { label: 'Fee Invoices', page: 'fee-invoices', icon: Receipt },
+        { label: 'Fee Heads', page: 'fees-heads', icon: IndianRupee },
+        { label: 'Fee Groups', page: 'fees-groups', icon: Layers },
+        { label: 'Fee Structures', page: 'fees-structures', icon: FileText },
         { label: 'Fee Collections', page: 'fee-collections', icon: DollarSign },
+        { label: 'Change Fee Group', page: 'fee-change-group', icon: RefreshCw },
       ],
     },
     {
@@ -281,6 +284,7 @@ export const MENUS: Record<string, MenuItem[]> = {
           children: [
             { label: 'Create Route', page: 'add-transport-route', icon: PlusCircle },
             { label: 'Route List', page: 'transport', icon: Bus },
+            { label: 'Annual Setup', page: 'transport-annual-setup', icon: RefreshCw },
           ],
         },
         {
@@ -318,20 +322,20 @@ function collectPages(item: MenuChild | MenuItem): PageName[] {
   return pages
 }
 
-function filterChildren(children: MenuChild[], permissions: string[], role: string): MenuChild[] {
+function filterChildren(children: MenuChild[], permissions: string[], role: string, permissionsLoaded: boolean): MenuChild[] {
   return children
     .filter(child => {
       if (role === 'SUPER_ADMIN') return true
       if (child.children && child.children.length > 0) {
-        return child.children.some(gc => isPageVisible(gc.page, permissions, role))
+        return child.children.some(gc => isPageVisible(gc.page, permissions, role, permissionsLoaded))
       }
-      return isPageVisible(child.page, permissions, role)
+      return isPageVisible(child.page, permissions, role, permissionsLoaded)
     })
     .map(child => {
       if (child.children) {
         return {
           ...child,
-          children: child.children.filter(gc => isPageVisible(gc.page, permissions, role)),
+          children: child.children.filter(gc => isPageVisible(gc.page, permissions, role, permissionsLoaded)),
         }
       }
       return child
@@ -339,7 +343,7 @@ function filterChildren(children: MenuChild[], permissions: string[], role: stri
 }
 
 export function AppSidebar() {
-  const { user, currentSchool, currentPage, setCurrentPage, sidebarOpen, setSidebarOpen, sidebarCollapsed, permissions } = useAppStore()
+  const { user, currentSchool, currentPage, setCurrentPage, sidebarOpen, setSidebarOpen, sidebarCollapsed, permissions, permissionsLoaded } = useAppStore()
   const [menuStack, setMenuStack] = useState<Array<{ label: string; items: SidebarMenuEntry[] }>>([])
   const [menuPanelPos, setMenuPanelPos] = useState({ top: 0, left: 0 })
   const [flyoutMenu, setFlyoutMenu] = useState<string | null>(null)
@@ -364,17 +368,21 @@ export function AppSidebar() {
     return roleMenus.filter(item => {
       if (role === 'SUPER_ADMIN') return true
       if (item.children && item.children.length > 0) {
-        const allPages = collectPages(item).filter(p => p !== item.page)
-        return allPages.some(p => isPageVisible(p, permissions, role))
+        // The parent group is visible if ANY page it contains is visible —
+        // including the parent's own landing page (which is often duplicated
+        // inside its children list, e.g. Fees → Fee Collections). Earlier
+        // logic stripped item.page out and accidentally hid the whole group
+        // when the only visible permission targeted that landing page.
+        return collectPages(item).some(p => isPageVisible(p, permissions, role, permissionsLoaded))
       }
-      return isPageVisible(item.page, permissions, role)
+      return isPageVisible(item.page, permissions, role, permissionsLoaded)
     }).map(item => {
       if (item.children) {
-        return { ...item, children: filterChildren(item.children, permissions, role) }
+        return { ...item, children: filterChildren(item.children, permissions, role, permissionsLoaded) }
       }
       return item
     })
-  }, [role, permissions])
+  }, [role, permissions, permissionsLoaded])
 
   const isCollapsed = sidebarCollapsed
   const activeDrill = menuStack[menuStack.length - 1]

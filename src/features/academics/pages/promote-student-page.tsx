@@ -13,6 +13,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { DatePicker } from '@/components/date-picker'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import {
   AlertDialog,
@@ -94,22 +95,22 @@ export function PromoteStudentPage() {
   const [toAcademicYear, setToAcademicYear] = useState(defaultYear)
   const [toClassId, setToClassId] = useState('')
   const [toSectionId, setToSectionId] = useState('')
-  const [feesGroupId, setFeesGroupId] = useState('none')
+  const [feesGroupId, setFeesGroupId] = useState('')
   const [effectiveFrom, setEffectiveFrom] = useState(new Date().toISOString().slice(0, 10))
+  const [carryForwardTransport, setCarryForwardTransport] = useState(true)
+  const [transportSummary, setTransportSummary] = useState<{ eligibleCount: number; carriedCount: number; warnings: string[] } | null>(null)
 
   useEffect(() => {
     const fetchOptions = async () => {
       setLoadingOptions(true)
       try {
-        const [classData, sectionData, feesGroupData, yearData] = await Promise.all([
+        const [classData, sectionData, yearData] = await Promise.all([
           api.get<{ classes: ClassOption[] }>('/api/school/classes', undefined, { skipLogoutOn401: true }),
           api.get<{ sections: SectionOption[] }>('/api/school/sections', undefined, { skipLogoutOn401: true }),
-          api.get<{ groups: FeesGroupOption[] }>('/api/school/fees/groups', undefined, { skipLogoutOn401: true }),
           api.get<{ academicYears: string[]; years?: AcademicYearOption[] }>('/api/school/academic-years', undefined, { skipLogoutOn401: true }),
         ])
         setClasses(classData.classes || [])
         setSections(sectionData.sections || [])
-        setFeesGroups(feesGroupData.groups || [])
         const years = yearData.academicYears || []
         const activeYears = yearData.years?.filter((year) => year.isActive).map((year) => year.name) || years
         setAcademicYears(years)
@@ -128,6 +129,35 @@ export function PromoteStudentPage() {
     }
     fetchOptions()
   }, [])
+
+  // Fee groups depend on the target class + academic year. Only groups with an
+  // active FeesStructure for that pair are valid promotion targets.
+  useEffect(() => {
+    if (promotionType !== 'class' || !toClassId || !toAcademicYear) {
+      setFeesGroups([])
+      return
+    }
+    let mounted = true
+    const fetchFeesGroups = async () => {
+      try {
+        const data = await api.get<{ groups: FeesGroupOption[] }>(
+          '/api/school/fees/groups',
+          { academicYear: toAcademicYear, classId: toClassId },
+          { skipLogoutOn401: true }
+        )
+        if (!mounted) return
+        const list = data?.groups || []
+        setFeesGroups(list)
+        if (feesGroupId && !list.some((group) => group.id === feesGroupId)) {
+          setFeesGroupId('')
+        }
+      } catch {
+        if (mounted) setFeesGroups([])
+      }
+    }
+    fetchFeesGroups()
+    return () => { mounted = false }
+  }, [promotionType, toClassId, toAcademicYear, feesGroupId])
 
   const fromClass = classes.find((item) => item.id === fromClassId)
   const toClass = classes.find((item) => item.id === toClassId)
@@ -214,6 +244,10 @@ export function PromoteStudentPage() {
       toast({ title: 'Target Required', description: 'Please select promote-to session and class.', variant: 'destructive' })
       return
     }
+    if (promotionType === 'class' && (!feesGroupId || feesGroupId === 'none')) {
+      toast({ title: 'Fee Group Required', description: 'Please select a fee group for the new session.', variant: 'destructive' })
+      return
+    }
     if (promotionType === 'class' && toAcademicYear === fromAcademicYear) {
       toast({ title: 'Different Session Required', description: 'Promote-to session cannot be the same as the current session.', variant: 'destructive' })
       return
@@ -223,8 +257,14 @@ export function PromoteStudentPage() {
 
   const submitPromotion = async () => {
     setSubmitting(true)
+    setTransportSummary(null)
     try {
-      const result = await api.post<{ message?: string; promotedCount?: number; dueTotal?: number }>(
+      const result = await api.post<{
+        message?: string
+        promotedCount?: number
+        dueTotal?: number
+        transport?: { eligibleCount: number; carriedCount: number; warnings: string[] } | null
+      }>(
         '/api/school/students/promote',
         {
           studentIds: selectedIds,
@@ -233,14 +273,18 @@ export function PromoteStudentPage() {
           toAcademicYear,
           toClassId,
           toSectionId: toSectionId || null,
-          feesGroupId: feesGroupId === 'none' ? null : feesGroupId,
+          feesGroupId: promotionType === 'alumni' || feesGroupId === 'none' ? null : feesGroupId,
           effectiveFrom,
+          carryForwardTransport: promotionType === 'class' ? carryForwardTransport : false,
         }
       )
       toast({
         title: promotionType === 'alumni' ? 'Students Moved To Alumni' : 'Students Promoted',
         description: result.message || `${result.promotedCount || selectedIds.length} student(s) updated successfully.`,
       })
+      if (result.transport && (result.transport.eligibleCount > 0 || result.transport.warnings.length > 0)) {
+        setTransportSummary(result.transport)
+      }
       setConfirmOpen(false)
       await fetchStudents()
     } catch (err) {
@@ -412,11 +456,10 @@ export function PromoteStudentPage() {
                     </Select>
                   </div>
                     <div className="space-y-1.5">
-                      <Label className="text-xs font-medium">Fees Group</Label>
-                    <Select value={feesGroupId} onValueChange={setFeesGroupId}>
-                      <SelectTrigger className="w-full bg-background"><SelectValue /></SelectTrigger>
+                      <Label className="text-xs font-medium">Fees Group <span className="text-destructive">*</span></Label>
+                    <Select value={feesGroupId === 'none' ? '' : feesGroupId} onValueChange={setFeesGroupId}>
+                      <SelectTrigger className="w-full bg-background"><SelectValue placeholder="Select fee group" /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="none">Do not assign fees now</SelectItem>
                         {feesGroups.map((item) => <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>)}
                       </SelectContent>
                     </Select>
@@ -425,9 +468,32 @@ export function PromoteStudentPage() {
               )}
                 <div className="space-y-1.5">
                   <Label className="text-xs font-medium">Effective Date</Label>
-                  <Input className="bg-background" type="date" value={effectiveFrom} onChange={(event) => setEffectiveFrom(event.target.value)} />
+                  <DatePicker
+                    value={effectiveFrom}
+                    onChange={setEffectiveFrom}
+                    placeholder="Select effective date"
+                    triggerClassName="w-full bg-background"
+                  />
                 </div>
               </div>
+              {promotionType === 'class' && (
+                <div className="mt-3 flex items-start gap-2 rounded-md border bg-background px-3 py-2">
+                  <Checkbox
+                    id="carry-forward-transport"
+                    checked={carryForwardTransport}
+                    onCheckedChange={(value) => setCarryForwardTransport(value === true)}
+                    className="mt-0.5"
+                  />
+                  <div className="min-w-0">
+                    <Label htmlFor="carry-forward-transport" className="cursor-pointer text-xs font-medium">
+                      Carry forward transport for students who currently use it
+                    </Label>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">
+                      Fare is taken from <strong>{toAcademicYear || 'target session'}</strong> stop fares, so price changes apply automatically. Students without an active allocation are skipped.
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </CardContent>
@@ -451,7 +517,7 @@ export function PromoteStudentPage() {
         </div>
         <div className="min-w-0 rounded-md bg-muted/30 px-3 py-2">
           <p className="text-[11px] font-medium uppercase text-muted-foreground">Fees</p>
-          <p className="truncate text-sm font-semibold">{feesGroupId === 'none' ? 'No new fees now' : feesGroups.find((item) => item.id === feesGroupId)?.name || '-'}</p>
+          <p className="truncate text-sm font-semibold">{feesGroups.find((item) => item.id === feesGroupId)?.name || '-'}</p>
           <p className="text-xs text-muted-foreground">Old dues stay open</p>
         </div>
       </div>
@@ -529,6 +595,28 @@ export function PromoteStudentPage() {
         </CardContent>
       </Card>
 
+      {transportSummary && (transportSummary.eligibleCount > 0 || transportSummary.warnings.length > 0) && (
+        <Alert className="border-amber-300/70 bg-amber-50/80 text-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
+          <AlertTriangle className="size-4" />
+          <AlertTitle>Transport Carry-Forward Summary</AlertTitle>
+          <AlertDescription>
+            <p className="mb-1.5">
+              {transportSummary.carriedCount} of {transportSummary.eligibleCount} transport-using student(s) carried forward to {toAcademicYear}.
+              {transportSummary.eligibleCount - transportSummary.carriedCount > 0 && (
+                <> {transportSummary.eligibleCount - transportSummary.carriedCount} need manual allocation.</>
+              )}
+            </p>
+            {transportSummary.warnings.length > 0 && (
+              <ul className="ml-4 list-disc space-y-0.5 text-xs">
+                {transportSummary.warnings.map((warning, index) => (
+                  <li key={index}>{warning}</li>
+                ))}
+              </ul>
+            )}
+          </AlertDescription>
+        </Alert>
+      )}
+
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <AlertDialogContent className="sm:max-w-xl">
           <AlertDialogHeader>
@@ -555,6 +643,9 @@ export function PromoteStudentPage() {
               <div><span className="text-muted-foreground">Type:</span> <strong>{promotionType === 'alumni' ? 'Alumni Promote' : 'Student Promote'}</strong></div>
               <div><span className="text-muted-foreground">From:</span> <strong>{fromAcademicYear} - {fromClass?.name || '-'}{fromSection ? ` / ${fromSection.name}` : fromSectionId === 'all' ? ' / All Sections' : ''}</strong></div>
               <div><span className="text-muted-foreground">To:</span> <strong>{promotionType === 'alumni' ? 'Alumni' : `${toAcademicYear} - ${toClass?.name || '-'}`}</strong></div>
+              {promotionType === 'class' && (
+                <div className="sm:col-span-2"><span className="text-muted-foreground">Transport:</span> <strong>{carryForwardTransport ? `Carry forward (fares from ${toAcademicYear})` : 'Do not carry forward'}</strong></div>
+              )}
             </div>
           </div>
 

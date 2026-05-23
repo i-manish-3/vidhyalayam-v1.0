@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { DatePicker } from '@/components/date-picker'
 import { PlusCircle, FileText } from 'lucide-react'
 import { ExamResultsPage } from './exam-results-page'
 
@@ -128,7 +129,7 @@ export function ExamsPage() {
                 </Select>
               </div>
             </div>
-            <div className="space-y-2"><Label>Exam Date</Label><Input type="date" value={form.examDate} onChange={e => setForm(f => ({ ...f, examDate: e.target.value }))} /></div>
+            <div className="space-y-2"><Label>Exam Date</Label><DatePicker value={form.examDate} onChange={(v) => setForm(f => ({ ...f, examDate: v }))} placeholder="Select exam date" triggerClassName="w-full" /></div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2"><Label>Total Marks</Label><Input type="number" value={form.totalMarks} onChange={e => setForm(f => ({ ...f, totalMarks: e.target.value }))} /></div>
               <div className="space-y-2"><Label>Passing Marks</Label><Input type="number" value={form.passingMarks} onChange={e => setForm(f => ({ ...f, passingMarks: e.target.value }))} /></div>

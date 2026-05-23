@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { api } from '@/lib/api'
-import { getCurrentAcademicYear, toAcademicYearOptions } from '@/lib/academic-years'
+import { getCurrentAcademicYear } from '@/lib/academic-years'
 import { useAppStore } from '@/lib/store'
 import { useToast } from '@/hooks/use-toast'
 import { Button } from '@/components/ui/button'
@@ -73,16 +73,16 @@ export function AssignRollNumbersPage() {
   const { toast } = useToast()
   const goBack = useAppStore((s) => s.goBack)
   const currentSchoolAcademicYear = useAppStore((s) => s.currentSchool?.academicYear)
+  const viewingAcademicYear = useAppStore((s) => s.viewingAcademicYear)
+  const academicYear = viewingAcademicYear || currentSchoolAcademicYear || getCurrentAcademicYear()
 
   // Filter state
-  const [academicYear, setAcademicYear] = useState(currentSchoolAcademicYear || getCurrentAcademicYear())
   const [classId, setClassId] = useState('')
   const [sectionId, setSectionId] = useState('')
 
   // Options
   const [classes, setClasses] = useState<ClassOption[]>([])
   const [sections, setSections] = useState<SectionOption[]>([])
-  const [availableAcademicYears, setAvailableAcademicYears] = useState<string[]>([])
 
   // Data
   const [students, setStudents] = useState<StudentRow[]>([])
@@ -93,11 +93,6 @@ export function AssignRollNumbersPage() {
 
   // Mode
   const [mode, setMode] = useState<AssignMode>('manual')
-
-  const academicYearOptions = useMemo(
-    () => toAcademicYearOptions(availableAcademicYears),
-    [availableAcademicYears]
-  )
 
   const filteredSections = useMemo(
     () => classId ? sections.filter((s) => s.classId === classId) : [],
@@ -130,18 +125,16 @@ export function AssignRollNumbersPage() {
     return dupes
   }, [students, rollDraft])
 
-  // Load classes / sections / years on mount
+  // Load classes / sections on mount
   useEffect(() => {
     const fetchOptions = async () => {
       try {
-        const [classData, sectionData, yearData] = await Promise.allSettled([
+        const [classData, sectionData] = await Promise.allSettled([
           api.get<{ classes: ClassOption[] }>('/api/school/classes', undefined, { skipLogoutOn401: true }),
           api.get<{ sections: SectionOption[] }>('/api/school/sections', undefined, { skipLogoutOn401: true }),
-          api.get<{ academicYears: string[] }>('/api/school/academic-years', undefined, { skipLogoutOn401: true }),
         ])
         if (classData.status === 'fulfilled' && classData.value?.classes) setClasses(classData.value.classes)
         if (sectionData.status === 'fulfilled' && sectionData.value?.sections) setSections(sectionData.value.sections)
-        if (yearData.status === 'fulfilled' && yearData.value?.academicYears) setAvailableAcademicYears(yearData.value.academicYears)
       } catch {
         // ignore — empty options handled by UI
       } finally {
@@ -152,7 +145,7 @@ export function AssignRollNumbersPage() {
   }, [])
 
   const fetchStudents = useCallback(async () => {
-    if (!classId) {
+    if (!academicYear || !classId) {
       setStudents([])
       setRollDraft({})
       return
@@ -165,10 +158,10 @@ export function AssignRollNumbersPage() {
     }
     setLoadingStudents(true)
     try {
-      const params: Record<string, string> = { classId, isActive: 'true', limit: '500' }
+      const params: Record<string, string> = { academicYear, classId }
       if (sectionId) params.sectionId = sectionId
       const data = await api.get<{ students: StudentRow[] }>(
-        '/api/school/students',
+        '/api/school/students/by-enrollment',
         params,
         { skipLogoutOn401: true }
       )
@@ -190,7 +183,7 @@ export function AssignRollNumbersPage() {
     } finally {
       setLoadingStudents(false)
     }
-  }, [classId, sectionId, filteredSections.length, toast])
+  }, [academicYear, classId, sectionId, filteredSections.length, toast])
 
   useEffect(() => {
     fetchStudents()
@@ -264,6 +257,7 @@ export function AssignRollNumbersPage() {
         rollNumber: (rollDraft[s.id] ?? '').trim() || null,
       }))
       await api.post('/api/school/students/assign-roll-numbers', {
+        academicYear,
         classId,
         sectionId: sectionId || null,
         assignments,
@@ -319,22 +313,6 @@ export function AssignRollNumbersPage() {
       <Card className="shadow-sm">
         <CardContent className="px-3 py-2">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-            <div className="flex items-center gap-1.5">
-              <Label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap">Year</Label>
-              <Select value={academicYear} onValueChange={setAcademicYear}>
-                <SelectTrigger className="h-7 w-[135px] text-xs">
-                  <SelectValue placeholder="Select year" />
-                </SelectTrigger>
-                <SelectContent>
-                  {academicYearOptions.map((y) => (
-                    <SelectItem key={y.value} value={y.value}>{y.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <Separator orientation="vertical" className="hidden lg:block h-5" />
-
             <div className="flex items-center gap-1.5">
               <Label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap">Class</Label>
               <Select value={classId} onValueChange={handleClassChange}>
@@ -404,11 +382,11 @@ export function AssignRollNumbersPage() {
             </div>
           </CardContent>
         </Card>
-      ) : !classId || (filteredSections.length > 0 && !sectionId) ? (
+      ) : !academicYear || !classId || (filteredSections.length > 0 && !sectionId) ? (
         <EmptyState
           icon={Users}
-          title="Select Class & Section"
-          description="Choose a class (and section, if applicable) above to load the student list."
+          title="Select Year, Class & Section"
+          description="Choose an academic year, class (and section, if applicable) above to load the student list."
         />
       ) : students.length === 0 ? (
         <EmptyState

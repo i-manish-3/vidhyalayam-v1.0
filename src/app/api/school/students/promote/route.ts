@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { requireRole } from '@/lib/api-auth'
-import { apiError, internalError, unauthorizedError } from '@/lib/api-errors'
+import { requireRole, requirePermission } from '@/lib/api-auth'
+import { apiError, internalError, unauthorizedError, forbiddenError } from '@/lib/api-errors'
 import { assignStudentFeesFromStructure } from '@/lib/fees'
 
 const ACADEMIC_YEAR_PATTERN = /^\d{4}-\d{4}$/
@@ -38,6 +38,11 @@ export async function POST(request: NextRequest) {
     const user = requireRole(request, ['SCHOOL_ADMIN', 'STAFF'])
     if (!user?.schoolId) return unauthorizedError()
 
+    if (user.role !== 'SUPER_ADMIN') {
+      const authorized = await requirePermission(request, 'admission:update')
+      if (!authorized) return forbiddenError("You don't have permission to promote students.")
+    }
+
     const body = await request.json()
     const studentIds = Array.isArray(body.studentIds)
       ? body.studentIds.filter((id: unknown): id is string => typeof id === 'string' && !!id.trim())
@@ -52,6 +57,7 @@ export async function POST(request: NextRequest) {
     const feesGroupId = typeof body.feesGroupId === 'string' && body.feesGroupId.trim() ? body.feesGroupId.trim() : null
     const effectiveFrom = body.effectiveFrom ? new Date(body.effectiveFrom) : new Date()
     const remarks = typeof body.remarks === 'string' ? body.remarks.trim() : ''
+    const carryForwardTransport = body.carryForwardTransport !== false
 
     if (!studentIds.length) {
       return apiError(400, 'Please select at least one student to promote.')
@@ -61,6 +67,9 @@ export async function POST(request: NextRequest) {
     }
     if (promotionType === 'class' && !toClassId) {
       return apiError(400, 'Please select the class students will be promoted to.')
+    }
+    if (promotionType === 'class' && !feesGroupId) {
+      return apiError(400, 'Please select a fee group for the new session.')
     }
     if (promotionType === 'class' && fromAcademicYear === toAcademicYear) {
       return apiError(400, 'Promote-to session cannot be the same as the current session. Please select a different session.')
@@ -89,6 +98,28 @@ export async function POST(request: NextRequest) {
     }
     if (feesGroupId && !feesGroup) {
       return apiError(400, "The selected fees group doesn't exist anymore. Please refresh and try again.")
+    }
+
+    if (promotionType === 'class') {
+      const feeStructure = await db.feesStructure.findFirst({
+        where: {
+          schoolId: user.schoolId,
+          classId: toClassId,
+          feesGroupId: feesGroupId!,
+          academicYear: toAcademicYear!,
+          isActive: true,
+          status: 'active',
+          deletedAt: null,
+          OR: [{ sectionId: toSectionId || null }, { sectionId: null }],
+        },
+        select: { id: true },
+      })
+      if (!feeStructure) {
+        return apiError(
+          400,
+          `No active fee structure exists for "${feesGroup?.name}" in ${toAcademicYear} for this class. Please configure one in Fees > Structures.`
+        )
+      }
     }
 
     const students = await db.student.findMany({
@@ -126,8 +157,132 @@ export async function POST(request: NextRequest) {
       duesByStudent.set(student.id, await getStudentOutstanding(user.schoolId!, student.id, fromAcademicYear))
     }))
 
+    // Pre-load transport plan: for each student with an active transport
+    // allocation in fromAcademicYear, decide whether toAcademicYear has a
+    // matching (route, stop) StopFare. fareAmount is always read from the
+    // target year's StopFare — never copied from the old allocation, so any
+    // fare increase flows through automatically.
+    const transportPlan = new Map<string, {
+      sourceAllocationId: string
+      routeId: string
+      stopName: string | null
+      pickupPoint: string | null
+      dropPoint: string | null
+      newFare: number | null
+      newFeeMonths: string | null
+      stopFareExists: boolean
+      reason?: string
+    }>()
+    const transportWarnings: string[] = []
+    let transportCarriedCount = 0
+
+    if (promotionType === 'class' && carryForwardTransport && toAcademicYear) {
+      const fromAllocations = await db.transportAllocation.findMany({
+        where: {
+          schoolId: user.schoolId,
+          studentId: { in: studentIds },
+          academicYear: fromAcademicYear,
+          isActive: true,
+        },
+        orderBy: { updatedAt: 'desc' },
+      })
+
+      // De-dup: keep the most recent allocation per student
+      const latestByStudent = new Map<string, typeof fromAllocations[number]>()
+      for (const alloc of fromAllocations) {
+        if (!latestByStudent.has(alloc.studentId)) {
+          latestByStudent.set(alloc.studentId, alloc)
+        }
+      }
+
+      // Pre-check: any students already have a transport allocation in target year?
+      const existingTargetAllocs = await db.transportAllocation.findMany({
+        where: {
+          schoolId: user.schoolId,
+          studentId: { in: Array.from(latestByStudent.keys()) },
+          academicYear: toAcademicYear,
+          isActive: true,
+        },
+        select: { studentId: true },
+      })
+      const alreadyAllocatedStudents = new Set(existingTargetAllocs.map((a) => a.studentId))
+
+      // Resolve StopFare for each (routeId, stopName) in target year
+      const fareLookups = await Promise.all(
+        Array.from(latestByStudent.values()).map(async (alloc) => {
+          if (!alloc.stopName) {
+            return { studentId: alloc.studentId, alloc, stopFare: null, reason: 'no-stop-name' as const }
+          }
+          const stopFare = await db.transportStopFare.findFirst({
+            where: {
+              schoolId: user.schoolId!,
+              routeId: alloc.routeId,
+              academicYear: toAcademicYear,
+              stopName: alloc.stopName,
+              isActive: true,
+            },
+            select: { fare: true, feeMonths: true },
+          })
+          return { studentId: alloc.studentId, alloc, stopFare, reason: undefined }
+        })
+      )
+
+      const studentNameById = new Map(students.map((s) => [s.id, `${s.firstName} ${s.lastName}`.trim()]))
+
+      for (const entry of fareLookups) {
+        const { studentId, alloc, stopFare, reason } = entry
+        const name = studentNameById.get(studentId) || 'Student'
+
+        if (alreadyAllocatedStudents.has(studentId)) {
+          transportWarnings.push(`${name}: already has a transport allocation in ${toAcademicYear} — skipped to avoid overwrite.`)
+          transportPlan.set(studentId, {
+            sourceAllocationId: alloc.id,
+            routeId: alloc.routeId,
+            stopName: alloc.stopName,
+            pickupPoint: alloc.pickupPoint,
+            dropPoint: alloc.dropPoint,
+            newFare: null,
+            newFeeMonths: null,
+            stopFareExists: !!stopFare,
+            reason: 'already-allocated',
+          })
+          continue
+        }
+
+        if (reason === 'no-stop-name' || !stopFare) {
+          transportWarnings.push(
+            `${name}: transport could not be carried forward (no matching stop fare for ${toAcademicYear}). Please allocate manually.`
+          )
+          transportPlan.set(studentId, {
+            sourceAllocationId: alloc.id,
+            routeId: alloc.routeId,
+            stopName: alloc.stopName,
+            pickupPoint: alloc.pickupPoint,
+            dropPoint: alloc.dropPoint,
+            newFare: null,
+            newFeeMonths: null,
+            stopFareExists: false,
+            reason: 'stop-fare-missing',
+          })
+          continue
+        }
+
+        transportPlan.set(studentId, {
+          sourceAllocationId: alloc.id,
+          routeId: alloc.routeId,
+          stopName: alloc.stopName,
+          pickupPoint: alloc.pickupPoint,
+          dropPoint: alloc.dropPoint,
+          newFare: stopFare.fare,
+          newFeeMonths: stopFare.feeMonths,
+          stopFareExists: true,
+        })
+      }
+    }
+
     const result = await db.$transaction(async (tx) => {
       let feeAssignmentsCreated = 0
+      let transportCarried = 0
 
       for (const student of students) {
         const previousEnrollment = student.academicEnrollments[0] || (student.classId
@@ -202,18 +357,6 @@ export async function POST(request: NextRequest) {
           },
         })
 
-        if (student.admission?.id) {
-          await tx.admission.update({
-            where: { id: student.admission.id },
-            data: {
-              academicYear: toAcademicYear,
-              classId: toClassId,
-              sectionId: toSectionId,
-              status: 'admitted',
-            },
-          })
-        }
-
         if (feesGroupId) {
           const assignment = await assignStudentFeesFromStructure({
             tx,
@@ -228,6 +371,25 @@ export async function POST(request: NextRequest) {
             effectiveFrom,
           })
           if (assignment && 'feeStructureId' in assignment) feeAssignmentsCreated += 1
+        }
+
+        const plan = transportPlan.get(student.id)
+        if (plan && plan.stopFareExists && plan.newFare !== null && plan.reason !== 'already-allocated') {
+          await tx.transportAllocation.create({
+            data: {
+              schoolId: user.schoolId!,
+              studentId: student.id,
+              routeId: plan.routeId,
+              academicYear: toAcademicYear,
+              pickupPoint: plan.pickupPoint,
+              dropPoint: plan.dropPoint,
+              stopName: plan.stopName,
+              fareAmount: plan.newFare,
+              feeMonths: plan.newFeeMonths ?? '[]',
+              isActive: true,
+            },
+          })
+          transportCarried += 1
         }
 
         await tx.feeAuditLog.create({
@@ -250,10 +412,37 @@ export async function POST(request: NextRequest) {
         })
       }
 
-      return { promotedCount: students.length, feeAssignmentsCreated }
+      return { promotedCount: students.length, feeAssignmentsCreated, transportCarried }
     })
 
+    transportCarriedCount = result.transportCarried
+
     const dueTotal = Array.from(duesByStudent.values()).reduce((sum, due) => sum + due, 0)
+
+    const transportEligibleCount = transportPlan.size
+    const transportSummary = promotionType === 'class' && carryForwardTransport
+      ? {
+          eligibleCount: transportEligibleCount,
+          carriedCount: transportCarriedCount,
+          warnings: transportWarnings,
+        }
+      : null
+
+    let promotionMessage: string
+    if (promotionType === 'alumni') {
+      promotionMessage = `${result.promotedCount} student(s) moved to alumni. Previous dues remain payable.`
+    } else {
+      const base = `${result.promotedCount} student(s) promoted to ${toClass?.name || 'selected class'}. Previous dues remain payable.`
+      if (transportSummary && transportSummary.eligibleCount > 0) {
+        const skipped = transportSummary.eligibleCount - transportSummary.carriedCount
+        const transportLine = skipped > 0
+          ? ` Transport: ${transportSummary.carriedCount} carried forward, ${skipped} need manual allocation.`
+          : ` Transport: ${transportSummary.carriedCount} carried forward.`
+        promotionMessage = base + transportLine
+      } else {
+        promotionMessage = base
+      }
+    }
 
     return NextResponse.json({
       ...result,
@@ -261,9 +450,8 @@ export async function POST(request: NextRequest) {
       fromAcademicYear,
       toAcademicYear,
       dueTotal,
-      message: promotionType === 'alumni'
-        ? `${result.promotedCount} student(s) moved to alumni. Previous dues remain payable.`
-        : `${result.promotedCount} student(s) promoted to ${toClass?.name || 'selected class'}. Previous dues remain payable.`,
+      transport: transportSummary,
+      message: promotionMessage,
     }, { status: 201 })
   } catch (error) {
     console.error('Bulk promote students error:', error)

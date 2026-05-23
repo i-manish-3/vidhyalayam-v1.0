@@ -19,6 +19,7 @@ export async function GET(req: NextRequest) {
       name: true,
       logo: true,
       favicon: true,
+      printHeader: true,
       subdomain: true,
       status: true,
       primaryColor: true,
@@ -26,9 +27,12 @@ export async function GET(req: NextRequest) {
       address: true,
       city: true,
       state: true,
+      pincode: true,
+      country: true,
       board: true,
       contactPhone: true,
       contactEmail: true,
+      website: true,
     },
   })
 
@@ -53,6 +57,7 @@ export async function PATCH(req: NextRequest) {
     const name = typeof body.name === 'string' ? body.name.trim() : undefined
     const logo = typeof body.logo === 'string' ? body.logo.trim() : undefined
     const favicon = typeof body.favicon === 'string' ? body.favicon.trim() : undefined
+    const printHeader = typeof body.printHeader === 'string' ? body.printHeader.trim() : undefined
     const primaryColor = typeof body.primaryColor === 'string' ? body.primaryColor.trim() : undefined
     const dashboardFont = typeof body.dashboardFont === 'string' ? body.dashboardFont.trim() : undefined
 
@@ -65,13 +70,20 @@ export async function PATCH(req: NextRequest) {
     if (favicon !== undefined && favicon && !/^data:image\/(png|jpeg|jpg|webp|gif|x-icon|vnd\.microsoft\.icon);base64,[A-Za-z0-9+/=]+$/.test(favicon)) {
       return apiError(400, 'Please upload a valid favicon image.')
     }
+    if (printHeader !== undefined && printHeader && !/^data:image\/(png|jpeg|jpg|webp|gif);base64,[A-Za-z0-9+/=]+$/.test(printHeader)) {
+      return apiError(400, 'Please upload a valid print header banner image.')
+    }
+    // 3 MB raw ≈ 4 MB base64 payload. Reject anything obviously larger.
+    if (printHeader && printHeader.length > 4 * 1024 * 1024) {
+      return apiError(400, 'Print header banner is too large. Please keep it under 3 MB.')
+    }
     if (primaryColor !== undefined && !/^#[0-9a-fA-F]{6}$/.test(primaryColor)) {
       return apiError(400, 'Please select a valid theme color.')
     }
     if (dashboardFont !== undefined && !['system', 'segoe', 'arial', 'verdana', 'trebuchet', 'georgia'].includes(dashboardFont)) {
       return apiError(400, 'Please select a valid dashboard font.')
     }
-    if (name === undefined && logo === undefined && favicon === undefined && primaryColor === undefined && dashboardFont === undefined) {
+    if (name === undefined && logo === undefined && favicon === undefined && printHeader === undefined && primaryColor === undefined && dashboardFont === undefined) {
       return apiError(400, 'Please provide at least one branding update.')
     }
 
@@ -81,6 +93,7 @@ export async function PATCH(req: NextRequest) {
         ...(name !== undefined ? { name } : {}),
         ...(logo !== undefined ? { logo: logo || null } : {}),
         ...(favicon !== undefined ? { favicon: favicon || null } : {}),
+        ...(printHeader !== undefined ? { printHeader: printHeader || null } : {}),
         ...(primaryColor !== undefined ? { primaryColor } : {}),
         ...(dashboardFont !== undefined ? { dashboardFont } : {}),
       },
@@ -89,6 +102,7 @@ export async function PATCH(req: NextRequest) {
         name: true,
         logo: true,
         favicon: true,
+        printHeader: true,
         subdomain: true,
         status: true,
         primaryColor: true,

@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/table'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import {
+  ArrowLeft,
   Users,
   Shield,
   ShieldCheck,
@@ -133,7 +134,7 @@ function StatsSkeleton() {
 
 export function StaffPage() {
   const { toast } = useToast()
-  const setCurrentPage = useAppStore((s) => s.setCurrentPage)
+  const goBack = useAppStore((s) => s.goBack)
   const navigateTo = useAppStore((s) => s.navigateTo)
   const setStaffDetailId = useAppStore((s) => s.setStaffDetailId)
 
@@ -211,11 +212,16 @@ export function StaffPage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Staff Management</h1>
+        <div className="flex min-w-0 items-start gap-3">
+          <Button variant="outline" size="icon" onClick={() => goBack('dashboard')} className="mt-0.5 size-9 shrink-0">
+            <ArrowLeft className="size-4" />
+          </Button>
+          <div className="min-w-0">
+          <h1 className="text-xl font-bold tracking-tight">Staff Management</h1>
           <p className="text-sm text-muted-foreground mt-1">
             Manage staff members and their roles — permissions are automatically inherited
           </p>
+          </div>
         </div>
         <Button onClick={handleCreateStaff} className="gap-2 shrink-0">
           <UserPlus className="size-4" />

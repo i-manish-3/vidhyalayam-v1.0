@@ -191,6 +191,28 @@
 }
 
 /* Infinite marquee animation for testimonials — seamless circular loop */
+.quick-actions-scrollbar {
+  scrollbar-color: color-mix(in oklch, var(--primary) 58%, var(--border)) transparent;
+  scrollbar-width: thin;
+}
+
+.quick-actions-scrollbar::-webkit-scrollbar {
+  height: 4px;
+}
+
+.quick-actions-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.quick-actions-scrollbar::-webkit-scrollbar-thumb {
+  background: color-mix(in oklch, var(--primary) 58%, var(--border));
+  border-radius: 999px;
+}
+
+.quick-actions-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--primary);
+}
+
 @keyframes marquee-fast {
   0% {
     transform: translateX(0);

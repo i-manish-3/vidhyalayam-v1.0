@@ -316,7 +316,7 @@ export async function GET(request: NextRequest) {
 // POST /api/school/admissions - Create new admission
 export async function POST(request: NextRequest) {
   try {
-    const user = requireRole(request, ['SUPER_ADMIN', 'SCHOOL_ADMIN'])
+    const user = requireRole(request, ['SUPER_ADMIN', 'SCHOOL_ADMIN', 'STAFF'])
     if (!user || !user.schoolId) {
       return unauthorizedError()
     }
@@ -462,6 +462,17 @@ export async function POST(request: NextRequest) {
       fieldErrors.ifscCode = 'Invalid IFSC format (e.g., SBIN0001234)'
     }
 
+    // Required: classId — every admission must place the student into a class.
+    if (!body.classId || typeof body.classId !== 'string' || !body.classId.trim()) {
+      fieldErrors.classId = 'Please select a class.'
+    }
+
+    // Required: feesGroupId — fees must be assigned at admission so no student
+    // ends up without a fee structure for the year.
+    if (!body.feesGroupId || typeof body.feesGroupId !== 'string' || !body.feesGroupId.trim()) {
+      fieldErrors.feesGroupId = 'Please select a fee group.'
+    }
+
     // Return validation errors if any
     if (Object.keys(fieldErrors).length > 0) {
       return NextResponse.json({ message: 'Some information is missing or incorrect. Please fix the highlighted fields and try again.', fieldErrors }, { status: 400 })
@@ -495,6 +506,29 @@ export async function POST(request: NextRequest) {
       if (!sectionRecord) {
         return apiError(400, "The section you selected doesn't exist anymore. It may have been removed. Please refresh and try again.")
       }
+    }
+
+    // Validate that the selected fee group has an active fee structure for
+    // this class & academic year. Otherwise the silent assignment helper
+    // would leave the student without any fees.
+    const feeStructure = await db.feesStructure.findFirst({
+      where: {
+        schoolId: user.schoolId,
+        classId: body.classId,
+        feesGroupId: body.feesGroupId,
+        academicYear: requestedAcademicYear,
+        isActive: true,
+        status: 'active',
+        deletedAt: null,
+        OR: [{ sectionId: body.sectionId || null }, { sectionId: null }],
+      },
+      select: { id: true },
+    })
+    if (!feeStructure) {
+      return apiError(
+        400,
+        `No active fee structure exists for the selected class & fee group in ${requestedAcademicYear}. Please configure one in Fees > Structures before admitting.`
+      )
     }
 
     const requestedTransportFare = await resolveTransportFare(

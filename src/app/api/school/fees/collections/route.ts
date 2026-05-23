@@ -5,7 +5,7 @@ import { requireRole } from '@/lib/api-auth'
 import { unauthorizedError, internalError, apiError } from '@/lib/api-errors'
 import {
   createFeeDebitLedgerEntry,
-  generateReceiptNumber,
+  nextSequentialReceiptNumber,
   recordStudentLedgerPayment,
   recordStudentLedgerWaiver,
 } from '@/lib/fees'
@@ -414,7 +414,6 @@ export async function POST(request: NextRequest) {
 
     await ensureLedgerForExistingCollections(user.schoolId, studentId)
 
-    const generatedReceipt = receiptNumber || generateReceiptNumber()
     const paymentDateValue = paymentDate ? new Date(paymentDate) : new Date()
 
     if (Array.isArray(payments)) {
@@ -423,6 +422,7 @@ export async function POST(request: NextRequest) {
       }
 
       const result = await db.$transaction(async (tx) => {
+        const generatedReceipt = receiptNumber || (await nextSequentialReceiptNumber(tx, user.schoolId!))
         const targets = payments
           .map((payment: { ledgerEntryId?: string; collectionId?: string; id?: string; amount?: number; paidAmount?: number }) => ({
             debitEntryId: payment.ledgerEntryId || null,
@@ -521,6 +521,7 @@ export async function POST(request: NextRequest) {
     }
 
     const result = await db.$transaction(async (tx) => {
+      const generatedReceipt = receiptNumber || (await nextSequentialReceiptNumber(tx, user.schoolId!))
       const paymentResult = paymentAmount > 0
         ? await recordStudentLedgerPayment({
             tx,

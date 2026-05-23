@@ -25,7 +25,7 @@ async function seed() {
       name: 'Delhi Public School', address: 'Mathura Road, New Delhi', city: 'New Delhi', state: 'Delhi', pincode: '110003', country: 'India',
       contactPhone: '+91-11-24362489', contactEmail: 'info@dpsdelhi.in', website: 'https://dpsdelhi.in',
       academicYear: '2025-2026', board: 'CBSE', timezone: 'Asia/Kolkata', currency: 'INR',
-      subdomain: 'dps-delhi', status: 'active', onboardingDate: new Date('2024-04-01'), primaryColor: '#1e40af',
+      subdomain: 'dps-delhi', status: 'active', onboardingDate: new Date('2024-04-01'), primaryColor: '#8c8f97',
     },
   })
   const school2 = await db.school.create({
@@ -44,10 +44,57 @@ async function seed() {
   })
   console.log('✅ Created 3 demo schools')
 
+  // Academic Year — one current session per school
+  const allSchoolsForYear = [school, school2, school3]
+  for (const sch of allSchoolsForYear) {
+    await db.academicYear.create({
+      data: {
+        schoolId: sch.id,
+        name: '2025-2026',
+        startDate: new Date('2025-04-01'),
+        endDate: new Date('2026-03-31'),
+        isCurrent: true,
+        isActive: true,
+      },
+    })
+  }
+  console.log('✅ Created academic year 2025-2026 (current) for all schools')
+
   // School admin
   const schoolAdmin = await db.user.create({
     data: { email: 'admin@dpsdelhi.in', password: await hashPassword('admin123'), name: 'Rajesh Kumar', phone: '+91-9876543210', role: 'SCHOOL_ADMIN', schoolId: school.id, isActive: true },
   })
+
+  // Admission settings — one per school, scoped to current year
+  for (const sch of allSchoolsForYear) {
+    await db.admissionSetting.create({
+      data: {
+        schoolId: sch.id,
+        academicYear: '2025-2026',
+        admissionNumberPrefix: 'STD',
+        admissionNumberFormat: '{PREFIX}-{YEAR}-{SEQ}',
+        sequenceStart: 1,
+        sequenceDigits: 3,
+        resetSequenceYearly: true,
+        registrationNumberPrefix: 'REG',
+        registrationNumberFormat: '{PREFIX}-{YEAR}-{SEQ}',
+        registrationSequenceStart: 1,
+        registrationSequenceDigits: 3,
+        registrationResetYearly: true,
+        minAge: 3,
+        maxAge: 18,
+        ageCalculationDate: 'april_1',
+        requiredDocuments: JSON.stringify(['birth_certificate', 'aadhaar', 'previous_school_tc']),
+        admissionFeeRequired: true,
+        enableWaitlist: true,
+        requirePhoto: true,
+        allowOnlineSubmission: false,
+        autoVerifyDocuments: false,
+        isActive: true,
+      },
+    })
+  }
+  console.log('✅ Created admission settings for all schools')
 
   // Classes
   const classes: any[] = []
@@ -64,30 +111,91 @@ async function seed() {
   }
   console.log(`✅ Created ${classes.length} classes and ${sections.length} sections`)
 
-  // Subjects
+  // Subjects — spread across all four types (primary/optional/extra/special)
   const subjectData = [
-    { name: 'Mathematics', code: 'MATH' },
-    { name: 'Physics', code: 'PHY' },
-    { name: 'Chemistry', code: 'CHEM' },
-    { name: 'Biology', code: 'BIO' },
-    { name: 'English', code: 'ENG' },
-    { name: 'Hindi', code: 'HIN' },
-    { name: 'Social Science', code: 'SST' },
-    { name: 'Computer Science', code: 'CS' },
-    { name: 'Physical Education', code: 'PED' },
+    { name: 'Mathematics', code: 'MATH', type: 'primary' },
+    { name: 'Physics', code: 'PHY', type: 'primary' },
+    { name: 'Chemistry', code: 'CHEM', type: 'primary' },
+    { name: 'Biology', code: 'BIO', type: 'primary' },
+    { name: 'English', code: 'ENG', type: 'primary' },
+    { name: 'Hindi', code: 'HIN', type: 'primary' },
+    { name: 'Social Science', code: 'SST', type: 'primary' },
+    { name: 'Computer Science', code: 'CS', type: 'optional' },
+    { name: 'Physical Education', code: 'PED', type: 'extra' },
+    { name: 'Music', code: 'MUS', type: 'special' },
+    { name: 'Art & Craft', code: 'ART', type: 'special' },
   ]
-  const subjects = await Promise.all(subjectData.map(s => db.subject.create({ data: { schoolId: school.id, name: s.name, code: s.code } })))
+  const subjects = await Promise.all(subjectData.map(s => db.subject.create({ data: { schoolId: school.id, name: s.name, code: s.code, type: s.type } })))
 
-  // Teachers
+  // Map subjects to classes (Class N → subject set appropriate to that level)
+  const subjectByCode = new Map(subjects.map(s => [s.code!, s.id]))
+  function subjectCodesForClass(classNumber: number): string[] {
+    if (classNumber <= 5) return ['MATH', 'ENG', 'HIN', 'SST', 'PED', 'MUS', 'ART']
+    if (classNumber <= 8) return ['MATH', 'ENG', 'HIN', 'SST', 'CS', 'PED', 'ART']
+    if (classNumber <= 10) return ['MATH', 'PHY', 'CHEM', 'BIO', 'ENG', 'HIN', 'SST', 'CS', 'PED']
+    return ['MATH', 'PHY', 'CHEM', 'BIO', 'ENG', 'CS', 'PED']
+  }
+  for (let i = 0; i < classes.length; i++) {
+    const codes = subjectCodesForClass(i + 1)
+    for (const code of codes) {
+      const subjectId = subjectByCode.get(code)
+      if (subjectId) {
+        await db.classSubject.create({ data: { classId: classes[i].id, subjectId } })
+      }
+    }
+  }
+  console.log('✅ Mapped subjects to classes')
+
+  // Period config — 8 periods covering 08:00-13:00 with one short break
+  const periods = [
+    { period: 1, startTime: '08:00', endTime: '08:40', label: 'Period 1', isBreak: false },
+    { period: 2, startTime: '08:40', endTime: '09:20', label: 'Period 2', isBreak: false },
+    { period: 3, startTime: '09:20', endTime: '10:00', label: 'Period 3', isBreak: false },
+    { period: 4, startTime: '10:00', endTime: '10:40', label: 'Period 4', isBreak: false },
+    { period: 5, startTime: '10:40', endTime: '11:00', label: 'Short Break', isBreak: true },
+    { period: 6, startTime: '11:00', endTime: '11:40', label: 'Period 5', isBreak: false },
+    { period: 7, startTime: '11:40', endTime: '12:20', label: 'Period 6', isBreak: false },
+    { period: 8, startTime: '12:20', endTime: '13:00', label: 'Period 7', isBreak: false },
+  ]
+  for (const p of periods) {
+    await db.periodConfig.create({ data: { schoolId: school.id, ...p } })
+  }
+  console.log('✅ Created period configuration')
+
+  // Teachers — multiple per core subject so the timetable generator can fill
+  // all 24 sections without putting the same teacher in two rooms at once.
   const teacherData = [
+    // Mathematics — 4 (primary, middle, secondary)
     { first: 'Anita', last: 'Sharma', spec: 'Mathematics', qual: 'M.Sc, B.Ed', gender: 'Female' },
+    { first: 'Deepak', last: 'Tiwari', spec: 'Mathematics', qual: 'M.Sc, B.Ed', gender: 'Male' },
+    { first: 'Neha', last: 'Mishra', spec: 'Mathematics', qual: 'M.Sc, B.Ed', gender: 'Female' },
+    { first: 'Sanjay', last: 'Yadav', spec: 'Mathematics', qual: 'M.Sc, B.Ed', gender: 'Male' },
+    // Science split — Physics, Chemistry, Biology (secondary only)
     { first: 'Vikram', last: 'Patel', spec: 'Physics', qual: 'M.Sc, B.Ed', gender: 'Male' },
+    { first: 'Anjali', last: 'Rao', spec: 'Physics', qual: 'M.Sc, B.Ed', gender: 'Female' },
     { first: 'Priya', last: 'Singh', spec: 'Chemistry', qual: 'M.Sc, B.Ed', gender: 'Female' },
+    { first: 'Rohit', last: 'Mehra', spec: 'Chemistry', qual: 'M.Sc, B.Ed', gender: 'Male' },
     { first: 'Ramesh', last: 'Gupta', spec: 'Biology', qual: 'M.Sc, B.Ed', gender: 'Male' },
+    { first: 'Pooja', last: 'Bhatt', spec: 'Biology', qual: 'M.Sc, B.Ed', gender: 'Female' },
+    // English — 3
     { first: 'Sunita', last: 'Verma', spec: 'English', qual: 'M.A, B.Ed', gender: 'Female' },
+    { first: 'Rajesh', last: 'Bansal', spec: 'English', qual: 'M.A, B.Ed', gender: 'Male' },
+    { first: 'Shruti', last: 'Pandey', spec: 'English', qual: 'M.A, B.Ed', gender: 'Female' },
+    // Hindi — 2
     { first: 'Mohan', last: 'Kumar', spec: 'Hindi', qual: 'M.A, B.Ed', gender: 'Male' },
+    { first: 'Renu', last: 'Agarwal', spec: 'Hindi', qual: 'M.A, B.Ed', gender: 'Female' },
+    // Social Science — 2
     { first: 'Kavita', last: 'Joshi', spec: 'Social Science', qual: 'M.A, B.Ed', gender: 'Female' },
+    { first: 'Manoj', last: 'Saxena', spec: 'Social Science', qual: 'M.A, B.Ed', gender: 'Male' },
+    // Computer Science — 2 (covers middle + secondary)
     { first: 'Arun', last: 'Reddy', spec: 'Computer Science', qual: 'M.Tech', gender: 'Male' },
+    { first: 'Manish', last: 'Kapoor', spec: 'Computer Science', qual: 'B.Tech, M.Ed', gender: 'Male' },
+    // Physical Education — 2
+    { first: 'Ravi', last: 'Bhardwaj', spec: 'Physical Education', qual: 'B.P.Ed', gender: 'Male' },
+    { first: 'Suman', last: 'Chauhan', spec: 'Physical Education', qual: 'M.P.Ed', gender: 'Female' },
+    // Special subjects
+    { first: 'Nidhi', last: 'Khanna', spec: 'Music', qual: 'M.A Music', gender: 'Female' },
+    { first: 'Sumit', last: 'Malhotra', spec: 'Art', qual: 'B.F.A', gender: 'Male' },
   ]
   const teachers: any[] = []
   for (const t of teacherData) {
@@ -117,38 +225,87 @@ async function seed() {
     db.feesHead.create({ data: { schoolId: school.id, name: 'Lab Fee', frequency: 'YEARLY' } }),
   ])
 
-  // Fee Groups
-  const feesGroup1 = await db.feesGroup.create({ data: { schoolId: school.id, name: 'Class 1-5 Standard', description: 'Standard fee structure for Classes 1 to 5' } })
-  const feesGroup2 = await db.feesGroup.create({ data: { schoolId: school.id, name: 'Class 6-8 Standard', description: 'Standard fee structure for Classes 6 to 8' } })
-  const feesGroup3 = await db.feesGroup.create({ data: { schoolId: school.id, name: 'Class 9-12 Standard', description: 'Standard fee structure for Classes 9 to 12' } })
+  // Fee Groups — categorical (concession-based), not class-based.
+  // New Admission = default full fees; others are concessional brackets.
+  const feeGroupDefs = [
+    { name: 'New Admission', description: 'Standard fees for newly admitted students (full pricing)', tuitionMultiplier: 1.0, admissionMultiplier: 1.0, annualMultiplier: 1.0 },
+    { name: 'Staff Ward', description: 'Concession for children of school staff (50% tuition discount)', tuitionMultiplier: 0.5, admissionMultiplier: 0.0, annualMultiplier: 0.5 },
+    { name: 'RTE', description: 'Right to Education — fees fully waived', tuitionMultiplier: 0.0, admissionMultiplier: 0.0, annualMultiplier: 0.0 },
+    { name: '3rd Ward', description: 'Third-child / sibling concession (25% tuition discount)', tuitionMultiplier: 0.75, admissionMultiplier: 0.5, annualMultiplier: 0.75 },
+  ]
+  const feeGroups = await Promise.all(
+    feeGroupDefs.map(g => db.feesGroup.create({ data: { schoolId: school.id, name: g.name, description: g.description } }))
+  )
+  console.log(`✅ Created ${feeGroups.length} fee groups (${feeGroupDefs.map(g => g.name).join(', ')})`)
 
   const tuitionFee = feeHeads[0]; const admissionFee = feeHeads[1]; const annualFee = feeHeads[2]; const transportFee = feeHeads[3]; const examFee = feeHeads[4]
-  await Promise.all([
-    db.feesGroupItem.create({ data: { groupId: feesGroup1.id, feeHeadId: tuitionFee.id } }),
-    db.feesGroupItem.create({ data: { groupId: feesGroup1.id, feeHeadId: admissionFee.id } }),
-    db.feesGroupItem.create({ data: { groupId: feesGroup1.id, feeHeadId: annualFee.id } }),
-    db.feesGroupItem.create({ data: { groupId: feesGroup1.id, feeHeadId: transportFee.id } }),
-    db.feesGroupItem.create({ data: { groupId: feesGroup1.id, feeHeadId: examFee.id } }),
-  ])
 
-  // Fee Structure with installments
-  const feeStructure = await db.feesStructure.create({
-    data: { schoolId: school.id, feesGroupId: feesGroup1.id, classId: classes[0].id, sectionId: sections[0].id, academicYear: '2025-2026', name: 'Class 1 - Section A Fee Structure' },
-  })
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-  const items: any[] = []
-  for (let i = 0; i < 12; i++) {
-    items.push({ feeStructureId: feeStructure.id, feeHeadId: tuitionFee.id, installmentName: months[i], amount: i >= 3 ? 2500 : 2000, dueDate: new Date(2025, i, 10), lateFee: 100, frequency: 'MONTHLY' })
-    items.push({ feeStructureId: feeStructure.id, feeHeadId: transportFee.id, installmentName: months[i], amount: 1500, dueDate: new Date(2025, i, 10), lateFee: 50, frequency: 'MONTHLY' })
+  // Group → fee heads (same items across all four groups; pricing differs at structure level)
+  for (const grp of feeGroups) {
+    await Promise.all([
+      db.feesGroupItem.create({ data: { groupId: grp.id, feeHeadId: tuitionFee.id } }),
+      db.feesGroupItem.create({ data: { groupId: grp.id, feeHeadId: admissionFee.id } }),
+      db.feesGroupItem.create({ data: { groupId: grp.id, feeHeadId: annualFee.id } }),
+      db.feesGroupItem.create({ data: { groupId: grp.id, feeHeadId: transportFee.id } }),
+      db.feesGroupItem.create({ data: { groupId: grp.id, feeHeadId: examFee.id } }),
+    ])
   }
-  items.push({ feeStructureId: feeStructure.id, feeHeadId: admissionFee.id, installmentName: 'Admission', amount: 10000, dueDate: new Date(2025, 3, 15), lateFee: 0, frequency: 'ONE_TIME' })
-  items.push({ feeStructureId: feeStructure.id, feeHeadId: annualFee.id, installmentName: 'Annual', amount: 5000, dueDate: new Date(2025, 3, 15), lateFee: 500, frequency: 'YEARLY' })
-  items.push({ feeStructureId: feeStructure.id, feeHeadId: examFee.id, installmentName: 'Q1 (Apr-Jun)', amount: 500, dueDate: new Date(2025, 3, 15), lateFee: 0, frequency: 'QUARTERLY' })
-  items.push({ feeStructureId: feeStructure.id, feeHeadId: examFee.id, installmentName: 'Q2 (Jul-Sep)', amount: 500, dueDate: new Date(2025, 6, 15), lateFee: 0, frequency: 'QUARTERLY' })
-  items.push({ feeStructureId: feeStructure.id, feeHeadId: examFee.id, installmentName: 'Q3 (Oct-Dec)', amount: 500, dueDate: new Date(2025, 9, 15), lateFee: 0, frequency: 'QUARTERLY' })
-  items.push({ feeStructureId: feeStructure.id, feeHeadId: examFee.id, installmentName: 'Q4 (Jan-Mar)', amount: 500, dueDate: new Date(2025, 0, 15), lateFee: 0, frequency: 'QUARTERLY' })
-  await Promise.all(items.map(item => db.feesStructureItem.create({ data: item })))
-  console.log('✅ Created fee structures with installments')
+
+  // Fee Structure per (class × group) — sectionId=null so it applies to every section of that class.
+  // Indian academic year: Apr 2025 → Mar 2026 monthly tuition; lump-sum admission & annual; quarterly exam fee.
+  const monthsByCalendarIdx = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+  function monthlyTuitionForClass(classNumber: number) {
+    if (classNumber <= 5) return 1500
+    if (classNumber <= 8) return 2500
+    return 4000
+  }
+  let structuresCreated = 0
+  for (let i = 0; i < classes.length; i++) {
+    const classNumber = i + 1
+    const cls = classes[i]
+    const baseTuition = monthlyTuitionForClass(classNumber)
+    for (let gi = 0; gi < feeGroups.length; gi++) {
+      const grp = feeGroups[gi]
+      const def = feeGroupDefs[gi]
+      const tuition = Math.round(baseTuition * def.tuitionMultiplier)
+      const admissionAmt = Math.round(10000 * def.admissionMultiplier)
+      const annualAmt = Math.round(5000 * def.annualMultiplier)
+
+      const fs = await db.feesStructure.create({
+        data: {
+          schoolId: school.id,
+          feesGroupId: grp.id,
+          classId: cls.id,
+          sectionId: null,
+          academicYear: '2025-2026',
+          name: `${cls.name} • ${def.name}`,
+          status: 'active',
+          effectiveFrom: new Date('2025-04-01'),
+          isActive: true,
+        },
+      })
+      // Monthly tuition + transport (Apr 2025 → Mar 2026). Transport stays uniform across groups.
+      for (let m = 0; m < 12; m++) {
+        const calMonthIdx = (3 + m) % 12
+        const year = calMonthIdx >= 3 ? 2025 : 2026
+        await db.feesStructureItem.create({ data: { feeStructureId: fs.id, feeHeadId: tuitionFee.id, installmentName: monthsByCalendarIdx[calMonthIdx], amount: tuition, dueDate: new Date(year, calMonthIdx, 10), lateFee: tuition > 0 ? 100 : 0, frequency: 'MONTHLY' } })
+        await db.feesStructureItem.create({ data: { feeStructureId: fs.id, feeHeadId: transportFee.id, installmentName: monthsByCalendarIdx[calMonthIdx], amount: 1500, dueDate: new Date(year, calMonthIdx, 10), lateFee: 50, frequency: 'MONTHLY' } })
+      }
+      await db.feesStructureItem.create({ data: { feeStructureId: fs.id, feeHeadId: admissionFee.id, installmentName: 'Admission', amount: admissionAmt, dueDate: new Date(2025, 3, 15), lateFee: 0, frequency: 'ONE_TIME' } })
+      await db.feesStructureItem.create({ data: { feeStructureId: fs.id, feeHeadId: annualFee.id, installmentName: 'Annual', amount: annualAmt, dueDate: new Date(2025, 3, 15), lateFee: annualAmt > 0 ? 500 : 0, frequency: 'YEARLY' } })
+      const quarterly: Array<[string, number, number]> = [
+        ['Q1 (Apr-Jun)', 3, 2025],
+        ['Q2 (Jul-Sep)', 6, 2025],
+        ['Q3 (Oct-Dec)', 9, 2025],
+        ['Q4 (Jan-Mar)', 0, 2026],
+      ]
+      for (const [name, monthIdx, year] of quarterly) {
+        await db.feesStructureItem.create({ data: { feeStructureId: fs.id, feeHeadId: examFee.id, installmentName: name, amount: 500, dueDate: new Date(year, monthIdx, 15), lateFee: 0, frequency: 'QUARTERLY' } })
+      }
+      structuresCreated++
+    }
+  }
+  console.log(`✅ Created ${structuresCreated} fee structures across ${classes.length} classes × ${feeGroups.length} groups`)
 
   // Transport routes
   for (const r of [{ name: 'Central Delhi', num: 'R1', stops: ['Connaught Place', 'Rajiv Chowk', 'Patel Chowk'], fee: 1500 }, { name: 'South Delhi', num: 'R2', stops: ['Hauz Khas', 'Green Park', 'Saket'], fee: 1800 }, { name: 'North Delhi', num: 'R3', stops: ['Civil Lines', 'DU', 'Kashmere Gate'], fee: 1500 }]) {
@@ -175,12 +332,44 @@ async function seed() {
     db.notification.create({ data: { schoolId: school.id, title: 'PTM Scheduled', message: 'PTM on 15th March.', type: 'alert' } }),
   ])
 
+  // Announcements
+  const announcements = [
+    { title: 'Welcome to Academic Year 2025-2026', content: 'Wishing all students, parents and staff a successful new session. Classes begin from 1st April 2025.', audience: 'all', priority: 'normal' },
+    { title: 'Mid-term Examinations Schedule', content: 'Mid-term exams will be conducted from 1st-10th September 2025. Detailed timetable will be shared with class teachers.', audience: 'students', priority: 'high' },
+    { title: 'Annual Day on 15th February 2026', content: 'Annual Day celebrations will be held on 15th February 2026 at the school auditorium. All families are invited.', audience: 'all', priority: 'normal' },
+  ]
+  for (const a of announcements) {
+    await db.announcement.create({ data: { schoolId: school.id, title: a.title, content: a.content, audience: a.audience, priority: a.priority, isActive: true } })
+  }
+  console.log(`✅ Created ${announcements.length} announcements`)
+
   // Petty cash
-  await Promise.all([
-    db.pettyCashEntry.create({ data: { schoolId: school.id, amount: 500, type: 'debit', category: 'Stationery', description: 'Pens and notebooks', createdBy: schoolAdmin.id, approvalStatus: 'approved', approvedBy: schoolAdmin.id, date: new Date() } }),
-    db.pettyCashEntry.create({ data: { schoolId: school.id, amount: 10000, type: 'credit', category: 'Fee Counter', description: 'Cash deposit', createdBy: schoolAdmin.id, approvalStatus: 'approved', approvedBy: schoolAdmin.id, date: new Date() } }),
-    db.pettyCashEntry.create({ data: { schoolId: school.id, amount: 300, type: 'debit', category: 'Refreshments', description: 'Staff meeting snacks', createdBy: teachers[0].id, approvalStatus: 'pending', date: new Date() } }),
-  ])
+  const pettyCashEntries = [
+    { amount: 500, type: 'debit', category: 'Stationery', description: 'Pens, notebooks, markers for staff room', approvalStatus: 'approved' },
+    { amount: 1200, type: 'debit', category: 'Utilities', description: 'Electricity meter recharge', approvalStatus: 'approved' },
+    { amount: 800, type: 'debit', category: 'Maintenance', description: 'Plumbing repair in girls washroom', approvalStatus: 'approved' },
+    { amount: 350, type: 'debit', category: 'Transport', description: 'Auto fare for sports equipment delivery', approvalStatus: 'pending' },
+    { amount: 10000, type: 'credit', category: 'Fee Counter', description: 'Cash deposit from fee counter', approvalStatus: 'approved' },
+    { amount: 600, type: 'debit', category: 'Refreshments', description: 'Tea and snacks for staff meeting', approvalStatus: 'approved' },
+    { amount: 4500, type: 'debit', category: 'Stationery', description: 'Photocopy paper bulk order', approvalStatus: 'approved' },
+    { amount: 300, type: 'debit', category: 'Maintenance', description: 'Whiteboard markers replacement', approvalStatus: 'pending' },
+  ]
+  for (const e of pettyCashEntries) {
+    await db.pettyCashEntry.create({
+      data: {
+        schoolId: school.id,
+        amount: e.amount,
+        type: e.type,
+        category: e.category,
+        description: e.description,
+        createdBy: schoolAdmin.id,
+        approvalStatus: e.approvalStatus,
+        approvedBy: e.approvalStatus === 'approved' ? schoolAdmin.id : null,
+        date: new Date(),
+      },
+    })
+  }
+  console.log(`✅ Created ${pettyCashEntries.length} petty cash entries`)
 
   // Support tickets
   await db.supportTicket.create({ data: { schoolId: school.id, userId: schoolAdmin.id, subject: 'Cannot generate fee receipt', description: 'Fee receipt failing for some students.', category: 'technical', priority: 'high', status: 'open' } })
@@ -245,6 +434,7 @@ async function seed() {
     { code: 'fees:collect', name: 'Collect Fees', module: 'fees', action: 'create' },
     { code: 'fees:refund', name: 'Refund Fees', module: 'fees', action: 'update' },
     { code: 'fees:delete', name: 'Delete Fee', module: 'fees', action: 'delete' },
+    { code: 'fees:change-group', name: 'Change Fee Group', module: 'fees', action: 'update' },
     // Salary
     { code: 'salary:read', name: 'View Salary', module: 'salary', action: 'read' },
     { code: 'salary:create', name: 'Create Salary', module: 'salary', action: 'create' },
@@ -268,6 +458,7 @@ async function seed() {
     { code: 'transport:create', name: 'Create Transport', module: 'transport', action: 'create' },
     { code: 'transport:update', name: 'Update Transport', module: 'transport', action: 'update' },
     { code: 'transport:delete', name: 'Delete Transport', module: 'transport', action: 'delete' },
+    { code: 'transport:annual-setup', name: 'Annual Transport Setup', module: 'transport', action: 'update' },
     // Library
     { code: 'library:read', name: 'View Library', module: 'library', action: 'read' },
     { code: 'library:create', name: 'Create Book', module: 'library', action: 'create' },
@@ -379,6 +570,15 @@ async function seed() {
         'fees:read', 'fees:collect', 'salary:read',
         'transport:read', 'library:read', 'inventory:read',
         'petty_cash:read', 'notification:read', 'announcement:read',
+      ],
+    },
+    {
+      name: 'Transport',
+      description: 'Driver / transport staff — view assigned route and student manifests',
+      color: '#0ea5e9',
+      isSystem: true,
+      permissionCodes: [
+        'transport:read', 'student:read', 'attendance:read', 'notification:read',
       ],
     },
   ]

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import type { Dispatch, SetStateAction } from 'react'
-import { AlertTriangle, ArrowLeft, CalendarDays, CheckCircle2, Loader2, PauseCircle, PlusCircle, RotateCcw, ShieldCheck, Trash2 } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, CalendarDays, CheckCircle2, Info, Loader2, PauseCircle, Pencil, PlusCircle, RotateCcw, ShieldCheck, Trash2 } from 'lucide-react'
 import { api } from '@/lib/api'
 import { useAppStore } from '@/lib/store'
 import { getCurrentAcademicYear, type AcademicYear } from '@/lib/academic-years'
@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { DatePicker } from '@/components/date-picker'
 
 interface AcademicYearImpactPreview {
   currentYear: string | null
@@ -79,7 +80,7 @@ function ImpactCounts({ preview }: { preview: AcademicYearImpactPreview }) {
 
 export function AcademicYearsPage() {
   const { toast } = useToast()
-  const { currentSchool, setCurrentSchool, user, goBack } = useAppStore()
+  const { currentSchool, setCurrentSchool, setViewingAcademicYear, user, goBack } = useAppStore()
   const [academicYears, setAcademicYears] = useState<AcademicYear[]>([])
   const [deletedAcademicYears, setDeletedAcademicYears] = useState<AcademicYear[]>([])
   const [yearName, setYearName] = useState(getCurrentAcademicYear())
@@ -99,6 +100,19 @@ export function AcademicYearsPage() {
     open: false,
     year: null,
     targetActive: false,
+    busy: false,
+  })
+  const [editDialog, setEditDialog] = useState<{
+    open: boolean
+    year: AcademicYear | null
+    startDate: string
+    endDate: string
+    busy: boolean
+  }>({
+    open: false,
+    year: null,
+    startDate: '',
+    endDate: '',
     busy: false,
   })
 
@@ -223,6 +237,55 @@ export function AcademicYearsPage() {
     }
   }
 
+  const toYmd = (value: string | null) => (value ? value.slice(0, 10) : '')
+
+  const openEditDialog = (year: AcademicYear) => {
+    setEditDialog({
+      open: true,
+      year,
+      startDate: toYmd(year.startDate),
+      endDate: toYmd(year.endDate),
+      busy: false,
+    })
+  }
+
+  const closeEditDialog = () => {
+    if (editDialog.busy) return
+    setEditDialog({ open: false, year: null, startDate: '', endDate: '', busy: false })
+  }
+
+  const confirmEdit = async () => {
+    const year = editDialog.year
+    if (!year) return
+
+    if (editDialog.startDate && editDialog.endDate && editDialog.startDate > editDialog.endDate) {
+      toast({
+        title: 'Invalid Dates',
+        description: 'Start date must be on or before end date.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    try {
+      setEditDialog((current) => ({ ...current, busy: true }))
+      await api.patch(`/api/school/academic-years/${year.id}`, {
+        startDate: editDialog.startDate || null,
+        endDate: editDialog.endDate || null,
+      })
+      toast({ title: 'Academic Year Updated', description: `${year.name} dates have been updated.` })
+      setEditDialog({ open: false, year: null, startDate: '', endDate: '', busy: false })
+      fetchAcademicYears()
+    } catch (err) {
+      setEditDialog((current) => ({ ...current, busy: false }))
+      toast({
+        title: "Couldn't Update Academic Year",
+        description: err instanceof Error ? err.message : 'Please try again.',
+        variant: 'destructive',
+      })
+    }
+  }
+
   const loadPreview = async (
     year: AcademicYear,
     setDialog: Dispatch<SetStateAction<YearDialogState>>,
@@ -265,6 +328,7 @@ export function AcademicYearsPage() {
       if (currentSchool) {
         setCurrentSchool({ ...currentSchool, academicYear: year.name })
       }
+      setViewingAcademicYear(year.name)
       toast({ title: 'Current Year Updated', description: `${year.name} is now the current academic year.` })
       setSwitchDialog(emptyDialog)
       fetchAcademicYears()
@@ -373,11 +437,25 @@ export function AcademicYearsPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="academic-year-start">Start Date</Label>
-              <Input id="academic-year-start" type="date" value={yearStartDate} onChange={(event) => setYearStartDate(event.target.value)} />
+              <DatePicker
+                value={yearStartDate}
+                onChange={setYearStartDate}
+                yearDropdown
+                yearsBack={5}
+                placeholder="Select start date"
+                triggerClassName="w-full h-10"
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="academic-year-end">End Date</Label>
-              <Input id="academic-year-end" type="date" value={yearEndDate} onChange={(event) => setYearEndDate(event.target.value)} />
+              <DatePicker
+                value={yearEndDate}
+                onChange={setYearEndDate}
+                yearDropdown
+                yearsBack={5}
+                placeholder="Select end date"
+                triggerClassName="w-full h-10"
+              />
             </div>
             <Button type="button" className="h-10 gap-2" onClick={createAcademicYear} disabled={savingYear}>
               {savingYear ? <Loader2 className="size-4 animate-spin" /> : <PlusCircle className="size-4" />}
@@ -385,24 +463,24 @@ export function AcademicYearsPage() {
             </Button>
           </div>
 
-          <Alert>
-            <ShieldCheck className="size-4" />
-            <AlertTitle>Current year changes require review</AlertTitle>
-            <AlertDescription>
+          <Alert className="border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-100 [&>svg]:text-amber-600 dark:[&>svg]:text-amber-400">
+            <AlertTriangle className="size-4" />
+            <AlertTitle className="text-amber-900 dark:text-amber-100">Current year changes require review</AlertTitle>
+            <AlertDescription className="text-amber-800/90 dark:text-amber-200/90">
               Changing the current academic year changes the default year used across the app. If the next year is not prepared, fees, attendance, timetable, exams, transport, admissions, and reports may look empty or mismatched.
             </AlertDescription>
           </Alert>
 
-          <Alert>
-            <CalendarDays className="size-4" />
-            <AlertTitle>Use inactive for past years</AlertTitle>
-            <AlertDescription>
+          <Alert className="border-blue-300 bg-blue-50 text-blue-900 dark:border-blue-900/50 dark:bg-blue-950/30 dark:text-blue-100 [&>svg]:text-blue-600 dark:[&>svg]:text-blue-400">
+            <Info className="size-4" />
+            <AlertTitle className="text-blue-900 dark:text-blue-100">Use inactive for past years</AlertTitle>
+            <AlertDescription className="text-blue-800/90 dark:text-blue-200/90">
               Past years should usually be marked inactive instead of deleted. Inactive years stay visible here for history and report access, but they are removed from normal new-record dropdowns so users do not accidentally add fresh admissions, fees, timetable, or transport data to an old session.
             </AlertDescription>
           </Alert>
 
           <div className="overflow-hidden rounded-lg border">
-            <div className="grid grid-cols-[1fr_150px_150px_130px_240px] gap-3 border-b bg-muted/40 px-4 py-3 text-xs font-medium uppercase text-muted-foreground">
+            <div className="grid grid-cols-[1fr_150px_150px_130px_280px] gap-3 border-b bg-muted/40 px-4 py-3 text-xs font-medium uppercase text-muted-foreground">
               <span>Year</span>
               <span>Start</span>
               <span>End</span>
@@ -420,14 +498,24 @@ export function AcademicYearsPage() {
               </div>
             ) : (
               academicYears.map((year) => (
-                <div key={year.id} className="grid grid-cols-[1fr_150px_150px_130px_240px] items-center gap-3 border-b px-4 py-3 text-sm last:border-b-0">
+                <div key={year.id} className="grid grid-cols-[1fr_150px_150px_130px_280px] items-center gap-3 border-b px-4 py-3 text-sm last:border-b-0">
                   <div className="flex min-w-0 items-center gap-2">
                     <span className="font-medium">{year.name}</span>
                     {year.isCurrent && <Badge>Current</Badge>}
                   </div>
                   <span className="text-muted-foreground">{formatDate(year.startDate)}</span>
                   <span className="text-muted-foreground">{formatDate(year.endDate)}</span>
-                  <Badge variant={year.isActive ? 'secondary' : 'outline'}>{year.isActive ? 'Active' : 'Inactive'}</Badge>
+                  <Badge
+                    variant="outline"
+                    className={
+                      year.isActive
+                        ? 'border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-300'
+                        : 'border-red-300 bg-red-50 text-red-700 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-300'
+                    }
+                  >
+                    <span className={`mr-1.5 inline-block size-1.5 rounded-full ${year.isActive ? 'bg-emerald-500' : 'bg-red-500'}`} />
+                    {year.isActive ? 'Active' : 'Inactive'}
+                  </Badge>
                   <div className="flex justify-end gap-1.5">
                     {!year.isCurrent && (
                       <Button type="button" variant="outline" size="sm" onClick={() => loadPreview(year, setSwitchDialog)}>
@@ -437,6 +525,16 @@ export function AcademicYearsPage() {
                     <Button type="button" variant="outline" size="sm" disabled={year.isCurrent} onClick={() => openStatusDialog(year, !year.isActive)}>
                       {year.isActive ? <PauseCircle className="size-4 text-amber-600" /> : <CheckCircle2 className="size-4 text-emerald-600" />}
                       {year.isActive ? 'Deactivate' : 'Reactivate'}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="size-8"
+                      onClick={() => openEditDialog(year)}
+                      aria-label={`Edit ${year.name}`}
+                    >
+                      <Pencil className="size-4" />
                     </Button>
                     <Button
                       type="button"
@@ -461,7 +559,7 @@ export function AcademicYearsPage() {
                 <p className="text-xs text-muted-foreground">Restore a deleted year to make it available again. Restoring does not make it current.</p>
               </div>
               <div className="overflow-hidden rounded-lg border border-dashed">
-                <div className="grid grid-cols-[1fr_150px_150px_130px_240px] gap-3 border-b bg-muted/30 px-4 py-3 text-xs font-medium uppercase text-muted-foreground">
+                <div className="grid grid-cols-[1fr_150px_150px_130px_280px] gap-3 border-b bg-muted/30 px-4 py-3 text-xs font-medium uppercase text-muted-foreground">
                   <span>Year</span>
                   <span>Start</span>
                   <span>End</span>
@@ -469,7 +567,7 @@ export function AcademicYearsPage() {
                   <span className="text-right">Actions</span>
                 </div>
                 {deletedAcademicYears.map((year) => (
-                  <div key={year.id} className="grid grid-cols-[1fr_150px_150px_130px_240px] items-center gap-3 border-b px-4 py-3 text-sm last:border-b-0">
+                  <div key={year.id} className="grid grid-cols-[1fr_150px_150px_130px_280px] items-center gap-3 border-b px-4 py-3 text-sm last:border-b-0">
                     <span className="font-medium">{year.name}</span>
                     <span className="text-muted-foreground">{formatDate(year.startDate)}</span>
                     <span className="text-muted-foreground">{formatDate(year.endDate)}</span>
@@ -517,10 +615,10 @@ export function AcademicYearsPage() {
             </DialogDescription>
           </DialogHeader>
 
-          <Alert>
-            {statusDialog.targetActive ? <CheckCircle2 className="size-4" /> : <AlertTriangle className="size-4" />}
-            <AlertTitle>{statusDialog.year?.name || 'Academic year'}</AlertTitle>
-            <AlertDescription>
+          <Alert className="border-blue-300 bg-blue-50 text-blue-900 dark:border-blue-900/50 dark:bg-blue-950/30 dark:text-blue-100 [&>svg]:text-blue-600 dark:[&>svg]:text-blue-400">
+            <Info className="size-4" />
+            <AlertTitle className="text-blue-900 dark:text-blue-100">{statusDialog.year?.name || 'Academic year'}</AlertTitle>
+            <AlertDescription className="text-blue-800/90 dark:text-blue-200/90">
               {statusDialog.targetActive
                 ? 'Use reactivate only when users should be allowed to create new admissions, fees, timetable, transport, or other year-wise records for this session.'
                 : 'This is usually the safest option for past years because existing records stay accessible while fresh data entry is discouraged.'}
@@ -533,7 +631,6 @@ export function AcademicYearsPage() {
             </Button>
             <Button
               type="button"
-              variant={statusDialog.targetActive ? 'default' : 'outline'}
               onClick={confirmStatusChange}
               disabled={statusDialog.busy}
             >
@@ -572,6 +669,65 @@ export function AcademicYearsPage() {
         onCancel={() => closeDialog(restoreDialog, setRestoreDialog)}
         onConfirm={confirmRestore}
       />
+
+      <Dialog open={editDialog.open} onOpenChange={(open) => { if (!open) closeEditDialog() }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Pencil className="size-5 text-primary" />
+              Edit academic year
+            </DialogTitle>
+            <DialogDescription>
+              Update the start and end dates for this academic year. The year name is used as a reference across admissions, fees, attendance, timetable, and reports and cannot be renamed.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Academic Year</Label>
+              <Input
+                value={editDialog.year?.name || ''}
+                readOnly
+                className="bg-muted/50 font-mono font-semibold cursor-not-allowed border-dashed"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Start Date</Label>
+                <DatePicker
+                  value={editDialog.startDate}
+                  onChange={(v) => setEditDialog((current) => ({ ...current, startDate: v }))}
+                  yearDropdown
+                  yearsBack={5}
+                  placeholder="Select start date"
+                  triggerClassName="w-full"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>End Date</Label>
+                <DatePicker
+                  value={editDialog.endDate}
+                  onChange={(v) => setEditDialog((current) => ({ ...current, endDate: v }))}
+                  yearDropdown
+                  yearsBack={5}
+                  placeholder="Select end date"
+                  triggerClassName="w-full"
+                />
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={closeEditDialog} disabled={editDialog.busy}>
+              Cancel
+            </Button>
+            <Button type="button" onClick={confirmEdit} disabled={editDialog.busy}>
+              {editDialog.busy ? <Loader2 className="size-4 animate-spin" /> : <Pencil className="size-4" />}
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

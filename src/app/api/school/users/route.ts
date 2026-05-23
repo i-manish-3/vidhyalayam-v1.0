@@ -56,7 +56,12 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST /api/school/users - Create a new user with automatic role assignment
+// POST /api/school/users - Create a new staff user with automatic role assignment.
+// Staff are identified by phone number (used as the login id). A synthetic
+// email `<phone>@staff.local` is stored to satisfy the unique email constraint
+// (same trick used for parent accounts with `@parent.local`). The password is
+// always set to the default `staff123` — staff must change it on first login
+// via the existing `mustChangePassword` flow.
 export async function POST(request: NextRequest) {
   try {
     const authUser = requireRole(request, ['SUPER_ADMIN', 'SCHOOL_ADMIN'])
@@ -65,18 +70,53 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { name, email, password, phone, roleId } = body
+    const { name, phone, email, dob, avatar, roleId } = body
 
-    if (!name || !email || !password || !roleId) {
-      return apiError(400, "Please fill in the staff member's name, email, password, and select a role.")
+    if (!name || !phone || !dob || !roleId) {
+      return apiError(400, "Please fill in the staff member's name, phone number, date of birth, and select a role.")
     }
 
-    // Check if email is already taken
-    const existingUser = await db.user.findUnique({
-      where: { email },
+    const normalizedPhone = String(phone).replace(/\D/g, '').slice(-10)
+    if (normalizedPhone.length !== 10) {
+      return apiError(400, 'Please enter a valid 10-digit phone number.')
+    }
+
+    const dobDate = new Date(dob)
+    if (isNaN(dobDate.getTime())) {
+      return apiError(400, 'Please enter a valid date of birth.')
+    }
+
+    // Phone is the real login identifier — block duplicates within the school
+    // (and globally, since `phone` is what login uses to find the user).
+    const existingByPhone = await db.user.findFirst({
+      where: { phone: normalizedPhone, deletedAt: null },
     })
-    if (existingUser) {
-      return apiError(400, 'An account with this email already exists. Please use a different email address.')
+    if (existingByPhone) {
+      return apiError(400, 'An account with this phone number already exists. Please use a different phone number.')
+    }
+
+    // Email is optional. When provided, validate format + uniqueness and use
+    // it as the User.email. Otherwise fall back to a synthetic
+    // `<phone>@staff.local` (same pattern as parent accounts) to satisfy the
+    // unique email constraint.
+    const trimmedEmail = typeof email === 'string' ? email.trim() : ''
+    let finalEmail: string
+    if (trimmedEmail) {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+        return apiError(400, 'Please enter a valid email address.')
+      }
+      const existingByEmail = await db.user.findUnique({ where: { email: trimmedEmail } })
+      if (existingByEmail) {
+        return apiError(400, 'An account with this email already exists. Please use a different email.')
+      }
+      finalEmail = trimmedEmail
+    } else {
+      const syntheticEmail = `${normalizedPhone}@staff.local`
+      const existingByEmail = await db.user.findUnique({ where: { email: syntheticEmail } })
+      if (existingByEmail) {
+        return apiError(400, 'An account with this phone number already exists. Please use a different phone number.')
+      }
+      finalEmail = syntheticEmail
     }
 
     // Validate the role belongs to this school
@@ -93,32 +133,28 @@ export async function POST(request: NextRequest) {
     }
 
     // Block identity/system roles from staff creation for every admin.
-    // Parent, Student, Teacher, School Admin, and generic Staff are primary profile concepts,
-    // not selectable staff permission roles.
     if (RESTRICTED_STAFF_ROLES.has(role.name) || role.name === 'Teacher') {
-      return apiError(403, `The "${role.name}" role cannot be selected while creating staff. Please choose a staff permission role like Accountant, Transport, Reception, or a custom staff role.`)
+      return apiError(403, `The "${role.name}" role cannot be selected while creating staff. Please choose a staff permission role like Accountant, Reception, or a custom staff role.`)
     }
 
-    // Hash the password
-    const hashedPwd = await hashPassword(password)
+    const hashedPwd = await hashPassword('staff123')
 
-    // Create user and assign role in a transaction
     const newUser = await db.$transaction(async (tx) => {
-      // Create the user
       const user = await tx.user.create({
         data: {
-          email,
+          email: finalEmail,
           password: hashedPwd,
           name: name.trim(),
-          phone: phone || null,
+          phone: normalizedPhone,
+          dob: dobDate,
+          avatar: avatar || null,
           role: 'STAFF',
           schoolId: authUser.schoolId!,
           isActive: true,
+          mustChangePassword: true,
         },
       })
 
-      // Automatically assign the user to the selected role
-      // This means the user inherits ALL permissions from this role
       await tx.userRole.create({
         data: {
           userId: user.id,
@@ -144,7 +180,7 @@ export async function POST(request: NextRequest) {
           description: role.description,
           color: role.color,
         },
-        message: `User created and automatically assigned to "${role.name}" role. They inherit all permissions from this role.`,
+        message: `Staff member created with default password "staff123". They must change it on first login.`,
       },
       { status: 201 }
     )

@@ -18,6 +18,7 @@ import { Separator } from '@/components/ui/separator'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Switch } from '@/components/ui/switch'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { DatePicker } from '@/components/date-picker'
 import {
   Table,
   TableBody,
@@ -42,7 +43,6 @@ import {
   Search,
   Tags,
   Trash2,
-  UserPlus,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -231,8 +231,10 @@ function dueDateForPeriod(period: string, academicYear: string, day: number) {
 export function FeesStructuresPage() {
   const { toast } = useToast()
   const currentSchoolAcademicYear = useAppStore((s) => s.currentSchool?.academicYear)
+  const viewingAcademicYear = useAppStore((s) => s.viewingAcademicYear)
   const goBack = useAppStore((s) => s.goBack)
   const navigateTo = useAppStore((s) => s.navigateTo)
+  const effectiveAcademicYear = viewingAcademicYear || currentSchoolAcademicYear || getCurrentAcademicYear()
 
   // Data
   const [structures, setStructures] = useState<FeeStructure[]>([])
@@ -246,7 +248,7 @@ export function FeesStructuresPage() {
     () => toAcademicYearOptions(availableAcademicYears, currentSchoolAcademicYear),
     [availableAcademicYears, currentSchoolAcademicYear]
   )
-  const activeSessionYear = currentSchoolAcademicYear || academicYearOptions[0]?.value || getCurrentAcademicYear()
+  const activeSessionYear = viewingAcademicYear || currentSchoolAcademicYear || academicYearOptions[0]?.value || getCurrentAcademicYear()
   const structureYearOptions = useMemo(() => {
     if (academicYearOptions.some((year) => year.value === activeSessionYear)) return academicYearOptions
     return [{ value: activeSessionYear, label: activeSessionYear }, ...academicYearOptions]
@@ -270,10 +272,10 @@ export function FeesStructuresPage() {
     feeGroupId: '',
     classId: '',
     sectionId: '',
-    academicYear: currentSchoolAcademicYear || getCurrentAcademicYear(),
+    academicYear: effectiveAcademicYear,
   })
   const [classStructureForm, setClassStructureForm] = useState({
-    academicYear: currentSchoolAcademicYear || getCurrentAcademicYear(),
+    academicYear: effectiveAcademicYear,
     feeGroupId: '',
     classIds: [] as string[],
   })
@@ -327,16 +329,21 @@ export function FeesStructuresPage() {
     if (!academicYearOptions.some((year) => year.value === form.academicYear)) {
       setForm((current) => ({
         ...current,
-        academicYear: academicYearOptions[0]?.value || currentSchoolAcademicYear || getCurrentAcademicYear(),
+        academicYear: effectiveAcademicYear,
       }))
     }
     if (!academicYearOptions.some((year) => year.value === classStructureForm.academicYear)) {
       setClassStructureForm((current) => ({
         ...current,
-        academicYear: academicYearOptions[0]?.value || currentSchoolAcademicYear || getCurrentAcademicYear(),
+        academicYear: effectiveAcademicYear,
       }))
     }
-  }, [academicYearOptions, classStructureForm.academicYear, currentSchoolAcademicYear, form.academicYear])
+  }, [academicYearOptions, classStructureForm.academicYear, effectiveAcademicYear, form.academicYear])
+
+  useEffect(() => {
+    setForm((current) => ({ ...current, academicYear: effectiveAcademicYear }))
+    setClassStructureForm((current) => ({ ...current, academicYear: effectiveAcademicYear }))
+  }, [effectiveAcademicYear])
 
   useEffect(() => {
     const defaultFeeGroup = feeGroups.find((group) => group.name === DEFAULT_FEE_GROUP_NAME)
@@ -678,7 +685,7 @@ export function FeesStructuresPage() {
       })
       toast({ title: 'Success', description: 'Fee structure created successfully' })
       setShowAdd(false)
-      setForm({ name: '', feeGroupId: '', classId: '', sectionId: '', academicYear: academicYearOptions[0]?.value || currentSchoolAcademicYear || getCurrentAcademicYear() })
+      setForm({ name: '', feeGroupId: '', classId: '', sectionId: '', academicYear: effectiveAcademicYear })
       setSelectedStructureHeadIds([])
       setInstallmentRows([])
       fetchData()
@@ -731,10 +738,6 @@ export function FeesStructuresPage() {
           <Button onClick={() => setShowAdd(true)} className="gap-2">
             <PlusCircle className="size-4" />
             Add Structure
-          </Button>
-          <Button variant="outline" onClick={() => navigateTo('fee-assignments')} className="gap-2">
-            <UserPlus className="size-4" />
-            Fee Assignment
           </Button>
           <Button variant="outline" onClick={() => navigateTo('fees-groups')} className="gap-2">
             <Tags className="size-4" />
@@ -1012,11 +1015,12 @@ export function FeesStructuresPage() {
                                     }}
                                   />
                                   {canAutoFillDueDates(head.frequency) && (
-                                    <Input
-                                      type="date"
-                                      aria-label={`Auto fill due dates for ${head.name}`}
-                                      className="h-8 w-48"
-                                      onChange={(event) => fillHeadDueDates(head.id, event.currentTarget.value)}
+                                    <DatePicker
+                                      value=""
+                                      onChange={(v) => fillHeadDueDates(head.id, v)}
+                                      showQuickActions={false}
+                                      placeholder="Auto fill due dates"
+                                      triggerClassName="h-8 w-48"
                                     />
                                   )}
                                   <div className="flex items-center gap-2">
@@ -1070,11 +1074,12 @@ export function FeesStructuresPage() {
                                           />
                                         </div>
                                         <div>
-                                          <Input
-                                            type="date"
+                                          <DatePicker
                                             value={row.dueDate}
-                                            onChange={(event) => updateClassStructureRow(globalIdx, 'dueDate', event.target.value)}
-                                            className="h-8"
+                                            onChange={(v) => updateClassStructureRow(globalIdx, 'dueDate', v)}
+                                            showQuickActions={false}
+                                            placeholder="Due date"
+                                            triggerClassName="h-8 w-full"
                                           />
                                         </div>
                                         <div>
@@ -1583,14 +1588,12 @@ export function FeesStructuresPage() {
                                       }
                                       className="h-8 text-sm"
                                     />
-                                    <Input
-                                      type="date"
-                                      placeholder="Due"
+                                    <DatePicker
                                       value={row.dueDate}
-                                      onChange={(e) =>
-                                        updateInstallmentRow(globalIdx, 'dueDate', e.target.value)
-                                      }
-                                      className="h-8 text-sm"
+                                      onChange={(v) => updateInstallmentRow(globalIdx, 'dueDate', v)}
+                                      showQuickActions={false}
+                                      placeholder="Due"
+                                      triggerClassName="h-8 w-full text-sm"
                                     />
                                     <Input
                                       type="number"

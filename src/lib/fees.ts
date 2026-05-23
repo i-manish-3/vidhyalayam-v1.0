@@ -112,6 +112,22 @@ export function generateReceiptNumber() {
   return `RCP-${Date.now()}-${suffix}`
 }
 
+// Sequential per-school receipt number starting at 1. Walks existing payments
+// for the school, parses numeric receiptNumber strings, and returns max + 1.
+// Old `RCP-…` format payments are skipped (treated as 0) so a fresh sequence
+// begins from 1 the first time this is called for any school.
+export async function nextSequentialReceiptNumber(tx: FeeTx, schoolId: string): Promise<string> {
+  const receipts = await tx.studentFeePayment.findMany({
+    where: { schoolId },
+    select: { receiptNumber: true },
+  })
+  const maxNum = receipts
+    .map((r) => parseInt(r.receiptNumber, 10))
+    .filter((n) => Number.isFinite(n))
+    .reduce((m, n) => (n > m ? n : m), 0)
+  return String(maxNum + 1)
+}
+
 function earliestDate(dates: Array<Date | null | undefined>) {
   const validDates = dates.filter((date): date is Date => !!date)
   if (validDates.length === 0) return null
@@ -543,7 +559,7 @@ export async function recordStudentLedgerPayment(input: RecordLedgerPaymentInput
   } = input
 
   const paymentAmount = roundMoney(amount)
-  const receipt = receiptNumber || generateReceiptNumber()
+  const receipt = receiptNumber || (await nextSequentialReceiptNumber(tx, schoolId))
   const paidAt = paymentDate || new Date()
   if (!Number.isFinite(paymentAmount) || paymentAmount <= 0) {
     return { payment: null, creditEntry: null, appliedAmount: 0, receiptNumber: receipt, allocations: [] }

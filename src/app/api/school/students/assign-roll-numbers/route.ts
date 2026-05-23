@@ -3,14 +3,27 @@ import { db } from '@/lib/db'
 import { requireRole, requirePermission } from '@/lib/api-auth'
 import { unauthorizedError, internalError, apiError, forbiddenError } from '@/lib/api-errors'
 
+const ACADEMIC_YEAR_PATTERN = /^\d{4}-\d{4}$/
+
+async function resolveActiveAcademicYear(schoolId: string, value: unknown) {
+  const academicYear = typeof value === 'string' ? value.trim() : ''
+  if (!ACADEMIC_YEAR_PATTERN.test(academicYear)) return null
+
+  const exists = await db.academicYear.findFirst({
+    where: { schoolId, name: academicYear, isActive: true, deletedAt: null },
+    select: { id: true },
+  })
+  return exists ? academicYear : null
+}
+
 // POST /api/school/students/assign-roll-numbers
-// Bulk-assign roll numbers to a set of students within a single class+section.
-// Body: { classId, sectionId?, assignments: [{ studentId, rollNumber }] }
+// Bulk-assign roll numbers per academic year + class (+ section).
+// Body: { academicYear, classId, sectionId?, assignments: [{ studentId, rollNumber }] }
 //
-// A blank/null rollNumber clears the student's roll.
-// Within the submitted batch, duplicate non-blank roll numbers are rejected.
-// Across the batch + existing students in the same (class, section), duplicates
-// are also rejected (excluding the students being updated, so a swap is valid).
+// Roll numbers live on StudentAcademicEnrollment (per year + class + section),
+// so changing a roll in 2025-2026 does NOT touch the 2024-2025 history.
+// Student.rollNumber is kept in sync ONLY when the student's current class
+// matches the targeted enrollment (so attendance / exam ordering stays right).
 export async function POST(request: NextRequest) {
   try {
     const user = requireRole(request, ['SUPER_ADMIN', 'SCHOOL_ADMIN', 'STAFF'])
@@ -19,9 +32,6 @@ export async function POST(request: NextRequest) {
       return forbiddenError('No school is linked to your account. Please contact your administrator.')
     }
 
-    // Check student:update permission for non-SUPER_ADMIN. We're updating
-    // Student.rollNumber, so this matches the underlying action; no new
-    // permission code needed.
     if (user.role !== 'SUPER_ADMIN') {
       const authorized = await requirePermission(request, 'student:update')
       if (!authorized) {
@@ -32,12 +42,13 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const classId = typeof body.classId === 'string' ? body.classId.trim() : ''
     const sectionId = typeof body.sectionId === 'string' && body.sectionId.trim() ? body.sectionId.trim() : null
+    const academicYear = await resolveActiveAcademicYear(user.schoolId, body.academicYear)
     const assignments: Array<{ studentId: string; rollNumber: string | null }> = Array.isArray(body.assignments) ? body.assignments : []
 
+    if (!academicYear) return apiError(400, 'Please choose an active academic year.')
     if (!classId) return apiError(400, 'Please select a class.')
     if (assignments.length === 0) return apiError(400, 'No students to update.')
 
-    // Normalise + validate input rows
     const normalised = assignments.map((row) => ({
       studentId: typeof row.studentId === 'string' ? row.studentId : '',
       rollNumber: typeof row.rollNumber === 'string' && row.rollNumber.trim() ? row.rollNumber.trim() : null,
@@ -58,58 +69,106 @@ export async function POST(request: NextRequest) {
 
     const studentIds = normalised.map((row) => row.studentId)
 
-    // All students must belong to this school + class + section.
-    const students = await db.student.findMany({
+    // Pull each student's enrollment for the targeted (year + class + section).
+    // We update the enrollment row; if it doesn't exist, that's an error —
+    // the UI should be loading only enrolled students for this scope.
+    const enrollments = await db.studentAcademicEnrollment.findMany({
       where: {
-        id: { in: studentIds },
         schoolId: user.schoolId,
+        studentId: { in: studentIds },
+        academicYear,
         classId,
-        ...(sectionId ? { sectionId } : {}),
+        ...(sectionId ? { sectionId } : { sectionId: null }),
         deletedAt: null,
       },
-      select: { id: true },
+      select: { id: true, studentId: true, rollNumber: true },
     })
-    if (students.length !== studentIds.length) {
-      return apiError(400, 'Some students do not belong to the selected class/section. Please refresh and try again.')
+
+    const enrollmentByStudent = new Map(enrollments.map((enrollment) => [enrollment.studentId, enrollment]))
+    const missing = studentIds.filter((id) => !enrollmentByStudent.has(id))
+    if (missing.length > 0) {
+      return apiError(
+        400,
+        `${missing.length} student(s) don't have an enrollment in this class & section for ${academicYear}. Refresh and try again.`
+      )
     }
 
-    // Detect conflicts with students NOT in the batch but in the same scope.
+    // Detect roll conflicts within the same (year, class, section) enrollment
+    // scope, EXCLUDING the students being updated (so a swap is valid).
     const submittedRolls = normalised
       .map((row) => row.rollNumber)
-      .filter((r): r is string => !!r)
+      .filter((roll): roll is string => !!roll)
 
     if (submittedRolls.length > 0) {
-      const conflicts = await db.student.findMany({
+      const conflicts = await db.studentAcademicEnrollment.findMany({
         where: {
           schoolId: user.schoolId,
+          academicYear,
           classId,
-          ...(sectionId ? { sectionId } : {}),
+          ...(sectionId ? { sectionId } : { sectionId: null }),
           deletedAt: null,
-          id: { notIn: studentIds },
+          studentId: { notIn: studentIds },
           rollNumber: { in: submittedRolls },
         },
-        select: { id: true, firstName: true, lastName: true, rollNumber: true },
+        select: {
+          rollNumber: true,
+          student: { select: { firstName: true, lastName: true } },
+        },
       })
       if (conflicts.length > 0) {
         const first = conflicts[0]
+        const name = first.student ? `${first.student.firstName} ${first.student.lastName}`.trim() : 'another student'
         return apiError(
           400,
-          `Roll number "${first.rollNumber}" is already assigned to ${first.firstName} ${first.lastName} in this class. Clear it before assigning again.`
+          `Roll number "${first.rollNumber}" is already assigned to ${name} in this class for ${academicYear}. Clear it before assigning again.`
         )
       }
     }
 
-    // All checks passed — bulk-update in a single transaction.
-    const updated = await db.$transaction(
-      normalised.map((row) =>
-        db.student.update({
-          where: { id: row.studentId },
+    // Determine which students currently sit in this class+section. Only those
+    // have their Student.rollNumber synced (attendance / exam queries sort by
+    // it). Past-year enrollments leave the historical row authoritative.
+    const currentStudents = await db.student.findMany({
+      where: {
+        id: { in: studentIds },
+        schoolId: user.schoolId,
+        classId,
+        ...(sectionId ? { sectionId } : { sectionId: null }),
+        deletedAt: null,
+      },
+      select: { id: true },
+    })
+    const currentInScope = new Set(currentStudents.map((student) => student.id))
+
+    const result = await db.$transaction(async (tx) => {
+      let enrollmentUpdates = 0
+      let studentUpdates = 0
+      for (const row of normalised) {
+        const enrollment = enrollmentByStudent.get(row.studentId)
+        if (!enrollment) continue
+
+        await tx.studentAcademicEnrollment.update({
+          where: { id: enrollment.id },
           data: { rollNumber: row.rollNumber },
         })
-      )
-    )
+        enrollmentUpdates += 1
 
-    return NextResponse.json({ updated: updated.length, message: `${updated.length} student(s) updated.` })
+        if (currentInScope.has(row.studentId)) {
+          await tx.student.update({
+            where: { id: row.studentId },
+            data: { rollNumber: row.rollNumber },
+          })
+          studentUpdates += 1
+        }
+      }
+      return { enrollmentUpdates, studentUpdates }
+    })
+
+    return NextResponse.json({
+      updated: result.enrollmentUpdates,
+      currentClassUpdated: result.studentUpdates,
+      message: `${result.enrollmentUpdates} student(s) updated for ${academicYear}.`,
+    })
   } catch (error) {
     console.error('Bulk assign roll numbers error:', error)
     return internalError('assigning roll numbers')

@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { DatePicker } from '@/components/date-picker'
 import { PlusCircle, BookOpen, ArrowRightLeft } from 'lucide-react'
 
 interface Book {
@@ -208,7 +209,7 @@ export function LibraryPage() {
                 <SelectContent>{students.map(s => <SelectItem key={s.id} value={s.id}>{s.firstName} {s.lastName}</SelectItem>)}</SelectContent>
               </Select>
             </div>
-            <div className="space-y-2"><Label>Due Date</Label><Input type="date" value={issueForm.dueDate} onChange={e => setIssueForm(f => ({ ...f, dueDate: e.target.value }))} /></div>
+            <div className="space-y-2"><Label>Due Date</Label><DatePicker value={issueForm.dueDate} onChange={(v) => setIssueForm(f => ({ ...f, dueDate: v }))} disablePast placeholder="Select due date" triggerClassName="w-full" /></div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowIssue(false)}>Cancel</Button>

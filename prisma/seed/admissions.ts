@@ -78,7 +78,7 @@ const families: FamilySeed[] = [
     },
     children: [
       {
-        admissionNumber: 'ADM-SEED-2026-001',
+        admissionNumber: 'ADM-SEED-2025-001',
         firstName: 'Ira',
         lastName: 'Verma',
         gender: 'Female',
@@ -92,7 +92,7 @@ const families: FamilySeed[] = [
         previousClass: 'Class 1',
       },
       {
-        admissionNumber: 'ADM-SEED-2026-002',
+        admissionNumber: 'ADM-SEED-2025-002',
         firstName: 'Kabir',
         lastName: 'Verma',
         gender: 'Male',
@@ -138,7 +138,7 @@ const families: FamilySeed[] = [
     },
     children: [
       {
-        admissionNumber: 'ADM-SEED-2026-003',
+        admissionNumber: 'ADM-SEED-2025-003',
         firstName: 'Ayaan',
         lastName: 'Khan',
         gender: 'Male',
@@ -152,7 +152,7 @@ const families: FamilySeed[] = [
         previousClass: 'Class 2',
       },
       {
-        admissionNumber: 'ADM-SEED-2026-004',
+        admissionNumber: 'ADM-SEED-2025-004',
         firstName: 'Zoya',
         lastName: 'Khan',
         gender: 'Female',
@@ -198,7 +198,7 @@ const families: FamilySeed[] = [
     },
     children: [
       {
-        admissionNumber: 'ADM-SEED-2026-005',
+        admissionNumber: 'ADM-SEED-2025-005',
         firstName: 'Anika',
         lastName: 'Iyer',
         gender: 'Female',
@@ -338,8 +338,9 @@ async function ensureAdmissionForChild(args: {
   classId: string | null
   sectionId: string | null
   siblingId: string | null
+  feesGroupId: string | null
 }) {
-  const { family, child, schoolId, createdBy, classId, sectionId, siblingId } = args
+  const { family, child, schoolId, createdBy, classId, sectionId, siblingId, feesGroupId } = args
 
   const existingStudent = await db.student.findFirst({
     where: { admissionNumber: child.admissionNumber, schoolId },
@@ -356,6 +357,29 @@ async function ensureAdmissionForChild(args: {
         data: { siblingId },
       })
     }
+    // Backfill enrollment for partial-seed scenarios
+    if (classId) {
+      const enrollment = await db.studentAcademicEnrollment.findFirst({
+        where: { studentId: existingStudent.id, academicYear: '2025-2026' },
+      })
+      if (!enrollment) {
+        const rollSuffix = child.admissionNumber.match(/(\d+)$/)?.[1] || '01'
+        await db.studentAcademicEnrollment.create({
+          data: {
+            schoolId,
+            studentId: existingStudent.id,
+            academicYear: '2025-2026',
+            classId,
+            sectionId,
+            rollNumber: rollSuffix,
+            status: 'active',
+            source: 'admission',
+            effectiveFrom: new Date('2025-04-01'),
+            createdBy,
+          },
+        })
+      }
+    }
     return existingStudent
   }
 
@@ -364,13 +388,13 @@ async function ensureAdmissionForChild(args: {
       data: {
         schoolId,
         admissionNumber: child.admissionNumber,
-        academicYear: '2026-2027',
+        academicYear: '2025-2026',
         admissionType: 'new',
         status: 'admitted',
         firstName: child.firstName,
         lastName: child.lastName,
         dateOfBirth: child.dateOfBirth,
-        dateOfAdmission: new Date('2026-04-01'),
+        dateOfAdmission: new Date('2025-04-01'),
         gender: child.gender,
         nationality: 'Indian',
         religion: child.religion,
@@ -410,19 +434,19 @@ async function ensureAdmissionForChild(args: {
         motherIncome: family.mother.income,
         classId,
         sectionId,
-        admissionSession: '2026-2027',
+        admissionSession: '2025-2026',
         mediumOfInstruction: 'English',
         previousSchool: child.previousSchool || null,
         previousClass: child.previousClass || null,
         previousResult: child.previousSchool ? 'Promoted' : null,
-        feesGroupId: null,
+        feesGroupId,
         siblingId,
         annualIncome: family.father.income + family.mother.income,
         sourceOfInfo: 'seed_data',
         formNumber: `${child.admissionNumber}-FORM`,
-        appliedDate: new Date('2026-03-20'),
+        appliedDate: new Date('2025-03-20'),
         admittedBy: createdBy,
-        admittedAt: new Date('2026-04-01'),
+        admittedAt: new Date('2025-04-01'),
         remarks: 'Seeded direct admission with parent and sibling data.',
         createdBy,
       },
@@ -448,7 +472,7 @@ async function ensureAdmissionForChild(args: {
         state: family.address.state,
         pincode: family.address.pincode,
         country: 'India',
-        admissionDate: new Date('2026-04-01'),
+        admissionDate: new Date('2025-04-01'),
         previousSchool: child.previousSchool || null,
         previousClass: child.previousClass || null,
         previousResult: child.previousSchool ? 'Promoted' : null,
@@ -463,6 +487,33 @@ async function ensureAdmissionForChild(args: {
       data: { studentId: student.id },
     })
 
+    if (classId) {
+      const rollSuffix = child.admissionNumber.match(/(\d+)$/)?.[1] || '01'
+      await tx.studentAcademicEnrollment.create({
+        data: {
+          schoolId,
+          studentId: student.id,
+          academicYear: '2025-2026',
+          classId,
+          sectionId,
+          rollNumber: rollSuffix,
+          status: 'active',
+          source: 'admission',
+          effectiveFrom: new Date('2025-04-01'),
+          createdBy: createdBy,
+        },
+      })
+    }
+
+    await tx.admissionNote.create({
+      data: {
+        admissionId: admission.id,
+        note: `${child.firstName} admitted to ${child.previousClass ? 'continuing' : 'new'} academic session 2025-2026. Parent contact and sibling links verified.`,
+        noteType: 'general',
+        createdBy,
+      },
+    })
+
     await tx.admissionDocument.createMany({
       data: [
         {
@@ -472,7 +523,7 @@ async function ensureAdmissionForChild(args: {
           fileUrl: `/seed-documents/${child.admissionNumber}/birth-certificate.pdf`,
           fileType: 'application/pdf',
           fileSize: 240,
-          uploadedAt: new Date('2026-03-21'),
+          uploadedAt: new Date('2025-03-21'),
           verificationStatus: 'verified',
           isRequired: true,
         },
@@ -483,7 +534,7 @@ async function ensureAdmissionForChild(args: {
           fileUrl: `/seed-documents/${child.admissionNumber}/aadhaar.pdf`,
           fileType: 'application/pdf',
           fileSize: 180,
-          uploadedAt: new Date('2026-03-21'),
+          uploadedAt: new Date('2025-03-21'),
           verificationStatus: 'pending',
           isRequired: true,
         },
@@ -551,6 +602,10 @@ async function main() {
     orderBy: { name: 'asc' },
   })
 
+  const newAdmissionGroup = await db.feesGroup.findFirst({
+    where: { schoolId: school.id, name: 'New Admission', deletedAt: null },
+  })
+
   let createdOrFound = 0
   let siblingLinks = 0
 
@@ -576,6 +631,7 @@ async function main() {
         classId: classRecord?.id || null,
         sectionId: sectionRecord?.id || null,
         siblingId: firstSiblingId,
+        feesGroupId: newAdmissionGroup?.id || null,
       })
 
       await ensureStudentParentLink(student.id, fatherParent.id, 'Father', true)

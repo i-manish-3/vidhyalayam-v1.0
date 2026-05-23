@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { EmptyState, LoadingState } from '@/components/shared'
 import { api } from '@/lib/api'
 import { useAppStore } from '@/lib/store'
-import { getCurrentAcademicYear, toAcademicYearOptions } from '@/lib/academic-years'
+import { getCurrentAcademicYear } from '@/lib/academic-years'
 import { useToast } from '@/hooks/use-toast'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -15,6 +15,7 @@ import { Separator } from '@/components/ui/separator'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { DatePicker } from '@/components/date-picker'
 import {
   Check,
   X,
@@ -36,6 +37,7 @@ import {
   ArrowLeft,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { usePermissions, PERMISSIONS } from '@/hooks/use-permissions'
 
 // ── Types ──────────────────────────────────────────────────────────────
 
@@ -154,13 +156,15 @@ function getInitials(firstName: string, lastName: string): string {
 
 export function AttendancePage() {
   const { toast } = useToast()
+  const { hasPermission } = usePermissions()
+  const canView = hasPermission(PERMISSIONS.ATTENDANCE_READ)
   const goBack = useAppStore((s) => s.goBack)
   const setCurrentPage = useAppStore((s) => s.setCurrentPage)
   const currentSchoolAcademicYear = useAppStore((s) => s.currentSchool?.academicYear)
+  const viewingAcademicYear = useAppStore((s) => s.viewingAcademicYear)
+  const academicYear = viewingAcademicYear || currentSchoolAcademicYear || getCurrentAcademicYear()
 
   // Filter state
-  const [academicYear, setAcademicYear] = useState(currentSchoolAcademicYear || getCurrentAcademicYear())
-  const [availableAcademicYears, setAvailableAcademicYears] = useState<string[]>([])
   const [date, setDate] = useState(getTodayString())
   const [classId, setClassId] = useState('')
   const [sectionId, setSectionId] = useState('')
@@ -175,10 +179,6 @@ export function AttendancePage() {
   // Reference data
   const [classes, setClasses] = useState<ClassOption[]>([])
   const [sections, setSections] = useState<SectionOption[]>([])
-  const academicYearOptions = useMemo(
-    () => toAcademicYearOptions(availableAcademicYears, currentSchoolAcademicYear),
-    [availableAcademicYears, currentSchoolAcademicYear]
-  )
 
   // Derived: does the selected class have no sections?
   const classHasNoSections = classId ? sections.filter((s) => s.classId === classId).length === 0 : false
@@ -197,14 +197,12 @@ export function AttendancePage() {
   useEffect(() => {
     const init = async () => {
       try {
-        const [clsRes, secRes, academicYearRes] = await Promise.all([
+        const [clsRes, secRes] = await Promise.all([
           api.get<{ classes: ClassOption[] }>('/api/school/classes'),
           api.get<{ sections: SectionOption[] }>('/api/school/sections'),
-          api.get<{ academicYears: string[] }>('/api/school/academic-years'),
         ])
         setClasses(clsRes.classes || [])
         setSections(secRes.sections || [])
-        setAvailableAcademicYears(academicYearRes.academicYears || [])
       } catch {
         toast({ title: 'Error', description: 'Failed to load classes. Please refresh.', variant: 'destructive' })
       } finally {
@@ -213,12 +211,6 @@ export function AttendancePage() {
     }
     init()
   }, [toast])
-
-  useEffect(() => {
-    if (!academicYearOptions.some((year) => year.value === academicYear)) {
-      setAcademicYear(academicYearOptions[0]?.value || currentSchoolAcademicYear || getCurrentAcademicYear())
-    }
-  }, [academicYear, academicYearOptions, currentSchoolAcademicYear])
 
   const filteredSections = classId ? sections.filter((s) => s.classId === classId) : []
 
@@ -420,10 +412,12 @@ export function AttendancePage() {
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <Button variant="outline" size="sm" className="gap-1.5 h-9" onClick={() => setCurrentPage('view-attendance')}>
-            <ClipboardList className="size-4" />
-            View Attendance
-          </Button>
+          {canView && (
+            <Button variant="outline" size="sm" className="gap-1.5 h-9" onClick={() => setCurrentPage('view-attendance')}>
+              <ClipboardList className="size-4" />
+              View Attendance
+            </Button>
+          )}
           {isFinalized && (
             <Badge className="gap-1.5 h-9 px-3 bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100">
               <ShieldCheck className="size-4" />
@@ -504,33 +498,16 @@ export function AttendancePage() {
       <Card className="shadow-sm">
         <CardContent className="px-3 py-2">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-            <div className="flex items-center gap-1.5">
-              <Label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap">Year</Label>
-              <Select value={academicYear} onValueChange={setAcademicYear}>
-                <SelectTrigger className="h-7 w-[135px] text-xs">
-                  <SelectValue placeholder="Select year" />
-                </SelectTrigger>
-                <SelectContent>
-                  {academicYearOptions.map((year) => (
-                    <SelectItem key={year.value} value={year.value}>{year.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <Separator orientation="vertical" className="hidden lg:block h-5" />
-
             {/* Date navigation */}
             <div className="flex items-center gap-1">
               <Button variant="outline" size="icon" className="size-7 shrink-0" onClick={() => setDate(navigateDate(date, -1))}>
                 <ChevronLeft className="size-3" />
               </Button>
-              <Input
-                type="date"
+              <DatePicker
                 value={date}
-                onChange={(e) => setDate(e.target.value)}
-                max={getTodayString()}
-                className="h-7 w-[150px] text-xs"
+                onChange={setDate}
+                disableFuture
+                triggerClassName="h-7 min-w-[160px] text-xs px-2.5"
               />
               <Button variant="outline" size="icon" className="size-7 shrink-0" onClick={() => setDate(navigateDate(date, 1))} disabled={isFutureDate || isToday}>
                 <ChevronRight className="size-3" />

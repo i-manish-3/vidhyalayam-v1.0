@@ -6,16 +6,23 @@ import {
   Activity,
   AlertCircle,
   ArrowRight,
+  Bell,
   BookOpen,
+  Bus,
+  Cake,
+  Calendar,
   CalendarCheck,
   ClipboardList,
   Clock,
   GraduationCap,
   IndianRupee,
+  Layers,
   Megaphone,
   PlusCircle,
+  Settings,
   TrendingUp,
   Users,
+  Zap,
 } from 'lucide-react'
 import {
   Area,
@@ -72,6 +79,16 @@ interface MetricItem {
   progress: number
 }
 
+interface BirthdayPerson {
+  id: string
+  name: string
+  type: 'student' | 'teacher' | 'staff'
+  profileImage: string | null
+  age: number | null
+  className: string | null
+  roleName: string | null
+}
+
 const money = new Intl.NumberFormat('en-IN', {
   maximumFractionDigits: 1,
   notation: 'compact',
@@ -101,6 +118,7 @@ function activityIcon(type: string) {
 export function SchoolAdminDashboard() {
   const [loading, setLoading] = useState(true)
   const [data, setData] = useState<DashboardData | null>(null)
+  const [birthdays, setBirthdays] = useState<BirthdayPerson[]>([])
   const [now, setNow] = useState(() => new Date())
   const { currentSchool, setCurrentPage } = useAppStore()
 
@@ -133,7 +151,25 @@ export function SchoolAdminDashboard() {
       }
     }
 
+    async function fetchBirthdays() {
+      try {
+        const res = await api.get<{
+          students: BirthdayPerson[]
+          teachers: BirthdayPerson[]
+          staff: BirthdayPerson[]
+        }>('/api/school/dashboard/birthdays')
+        setBirthdays([
+          ...(res.students || []),
+          ...(res.teachers || []),
+          ...(res.staff || []),
+        ])
+      } catch {
+        // Non-fatal; the card just stays empty.
+      }
+    }
+
     fetchData()
+    fetchBirthdays()
   }, [])
 
   useEffect(() => {
@@ -209,13 +245,21 @@ export function SchoolAdminDashboard() {
   const heroKpis = [
     { label: 'Attendance', value: `${attendancePercent}%`, icon: CalendarCheck },
     { label: 'Collection', value: `${collectionRate}%`, icon: IndianRupee },
-    { label: 'Class Avg', value: classDensity || '-', icon: Users },
   ]
 
-  const quickActions: Array<{ label: string; page: PageName; icon: React.ElementType; description: string }> = [
-    { label: 'New Admission', page: 'admission-form', icon: PlusCircle, description: 'Register a student' },
-    { label: 'Mark Attendance', page: 'mark-attendance', icon: CalendarCheck, description: 'Daily attendance' },
-    { label: 'Collect Fees', page: 'fee-collections', icon: IndianRupee, description: 'Record payment' },
+  const quickActions: Array<{ label: string; page: PageName; icon: React.ElementType; iconClassName: string }> = [
+    { label: 'Students', page: 'students', icon: GraduationCap, iconClassName: 'text-cyan-600 dark:text-cyan-300' },
+    { label: 'New Admission', page: 'admission-form', icon: PlusCircle, iconClassName: 'text-emerald-600 dark:text-emerald-300' },
+    { label: 'Classes', page: 'classes', icon: Layers, iconClassName: 'text-indigo-600 dark:text-indigo-300' },
+    { label: 'Attendance', page: 'mark-attendance', icon: CalendarCheck, iconClassName: 'text-amber-600 dark:text-amber-300' },
+    { label: 'Fees', page: 'fee-collections', icon: IndianRupee, iconClassName: 'text-green-600 dark:text-green-300' },
+    { label: 'Timetable', page: 'timetable', icon: Calendar, iconClassName: 'text-sky-600 dark:text-sky-300' },
+    { label: 'Exams', page: 'exams', icon: TrendingUp, iconClassName: 'text-blue-600 dark:text-blue-300' },
+    { label: 'Transport', page: 'transport', icon: Bus, iconClassName: 'text-violet-600 dark:text-violet-300' },
+    { label: 'Staff', page: 'staff', icon: Users, iconClassName: 'text-pink-600 dark:text-pink-300' },
+    { label: 'Announcements', page: 'announcements', icon: Megaphone, iconClassName: 'text-fuchsia-600 dark:text-fuchsia-300' },
+    { label: 'Alerts', page: 'notifications', icon: Bell, iconClassName: 'text-orange-500 dark:text-orange-300' },
+    { label: 'Settings', page: 'settings', icon: Settings, iconClassName: 'text-slate-600 dark:text-slate-300' },
   ]
 
   const recentActivities = useMemo(() => {
@@ -230,100 +274,82 @@ export function SchoolAdminDashboard() {
   return (
     <div className="space-y-6">
       <section className="overflow-hidden rounded-xl border bg-card shadow-sm">
-        <div className="p-5">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-          <div className="space-y-3">
+        <div className="p-3">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="space-y-2 lg:flex-1 lg:min-w-0">
             <Badge variant="secondary" className="w-fit gap-2 bg-primary/10 text-primary hover:bg-primary/10">
               <Clock className="size-3.5" />
               <span>{today}</span>
               <span className="text-primary/45">|</span>
               <span className="font-mono tabular-nums">{currentTime}</span>
             </Badge>
-            <div>
-              <h1 className="text-2xl font-semibold tracking-tight text-foreground/85 sm:text-3xl">
-                {currentSchool?.name || 'School'} Dashboard
-              </h1>
-              <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-                Monitor admissions, attendance, fees, and daily school operations from one place.
-              </p>
-            </div>
-            <div className="grid max-w-2xl gap-2 sm:grid-cols-3">
-              {heroKpis.map((item) => (
-                <div key={item.label} className="flex items-center gap-2 rounded-lg border bg-background/70 px-3 py-2">
-                  <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-                    <item.icon className="size-4" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-xs text-muted-foreground">{item.label}</p>
-                    <p className="text-sm font-semibold text-foreground/85">{item.value}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <h1 className="text-lg font-semibold tracking-tight text-foreground/85 sm:text-xl">
+              {currentSchool?.name || 'School'} Dashboard
+            </h1>
           </div>
-
-          <div className="flex flex-wrap gap-2 lg:max-w-[500px] lg:justify-end">
-            {quickActions.map((action) => (
-              <button
-                key={action.label}
-                type="button"
-                onClick={() => setCurrentPage(action.page)}
-                className="inline-flex h-9 items-center gap-2 rounded-full border border-transparent bg-[var(--button-primary,var(--primary))] px-3 text-xs font-semibold text-[var(--button-primary-foreground,var(--primary-foreground))] shadow-sm transition-all hover:bg-[var(--button-primary-hover,var(--primary))]"
-              >
-                <action.icon className="size-3.5" />
-                <span>{action.label}</span>
-              </button>
+          <div className="grid w-full gap-2 sm:grid-cols-2 lg:max-w-md lg:shrink-0">
+            {heroKpis.map((item) => (
+              <div key={item.label} className="flex items-center gap-2 rounded-lg border bg-background/70 px-3 py-1.5">
+                <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+                  <item.icon className="size-3.5" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[11px] text-muted-foreground">{item.label}</p>
+                  <p className="text-sm font-semibold text-foreground/85">{item.value}</p>
+                </div>
+              </div>
             ))}
           </div>
         </div>
         </div>
       </section>
 
+      <section className="overflow-hidden rounded-lg border bg-card shadow-sm">
+        <div className="px-3.5 pt-2">
+          <h2 className="flex items-center gap-2 text-sm font-semibold tracking-tight text-foreground/90">
+            <Zap className="size-3.5 text-amber-500 fill-amber-500" />
+            Quick Actions
+          </h2>
+        </div>
+        <div className="quick-actions-scrollbar overflow-x-auto px-3.5 pb-2 pt-1.5">
+          <div className="flex min-w-max items-center gap-2.5">
+            {quickActions.map((action) => (
+              <button
+                key={action.label}
+                type="button"
+                onClick={() => setCurrentPage(action.page)}
+                className="inline-flex h-8 shrink-0 items-center gap-2 rounded-md border bg-background px-3 text-sm font-medium text-foreground/85 shadow-xs transition-colors hover:border-primary/40 hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+              >
+                <action.icon className={cn('size-3.5', action.iconClassName)} />
+                <span>{action.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </section>
+
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {metrics.map((metric) => (
-          <Card key={metric.label} className="overflow-hidden">
-            <CardContent className="p-4">
+          <Card key={metric.label} className="overflow-hidden py-0">
+            <CardContent className="p-3">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-sm text-muted-foreground">{metric.label}</p>
-                  <p className="mt-2 text-2xl font-semibold tracking-tight text-foreground/85">{metric.value}</p>
+                  <p className="text-xs text-muted-foreground">{metric.label}</p>
+                  <p className="mt-0.5 text-lg font-semibold tracking-tight text-foreground/85">{metric.value}</p>
                 </div>
-                <div className={cn('flex size-10 items-center justify-center rounded-lg', metric.tone)}>
-                  <metric.icon className="size-5" />
+                <div className={cn('flex size-8 items-center justify-center rounded-lg', metric.tone)}>
+                  <metric.icon className="size-4" />
                 </div>
               </div>
-              <div className="mt-4 space-y-2">
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-xs text-muted-foreground">{metric.note}</p>
-                  <span className="text-xs font-semibold text-muted-foreground">{metric.progress}%</span>
-                </div>
-                <Progress value={metric.progress} className="h-1.5 bg-muted" />
+              <div className="mt-2">
+                <p className="text-[11px] text-muted-foreground">{metric.note}</p>
               </div>
             </CardContent>
           </Card>
         ))}
       </section>
 
-      <section className="grid gap-4 lg:grid-cols-3">
-        <InsightCard
-          title="Student Coverage"
-          value={`${dashboard.totalClasses} Classes`}
-          description={`${dashboard.totalSections} active sections with ${classDensity || 0} students per class on average`}
-          icon={GraduationCap}
-        />
-        <InsightCard
-          title="Fee Health"
-          value={collectionRate >= 75 ? 'Healthy' : 'Needs Focus'}
-          description={`${formatMoney(dashboard.feeStats.totalCollected)} collected against ${formatMoney(dashboard.feeStats.totalFees)} total fee demand`}
-          icon={TrendingUp}
-        />
-        <InsightCard
-          title="Today Status"
-          value={attendancePercent >= 75 ? 'On Track' : 'Follow Up'}
-          description={`${dashboard.attendanceToday.present} present, ${dashboard.attendanceToday.absent} absent, ${dashboard.attendanceToday.leave} on leave`}
-          icon={ClipboardList}
-        />
-      </section>
+      <TodaysBirthdaysCard people={birthdays} />
 
       <section className="grid gap-6 xl:grid-cols-[minmax(0,1.6fr)_minmax(320px,0.9fr)]">
         <Card>
@@ -513,5 +539,87 @@ function SnapshotRow({ label, value, progress, tone }: { label: string; value: s
       </div>
       <Progress value={Math.min(100, Math.max(0, progress))} className={cn('h-1.5', tone === 'warn' && '[&_[data-slot=progress-indicator]]:bg-amber-500')} />
     </div>
+  )
+}
+
+function getInitials(name: string): string {
+  const parts = name.trim().split(/\s+/)
+  if (parts.length === 0) return '?'
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+}
+
+function TodaysBirthdaysCard({ people }: { people: BirthdayPerson[] }) {
+  return (
+    <Card>
+      <CardHeader className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-2">
+          <div className="flex size-9 items-center justify-center rounded-lg bg-pink-500/10 text-pink-600 dark:text-pink-300">
+            <Cake className="size-4" />
+          </div>
+          <div>
+            <CardTitle>Today&apos;s Birthdays</CardTitle>
+            <CardDescription>
+              {people.length === 0
+                ? 'No birthdays today — check back tomorrow'
+                : `${people.length} birthday${people.length === 1 ? '' : 's'} today — wish them a wonderful day`}
+            </CardDescription>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {people.length === 0 ? (
+          <div className="flex items-center justify-center rounded-lg border border-dashed bg-muted/30 py-6 text-sm text-muted-foreground">
+            Nobody is celebrating today.
+          </div>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {people.map((person) => (
+              <div
+                key={`${person.type}-${person.id}`}
+                className="flex items-center gap-3 rounded-lg border bg-background p-3"
+              >
+                <div className="relative size-11 shrink-0 overflow-hidden rounded-full bg-primary/10 text-primary">
+                  {person.profileImage ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={person.profileImage} alt="" className="size-full object-cover" />
+                  ) : (
+                    <div className="flex size-full items-center justify-center text-sm font-semibold">
+                      {getInitials(person.name)}
+                    </div>
+                  )}
+                  <div className="absolute -bottom-0.5 -right-0.5 flex size-4 items-center justify-center rounded-full border-2 border-background bg-pink-500 text-white">
+                    <Cake className="size-2.5" />
+                  </div>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <p className="truncate text-sm font-medium text-foreground/85">{person.name}</p>
+                  </div>
+                  <div className="mt-0.5 flex items-center gap-1.5">
+                    <Badge
+                      variant="secondary"
+                      className={cn(
+                        'h-4 px-1.5 text-[10px] capitalize',
+                        person.type === 'teacher' && 'bg-sky-500/10 text-sky-700 dark:text-sky-300',
+                        person.type === 'staff' && 'bg-amber-500/10 text-amber-700 dark:text-amber-300',
+                        person.type === 'student' && 'bg-primary/10 text-primary',
+                      )}
+                    >
+                      {person.type === 'staff' && person.roleName ? person.roleName : person.type}
+                    </Badge>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {person.age != null ? `Turns ${person.age}` : ''}
+                      {person.age != null && person.className ? ' · ' : ''}
+                      {person.className || ''}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   )
 }

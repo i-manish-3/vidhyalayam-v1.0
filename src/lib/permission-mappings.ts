@@ -34,7 +34,7 @@ const MODULE_PERMISSION_MAP: Record<string, string[]> = {
   'add-class': ['class:read', 'class:create'],
   'edit-class': ['class:read', 'class:update'],
   'attendance': ['attendance:read', 'attendance:mark'],
-  'mark-attendance': ['attendance:read', 'attendance:mark'],
+  'mark-attendance': ['attendance:mark'],
   'view-attendance': ['attendance:read'],
   'timetable': ['timetable:read', 'timetable:create'],
   'exams': ['exam:read', 'exam:create'],
@@ -44,10 +44,9 @@ const MODULE_PERMISSION_MAP: Record<string, string[]> = {
   'fees-heads': ['fees:read'],
   'fees-groups': ['fees:read'],
   'fees-structures': ['fees:read'],
-  'fee-assignments': ['fees:read'],
-  'fee-invoices': ['fees:read'],
   'fee-collections': ['fees:read', 'fees:collect'],
   'fee-details': ['fees:read'],
+  'fee-change-group': ['fees:change-group'],
 
   // Salary
   'salary': ['salary:read'],
@@ -58,6 +57,7 @@ const MODULE_PERMISSION_MAP: Record<string, string[]> = {
   // Resources
   'transport': ['transport:read', 'transport:create'],
   'add-transport-route': ['transport:create'],
+  'transport-annual-setup': ['transport:annual-setup'],
   'drivers': ['transport:read', 'transport:create'],
   'add-driver': ['transport:create'],
   'library': ['library:read', 'library:create'],
@@ -98,13 +98,23 @@ const PARENT_MENU_MODULES: Record<string, string> = {
 
 /**
  * Check if a specific page should be visible based on user permissions.
- * 
+ *
  * @param page - The page name from the sidebar
  * @param permissions - Array of permission codes the user has
  * @param role - The user's role
+ * @param permissionsLoaded - Whether permissions have finished loading. While
+ *   `false`, the function avoids hiding items (prevents a flash of empty
+ *   sidebar between login and the /permissions API resolving). Once `true`,
+ *   the user is properly gated even when the array is empty — defaults to
+ *   `true` for backwards compatibility with non-loading call sites.
  * @returns true if the page should be visible
  */
-export function isPageVisible(page: string, permissions: string[], role: string): boolean {
+export function isPageVisible(
+  page: string,
+  permissions: string[],
+  role: string,
+  permissionsLoaded = true,
+): boolean {
   // SUPER_ADMIN always sees everything
   if (role === 'SUPER_ADMIN') return true
 
@@ -114,10 +124,11 @@ export function isPageVisible(page: string, permissions: string[], role: string)
   // If user has wildcard permissions, show everything
   if (permissions.includes('*')) return true
 
-  // If permissions haven't loaded yet (empty array) but user has a role,
-  // show everything to avoid race-condition hiding. The API still enforces access.
-  // Once permissions load, items will be properly filtered on next render.
-  if (permissions.length === 0 && role) return true
+  // Only fall back to "show everything" while permissions are still loading.
+  // Once load completes, an empty permissions array means "no access" and we
+  // gate accordingly — fixes the issue where a brand-new role with one
+  // permission would still see the entire sidebar.
+  if (!permissionsLoaded) return true
 
   // Check if the page requires specific permissions
   const requiredPerms = MODULE_PERMISSION_MAP[page]

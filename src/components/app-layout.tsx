@@ -21,12 +21,41 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Sun, Moon, Bell, LogOut, User, ChevronRight, PanelLeftClose, PanelLeftOpen, Search, ArrowRight, Lock } from 'lucide-react'
 import dynamic from 'next/dynamic'
 import { motion, AnimatePresence } from 'framer-motion'
+import { AcademicYearSwitcher } from '@/components/academic-year-switcher'
+
+// Global banner shown when the viewing academic year differs from the school's
+// active session. Reminds admin they're seeing historical data everywhere.
+function PastYearGlobalBanner() {
+  const currentSchool = useAppStore((state) => state.currentSchool)
+  const viewingAcademicYear = useAppStore((state) => state.viewingAcademicYear)
+  const setViewingAcademicYear = useAppStore((state) => state.setViewingAcademicYear)
+  const schoolActiveYear = currentSchool?.academicYear || null
+  const effectiveYear = viewingAcademicYear || schoolActiveYear
+  if (!schoolActiveYear || !effectiveYear || effectiveYear === schoolActiveYear) return null
+  return (
+    <div className="border-b border-amber-300/60 bg-amber-50 px-4 py-2 text-sm text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span>
+          <strong>Viewing {effectiveYear} session.</strong> Fees, attendance, profile and other year-scoped data on every
+          page will reflect this session until you switch back.
+        </span>
+        <button
+          type="button"
+          onClick={() => setViewingAcademicYear(schoolActiveYear)}
+          className="rounded-md border border-amber-400 bg-white px-2 py-0.5 text-xs font-semibold hover:bg-amber-100 dark:bg-amber-500/20 dark:hover:bg-amber-500/30"
+        >
+          Switch back to {schoolActiveYear}
+        </button>
+      </div>
+    </div>
+  )
+}
 
 // Dashboard imports
 import { SuperAdminDashboard } from './dashboards/super-admin-dashboard'
@@ -48,9 +77,8 @@ const AttendancePage = dynamic(() => import('@/features/attendance/pages/attenda
 const FeesHeadsPage = dynamic(() => import('@/features/fees/pages/fees-heads-page').then(mod => ({ default: mod.FeesHeadsPage })), { ssr: false, loading: PageLoader })
 const FeesGroupsPage = dynamic(() => import('@/features/fees/pages/fees-groups-page').then(mod => ({ default: mod.FeesGroupsPage })), { ssr: false, loading: PageLoader })
 const FeesStructuresPage = dynamic(() => import('@/features/fees/pages/fees-structures-page').then(mod => ({ default: mod.FeesStructuresPage })), { ssr: false, loading: PageLoader })
-const FeeAssignmentsPage = dynamic(() => import('@/features/fees/pages/fee-assignments-page').then(mod => ({ default: mod.FeeAssignmentsPage })), { ssr: false, loading: PageLoader })
-const FeeInvoicesPage = dynamic(() => import('@/features/fees/pages/fee-invoices-page').then(mod => ({ default: mod.FeeInvoicesPage })), { ssr: false, loading: PageLoader })
 const FeeCollectionsPage = dynamic(() => import('@/features/fees/pages/fee-collections-page').then(mod => ({ default: mod.FeeCollectionsPage })), { ssr: false, loading: PageLoader })
+const ChangeFeeGroupPage = dynamic(() => import('@/features/fees/pages/change-fee-group-page').then(mod => ({ default: mod.ChangeFeeGroupPage })), { ssr: false, loading: PageLoader })
 const SalaryStructurePage = dynamic(() => import('@/features/salary/pages/salary-structure-page').then(mod => ({ default: mod.SalaryStructurePage })), { ssr: false, loading: PageLoader })
 const SalaryPaymentsPage = dynamic(() => import('@/features/salary/pages/salary-payments-page').then(mod => ({ default: mod.SalaryPaymentsPage })), { ssr: false, loading: PageLoader })
 const SalaryAdvancePage = dynamic(() => import('@/features/salary/pages/salary-advance-page').then(mod => ({ default: mod.SalaryAdvancePage })), { ssr: false, loading: PageLoader })
@@ -60,6 +88,7 @@ const ExamResultsPage = dynamic(() => import('@/features/exams/pages/exam-result
 const TransportPage = dynamic(() => import('@/features/transport/pages/transport-page').then(mod => ({ default: mod.TransportPage })), { ssr: false, loading: PageLoader })
 const AddTransportRoutePage = dynamic(() => import('@/features/transport/pages/add-transport-route-page').then(mod => ({ default: mod.AddTransportRoutePage })), { ssr: false, loading: PageLoader })
 const EditTransportRoutePage = dynamic(() => import('@/features/transport/pages/edit-transport-route-page').then(mod => ({ default: mod.EditTransportRoutePage })), { ssr: false, loading: PageLoader })
+const AnnualTransportSetupPage = dynamic(() => import('@/features/transport/pages/annual-transport-setup-page').then(mod => ({ default: mod.AnnualTransportSetupPage })), { ssr: false, loading: PageLoader })
 const AddDriverPage = dynamic(() => import('@/features/transport/pages/add-driver-page').then(mod => ({ default: mod.AddDriverPage })), { ssr: false, loading: PageLoader })
 const DriverDirectoryPage = dynamic(() => import('@/features/transport/pages/driver-directory-page').then(mod => ({ default: mod.DriverDirectoryPage })), { ssr: false, loading: PageLoader })
 const LibraryPage = dynamic(() => import('@/features/operations/pages/library-page').then(mod => ({ default: mod.LibraryPage })), { ssr: false, loading: PageLoader })
@@ -112,9 +141,8 @@ const PAGE_TITLES: Record<PageName, string> = {
   'fees-heads': 'Fee Heads',
   'fees-groups': 'Fee Groups',
   'fees-structures': 'Fee Structures',
-  'fee-assignments': 'Fee Assignments',
-  'fee-invoices': 'Fee Invoices',
   'fee-collections': 'Fee Collections',
+  'fee-change-group': 'Change Fee Group',
   'salary': 'Salary',
   'salary-structure': 'Salary Structure',
   'salary-payments': 'Salary Payments',
@@ -125,6 +153,7 @@ const PAGE_TITLES: Record<PageName, string> = {
   'transport': 'Transport',
   'add-transport-route': 'Create Transport Route',
   'edit-transport-route': 'Edit Transport Route',
+  'transport-annual-setup': 'Annual Transport Setup',
   'drivers': 'Drivers',
   'add-driver': 'Add Driver',
   'library': 'Library',
@@ -180,10 +209,9 @@ const PAGE_COMPONENTS: Partial<Record<PageName, React.ComponentType>> = {
   'fees-heads': FeesHeadsPage,
   'fees-groups': FeesGroupsPage,
   'fees-structures': FeesStructuresPage,
-  'fee-assignments': FeeAssignmentsPage,
-  'fee-invoices': FeeInvoicesPage,
   'fee-collections': FeeCollectionsPage,
   'fee-details': FeeCollectionsPage,
+  'fee-change-group': ChangeFeeGroupPage,
   'salary-structure': SalaryStructurePage,
   'salary': SalaryStructurePage,
   'salary-payments': SalaryPaymentsPage,
@@ -194,6 +222,7 @@ const PAGE_COMPONENTS: Partial<Record<PageName, React.ComponentType>> = {
   'transport': TransportPage,
   'add-transport-route': AddTransportRoutePage,
   'edit-transport-route': EditTransportRoutePage,
+  'transport-annual-setup': AnnualTransportSetupPage,
   'drivers': DriverDirectoryPage,
   'add-driver': AddDriverPage,
   'library': LibraryPage,
@@ -263,9 +292,8 @@ const SEARCH_ITEMS: { label: string; page: PageName; keywords: string[] }[] = [
   { label: 'Fee Heads', page: 'fees-heads', keywords: ['fee type', 'tuition', 'charge'] },
   { label: 'Fee Groups', page: 'fees-groups', keywords: ['fee category', 'group fees'] },
   { label: 'Fee Structures', page: 'fees-structures', keywords: ['fee plan', 'class fees', 'amount'] },
-  { label: 'Fee Assignments', page: 'fee-assignments', keywords: ['student fee', 'fee snapshot', 'assign fees'] },
-  { label: 'Fee Invoices', page: 'fee-invoices', keywords: ['invoice', 'demand', 'bill'] },
   { label: 'Fee Collections', page: 'fee-collections', keywords: ['payment', 'collect', 'receipt', 'pay'] },
+  { label: 'Change Fee Group', page: 'fee-change-group', keywords: ['switch fee group', 'reassign fees', 'wrong fee group'] },
   { label: 'Salary Structure', page: 'salary-structure', keywords: ['pay scale', 'ctc', 'compensation'] },
   { label: 'Salary Payments', page: 'salary-payments', keywords: ['payroll', 'salary slip', 'month pay'] },
   { label: 'Advance Requests', page: 'salary-advance', keywords: ['loan', 'advance salary', 'prepayment'] },
@@ -274,6 +302,7 @@ const SEARCH_ITEMS: { label: string; page: PageName; keywords: string[] }[] = [
   { label: 'Exam Results', page: 'exam-results', keywords: ['marks', 'grades', 'score', 'report'] },
   { label: 'Transport', page: 'transport', keywords: ['bus', 'route', 'vehicle', 'pickup'] },
   { label: 'Create Transport Route', page: 'add-transport-route', keywords: ['add route', 'new route', 'create route', 'bus route'] },
+  { label: 'Annual Transport Setup', page: 'transport-annual-setup', keywords: ['annual transport', 'session transport', 'stop fares', 'next session routes', 'year transport'] },
   { label: 'Drivers', page: 'drivers', keywords: ['driver', 'cab', 'vehicle operator', 'chauffeur'] },
   { label: 'Add Driver', page: 'add-driver', keywords: ['new driver', 'create driver', 'add driver', 'register driver'] },
   { label: 'Library', page: 'library', keywords: ['book', 'issue', 'return', 'read'] },
@@ -325,7 +354,7 @@ function getAllowedPagesForRole(role: string): Set<PageName> {
 
 // Universal Search Component
 function UniversalSearch() {
-  const { setCurrentPage, user, permissions } = useAppStore()
+  const { setCurrentPage, user, permissions, permissionsLoaded } = useAppStore()
   const role = user?.role || 'SCHOOL_ADMIN'
   const [query, setQuery] = useState('')
   const [isOpen, setIsOpen] = useState(false)
@@ -353,7 +382,7 @@ function UniversalSearch() {
         // Must be in the role's allowed pages (from sidebar MENUS config)
         if (!allowedPages.has(item.page)) return false
         // Must pass permission visibility check
-        if (!isPageVisible(item.page, permissions, role)) return false
+        if (!isPageVisible(item.page, permissions, role, permissionsLoaded)) return false
         // Text match
         const q = query.toLowerCase()
         return (
@@ -598,7 +627,14 @@ export function AppLayout() {
       const updatedUser = user ? { ...user, mustChangePassword: false } : user
       useAppStore.setState({ user: updatedUser })
       if (typeof window !== 'undefined' && updatedUser) {
-        localStorage.setItem('erp_user', JSON.stringify(updatedUser))
+        // Strip avatar to stay under the localStorage quota — same approach as login().
+        const { avatar: _avatar, ...slim } = updatedUser
+        void _avatar
+        try {
+          localStorage.setItem('erp_user', JSON.stringify(slim))
+        } catch {
+          // Non-fatal: the in-memory user is already updated.
+        }
       }
       setCurrentPassword('')
       setNewPassword('')
@@ -664,6 +700,9 @@ export function AppLayout() {
 
         {/* Right side actions */}
         <div className="flex items-center gap-1.5">
+          {/* Academic Year Switcher — global session context */}
+          <AcademicYearSwitcher />
+
           {/* Notifications */}
           <Button variant="ghost" size="icon" className="size-9 relative text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground dark:text-sidebar-foreground dark:hover:bg-sidebar-accent dark:hover:text-sidebar-foreground" onClick={() => { useAppStore.getState().setCurrentPage('notifications'); setUnreadCount(0) }}>
             <Bell className="size-[18px]" />
@@ -692,6 +731,7 @@ export function AppLayout() {
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="gap-2 pl-1.5 pr-2.5 h-9 text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground dark:text-sidebar-foreground dark:hover:bg-sidebar-accent dark:hover:text-sidebar-foreground">
                 <Avatar className="size-7">
+                  {user?.avatar && <AvatarImage src={user.avatar} alt={user?.name || 'User'} />}
                   <AvatarFallback className="bg-primary-foreground text-primary text-[10px] dark:bg-sidebar-primary dark:text-sidebar-primary-foreground">
                     {initials}
                   </AvatarFallback>
@@ -732,6 +772,7 @@ export function AppLayout() {
 
         {/* Main Content - scrollable */}
         <main className="flex-1 min-w-0 overflow-y-auto flex flex-col">
+          <PastYearGlobalBanner />
           <div className="flex-1 p-4 lg:p-6">
             <AnimatePresence mode="wait">
               <motion.div

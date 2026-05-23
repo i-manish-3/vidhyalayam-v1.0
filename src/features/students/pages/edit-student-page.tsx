@@ -13,6 +13,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
 import { Checkbox } from '@/components/ui/checkbox'
+import { DatePicker } from '@/components/date-picker'
 import {
   ArrowLeft, Save, User, Phone, MapPin, GraduationCap, Banknote,
   Home, Shield, FileText, Camera, Upload, X,
@@ -768,8 +769,17 @@ export function EditStudentPage() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label>Registration Number</Label>
-          <Input value={form.registrationNumber} onChange={e => updateForm('registrationNumber', e.target.value)} placeholder="e.g., ADM-2025-001" />
+          <Label className="flex items-center gap-1.5">
+            <IdCard className="size-3.5" /> Registration Number
+          </Label>
+          <div className="flex items-center gap-2">
+            <Input
+              value={form.registrationNumber || 'N/A'}
+              readOnly
+              className="bg-muted/50 font-mono text-base font-semibold tracking-wide cursor-not-allowed border-dashed"
+            />
+            <Badge variant="outline" className="shrink-0 text-xs">Read Only</Badge>
+          </div>
         </div>
       </div>
 
@@ -789,7 +799,16 @@ export function EditStudentPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Date of Birth</Label>
-          <Input type="date" value={form.dateOfBirth} onChange={e => updateForm('dateOfBirth', e.target.value)} />
+          <DatePicker
+            value={form.dateOfBirth}
+            onChange={(v) => updateForm('dateOfBirth', v)}
+            disableFuture
+            showQuickActions={false}
+            yearDropdown
+            yearsBack={30}
+            placeholder="Select date of birth"
+            triggerClassName="w-full"
+          />
           {age && <p className="text-xs text-muted-foreground">Age: {age}</p>}
         </div>
         <div className="space-y-2">
@@ -1187,7 +1206,13 @@ export function EditStudentPage() {
         </div>
         <div className="space-y-2">
           <Label>TC Date</Label>
-          <Input type="date" value={form.tcDate} onChange={e => updateForm('tcDate', e.target.value)} />
+          <DatePicker
+            value={form.tcDate}
+            onChange={(v) => updateForm('tcDate', v)}
+            disableFuture
+            placeholder="Select TC date"
+            triggerClassName="w-full"
+          />
         </div>
       </div>
 
@@ -1311,13 +1336,15 @@ export function EditStudentPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Fees Group</Label>
-          <Select value={form.feesGroupId} onValueChange={v => updateForm('feesGroupId', v === '_none' ? '' : v)}>
-            <SelectTrigger><SelectValue placeholder="Select fees group" /></SelectTrigger>
+          <Select value={form.feesGroupId} disabled>
+            <SelectTrigger className="bg-muted/40 cursor-not-allowed">
+              <SelectValue placeholder="No Fees Group" />
+            </SelectTrigger>
             <SelectContent>
-              <SelectItem value="_none">No Fees Group</SelectItem>
               {feesGroups.map(g => <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>)}
             </SelectContent>
           </Select>
+          <p className="text-xs text-muted-foreground">View only — use “Change Fee Group” to switch a student to a different group.</p>
         </div>
       </div>
 

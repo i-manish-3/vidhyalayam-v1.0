@@ -1,10 +1,11 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import { StatsCard, LoadingState, EmptyState } from '@/components/shared'
+import { LoadingState, EmptyState } from '@/components/shared'
 import { api } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
 import { useAppStore } from '@/lib/store'
+import { usePermissions, PERMISSIONS } from '@/hooks/use-permissions'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -54,6 +55,7 @@ import {
   Heart,
   Edit,
   User,
+  type LucideIcon,
 } from 'lucide-react'
 
 // ============================================
@@ -260,6 +262,10 @@ export function StudentsPage() {
   const navigateTo = useAppStore((s) => s.navigateTo)
   const goBack = useAppStore((s) => s.goBack)
   const setSelectedStudentId = useAppStore((s) => s.setSelectedStudentId)
+  const { hasPermission } = usePermissions()
+  const canAdmit = hasPermission(PERMISSIONS.ADMISSION_CREATE)
+  const canEdit = hasPermission(PERMISSIONS.STUDENT_UPDATE)
+  const canEnableDisable = hasPermission(PERMISSIONS.STUDENT_ENABLE_DISABLE)
 
   // Data states
   const [students, setStudents] = useState<Student[]>([])
@@ -502,44 +508,46 @@ export function StudentsPage() {
   if (loading && students.length === 0) return <LoadingState />
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-start gap-3">
           <Button variant="outline" size="icon" onClick={() => goBack('dashboard')} className="mt-0.5 size-9 shrink-0">
             <ArrowLeft className="size-4" />
           </Button>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">Students</h1>
-            <p className="text-sm text-muted-foreground mt-1">Manage all students</p>
+            <h1 className="text-xl font-bold tracking-tight">Students</h1>
+            <p className="mt-0.5 text-sm text-muted-foreground">Manage all students</p>
           </div>
         </div>
-        <Button onClick={() => navigateTo('admission-form')} className="gap-2 shrink-0">
-          <GraduationCap className="size-4" /> Admit Student
-        </Button>
+        {canAdmit && (
+          <Button onClick={() => navigateTo('admission-form')} className="gap-2 shrink-0">
+            <GraduationCap className="size-4" /> Admit Student
+          </Button>
+        )}
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatsCard
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        <StudentStatCard
           title="Total Students"
           value={stats.total}
           description="All students"
           icon={Users}
         />
-        <StatsCard
+        <StudentStatCard
           title="Active"
           value={stats.active}
           description="Currently active"
           icon={UserCheck}
         />
-        <StatsCard
+        <StudentStatCard
           title="Disabled"
           value={stats.disabled}
           description="Currently disabled"
           icon={UserX}
         />
-        <StatsCard
+        <StudentStatCard
           title="This Month"
           value={stats.thisMonth}
           description="New admissions"
@@ -548,8 +556,8 @@ export function StudentsPage() {
       </div>
 
       {/* Students Table */}
-      <Card>
-        <CardHeader className="pb-3">
+      <Card className="gap-0 py-0">
+        <CardHeader className="px-4 py-3">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <CardTitle className="text-base">All Students</CardTitle>
             <div className="flex items-center gap-2">
@@ -625,8 +633,12 @@ export function StudentsPage() {
               <EmptyState
                 icon={Users}
                 title="No Students Found"
-                description="No students match your current filters. Click 'Admit Student' to register a new student."
-                action={{ label: 'Admit Student', onClick: () => navigateTo('admission-form') }}
+                description={
+                  canAdmit
+                    ? "No students match your current filters. Click 'Admit Student' to register a new student."
+                    : 'No students match your current filters.'
+                }
+                action={canAdmit ? { label: 'Admit Student', onClick: () => navigateTo('admission-form') } : undefined}
               />
             </div>
           ) : (
@@ -744,31 +756,35 @@ export function StudentsPage() {
                               <DropdownMenuItem onClick={() => handleViewStudent(s)}>
                                 <Eye className="size-4 mr-2" /> View
                               </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => { setSelectedStudentId(s.id); navigateTo('edit-student') }}>
-                                <Edit className="size-4 mr-2" /> Edit
-                              </DropdownMenuItem>
+                              {canEdit && (
+                                <DropdownMenuItem onClick={() => { setSelectedStudentId(s.id); navigateTo('edit-student') }}>
+                                  <Edit className="size-4 mr-2" /> Edit
+                                </DropdownMenuItem>
+                              )}
                               <DropdownMenuItem onClick={() => toast({ title: 'Print', description: 'Print admission form feature coming soon' })}>
                                 <Printer className="size-4 mr-2" /> Print Admission Form
                               </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              {isToggling ? (
-                                <DropdownMenuItem disabled>
-                                  <Loader2 className="size-4 mr-2 animate-spin" /> Updating...
-                                </DropdownMenuItem>
-                              ) : s.isActive ? (
-                                <DropdownMenuItem
-                                  className="text-red-600 focus:text-red-600 focus:bg-red-50"
-                                  onClick={() => setToggleDialog({ open: true, student: s })}
-                                >
-                                  <ShieldOff className="size-4 mr-2" /> Disable
-                                </DropdownMenuItem>
-                              ) : (
-                                <DropdownMenuItem
-                                  className="text-emerald-600 focus:text-emerald-600 focus:bg-emerald-50"
-                                  onClick={() => setToggleDialog({ open: true, student: s })}
-                                >
-                                  <ShieldCheck className="size-4 mr-2" /> Enable
-                                </DropdownMenuItem>
+                              {canEnableDisable && <DropdownMenuSeparator />}
+                              {canEnableDisable && (
+                                isToggling ? (
+                                  <DropdownMenuItem disabled>
+                                    <Loader2 className="size-4 mr-2 animate-spin" /> Updating...
+                                  </DropdownMenuItem>
+                                ) : s.isActive ? (
+                                  <DropdownMenuItem
+                                    className="text-red-600 focus:text-red-600 focus:bg-red-50"
+                                    onClick={() => setToggleDialog({ open: true, student: s })}
+                                  >
+                                    <ShieldOff className="size-4 mr-2" /> Disable
+                                  </DropdownMenuItem>
+                                ) : (
+                                  <DropdownMenuItem
+                                    className="text-emerald-600 focus:text-emerald-600 focus:bg-emerald-50"
+                                    onClick={() => setToggleDialog({ open: true, student: s })}
+                                  >
+                                    <ShieldCheck className="size-4 mr-2" /> Enable
+                                  </DropdownMenuItem>
+                                )
                               )}
                             </DropdownMenuContent>
                           </DropdownMenu>
@@ -838,5 +854,34 @@ export function StudentsPage() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+  )
+}
+
+function StudentStatCard({
+  title,
+  value,
+  description,
+  icon: Icon,
+}: {
+  title: string
+  value: string | number
+  description: string
+  icon: LucideIcon
+}) {
+  return (
+    <Card className="w-full overflow-hidden rounded-md py-0 shadow-xs">
+      <CardContent className="p-2.5">
+        <div className="flex items-center justify-between gap-2">
+          <div className="min-w-0">
+            <p className="truncate text-[11px] font-medium leading-4 text-muted-foreground">{title}</p>
+            <p className="text-base font-semibold leading-5 tracking-tight">{value}</p>
+            <p className="truncate text-[10px] leading-3 text-muted-foreground">{description}</p>
+          </div>
+          <div className="flex size-6 shrink-0 items-center justify-center rounded bg-primary/10 text-primary">
+            <Icon className="size-3" />
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   )
 }

@@ -94,6 +94,18 @@ export async function GET(request: NextRequest) {
               sectionId: true,
               class: { select: { name: true } },
               section: { select: { name: true } },
+              ...(academicYear
+                ? {
+                    academicEnrollments: {
+                      where: { academicYear, deletedAt: null },
+                      include: {
+                        class: { select: { id: true, name: true } },
+                        section: { select: { id: true, name: true } },
+                      },
+                      take: 1,
+                    },
+                  }
+                : {}),
             },
           },
           markedByUser: {
@@ -109,6 +121,30 @@ export async function GET(request: NextRequest) {
       }),
       db.attendance.count({ where: attendanceWhere }),
     ])
+
+    const projectedRecords = academicYear
+      ? records.map((record) => {
+          const enrollment = (record.student as unknown as {
+            academicEnrollments?: Array<{
+              classId: string
+              sectionId: string | null
+              rollNumber: string | null
+              class: { id: string; name: string } | null
+              section: { id: string; name: string } | null
+            }>
+          }).academicEnrollments?.[0]
+          if (!enrollment) return record
+          return {
+            ...record,
+            student: {
+              ...record.student,
+              class: enrollment.class || record.student.class,
+              section: enrollment.section || record.student.section,
+              rollNumber: enrollment.rollNumber ?? record.student.rollNumber,
+            },
+          }
+        })
+      : records
 
     // Stats + finalized check
     const allAttendance = await db.attendance.findMany({
@@ -128,7 +164,7 @@ export async function GET(request: NextRequest) {
     const finalizedAt = isFinalized ? allAttendance.find((a) => a.finalizedAt)?.finalizedAt ?? null : null
 
     return NextResponse.json({
-      records,
+      records: projectedRecords,
       stats,
       finalized: isFinalized,
       finalizedAt,

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { requireRole } from '@/lib/api-auth'
-import { unauthorizedError, internalError, apiError } from '@/lib/api-errors'
+import { requireRole, requirePermission } from '@/lib/api-auth'
+import { unauthorizedError, internalError, apiError, forbiddenError } from '@/lib/api-errors'
 
 const ACADEMIC_YEAR_PATTERN = /^\d{4}-\d{4}$/
 
@@ -20,6 +20,11 @@ export async function GET(request: NextRequest) {
     const user = requireRole(request, ['SCHOOL_ADMIN', 'TEACHER', 'STAFF'])
     if (!user || !user.schoolId) {
       return unauthorizedError()
+    }
+
+    if (user.role !== 'SUPER_ADMIN' && user.role !== 'TEACHER') {
+      const authorized = await requirePermission(request, 'student:read')
+      if (!authorized) return forbiddenError("You don't have permission to view students.")
     }
 
     const { searchParams } = new URL(request.url)
@@ -113,6 +118,18 @@ export async function GET(request: NextRequest) {
               },
             },
           },
+          ...(academicYear
+            ? {
+                academicEnrollments: {
+                  where: { academicYear, deletedAt: null },
+                  include: {
+                    class: { select: { id: true, name: true } },
+                    section: { select: { id: true, name: true } },
+                  },
+                  take: 1,
+                },
+              }
+            : {}),
         },
         orderBy: [{ createdAt: 'desc' }],
         skip,
@@ -140,13 +157,24 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.json({
-      students: students.map((s) => ({
-        ...s,
-        fullName: `${s.firstName} ${s.lastName}`,
-        transportRouteName: s.admission?.transportRouteId
-          ? routeMap[s.admission.transportRouteId] || null
-          : null,
-      })),
+      students: students.map((s) => {
+        const enrollment = academicYear
+          ? (s as unknown as { academicEnrollments?: Array<{ classId: string; sectionId: string | null; rollNumber: string | null; class: { id: string; name: string } | null; section: { id: string; name: string } | null }> }).academicEnrollments?.[0]
+          : undefined
+        const sessionClass = enrollment?.class || s.class
+        const sessionSection = enrollment?.section || s.section
+        const sessionRollNumber = enrollment?.rollNumber ?? s.rollNumber
+        return {
+          ...s,
+          class: sessionClass,
+          section: sessionSection,
+          rollNumber: sessionRollNumber,
+          fullName: `${s.firstName} ${s.lastName}`,
+          transportRouteName: s.admission?.transportRouteId
+            ? routeMap[s.admission.transportRouteId] || null
+            : null,
+        }
+      }),
       pagination: {
         page,
         limit,
@@ -163,9 +191,14 @@ export async function GET(request: NextRequest) {
 // POST /api/school/students - Create student
 export async function POST(request: NextRequest) {
   try {
-    const user = requireRole(request, ['SCHOOL_ADMIN'])
+    const user = requireRole(request, ['SCHOOL_ADMIN', 'STAFF'])
     if (!user || !user.schoolId) {
       return unauthorizedError()
+    }
+
+    if (user.role !== 'SUPER_ADMIN') {
+      const authorized = await requirePermission(request, 'student:create')
+      if (!authorized) return forbiddenError("You don't have permission to create students.")
     }
 
     const body = await request.json()
@@ -209,53 +242,81 @@ export async function POST(request: NextRequest) {
       return apiError(400, 'The section you selected doesn\'t exist anymore. It may have been removed. Please refresh the page and try again.')
     }
 
-    const student = await db.student.create({
-      data: {
-        schoolId: user.schoolId,
-        firstName,
-        lastName,
-        classId,
-        sectionId,
-        rollNumber,
-        dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null,
-        gender,
-        address,
-        city,
-        state,
-        pincode,
-        aadhaarNumber,
-        bloodGroup,
-        admissionDate: admissionDate ? new Date(admissionDate) : new Date(),
-        previousSchool,
-        profileImage,
-      },
-    })
-
-    // Create parent if parent info is provided
-    if (parentInfo) {
-      const parent = await db.parent.create({
-        data: {
-          schoolId: user.schoolId,
-          fatherName: parentInfo.fatherName,
-          motherName: parentInfo.motherName,
-          phone: parentInfo.phone,
-          alternatePhone: parentInfo.alternatePhone,
-          email: parentInfo.email,
-          occupation: parentInfo.occupation,
-          address: parentInfo.address,
-          annualIncome: parentInfo.annualIncome,
-        },
-      })
-
-      await db.studentParent.create({
-        data: {
-          studentId: student.id,
-          parentId: parent.id,
-          relation: parentInfo.relation || 'Father',
-          isPrimary: true,
-        },
-      })
+    const academicYear = await resolveAcademicYear(user.schoolId, null)
+    if (!academicYear) {
+      return apiError(400, 'No active academic year configured for this school. Please set one before adding students.')
     }
+
+    const admissionDateValue = admissionDate ? new Date(admissionDate) : new Date()
+
+    const student = await db.$transaction(async (tx) => {
+      const created = await tx.student.create({
+        data: {
+          schoolId: user.schoolId!,
+          firstName,
+          lastName,
+          classId,
+          sectionId,
+          rollNumber,
+          dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null,
+          gender,
+          address,
+          city,
+          state,
+          pincode,
+          aadhaarNumber,
+          bloodGroup,
+          admissionDate: admissionDateValue,
+          previousSchool,
+          profileImage,
+        },
+      })
+
+      // Enrollment row for the school's active session — mirrors the admissions flow
+      // so the student-detail / view-attendance / fees pages can find this student
+      // by academic year.
+      await tx.studentAcademicEnrollment.create({
+        data: {
+          schoolId: user.schoolId!,
+          studentId: created.id,
+          academicYear,
+          classId,
+          sectionId,
+          rollNumber: rollNumber || null,
+          status: 'active',
+          source: 'direct',
+          effectiveFrom: admissionDateValue,
+          createdBy: user.userId,
+        },
+      })
+
+      if (parentInfo) {
+        const parent = await tx.parent.create({
+          data: {
+            schoolId: user.schoolId!,
+            fatherName: parentInfo.fatherName,
+            motherName: parentInfo.motherName,
+            phone: parentInfo.phone,
+            alternatePhone: parentInfo.alternatePhone,
+            email: parentInfo.email,
+            occupation: parentInfo.occupation,
+            address: parentInfo.address,
+            annualIncome: parentInfo.annualIncome,
+          },
+        })
+
+        await tx.studentParent.create({
+          data: {
+            studentId: created.id,
+            parentId: parent.id,
+            relation: parentInfo.relation || 'Father',
+            isPrimary: true,
+          },
+        })
+      }
+
+      return created
+    })
 
     return NextResponse.json(student, { status: 201 })
   } catch (error) {

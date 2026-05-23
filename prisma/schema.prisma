@@ -67,6 +67,7 @@ model School {
   trialEndsAt    DateTime?
   onboardingDate DateTime?
   favicon        String?
+  printHeader    String? // Base64 banner image used as header on all printables (admission form, fee receipt, etc.)
   primaryColor   String?
   dashboardFont  String?   @default("system")
   features       String? // JSON string of enabled features

@@ -15,6 +15,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/components/ui/separator'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog'
+import { DatePicker } from '@/components/date-picker'
+import { cn } from '@/lib/utils'
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden'
 import {
   UserPlus, ChevronLeft, ChevronRight, Check, Upload, X, ArrowLeft, Plus,
@@ -926,6 +928,9 @@ export function AdmissionFormPage() {
         if (!v) return 'Please select a class'
         return null
       // Step 4
+      case 'feesGroupId':
+        if (!v) return 'Please select a fee group'
+        return null
       case 'bankAccountNumber':
         if (!v) return null
         if (!/^\d{8,18}$/.test(v as string)) return 'Must be 8-18 digits'
@@ -950,7 +955,7 @@ export function AdmissionFormPage() {
       1: ['academicYear', 'firstName', 'lastName', 'dateOfBirth', 'gender', 'aadhaarNumber', 'penNumber', 'samagraId', 'apaarId', 'udiseId', 'heightCm', 'weightKg'],
       2: ['motherName', 'motherPhone', 'motherEmail', 'motherAadhaar', 'motherIncome', 'fatherName', 'fatherPhone', 'fatherEmail', 'fatherAadhaar', 'fatherIncome', 'address', 'pincode', 'localPincode'],
       3: ['classId'],
-      4: ['bankAccountNumber', 'ifscCode'],
+      4: ['bankAccountNumber', 'ifscCode', 'feesGroupId'],
       5: [],
       6: ['termsAccepted'],
     }
@@ -968,7 +973,7 @@ export function AdmissionFormPage() {
       1: ['academicYear', 'firstName', 'lastName', 'dateOfBirth', 'gender', 'aadhaarNumber', 'penNumber', 'samagraId', 'apaarId', 'udiseId', 'heightCm', 'weightKg'],
       2: ['motherName', 'motherPhone', 'motherEmail', 'motherAadhaar', 'motherIncome', 'fatherName', 'fatherPhone', 'fatherEmail', 'fatherAadhaar', 'fatherIncome', 'address', 'pincode', 'localPincode'],
       3: ['classId'],
-      4: ['bankAccountNumber', 'ifscCode'],
+      4: ['bankAccountNumber', 'ifscCode', 'feesGroupId'],
       5: [],
       6: ['termsAccepted'],
     }
@@ -1202,7 +1207,26 @@ export function AdmissionFormPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label>Date of Birth <span className="text-destructive">*</span></Label>
-            <Input type="date" value={form.dateOfBirth} onChange={e => updateForm('dateOfBirth', e.target.value)} onBlur={() => handleBlur('dateOfBirth')} className={ec('dateOfBirth')} />
+            <DatePicker
+              value={form.dateOfBirth}
+              onChange={(v) => {
+                updateForm('dateOfBirth', v)
+                setTouched(prev => ({ ...prev, dateOfBirth: true }))
+                const error = validateField('dateOfBirth', v)
+                setFieldErrors(prev => {
+                  const next = { ...prev }
+                  if (error) next.dateOfBirth = error
+                  else delete next.dateOfBirth
+                  return next
+                })
+              }}
+              disableFuture
+              showQuickActions={false}
+              yearDropdown
+              yearsBack={30}
+              placeholder="Select date of birth"
+              triggerClassName={cn('w-full', ec('dateOfBirth'))}
+            />
             {age && <p className="text-xs text-muted-foreground">Age: {age}</p>}
             <FieldError message={touched.dateOfBirth ? fieldErrors.dateOfBirth : null} />
           </div>
@@ -1738,7 +1762,13 @@ export function AdmissionFormPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>TC Date</Label>
-          <Input type="date" value={form.tcDate} onChange={e => updateForm('tcDate', e.target.value)} />
+          <DatePicker
+            value={form.tcDate}
+            onChange={(v) => updateForm('tcDate', v)}
+            disableFuture
+            placeholder="Select TC date"
+            triggerClassName="w-full"
+          />
         </div>
       </div>
 
@@ -1829,13 +1859,13 @@ export function AdmissionFormPage() {
       </p>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label>Fee Group</Label>
+          <Label>Fee Group <span className="text-destructive">*</span></Label>
           <Select
             value={form.feesGroupId}
-            onValueChange={v => updateForm('feesGroupId', v)}
+            onValueChange={v => { updateForm('feesGroupId', v); handleBlur('feesGroupId') }}
             disabled={!form.classId || feesGroups.length === 0}
           >
-            <SelectTrigger>
+            <SelectTrigger className={ec('feesGroupId')}>
               <SelectValue placeholder={
                 !form.classId
                   ? 'Select class first'
@@ -1848,6 +1878,7 @@ export function AdmissionFormPage() {
               {feesGroups.map(g => <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>)}
             </SelectContent>
           </Select>
+          <FieldError message={touched.feesGroupId ? fieldErrors.feesGroupId : null} />
           {form.classId && feesGroups.length === 0 && (
             <p className="text-xs text-amber-600">
               No fee structures defined for this class in {form.academicYear}. Configure one in Fees &gt; Structures.

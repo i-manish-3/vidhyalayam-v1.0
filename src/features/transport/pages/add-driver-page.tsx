@@ -9,7 +9,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { ArrowLeft, Bus, Calendar, IdCard, Loader2, Phone, Upload, UserCheck, UserPlus } from 'lucide-react'
+import { DatePicker } from '@/components/date-picker'
+import { ArrowLeft, Bus, IdCard, Loader2, Phone, Upload, UserCheck, UserPlus } from 'lucide-react'
 
 interface CreatedDriver {
   name: string
@@ -189,16 +190,16 @@ export function AddDriverPage() {
                 <Label htmlFor="driver-dob" className="text-xs font-medium">
                   DOB <span className="text-destructive">*</span>
                 </Label>
-                <div className="relative">
-                  <Calendar className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    id="driver-dob"
-                    type="date"
-                    value={dob}
-                    onChange={(event) => setDob(event.target.value)}
-                    className="h-10 pl-9"
-                  />
-                </div>
+                <DatePicker
+                  value={dob}
+                  onChange={setDob}
+                  disableFuture
+                  showQuickActions={false}
+                  yearDropdown
+                  yearsBack={70}
+                  placeholder="Select date of birth"
+                  triggerClassName="w-full h-10"
+                />
               </div>
 
               <div className="space-y-2">
