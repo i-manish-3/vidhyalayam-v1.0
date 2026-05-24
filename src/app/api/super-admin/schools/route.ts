@@ -4,6 +4,7 @@ import { requireRole } from '@/lib/api-auth'
 import { hashPassword } from '@/lib/auth'
 import { unauthorizedError, internalError, apiError } from '@/lib/api-errors'
 import { assignUserToRoleByName, provisionDefaultRolesForSchool } from '@/lib/rbac'
+import { validatePasswordStrength } from '@/lib/auth-security'
 
 // GET /api/super-admin/schools - List all schools with stats
 export async function GET(request: NextRequest) {
@@ -127,6 +128,11 @@ export async function POST(request: NextRequest) {
 
     if (!name || !subdomain || !adminName || !adminEmail || !adminPassword) {
       return apiError(400, 'Please fill in the school name, subdomain, admin name, admin email, and password.')
+    }
+
+    const strength = validatePasswordStrength(adminPassword)
+    if (!strength.valid) {
+      return apiError(400, strength.reason || 'Please choose a stronger admin password.')
     }
 
     // Check if subdomain is taken

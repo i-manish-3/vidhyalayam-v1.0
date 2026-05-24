@@ -25,6 +25,7 @@ import {
   Headphones,
   Bus,
   Lock,
+  LockOpen,
   CheckCircle2,
   type LucideIcon,
 } from 'lucide-react'
@@ -38,6 +39,9 @@ interface StaffInfo {
   role: string
   phone?: string | null
   isActive: boolean
+  isLocked?: boolean
+  lockedUntil?: string | null
+  failedAttempts?: number
 }
 
 interface RolePermission {
@@ -176,6 +180,7 @@ export function StaffDetailPage() {
   const [permissionsData, setPermissionsData] = useState<UserPermissionsResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('permissions')
+  const [unlocking, setUnlocking] = useState(false)
 
   // ── Fetch staff details ──
   const fetchStaffDetail = useCallback(async () => {
@@ -187,8 +192,11 @@ export function StaffDetailPage() {
     try {
       setLoading(true)
 
-      // Fetch user info
-      const usersRes = await api.get<{ users: StaffInfo[] }>('/api/school/users?limit=100')
+      // Fetch user info — same roles filter as the staff list so drivers and
+      // other STAFF users aren't dropped behind students/parents past the limit.
+      const usersRes = await api.get<{ users: StaffInfo[] }>(
+        '/api/school/users?roles=TEACHER,STAFF,SCHOOL_ADMIN&limit=500',
+      )
       const user = (usersRes.users || []).find((u) => u.id === staffDetailId)
       if (!user) {
         toast({ title: 'Staff Not Found', description: "We couldn't find this staff member. They may have been removed.", variant: 'destructive' })
@@ -250,6 +258,28 @@ export function StaffDetailPage() {
     setStaffDetailId(null)
     goBack('staff')
   }, [setStaffDetailId, goBack])
+
+  // ── Unlock staff account ──
+  const handleUnlock = useCallback(async () => {
+    if (!staffInfo?.id) return
+    try {
+      setUnlocking(true)
+      await api.post(`/api/school/users/${staffInfo.id}/unlock`, {})
+      await fetchStaffDetail()
+      toast({
+        title: 'Account Unlocked',
+        description: `${staffInfo.name} can now log in immediately.`,
+      })
+    } catch (err) {
+      toast({
+        title: "Couldn't Unlock Account",
+        description: err instanceof Error ? err.message : "We couldn't unlock this account. Please try again.",
+        variant: 'destructive',
+      })
+    } finally {
+      setUnlocking(false)
+    }
+  }, [staffInfo?.id, staffInfo?.name, fetchStaffDetail, toast])
 
   // ── Render ──
   if (loading) {
@@ -318,7 +348,15 @@ export function StaffDetailPage() {
                 </AvatarFallback>
               </Avatar>
               <div>
-                <h2 className="text-lg font-semibold">{staffInfo.name}</h2>
+                <h2 className="text-lg font-semibold flex items-center gap-2">
+                  {staffInfo.name}
+                  {staffInfo.isLocked && (
+                    <Badge variant="outline" className="text-[10px] border-red-300 text-red-700 dark:border-red-700 dark:text-red-400 gap-1">
+                      <Lock className="size-3" />
+                      Locked
+                    </Badge>
+                  )}
+                </h2>
                 <div className="flex flex-wrap items-center gap-2 mt-1">
                   <Badge
                     variant="secondary"
@@ -355,6 +393,34 @@ export function StaffDetailPage() {
               )}
             </div>
           </div>
+
+          {staffInfo.isLocked && (
+            <div className="flex items-center justify-between gap-3 mt-4 px-3 py-2 rounded-md bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800">
+              <div className="flex items-center gap-2 min-w-0">
+                <Lock className="size-4 text-red-600 dark:text-red-400 shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-xs font-medium text-red-700 dark:text-red-400">
+                    Account temporarily locked after {staffInfo.failedAttempts ?? 5}+ failed login attempts
+                  </p>
+                  {staffInfo.lockedUntil && (
+                    <p className="text-[11px] text-red-600/80 dark:text-red-400/80 mt-0.5">
+                      Auto-unlocks at {new Date(staffInfo.lockedUntil).toLocaleString()}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleUnlock}
+                disabled={unlocking}
+                className="gap-1.5 shrink-0 border-red-300 text-red-700 hover:bg-red-100 dark:border-red-700 dark:text-red-400 dark:hover:bg-red-950/50"
+              >
+                <LockOpen className="size-3.5" />
+                {unlocking ? 'Unlocking...' : 'Unlock Now'}
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -407,14 +473,20 @@ export function StaffDetailPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Status</p>
-                <p className="text-2xl font-bold tracking-tight text-emerald-600">Active</p>
+                <p className={`text-2xl font-bold tracking-tight ${staffInfo.isLocked ? 'text-red-600' : 'text-emerald-600'}`}>
+                  {staffInfo.isLocked ? 'Locked' : 'Active'}
+                </p>
               </div>
-              <div className="flex size-10 items-center justify-center rounded-xl bg-emerald-50 dark:bg-emerald-950/30">
-                <CheckCircle2 className="size-5 text-emerald-600" />
+              <div className={`flex size-10 items-center justify-center rounded-xl ${staffInfo.isLocked ? 'bg-red-50 dark:bg-red-950/30' : 'bg-emerald-50 dark:bg-emerald-950/30'}`}>
+                {staffInfo.isLocked ? (
+                  <Lock className="size-5 text-red-600" />
+                ) : (
+                  <CheckCircle2 className="size-5 text-emerald-600" />
+                )}
               </div>
             </div>
           </CardContent>
-          <div className="absolute bottom-0 left-0 h-1 w-full bg-gradient-to-r from-emerald-400 via-emerald-500 to-emerald-400" />
+          <div className={`absolute bottom-0 left-0 h-1 w-full bg-gradient-to-r ${staffInfo.isLocked ? 'from-red-400 via-red-500 to-red-400' : 'from-emerald-400 via-emerald-500 to-emerald-400'}`} />
         </Card>
       </div>
 

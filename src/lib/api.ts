@@ -258,7 +258,7 @@ class ApiClient {
     let response: Response
 
     try {
-      response = await fetch(url, init)
+      response = await fetch(url, { ...init, credentials: 'include' })
     } catch (networkError) {
       // Network error — server might be restarting
       if (attempt < MAX_RETRIES) {
@@ -272,7 +272,9 @@ class ApiClient {
       )
     }
 
-    // Handle 401 — read the server's message first (e.g., wrong credentials on login)
+    // Handle 401 — read the server's message first (e.g., wrong credentials on login).
+    // No refresh chain: a 401 on any authenticated route means the JWT is invalid
+    // or expired (7-day TTL), and the user must log in again.
     if (response.status === 401) {
       let serverMessage: string | undefined
       try {
@@ -284,6 +286,7 @@ class ApiClient {
       // If the server gave a specific message (like "wrong credentials"), use it.
       // Otherwise, fall back to "session expired" for authenticated routes.
       const isSessionExpired = !serverMessage || serverMessage === STATUS_MESSAGES[401]
+
       if (isSessionExpired) {
         if (!skipLogoutOn401) {
           useAppStore.getState().logout()

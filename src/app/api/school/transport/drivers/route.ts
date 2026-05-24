@@ -4,23 +4,13 @@ import { requirePermission, requireRole } from '@/lib/api-auth'
 import { hashPassword } from '@/lib/auth'
 import { apiError, forbiddenError, internalError, unauthorizedError } from '@/lib/api-errors'
 import { assignUserToRoleByName } from '@/lib/rbac'
+import { uploadIfDataUrl, IMAGE_MIME_TYPES } from '@/lib/storage'
 
 const DEFAULT_DRIVER_PASSWORD = 'driver123'
 
 function localDriverEmail(phone: string, schoolId: string): string {
   const digits = phone.replace(/\D/g, '').slice(-10)
   return `driver.${schoolId.slice(0, 8)}.${digits || Date.now()}@driver.local`
-}
-
-function isValidPhoto(value: unknown): value is string {
-  return typeof value === 'string' && /^data:image\/(png|jpeg|jpg|webp);base64,[A-Za-z0-9+/=]+$/.test(value)
-}
-
-function isUnderOneMbBase64Image(value: string): boolean {
-  const base64 = value.split(',')[1] || ''
-  const padding = base64.endsWith('==') ? 2 : base64.endsWith('=') ? 1 : 0
-  const bytes = Math.floor((base64.length * 3) / 4) - padding
-  return bytes < 1024 * 1024
 }
 
 // GET /api/school/transport/drivers - List users assigned to the Transport role.
@@ -97,11 +87,17 @@ export async function POST(request: NextRequest) {
       return apiError(400, 'Please enter a valid date of birth.')
     }
 
-    if (photo !== undefined && photo !== null && photo !== '' && !isValidPhoto(photo)) {
-      return apiError(400, 'Please upload a valid JPG, PNG, or WebP driver photo.')
+    if (photo !== undefined && photo !== null && photo !== '') {
+      // Upload happens before the transaction so a failed upload doesn't leave
+      // a half-created driver record. Driver photos cap at 1 MB.
     }
-    if (isValidPhoto(photo) && !isUnderOneMbBase64Image(photo)) {
-      return apiError(400, 'Please upload a driver photo smaller than 1MB.')
+    const photoUpload = await uploadIfDataUrl(photo, {
+      folder: `schools/${user.schoolId}/drivers`,
+      maxBytes: 1024 * 1024,
+      allowedMimeTypes: IMAGE_MIME_TYPES,
+    })
+    if (photoUpload.error) {
+      return apiError(400, `Driver photo: ${photoUpload.error}`)
     }
 
     const existingPhone = await db.user.findFirst({
@@ -142,7 +138,7 @@ export async function POST(request: NextRequest) {
           email,
           password: hashedPassword,
           phone,
-          avatar: isValidPhoto(photo) ? photo : null,
+          avatar: photoUpload.url ?? null,
           dob: parsedDob,
           drivingLicenseNumber,
           mustChangePassword: true,

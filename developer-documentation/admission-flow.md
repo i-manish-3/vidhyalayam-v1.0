@@ -330,8 +330,6 @@ db.student.findMany({
 
 The legacy `Student.siblingId` / `Admission.siblingId` fields are kept as a breadcrumb (they record which sibling the admin picked at admission time) but no longer drive the read path. The "Siblings" tab on the student detail page renders every family member, regardless of which admission was created first.
 
-A one-time backfill (`scripts/backfill-family-id.ts`) walks every existing `Student.siblingId` chain via union-find and assigns each connected component a shared `familyId`. The script is idempotent.
-
 ## 12. Parent Login User
 
 The system creates or reuses a parent login account.

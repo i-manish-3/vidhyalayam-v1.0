@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { requireRole, requirePermission } from '@/lib/api-auth'
 import { unauthorizedError, internalError, apiError, forbiddenError } from '@/lib/api-errors'
+import { uploadIfDataUrl, IMAGE_MIME_TYPES } from '@/lib/storage'
 
 // GET /api/school/students/[id] - Get full student details
 export async function GET(
@@ -400,7 +401,31 @@ export async function PATCH(
     if (bloodGroup !== undefined) studentFields.bloodGroup = bloodGroup || null
     if (admissionDate !== undefined) studentFields.admissionDate = admissionDate ? new Date(admissionDate) : null
     if (previousSchool !== undefined) studentFields.previousSchool = previousSchool || null
-    if (profileImage !== undefined) studentFields.profileImage = profileImage || null
+    if (profileImage !== undefined) {
+      // The student photo is independent from the admission's frozen photo.
+      // If the student is still pointing at the admission's URL (initial state
+      // right after admission creation), do NOT pass it as previousUrl — that
+      // file backs the printable admission form and must never be deleted.
+      const linkedAdmission = await db.admission.findFirst({
+        where: { studentId: id, schoolId: user.schoolId, deletedAt: null },
+        select: { profileImage: true },
+      })
+      const sharedWithAdmission =
+        !!student.profileImage &&
+        !!linkedAdmission?.profileImage &&
+        student.profileImage === linkedAdmission.profileImage
+
+      const upload = await uploadIfDataUrl(profileImage, {
+        folder: `schools/${user.schoolId}/students`,
+        maxBytes: 2 * 1024 * 1024,
+        allowedMimeTypes: IMAGE_MIME_TYPES,
+        previousUrl: sharedWithAdmission ? null : student.profileImage,
+      })
+      if (upload.error) {
+        return apiError(400, `Profile image: ${upload.error}`)
+      }
+      studentFields.profileImage = upload.url
+    }
     if (isActive !== undefined) studentFields.isActive = isActive
     if (siblingId !== undefined) studentFields.siblingId = siblingId || null
 
@@ -425,7 +450,6 @@ export async function PATCH(
       if (admissionData.aadhaarNumber !== undefined) adm.aadhaarNumber = admissionData.aadhaarNumber || null
       if (admissionData.bloodGroup !== undefined) adm.bloodGroup = admissionData.bloodGroup || null
       if (admissionData.medicalConditions !== undefined) adm.medicalConditions = admissionData.medicalConditions || null
-      if (admissionData.profileImage !== undefined) adm.profileImage = admissionData.profileImage || null
       if (admissionData.registrationNumber !== undefined) adm.registrationNumber = admissionData.registrationNumber || null
       if (admissionData.penNumber !== undefined) adm.penNumber = admissionData.penNumber || null
       if (admissionData.samagraId !== undefined) adm.samagraId = admissionData.samagraId || null

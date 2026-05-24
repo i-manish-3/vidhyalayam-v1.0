@@ -784,9 +784,13 @@ export function AdmissionFormPage() {
     }
   }
 
-  const handleBlur = (field: keyof WizardForm) => {
+  const handleBlur = (field: keyof WizardForm, overrideValue?: string | boolean) => {
     setTouched(prev => ({ ...prev, [field]: true }))
-    const error = validateField(field, form[field])
+    // Allow callers (e.g. Select.onValueChange) to pass the new value directly so
+    // we don't validate against stale React state — setForm hasn't flushed yet
+    // when this runs synchronously after updateForm.
+    const value = overrideValue !== undefined ? overrideValue : form[field]
+    const error = validateField(field, value)
     setFieldErrors(prev => {
       const next = { ...prev }
       if (error) next[field] = error
@@ -1862,7 +1866,7 @@ export function AdmissionFormPage() {
           <Label>Fee Group <span className="text-destructive">*</span></Label>
           <Select
             value={form.feesGroupId}
-            onValueChange={v => { updateForm('feesGroupId', v); handleBlur('feesGroupId') }}
+            onValueChange={v => { updateForm('feesGroupId', v); handleBlur('feesGroupId', v) }}
             disabled={!form.classId || feesGroups.length === 0}
           >
             <SelectTrigger className={ec('feesGroupId')}>

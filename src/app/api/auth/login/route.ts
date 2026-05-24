@@ -2,8 +2,19 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { verifyPassword, generateToken } from '@/lib/auth'
 import { internalError, apiError } from '@/lib/api-errors'
+import {
+  getClientIp,
+  getUserAgent,
+  isAccountLocked,
+  recordLoginFailure,
+  resetLoginFailures,
+  logLoginEvent,
+} from '@/lib/auth-security'
 
 export async function POST(request: NextRequest) {
+  const ipAddress = getClientIp(request)
+  const userAgent = getUserAgent(request)
+
   try {
     const body = await request.json()
     const { email, password } = body
@@ -40,26 +51,109 @@ export async function POST(request: NextRequest) {
     }
 
     if (!user) {
+      await logLoginEvent({
+        email: identifier,
+        ipAddress,
+        userAgent,
+        success: false,
+        failureReason: 'USER_NOT_FOUND',
+      })
       return apiError(401, 'No account found with this email or phone number. Please check and try again, or contact your school administrator.')
     }
 
     if (!user.isActive) {
+      await logLoginEvent({
+        userId: user.id,
+        email: user.email,
+        schoolId: user.schoolId,
+        ipAddress,
+        userAgent,
+        success: false,
+        failureReason: 'INACTIVE',
+      })
       return apiError(403, 'Your account has been deactivated by your school administrator. Please contact them to reactivate your account.')
     }
 
     if (user.deletedAt) {
+      await logLoginEvent({
+        userId: user.id,
+        email: user.email,
+        schoolId: user.schoolId,
+        ipAddress,
+        userAgent,
+        success: false,
+        failureReason: 'DELETED',
+      })
       return apiError(403, 'This account no longer exists. Please contact your school administrator for assistance.')
+    }
+
+    // Account lockout check — SUPER_ADMIN is the only role exempt from lockout
+    // (the platform owner can't be locked out of their own system). For every
+    // other role, an active DB lockout blocks login until it expires or an
+    // admin manually unlocks the account.
+    if (user.role !== 'SUPER_ADMIN') {
+      const lockStatus = await isAccountLocked(user.id)
+      if (lockStatus.locked) {
+        await logLoginEvent({
+          userId: user.id,
+          email: user.email,
+          schoolId: user.schoolId,
+          ipAddress,
+          userAgent,
+          success: false,
+          failureReason: 'LOCKED',
+        })
+        const retryAfterSec = lockStatus.lockedUntil
+          ? Math.max(0, Math.ceil((lockStatus.lockedUntil.getTime() - Date.now()) / 1000))
+          : 600
+        return NextResponse.json(
+          { error: 'Your account is temporarily locked due to too many failed login attempts. Please try again later or contact your school administrator.' },
+          { status: 423, headers: { 'Retry-After': String(retryAfterSec) } },
+        )
+      }
     }
 
     const isValid = await verifyPassword(password, user.password)
     if (!isValid) {
+      // Don't track failures for SUPER_ADMIN — they're exempt from lockout, so
+      // recording attempts would just bloat the AccountLockout row pointlessly.
+      const failure = user.role !== 'SUPER_ADMIN'
+        ? await recordLoginFailure(user.id)
+        : { lockedUntil: undefined }
+      await logLoginEvent({
+        userId: user.id,
+        email: user.email,
+        schoolId: user.schoolId,
+        ipAddress,
+        userAgent,
+        success: false,
+        failureReason: 'BAD_PASSWORD',
+      })
+      if (failure.lockedUntil) {
+        const retryAfterSec = Math.max(0, Math.ceil((failure.lockedUntil.getTime() - Date.now()) / 1000))
+        return NextResponse.json(
+          { error: 'Your account has been locked due to too many failed login attempts. Please try again later or contact your school administrator.' },
+          { status: 423, headers: { 'Retry-After': String(retryAfterSec) } },
+        )
+      }
       return apiError(401, 'The password you entered is incorrect. Please try again.')
     }
 
-    // Update lastLoginAt
+    // Success — reset failure counter, update lastLoginAt, audit log, issue token.
+    if (user.role !== 'SUPER_ADMIN') {
+      await resetLoginFailures(user.id)
+    }
     await db.user.update({
       where: { id: user.id },
       data: { lastLoginAt: new Date() },
+    })
+    await logLoginEvent({
+      userId: user.id,
+      email: user.email,
+      schoolId: user.schoolId,
+      ipAddress,
+      userAgent,
+      success: true,
     })
 
     const token = generateToken({

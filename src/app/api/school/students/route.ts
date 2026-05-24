@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { requireRole, requirePermission } from '@/lib/api-auth'
 import { unauthorizedError, internalError, apiError, forbiddenError } from '@/lib/api-errors'
+import { uploadIfDataUrl, IMAGE_MIME_TYPES } from '@/lib/storage'
 
 const ACADEMIC_YEAR_PATTERN = /^\d{4}-\d{4}$/
 
@@ -249,6 +250,15 @@ export async function POST(request: NextRequest) {
 
     const admissionDateValue = admissionDate ? new Date(admissionDate) : new Date()
 
+    const photoUpload = await uploadIfDataUrl(profileImage, {
+      folder: `schools/${user.schoolId}/students`,
+      maxBytes: 2 * 1024 * 1024,
+      allowedMimeTypes: IMAGE_MIME_TYPES,
+    })
+    if (photoUpload.error) {
+      return apiError(400, `Profile image: ${photoUpload.error}`)
+    }
+
     const student = await db.$transaction(async (tx) => {
       const created = await tx.student.create({
         data: {
@@ -268,7 +278,7 @@ export async function POST(request: NextRequest) {
           bloodGroup,
           admissionDate: admissionDateValue,
           previousSchool,
-          profileImage,
+          profileImage: photoUpload.url ?? null,
         },
       })
 

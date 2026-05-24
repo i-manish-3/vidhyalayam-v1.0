@@ -260,7 +260,17 @@ export async function PUT(
   }
 }
 
-// DELETE /api/school/transport/routes/[id] - Soft delete a transport route
+// DELETE /api/school/transport/routes/[id]?academicYear=YYYY-YYYY
+// Year-scoped soft delete (matches the schema's per-year design):
+//   - Deactivates TransportStopFare rows for this route × year.
+//   - Deactivates TransportAllocation rows for this route × year.
+//   - If the route's own academicYear tag matches the deleted year, re-tag it
+//     to another year that still has active data (so the route disappears
+//     from this year's list but stays visible in past/future years).
+//   - Only hard-soft-deletes the TransportRoute row when no other year has
+//     active fares or allocations.
+// Omitting academicYear is allowed only when the route has no active data
+// in any year — otherwise we'd silently nuke historic sessions.
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -276,26 +286,85 @@ export async function DELETE(
     }
 
     const { id } = await params
+    const schoolId = user.schoolId
+    const url = new URL(request.url)
+    const academicYear = optionalText(url.searchParams.get('academicYear'))
+    if (academicYear && !/^\d{4}-\d{4}$/.test(academicYear)) {
+      return apiError(400, 'Please provide a valid academic year (YYYY-YYYY).')
+    }
 
-    // Verify route exists and belongs to this school
     const existing = await db.transportRoute.findFirst({
-      where: { id, schoolId: user.schoolId, deletedAt: null },
+      where: { id, schoolId, deletedAt: null },
     })
     if (!existing) {
       return notFoundError('TransportRoute')
     }
 
-    // Soft delete — set deletedAt to now and isActive to false
-    await db.transportRoute.update({
-      where: { id },
-      data: {
-        deletedAt: new Date(),
-        isActive: false,
-      },
+    // No academicYear supplied — only safe to hard-soft-delete when the route
+    // has nothing active anywhere. Otherwise force the caller to scope.
+    if (!academicYear) {
+      const [activeFareCount, activeAllocCount] = await Promise.all([
+        db.transportStopFare.count({ where: { routeId: id, isActive: true } }),
+        db.transportAllocation.count({ where: { routeId: id, isActive: true } }),
+      ])
+      if (activeFareCount + activeAllocCount > 0) {
+        return apiError(
+          400,
+          'This route has data in one or more academic years. Switch to that academic year and delete from there to keep history intact.',
+        )
+      }
+      await db.transportRoute.update({
+        where: { id },
+        data: { deletedAt: new Date(), isActive: false },
+      })
+      return NextResponse.json({
+        message: `Route "${existing.routeName}" has been deleted successfully.`,
+      })
+    }
+
+    // Year-scoped delete.
+    await db.$transaction(async (tx) => {
+      await tx.transportStopFare.updateMany({
+        where: { routeId: id, schoolId, academicYear, isActive: true },
+        data: { isActive: false },
+      })
+      await tx.transportAllocation.updateMany({
+        where: { routeId: id, schoolId, academicYear, isActive: true },
+        data: { isActive: false },
+      })
+
+      // If this route's identity year is the one we're removing, re-anchor it
+      // to another year that still has active data; if none, soft-delete row.
+      if (existing.academicYear === academicYear) {
+        const remainingFare = await tx.transportStopFare.findFirst({
+          where: { routeId: id, isActive: true, academicYear: { not: academicYear } },
+          orderBy: { academicYear: 'desc' },
+          select: { academicYear: true },
+        })
+        const remainingAlloc = remainingFare
+          ? null
+          : await tx.transportAllocation.findFirst({
+              where: { routeId: id, isActive: true, academicYear: { not: academicYear } },
+              orderBy: { academicYear: 'desc' },
+              select: { academicYear: true },
+            })
+        const reanchorTo = remainingFare?.academicYear || remainingAlloc?.academicYear || null
+        if (reanchorTo) {
+          await tx.transportRoute.update({
+            where: { id },
+            data: { academicYear: reanchorTo },
+          })
+        } else {
+          await tx.transportRoute.update({
+            where: { id },
+            data: { deletedAt: new Date(), isActive: false },
+          })
+        }
+      }
     })
 
     return NextResponse.json({
-      message: `Route "${existing.routeName}" has been deleted successfully.`,
+      message: `Route "${existing.routeName}" removed from ${academicYear}. Past sessions are unaffected.`,
     })
   } catch (error) {
     console.error('Delete transport route error:', error)

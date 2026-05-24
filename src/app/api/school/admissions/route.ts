@@ -6,6 +6,7 @@ import { unauthorizedError, internalError, apiError, forbiddenError } from '@/li
 import { hashPassword } from '@/lib/auth'
 import { assignStudentFeesFromStructure, createFeeDebitLedgerEntry } from '@/lib/fees'
 import { generateSchoolNumber } from '@/lib/admission-numbering'
+import { uploadIfDataUrl, IMAGE_MIME_TYPES } from '@/lib/storage'
 
 const ACADEMIC_YEAR_PATTERN = /^\d{4}-\d{4}$/
 
@@ -584,6 +585,19 @@ export async function POST(request: NextRequest) {
         : generateSchoolNumber(user.schoolId, 'registration', body.classId),
     ])
 
+    // Upload profile photo before the transaction so a failed upload doesn't
+    // leave a half-created admission. Same URL is used on both Admission and
+    // Student records (single physical file, two DB references).
+    const photoUpload = await uploadIfDataUrl(body.profileImage, {
+      folder: `schools/${user.schoolId}/admissions`,
+      maxBytes: 2 * 1024 * 1024,
+      allowedMimeTypes: IMAGE_MIME_TYPES,
+    })
+    if (photoUpload.error) {
+      return apiError(400, `Profile image: ${photoUpload.error}`)
+    }
+    const profileImageUrl = photoUpload.url ?? null
+
     // Use transaction for atomicity — all records created or none
     const admission = await db.$transaction(async (tx) => {
       // 0. Resolve familyId. If a sibling was selected, adopt the sibling's
@@ -637,7 +651,7 @@ export async function POST(request: NextRequest) {
           aadhaarNumber: body.aadhaarNumber || null,
           bloodGroup: body.bloodGroup || null,
           medicalConditions: body.medicalConditions || null,
-          profileImage: body.profileImage || null,
+          profileImage: profileImageUrl,
           registrationNumber: registrationNumber || null,
           penNumber: body.penNumber || null,
           samagraId: body.samagraId || null,

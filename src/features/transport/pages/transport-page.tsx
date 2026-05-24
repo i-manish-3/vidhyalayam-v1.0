@@ -48,6 +48,8 @@ interface TransportDriver {
 export function TransportPage() {
   const { toast } = useToast()
   const { goBack, navigateTo, setSelectedTransportRouteId } = useAppStore()
+  const viewingAcademicYear = useAppStore((state) => state.viewingAcademicYear)
+  const currentSchool = useAppStore((state) => state.currentSchool)
   const [routes, setRoutes] = useState<TransportRoute[]>([])
   const [drivers, setDrivers] = useState<TransportDriver[]>([])
   const [loading, setLoading] = useState(true)
@@ -58,8 +60,16 @@ export function TransportPage() {
 
   const fetchData = useCallback(async () => {
     try {
+      // Honor the global viewing-academic-year switcher (top bar). Falls back
+      // to the school's active session if no override is set. Without this
+      // query param, the API returns the school's active year — which made
+      // toggling years from the top bar feel like fares had changed in
+      // historic sessions when in fact you were still looking at the active
+      // session's data.
+      const year = viewingAcademicYear || currentSchool?.academicYear || ''
+      const routeQuery = year ? `?academicYear=${encodeURIComponent(year)}` : ''
       const [routesRes, driversRes] = await Promise.all([
-        api.get<{ routes: TransportRoute[] }>('/api/school/transport/routes'),
+        api.get<{ routes: TransportRoute[] }>(`/api/school/transport/routes${routeQuery}`),
         api.get<{ drivers: TransportDriver[] }>('/api/school/transport/drivers').catch(() => ({ drivers: [] })),
       ])
       setRoutes(routesRes.routes || [])
@@ -69,7 +79,7 @@ export function TransportPage() {
     } finally {
       setLoading(false)
     }
-  }, [toast])
+  }, [toast, viewingAcademicYear, currentSchool?.academicYear])
 
   useEffect(() => { fetchData() }, [fetchData])
 
@@ -133,8 +143,18 @@ export function TransportPage() {
     if (!deleteRoute) return
     setDeleting(true)
     try {
-      await api.delete(`/api/school/transport/routes/${deleteRoute.id}`)
-      toast({ title: 'Route Deleted', description: `"${deleteRoute.routeName}" has been removed.` })
+      // Delete is year-scoped — passing the currently viewed academic year so
+      // the API only deactivates this year's fares/allocations. Historic
+      // sessions for the same route are preserved.
+      const year = viewingAcademicYear || currentSchool?.academicYear || ''
+      const qs = year ? `?academicYear=${encodeURIComponent(year)}` : ''
+      await api.delete(`/api/school/transport/routes/${deleteRoute.id}${qs}`)
+      toast({
+        title: 'Route Removed',
+        description: year
+          ? `"${deleteRoute.routeName}" removed from ${year}. Past sessions are intact.`
+          : `"${deleteRoute.routeName}" has been removed.`,
+      })
       setDeleteRoute(null)
       fetchData()
     } catch (err) {

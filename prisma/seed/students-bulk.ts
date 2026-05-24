@@ -1,8 +1,35 @@
 import { db } from '../../src/lib/db'
 import { hashPassword } from '../../src/lib/auth'
+import { createFeeDebitLedgerEntry } from '../../src/lib/fees'
 
 const ACADEMIC_YEAR = '2025-2026'
 const STUDENTS_PER_SECTION = 10
+
+// Transport: 35% of seeded students get an allocation. Route picked by area for
+// realism — Saket/Vasant Kunj/Dwarka → R2 (South), Rohini/Pitampura → R3 (North),
+// Karol Bagh/Janakpuri → R4 (West), default → R1 (Central).
+const TRANSPORT_ALLOCATION_PCT = 35
+const TRANSPORT_FEE_MONTHS = ['Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar']
+const AREA_TO_ROUTE: Record<string, string> = {
+  'Karol Bagh': 'R4',
+  'Saket': 'R2',
+  'Dwarka': 'R2',
+  'Vasant Kunj': 'R2',
+  'Rohini': 'R3',
+  'Janakpuri': 'R4',
+  'Mayur Vihar': 'R1',
+  'Pitampura': 'R3',
+}
+
+function monthDueDate(month: string): Date {
+  const map: Record<string, [number, number]> = {
+    Apr: [2025, 3], May: [2025, 4], Jun: [2025, 5], Jul: [2025, 6],
+    Aug: [2025, 7], Sep: [2025, 8], Oct: [2025, 9], Nov: [2025, 10],
+    Dec: [2025, 11], Jan: [2026, 0], Feb: [2026, 1], Mar: [2026, 2],
+  }
+  const [y, m] = map[month] ?? [2025, 3]
+  return new Date(y, m, 10)
+}
 
 // Realistic Indian name pools — deterministic so re-runs produce identical data.
 const FIRST_NAMES_MALE = ['Aarav', 'Vihaan', 'Aditya', 'Vivaan', 'Arjun', 'Reyansh', 'Sai', 'Krishna', 'Ishaan', 'Shaurya', 'Atharv', 'Aryan', 'Rohan', 'Aniket', 'Karan', 'Manav', 'Dev', 'Yash', 'Harsh', 'Rudra']
@@ -73,6 +100,31 @@ async function main() {
   const feeGroupByName = new Map(feeGroups.map(g => [g.name, g]))
   const parentRole = await db.role.findFirst({ where: { schoolId: school.id, name: 'Parent', deletedAt: null, isActive: true } })
 
+  // Transport master: routes + per-stop fares for current academic year.
+  // Seed/index.ts creates 4 routes (R1–R4); if absent we just skip allocations.
+  const transportRoutes = await db.transportRoute.findMany({
+    where: { schoolId: school.id, academicYear: ACADEMIC_YEAR, isActive: true, deletedAt: null },
+  })
+  const routeByNumber = new Map(transportRoutes.map(r => [r.routeNumber || '', r]))
+  const allStopFares = await db.transportStopFare.findMany({
+    where: { schoolId: school.id, academicYear: ACADEMIC_YEAR, isActive: true },
+  })
+  const stopFareByRouteStop = new Map<string, { id: string; stopName: string; fare: number }>()
+  for (const sf of allStopFares) {
+    stopFareByRouteStop.set(`${sf.routeId}|${sf.stopName}`, { id: sf.id, stopName: sf.stopName, fare: sf.fare })
+  }
+  const stopsByRoute = new Map<string, string[]>()
+  for (const route of transportRoutes) {
+    try {
+      const parsed = route.stops ? JSON.parse(route.stops) : []
+      if (Array.isArray(parsed)) {
+        stopsByRoute.set(route.id, parsed.filter((s): s is string => typeof s === 'string'))
+      }
+    } catch {
+      stopsByRoute.set(route.id, [])
+    }
+  }
+
   // Backfill: ensure any pre-existing bulk student has a matching enrollment row
   // for 2025-2026. Earlier runs of this seed (before the enrollment block was
   // added) left some students without one — the student detail page then shows
@@ -118,6 +170,7 @@ async function main() {
   let nextSeq = 1
   let studentsCreated = 0
   let parentsCreated = 0
+  let transportAllocated = 0
 
   for (const cls of classes) {
     const classNumber = parseInt(cls.name.replace(/\D/g, ''), 10) || 1
@@ -315,6 +368,74 @@ async function main() {
               description: `Bulk-seeded admission ${admissionNumber} for ${cls.name}-${section.name}.`,
             },
           })
+
+          // Transport allocation — deterministic 35% slice by idx, area-mapped route.
+          const wantsTransport = (idx % 100) < TRANSPORT_ALLOCATION_PCT
+          if (wantsTransport && transportRoutes.length > 0) {
+            const routeNum = AREA_TO_ROUTE[area.area] || 'R1'
+            const route = routeByNumber.get(routeNum) || transportRoutes[0]
+            const stops = stopsByRoute.get(route.id) || []
+            if (stops.length > 0) {
+              const stopName = stops[idx % stops.length]
+              const stopFare = stopFareByRouteStop.get(`${route.id}|${stopName}`)
+              const fareAmount = stopFare?.fare ?? route.fee ?? 1500
+
+              await tx.admission.update({
+                where: { id: admission.id },
+                data: { transportRouteId: route.id, transportStop: stopName },
+              })
+              await tx.transportAllocation.create({
+                data: {
+                  schoolId: school.id,
+                  studentId: student.id,
+                  routeId: route.id,
+                  academicYear: ACADEMIC_YEAR,
+                  pickupPoint: stopName,
+                  dropPoint: stopName,
+                  stopName,
+                  fareAmount,
+                  feeMonths: JSON.stringify(TRANSPORT_FEE_MONTHS),
+                  isActive: true,
+                },
+              })
+              for (const month of TRANSPORT_FEE_MONTHS) {
+                const fc = await tx.feeCollection.create({
+                  data: {
+                    schoolId: school.id,
+                    studentId: student.id,
+                    amount: fareAmount,
+                    paidAmount: 0,
+                    discount: 0,
+                    concession: 0,
+                    scholarship: 0,
+                    fine: 0,
+                    paymentStatus: 'unpaid',
+                    installmentName: month,
+                    feeHeadName: 'Transport Fee',
+                    dueDate: monthDueDate(month),
+                    notes: `Transport fee for ${stopName} (${ACADEMIC_YEAR})`,
+                  },
+                })
+                await createFeeDebitLedgerEntry({
+                  tx,
+                  schoolId: school.id,
+                  studentId: student.id,
+                  academicYear: ACADEMIC_YEAR,
+                  feeCollectionId: fc.id,
+                  sourceType: 'transport',
+                  sourceId: fc.id,
+                  feeHeadName: 'Transport Fee',
+                  installmentName: month,
+                  description: `Transport Fee - ${month}`,
+                  amount: fareAmount,
+                  dueDate: monthDueDate(month),
+                  notes: `Transport fee for ${stopName} (${ACADEMIC_YEAR})`,
+                  createdBy: schoolAdmin.id,
+                })
+              }
+              transportAllocated++
+            }
+          }
         })
 
         studentsCreated++
@@ -324,6 +445,7 @@ async function main() {
   }
 
   console.log(`✅ Created ${studentsCreated} bulk students with parents and enrollments (${parentsCreated} new parent users)`)
+  console.log(`✅ Allocated transport to ${transportAllocated} students (~${TRANSPORT_ALLOCATION_PCT}%) with monthly invoices + ledger debits`)
   console.log('👨‍👩‍👧 Bulk students seed complete.')
 }
 

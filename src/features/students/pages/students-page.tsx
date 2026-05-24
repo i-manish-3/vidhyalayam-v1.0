@@ -262,6 +262,11 @@ export function StudentsPage() {
   const navigateTo = useAppStore((s) => s.navigateTo)
   const goBack = useAppStore((s) => s.goBack)
   const setSelectedStudentId = useAppStore((s) => s.setSelectedStudentId)
+  // Global "viewing academic year" — top-bar switcher. Without this, the page
+  // always returned the school's currently-active session, so changing the
+  // year from the top bar appeared to do nothing.
+  const viewingAcademicYear = useAppStore((s) => s.viewingAcademicYear)
+  const currentSchoolAcademicYear = useAppStore((s) => s.currentSchool?.academicYear)
   const { hasPermission } = usePermissions()
   const canAdmit = hasPermission(PERMISSIONS.ADMISSION_CREATE)
   const canEdit = hasPermission(PERMISSIONS.STUDENT_UPDATE)
@@ -336,6 +341,8 @@ export function StudentsPage() {
       if (genderFilter !== 'all') params.gender = genderFilter
       if (statusFilter === 'active') params.isActive = 'true'
       else if (statusFilter === 'disabled') params.isActive = 'false'
+      const resolvedYear = viewingAcademicYear || currentSchoolAcademicYear || ''
+      if (resolvedYear) params.academicYear = resolvedYear
 
       const data = await api.get<{ students: Student[]; pagination: PaginationInfo }>(
         '/api/school/students',
@@ -351,14 +358,17 @@ export function StudentsPage() {
     } finally {
       setLoading(false)
     }
-  }, [debouncedSearch, classFilter, sectionFilter, genderFilter, statusFilter])
+  }, [debouncedSearch, classFilter, sectionFilter, genderFilter, statusFilter, viewingAcademicYear, currentSchoolAcademicYear])
 
   // Fetch stats separately (all students, no filters)
   const fetchStats = useCallback(async () => {
     try {
+      const resolvedYear = viewingAcademicYear || currentSchoolAcademicYear || ''
+      const statsParams: Record<string, string> = { limit: '500' }
+      if (resolvedYear) statsParams.academicYear = resolvedYear
       const data = await api.get<{ students: Student[]; pagination: { total: number } }>(
         '/api/school/students',
-        { limit: '500' },
+        statsParams,
         { skipLogoutOn401: true }
       )
       const allStudents = Array.isArray(data?.students) ? data.students : []
@@ -376,7 +386,7 @@ export function StudentsPage() {
     } catch {
       // Stats may not be available
     }
-  }, [])
+  }, [viewingAcademicYear, currentSchoolAcademicYear])
 
   const fetchClasses = useCallback(async () => {
     try {
@@ -405,12 +415,21 @@ export function StudentsPage() {
     init()
   }, [])
 
-  // Re-fetch when filters or search change (reset to page 1)
+  // Re-fetch when filters, search, or the global academic-year switcher change
+  // (reset to page 1). Year is included so top-bar switching refreshes the
+  // list immediately instead of requiring a manual page refresh.
   useEffect(() => {
     if (!loading || students.length > 0 || debouncedSearch) {
       fetchStudents(1, pagination.limit)
     }
-  }, [debouncedSearch, classFilter, sectionFilter, genderFilter, statusFilter])
+  }, [debouncedSearch, classFilter, sectionFilter, genderFilter, statusFilter, viewingAcademicYear, currentSchoolAcademicYear])
+
+  // Refresh the header stats card when the viewing year changes too — without
+  // this, the counts (Total / Active / Disabled / This month) stay anchored to
+  // whichever year was active on first mount.
+  useEffect(() => {
+    fetchStats()
+  }, [viewingAcademicYear, currentSchoolAcademicYear, fetchStats])
 
   // ============================================
   // Filtered Sections

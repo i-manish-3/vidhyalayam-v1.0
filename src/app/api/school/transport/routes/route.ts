@@ -121,11 +121,34 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const academicYear = await resolveAcademicYear(user.schoolId, searchParams.get('academicYear'))
 
+    // A route belongs to the requested year if EITHER its own academicYear tag
+    // matches (original / freshly created routes), OR it has at least one
+    // active TransportStopFare for that year (routes copied via Annual Setup
+    // keep their original tag but get per-year fares). Discontinued routes
+    // (no active fares for the year) are excluded unless this is also their
+    // tag year.
+    let routeIdsWithActiveFares: string[] = []
+    if (academicYear) {
+      const fareRoutes = await db.transportStopFare.findMany({
+        where: { schoolId: user.schoolId, academicYear, isActive: true },
+        select: { routeId: true },
+        distinct: ['routeId'],
+      })
+      routeIdsWithActiveFares = fareRoutes.map((r) => r.routeId)
+    }
+
     const routes = await db.transportRoute.findMany({
       where: {
         schoolId: user.schoolId,
         deletedAt: null,
-        ...(academicYear ? { academicYear } : {}),
+        ...(academicYear
+          ? {
+              OR: [
+                { academicYear },
+                ...(routeIdsWithActiveFares.length > 0 ? [{ id: { in: routeIdsWithActiveFares } }] : []),
+              ],
+            }
+          : {}),
       },
       include: {
         _count: {

@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 import { requireRole } from '@/lib/api-auth'
 import { hashPassword } from '@/lib/auth'
 import { unauthorizedError, internalError, apiError } from '@/lib/api-errors'
+import { uploadIfDataUrl, IMAGE_MIME_TYPES } from '@/lib/storage'
 
 // Roles that cannot be assigned via staff creation
 // Staff creation always creates a STAFF account, then assigns a staff permission role.
@@ -19,12 +20,24 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const search = searchParams.get('search') || ''
     const limit = parseInt(searchParams.get('limit') || '100')
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1'))
+    const rolesParam = searchParams.get('roles') || ''
 
     const where: Record<string, unknown> = {
       schoolId: user.schoolId,
       deletedAt: null,
       isActive: true,
       role: { not: 'SUPER_ADMIN' },
+    }
+
+    // Optional server-side filter by base role (comma-separated, e.g. "TEACHER,STAFF").
+    // Without this, callers paginating by limit can lose staff behind hundreds of
+    // STUDENT / PARENT rows that share the same endpoint.
+    if (rolesParam) {
+      const roles = rolesParam.split(',').map(r => r.trim()).filter(Boolean)
+      if (roles.length > 0) {
+        where.role = { in: roles }
+      }
     }
 
     if (search) {
@@ -35,21 +48,65 @@ export async function GET(request: NextRequest) {
       ]
     }
 
-    const users = await db.user.findMany({
-      where,
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        phone: true,
-        role: true,
-        isActive: true,
-      },
-      orderBy: [{ name: 'asc' }],
-      take: limit,
+    const [users, total] = await Promise.all([
+      db.user.findMany({
+        where,
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
+          role: true,
+          isActive: true,
+          accountLockout: {
+            select: { lockedUntil: true, failedAttempts: true },
+          },
+          userRoles: {
+            select: {
+              role: {
+                select: { id: true, name: true, color: true },
+              },
+            },
+          },
+        },
+        orderBy: [{ name: 'asc' }],
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      db.user.count({ where }),
+    ])
+
+    const now = Date.now()
+    const shaped = users.map(u => {
+      const lockedUntil = u.accountLockout?.lockedUntil ?? null
+      const isLocked = !!lockedUntil && lockedUntil.getTime() > now
+      return {
+        id: u.id,
+        name: u.name,
+        email: u.email,
+        phone: u.phone,
+        role: u.role,
+        isActive: u.isActive,
+        isLocked,
+        lockedUntil: isLocked ? lockedUntil : null,
+        failedAttempts: u.accountLockout?.failedAttempts ?? 0,
+        assignedRoles: u.userRoles.map(ur => ({
+          id: ur.role.id,
+          name: ur.role.name,
+          color: ur.role.color,
+        })),
+      }
     })
 
-    return NextResponse.json({ users })
+    return NextResponse.json({
+      users: shaped,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / limit)),
+      },
+    })
   } catch (error) {
     console.error('List school users error:', error)
     return internalError('listing school users')
@@ -139,6 +196,15 @@ export async function POST(request: NextRequest) {
 
     const hashedPwd = await hashPassword('staff123')
 
+    const avatarUpload = await uploadIfDataUrl(avatar, {
+      folder: `schools/${authUser.schoolId}/avatars`,
+      maxBytes: 1024 * 1024,
+      allowedMimeTypes: IMAGE_MIME_TYPES,
+    })
+    if (avatarUpload.error) {
+      return apiError(400, `Avatar: ${avatarUpload.error}`)
+    }
+
     const newUser = await db.$transaction(async (tx) => {
       const user = await tx.user.create({
         data: {
@@ -147,7 +213,7 @@ export async function POST(request: NextRequest) {
           name: name.trim(),
           phone: normalizedPhone,
           dob: dobDate,
-          avatar: avatar || null,
+          avatar: avatarUpload.url ?? null,
           role: 'STAFF',
           schoolId: authUser.schoolId!,
           isActive: true,

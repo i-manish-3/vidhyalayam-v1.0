@@ -24,7 +24,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { Sun, Moon, Bell, LogOut, User, ChevronRight, PanelLeftClose, PanelLeftOpen, Search, ArrowRight, Lock } from 'lucide-react'
+import { Sun, Moon, Bell, LogOut, User, ChevronRight, PanelLeftClose, PanelLeftOpen, Search, ArrowRight, Lock, Sunrise, Sunset, MoonStar } from 'lucide-react'
 import dynamic from 'next/dynamic'
 import { motion, AnimatePresence } from 'framer-motion'
 import { AcademicYearSwitcher } from '@/components/academic-year-switcher'
@@ -445,7 +445,7 @@ function UniversalSearch() {
   }
 
   return (
-    <div className="relative flex-1 max-w-md">
+    <div className="relative min-w-0 flex-1 max-w-64 lg:max-w-72">
       {/* Search Input */}
       <div className="relative flex items-center">
         <Search className="absolute left-2.5 size-3.5 text-primary-foreground/75 pointer-events-none dark:text-sidebar-foreground/60" />
@@ -531,6 +531,13 @@ function HamburgerIcon({ className }: { className?: string }) {
   )
 }
 
+function getTimeGreeting(hour: number) {
+  if (hour >= 5 && hour < 12) return { label: 'Good morning', Icon: Sunrise }
+  if (hour >= 12 && hour < 17) return { label: 'Good afternoon', Icon: Sun }
+  if (hour >= 17 && hour < 21) return { label: 'Good evening', Icon: Sunset }
+  return { label: 'Good night', Icon: MoonStar }
+}
+
 export function AppLayout() {
   const { user, currentSchool, logout, sidebarOpen, setSidebarOpen, sidebarCollapsed, toggleSidebarCollapse, currentPage, token } = useAppStore()
   const { theme, setTheme, resolvedTheme } = useTheme()
@@ -540,12 +547,25 @@ export function AppLayout() {
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [changingPassword, setChangingPassword] = useState(false)
+  const [currentHour, setCurrentHour] = useState(() => new Date().getHours())
 
   const initials = user?.name
     ? user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
     : 'U'
 
+  // Logout is purely client-side: clear local state (token, user, cached
+  // school, etc.). There's no server-side session to revoke — the JWT just
+  // remains valid until it expires (7 days) but is gone from this browser.
+  const handleLogout = useCallback(() => {
+    logout()
+  }, [logout])
+
+
   const roleBadge = user?.role?.replace('_', ' ') || 'User'
+  const firstName = user?.name?.trim().split(/\s+/)[0] || 'User'
+  const displayName = `Dear ${firstName}`
+  const timeGreeting = getTimeGreeting(currentHour)
+  const GreetingIcon = timeGreeting.Icon
   const isDarkTheme = resolvedTheme === 'dark' || theme === 'dark'
   const schoolThemeStyle = useMemo(
     () => getSchoolThemeVariables(currentSchool?.primaryColor, isDarkTheme),
@@ -584,6 +604,13 @@ export function AppLayout() {
       document.documentElement.style.removeProperty('--font-sans')
     }
   }, [dashboardFont.stack])
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentHour(new Date().getHours())
+    }, 60000)
+    return () => clearInterval(interval)
+  }, [])
 
   // Fetch unread notification count
   useEffect(() => {
@@ -695,6 +722,23 @@ export function AppLayout() {
         {/* Universal Search */}
         <UniversalSearch />
 
+        <div className="hidden min-w-0 shrink-0 md:flex">
+          <div className="group flex h-9 max-w-[280px] items-center gap-2 rounded-lg border border-primary-foreground/20 bg-gradient-to-r from-primary-foreground/15 to-primary-foreground/7 px-2.5 shadow-sm shadow-black/5 backdrop-blur dark:border-sidebar-border dark:from-sidebar-accent/80 dark:to-sidebar-accent/45">
+            <span className="flex size-6 shrink-0 items-center justify-center rounded-md border border-primary-foreground/15 bg-primary-foreground/15 text-primary-foreground shadow-inner dark:border-sidebar-border dark:bg-sidebar-primary/25 dark:text-sidebar-foreground">
+              <GreetingIcon className="size-3.5" />
+            </span>
+            <div className="flex min-w-0 items-center gap-1.5">
+              <span className="truncate text-[11px] font-medium text-primary-foreground/70 dark:text-sidebar-foreground/60">
+                {timeGreeting.label}
+              </span>
+              <span className="size-1 shrink-0 rounded-full bg-primary-foreground/45 dark:bg-sidebar-foreground/35" />
+              <span className="truncate text-xs font-semibold text-primary-foreground dark:text-sidebar-foreground">
+                {displayName}
+              </span>
+            </div>
+          </div>
+        </div>
+
         {/* Spacer */}
         <div className="flex-1" />
 
@@ -757,7 +801,7 @@ export function AppLayout() {
                 Profile
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={logout} className="text-destructive">
+              <DropdownMenuItem onClick={handleLogout} className="text-destructive">
                 <LogOut className="mr-2 size-4" />
                 Sign Out
               </DropdownMenuItem>

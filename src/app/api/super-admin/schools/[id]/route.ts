@@ -35,6 +35,12 @@ export async function GET(
             email: true,
             phone: true,
             lastLoginAt: true,
+            accountLockout: {
+              select: {
+                lockedUntil: true,
+                failedAttempts: true,
+              },
+            },
           },
         },
       },
@@ -73,7 +79,23 @@ export async function GET(
       teacherCount: school._count.teachers,
       classCount: school._count.classes,
       userCount: school._count.users,
-      admin: school.users[0] || null,
+      admin: school.users[0]
+        ? (() => {
+            const a = school.users[0]
+            const lockedUntil = a.accountLockout?.lockedUntil ?? null
+            const isLocked = !!(lockedUntil && lockedUntil > new Date())
+            return {
+              id: a.id,
+              name: a.name,
+              email: a.email,
+              phone: a.phone,
+              lastLoginAt: a.lastLoginAt,
+              isLocked,
+              lockedUntil,
+              failedAttempts: a.accountLockout?.failedAttempts ?? 0,
+            }
+          })()
+        : null,
     })
   } catch (error) {
     console.error('Get school error:', error)

@@ -1079,6 +1079,16 @@ export function StudentDetailPage() {
   const permanentAddressLine = [a?.address || student.address, a?.city || student.city, a?.state || student.state, a?.pincode || student.pincode, a?.country || student.country].filter(Boolean).join(', ')
   const localAddressLine = a?.localAddress ? [a.localAddress, a.localCity, a.localState, a.localPincode, a.localCountry].filter(Boolean).join(', ') : ''
 
+  const viewingYear = resolvedAcademicYear || currentSchoolAcademicYear || a?.academicYear || null
+  const yearTransportAlloc = viewingYear
+    ? student.transportAllocations?.find((t) => t.isActive && t.academicYear === viewingYear) || null
+    : null
+  const fallbackTransportAlloc = !yearTransportAlloc
+    ? student.transportAllocations?.find((t) => t.isActive) || null
+    : null
+  const transportAlloc = yearTransportAlloc || fallbackTransportAlloc
+  const hasTransport = !!transportAlloc || !!a?.transportRouteId
+
   return (
     <div className="space-y-3">
       {/* Print stylesheet: visible only at print time. Hides app chrome, shows the form. */}
@@ -1341,19 +1351,33 @@ export function StudentDetailPage() {
               )}
             </SectionCard>
 
-            {(a?.transportRouteId || a?.hostelName) && (
+            {(hasTransport || a?.hostelName) && (
               <SectionCard title="Transport & Hostel" icon={Bus}>
                 <div className="space-y-4">
-                  {a.transportRouteId && (
+                  {hasTransport && (
                     <div>
                       <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Transport</p>
                       <div className="grid grid-cols-1 gap-x-3 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
-                        <InfoRow label="Route ID" value={a.transportRouteId} icon={Bus} />
-                        <InfoRow label="Stop" value={a.transportStop} icon={MapPin} />
+                        <InfoRow label="Route" value={transportAlloc?.route?.routeName} icon={Bus} />
+                        <InfoRow label="Route No" value={transportAlloc?.route?.routeNumber} icon={Hash} />
+                        <InfoRow label="Stop" value={transportAlloc?.stopName || a?.transportStop} icon={MapPin} />
+                        {transportAlloc?.fareAmount != null && (
+                          <InfoRow label="Fare" value={formatCurrency(transportAlloc.fareAmount)} icon={Banknote} />
+                        )}
+                        {transportAlloc?.pickupPoint && <InfoRow label="Pickup" value={transportAlloc.pickupPoint} />}
+                        {transportAlloc?.dropPoint && <InfoRow label="Drop" value={transportAlloc.dropPoint} />}
+                        {transportAlloc?.academicYear && (
+                          <InfoRow label="Session" value={transportAlloc.academicYear} icon={CalendarDays} />
+                        )}
                       </div>
+                      {transportAlloc && viewingYear && transportAlloc.academicYear !== viewingYear && (
+                        <p className="mt-2 text-[11px] text-muted-foreground">
+                          No transport allocation for <strong>{viewingYear}</strong>. Showing latest active allocation from <strong>{transportAlloc.academicYear}</strong>.
+                        </p>
+                      )}
                     </div>
                   )}
-                  {a.hostelName && (
+                  {a?.hostelName && (
                     <div>
                       <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Hostel</p>
                       <div className="grid grid-cols-1 gap-x-3 gap-y-2 sm:grid-cols-3">

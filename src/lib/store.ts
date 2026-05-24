@@ -56,6 +56,7 @@ interface AuthState {
   permissions: string[]
   permissionsLoaded: boolean
   login: (user: User, token: string) => void
+  setToken: (token: string) => void
   logout: () => void
   setPermissions: (permissions: string[]) => void
 }
@@ -143,6 +144,18 @@ export const useAppStore = create<AppStore>((set) => ({
       persistUser(user)
     }
     set({ user, token, isAuthenticated: true })
+  },
+  // Updates ONLY the access token — used by the refresh-on-401 flow so the
+  // current user/permissions stay intact while we rotate the short-lived JWT.
+  setToken: (token) => {
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('erp_token', token)
+      } catch {
+        // ignore quota errors
+      }
+    }
+    set({ token })
   },
   logout: () => {
     if (typeof window !== 'undefined') {

@@ -215,11 +215,14 @@ async function seed() {
   console.log(`✅ Created ${teachers.length} teachers with salary structures`)
 
   // Fee Heads
+  // NOTE: "Transport Fee" is intentionally NOT a FeesHead — transport billing is
+  // module-driven (TransportAllocation auto-creates FeeCollection rows with
+  // feeHeadName='Transport Fee' string). Keeping it out of the master prevents
+  // duplicate invoices via structure-based assignment.
   const feeHeads = await Promise.all([
     db.feesHead.create({ data: { schoolId: school.id, name: 'Tuition Fee', frequency: 'MONTHLY' } }),
     db.feesHead.create({ data: { schoolId: school.id, name: 'Admission Fee', frequency: 'ONE_TIME' } }),
     db.feesHead.create({ data: { schoolId: school.id, name: 'Annual Fee', frequency: 'YEARLY' } }),
-    db.feesHead.create({ data: { schoolId: school.id, name: 'Transport Fee', frequency: 'MONTHLY' } }),
     db.feesHead.create({ data: { schoolId: school.id, name: 'Exam Fee', frequency: 'QUARTERLY' } }),
     db.feesHead.create({ data: { schoolId: school.id, name: 'Smart Class Fee', frequency: 'HALF_YEARLY' } }),
     db.feesHead.create({ data: { schoolId: school.id, name: 'Lab Fee', frequency: 'YEARLY' } }),
@@ -238,7 +241,7 @@ async function seed() {
   )
   console.log(`✅ Created ${feeGroups.length} fee groups (${feeGroupDefs.map(g => g.name).join(', ')})`)
 
-  const tuitionFee = feeHeads[0]; const admissionFee = feeHeads[1]; const annualFee = feeHeads[2]; const transportFee = feeHeads[3]; const examFee = feeHeads[4]
+  const tuitionFee = feeHeads[0]; const admissionFee = feeHeads[1]; const annualFee = feeHeads[2]; const examFee = feeHeads[3]
 
   // Group → fee heads (same items across all four groups; pricing differs at structure level)
   for (const grp of feeGroups) {
@@ -246,7 +249,6 @@ async function seed() {
       db.feesGroupItem.create({ data: { groupId: grp.id, feeHeadId: tuitionFee.id } }),
       db.feesGroupItem.create({ data: { groupId: grp.id, feeHeadId: admissionFee.id } }),
       db.feesGroupItem.create({ data: { groupId: grp.id, feeHeadId: annualFee.id } }),
-      db.feesGroupItem.create({ data: { groupId: grp.id, feeHeadId: transportFee.id } }),
       db.feesGroupItem.create({ data: { groupId: grp.id, feeHeadId: examFee.id } }),
     ])
   }
@@ -284,12 +286,12 @@ async function seed() {
           isActive: true,
         },
       })
-      // Monthly tuition + transport (Apr 2025 → Mar 2026). Transport stays uniform across groups.
+      // Monthly tuition only (Apr 2025 → Mar 2026). Transport is allocated per-student
+      // via TransportAllocation; it auto-generates its own FeeCollection rows.
       for (let m = 0; m < 12; m++) {
         const calMonthIdx = (3 + m) % 12
         const year = calMonthIdx >= 3 ? 2025 : 2026
         await db.feesStructureItem.create({ data: { feeStructureId: fs.id, feeHeadId: tuitionFee.id, installmentName: monthsByCalendarIdx[calMonthIdx], amount: tuition, dueDate: new Date(year, calMonthIdx, 10), lateFee: tuition > 0 ? 100 : 0, frequency: 'MONTHLY' } })
-        await db.feesStructureItem.create({ data: { feeStructureId: fs.id, feeHeadId: transportFee.id, installmentName: monthsByCalendarIdx[calMonthIdx], amount: 1500, dueDate: new Date(year, calMonthIdx, 10), lateFee: 50, frequency: 'MONTHLY' } })
       }
       await db.feesStructureItem.create({ data: { feeStructureId: fs.id, feeHeadId: admissionFee.id, installmentName: 'Admission', amount: admissionAmt, dueDate: new Date(2025, 3, 15), lateFee: 0, frequency: 'ONE_TIME' } })
       await db.feesStructureItem.create({ data: { feeStructureId: fs.id, feeHeadId: annualFee.id, installmentName: 'Annual', amount: annualAmt, dueDate: new Date(2025, 3, 15), lateFee: annualAmt > 0 ? 500 : 0, frequency: 'YEARLY' } })
@@ -307,11 +309,80 @@ async function seed() {
   }
   console.log(`✅ Created ${structuresCreated} fee structures across ${classes.length} classes × ${feeGroups.length} groups`)
 
-  // Transport routes
-  for (const r of [{ name: 'Central Delhi', num: 'R1', stops: ['Connaught Place', 'Rajiv Chowk', 'Patel Chowk'], fee: 1500 }, { name: 'South Delhi', num: 'R2', stops: ['Hauz Khas', 'Green Park', 'Saket'], fee: 1800 }, { name: 'North Delhi', num: 'R3', stops: ['Civil Lines', 'DU', 'Kashmere Gate'], fee: 1500 }]) {
-    await db.transportRoute.create({ data: { schoolId: school.id, routeName: r.name, routeNumber: r.num, stops: JSON.stringify(r.stops), fee: r.fee, driverName: `Driver ${r.num}`, driverPhone: '+91-9912345678', vehicleNumber: `DL01AB1234`, isActive: true } })
+  // Transport routes + per-stop fares
+  // April → March academic-year cycle. App stores feeMonths as 3-letter strings
+  // (see VALID_FEE_MONTHS in routes API); the schema default is "[]" which
+  // would leave routes with no billable months — hence we set it explicitly.
+  const TRANSPORT_FEE_MONTHS = ['Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar']
+  const TRANSPORT_ACADEMIC_YEAR = '2025-2026'
+  const SCHOOL_GATE = 'School Gate, Mathura Road'
+  const transportRouteDefs = [
+    {
+      name: 'Central Delhi Route', num: 'R1',
+      startPoint: 'Connaught Place', endPoint: SCHOOL_GATE, distance: 8.5,
+      stops: ['Connaught Place', 'Rajiv Chowk', 'Janpath', 'Patel Chowk', 'Khan Market'],
+      baseFare: 1200, fareIncrement: 200,
+      driverName: 'Rakesh Singh', driverPhone: '+91-9912345001', vehicleNumber: 'DL01AB1234',
+    },
+    {
+      name: 'South Delhi Route', num: 'R2',
+      startPoint: 'Saket', endPoint: SCHOOL_GATE, distance: 12.0,
+      stops: ['Saket', 'Hauz Khas', 'Green Park', 'AIIMS', 'INA Market'],
+      baseFare: 1500, fareIncrement: 200,
+      driverName: 'Suresh Kumar', driverPhone: '+91-9912345002', vehicleNumber: 'DL02CD5678',
+    },
+    {
+      name: 'North Delhi Route', num: 'R3',
+      startPoint: 'Civil Lines', endPoint: SCHOOL_GATE, distance: 14.5,
+      stops: ['Civil Lines', 'Kashmere Gate', 'ISBT', 'DU Campus', 'Mall Road'],
+      baseFare: 1400, fareIncrement: 250,
+      driverName: 'Mahesh Yadav', driverPhone: '+91-9912345003', vehicleNumber: 'DL03EF9012',
+    },
+    {
+      name: 'West Delhi Route', num: 'R4',
+      startPoint: 'Janakpuri', endPoint: SCHOOL_GATE, distance: 18.0,
+      stops: ['Janakpuri', 'Tilak Nagar', 'Rajouri Garden', 'Karol Bagh', 'New Delhi Station'],
+      baseFare: 1600, fareIncrement: 250,
+      driverName: 'Vinod Sharma', driverPhone: '+91-9912345004', vehicleNumber: 'DL04GH3456',
+    },
+  ]
+  let stopFaresCreated = 0
+  for (const r of transportRouteDefs) {
+    const route = await db.transportRoute.create({
+      data: {
+        schoolId: school.id,
+        routeName: r.name,
+        routeNumber: r.num,
+        academicYear: TRANSPORT_ACADEMIC_YEAR,
+        feeMonths: JSON.stringify(TRANSPORT_FEE_MONTHS),
+        startPoint: r.startPoint,
+        endPoint: r.endPoint,
+        distance: r.distance,
+        stops: JSON.stringify(r.stops),
+        fee: r.baseFare,
+        driverName: r.driverName,
+        driverPhone: r.driverPhone,
+        vehicleNumber: r.vehicleNumber,
+        isActive: true,
+      },
+    })
+    // Per-stop fares: base for nearest, ascending by increment for each further stop
+    for (let i = 0; i < r.stops.length; i++) {
+      await db.transportStopFare.create({
+        data: {
+          schoolId: school.id,
+          routeId: route.id,
+          academicYear: TRANSPORT_ACADEMIC_YEAR,
+          stopName: r.stops[i],
+          fare: r.baseFare + i * r.fareIncrement,
+          feeMonths: JSON.stringify(TRANSPORT_FEE_MONTHS),
+          isActive: true,
+        },
+      })
+      stopFaresCreated++
+    }
   }
-  console.log('✅ Created transport routes')
+  console.log(`✅ Created ${transportRouteDefs.length} transport routes with ${stopFaresCreated} stop fares`)
 
   // Library books
   for (const b of [{ title: 'Mathematics for Class X', author: 'R.D. Sharma', cat: 'Mathematics' }, { title: 'Concepts of Physics', author: 'H.C. Verma', cat: 'Physics' }, { title: 'Modern ABC Chemistry', author: 'S.P. Jauhar', cat: 'Chemistry' }, { title: 'NCERT Biology XII', author: 'NCERT', cat: 'Biology' }, { title: 'Wren & Martin Grammar', author: 'P.C. Wren', cat: 'English' }, { title: 'Python Programming', author: 'Sumita Arora', cat: 'Computer Science' }]) {

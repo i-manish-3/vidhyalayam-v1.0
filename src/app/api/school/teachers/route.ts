@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 import { requireRole } from '@/lib/api-auth'
 import { hashPassword } from '@/lib/auth'
 import { unauthorizedError, internalError, apiError } from '@/lib/api-errors'
+import { uploadIfDataUrl, IMAGE_MIME_TYPES } from '@/lib/storage'
 
 // GET /api/school/teachers - List teachers
 export async function GET(request: NextRequest) {
@@ -150,6 +151,15 @@ export async function POST(request: NextRequest) {
       userId = newUser.id
     }
 
+    const photoUpload = await uploadIfDataUrl(profileImage, {
+      folder: `schools/${user.schoolId}/teachers`,
+      maxBytes: 2 * 1024 * 1024,
+      allowedMimeTypes: IMAGE_MIME_TYPES,
+    })
+    if (photoUpload.error) {
+      return apiError(400, `Profile image: ${photoUpload.error}`)
+    }
+
     const teacher = await db.teacher.create({
       data: {
         schoolId: user.schoolId,
@@ -168,7 +178,7 @@ export async function POST(request: NextRequest) {
         specialization,
         experience: experience || 0,
         joinDate: joinDate ? new Date(joinDate) : new Date(),
-        profileImage,
+        profileImage: photoUpload.url ?? null,
       },
     })
 

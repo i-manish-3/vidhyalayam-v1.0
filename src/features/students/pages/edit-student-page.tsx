@@ -141,7 +141,7 @@ interface StudentData {
   sibling: SiblingInfo | null
 }
 
-interface TransportRouteOption { id: string; routeName: string }
+interface TransportRouteOption { id: string; routeName: string; routeNumber: string | null; academicYear: string; stops: string | null }
 interface FeesGroupOption { id: string; name: string }
 
 interface AdmissionDocument {
@@ -293,6 +293,9 @@ export function EditStudentPage() {
   const setCurrentPage = useAppStore((s) => s.setCurrentPage)
   const goBack = useAppStore((s) => s.goBack)
   const selectedStudentId = useAppStore((s) => s.selectedStudentId)
+  const viewingAcademicYear = useAppStore((s) => s.viewingAcademicYear)
+  const currentSchoolAcademicYear = useAppStore((s) => s.currentSchool?.academicYear)
+  const resolvedYear = viewingAcademicYear || currentSchoolAcademicYear || ''
 
   const [student, setStudent] = useState<StudentData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -331,11 +334,10 @@ export function EditStudentPage() {
     const fetchData = async () => {
       setLoading(true)
       try {
-        const [studentData, clsData, secData, transportData, feesGroupData] = await Promise.allSettled([
+        const [studentData, clsData, secData, feesGroupData] = await Promise.allSettled([
           api.get<StudentData>(`/api/school/students/${selectedStudentId}`, undefined, { skipLogoutOn401: true }),
           api.get<{ classes: ClassOption[] }>('/api/school/classes', undefined, { skipLogoutOn401: true }),
           api.get<{ sections: SectionOption[] }>('/api/school/sections', undefined, { skipLogoutOn401: true }),
-          api.get<{ routes: TransportRouteOption[] }>('/api/school/transport/routes', undefined, { skipLogoutOn401: true }),
           api.get<{ groups: FeesGroupOption[] }>('/api/school/fees/groups', undefined, { skipLogoutOn401: true }),
         ])
         if (studentData.status === 'fulfilled' && studentData.value) {
@@ -449,7 +451,6 @@ export function EditStudentPage() {
         }
         if (clsData.status === 'fulfilled' && clsData.value?.classes) setClasses(clsData.value.classes)
         if (secData.status === 'fulfilled' && secData.value?.sections) setSections(secData.value.sections)
-        if (transportData.status === 'fulfilled' && transportData.value?.routes) setTransportRoutes(transportData.value.routes)
         if (feesGroupData.status === 'fulfilled' && feesGroupData.value?.groups) setFeesGroups(feesGroupData.value.groups)
       } catch {
         toast({ title: "Couldn't Load Student Data", description: "We couldn't load the student data. Please refresh the page.", variant: 'destructive' })
@@ -465,6 +466,76 @@ export function EditStudentPage() {
     () => form?.classId ? sections.filter(s => s.classId === form.classId) : [],
     [form?.classId, sections]
   )
+
+  // Year-scoped transport routes. Refetches whenever the viewing academic year
+  // changes so the Route dropdown matches the session the user is editing for.
+  useEffect(() => {
+    let cancelled = false
+    const fetchRoutes = async () => {
+      try {
+        const params = resolvedYear ? { academicYear: resolvedYear } : undefined
+        const data = await api.get<{ routes: TransportRouteOption[] }>(
+          '/api/school/transport/routes',
+          params,
+          { skipLogoutOn401: true }
+        )
+        if (!cancelled && data?.routes) setTransportRoutes(data.routes)
+      } catch {
+        if (!cancelled) setTransportRoutes([])
+      }
+    }
+    fetchRoutes()
+    return () => { cancelled = true }
+  }, [resolvedYear])
+
+  // Parse stops for the currently-selected route. Routes returned by the API
+  // already have their stops overridden to the year-scoped TransportStopFare
+  // rows, so this naturally honours the academic-year scope.
+  const selectedRoute = useMemo(
+    () => transportRoutes.find(r => r.id === form?.transportRouteId) || null,
+    [transportRoutes, form?.transportRouteId]
+  )
+
+  const routeStops = useMemo<Array<{ name: string; fare: number }>>(() => {
+    if (!selectedRoute?.stops) return []
+    try {
+      const parsed = JSON.parse(selectedRoute.stops)
+      if (!Array.isArray(parsed)) return []
+      const out: Array<{ name: string; fare: number }> = []
+      for (const s of parsed) {
+        if (typeof s === 'string' && s.trim()) {
+          out.push({ name: s.trim(), fare: 0 })
+        } else if (s && typeof s === 'object') {
+          const r = s as Record<string, unknown>
+          const name = typeof r.name === 'string' ? r.name.trim() : ''
+          const fare = typeof r.fare === 'number' ? r.fare : Number(r.fare) || 0
+          if (name) out.push({ name, fare })
+        }
+      }
+      return out
+    } catch {
+      return []
+    }
+  }, [selectedRoute?.stops])
+
+  // When the user changes route, drop any stop that doesn't exist on the new
+  // route — otherwise the Select shows a stale value that nobody picked.
+  // Guarded on `selectedRoute` so we don't wipe the stop while routes are
+  // still loading, or when the saved route isn't in the current year's list.
+  useEffect(() => {
+    if (!form?.transportRouteId) {
+      if (form?.transportStop) {
+        setForm(prev => prev ? { ...prev, transportStop: '' } : prev)
+      }
+      return
+    }
+    if (!form.transportStop) return
+    if (!selectedRoute) return
+    const stopExists = routeStops.some(s => s.name === form.transportStop)
+    if (!stopExists) {
+      setForm(prev => prev ? { ...prev, transportStop: '' } : prev)
+    }
+  }, [form?.transportRouteId, form?.transportStop, routeStops, selectedRoute])
 
   // ============================================
   // Form Handlers
@@ -588,7 +659,6 @@ export function EditStudentPage() {
           gender: form.gender || null,
           bloodGroup: form.bloodGroup || null,
           aadhaarNumber: form.aadhaarNumber ? form.aadhaarNumber.replace(/\D/g, '') : null,
-          profileImage: form.profileImage || null,
           religion: form.religion || null,
           category: form.category || null,
           caste: form.caste || null,
@@ -1242,21 +1312,56 @@ export function EditStudentPage() {
       {/* Transport Details */}
       <p className="text-sm font-semibold text-muted-foreground flex items-center gap-1.5">
         <Bus className="size-4" /> Transport Details
+        {resolvedYear && (
+          <Badge variant="outline" className="ml-1 h-5 px-1.5 text-[10px] font-mono">
+            {resolvedYear}
+          </Badge>
+        )}
       </p>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Route</Label>
-          <Select value={form.transportRouteId} onValueChange={v => updateForm('transportRouteId', v === '_none' ? '' : v)}>
+          <Select value={form.transportRouteId || '_none'} onValueChange={v => updateForm('transportRouteId', v === '_none' ? '' : v)}>
             <SelectTrigger><SelectValue placeholder="Select route" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="_none">No Transport</SelectItem>
-              {transportRoutes.map(r => <SelectItem key={r.id} value={r.id}>{r.routeName}</SelectItem>)}
+              {transportRoutes.map(r => (
+                <SelectItem key={r.id} value={r.id}>
+                  {r.routeName}{r.routeNumber ? ` (${r.routeNumber})` : ''}
+                </SelectItem>
+              ))}
+              {transportRoutes.length === 0 && (
+                <SelectItem value="_no_routes" disabled>
+                  No routes available{resolvedYear ? ` for ${resolvedYear}` : ''}
+                </SelectItem>
+              )}
             </SelectContent>
           </Select>
         </div>
         <div className="space-y-2">
           <Label>Stop</Label>
-          <Input value={form.transportStop} onChange={e => updateForm('transportStop', e.target.value)} placeholder="Pickup / drop point" />
+          <Select
+            value={form.transportStop || '_none'}
+            onValueChange={v => updateForm('transportStop', v === '_none' ? '' : v)}
+            disabled={!form.transportRouteId}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder={form.transportRouteId ? 'Select stop' : 'Select route first'} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="_none">No Stop</SelectItem>
+              {routeStops.map(s => (
+                <SelectItem key={s.name} value={s.name}>
+                  {s.name}{s.fare > 0 ? ` — ₹${s.fare}` : ''}
+                </SelectItem>
+              ))}
+              {form.transportRouteId && routeStops.length === 0 && (
+                <SelectItem value="_no_stops" disabled>
+                  No stops configured for this route
+                </SelectItem>
+              )}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 

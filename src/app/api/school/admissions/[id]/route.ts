@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { requireRole, requirePermission } from '@/lib/api-auth'
 import { unauthorizedError, notFoundError, internalError, apiError, forbiddenError } from '@/lib/api-errors'
+import { uploadIfDataUrl, IMAGE_MIME_TYPES } from '@/lib/storage'
 
 // GET /api/school/admissions/[id] - Get single admission with all details
 export async function GET(
@@ -150,7 +151,7 @@ export async function PUT(
       'academicYear', 'admissionType',
       'firstName', 'lastName', 'dateOfBirth', 'dateOfAdmission', 'gender', 'nationality',
       'religion', 'category', 'caste', 'motherTongue', 'aadhaarNumber', 'bloodGroup',
-      'medicalConditions', 'profileImage',
+      'medicalConditions',
       'registrationNumber', 'penNumber', 'samagraId', 'apaarId', 'udiseId',
       'heightCm', 'weightKg',
       // Contact / Address
@@ -183,6 +184,21 @@ export async function PUT(
       // Concession & Source
       'concessionType', 'concessionReason', 'sourceOfInfo', 'formNumber',
     ]
+
+    // profileImage is handled separately — it needs to be uploaded to R2 (and the
+    // previous file deleted) before we hit the DB write.
+    if (body.profileImage !== undefined) {
+      const upload = await uploadIfDataUrl(body.profileImage, {
+        folder: `schools/${user.schoolId}/admissions`,
+        maxBytes: 2 * 1024 * 1024,
+        allowedMimeTypes: IMAGE_MIME_TYPES,
+        previousUrl: admission.profileImage,
+      })
+      if (upload.error) {
+        return apiError(400, `Profile image: ${upload.error}`)
+      }
+      updateData.profileImage = upload.url
+    }
 
     for (const field of updatableFields) {
       if (body[field] !== undefined) {

@@ -33,6 +33,9 @@ import {
   KeyRound,
   Eye,
   EyeOff,
+  Lock,
+  LockOpen,
+  AlertTriangle,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
@@ -65,7 +68,16 @@ interface SchoolDetail {
   updatedAt: string
   studentCount?: number
   teacherCount?: number
-  admin?: { id: string; name: string; email: string; phone?: string; lastLoginAt?: string }
+  admin?: {
+    id: string
+    name: string
+    email: string
+    phone?: string
+    lastLoginAt?: string
+    isLocked?: boolean
+    lockedUntil?: string | null
+    failedAttempts?: number
+  }
 }
 
 interface EditFormData {
@@ -111,6 +123,7 @@ export function SchoolDetailPage() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [resettingPassword, setResettingPassword] = useState(false)
+  const [unlockingAdmin, setUnlockingAdmin] = useState(false)
 
   const fetchSchool = useCallback(async () => {
     if (!selectedSchoolId) return
@@ -161,6 +174,27 @@ export function SchoolDetailPage() {
 
   const goBack = () => {
     setCurrentPage('schools' as PageName)
+  }
+
+  const handleUnlockAdmin = async () => {
+    if (!school?.admin?.id) return
+    setUnlockingAdmin(true)
+    try {
+      await api.post(`/api/super-admin/users/${school.admin.id}/unlock`, {})
+      toast({
+        title: 'Account Unlocked',
+        description: `${school.admin.name} can now log in immediately.`,
+      })
+      fetchSchool()
+    } catch (err) {
+      toast({
+        title: "Couldn't Unlock Account",
+        description: err instanceof Error ? err.message : 'Please try again.',
+        variant: 'destructive',
+      })
+    } finally {
+      setUnlockingAdmin(false)
+    }
   }
 
   const formatDate = (dateStr?: string | null) => {
@@ -500,8 +534,46 @@ export function SchoolDetailPage() {
                         <p className="text-sm text-muted-foreground">{school.admin.phone}</p>
                       )}
                     </div>
-                    <Badge className="ml-auto">School Admin</Badge>
+                    <div className="ml-auto flex items-center gap-2">
+                      {school.admin.isLocked && (
+                        <Badge variant="destructive" className="gap-1">
+                          <Lock className="size-3" />
+                          Locked
+                        </Badge>
+                      )}
+                      <Badge>School Admin</Badge>
+                    </div>
                   </div>
+                  {school.admin.isLocked && school.admin.lockedUntil && (
+                    <div className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4">
+                      <AlertTriangle className="size-5 text-red-600 shrink-0 mt-0.5" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-red-900">
+                          Account Temporarily Locked
+                        </p>
+                        <p className="text-xs text-red-700 mt-0.5">
+                          This admin entered the wrong password too many times. Auto-unlocks at{' '}
+                          <strong>{formatDateTime(school.admin.lockedUntil)}</strong>
+                          {school.admin.failedAttempts ? ` (${school.admin.failedAttempts} failed attempts)` : ''}.
+                          You can override and unlock immediately.
+                        </p>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="border-red-300 text-red-700 hover:bg-red-100 hover:text-red-800 shrink-0"
+                        onClick={handleUnlockAdmin}
+                        disabled={unlockingAdmin}
+                      >
+                        {unlockingAdmin ? (
+                          <Loader2 className="size-3.5 animate-spin mr-1.5" />
+                        ) : (
+                          <LockOpen className="size-3.5 mr-1.5" />
+                        )}
+                        Unlock Now
+                      </Button>
+                    </div>
+                  )}
                   <DetailRow icon={Clock} label="Last Login" value={formatDateTime(school.admin.lastLoginAt)} />
                   <div className="pt-3">
                     <Button

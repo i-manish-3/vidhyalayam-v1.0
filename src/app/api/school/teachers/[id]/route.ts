@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { requireRole } from '@/lib/api-auth'
 import { unauthorizedError, notFoundError, internalError, apiError } from '@/lib/api-errors'
+import { uploadIfDataUrl, IMAGE_MIME_TYPES } from '@/lib/storage'
 
 // PATCH /api/school/teachers/[id] - Update teacher
 export async function PATCH(
@@ -59,7 +60,18 @@ export async function PATCH(
     if (specialization !== undefined) updateData.specialization = specialization
     if (experience !== undefined) updateData.experience = experience
     if (joinDate !== undefined) updateData.joinDate = joinDate ? new Date(joinDate) : null
-    if (profileImage !== undefined) updateData.profileImage = profileImage
+    if (profileImage !== undefined) {
+      const upload = await uploadIfDataUrl(profileImage, {
+        folder: `schools/${user.schoolId}/teachers`,
+        maxBytes: 2 * 1024 * 1024,
+        allowedMimeTypes: IMAGE_MIME_TYPES,
+        previousUrl: teacher.profileImage,
+      })
+      if (upload.error) {
+        return apiError(400, `Profile image: ${upload.error}`)
+      }
+      updateData.profileImage = upload.url
+    }
     if (isActive !== undefined) updateData.isActive = isActive
 
     const updated = await db.teacher.update({

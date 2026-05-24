@@ -46,6 +46,7 @@ import {
   Info,
   X,
   UserPlus,
+  LockOpen,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -58,6 +59,9 @@ interface SchoolUser {
   role: string
   phone?: string | null
   isActive: boolean
+  isLocked?: boolean
+  lockedUntil?: string | null
+  failedAttempts?: number
 }
 
 interface UserRole {
@@ -379,9 +383,14 @@ function UserListItemCard({
         </AvatarFallback>
       </Avatar>
       <div className="flex-1 min-w-0">
-        <p className={`text-sm font-medium truncate ${isSelected ? 'text-primary' : ''}`}>
-          {user.name}
-        </p>
+        <div className="flex items-center gap-1.5">
+          <p className={`text-sm font-medium truncate ${isSelected ? 'text-primary' : ''}`}>
+            {user.name}
+          </p>
+          {user.isLocked && (
+            <Lock className="size-3 text-red-600 dark:text-red-400 shrink-0" />
+          )}
+        </div>
         <div className="flex items-center gap-2 mt-0.5">
           <Badge
             variant="secondary"
@@ -397,6 +406,11 @@ function UserListItemCard({
                 {user.roleCount}
               </span>
             </>
+          )}
+          {user.isLocked && (
+            <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 leading-none border-red-300 text-red-700 dark:border-red-700 dark:text-red-400">
+              Locked
+            </Badge>
           )}
         </div>
       </div>
@@ -498,6 +512,9 @@ export function SchoolUsersPage() {
   const [createUserForm, setCreateUserForm] = useState({ name: '', email: '', phone: '', password: '', roleId: '' })
   const [loadingCreateRoles, setLoadingCreateRoles] = useState(false)
   const [creatingUser, setCreatingUser] = useState(false)
+
+  // Unlock state
+  const [unlockingUserId, setUnlockingUserId] = useState<string | null>(null)
 
   // ── Fetch users with role counts ──
   // Strategy: Fetch users list + all roles with their assigned users, 
@@ -679,6 +696,27 @@ export function SchoolUsersPage() {
       return next
     })
   }, [])
+
+  // ── Unlock user ──
+  const handleUnlockUser = useCallback(async (userId: string) => {
+    try {
+      setUnlockingUserId(userId)
+      await api.post(`/api/school/users/${userId}/unlock`, {})
+      await fetchUsers()
+      toast({
+        title: 'Account Unlocked',
+        description: 'The user can now log in immediately.',
+      })
+    } catch (err) {
+      toast({
+        title: "Couldn't Unlock Account",
+        description: err instanceof Error ? err.message : "We couldn't unlock this account. Please try again.",
+        variant: 'destructive',
+      })
+    } finally {
+      setUnlockingUserId(null)
+    }
+  }, [fetchUsers, toast])
 
   // ── Save role assignments ──
   const handleSaveRoles = useCallback(async () => {
@@ -883,8 +921,14 @@ export function SchoolUsersPage() {
                         </AvatarFallback>
                       </Avatar>
                       <div>
-                        <h2 className="text-base font-semibold">
+                        <h2 className="text-base font-semibold flex items-center gap-2">
                           {selectedUser?.name || 'Unknown User'}
+                          {selectedUser?.isLocked && (
+                            <Badge variant="outline" className="text-[10px] border-red-300 text-red-700 dark:border-red-700 dark:text-red-400 gap-1">
+                              <Lock className="size-3" />
+                              Locked
+                            </Badge>
+                          )}
                         </h2>
                         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-0.5">
                           <span className="text-xs text-muted-foreground flex items-center gap-1">
@@ -915,6 +959,34 @@ export function SchoolUsersPage() {
                       Manage Roles
                     </Button>
                   </div>
+
+                  {selectedUser?.isLocked && (
+                    <div className="flex items-center justify-between gap-3 mt-3 px-3 py-2 rounded-md bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Lock className="size-4 text-red-600 dark:text-red-400 shrink-0" />
+                        <div className="min-w-0">
+                          <p className="text-xs font-medium text-red-700 dark:text-red-400">
+                            Account temporarily locked after {selectedUser.failedAttempts ?? 5}+ failed login attempts
+                          </p>
+                          {selectedUser.lockedUntil && (
+                            <p className="text-[11px] text-red-600/80 dark:text-red-400/80 mt-0.5">
+                              Auto-unlocks at {new Date(selectedUser.lockedUntil).toLocaleString()}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleUnlockUser(selectedUser.id)}
+                        disabled={unlockingUserId === selectedUser.id}
+                        className="gap-1.5 shrink-0 border-red-300 text-red-700 hover:bg-red-100 dark:border-red-700 dark:text-red-400 dark:hover:bg-red-950/50"
+                      >
+                        <LockOpen className="size-3.5" />
+                        {unlockingUserId === selectedUser.id ? 'Unlocking...' : 'Unlock Now'}
+                      </Button>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 

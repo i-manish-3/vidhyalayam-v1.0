@@ -2,7 +2,24 @@ import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import { db } from '@/lib/db'
 
-const JWT_SECRET = process.env.JWT_SECRET || 'school-erp-super-secret-key-2025'
+// JWT_SECRET MUST be set in the environment. We refuse to start without it so a
+// missing/leaked default secret can never be used to forge tokens in production.
+function loadJwtSecret(): string {
+  const secret = process.env.JWT_SECRET
+  if (!secret || secret.length < 32) {
+    throw new Error(
+      'JWT_SECRET environment variable is required and must be at least 32 characters. ' +
+      'Generate one with: node -e "console.log(require(\'crypto\').randomBytes(48).toString(\'base64\'))"',
+    )
+  }
+  return secret
+}
+const JWT_SECRET = loadJwtSecret()
+
+// bcrypt cost 12 is the current industry default — balances brute-force resistance
+// against latency (~250ms per hash on modern hardware). Old hashes created at lower
+// cost still verify fine because bcrypt encodes the cost inside the hash itself.
+const BCRYPT_COST = 12
 
 export interface JWTPayload {
   userId: string
@@ -12,7 +29,7 @@ export interface JWTPayload {
 }
 
 export async function hashPassword(password: string): Promise<string> {
-  return bcrypt.hash(password, 4)
+  return bcrypt.hash(password, BCRYPT_COST)
 }
 
 export async function verifyPassword(password: string, hashedPassword: string): Promise<boolean> {
@@ -20,6 +37,8 @@ export async function verifyPassword(password: string, hashedPassword: string): 
   return bcrypt.compareSync(password, hashedPassword)
 }
 
+// 7-day access token. The whole session lives in this JWT — no refresh chain.
+// When it expires the user re-logs in.
 export function generateToken(payload: JWTPayload): string {
   return jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' })
 }

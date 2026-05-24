@@ -37,6 +37,8 @@ model User {
   userRoles        UserRole[]
   userPermissions  UserPermission[]
   markedAttendance Attendance[]     @relation("markedByUser")
+  loginEvents      LoginEvent[]
+  accountLockout   AccountLockout?
 
   @@index([schoolId])
   @@index([role])
@@ -75,45 +77,45 @@ model School {
   updatedAt      DateTime  @updatedAt
   deletedAt      DateTime?
 
-  users             User[]
-  classes           Class[]
-  sections          Section[]
-  subjects          Subject[]
-  students          Student[]
-  teachers          Teacher[]
-  parents           Parent[]
-  feesHeads         FeesHead[]
-  feesGroups        FeesGroup[]
-  feesStructures    FeesStructure[]
-  feeCollections    FeeCollection[]
-  studentFeeAssignments StudentFeeAssignment[]
-  studentFeeInvoices    StudentFeeInvoice[]
-  studentFeePayments    StudentFeePayment[]
-  studentFeeLedgerEntries StudentFeeLedgerEntry[]
+  users                       User[]
+  classes                     Class[]
+  sections                    Section[]
+  subjects                    Subject[]
+  students                    Student[]
+  teachers                    Teacher[]
+  parents                     Parent[]
+  feesHeads                   FeesHead[]
+  feesGroups                  FeesGroup[]
+  feesStructures              FeesStructure[]
+  feeCollections              FeeCollection[]
+  studentFeeAssignments       StudentFeeAssignment[]
+  studentFeeInvoices          StudentFeeInvoice[]
+  studentFeePayments          StudentFeePayment[]
+  studentFeeLedgerEntries     StudentFeeLedgerEntry[]
   studentFeeLedgerAllocations StudentFeeLedgerAllocation[]
-  feeAuditLogs          FeeAuditLog[]
-  attendance        Attendance[]
-  timetables        Timetable[]
-  periodConfigs     PeriodConfig[]
-  exams             Exam[]
-  examResults       ExamResult[]
-  transportRoutes   TransportRoute[]
-  libraryBooks      LibraryBook[]
-  bookIssues        BookIssue[]
-  inventoryItems    InventoryItem[]
-  pettyCash         PettyCashEntry[]
-  notifications     Notification[]
-  salaryStructures  SalaryStructure[]
-  salaryPayments    SalaryPayment[]
-  advanceRequests   AdvanceRequest[]
-  announcements     Announcement[]
-  supportTickets    SupportTicket[]
-  admissions        Admission[]
-  admissionSetting  AdmissionSetting?
-  studentAcademicEnrollments StudentAcademicEnrollment[]
-  academicYears     AcademicYear[]
-  schoolPermissions SchoolPermission[]
-  roles             Role[]
+  feeAuditLogs                FeeAuditLog[]
+  attendance                  Attendance[]
+  timetables                  Timetable[]
+  periodConfigs               PeriodConfig[]
+  exams                       Exam[]
+  examResults                 ExamResult[]
+  transportRoutes             TransportRoute[]
+  libraryBooks                LibraryBook[]
+  bookIssues                  BookIssue[]
+  inventoryItems              InventoryItem[]
+  pettyCash                   PettyCashEntry[]
+  notifications               Notification[]
+  salaryStructures            SalaryStructure[]
+  salaryPayments              SalaryPayment[]
+  advanceRequests             AdvanceRequest[]
+  announcements               Announcement[]
+  supportTickets              SupportTicket[]
+  admissions                  Admission[]
+  admissionSetting            AdmissionSetting?
+  studentAcademicEnrollments  StudentAcademicEnrollment[]
+  academicYears               AcademicYear[]
+  schoolPermissions           SchoolPermission[]
+  roles                       Role[]
 
   @@index([subdomain])
   @@index([status])
@@ -152,13 +154,13 @@ model Class {
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
-  school         School          @relation(fields: [schoolId], references: [id])
-  sections       Section[]
-  students       Student[]
+  school                     School                      @relation(fields: [schoolId], references: [id])
+  sections                   Section[]
+  students                   Student[]
   studentAcademicEnrollments StudentAcademicEnrollment[]
-  feesStructures FeesStructure[]
-  feeAssignments StudentFeeAssignment[]
-  classSubjects  ClassSubject[]
+  feesStructures             FeesStructure[]
+  feeAssignments             StudentFeeAssignment[]
+  classSubjects              ClassSubject[]
 
   @@index([schoolId])
 }
@@ -175,13 +177,13 @@ model Section {
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
-  school         School          @relation(fields: [schoolId], references: [id])
-  class          Class           @relation(fields: [classId], references: [id])
-  students       Student[]
+  school                     School                      @relation(fields: [schoolId], references: [id])
+  class                      Class                       @relation(fields: [classId], references: [id])
+  students                   Student[]
   studentAcademicEnrollments StudentAcademicEnrollment[]
-  timetables     Timetable[]
-  feesStructures FeesStructure[]
-  feeAssignments StudentFeeAssignment[]
+  timetables                 Timetable[]
+  feesStructures             FeesStructure[]
+  feeAssignments             StudentFeeAssignment[]
 
   @@unique([schoolId, classId, name])
   @@index([schoolId])
@@ -265,20 +267,20 @@ model Student {
   updatedAt         DateTime  @updatedAt
   deletedAt         DateTime?
 
-  school         School          @relation(fields: [schoolId], references: [id])
-  class          Class?          @relation(fields: [classId], references: [id])
-  section        Section?        @relation(fields: [sectionId], references: [id])
-  parentLinks    StudentParent[]
-  attendance     Attendance[]
-  feeCollections FeeCollection[]
-  feeAssignments StudentFeeAssignment[]
-  academicEnrollments StudentAcademicEnrollment[]
-  feeInvoices    StudentFeeInvoice[]
-  feePayments    StudentFeePayment[]
-  feeLedgerEntries StudentFeeLedgerEntry[]
+  school               School                       @relation(fields: [schoolId], references: [id])
+  class                Class?                       @relation(fields: [classId], references: [id])
+  section              Section?                     @relation(fields: [sectionId], references: [id])
+  parentLinks          StudentParent[]
+  attendance           Attendance[]
+  feeCollections       FeeCollection[]
+  feeAssignments       StudentFeeAssignment[]
+  academicEnrollments  StudentAcademicEnrollment[]
+  feeInvoices          StudentFeeInvoice[]
+  feePayments          StudentFeePayment[]
+  feeLedgerEntries     StudentFeeLedgerEntry[]
   feeLedgerAllocations StudentFeeLedgerAllocation[]
-  examResults    ExamResult[]
-  admission      Admission?
+  examResults          ExamResult[]
+  admission            Admission?
 
   @@index([schoolId])
   @@index([classId])
@@ -286,6 +288,8 @@ model Student {
   @@index([admissionNumber])
   @@index([admissionStatus])
   @@index([familyId])
+  @@index([schoolId, classId, sectionId])
+  @@index([schoolId, admissionStatus])
 }
 
 model StudentAcademicEnrollment {
@@ -532,39 +536,39 @@ model AdmissionActivity {
 }
 
 model AdmissionSetting {
-  id                      String    @id @default(cuid())
-  schoolId                String    @unique
-  admissionNumberPrefix   String    @default("STD")
-  admissionNumberFormat   String    @default("{PREFIX}-{YEAR}-{SEQ}") // {PREFIX}, {YEAR}, {SEQ}, {CLASS}
-  registrationNumberPrefix String   @default("REG")
-  registrationNumberFormat String   @default("{PREFIX}-{YEAR}-{SEQ}") // {PREFIX}, {YEAR}, {YY}, {SEQ}, {CLASS}
-  registrationSequenceStart Int     @default(1)
-  registrationSequenceDigits Int    @default(3)
-  registrationResetYearly  Boolean  @default(true)
-  sequenceStart           Int       @default(1)
-  sequenceDigits          Int       @default(3) // 001, 0001, etc.
-  resetSequenceYearly     Boolean   @default(true)
-  academicYear            String    @default("2025-2026")
-  admissionOpenDate       DateTime?
-  admissionCloseDate      DateTime?
-  minAge                  Int       @default(3)
-  maxAge                  Int       @default(18)
-  ageCalculationDate      String    @default("april_1") // april_1, july_1, admission_date
-  requiredDocuments       String? // JSON array of required document types
-  customFields            String? // JSON array of custom field definitions
-  allowOnlineSubmission   Boolean   @default(false)
-  requirePhoto            Boolean   @default(true)
-  requireAadhaar          Boolean   @default(false)
-  maxApplicationsPerClass Int?
-  enableWaitlist          Boolean   @default(true)
-  autoVerifyDocuments     Boolean   @default(false)
-  admissionFeeRequired    Boolean   @default(true)
-  formFeeAmount           Float     @default(0)
-  notificationEmails      String? // JSON array of email templates config
-  printTemplate           String? // JSON for print layout
-  isActive                Boolean   @default(true)
-  createdAt               DateTime  @default(now())
-  updatedAt               DateTime  @updatedAt
+  id                         String    @id @default(cuid())
+  schoolId                   String    @unique
+  admissionNumberPrefix      String    @default("STD")
+  admissionNumberFormat      String    @default("{PREFIX}-{YEAR}-{SEQ}") // {PREFIX}, {YEAR}, {SEQ}, {CLASS}
+  registrationNumberPrefix   String    @default("REG")
+  registrationNumberFormat   String    @default("{PREFIX}-{YEAR}-{SEQ}") // {PREFIX}, {YEAR}, {YY}, {SEQ}, {CLASS}
+  registrationSequenceStart  Int       @default(1)
+  registrationSequenceDigits Int       @default(3)
+  registrationResetYearly    Boolean   @default(true)
+  sequenceStart              Int       @default(1)
+  sequenceDigits             Int       @default(3) // 001, 0001, etc.
+  resetSequenceYearly        Boolean   @default(true)
+  academicYear               String    @default("2025-2026")
+  admissionOpenDate          DateTime?
+  admissionCloseDate         DateTime?
+  minAge                     Int       @default(3)
+  maxAge                     Int       @default(18)
+  ageCalculationDate         String    @default("april_1") // april_1, july_1, admission_date
+  requiredDocuments          String? // JSON array of required document types
+  customFields               String? // JSON array of custom field definitions
+  allowOnlineSubmission      Boolean   @default(false)
+  requirePhoto               Boolean   @default(true)
+  requireAadhaar             Boolean   @default(false)
+  maxApplicationsPerClass    Int?
+  enableWaitlist             Boolean   @default(true)
+  autoVerifyDocuments        Boolean   @default(false)
+  admissionFeeRequired       Boolean   @default(true)
+  formFeeAmount              Float     @default(0)
+  notificationEmails         String? // JSON array of email templates config
+  printTemplate              String? // JSON for print layout
+  isActive                   Boolean   @default(true)
+  createdAt                  DateTime  @default(now())
+  updatedAt                  DateTime  @updatedAt
 
   school School @relation(fields: [schoolId], references: [id])
 
@@ -647,21 +651,21 @@ model StudentParent {
 // ============================================
 
 model FeesHead {
-  id        String    @id @default(cuid())
-  schoolId  String
-  name      String
-  frequency String // ONE_TIME, MONTHLY, QUARTERLY, HALF_YEARLY, YEARLY, CUSTOM
-  headType  String    @default("STANDARD") // STANDARD, REFUNDABLE_DEPOSIT, NON_REFUNDABLE
-  isOptional Boolean  @default(false)
+  id            String    @id @default(cuid())
+  schoolId      String
+  name          String
+  frequency     String // ONE_TIME, MONTHLY, QUARTERLY, HALF_YEARLY, YEARLY, CUSTOM
+  headType      String    @default("STANDARD") // STANDARD, REFUNDABLE_DEPOSIT, NON_REFUNDABLE
+  isOptional    Boolean   @default(false)
   applicability String? // JSON rules for gender/category/student type/etc.
-  isActive  Boolean   @default(true)
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime?
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
 
-  school         School              @relation(fields: [schoolId], references: [id])
-  groupItems     FeesGroupItem[]
-  structureItems FeesStructureItem[]
+  school          School                     @relation(fields: [schoolId], references: [id])
+  groupItems      FeesGroupItem[]
+  structureItems  FeesStructureItem[]
   assignmentItems StudentFeeAssignmentItem[]
 
   @@unique([schoolId, name])
@@ -678,9 +682,9 @@ model FeesGroup {
   updatedAt   DateTime  @updatedAt
   deletedAt   DateTime?
 
-  school     School          @relation(fields: [schoolId], references: [id])
-  items      FeesGroupItem[]
-  structures FeesStructure[]
+  school      School                 @relation(fields: [schoolId], references: [id])
+  items       FeesGroupItem[]
+  structures  FeesStructure[]
   assignments StudentFeeAssignment[]
 
   @@unique([schoolId, name])
@@ -701,29 +705,29 @@ model FeesGroupItem {
 }
 
 model FeesStructure {
-  id           String    @id @default(cuid())
-  schoolId     String
-  feesGroupId  String
-  classId      String
-  sectionId    String?
-  academicYear String
-  name         String
-  version      Int       @default(1)
-  status       String    @default("active") // draft, active, archived
+  id            String    @id @default(cuid())
+  schoolId      String
+  feesGroupId   String
+  classId       String
+  sectionId     String?
+  academicYear  String
+  name          String
+  version       Int       @default(1)
+  status        String    @default("active") // draft, active, archived
   effectiveFrom DateTime?
   effectiveTo   DateTime?
-  lockedAt     DateTime?
-  lockedBy     String?
-  isActive     Boolean   @default(true)
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  deletedAt    DateTime?
+  lockedAt      DateTime?
+  lockedBy      String?
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
 
-  school    School              @relation(fields: [schoolId], references: [id])
-  feesGroup FeesGroup           @relation(fields: [feesGroupId], references: [id])
-  class     Class               @relation(fields: [classId], references: [id])
-  section   Section?            @relation(fields: [sectionId], references: [id])
-  items     FeesStructureItem[]
+  school      School                 @relation(fields: [schoolId], references: [id])
+  feesGroup   FeesGroup              @relation(fields: [feesGroupId], references: [id])
+  class       Class                  @relation(fields: [classId], references: [id])
+  section     Section?               @relation(fields: [sectionId], references: [id])
+  items       FeesStructureItem[]
   assignments StudentFeeAssignment[]
 
   @@index([schoolId])
@@ -744,8 +748,8 @@ model FeesStructureItem {
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
-  feeStructure FeesStructure @relation(fields: [feeStructureId], references: [id])
-  feeHead      FeesHead      @relation(fields: [feeHeadId], references: [id])
+  feeStructure    FeesStructure              @relation(fields: [feeStructureId], references: [id])
+  feeHead         FeesHead                   @relation(fields: [feeHeadId], references: [id])
   assignmentItems StudentFeeAssignmentItem[]
 
   @@index([feeStructureId])
@@ -753,36 +757,36 @@ model FeesStructureItem {
 }
 
 model FeeCollection {
-  id                 String    @id @default(cuid())
-  schoolId           String
-  studentId          String
-  feeStructureItemId String?
+  id                         String    @id @default(cuid())
+  schoolId                   String
+  studentId                  String
+  feeStructureItemId         String?
   studentFeeAssignmentItemId String?
-  studentFeeInvoiceId String?
-  amount             Float
-  paidAmount         Float     @default(0)
-  discount           Float     @default(0)
-  concession         Float     @default(0)
-  scholarship        Float     @default(0)
-  fine               Float     @default(0)
-  paymentStatus      String    @default("unpaid") // unpaid, partial, paid
-  paymentMethod      String? // cash, online, cheque, upi
-  transactionRef     String?
-  paymentDate        DateTime?
-  receiptNumber      String?
-  dueDate            DateTime?
-  installmentName    String?
-  feeHeadName        String?
-  notes              String?
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
-  deletedAt          DateTime?
+  studentFeeInvoiceId        String?
+  amount                     Float
+  paidAmount                 Float     @default(0)
+  discount                   Float     @default(0)
+  concession                 Float     @default(0)
+  scholarship                Float     @default(0)
+  fine                       Float     @default(0)
+  paymentStatus              String    @default("unpaid") // unpaid, partial, paid
+  paymentMethod              String? // cash, online, cheque, upi
+  transactionRef             String?
+  paymentDate                DateTime?
+  receiptNumber              String?
+  dueDate                    DateTime?
+  installmentName            String?
+  feeHeadName                String?
+  notes                      String?
+  createdAt                  DateTime  @default(now())
+  updatedAt                  DateTime  @updatedAt
+  deletedAt                  DateTime?
 
-  school  School  @relation(fields: [schoolId], references: [id])
-  student Student @relation(fields: [studentId], references: [id])
+  school         School                    @relation(fields: [schoolId], references: [id])
+  student        Student                   @relation(fields: [studentId], references: [id])
   assignmentItem StudentFeeAssignmentItem? @relation(fields: [studentFeeAssignmentItemId], references: [id])
-  invoice StudentFeeInvoice? @relation(fields: [studentFeeInvoiceId], references: [id])
-  ledgerEntries StudentFeeLedgerEntry[]
+  invoice        StudentFeeInvoice?        @relation(fields: [studentFeeInvoiceId], references: [id])
+  ledgerEntries  StudentFeeLedgerEntry[]
 
   @@index([schoolId])
   @@index([studentId])
@@ -813,46 +817,46 @@ model StudentFeeAssignment {
   updatedAt      DateTime  @updatedAt
   deletedAt      DateTime?
 
-  school       School        @relation(fields: [schoolId], references: [id])
-  student      Student       @relation(fields: [studentId], references: [id])
-  feeStructure FeesStructure @relation(fields: [feeStructureId], references: [id])
-  feesGroup    FeesGroup     @relation(fields: [feesGroupId], references: [id])
-  class        Class         @relation(fields: [classId], references: [id])
-  section      Section?      @relation(fields: [sectionId], references: [id])
-  items        StudentFeeAssignmentItem[]
-  invoices     StudentFeeInvoice[]
+  school        School                     @relation(fields: [schoolId], references: [id])
+  student       Student                    @relation(fields: [studentId], references: [id])
+  feeStructure  FeesStructure              @relation(fields: [feeStructureId], references: [id])
+  feesGroup     FeesGroup                  @relation(fields: [feesGroupId], references: [id])
+  class         Class                      @relation(fields: [classId], references: [id])
+  section       Section?                   @relation(fields: [sectionId], references: [id])
+  items         StudentFeeAssignmentItem[]
+  invoices      StudentFeeInvoice[]
   ledgerEntries StudentFeeLedgerEntry[]
 
+  @@unique([studentId, feeStructureId, academicYear])
   @@index([schoolId])
   @@index([studentId])
   @@index([academicYear])
   @@index([status])
-  @@unique([studentId, feeStructureId, academicYear])
 }
 
 model StudentFeeAssignmentItem {
-  id                    String    @id @default(cuid())
-  assignmentId          String
-  feeStructureItemId    String?
-  feeHeadId             String?
-  feeHeadName           String
-  billingBehavior       String
-  installmentName       String
-  amount                Float     @default(0)
-  dueDate               DateTime?
-  lateFee               Float     @default(0)
-  headType              String    @default("STANDARD")
-  isOptional            Boolean   @default(false)
-  status                String    @default("active") // active, waived, cancelled, billed
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
+  id                 String    @id @default(cuid())
+  assignmentId       String
+  feeStructureItemId String?
+  feeHeadId          String?
+  feeHeadName        String
+  billingBehavior    String
+  installmentName    String
+  amount             Float     @default(0)
+  dueDate            DateTime?
+  lateFee            Float     @default(0)
+  headType           String    @default("STANDARD")
+  isOptional         Boolean   @default(false)
+  status             String    @default("active") // active, waived, cancelled, billed
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
-  assignment       StudentFeeAssignment @relation(fields: [assignmentId], references: [id])
-  feeStructureItem FeesStructureItem?   @relation(fields: [feeStructureItemId], references: [id])
-  feeHead          FeesHead?            @relation(fields: [feeHeadId], references: [id])
+  assignment       StudentFeeAssignment    @relation(fields: [assignmentId], references: [id])
+  feeStructureItem FeesStructureItem?      @relation(fields: [feeStructureItemId], references: [id])
+  feeHead          FeesHead?               @relation(fields: [feeHeadId], references: [id])
   invoiceLines     StudentFeeInvoiceLine[]
   feeCollections   FeeCollection[]
-  ledgerEntries     StudentFeeLedgerEntry[]
+  ledgerEntries    StudentFeeLedgerEntry[]
 
   @@index([assignmentId])
   @@index([feeStructureItemId])
@@ -860,34 +864,34 @@ model StudentFeeAssignmentItem {
 }
 
 model StudentFeeInvoice {
-  id             String    @id @default(cuid())
-  schoolId       String
-  studentId      String
-  assignmentId   String?
-  invoiceNumber  String
-  invoiceDate    DateTime  @default(now())
-  dueDate        DateTime?
-  subtotal       Float     @default(0)
-  discount       Float     @default(0)
-  concession     Float     @default(0)
-  scholarship    Float     @default(0)
-  fine           Float     @default(0)
-  totalAmount    Float     @default(0)
-  paidAmount     Float     @default(0)
-  status         String    @default("unpaid") // unpaid, partial, paid, cancelled
-  lockedAt       DateTime?
-  lockedBy       String?
-  notes          String?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-  deletedAt      DateTime?
+  id            String    @id @default(cuid())
+  schoolId      String
+  studentId     String
+  assignmentId  String?
+  invoiceNumber String
+  invoiceDate   DateTime  @default(now())
+  dueDate       DateTime?
+  subtotal      Float     @default(0)
+  discount      Float     @default(0)
+  concession    Float     @default(0)
+  scholarship   Float     @default(0)
+  fine          Float     @default(0)
+  totalAmount   Float     @default(0)
+  paidAmount    Float     @default(0)
+  status        String    @default("unpaid") // unpaid, partial, paid, cancelled
+  lockedAt      DateTime?
+  lockedBy      String?
+  notes         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
 
-  school      School                @relation(fields: [schoolId], references: [id])
-  student     Student               @relation(fields: [studentId], references: [id])
-  assignment  StudentFeeAssignment? @relation(fields: [assignmentId], references: [id])
-  lines       StudentFeeInvoiceLine[]
-  payments    StudentFeePayment[]
-  collections FeeCollection[]
+  school        School                  @relation(fields: [schoolId], references: [id])
+  student       Student                 @relation(fields: [studentId], references: [id])
+  assignment    StudentFeeAssignment?   @relation(fields: [assignmentId], references: [id])
+  lines         StudentFeeInvoiceLine[]
+  payments      StudentFeePayment[]
+  collections   FeeCollection[]
   ledgerEntries StudentFeeLedgerEntry[]
 
   @@unique([schoolId, invoiceNumber])
@@ -923,7 +927,7 @@ model StudentFeeInvoiceLine {
 }
 
 model StudentFeePayment {
-  id             String    @id @default(cuid())
+  id             String   @id @default(cuid())
   schoolId       String
   studentId      String
   invoiceId      String?
@@ -931,21 +935,22 @@ model StudentFeePayment {
   paymentMethod  String
   transactionRef String?
   receiptNumber  String
-  paymentDate    DateTime  @default(now())
+  paymentDate    DateTime @default(now())
   notes          String?
   receivedBy     String?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  school  School             @relation(fields: [schoolId], references: [id])
-  student Student            @relation(fields: [studentId], references: [id])
-  invoice StudentFeeInvoice? @relation(fields: [invoiceId], references: [id])
+  school        School                  @relation(fields: [schoolId], references: [id])
+  student       Student                 @relation(fields: [studentId], references: [id])
+  invoice       StudentFeeInvoice?      @relation(fields: [invoiceId], references: [id])
   ledgerEntries StudentFeeLedgerEntry[]
 
   @@unique([schoolId, receiptNumber])
   @@index([schoolId])
   @@index([studentId])
   @@index([invoiceId])
+  @@index([schoolId, paymentDate])
 }
 
 model StudentFeeLedgerEntry {
@@ -980,14 +985,14 @@ model StudentFeeLedgerEntry {
   updatedAt        DateTime  @updatedAt
   deletedAt        DateTime?
 
-  school        School                    @relation(fields: [schoolId], references: [id])
-  student       Student                   @relation(fields: [studentId], references: [id])
-  assignment    StudentFeeAssignment?     @relation(fields: [assignmentId], references: [id])
-  assignmentItem StudentFeeAssignmentItem? @relation(fields: [assignmentItemId], references: [id])
-  invoice       StudentFeeInvoice?        @relation(fields: [invoiceId], references: [id])
-  invoiceLine   StudentFeeInvoiceLine?    @relation(fields: [invoiceLineId], references: [id])
-  payment       StudentFeePayment?        @relation(fields: [paymentId], references: [id])
-  feeCollection FeeCollection?            @relation(fields: [feeCollectionId], references: [id])
+  school            School                       @relation(fields: [schoolId], references: [id])
+  student           Student                      @relation(fields: [studentId], references: [id])
+  assignment        StudentFeeAssignment?        @relation(fields: [assignmentId], references: [id])
+  assignmentItem    StudentFeeAssignmentItem?    @relation(fields: [assignmentItemId], references: [id])
+  invoice           StudentFeeInvoice?           @relation(fields: [invoiceId], references: [id])
+  invoiceLine       StudentFeeInvoiceLine?       @relation(fields: [invoiceLineId], references: [id])
+  payment           StudentFeePayment?           @relation(fields: [paymentId], references: [id])
+  feeCollection     FeeCollection?               @relation(fields: [feeCollectionId], references: [id])
   debitAllocations  StudentFeeLedgerAllocation[] @relation("DebitLedgerEntry")
   creditAllocations StudentFeeLedgerAllocation[] @relation("CreditLedgerEntry")
 
@@ -1077,6 +1082,7 @@ model Attendance {
   @@index([studentId])
   @@index([academicYear])
   @@index([date])
+  @@index([schoolId, date])
 }
 
 // ============================================
@@ -1462,6 +1468,8 @@ model Notification {
 
   @@index([schoolId])
   @@index([userId])
+  @@index([userId, isRead, createdAt])
+  @@index([schoolId, createdAt])
 }
 
 model Announcement {
@@ -1612,6 +1620,50 @@ model UserRole {
   @@unique([userId, roleId])
   @@index([userId])
   @@index([roleId])
+}
+
+// ============================================
+// AUTH AUDIT & SECURITY
+// ============================================
+
+// Every login attempt (success or failure) gets one row. Used for security
+// audits, "recent activity" UI, anomaly detection, and post-incident forensics.
+model LoginEvent {
+  id            String   @id @default(cuid())
+  userId        String? // null when email/phone doesn't match any user
+  email         String? // captured even for unknown users — useful for spotting credential stuffing
+  schoolId      String? // for tenant-scoped reporting
+  ipAddress     String?
+  userAgent     String?
+  success       Boolean
+  failureReason String? // 'BAD_PASSWORD' | 'USER_NOT_FOUND' | 'INACTIVE' | 'DELETED' | 'RATE_LIMITED' | 'LOCKED'
+  createdAt     DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([email, createdAt])
+  @@index([ipAddress, createdAt])
+  @@index([success, createdAt])
+  @@index([schoolId, createdAt])
+}
+
+// Tracks failed-login streak per user. Reset on successful login. Locks the
+// account for a window after too many failures to defeat brute-force attempts.
+model AccountLockout {
+  userId         String    @id
+  failedAttempts Int       @default(0)
+  lockedUntil    DateTime?
+  lastFailedAt   DateTime?
+  // Audit: last manual unlock — who & when. Overwritten on each unlock; for
+  // full history, consult LoginEvent rows around the unlockedAt timestamp.
+  unlockedBy     String?
+  unlockedAt     DateTime?
+  updatedAt      DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([lockedUntil])
 }
 
 // ============================================

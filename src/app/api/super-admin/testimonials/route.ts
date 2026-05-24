@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { validationError, internalError } from '@/lib/api-errors'
+import { uploadIfDataUrl, IMAGE_MIME_TYPES } from '@/lib/storage'
 
 export async function GET(request: NextRequest) {
   try {
@@ -43,13 +44,22 @@ export async function POST(request: NextRequest) {
       return validationError("Please enter the person's name, their role, and the testimonial quote.")
     }
 
+    const avatarUpload = await uploadIfDataUrl(avatarUrl, {
+      folder: 'testimonials',
+      maxBytes: 1024 * 1024,
+      allowedMimeTypes: IMAGE_MIME_TYPES,
+    })
+    if (avatarUpload.error) {
+      return validationError(`Avatar: ${avatarUpload.error}`)
+    }
+
     const testimonial = await db.testimonial.create({
       data: {
         name,
         role,
         quote,
         stars: stars ?? 5,
-        avatarUrl: avatarUrl ?? null,
+        avatarUrl: avatarUpload.url ?? null,
         isActive: isActive ?? true,
         sortOrder: sortOrder ?? 0,
       },

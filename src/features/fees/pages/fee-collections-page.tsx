@@ -44,6 +44,7 @@ interface Student {
   fullName?: string
   rollNumber?: string | null
   admissionNumber?: string | null
+  profileImage?: string | null
   class?: { id: string; name: string } | null
   section?: { id: string; name: string } | null
   admission?: {
@@ -1279,8 +1280,8 @@ export function FeeCollectionsPage() {
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
                           <div className="flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full border bg-muted">
-                            {student.admission?.profileImage ? (
-                              <img src={student.admission.profileImage} alt={studentName(student)} className="h-full w-full object-cover" />
+                            {(student.profileImage || student.admission?.profileImage) ? (
+                              <img src={(student.profileImage || student.admission?.profileImage) as string} alt={studentName(student)} className="h-full w-full object-cover" />
                             ) : (
                               <UserRound className="size-3.5 text-muted-foreground" />
                             )}
@@ -1331,8 +1332,8 @@ export function FeeCollectionsPage() {
             <div className="grid gap-0 lg:grid-cols-[280px_1fr]">
               <div className="flex items-center gap-3 border-b bg-muted/30 px-3 py-2 lg:border-b-0 lg:border-r">
                 <div className="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border bg-muted">
-                  {selectedStudent.admission?.profileImage ? (
-                    <img src={selectedStudent.admission.profileImage} alt={studentName(selectedStudent)} className="h-full w-full object-cover" />
+                  {(selectedStudent.profileImage || selectedStudent.admission?.profileImage) ? (
+                    <img src={(selectedStudent.profileImage || selectedStudent.admission?.profileImage) as string} alt={studentName(selectedStudent)} className="h-full w-full object-cover" />
                   ) : (
                     <UserRound className="size-8 text-muted-foreground" />
                   )}

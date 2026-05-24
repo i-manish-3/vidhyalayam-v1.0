@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { apiError, internalError } from '@/lib/api-errors'
+import { uploadIfDataUrl, IMAGE_MIME_TYPES } from '@/lib/storage'
 
 export async function GET(
   request: NextRequest,
@@ -46,7 +47,18 @@ export async function PATCH(
     if (role !== undefined) updateData.role = role
     if (quote !== undefined) updateData.quote = quote
     if (stars !== undefined) updateData.stars = stars
-    if (avatarUrl !== undefined) updateData.avatarUrl = avatarUrl
+    if (avatarUrl !== undefined) {
+      const upload = await uploadIfDataUrl(avatarUrl, {
+        folder: 'testimonials',
+        maxBytes: 1024 * 1024,
+        allowedMimeTypes: IMAGE_MIME_TYPES,
+        previousUrl: existing.avatarUrl,
+      })
+      if (upload.error) {
+        return apiError(400, `Avatar: ${upload.error}`)
+      }
+      updateData.avatarUrl = upload.url
+    }
     if (isActive !== undefined) updateData.isActive = isActive
     if (sortOrder !== undefined) updateData.sortOrder = sortOrder
 

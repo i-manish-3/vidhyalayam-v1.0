@@ -110,102 +110,7 @@ If you paused them in the checklist, resume now.
 
 ---
 
-## 5. Worked Example — `familyId` Migration
-
-The `Student.familyId` / `Admission.familyId` migration is a real example of a schema change + data backfill that ships together. Use this as a template for similar future migrations.
-
-### What it does
-
-- Adds `familyId` column to `Student` and `Admission` (nullable, indexed on `Student`)
-- Backfill script (`scripts/backfill-family-id.ts`) walks existing `Student.siblingId` chains via union-find and assigns each connected component a shared `familyId`
-
-### Why backfill is needed
-
-Without it, every existing student would have `familyId = NULL`. The new "Siblings" tab on the student detail page reads `WHERE familyId = ?` — so for any pre-existing family, the tab would render empty even though the old `siblingId` pointers are intact. The backfill heals existing data so the new UI works against historical rows.
-
-### Diagnostic before backfill
-
-Run this against **production** to spot data weirdness before you migrate. Save it as `scripts/check-family-data.ts`:
-
-```ts
-import { db } from '../src/lib/db'
-
-const students = await db.student.findMany({
-  where: { deletedAt: null, siblingId: { not: null } },
-  select: { id: true, schoolId: true, siblingId: true },
-})
-
-let crossSchool = 0
-let dangling = 0
-for (const s of students) {
-  const sib = await db.student.findUnique({
-    where: { id: s.siblingId! },
-    select: { schoolId: true, deletedAt: true },
-  })
-  if (!sib || sib.deletedAt) { dangling++; continue }
-  if (sib.schoolId !== s.schoolId) crossSchool++
-}
-console.log(`Students with siblingId: ${students.length}`)
-console.log(`Cross-school sibling links: ${crossSchool}`)
-console.log(`Dangling sibling pointers: ${dangling}`)
-process.exit(0)
-```
-
-```bash
-bun run scripts/check-family-data.ts
-```
-
-**Expected output for healthy data:** `Cross-school: 0`, `Dangling: 0`. If either is non-zero, the backfill script needs to be hardened with school-scoping and dangling-pointer protection before running.
-
-### Deploy command sequence
-
-```bash
-# Backup
-pg_dump $DATABASE_URL > backup-pre-family-id.sql
-
-# Diagnostic
-bun run scripts/check-family-data.ts
-
-# Schema
-bun run db:push
-
-# Data
-bun run scripts/backfill-family-id.ts
-
-# App
-# (deploy via your normal pipeline)
-```
-
-### Backfill output to expect
-
-```
-🔁 Loading students…
-   Total students: <N>
-   Components: <M>
-✅ Backfill complete
-   Students updated:    <N>
-   Admissions updated:  <K>
-   Multi-member families: <X>
-   Singletons assigned:   <Y>
-```
-
-- `Students updated` should equal `Total students` on the first run.
-- On a second run (idempotency check), it should print `0` for all "updated" lines.
-
-### Rollback
-
-If something is wrong **after** the backfill ran but **before** new app code was deployed:
-- The old app code doesn't read or write `familyId`, so it just ignores the column. No harm.
-- You can leave the column in place and ship a fixed migration later.
-
-If something is wrong **after** new app code was deployed:
-- Restore the database backup.
-- Redeploy the previous app version.
-- Investigate the failure offline before retrying.
-
----
-
-## 6. Multi-Tenant Considerations
+## 5. Multi-Tenant Considerations
 
 This app is multi-tenant — every domain model is scoped by `schoolId`. When writing future backfill scripts:
 
@@ -213,11 +118,9 @@ This app is multi-tenant — every domain model is scoped by `schoolId`. When wr
 2. **Filter `deletedAt: null`** when reading source data, so soft-deleted records don't influence the migration.
 3. **Print per-school counts** in the script output so an operator can spot anomalies (e.g. "School X has 0 families formed" when you expect dozens).
 
-The `familyId` backfill currently scans globally. That was safe for the current dataset (diagnostic showed zero cross-school links), but a future hardened version should iterate per school.
-
 ---
 
-## 6a. Permissions for New Pages
+## 6. Permissions for New Pages
 
 The permission system has three layers; **a new admin page needs each one** or it will silently bypass access control.
 

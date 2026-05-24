@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 import { requireRole } from '@/lib/api-auth'
 import { hashPassword } from '@/lib/auth'
 import { unauthorizedError, notFoundError, validationError, internalError, apiError } from '@/lib/api-errors'
+import { validatePasswordStrength } from '@/lib/auth-security'
 
 // POST /api/super-admin/schools/[id]/reset-password - Reset school admin password
 export async function POST(
@@ -19,9 +20,13 @@ export async function POST(
     const body = await request.json()
     const { newPassword } = body
 
-    // Validate new password
-    if (!newPassword || typeof newPassword !== 'string' || newPassword.trim().length < 6) {
-      return validationError('The new password must be at least 6 characters long. Please choose a longer password.')
+    if (!newPassword || typeof newPassword !== 'string') {
+      return validationError('Please provide a new password.')
+    }
+    const trimmed = newPassword.trim()
+    const strength = validatePasswordStrength(trimmed)
+    if (!strength.valid) {
+      return validationError(strength.reason || 'Please choose a stronger password.')
     }
 
     // Find the school
@@ -51,7 +56,7 @@ export async function POST(
     }
 
     // Hash and update the password
-    const hashedPassword = await hashPassword(newPassword.trim())
+    const hashedPassword = await hashPassword(trimmed)
     await db.user.update({
       where: { id: adminUser.id },
       data: { password: hashedPassword },
