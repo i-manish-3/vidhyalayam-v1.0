@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { api } from '@/lib/api'
 import { useAppStore } from '@/lib/store'
-import { getCurrentAcademicYear, toAcademicYearOptions } from '@/lib/academic-years'
+import { getCurrentAcademicYear } from '@/lib/academic-years'
 import { useToast } from '@/hooks/use-toast'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -32,6 +32,10 @@ interface TransportRoute {
   routeNumber: string | null
   academicYear: string
   feeMonths: string
+  startPoint: string | null
+  endPoint: string | null
+  distance: number | null
+  vehicleNumber: string | null
   stops: string | null
   fee: number
   driverName: string | null
@@ -87,13 +91,22 @@ export function EditTransportRoutePage() {
   const selectedTransportRouteId = useAppStore((s) => s.selectedTransportRouteId)
   const setSelectedTransportRouteId = useAppStore((s) => s.setSelectedTransportRouteId)
   const currentSchoolAcademicYear = useAppStore((s) => s.currentSchool?.academicYear)
+  const viewingAcademicYear = useAppStore((s) => s.viewingAcademicYear)
+
+  // Year is implicit: whatever the user is currently viewing on the routes
+  // list (top-bar session switcher). The route's fares + fee months load for
+  // this year, and saving writes back to this year. Switching sessions happens
+  // in the global top-bar — re-fetch is wired below.
+  const academicYear = viewingAcademicYear || currentSchoolAcademicYear || getCurrentAcademicYear()
 
   const [routeName, setRouteName] = useState('')
   const [routeCode, setRouteCode] = useState('')
-  const [academicYear, setAcademicYear] = useState(currentSchoolAcademicYear || getCurrentAcademicYear())
+  const [startPoint, setStartPoint] = useState('')
+  const [endPoint, setEndPoint] = useState('')
+  const [distance, setDistance] = useState('')
+  const [vehicleNumber, setVehicleNumber] = useState('')
   const [feeMonths, setFeeMonths] = useState<string[]>([])
   const [drivers, setDrivers] = useState<DriverOption[]>([])
-  const [availableAcademicYears, setAvailableAcademicYears] = useState<string[]>([])
   const [driverId, setDriverId] = useState(NO_DRIVER_VALUE)
   const [stops, setStops] = useState<RouteStop[]>([])
   const [stopName, setStopName] = useState('')
@@ -113,45 +126,11 @@ export function EditTransportRoutePage() {
     returnToRoutes()
   }, [returnToRoutes])
 
-  const academicYearOptions = useMemo(
-    () => toAcademicYearOptions(availableAcademicYears, currentSchoolAcademicYear),
-    [availableAcademicYears, currentSchoolAcademicYear]
-  )
-
   useEffect(() => {
     if (!selectedTransportRouteId) {
       goBack('transport')
     }
   }, [goBack, selectedTransportRouteId])
-
-  useEffect(() => {
-    if (!academicYearOptions.some((year) => year.value === academicYear)) {
-      setAcademicYear(academicYearOptions[0]?.value || currentSchoolAcademicYear || getCurrentAcademicYear())
-    }
-  }, [academicYear, academicYearOptions, currentSchoolAcademicYear])
-
-  useEffect(() => {
-    let mounted = true
-
-    const fetchAcademicYears = async () => {
-      try {
-        const res = await api.get<{ academicYears: string[] }>('/api/school/academic-years')
-        if (mounted) {
-          setAvailableAcademicYears(res.academicYears || [])
-        }
-      } catch {
-        if (mounted) {
-          setAvailableAcademicYears(currentSchoolAcademicYear ? [currentSchoolAcademicYear] : [])
-        }
-      }
-    }
-
-    fetchAcademicYears()
-
-    return () => {
-      mounted = false
-    }
-  }, [currentSchoolAcademicYear])
 
   const fetchDrivers = useCallback(async () => {
     try {
@@ -174,11 +153,13 @@ export function EditTransportRoutePage() {
 
     try {
       setLoading(true)
-      const res = await api.get<{ routes: TransportRoute[] }>('/api/school/transport/routes')
+      const res = await api.get<{ routes: TransportRoute[] }>(
+        `/api/school/transport/routes?academicYear=${encodeURIComponent(academicYear)}`
+      )
       const route = (res.routes || []).find((item) => item.id === selectedTransportRouteId)
 
       if (!route) {
-        toast({ title: 'Route Not Found', description: 'The selected transport route could not be found.', variant: 'destructive' })
+        toast({ title: 'Route Not Found', description: 'The selected transport route could not be found in this session.', variant: 'destructive' })
         setSelectedTransportRouteId(null)
         goBack('transport')
         return
@@ -188,7 +169,10 @@ export function EditTransportRoutePage() {
       const parsedStops = parseStops(route.stops)
       setRouteName(route.routeName || '')
       setRouteCode(route.routeNumber || '')
-      setAcademicYear(route.academicYear || currentSchoolAcademicYear || getCurrentAcademicYear())
+      setStartPoint(route.startPoint || '')
+      setEndPoint(route.endPoint || '')
+      setDistance(route.distance != null ? String(route.distance) : '')
+      setVehicleNumber(route.vehicleNumber || '')
       setFeeMonths(parseFeeMonths(route.feeMonths))
       setStops(parsedStops.map((stop) => ({
         name: stop.name,
@@ -202,7 +186,7 @@ export function EditTransportRoutePage() {
     } finally {
       setLoading(false)
     }
-  }, [currentSchoolAcademicYear, goBack, selectedTransportRouteId, setSelectedTransportRouteId, toast])
+  }, [academicYear, goBack, selectedTransportRouteId, setSelectedTransportRouteId, toast])
 
   useEffect(() => {
     fetchDrivers()
@@ -312,6 +296,13 @@ export function EditTransportRoutePage() {
       return
     }
 
+    const trimmedDistance = distance.trim()
+    const distanceValue = trimmedDistance ? Number(trimmedDistance) : null
+    if (distanceValue !== null && (!Number.isFinite(distanceValue) || distanceValue < 0)) {
+      toast({ title: 'Invalid Distance', description: 'Please enter a valid distance in km.', variant: 'destructive' })
+      return
+    }
+
     try {
       setSubmitting(true)
 
@@ -320,6 +311,10 @@ export function EditTransportRoutePage() {
         routeNumber: routeCode.trim(),
         academicYear,
         feeMonths,
+        startPoint: startPoint.trim() || null,
+        endPoint: endPoint.trim() || null,
+        distance: distanceValue,
+        vehicleNumber: vehicleNumber.trim() || null,
         ...(driverChanged ? { driverId: driverId === NO_DRIVER_VALUE ? null : driverId } : {}),
         stops: stops.map((stop) => ({
           name: stop.name.trim(),
@@ -379,7 +374,7 @@ export function EditTransportRoutePage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="edit-route-name" className="text-xs font-medium">
                   Route Name <span className="text-destructive">*</span>
@@ -405,23 +400,68 @@ export function EditTransportRoutePage() {
                   className="h-10"
                 />
               </div>
+            </div>
+
+            <p className="-mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+              <CalendarDays className="size-3.5" />
+              Editing session <Badge variant="secondary" className="font-mono text-[11px]">{academicYear}</Badge>
+              <span>— switch session from the top-bar to edit a different year.</span>
+            </p>
+
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-start-point" className="text-xs font-medium">
+                  Start Point
+                </Label>
+                <Input
+                  id="edit-start-point"
+                  placeholder="e.g., City Center"
+                  value={startPoint}
+                  onChange={(event) => setStartPoint(event.target.value)}
+                  className="h-10"
+                />
+              </div>
 
               <div className="space-y-2">
-                <Label htmlFor="edit-academic-year" className="text-xs font-medium">
-                  Academic Year <span className="text-destructive">*</span>
+                <Label htmlFor="edit-end-point" className="text-xs font-medium">
+                  End Point
                 </Label>
-                <Select value={academicYear} onValueChange={setAcademicYear}>
-                  <SelectTrigger id="edit-academic-year" className="h-10">
-                    <SelectValue placeholder="Select academic year" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {academicYearOptions.map((year) => (
-                      <SelectItem key={year.value} value={year.value}>
-                        {year.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Input
+                  id="edit-end-point"
+                  placeholder="e.g., School Gate"
+                  value={endPoint}
+                  onChange={(event) => setEndPoint(event.target.value)}
+                  className="h-10"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-distance" className="text-xs font-medium">
+                  Distance (km)
+                </Label>
+                <Input
+                  id="edit-distance"
+                  type="number"
+                  min="0"
+                  step="0.1"
+                  placeholder="e.g., 12.5"
+                  value={distance}
+                  onChange={(event) => setDistance(event.target.value)}
+                  className="h-10"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-vehicle-number" className="text-xs font-medium">
+                  Vehicle Number
+                </Label>
+                <Input
+                  id="edit-vehicle-number"
+                  placeholder="e.g., DL 1A 1234"
+                  value={vehicleNumber}
+                  onChange={(event) => setVehicleNumber(event.target.value)}
+                  className="h-10"
+                />
               </div>
             </div>
 

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { api } from '@/lib/api'
 import { useAppStore } from '@/lib/store'
-import { getCurrentAcademicYear, toAcademicYearOptions } from '@/lib/academic-years'
+import { getCurrentAcademicYear } from '@/lib/academic-years'
 import { useToast } from '@/hooks/use-toast'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -32,53 +32,28 @@ export function AddTransportRoutePage() {
   const navigateTo = useAppStore((s) => s.navigateTo)
   const goBack = useAppStore((s) => s.goBack)
   const currentSchoolAcademicYear = useAppStore((s) => s.currentSchool?.academicYear)
+  const viewingAcademicYear = useAppStore((s) => s.viewingAcademicYear)
+
+  // Year is implicit: whatever the user is currently viewing on the routes
+  // list (top-bar session switcher). Falls back to the school's active session,
+  // and finally to the computed current academic year. No dropdown on this
+  // page — switching sessions happens in the global top-bar.
+  const academicYear = viewingAcademicYear || currentSchoolAcademicYear || getCurrentAcademicYear()
 
   const [routeName, setRouteName] = useState('')
   const [routeCode, setRouteCode] = useState('')
-  const [academicYear, setAcademicYear] = useState(currentSchoolAcademicYear || getCurrentAcademicYear())
+  const [startPoint, setStartPoint] = useState('')
+  const [endPoint, setEndPoint] = useState('')
+  const [distance, setDistance] = useState('')
+  const [vehicleNumber, setVehicleNumber] = useState('')
   const [feeMonths, setFeeMonths] = useState<string[]>([])
   const [drivers, setDrivers] = useState<DriverOption[]>([])
-  const [availableAcademicYears, setAvailableAcademicYears] = useState<string[]>([])
   const [driverId, setDriverId] = useState('')
   const [stops, setStops] = useState<RouteStop[]>([])
   const [stopName, setStopName] = useState('')
   const [stopFare, setStopFare] = useState('')
   const [loadingDrivers, setLoadingDrivers] = useState(true)
   const [submitting, setSubmitting] = useState(false)
-
-  const academicYearOptions = useMemo(
-    () => toAcademicYearOptions(availableAcademicYears, currentSchoolAcademicYear),
-    [availableAcademicYears, currentSchoolAcademicYear]
-  )
-
-  useEffect(() => {
-    if (!academicYearOptions.some((year) => year.value === academicYear)) {
-      setAcademicYear(academicYearOptions[0]?.value || currentSchoolAcademicYear || getCurrentAcademicYear())
-    }
-  }, [academicYear, academicYearOptions, currentSchoolAcademicYear])
-
-  useEffect(() => {
-    let mounted = true
-
-    const fetchAcademicYears = async () => {
-      try {
-        const res = await api.get<{ academicYears: string[] }>('/api/school/academic-years')
-        if (mounted) {
-          setAvailableAcademicYears(res.academicYears || [])
-        }
-      } catch {
-        if (mounted) {
-          setAvailableAcademicYears(currentSchoolAcademicYear ? [currentSchoolAcademicYear] : [])
-        }
-      }
-    }
-
-    fetchAcademicYears()
-
-    return () => {
-      mounted = false
-    }
-  }, [currentSchoolAcademicYear])
 
   const fetchDrivers = useCallback(async () => {
     try {
@@ -106,6 +81,10 @@ export function AddTransportRoutePage() {
         ? current.filter((item) => item !== month)
         : [...current, month]
     )
+  }
+
+  const setAllFeeMonths = (checked: boolean) => {
+    setFeeMonths(checked ? [...FEE_MONTH_OPTIONS] : [])
   }
 
   const addStop = () => {
@@ -180,6 +159,13 @@ export function AddTransportRoutePage() {
       return
     }
 
+    const trimmedDistance = distance.trim()
+    const distanceValue = trimmedDistance ? Number(trimmedDistance) : null
+    if (distanceValue !== null && (!Number.isFinite(distanceValue) || distanceValue < 0)) {
+      toast({ title: 'Invalid Distance', description: 'Please enter a valid distance in km.', variant: 'destructive' })
+      return
+    }
+
     try {
       setSubmitting(true)
 
@@ -188,6 +174,10 @@ export function AddTransportRoutePage() {
         routeNumber: routeCode.trim(),
         academicYear,
         feeMonths,
+        startPoint: startPoint.trim() || null,
+        endPoint: endPoint.trim() || null,
+        distance: distanceValue,
+        vehicleNumber: vehicleNumber.trim() || null,
         driverId: driverId || null,
         stops: stops.map((stop) => ({
           name: stop.name,
@@ -226,7 +216,7 @@ export function AddTransportRoutePage() {
             <ArrowLeft className="size-4" />
           </Button>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">Create Route</h1>
+            <h1 className="text-xl font-bold tracking-tight">Create Route</h1>
             <p className="text-sm text-muted-foreground mt-0.5">Set the route name, route code, fee months, stop fares, and optional driver</p>
           </div>
         </div>
@@ -236,16 +226,16 @@ export function AddTransportRoutePage() {
         </Button>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Bus className="size-4" />
-            Route Details
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <Card className="gap-0 overflow-hidden py-0">
+          <CardHeader className="border-b bg-muted/30 px-4 py-2.5 sm:px-5">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Bus className="size-4 text-muted-foreground" />
+              Basic Route Info
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="px-4 pb-4 pt-3 sm:px-5">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="route-name" className="text-xs font-medium">
                   Route Name <span className="text-destructive">*</span>
@@ -271,26 +261,116 @@ export function AddTransportRoutePage() {
                   className="h-10"
                 />
               </div>
+            </div>
+            <p className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+              <CalendarDays className="size-3.5" />
+              Creating in session <Badge variant="secondary" className="font-mono text-[11px]">{academicYear}</Badge>
+              <span>— switch session from the top-bar to create in a different year.</span>
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="gap-0 overflow-hidden py-0">
+          <CardHeader className="border-b bg-muted/30 px-4 py-2.5 sm:px-5">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <MapPin className="size-4 text-muted-foreground" />
+              Route Path & Vehicle
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="px-4 pb-4 pt-3 sm:px-5">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+              <div className="space-y-2">
+                <Label htmlFor="start-point" className="text-xs font-medium">
+                  Start Point
+                </Label>
+                <Input
+                  id="start-point"
+                  placeholder="e.g., City Center"
+                  value={startPoint}
+                  onChange={(event) => setStartPoint(event.target.value)}
+                  className="h-10"
+                />
+              </div>
 
               <div className="space-y-2">
-                <Label htmlFor="academic-year" className="text-xs font-medium">
-                  Academic Year <span className="text-destructive">*</span>
+                <Label htmlFor="end-point" className="text-xs font-medium">
+                  End Point
                 </Label>
-                <Select value={academicYear} onValueChange={setAcademicYear}>
-                  <SelectTrigger id="academic-year" className="h-10">
-                    <SelectValue placeholder="Select academic year" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {academicYearOptions.map((year) => (
-                      <SelectItem key={year.value} value={year.value}>
-                        {year.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Input
+                  id="end-point"
+                  placeholder="e.g., School Gate"
+                  value={endPoint}
+                  onChange={(event) => setEndPoint(event.target.value)}
+                  className="h-10"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="distance" className="text-xs font-medium">
+                  Distance (km)
+                </Label>
+                <Input
+                  id="distance"
+                  type="number"
+                  min="0"
+                  step="0.1"
+                  placeholder="e.g., 12.5"
+                  value={distance}
+                  onChange={(event) => setDistance(event.target.value)}
+                  className="h-10"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="vehicle-number" className="text-xs font-medium">
+                  Vehicle Number
+                </Label>
+                <Input
+                  id="vehicle-number"
+                  placeholder="e.g., DL 1A 1234"
+                  value={vehicleNumber}
+                  onChange={(event) => setVehicleNumber(event.target.value)}
+                  className="h-10"
+                />
               </div>
             </div>
+          </CardContent>
+        </Card>
 
+        <Card className="gap-0 overflow-hidden py-0">
+          <CardHeader className="flex flex-col gap-2 border-b bg-muted/30 px-4 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <CalendarDays className="size-4 text-muted-foreground" />
+              Fee Months
+            </CardTitle>
+            <div className="flex flex-wrap items-center gap-3">
+              <label className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                <Checkbox
+                  checked={
+                    feeMonths.length === FEE_MONTH_OPTIONS.length
+                      ? true
+                      : feeMonths.length > 0
+                        ? 'indeterminate'
+                        : false
+                  }
+                  onCheckedChange={(checked) => setAllFeeMonths(checked === true)}
+                  aria-label="Select all fee months"
+                />
+                All months
+              </label>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setFeeMonths([])}
+                disabled={feeMonths.length === 0}
+                className="h-7 px-2 text-xs"
+              >
+                Clear all
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3 px-4 pb-4 pt-3 sm:px-5">
             <div className="space-y-3">
               <Label className="text-xs font-medium">
                 Fees Applied Months <span className="text-destructive">*</span>
@@ -328,7 +408,17 @@ export function AddTransportRoutePage() {
                 </div>
               )}
             </div>
+          </CardContent>
+        </Card>
 
+        <Card className="gap-0 overflow-hidden py-0">
+          <CardHeader className="border-b bg-muted/30 px-4 py-2.5 sm:px-5">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <PlusCircle className="size-4 text-muted-foreground" />
+              Stops & Fares
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="px-4 pb-4 pt-3 sm:px-5">
             <div className="space-y-3">
               <Label className="text-xs font-medium">
                 Stops <span className="text-destructive">*</span>
@@ -381,7 +471,17 @@ export function AddTransportRoutePage() {
                 </div>
               )}
             </div>
+          </CardContent>
+        </Card>
 
+        <Card className="gap-0 overflow-hidden py-0">
+          <CardHeader className="border-b bg-muted/30 px-4 py-2.5 sm:px-5">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <User className="size-4 text-muted-foreground" />
+              Driver Assignment
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="px-4 pb-4 pt-3 sm:px-5">
             <div className="space-y-2">
               <Label htmlFor="driver" className="text-xs font-medium">
                 Driver
@@ -402,7 +502,14 @@ export function AddTransportRoutePage() {
                 <p className="text-xs text-muted-foreground">No drivers found. You can create the route now and assign a driver later.</p>
               )}
             </div>
+          </CardContent>
+        </Card>
 
+        <div className="sticky bottom-0 -mx-4 border-t bg-background/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:mx-0">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-xs text-muted-foreground">
+              Route name, code, fee months, and at least one stop are required.
+            </p>
             <div className="flex items-center gap-3">
               <Button type="submit" disabled={!canSubmit} className="min-w-[140px] gap-2">
                 {submitting ? (
@@ -412,7 +519,7 @@ export function AddTransportRoutePage() {
                   </>
                 ) : (
                   <>
-                    <User className="size-4" />
+                    <Bus className="size-4" />
                     Create Route
                   </>
                 )}
@@ -421,9 +528,9 @@ export function AddTransportRoutePage() {
                 Cancel
               </Button>
             </div>
-          </form>
-        </CardContent>
-      </Card>
+          </div>
+        </div>
+      </form>
     </div>
   )
 }

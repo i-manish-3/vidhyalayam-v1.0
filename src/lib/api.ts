@@ -66,6 +66,7 @@ function clearRelatedCache(path: string): void {
     { path: '/api/school/sections', clear: ['/api/school/sections'] },
     { path: '/api/school/fees/groups', clear: ['/api/school/fees/groups'] },
     { path: '/api/school/transport/routes', clear: ['/api/school/transport/routes'] },
+    { path: '/api/school/transport/annual-setup', clear: ['/api/school/transport/routes'] },
   ]
   
   for (const pattern of patterns) {

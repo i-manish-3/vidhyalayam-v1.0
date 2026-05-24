@@ -212,7 +212,7 @@ interface StudentData {
     stopName: string | null
     fareAmount: number
     isActive: boolean
-    route: { id: string; routeName: string; routeNumber: string | null } | null
+    route: { id: string; routeName: string; routeNumber: string | null; startPoint: string | null; endPoint: string | null } | null
   }>
   academicYearContext?: {
     requestedAcademicYear: string | null
@@ -1364,8 +1364,8 @@ export function StudentDetailPage() {
                         {transportAlloc?.fareAmount != null && (
                           <InfoRow label="Fare" value={formatCurrency(transportAlloc.fareAmount)} icon={Banknote} />
                         )}
-                        {transportAlloc?.pickupPoint && <InfoRow label="Pickup" value={transportAlloc.pickupPoint} />}
-                        {transportAlloc?.dropPoint && <InfoRow label="Drop" value={transportAlloc.dropPoint} />}
+                        {transportAlloc?.route?.startPoint && <InfoRow label="Start Point" value={transportAlloc.route.startPoint} icon={MapPin} />}
+                        {transportAlloc?.route?.endPoint && <InfoRow label="End Point" value={transportAlloc.route.endPoint} icon={MapPin} />}
                         {transportAlloc?.academicYear && (
                           <InfoRow label="Session" value={transportAlloc.academicYear} icon={CalendarDays} />
                         )}

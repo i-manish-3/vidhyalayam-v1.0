@@ -183,7 +183,7 @@ export async function GET(
         isActive: true,
       },
       include: {
-        route: { select: { id: true, routeName: true, routeNumber: true } },
+        route: { select: { id: true, routeName: true, routeNumber: true, startPoint: true, endPoint: true } },
       },
       orderBy: { academicYear: 'desc' },
     })

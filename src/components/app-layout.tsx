@@ -679,7 +679,7 @@ export function AppLayout() {
   }
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden bg-background font-sans" style={schoolThemeStyle}>
+    <div className="fixed inset-0 flex flex-col overflow-hidden bg-background font-sans" style={schoolThemeStyle}>
       {/* Top Header Bar */}
       <header className="shrink-0 flex h-14 items-center gap-3 border-b border-primary/30 bg-primary text-primary-foreground shadow-sm px-3 lg:px-4 z-30 dark:border-sidebar-border dark:bg-sidebar dark:text-sidebar-foreground">
         {/* Hamburger / Sidebar Toggle */}

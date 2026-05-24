@@ -16,7 +16,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import {
   AlertTriangle,
   ArrowRight,
@@ -113,6 +112,12 @@ function parseFeeMonths(value: string | null | undefined): string[] {
 
 function makeTempId() {
   return `new_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+}
+
+function shiftAcademicYear(year: string, delta: number): string {
+  const match = year.match(/^(\d{4})-(\d{4})$/)
+  if (!match) return ''
+  return `${Number(match[1]) + delta}-${Number(match[2]) + delta}`
 }
 
 interface RouteDiffStopChange {
@@ -310,10 +315,13 @@ export function AnnualTransportSetupPage() {
         const years = res.academicYears || []
         setAcademicYears(years)
         const sorted = [...years].sort((a, b) => b.localeCompare(a))
-        const defaultFrom = currentSchoolYear || sorted[0] || getCurrentAcademicYear()
-        const defaultTo = sorted.find((y) => y !== defaultFrom) || ''
+        const activeYear = currentSchoolYear || sorted[0] || getCurrentAcademicYear()
+        const literalPrev = shiftAcademicYear(activeYear, -1)
+        const defaultFrom = years.includes(literalPrev)
+          ? literalPrev
+          : sorted.find((y) => y < activeYear) || ''
         setFromYear(defaultFrom)
-        setToYear(defaultTo)
+        setToYear(activeYear)
       } catch {
         if (mounted) {
           toast({
@@ -331,6 +339,21 @@ export function AnnualTransportSetupPage() {
       mounted = false
     }
   }, [currentSchoolYear, toast])
+
+  // Keep "To Session" strictly ahead of "From Session". If From moves to or past
+  // To, snap To forward — preferring From + 1 if it exists in the list, otherwise
+  // the closest known year after From.
+  useEffect(() => {
+    if (!fromYear) return
+    if (toYear && toYear > fromYear) return
+    const literalNext = shiftAcademicYear(fromYear, 1)
+    if (literalNext && academicYears.includes(literalNext)) {
+      setToYear(literalNext)
+      return
+    }
+    const nextAvailable = [...academicYears].sort().find((y) => y > fromYear) || ''
+    setToYear(nextAvailable)
+  }, [fromYear, toYear, academicYears])
 
   const loadPlan = useCallback(async () => {
     if (!fromYear || !toYear || fromYear === toYear) return
@@ -460,6 +483,12 @@ export function AnnualTransportSetupPage() {
     )
   }
 
+  const setTargetFeeMonths = (routeIndex: number, months: string[]) => {
+    setExistingPlans((prev) =>
+      prev.map((p, i) => (i === routeIndex ? { ...p, targetFeeMonths: months } : p))
+    )
+  }
+
   const addNewRoute = () => {
     setNewRoutes((prev) => [
       ...prev,
@@ -530,6 +559,12 @@ export function AnnualTransportSetupPage() {
         else set.add(month)
         return { ...r, feeMonths: Array.from(set) }
       })
+    )
+  }
+
+  const setNewRouteFeeMonths = (routeIndex: number, months: string[]) => {
+    setNewRoutes((prev) =>
+      prev.map((r, i) => (i === routeIndex ? { ...r, feeMonths: months } : r))
     )
   }
 
@@ -659,7 +694,7 @@ export function AnnualTransportSetupPage() {
       setPreviewDiff(null)
       setPreviewPayload([])
       setAllocationCounts([])
-      await loadPlan()
+      goBack('transport')
     } catch (err) {
       toast({
         title: 'Could Not Save Annual Setup',
@@ -691,14 +726,14 @@ export function AnnualTransportSetupPage() {
         backAction={{ onClick: () => goBack('transport') }}
       />
 
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
+      <Card className="gap-0 overflow-hidden py-0">
+        <CardHeader className="border-b bg-muted/30 px-4 py-2.5 sm:px-5">
+          <CardTitle className="flex items-center gap-2 text-base">
             <CalendarDays className="size-4 text-muted-foreground" />
             Sessions
           </CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-2">
+        <CardContent className="grid gap-4 px-4 pb-4 pt-3 sm:grid-cols-2 sm:px-5">
           <div className="space-y-1.5">
             <Label>From Session</Label>
             <Select value={fromYear} onValueChange={setFromYear} disabled={loadingYears}>
@@ -716,7 +751,7 @@ export function AnnualTransportSetupPage() {
               <SelectTrigger><SelectValue placeholder="Target session" /></SelectTrigger>
               <SelectContent>
                 {yearOptions
-                  .filter((opt) => opt.value !== fromYear)
+                  .filter((opt) => !fromYear || opt.value > fromYear)
                   .map((opt) => (
                     <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
                   ))}
@@ -748,7 +783,7 @@ export function AnnualTransportSetupPage() {
 
       {!loadingPlan && existingPlans.length > 0 && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <h2 className="text-sm font-medium text-muted-foreground">
               {existingPlans.length} route(s) from {fromYear} — configure for {toYear}
             </h2>
@@ -761,11 +796,11 @@ export function AnnualTransportSetupPage() {
           </div>
 
           {existingPlans.map((plan, planIndex) => (
-            <Card key={plan.routeId}>
-              <CardHeader className="gap-3 pb-3">
+            <Card key={plan.routeId} className="gap-0 overflow-hidden py-0">
+              <CardHeader className="border-b bg-muted/30 px-4 py-2.5 sm:px-5">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <CardTitle className="text-base flex items-center gap-2">
+                    <CardTitle className="flex items-center gap-2 text-base">
                       <Bus className="size-4 text-muted-foreground" />
                       {plan.routeName}
                       {plan.routeNumber && (
@@ -809,7 +844,7 @@ export function AnnualTransportSetupPage() {
                 </div>
               </CardHeader>
               {plan.action === 'copy' && (
-                <CardContent className="space-y-4">
+                <CardContent className="space-y-4 px-4 pb-4 pt-3 sm:px-5">
                   <div className="rounded-md border">
                     <Table>
                       <TableHeader>
@@ -874,9 +909,39 @@ export function AnnualTransportSetupPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label className="text-xs uppercase tracking-wide text-muted-foreground">
-                      Fee Months for {toYear}
-                    </Label>
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                        Fee Months for {toYear}
+                      </Label>
+                      <div className="flex flex-wrap items-center gap-3">
+                        <label className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                          <Checkbox
+                            checked={
+                              plan.targetFeeMonths.length === FEE_MONTH_OPTIONS.length
+                                ? true
+                                : plan.targetFeeMonths.length > 0
+                                  ? 'indeterminate'
+                                  : false
+                            }
+                            onCheckedChange={(checked) =>
+                              setTargetFeeMonths(planIndex, checked === true ? [...FEE_MONTH_OPTIONS] : [])
+                            }
+                            aria-label="Select all fee months"
+                          />
+                          All months
+                        </label>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setTargetFeeMonths(planIndex, [])}
+                          disabled={plan.targetFeeMonths.length === 0}
+                          className="h-7 px-2 text-xs"
+                        >
+                          Clear all
+                        </Button>
+                      </div>
+                    </div>
                     <div className="flex flex-wrap gap-2">
                       {FEE_MONTH_OPTIONS.map((month) => {
                         const checked = plan.targetFeeMonths.includes(month)
@@ -900,7 +965,7 @@ export function AnnualTransportSetupPage() {
                 </CardContent>
               )}
               {plan.action === 'discontinue' && (
-                <CardContent>
+                <CardContent className="px-4 pb-4 pt-3 sm:px-5">
                   <Alert>
                     <AlertTitle>Will be discontinued in {toYear}</AlertTitle>
                     <AlertDescription>
@@ -916,15 +981,15 @@ export function AnnualTransportSetupPage() {
       )}
 
       {!loadingPlan && fromYear && toYear && !sameYear && (
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-3">
+        <Card className="gap-0 overflow-hidden py-0">
+          <CardHeader className="flex flex-row items-center justify-between gap-3 border-b bg-muted/30 px-4 py-2.5 sm:px-5">
             <CardTitle className="text-base">New routes for {toYear || '—'}</CardTitle>
             <Button type="button" variant="outline" size="sm" onClick={addNewRoute} className="gap-1">
               <PlusCircle className="size-3.5" />
               Add Route
             </Button>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-4 px-4 pb-4 pt-3 sm:px-5">
             {newRoutes.length === 0 && (
               <p className="text-sm text-muted-foreground">
                 No new routes. Click <span className="font-medium">Add Route</span> to set up routes that didn&apos;t
@@ -1063,7 +1128,37 @@ export function AnnualTransportSetupPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="text-xs uppercase tracking-wide text-muted-foreground">Fee Months</Label>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <Label className="text-xs uppercase tracking-wide text-muted-foreground">Fee Months</Label>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <label className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                        <Checkbox
+                          checked={
+                            route.feeMonths.length === FEE_MONTH_OPTIONS.length
+                              ? true
+                              : route.feeMonths.length > 0
+                                ? 'indeterminate'
+                                : false
+                          }
+                          onCheckedChange={(checked) =>
+                            setNewRouteFeeMonths(routeIndex, checked === true ? [...FEE_MONTH_OPTIONS] : [])
+                          }
+                          aria-label="Select all fee months"
+                        />
+                        All months
+                      </label>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setNewRouteFeeMonths(routeIndex, [])}
+                        disabled={route.feeMonths.length === 0}
+                        className="h-7 px-2 text-xs"
+                      >
+                        Clear all
+                      </Button>
+                    </div>
+                  </div>
                   <div className="flex flex-wrap gap-2">
                     {FEE_MONTH_OPTIONS.map((month) => {
                       const checked = route.feeMonths.includes(month)
@@ -1106,8 +1201,8 @@ export function AnnualTransportSetupPage() {
       )}
 
       <Dialog open={previewOpen} onOpenChange={(open) => { if (!submitting) setPreviewOpen(open) }}>
-        <DialogContent className="max-w-3xl">
-          <DialogHeader>
+        <DialogContent className="flex h-[100dvh] max-w-3xl flex-col overflow-hidden">
+          <DialogHeader className="shrink-0">
             <DialogTitle>Review Annual Transport Setup</DialogTitle>
             <DialogDescription>
               These are the changes that will be applied to <span className="font-medium text-foreground">{toYear}</span>.
@@ -1116,7 +1211,7 @@ export function AnnualTransportSetupPage() {
           </DialogHeader>
 
           {previewDiff && (
-            <div className="space-y-4">
+            <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto pr-1">
               <div className="grid grid-cols-3 gap-2 text-sm">
                 <div className="rounded-md border p-3">
                   <div className="text-xs uppercase text-muted-foreground">Routes</div>
@@ -1147,8 +1242,7 @@ export function AnnualTransportSetupPage() {
                 </Alert>
               )}
 
-              <ScrollArea className="max-h-[420px] pr-3">
-                <div className="space-y-3">
+              <div className="space-y-3">
                   {previewDiff.existing.length === 0 && previewDiff.created.length === 0 && (
                     <p className="text-sm text-muted-foreground">No changes detected.</p>
                   )}
@@ -1282,11 +1376,10 @@ export function AnnualTransportSetupPage() {
                     </div>
                   ))}
                 </div>
-              </ScrollArea>
             </div>
           )}
 
-          <DialogFooter className="gap-2">
+          <DialogFooter className="shrink-0 gap-2">
             <Button type="button" variant="outline" onClick={() => setPreviewOpen(false)} disabled={submitting}>
               Back to Edit
             </Button>
