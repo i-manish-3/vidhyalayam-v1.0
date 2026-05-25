@@ -295,7 +295,7 @@ export function EditClassPage() {
   if (!classData) return null
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Header with back button */}
       <div className="flex items-center gap-3">
         <Button
@@ -308,7 +308,7 @@ export function EditClassPage() {
           <ArrowLeft className="size-4" />
         </Button>
         <div className="flex-1 min-w-0">
-          <h1 className="text-2xl font-bold tracking-tight">Edit Class</h1>
+          <h1 className="text-xl font-bold tracking-tight">Edit Class</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
             Update details for <span className="font-medium text-foreground">{classData.name}</span>
           </p>
@@ -331,15 +331,15 @@ export function EditClassPage() {
       </div>
 
       {/* ── Class Details Card ── */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <Layers className="size-4" />
+      <Card className="gap-0 overflow-hidden py-0 shadow-sm">
+        <CardHeader className="border-b bg-muted/30 px-4 py-2.5 sm:px-5">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Layers className="size-4 text-muted-foreground" />
             Class Details
           </CardTitle>
-          <CardDescription>Update the basic information for this class</CardDescription>
+          <CardDescription className="text-xs">Update the basic information for this class</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-4 pb-4 pt-3 sm:px-5">
           <div className="space-y-2 max-w-md">
             <Label htmlFor="class-name" className="text-xs font-medium">
               Class Name <span className="text-destructive">*</span>
@@ -364,12 +364,12 @@ export function EditClassPage() {
       </Card>
 
       {/* ── Sections Card ── */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
+      <Card className="gap-0 overflow-hidden py-0 shadow-sm">
+        <CardHeader className="border-b bg-muted/30 px-4 py-2.5 sm:px-5">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <CardTitle className="text-base flex items-center gap-2">
-                <Users className="size-4" />
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Users className="size-4 text-muted-foreground" />
                 Sections
                 {totalSections > 0 && (
                   <Badge variant="secondary" className="ml-1">
@@ -377,7 +377,7 @@ export function EditClassPage() {
                   </Badge>
                 )}
               </CardTitle>
-              <CardDescription className="mt-1">
+              <CardDescription className="mt-1 text-xs">
                 Add or remove sections to organize students within this class
               </CardDescription>
             </div>
@@ -394,8 +394,8 @@ export function EditClassPage() {
             </Button>
           </div>
         </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
+        <CardContent className="px-4 pb-4 pt-3 sm:px-5">
+          <div className="space-y-2.5">
             {/* Existing sections */}
             {existingSections.length > 0 && (
               <div className="space-y-2">
@@ -403,7 +403,7 @@ export function EditClassPage() {
                 {existingSections.map((section, index) => (
                   <div
                     key={section.id}
-                    className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3 items-center p-3 rounded-lg border bg-background"
+                    className="grid grid-cols-1 items-center gap-3 rounded-md border bg-background p-2.5 sm:grid-cols-[1fr_auto]"
                   >
                     <div className="flex items-center gap-3">
                       <Badge variant="outline" className="shrink-0 text-xs h-6 w-6 flex items-center justify-center p-0 font-mono">
@@ -439,7 +439,7 @@ export function EditClassPage() {
                 {newSections.map((section, index) => (
                   <div
                     key={section.tempId}
-                    className="grid grid-cols-1 sm:grid-cols-[1fr_36px] gap-3 items-start p-3 rounded-lg border bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200/50 dark:border-emerald-800/50"
+                    className="grid grid-cols-1 items-start gap-3 rounded-md border border-emerald-200/50 bg-emerald-50/50 p-2.5 dark:border-emerald-800/50 dark:bg-emerald-950/20 sm:grid-cols-[1fr_36px]"
                   >
                     <div className="flex items-center gap-2">
                       <Badge variant="outline" className="shrink-0 text-xs h-6 w-6 flex items-center justify-center p-0 font-mono border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-400">
@@ -475,7 +475,7 @@ export function EditClassPage() {
 
             {/* Empty state for no sections */}
             {existingSections.length === 0 && newSections.length === 0 && (
-              <div className="text-center py-8">
+              <div className="py-6 text-center">
                 <Users className="size-8 text-muted-foreground/40 mx-auto mb-2" />
                 <p className="text-sm text-muted-foreground">No sections yet</p>
                 <p className="text-xs text-muted-foreground mt-1">Add sections to organize students within this class.</p>
@@ -498,12 +498,12 @@ export function EditClassPage() {
       </Card>
 
       {/* ── Subject Assignment Card ── */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
+      <Card className="gap-0 overflow-hidden py-0 shadow-sm">
+        <CardHeader className="border-b bg-muted/30 px-4 py-2.5 sm:px-5">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <CardTitle className="text-base flex items-center gap-2">
-                <BookOpen className="size-4" />
+              <CardTitle className="flex items-center gap-2 text-base">
+                <BookOpen className="size-4 text-muted-foreground" />
                 Assign Subjects
                 {selectedSubjectIds.size > 0 && (
                   <Badge variant="secondary" className="ml-1">
@@ -511,7 +511,7 @@ export function EditClassPage() {
                   </Badge>
                 )}
               </CardTitle>
-              <CardDescription className="mt-1">
+              <CardDescription className="mt-1 text-xs">
                 Select subjects to assign to this class, grouped by type
               </CardDescription>
             </div>
@@ -528,15 +528,15 @@ export function EditClassPage() {
             )}
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-4 pb-4 pt-3 sm:px-5">
           {subjectsByType.length === 0 ? (
-            <div className="text-center py-8">
+            <div className="py-6 text-center">
               <BookOpen className="size-8 text-muted-foreground/40 mx-auto mb-2" />
               <p className="text-sm text-muted-foreground">No subjects available</p>
               <p className="text-xs text-muted-foreground mt-1">Add subjects first, then assign them to classes.</p>
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-3">
               {subjectsByType.map((group) => {
                 const allGroupSelected = group.subjects.every(s => selectedSubjectIds.has(s.id))
 
@@ -571,7 +571,7 @@ export function EditClassPage() {
                             key={subject.id}
                             onClick={() => toggleSubject(subject.id)}
                             className={`
-                              relative flex items-center gap-3 rounded-lg border p-3 cursor-pointer transition-all duration-150
+                              relative flex cursor-pointer items-center gap-3 rounded-md border p-2.5 transition-all duration-150
                               ${isSelected
                                 ? `${group.color} ${group.border} ring-1 ring-current/10`
                                 : 'hover:bg-muted/50 border-border'
@@ -640,10 +640,8 @@ export function EditClassPage() {
         </CardContent>
       </Card>
 
-      <Separator />
-
       {/* Action Buttons */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 pt-1">
         <Button
           onClick={handleSave}
           disabled={!name.trim() || saving}
