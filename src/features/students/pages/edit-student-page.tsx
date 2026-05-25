@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { api } from '@/lib/api'
+import { compressImage } from '@/lib/image-compress'
 import { useAppStore } from '@/lib/store'
 import { useToast } from '@/hooks/use-toast'
 import { Card, CardContent } from '@/components/ui/card'
@@ -781,16 +782,22 @@ export function EditStudentPage() {
             type="file"
             accept="image/jpeg,image/png,image/webp"
             className="hidden"
-            onChange={(e) => {
+            onChange={async (e) => {
               const file = e.target.files?.[0]
               if (!file) return
-              if (file.size > 2 * 1024 * 1024) {
-                toast({ title: 'File Too Large', description: 'Photo must be under 2MB', variant: 'destructive' })
-                return
+              try {
+                const { dataUrl, finalBytes, compressed } = await compressImage(file)
+                if (finalBytes > 200 * 1024) {
+                  toast({ title: 'Photo Too Large', description: 'This image format cannot be compressed under 200 KB. Please upload a JPG, PNG, or WebP.', variant: 'destructive' })
+                  return
+                }
+                updateForm('profileImage', dataUrl)
+                if (compressed) {
+                  toast({ title: 'Photo Compressed', description: `Resized to ${Math.round(finalBytes / 1024)} KB for upload.` })
+                }
+              } catch {
+                toast({ title: 'Could Not Read Photo', description: 'Please try a different image.', variant: 'destructive' })
               }
-              const reader = new FileReader()
-              reader.onload = (ev) => updateForm('profileImage', ev.target?.result as string)
-              reader.readAsDataURL(file)
             }}
           />
           <Button variant="outline" size="sm" onClick={() => (document.getElementById('edit-photo-input') as HTMLInputElement)?.click()} className="gap-1">
@@ -801,7 +808,7 @@ export function EditStudentPage() {
               <X className="size-3" /> Remove
             </Button>
           )}
-          <p className="text-xs text-muted-foreground mt-1">JPG/PNG, max 2MB</p>
+          <p className="text-xs text-muted-foreground mt-1">JPG/PNG/WebP — auto-compressed to 200 KB</p>
         </div>
       </div>
 

@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { api } from '@/lib/api'
+import { compressImage } from '@/lib/image-compress'
 import { useAppStore } from '@/lib/store'
 import { useToast } from '@/hooks/use-toast'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -32,7 +33,7 @@ export function AddDriverPage() {
 
   const isFormValid = name.trim() && dob && drivingLicenseNumber.trim() && phone.trim() && !submitting
 
-  const handlePhotoChange = (file: File | undefined) => {
+  const handlePhotoChange = async (file: File | undefined) => {
     if (!file) return
     setPhotoError('')
 
@@ -42,15 +43,20 @@ export function AddDriverPage() {
       return
     }
 
-    if (file.size >= 1024 * 1024) {
-      setPhoto('')
-      setPhotoError('Photo must be smaller than 1MB.')
-      return
+    try {
+      const { dataUrl, finalBytes, compressed } = await compressImage(file)
+      if (finalBytes > 200 * 1024) {
+        setPhoto('')
+        setPhotoError('Photo must be smaller than 200 KB.')
+        return
+      }
+      setPhoto(dataUrl)
+      if (compressed) {
+        toast({ title: 'Photo Compressed', description: `Resized to ${Math.round(finalBytes / 1024)} KB for upload.` })
+      }
+    } catch {
+      setPhotoError('Could not read this image. Please try a different file.')
     }
-
-    const reader = new FileReader()
-    reader.onload = () => setPhoto(typeof reader.result === 'string' ? reader.result : '')
-    reader.readAsDataURL(file)
   }
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -164,7 +170,7 @@ export function AddDriverPage() {
                 {photoError ? (
                   <p className="text-xs text-destructive">{photoError}</p>
                 ) : (
-                  <p className="text-xs text-muted-foreground">Upload a JPG, PNG, or WebP photo smaller than 1MB.</p>
+                  <p className="text-xs text-muted-foreground">JPG, PNG, or WebP — auto-compressed to 200 KB.</p>
                 )}
               </div>
             </div>

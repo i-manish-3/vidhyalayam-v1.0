@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { ArrowLeft, Banknote, CalendarCheck, Check, Hash, ImagePlus, Loader2, Palette, Save, School, Sparkles, Type, Users, X } from 'lucide-react'
 import { api } from '@/lib/api'
+import { compressImage } from '@/lib/image-compress'
 import { useAppStore, type School as SchoolInfo } from '@/lib/store'
 import { DASHBOARD_FONT_OPTIONS, SCHOOL_THEME_PALETTES, findDashboardFont, findSchoolThemePalette } from '@/lib/theme-palettes'
 import { cn } from '@/lib/utils'
@@ -128,15 +129,13 @@ export function SettingsPage() {
     selectedColor.toLowerCase() !== (currentSchool?.primaryColor || currentPalette.primary).toLowerCase() ||
     selectedFont !== findDashboardFont(currentSchool?.dashboardFont).id
 
-  const readImageFile = (
+  const readImageFile = async (
     file: File | undefined,
     {
       title,
-      maxSize,
       onLoad,
     }: {
       title: string
-      maxSize: number
       onLoad: (value: string) => void
     }
   ) => {
@@ -152,18 +151,30 @@ export function SettingsPage() {
       return
     }
 
-    if (file.size > maxSize) {
+    try {
+      const { dataUrl, finalBytes, compressed } = await compressImage(file)
+      if (finalBytes > 200 * 1024) {
+        toast({
+          title: `${title} Too Large`,
+          description: `The ${title.toLowerCase()} must be under 200 KB. GIF and ICO files are not auto-compressed — please use a smaller file.`,
+          variant: 'destructive',
+        })
+        return
+      }
+      onLoad(dataUrl)
+      if (compressed) {
+        toast({
+          title: `${title} Compressed`,
+          description: `Resized to ${Math.round(finalBytes / 1024)} KB for upload.`,
+        })
+      }
+    } catch {
       toast({
-        title: `${title} Too Large`,
-        description: `The ${title.toLowerCase()} must be smaller than ${Math.round(maxSize / 1024 / 1024)}MB.`,
+        title: `Could Not Read ${title}`,
+        description: 'Please try a different image.',
         variant: 'destructive',
       })
-      return
     }
-
-    const reader = new FileReader()
-    reader.onload = (event) => onLoad((event.target?.result as string) || '')
-    reader.readAsDataURL(file)
   }
 
   const saveTheme = async () => {
@@ -276,7 +287,7 @@ export function SettingsPage() {
             <div className="rounded-lg border bg-card p-3">
               <div className="mb-2 flex items-center justify-between">
                 <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">School Logo</Label>
-                <Badge variant="outline" className="text-[10px]">Max 2MB</Badge>
+                <Badge variant="outline" className="text-[10px]">Max 200 KB</Badge>
               </div>
               <input
                 ref={logoInputRef}
@@ -285,7 +296,6 @@ export function SettingsPage() {
                 className="hidden"
                 onChange={(event) => readImageFile(event.target.files?.[0], {
                   title: 'Logo',
-                  maxSize: 2 * 1024 * 1024,
                   onLoad: setSchoolLogo,
                 })}
               />
@@ -321,7 +331,7 @@ export function SettingsPage() {
             <div className="rounded-lg border bg-card p-3">
               <div className="mb-2 flex items-center justify-between">
                 <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Browser Favicon</Label>
-                <Badge variant="outline" className="text-[10px]">Max 512KB</Badge>
+                <Badge variant="outline" className="text-[10px]">Max 200 KB</Badge>
               </div>
               <input
                 ref={faviconInputRef}
@@ -330,7 +340,6 @@ export function SettingsPage() {
                 className="hidden"
                 onChange={(event) => readImageFile(event.target.files?.[0], {
                   title: 'Favicon',
-                  maxSize: 512 * 1024,
                   onLoad: setSchoolFavicon,
                 })}
               />
@@ -373,7 +382,7 @@ export function SettingsPage() {
           <div className="rounded-lg border bg-card p-3">
             <div className="mb-2 flex items-center justify-between">
               <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Print Header Banner</Label>
-              <Badge variant="outline" className="text-[10px]">Max 3MB</Badge>
+              <Badge variant="outline" className="text-[10px]">Max 200 KB</Badge>
             </div>
             <input
               ref={printHeaderInputRef}
@@ -382,7 +391,6 @@ export function SettingsPage() {
               className="hidden"
               onChange={(event) => readImageFile(event.target.files?.[0], {
                 title: 'Print Header',
-                maxSize: 3 * 1024 * 1024,
                 onLoad: setSchoolPrintHeader,
               })}
             />

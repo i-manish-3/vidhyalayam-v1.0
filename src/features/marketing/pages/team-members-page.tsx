@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { api } from '@/lib/api'
+import { compressImage } from '@/lib/image-compress'
 import { useAppStore } from '@/lib/store'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -590,29 +591,40 @@ export function TeamMembersPage() {
                   onChange={async (e) => {
                     const file = e.target.files?.[0]
                     if (!file) return
-                    
-                    // Validate file size (5MB)
-                    if (file.size > 5 * 1024 * 1024) {
-                      toast({ title: 'Image Too Large', description: 'The image must be smaller than 5MB. Please choose a smaller image.', variant: 'destructive' })
-                      return
-                    }
-                    
+
                     // Validate file type
                     const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
                     if (!validTypes.includes(file.type)) {
                       toast({ title: 'Invalid Image Format', description: 'Please upload a JPG, PNG, WebP, or GIF image.', variant: 'destructive' })
                       return
                     }
-                    
+
+                    // Compress to ≤200 KB before uploading
+                    let uploadFile = file
+                    try {
+                      const result = await compressImage(file)
+                      if (result.finalBytes > 200 * 1024) {
+                        toast({ title: 'Image Too Large', description: 'The image must be under 200 KB. GIFs are not auto-compressed — please use a smaller file.', variant: 'destructive' })
+                        return
+                      }
+                      uploadFile = result.file
+                      if (result.compressed) {
+                        toast({ title: 'Image Compressed', description: `Resized to ${Math.round(result.finalBytes / 1024)} KB for upload.` })
+                      }
+                    } catch {
+                      toast({ title: 'Could Not Read Image', description: 'Please try a different file.', variant: 'destructive' })
+                      return
+                    }
+
                     // Show local preview immediately
-                    const localPreview = URL.createObjectURL(file)
+                    const localPreview = URL.createObjectURL(uploadFile)
                     setImagePreview(localPreview)
-                    
+
                     // Upload to server
                     setIsUploading(true)
                     try {
                       const formData = new FormData()
-                      formData.append('file', file)
+                      formData.append('file', uploadFile)
                       
                       const token = useAppStore.getState().token
                       const response = await fetch('/api/upload/team', {
@@ -654,7 +666,7 @@ export function TeamMembersPage() {
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground">
-                JPG, PNG, WebP or GIF. Max 5MB.
+                JPG, PNG, WebP or GIF — auto-compressed to 200 KB.
               </p>
             </div>
 

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { api } from '@/lib/api'
+import { compressImage } from '@/lib/image-compress'
 import { useAppStore } from '@/lib/store'
 import { useToast } from '@/hooks/use-toast'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -152,20 +153,24 @@ export function StaffCreatePage() {
   const isFormValid = name.trim() && phoneDigits.length === 10 && dob && selectedRoleId
 
   // ── Photo handler ──
-  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-    if (file.size > 1 * 1024 * 1024) {
-      toast({ title: 'Photo Too Large', description: 'Please choose a photo under 1 MB.', variant: 'destructive' })
-      // Reset the file input so the user can re-pick the same/different file.
+    try {
+      const { dataUrl, finalBytes, compressed } = await compressImage(file)
+      if (finalBytes > 200 * 1024) {
+        toast({ title: 'Photo Too Large', description: 'This image format cannot be compressed under 200 KB. Please upload a JPG, PNG, or WebP.', variant: 'destructive' })
+        if (photoInputRef.current) photoInputRef.current.value = ''
+        return
+      }
+      setAvatar(dataUrl)
+      if (compressed) {
+        toast({ title: 'Photo Compressed', description: `Resized to ${Math.round(finalBytes / 1024)} KB for upload.` })
+      }
+    } catch {
+      toast({ title: 'Could Not Read Photo', description: 'Please try a different image.', variant: 'destructive' })
       if (photoInputRef.current) photoInputRef.current.value = ''
-      return
     }
-    const reader = new FileReader()
-    reader.onload = () => {
-      if (typeof reader.result === 'string') setAvatar(reader.result)
-    }
-    reader.readAsDataURL(file)
   }
 
   // ── Submit handler ──
@@ -282,7 +287,7 @@ export function StaffCreatePage() {
                         </Button>
                       )}
                     </div>
-                    <p className="text-[11px] text-muted-foreground">JPG or PNG, up to 1 MB.</p>
+                    <p className="text-[11px] text-muted-foreground">JPG/PNG/WebP — auto-compressed to 200 KB.</p>
                     <input
                       ref={photoInputRef}
                       type="file"
