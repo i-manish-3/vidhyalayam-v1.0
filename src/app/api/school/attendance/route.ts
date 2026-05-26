@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { requireRole } from '@/lib/api-auth'
+import { requirePermission, requireRole } from '@/lib/api-auth'
 import { unauthorizedError, internalError, apiError } from '@/lib/api-errors'
 
 const ACADEMIC_YEAR_PATTERN = /^\d{4}-\d{4}$/
@@ -317,14 +317,23 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { date, classId, sectionId, action } = body
+    const { date, classId, sectionId } = body
+    const action = body.action === 'reopen' ? 'reopen' : 'finalize'
+    const reason = typeof body.reason === 'string' ? body.reason.trim() : ''
     const academicYear = await resolveAcademicYear(user.schoolId, body.academicYear || null, true)
 
     if (!date || !classId) {
-      return apiError(400, 'Date and class are required to finalize attendance.')
+      return apiError(400, 'Date and class are required.')
     }
     if (!academicYear) {
       return apiError(400, 'Please choose an active academic year.')
+    }
+    if (action === 'reopen' && user.role !== 'SCHOOL_ADMIN') {
+      const authorized = await requirePermission(request, 'attendance:reopen')
+      if (!authorized) return apiError(403, "You don't have permission to reopen finalized attendance.")
+    }
+    if (action === 'reopen' && reason.length < 5) {
+      return apiError(400, 'Please enter a reason for reopening attendance.')
     }
 
     // Parse date as local midnight
@@ -379,11 +388,17 @@ export async function PATCH(request: NextRequest) {
       },
       select: { studentId: true, finalized: true },
     })
+    if (existingAttendance.length === 0) {
+      return apiError(400, 'No attendance records found for this class and date.')
+    }
 
     // Check if already finalized
     const alreadyFinalized = existingAttendance.every((a) => a.finalized)
     if (action === 'finalize' && alreadyFinalized && existingAttendance.length > 0) {
       return apiError(400, 'Attendance is already finalized.')
+    }
+    if (action === 'reopen' && !alreadyFinalized) {
+      return apiError(400, 'Attendance is already open for editing.')
     }
 
     // Check all students are marked before finalizing
@@ -395,25 +410,43 @@ export async function PATCH(request: NextRequest) {
       }
     }
 
-    // Finalize all attendance records for this date/class/section
-    const result = await db.attendance.updateMany({
-      where: {
-        schoolId: user.schoolId,
-        date: attendanceDate,
-        academicYear,
-        studentId: { in: studentIds },
-      },
-      data: {
-        finalized: action === 'finalize',
-        finalizedAt: action === 'finalize' ? new Date() : null,
-        finalizedBy: action === 'finalize' ? user.userId : null,
-      },
+    const nowTs = new Date()
+    const result = await db.$transaction(async (tx) => {
+      const updated = await tx.attendance.updateMany({
+        where: {
+          schoolId: user.schoolId,
+          date: attendanceDate,
+          academicYear,
+          studentId: { in: studentIds },
+        },
+        data: {
+          finalized: action === 'finalize',
+          finalizedAt: action === 'finalize' ? nowTs : null,
+          finalizedBy: action === 'finalize' ? user.userId : null,
+        },
+      })
+
+      await tx.attendanceAuditLog.create({
+        data: {
+          schoolId: user.schoolId!,
+          academicYear,
+          date: attendanceDate,
+          classId,
+          sectionId: sectionId || null,
+          action,
+          reason: action === 'reopen' ? reason : null,
+          performedBy: user.userId,
+          createdAt: nowTs,
+        },
+      })
+
+      return updated
     })
 
     return NextResponse.json({
       message: action === 'finalize'
         ? `Attendance finalized for ${result.count} students. No further edits allowed.`
-        : `Attendance unfinalized for ${result.count} students. Editing is now allowed.`,
+        : `Attendance reopened for ${result.count} students. Editing is now allowed.`,
       count: result.count,
       finalized: action === 'finalize',
     })

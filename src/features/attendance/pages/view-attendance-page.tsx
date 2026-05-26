@@ -44,6 +44,8 @@ interface AttendanceRecord {
   date: string
   status: AttendanceStatus
   remarks: string | null
+  createdAt?: string
+  updatedAt?: string
   student: {
     id: string
     firstName: string
@@ -131,6 +133,31 @@ function formatDate(dateStr: string): string {
   return date.toLocaleDateString('en-IN', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
 }
 
+function formatSubmittedTime(value: string | null | undefined): string {
+  if (!value) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  return date.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })
+}
+
+function formatSubmittedDateTime(value: string | null | undefined): string {
+  if (!value) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  return date.toLocaleString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+  })
+}
+
+function getSubmittedAt(record: AttendanceRecord): string | undefined {
+  return record.updatedAt || record.createdAt
+}
+
 function navigateDate(dateStr: string, direction: number): string {
   const [y, m, d] = dateStr.split('-').map(Number)
   const date = new Date(y, m - 1, d)
@@ -140,6 +167,40 @@ function navigateDate(dateStr: string, direction: number): string {
 
 function getInitials(firstName: string, lastName: string): string {
   return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase()
+}
+
+const rollNumberCollator = new Intl.Collator('en', { numeric: true, sensitivity: 'base' })
+
+function compareRecordsByRollNumber(a: AttendanceRecord, b: AttendanceRecord): number {
+  const aRoll = (a.student.rollNumber || '').trim()
+  const bRoll = (b.student.rollNumber || '').trim()
+
+  if (aRoll && !bRoll) return -1
+  if (!aRoll && bRoll) return 1
+
+  const rollCompare = rollNumberCollator.compare(aRoll, bRoll)
+  if (rollCompare !== 0) return rollCompare
+
+  const aName = `${a.student.firstName} ${a.student.lastName}`.trim()
+  const bName = `${b.student.firstName} ${b.student.lastName}`.trim()
+  return rollNumberCollator.compare(aName, bName)
+}
+
+function normalizeSearchValue(value: string | null | undefined): string {
+  return (value || '').toLowerCase().replace(/\s+/g, ' ').trim()
+}
+
+function matchesRecordSearch(record: AttendanceRecord, query: string): boolean {
+  const q = normalizeSearchValue(query)
+  if (!q) return true
+
+  const firstName = normalizeSearchValue(record.student.firstName)
+  const lastName = normalizeSearchValue(record.student.lastName)
+  const fullName = normalizeSearchValue(`${record.student.firstName} ${record.student.lastName}`)
+  const reverseName = normalizeSearchValue(`${record.student.lastName} ${record.student.firstName}`)
+  const rollNumber = normalizeSearchValue(record.student.rollNumber)
+
+  return [firstName, lastName, fullName, reverseName, rollNumber].some((value) => value.includes(q))
 }
 
 // ── Component ──────────────────────────────────────────────────────────
@@ -208,7 +269,7 @@ export function ViewAttendancePage() {
         records: AttendanceRecord[]
         stats: { total: number; present: number; absent: number; leave: number }
       }>('/api/school/attendance', params)
-      setRecords(res.records || [])
+      setRecords([...(res.records || [])].sort(compareRecordsByRollNumber))
       setStats(res.stats || { total: 0, present: 0, absent: 0, leave: 0 })
     } catch {
       toast({ title: 'Error', description: 'Failed to load attendance data.', variant: 'destructive' })
@@ -228,14 +289,7 @@ export function ViewAttendancePage() {
 
   // Filter records by search
   const filteredRecords = useMemo(() => {
-    if (!searchQuery.trim()) return records
-    const q = searchQuery.toLowerCase()
-    return records.filter(r =>
-      `${r.student.firstName} ${r.student.lastName}`.toLowerCase().includes(q) ||
-      r.student.rollNumber.toLowerCase().includes(q) ||
-      (r.student.class?.name || '').toLowerCase().includes(q) ||
-      (r.student.section?.name || '').toLowerCase().includes(q)
-    )
+    return records.filter((record) => matchesRecordSearch(record, searchQuery))
   }, [records, searchQuery])
 
   // Attendance percentage
@@ -258,7 +312,7 @@ export function ViewAttendancePage() {
   if (initialLoad) return <LoadingState />
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 pb-20 sm:pb-0">
       {/* ── Page Header ──────────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div className="flex items-center gap-3">
@@ -269,13 +323,13 @@ export function ViewAttendancePage() {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <Badge variant="outline" className="w-fit text-xs h-7 gap-1.5 px-3">
+        <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center">
+          <Badge variant="outline" className="h-9 w-full justify-center gap-1.5 px-3 text-xs sm:h-7 sm:w-fit">
             <CalendarDays className="size-3.5" />
             {formatDate(date)}
           </Badge>
           {canMark && (
-            <Button size="sm" onClick={() => router.push('/attendance/mark')} className="gap-1.5">
+            <Button size="sm" onClick={() => router.push('/attendance/mark')} className="h-9 w-full gap-1.5 sm:h-8 sm:w-auto">
               <ClipboardCheck className="size-4" />
               Mark Attendance
             </Button>
@@ -285,36 +339,34 @@ export function ViewAttendancePage() {
 
       {/* ── Filter Bar ───────────────────────────────────────────────── */}
       <Card className="shadow-sm">
-        <CardContent className="px-3 py-2">
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+        <CardContent className="p-3">
+          <div className="grid gap-3 xl:grid-cols-[auto_auto_auto_minmax(220px,1fr)] xl:items-center">
             {/* Date navigation */}
-            <div className="flex items-center gap-1">
-              <Button variant="outline" size="icon" className="size-7 shrink-0" onClick={() => setDate(navigateDate(date, -1))}>
+            <div className="grid grid-cols-[36px_minmax(0,1fr)_36px] gap-2 sm:grid-cols-[28px_220px_28px_auto] sm:items-center">
+              <Button variant="outline" size="icon" className="size-9 shrink-0 sm:size-7" onClick={() => setDate(navigateDate(date, -1))}>
                 <ChevronLeft className="size-3" />
               </Button>
               <DatePicker
                 value={date}
                 onChange={setDate}
                 disableFuture
-                triggerClassName="h-7 min-w-[160px] text-xs px-2.5"
+                triggerClassName="h-9 w-full min-w-0 justify-start px-2.5 text-sm sm:h-7 sm:w-[220px] sm:text-xs"
               />
-              <Button variant="outline" size="icon" className="size-7 shrink-0" onClick={() => setDate(navigateDate(date, 1))} disabled={isToday}>
+              <Button variant="outline" size="icon" className="size-9 shrink-0 sm:size-7" onClick={() => setDate(navigateDate(date, 1))} disabled={isToday}>
                 <ChevronRight className="size-3" />
               </Button>
               {!isToday && (
-                <Button variant="ghost" size="sm" className="h-7 text-[11px] px-2" onClick={() => setDate(getTodayString())}>
+                <Button variant="ghost" size="sm" className="col-span-3 h-8 px-2 text-xs sm:col-span-1 sm:h-7 sm:text-[11px]" onClick={() => setDate(getTodayString())}>
                   Today
                 </Button>
               )}
             </div>
 
-            <Separator orientation="vertical" className="hidden lg:block h-5" />
-
             {/* Class */}
-            <div className="flex items-center gap-1.5">
+            <div className="grid grid-cols-[72px_minmax(0,1fr)] items-center gap-2 sm:flex sm:items-center">
               <Label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap">Class</Label>
               <Select value={classId} onValueChange={handleClassChange}>
-                <SelectTrigger className="h-7 w-[130px] text-xs">
+                <SelectTrigger className="h-9 w-full text-sm sm:h-7 sm:w-[160px] sm:text-xs">
                   <SelectValue placeholder="Select Class" />
                 </SelectTrigger>
                 <SelectContent>
@@ -326,13 +378,13 @@ export function ViewAttendancePage() {
             </div>
 
             {/* Section */}
-            <div className="flex items-center gap-1.5">
+            <div className="grid grid-cols-[72px_minmax(0,1fr)] items-center gap-2 sm:flex sm:items-center">
               <Label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap">Section</Label>
               {classHasNoSections ? (
-                <Badge variant="secondary" className="h-7 text-xs px-3">No Sections</Badge>
+                <Badge variant="secondary" className="flex h-9 w-full items-center px-3 text-sm sm:h-7 sm:w-auto sm:text-xs">No Sections</Badge>
               ) : (
                 <Select value={sectionId} onValueChange={setSectionId} disabled={!classId}>
-                  <SelectTrigger className="h-7 w-[120px] text-xs">
+                  <SelectTrigger className="h-9 w-full text-sm sm:h-7 sm:w-[150px] sm:text-xs">
                     <SelectValue placeholder="Select Section" />
                   </SelectTrigger>
                   <SelectContent>
@@ -345,20 +397,20 @@ export function ViewAttendancePage() {
             </div>
 
             {/* Search */}
-            <div className="relative flex-1 min-w-[160px] max-w-sm lg:ml-auto">
-              <Search className="absolute left-2 top-1/2 -translate-y-1/2 size-3 text-muted-foreground" />
+            <div className="relative min-w-0 xl:justify-self-end xl:w-full xl:max-w-sm">
+              <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
               <Input
                 placeholder="Search by name, roll no..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-7 pr-7 h-7 text-xs"
+                className="h-9 pl-8 pr-8 text-sm sm:h-7 sm:text-xs"
               />
               {searchQuery && (
                 <button
                   onClick={() => setSearchQuery('')}
                   className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 >
-                  <X className="size-3" />
+                  <X className="size-3.5 sm:size-3" />
                 </button>
               )}
             </div>
@@ -370,7 +422,7 @@ export function ViewAttendancePage() {
       {stats.total > 0 && (
         <div className="space-y-2">
           {/* Attendance rate bar - thin */}
-          <div className="flex items-center gap-3 px-3 py-2 rounded-lg border bg-card shadow-sm">
+          <div className="flex flex-col gap-3 rounded-lg border bg-card px-3 py-3 shadow-sm sm:flex-row sm:items-center sm:py-2">
             <div className="size-7 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
               <BarChart3 className="size-3.5 text-primary" />
             </div>
@@ -397,8 +449,8 @@ export function ViewAttendancePage() {
                 )}
               </div>
             </div>
-            <Separator orientation="vertical" className="h-6" />
-            <div className="flex items-center gap-3 flex-wrap">
+            <Separator orientation="vertical" className="hidden h-6 sm:block" />
+            <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap sm:items-center sm:gap-3">
               <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
                 <span className="size-1.5 rounded-full bg-emerald-500" /> {stats.present}P
               </span>
@@ -412,14 +464,14 @@ export function ViewAttendancePage() {
           </div>
 
           {/* Stat strips - thin */}
-          <div className="flex flex-wrap items-stretch gap-2">
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-stretch">
             {[
               { label: 'Total', value: stats.total, color: 'text-foreground', bg: 'bg-primary/10', icon: ClipboardList },
               { label: 'Present', value: stats.present, color: 'text-emerald-700 dark:text-emerald-400', bg: 'bg-emerald-100 dark:bg-emerald-900/40', icon: Check },
               { label: 'Absent', value: stats.absent, color: 'text-red-700 dark:text-red-400', bg: 'bg-red-100 dark:bg-red-900/40', icon: X },
               { label: 'Leave', value: stats.leave, color: 'text-amber-700 dark:text-amber-400', bg: 'bg-amber-100 dark:bg-amber-900/40', icon: CalendarOff },
             ].map((item) => (
-              <div key={item.label} className="flex items-center gap-2 px-3 py-2 rounded-lg border bg-card shadow-sm">
+              <div key={item.label} className="flex items-center gap-2 rounded-lg border bg-card px-3 py-2 shadow-sm">
                 <div className={cn('size-7 rounded-md flex items-center justify-center shrink-0', item.bg)}>
                   <item.icon className={cn('size-3.5', item.color)} />
                 </div>
@@ -481,11 +533,11 @@ export function ViewAttendancePage() {
             return (
               <Card key={groupKey} className="shadow-sm overflow-hidden">
                 {/* Group header */}
-                <div className="px-5 py-3 bg-muted/40 border-b">
-                  <div className="flex items-center justify-between flex-wrap gap-2">
-                    <div className="flex items-center gap-2">
+                <div className="border-b bg-muted/40 px-3 py-3 sm:px-5">
+                  <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                    <div className="flex min-w-0 flex-wrap items-center gap-2">
                       <Users className="size-4 text-muted-foreground shrink-0" />
-                      <h3 className="text-sm font-semibold">{groupKey}</h3>
+                      <h3 className="min-w-0 text-sm font-semibold">{groupKey}</h3>
                       <Badge variant="secondary" className="text-[10px] h-5">
                         {groupRecords.length}
                       </Badge>
@@ -496,7 +548,7 @@ export function ViewAttendancePage() {
                         </Badge>
                       )}
                     </div>
-                    <div className="flex items-center gap-2 flex-wrap">
+                    <div className="grid grid-cols-4 gap-2 sm:flex sm:flex-wrap sm:items-center">
                       <span className="text-[11px] font-medium text-emerald-700 bg-emerald-100 dark:bg-emerald-900/40 dark:text-emerald-300 px-2 py-0.5 rounded">
                         {gPresent} P
                       </span>
@@ -506,7 +558,7 @@ export function ViewAttendancePage() {
                       <span className="text-[11px] font-medium text-amber-700 bg-amber-100 dark:bg-amber-900/40 dark:text-amber-300 px-2 py-0.5 rounded">
                         {gLeave} L
                       </span>
-                      <Separator orientation="vertical" className="h-4" />
+                      <Separator orientation="vertical" className="hidden h-4 sm:block" />
                       <span className={cn(
                         'text-[11px] font-bold',
                         gPct >= 75 ? 'text-emerald-600' : gPct >= 50 ? 'text-amber-600' : 'text-red-600',
@@ -524,47 +576,55 @@ export function ViewAttendancePage() {
                   <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider flex-1">Student Name</span>
                   <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider w-20 text-center">Roll No</span>
                   <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider w-28 text-center">Status</span>
-                  <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider w-32 text-center">Submitted By</span>
+                  <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider w-40 text-center">Submitted</span>
                 </div>
 
                 {/* Records */}
                 <div className="divide-y divide-border">
                   {groupRecords.map((record, idx) => {
                     const statusConfig = STATUS_CONFIG[record.status] || STATUS_CONFIG.present
+                    const submittedAt = getSubmittedAt(record)
+                    const submittedTime = formatSubmittedTime(submittedAt)
+                    const submittedDateTime = formatSubmittedDateTime(submittedAt)
                     return (
                       <div
                         key={record.id}
                         className={cn(
-                          'px-5 py-2.5 flex items-center gap-3 transition-colors hover:bg-muted/20',
+                          'px-3 py-3 transition-colors hover:bg-muted/20 sm:px-5 md:flex md:items-center md:gap-3 md:py-2.5',
                           record.status !== 'present' && statusConfig.bgColor,
                         )}
                       >
-                        {/* Serial number */}
-                        <span className="text-[11px] font-mono text-muted-foreground w-8 text-center shrink-0">
-                          {idx + 1}
-                        </span>
+                        <div className="flex min-w-0 items-center gap-3 md:flex-1">
+                          {/* Serial number */}
+                          <span className="w-6 shrink-0 text-center font-mono text-[11px] text-muted-foreground md:w-8">
+                            {idx + 1}
+                          </span>
 
-                        {/* Avatar */}
-                        <Avatar className="size-8 shrink-0">
-                          <AvatarFallback className={cn(
-                            'text-[10px] font-bold',
-                            statusConfig.avatarBg,
-                          )}>
-                            {getInitials(record.student.firstName, record.student.lastName)}
-                          </AvatarFallback>
-                        </Avatar>
+                          {/* Avatar */}
+                          <Avatar className="size-10 shrink-0 md:size-8">
+                            <AvatarFallback className={cn(
+                              'text-[10px] font-bold',
+                              statusConfig.avatarBg,
+                            )}>
+                              {getInitials(record.student.firstName, record.student.lastName)}
+                            </AvatarFallback>
+                          </Avatar>
 
-                        {/* Student name + remark */}
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium truncate leading-tight">
-                            {record.student.firstName} {record.student.lastName}
-                          </p>
-                          {record.remarks && (
-                            <p className="text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5 truncate">
-                              <MessageSquare className="size-3 shrink-0" />
-                              {record.remarks}
+                          {/* Student name + remark */}
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-semibold leading-tight md:font-medium">
+                              {record.student.firstName} {record.student.lastName}
                             </p>
-                          )}
+                            <p className="mt-0.5 text-xs text-muted-foreground md:hidden">
+                              Roll No. {record.student.rollNumber || '—'}
+                            </p>
+                            {record.remarks && (
+                              <p className="mt-0.5 flex items-center gap-1 truncate text-[11px] text-muted-foreground">
+                                <MessageSquare className="size-3 shrink-0" />
+                                {record.remarks}
+                              </p>
+                            )}
+                          </div>
                         </div>
 
                         {/* Roll number */}
@@ -573,26 +633,41 @@ export function ViewAttendancePage() {
                         </span>
 
                         {/* Status badge */}
-                        <div className={cn(
-                          'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-semibold shrink-0',
-                          statusConfig.bgColor,
-                          statusConfig.textColor,
-                        )}>
-                          <statusConfig.icon className="size-3" />
-                          {statusConfig.label}
+                        <div className="mt-3 grid grid-cols-2 gap-2 md:mt-0 md:flex md:w-28 md:shrink-0 md:items-center md:justify-center">
+                          <div className={cn(
+                            'inline-flex h-9 items-center justify-center gap-1.5 rounded-md px-2.5 text-[11px] font-semibold md:h-auto md:py-1',
+                            statusConfig.bgColor,
+                            statusConfig.textColor,
+                          )}>
+                            <statusConfig.icon className="size-3" />
+                            {statusConfig.label}
+                          </div>
+
+                          {record.markedByUser && (
+                            <div className="inline-flex h-9 min-w-0 items-center justify-center gap-1.5 rounded-md bg-slate-50 px-2 text-[11px] text-slate-600 dark:bg-slate-800/50 dark:text-slate-400 md:hidden">
+                              <UserCheck className="size-3 shrink-0" />
+                              <span className="truncate">
+                                {record.markedByUser.name}{submittedTime ? `, ${submittedTime}` : ''}
+                              </span>
+                            </div>
+                          )}
                         </div>
 
                         {/* Submitted by */}
-                        <div className="w-32 shrink-0 hidden md:flex items-center justify-center">
+                        <div className="hidden w-40 shrink-0 items-center justify-center md:flex">
                           {record.markedByUser ? (
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-slate-50 dark:bg-slate-800/50 text-[11px] text-slate-600 dark:text-slate-400 max-w-full">
+                                <div className="inline-flex max-w-full items-center gap-1.5 rounded-md bg-slate-50 px-2 py-0.5 text-[11px] text-slate-600 dark:bg-slate-800/50 dark:text-slate-400">
                                   <UserCheck className="size-3 shrink-0" />
-                                  <span className="truncate">{record.markedByUser.name}</span>
+                                  <span className="truncate">
+                                    {record.markedByUser.name}{submittedTime ? `, ${submittedTime}` : ''}
+                                  </span>
                                 </div>
                               </TooltipTrigger>
-                              <TooltipContent>Marked by {record.markedByUser.name}</TooltipContent>
+                              <TooltipContent>
+                                Marked by {record.markedByUser.name}{submittedDateTime ? ` at ${submittedDateTime}` : ''}
+                              </TooltipContent>
                             </Tooltip>
                           ) : (
                             <span className="text-[11px] text-muted-foreground/50">—</span>

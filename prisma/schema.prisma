@@ -38,6 +38,7 @@ model User {
   userRoles        UserRole[]
   userPermissions  UserPermission[]
   markedAttendance Attendance[]     @relation("markedByUser")
+  attendanceAuditLogs AttendanceAuditLog[] @relation("attendanceAuditActor")
   loginEvents      LoginEvent[]
   accountLockout   AccountLockout?
 
@@ -99,6 +100,7 @@ model School {
   studentFeeLedgerAllocations StudentFeeLedgerAllocation[]
   feeAuditLogs                FeeAuditLog[]
   attendance                  Attendance[]
+  attendanceAuditLogs         AttendanceAuditLog[]
   timetables                  Timetable[]
   periodConfigs               PeriodConfig[]
   exams                       Exam[]
@@ -1200,6 +1202,27 @@ model Attendance {
   @@index([academicYear])
   @@index([date])
   @@index([schoolId, date])
+}
+
+model AttendanceAuditLog {
+  id           String   @id @default(cuid())
+  schoolId     String
+  academicYear String
+  date         DateTime
+  classId      String
+  sectionId    String?
+  action       String // finalize, reopen
+  reason       String?
+  performedBy  String
+  createdAt    DateTime @default(now())
+
+  school School @relation(fields: [schoolId], references: [id])
+  actor  User   @relation("attendanceAuditActor", fields: [performedBy], references: [id])
+
+  @@index([schoolId])
+  @@index([academicYear])
+  @@index([schoolId, date, classId, sectionId])
+  @@index([performedBy])
 }
 
 // ============================================

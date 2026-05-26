@@ -143,6 +143,7 @@ export const PERMISSIONS = {
   ATTENDANCE_READ: 'attendance:read',
   ATTENDANCE_MARK: 'attendance:mark',
   ATTENDANCE_UPDATE: 'attendance:update',
+  ATTENDANCE_REOPEN: 'attendance:reopen',
   ATTENDANCE_EXPORT: 'attendance:export',
 
   // Fees

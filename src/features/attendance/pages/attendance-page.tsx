@@ -12,10 +12,11 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Separator } from '@/components/ui/separator'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { Textarea } from '@/components/ui/textarea'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { DatePicker } from '@/components/date-picker'
 import {
   Check,
@@ -33,6 +34,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Lock,
+  LockOpen,
   ShieldCheck,
   Shield,
 } from 'lucide-react'
@@ -152,6 +154,40 @@ function getInitials(firstName: string, lastName: string): string {
   return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase()
 }
 
+const rollNumberCollator = new Intl.Collator('en', { numeric: true, sensitivity: 'base' })
+
+function compareStudentsByRollNumber(a: Student, b: Student): number {
+  const aRoll = (a.rollNumber || '').trim()
+  const bRoll = (b.rollNumber || '').trim()
+
+  if (aRoll && !bRoll) return -1
+  if (!aRoll && bRoll) return 1
+
+  const rollCompare = rollNumberCollator.compare(aRoll, bRoll)
+  if (rollCompare !== 0) return rollCompare
+
+  const aName = `${a.firstName} ${a.lastName}`.trim()
+  const bName = `${b.firstName} ${b.lastName}`.trim()
+  return rollNumberCollator.compare(aName, bName)
+}
+
+function normalizeSearchValue(value: string | null | undefined): string {
+  return (value || '').toLowerCase().replace(/\s+/g, ' ').trim()
+}
+
+function matchesStudentSearch(student: Student, query: string): boolean {
+  const q = normalizeSearchValue(query)
+  if (!q) return true
+
+  const firstName = normalizeSearchValue(student.firstName)
+  const lastName = normalizeSearchValue(student.lastName)
+  const fullName = normalizeSearchValue(`${student.firstName} ${student.lastName}`)
+  const reverseName = normalizeSearchValue(`${student.lastName} ${student.firstName}`)
+  const rollNumber = normalizeSearchValue(student.rollNumber)
+
+  return [firstName, lastName, fullName, reverseName, rollNumber].some((value) => value.includes(q))
+}
+
 // ── Component ──────────────────────────────────────────────────────────
 
 export function AttendancePage() {
@@ -159,6 +195,8 @@ export function AttendancePage() {
   const { toast } = useToast()
   const { hasPermission } = usePermissions()
   const canView = hasPermission(PERMISSIONS.ATTENDANCE_READ)
+  const canReopen = hasPermission(PERMISSIONS.ATTENDANCE_REOPEN)
+  const currentUser = useAppStore((s) => s.user)
   const currentSchoolAcademicYear = useAppStore((s) => s.currentSchool?.academicYear)
   const viewingAcademicYear = useAppStore((s) => s.viewingAcademicYear)
   const academicYear = viewingAcademicYear || currentSchoolAcademicYear || getCurrentAcademicYear()
@@ -188,6 +226,9 @@ export function AttendancePage() {
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [finalizing, setFinalizing] = useState(false)
+  const [reopening, setReopening] = useState(false)
+  const [reopenDialogOpen, setReopenDialogOpen] = useState(false)
+  const [reopenReason, setReopenReason] = useState('')
   const [initialLoad, setInitialLoad] = useState(true)
   const [expandedRemark, setExpandedRemark] = useState<string | null>(null)
   const [isFinalized, setIsFinalized] = useState(false)
@@ -244,7 +285,7 @@ export function AttendancePage() {
         api.get<{ records: ExistingAttendance[]; finalized?: boolean }>('/api/school/attendance', attendanceParams),
       ])
 
-      const studentList = studentsRes.students || []
+      const studentList = [...(studentsRes.students || [])].sort(compareStudentsByRollNumber)
       const existing = attendanceRes.records || []
       setStudents(studentList)
       setExistingAttendance(existing)
@@ -354,6 +395,39 @@ export function AttendancePage() {
     }
   }
 
+  const handleReopen = async () => {
+    if (!classId || !date || reopening) return
+    if (!classHasNoSections && !sectionId) return
+    const reason = reopenReason.trim()
+    if (reason.length < 5) {
+      toast({ title: 'Reason Required', description: 'Please enter a clear reason before reopening attendance.', variant: 'destructive' })
+      return
+    }
+
+    setReopening(true)
+    try {
+      const payload: Record<string, string> = { date, classId, academicYear, action: 'reopen', reason }
+      if (effectiveSectionId) payload.sectionId = effectiveSectionId
+      await api.patch('/api/school/attendance', payload)
+      toast({
+        title: 'Attendance Reopened',
+        description: 'Attendance is unlocked. Make the required changes and finalize it again.',
+      })
+      setReopenDialogOpen(false)
+      setReopenReason('')
+      setIsFinalized(false)
+      fetchAttendanceData()
+    } catch (err) {
+      toast({
+        title: 'Reopen Failed',
+        description: err instanceof Error ? err.message : 'Something went wrong.',
+        variant: 'destructive',
+      })
+    } finally {
+      setReopening(false)
+    }
+  }
+
   const markAll = (status: AttendanceStatus) => {
     if (isFinalized || isFutureDate) return
     const map = new Map<string, AttendanceStatus>()
@@ -370,12 +444,7 @@ export function AttendancePage() {
 
   // Filter students by search
   const filteredStudents = useMemo(() => {
-    if (!searchQuery.trim()) return students
-    const q = searchQuery.toLowerCase()
-    return students.filter(s =>
-      `${s.firstName} ${s.lastName}`.toLowerCase().includes(q) ||
-      s.rollNumber.toLowerCase().includes(q)
-    )
+    return students.filter((student) => matchesStudentSearch(student, searchQuery))
   }, [students, searchQuery])
 
   // Stats
@@ -392,11 +461,12 @@ export function AttendancePage() {
   const isToday = date === getTodayString()
   const todayStr = getTodayString()
   const isFutureDate = date > todayStr
+  const canReopenFinalizedAttendance = currentUser?.role === 'SCHOOL_ADMIN' || canReopen
 
   if (initialLoad) return <LoadingState />
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 pb-20 sm:pb-0">
       {/* ── Page Header ──────────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div className="flex items-center gap-3">
@@ -407,7 +477,7 @@ export function AttendancePage() {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center">
           {canView && (
             <Button variant="outline" size="sm" className="gap-1.5 h-9" onClick={() => router.push('/attendance/view')}>
               <ClipboardList className="size-4" />
@@ -462,16 +532,29 @@ export function AttendancePage() {
 
       {/* ── Finalized Banner ────────────────────────────────────────── */}
       {isFinalized && (
-        <div className="flex items-center gap-3 px-4 py-3 rounded-lg border border-emerald-200 bg-emerald-50 dark:bg-emerald-950/30 dark:border-emerald-800">
-          <div className="size-8 rounded-full bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center shrink-0">
-            <Lock className="size-4 text-emerald-600 dark:text-emerald-400" />
+        <div className="flex flex-col gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 dark:border-emerald-800 dark:bg-emerald-950/30 sm:flex-row sm:items-center">
+          <div className="flex min-w-0 flex-1 items-center gap-3">
+            <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/50">
+              <Lock className="size-4 text-emerald-600 dark:text-emerald-400" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">Attendance is Finalized</p>
+              <p className="mt-0.5 text-xs text-emerald-700/70 dark:text-emerald-400/70">
+                This attendance is locked. School admin can reopen it for corrections.
+              </p>
+            </div>
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">Attendance is Finalized</p>
-            <p className="text-xs text-emerald-700/70 dark:text-emerald-400/70 mt-0.5">
-              This attendance has been locked and cannot be edited. Contact admin if changes are needed.
-            </p>
-          </div>
+          {canReopenFinalizedAttendance && !isFutureDate && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-9 w-full gap-1.5 border-emerald-300 bg-white/70 text-emerald-800 hover:bg-white dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300 sm:w-auto"
+              onClick={() => setReopenDialogOpen(true)}
+            >
+              <LockOpen className="size-3.5" />
+              Reopen Attendance
+            </Button>
+          )}
         </div>
       )}
 
@@ -492,36 +575,34 @@ export function AttendancePage() {
 
       {/* ── Configuration Bar ────────────────────────────────────────── */}
       <Card className="shadow-sm">
-        <CardContent className="px-3 py-2">
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+        <CardContent className="p-3">
+          <div className="grid gap-3 xl:grid-cols-[auto_auto_auto_1fr] xl:items-center">
             {/* Date navigation */}
-            <div className="flex items-center gap-1">
-              <Button variant="outline" size="icon" className="size-7 shrink-0" onClick={() => setDate(navigateDate(date, -1))}>
+            <div className="grid grid-cols-[36px_minmax(0,1fr)_36px] gap-2 sm:grid-cols-[28px_220px_28px_auto] sm:items-center">
+              <Button variant="outline" size="icon" className="size-9 shrink-0 sm:size-7" onClick={() => setDate(navigateDate(date, -1))}>
                 <ChevronLeft className="size-3" />
               </Button>
               <DatePicker
                 value={date}
                 onChange={setDate}
                 disableFuture
-                triggerClassName="h-7 min-w-[160px] text-xs px-2.5"
+                triggerClassName="h-9 w-full min-w-0 justify-start px-2.5 text-sm sm:h-7 sm:w-[220px] sm:text-xs"
               />
-              <Button variant="outline" size="icon" className="size-7 shrink-0" onClick={() => setDate(navigateDate(date, 1))} disabled={isFutureDate || isToday}>
+              <Button variant="outline" size="icon" className="size-9 shrink-0 sm:size-7" onClick={() => setDate(navigateDate(date, 1))} disabled={isFutureDate || isToday}>
                 <ChevronRight className="size-3" />
               </Button>
               {!isToday && (
-                <Button variant="ghost" size="sm" className="h-7 text-[11px] px-2" onClick={() => setDate(getTodayString())}>
+                <Button variant="ghost" size="sm" className="col-span-3 h-8 px-2 text-xs sm:col-span-1 sm:h-7 sm:text-[11px]" onClick={() => setDate(getTodayString())}>
                   Today
                 </Button>
               )}
             </div>
 
-            <Separator orientation="vertical" className="hidden lg:block h-5" />
-
             {/* Class */}
-            <div className="flex items-center gap-1.5">
+            <div className="grid grid-cols-[72px_minmax(0,1fr)] items-center gap-2 sm:flex sm:items-center">
               <Label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap">Class</Label>
               <Select value={classId} onValueChange={handleClassChange}>
-                <SelectTrigger className="h-7 w-[130px] text-xs">
+                <SelectTrigger className="h-9 w-full text-sm sm:h-7 sm:w-[160px] sm:text-xs">
                   <SelectValue placeholder="Select class" />
                 </SelectTrigger>
                 <SelectContent>
@@ -533,13 +614,13 @@ export function AttendancePage() {
             </div>
 
             {/* Section */}
-            <div className="flex items-center gap-1.5">
+            <div className="grid grid-cols-[72px_minmax(0,1fr)] items-center gap-2 sm:flex sm:items-center">
               <Label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap">Section</Label>
               {classHasNoSections ? (
-                <Badge variant="secondary" className="h-7 text-xs px-3">No Sections</Badge>
+                <Badge variant="secondary" className="flex h-9 w-full items-center px-3 text-sm sm:h-7 sm:w-auto sm:text-xs">No Sections</Badge>
               ) : (
                 <Select value={sectionId} onValueChange={setSectionId} disabled={!classId}>
-                  <SelectTrigger className="h-7 w-[120px] text-xs">
+                  <SelectTrigger className="h-9 w-full text-sm sm:h-7 sm:w-[150px] sm:text-xs">
                     <SelectValue placeholder="Select section" />
                   </SelectTrigger>
                   <SelectContent>
@@ -554,13 +635,11 @@ export function AttendancePage() {
             {/* Quick actions — only when not finalized and not future date */}
             {!isFinalized && !isFutureDate && (
               <>
-                <Separator orientation="vertical" className="hidden lg:block h-5" />
-
-                <div className="flex items-center gap-1 lg:ml-auto">
+                <div className="grid grid-cols-3 gap-2 sm:flex sm:items-center xl:justify-end">
                   <Button
                     variant="outline"
                     size="sm"
-                    className="h-7 gap-1 text-[11px] text-emerald-700 border-emerald-200 hover:bg-emerald-50 dark:text-emerald-400 dark:border-emerald-800 dark:hover:bg-emerald-950 px-2"
+                    className="h-9 gap-1 border-emerald-200 px-2 text-xs text-emerald-700 hover:bg-emerald-50 dark:border-emerald-800 dark:text-emerald-400 dark:hover:bg-emerald-950 sm:h-7 sm:text-[11px]"
                     onClick={() => markAll('present')}
                     disabled={students.length === 0}
                   >
@@ -570,7 +649,7 @@ export function AttendancePage() {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="h-7 gap-1 text-[11px] text-red-700 border-red-200 hover:bg-red-50 dark:text-red-400 dark:border-red-800 dark:hover:bg-red-950 px-2"
+                    className="h-9 gap-1 border-red-200 px-2 text-xs text-red-700 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950 sm:h-7 sm:text-[11px]"
                     onClick={() => markAll('absent')}
                     disabled={students.length === 0}
                   >
@@ -580,7 +659,7 @@ export function AttendancePage() {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="h-7 gap-1 text-[11px] text-amber-700 border-amber-200 hover:bg-amber-50 dark:text-amber-400 dark:border-amber-800 dark:hover:bg-amber-950 px-2"
+                    className="h-9 gap-1 border-amber-200 px-2 text-xs text-amber-700 hover:bg-amber-50 dark:border-amber-800 dark:text-amber-400 dark:hover:bg-amber-950 sm:h-7 sm:text-[11px]"
                     onClick={() => markAll('leave')}
                     disabled={students.length === 0}
                   >
@@ -591,7 +670,7 @@ export function AttendancePage() {
                     <Button
                       variant="outline"
                       size="sm"
-                      className="h-7 gap-1 text-[11px] text-muted-foreground px-2"
+                      className="col-span-3 h-9 gap-1 px-2 text-xs text-muted-foreground sm:col-span-1 sm:h-7 sm:text-[11px]"
                       onClick={clearAll}
                     >
                       <RotateCcw className="size-2.5" />
@@ -607,9 +686,9 @@ export function AttendancePage() {
 
       {/* ── Summary Bar ──────────────────────────────────────────────── */}
       {students.length > 0 && (
-        <div className="flex flex-wrap items-center gap-1.5">
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center sm:gap-1.5">
           {/* Progress */}
-          <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-md border bg-card shadow-sm">
+          <div className="col-span-2 flex items-center gap-2 rounded-md border bg-card px-2.5 py-2 shadow-sm sm:col-span-1 sm:py-1.5">
             <div className="size-5 rounded bg-primary/10 flex items-center justify-center shrink-0">
               <ClipboardCheck className="size-3 text-primary" />
             </div>
@@ -633,7 +712,7 @@ export function AttendancePage() {
           </div>
 
           {/* Present */}
-          <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border bg-card shadow-sm">
+          <div className="flex items-center gap-1.5 rounded-md border bg-card px-2.5 py-2 shadow-sm sm:py-1.5">
             <div className="size-5 rounded bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center shrink-0">
               <Check className="size-3 text-emerald-600 dark:text-emerald-400" />
             </div>
@@ -642,7 +721,7 @@ export function AttendancePage() {
           </div>
 
           {/* Absent */}
-          <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border bg-card shadow-sm">
+          <div className="flex items-center gap-1.5 rounded-md border bg-card px-2.5 py-2 shadow-sm sm:py-1.5">
             <div className="size-5 rounded bg-red-100 dark:bg-red-900/40 flex items-center justify-center shrink-0">
               <X className="size-3 text-red-600 dark:text-red-400" />
             </div>
@@ -651,7 +730,7 @@ export function AttendancePage() {
           </div>
 
           {/* Leave */}
-          <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border bg-card shadow-sm">
+          <div className="flex items-center gap-1.5 rounded-md border bg-card px-2.5 py-2 shadow-sm sm:py-1.5">
             <div className="size-5 rounded bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center shrink-0">
               <CalendarOff className="size-3 text-amber-600 dark:text-amber-400" />
             </div>
@@ -660,7 +739,7 @@ export function AttendancePage() {
           </div>
 
           {/* Unmarked */}
-          <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border bg-card shadow-sm">
+          <div className="flex items-center gap-1.5 rounded-md border bg-card px-2.5 py-2 shadow-sm sm:py-1.5">
             <div className="size-5 rounded bg-muted flex items-center justify-center shrink-0">
               <ClipboardCheck className="size-3 text-muted-foreground" />
             </div>
@@ -695,15 +774,15 @@ export function AttendancePage() {
       ) : (
         <Card className={cn('shadow-sm overflow-hidden', isFinalized && 'ring-1 ring-emerald-200 dark:ring-emerald-800')}>
           {/* Table header */}
-          <div className="px-5 py-3 bg-muted/40 border-b">
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2 flex-1 min-w-0">
+          <div className="border-b bg-muted/40 px-3 py-3 sm:px-5">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center">
+              <div className="flex min-w-0 flex-wrap items-center gap-2 md:flex-1">
                 {isFinalized ? (
                   <Lock className="size-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
                 ) : (
                   <Users className="size-4 text-muted-foreground shrink-0" />
                 )}
-                <span className="text-sm font-semibold">
+                <span className="min-w-0 text-sm font-semibold">
                   {selectedClassName}{selectedSectionName ? ` — ${selectedSectionName}` : classHasNoSections ? ' (All Students)' : ''}
                 </span>
                 <Badge variant="secondary" className="text-[10px] h-5">
@@ -738,6 +817,23 @@ export function AttendancePage() {
                 )}
               </div>
             </div>
+            <div className="relative mt-3 md:hidden">
+              <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Search student..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="h-9 pl-8 pr-8 text-sm"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  <X className="size-3.5" />
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Column headers */}
@@ -767,19 +863,20 @@ export function AttendancePage() {
                     <div
                       key={student.id}
                       className={cn(
-                        'px-5 py-3 transition-all duration-150',
+                        'px-3 py-3 transition-all duration-150 sm:px-5',
                         config && `${config.bgColor} border-l-2 ${config.borderColor}`,
                         isFinalized && 'opacity-90',
                       )}
                     >
-                      <div className="flex items-center gap-3">
+                      <div className="flex flex-col gap-3 md:flex-row md:items-center">
+                        <div className="flex min-w-0 items-center gap-3 md:flex-1">
                         {/* Row number */}
-                        <span className="text-[11px] font-mono text-muted-foreground w-8 text-center shrink-0">
+                        <span className="w-6 shrink-0 text-center font-mono text-[11px] text-muted-foreground md:w-8">
                           {idx + 1}
                         </span>
 
                         {/* Avatar */}
-                        <Avatar className="size-9 shrink-0">
+                        <Avatar className="size-10 shrink-0 md:size-9">
                           <AvatarFallback className={cn(
                             'text-[11px] font-bold',
                             config ? config.avatarBg : 'bg-muted text-muted-foreground',
@@ -790,16 +887,18 @@ export function AttendancePage() {
 
                         {/* Student name + roll */}
                         <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium truncate leading-tight">
+                          <p className="truncate text-sm font-semibold leading-tight">
                             {student.firstName} {student.lastName}
                           </p>
-                          <p className="text-[11px] text-muted-foreground mt-0.5">
+                          <p className="mt-0.5 text-xs text-muted-foreground">
                             Roll No. {student.rollNumber || '—'}
                           </p>
                         </div>
 
+                        </div>
+
                         {/* Status buttons */}
-                        <div className="flex items-center gap-1 shrink-0">
+                        <div className="grid grid-cols-4 gap-1.5 md:flex md:shrink-0 md:items-center md:gap-1">
                           {(Object.entries(STATUS_CONFIG) as [AttendanceStatus, typeof STATUS_CONFIG[AttendanceStatus]][]).map(
                             ([status, cfg]) => {
                               const isActive = currentStatus === status
@@ -809,7 +908,7 @@ export function AttendancePage() {
                                   onClick={() => handleStatusChange(student.id, status)}
                                   disabled={isFinalized || isFutureDate}
                                   className={cn(
-                                    'inline-flex items-center gap-1 h-8 px-3 rounded-md text-xs font-semibold transition-all duration-100 border',
+                                    'inline-flex h-9 items-center justify-center gap-1 rounded-md border px-2 text-xs font-semibold transition-all duration-100 md:h-8 md:px-3',
                                     isActive
                                       ? `${cfg.bgColor} ${cfg.textColor} ${cfg.borderColor} ring-1 ${cfg.ringColor}`
                                       : isFinalized
@@ -824,8 +923,6 @@ export function AttendancePage() {
                               )
                             },
                           )}
-                        </div>
-
                         {/* Remark toggle */}
                         <Tooltip>
                           <TooltipTrigger asChild>
@@ -833,7 +930,7 @@ export function AttendancePage() {
                               onClick={() => !isFinalized && !isFutureDate && setExpandedRemark(isRemarkExpanded ? null : student.id)}
                               disabled={isFinalized || isFutureDate}
                               className={cn(
-                                'inline-flex items-center justify-center size-8 rounded-md transition-colors shrink-0',
+                                'inline-flex h-9 w-full items-center justify-center rounded-md transition-colors md:size-8 md:w-8 md:shrink-0',
                                 (isFinalized || isFutureDate) && 'cursor-not-allowed',
                                 currentRemark
                                   ? 'bg-primary/10 text-primary hover:bg-primary/20'
@@ -851,11 +948,12 @@ export function AttendancePage() {
                             {isFinalized || isFutureDate ? 'Cannot edit' : currentRemark ? 'Edit remark' : 'Add remark'}
                           </TooltipContent>
                         </Tooltip>
+                        </div>
                       </div>
 
                       {/* Inline remark input — only when not finalized */}
                       {isRemarkExpanded && !isFinalized && !isFutureDate && (
-                        <div className="mt-2.5 ml-[76px] mr-10">
+                        <div className="mt-2.5 md:ml-[76px] md:mr-10">
                           <Input
                             placeholder="Add remark (e.g., Sick leave, Family function, Medical appointment...)"
                             value={currentRemark}
@@ -868,7 +966,7 @@ export function AttendancePage() {
 
                       {/* Show remark inline if not expanded but has value */}
                       {!isRemarkExpanded && currentRemark && (
-                        <div className="mt-1 ml-[76px] mr-10">
+                        <div className="mt-2 md:ml-[76px] md:mr-10">
                           <p className="text-[11px] text-muted-foreground flex items-center gap-1">
                             <MessageSquare className="size-3 shrink-0" />
                             <span className="truncate">{currentRemark}</span>
@@ -883,8 +981,8 @@ export function AttendancePage() {
           </div>
 
           {/* Footer legend + actions */}
-          <div className="px-5 py-3 bg-muted/40 border-t flex items-center justify-between">
-            <div className="flex items-center gap-4 text-[11px] text-muted-foreground">
+          <div className="flex flex-col gap-3 border-t bg-muted/40 px-3 py-3 sm:px-5 md:flex-row md:items-center md:justify-between">
+            <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-[11px] text-muted-foreground sm:flex sm:items-center sm:gap-4">
               <span className="flex items-center gap-1">
                 <span className="size-2 rounded-full bg-emerald-500" />
                 P: <strong className="text-foreground">{presentCount}</strong>
@@ -904,11 +1002,11 @@ export function AttendancePage() {
                 </span>
               )}
             </div>
-            <div className="flex items-center gap-2">
+            <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
               {!isFinalized && !isFutureDate ? (
                 <>
                   {hasAnyMarked && (
-                    <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-xs text-muted-foreground" onClick={clearAll}>
+                    <Button variant="ghost" size="sm" className="h-9 gap-1.5 text-xs text-muted-foreground sm:h-8" onClick={clearAll}>
                       <RotateCcw className="size-3" />
                       Clear All
                     </Button>
@@ -916,7 +1014,7 @@ export function AttendancePage() {
                   <Button
                     onClick={handleSave}
                     disabled={saving || students.length === 0}
-                    className="gap-2 h-8"
+                    className="h-9 gap-2 sm:h-8"
                     size="sm"
                   >
                     <Save className="size-3.5" />
@@ -938,6 +1036,54 @@ export function AttendancePage() {
           </div>
         </Card>
       )}
+
+      <Dialog open={reopenDialogOpen} onOpenChange={(open) => {
+        if (!reopening) {
+          setReopenDialogOpen(open)
+          if (!open) setReopenReason('')
+        }
+      }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <LockOpen className="size-4" />
+              Reopen Attendance
+            </DialogTitle>
+            <DialogDescription>
+              This will unlock attendance so corrections can be made. The reason will be saved in the audit log.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-2">
+            <Label htmlFor="reopen-reason">Reason</Label>
+            <Textarea
+              id="reopen-reason"
+              value={reopenReason}
+              onChange={(event) => setReopenReason(event.target.value)}
+              placeholder="Example: Parent reported approved medical leave for a student."
+              rows={4}
+              disabled={reopening}
+            />
+            <p className="text-xs text-muted-foreground">
+              Minimum 5 characters. Attendance must be finalized again after changes.
+            </p>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setReopenDialogOpen(false)} disabled={reopening}>
+              Cancel
+            </Button>
+            <Button onClick={handleReopen} disabled={reopening || reopenReason.trim().length < 5} className="gap-1.5">
+              {reopening ? (
+                <div className="size-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+              ) : (
+                <LockOpen className="size-3.5" />
+              )}
+              {reopening ? 'Reopening...' : 'Reopen Attendance'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
