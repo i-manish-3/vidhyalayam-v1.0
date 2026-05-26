@@ -214,6 +214,19 @@ export const SCHOOL_THEME_PALETTES: ThemePalette[] = [
 
 export const DEFAULT_SCHOOL_THEME = SCHOOL_THEME_PALETTES[0]
 
+// Dedicated palette for the SUPER_ADMIN role — matches the "D" platform logo (emerald-600).
+// Kept separate from SCHOOL_THEME_PALETTES so schools can't pick it from their settings.
+export const SUPER_ADMIN_THEME_PALETTE: ThemePalette = {
+  id: 'super-admin-emerald',
+  name: 'Super Admin Emerald',
+  primary: '#059669',
+  foreground: '#f0fdf4',
+  ring: '#047857',
+  sidebarAccent: '#047857',
+  sidebarBorder: '#065f46',
+  chart: ['#059669', '#10b981', '#14b8a6', '#34d399', '#047857'],
+}
+
 export const SCHOOL_THEME_VARIABLE_NAMES = [
   '--primary',
   '--primary-foreground',
@@ -251,10 +264,7 @@ export function findSchoolThemePalette(primaryColor?: string | null) {
   }
 }
 
-export function getSchoolThemeVariables(primaryColor?: string | null, isDarkTheme = false): CSSProperties | undefined {
-  if (isDarkTheme) return undefined
-
-  const palette = findSchoolThemePalette(primaryColor)
+function paletteToCssVars(palette: ThemePalette): CSSProperties {
   const isWhitePalette = palette.primary.toLowerCase() === '#ffffff'
   const buttonPrimary = isWhitePalette ? '#0f172a' : palette.primary
   const buttonPrimaryForeground = isWhitePalette ? '#ffffff' : palette.foreground
@@ -281,6 +291,18 @@ export function getSchoolThemeVariables(primaryColor?: string | null, isDarkThem
     '--button-primary-foreground': buttonPrimaryForeground,
     '--button-primary-hover': buttonPrimaryHover,
   } as CSSProperties
+}
+
+export function getSchoolThemeVariables(primaryColor?: string | null, isDarkTheme = false): CSSProperties | undefined {
+  if (isDarkTheme) return undefined
+  return paletteToCssVars(findSchoolThemePalette(primaryColor))
+}
+
+// Theme overrides for the SUPER_ADMIN role in light mode.
+// Dark mode falls through to the platform defaults in globals.css.
+export function getSuperAdminThemeVariables(isDarkTheme = false): CSSProperties | undefined {
+  if (isDarkTheme) return undefined
+  return paletteToCssVars(SUPER_ADMIN_THEME_PALETTE)
 }
 
 export function findDashboardFont(fontId?: string | null) {

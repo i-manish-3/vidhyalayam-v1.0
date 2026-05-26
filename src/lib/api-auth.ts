@@ -1,13 +1,16 @@
 import { NextRequest } from 'next/server'
-import { verifyToken, JWTPayload } from './auth'
+import { verifyAccessToken, JWTPayload } from './auth'
+import { ACCESS_COOKIE } from './cookies'
 import { db } from '@/lib/db'
 
+// Auth state lives in the HttpOnly `erp_access` cookie. JavaScript on the page
+// can't read this cookie, so an XSS bug can't exfiltrate it the way it could
+// have with localStorage. The browser attaches it automatically on every
+// same-origin request as long as fetch uses `credentials: 'include'`.
 export function getAuthUser(request: NextRequest): JWTPayload | null {
-  const authHeader = request.headers.get('authorization')
-  if (!authHeader?.startsWith('Bearer ')) return null
-  
-  const token = authHeader.substring(7)
-  return verifyToken(token)
+  const token = request.cookies.get(ACCESS_COOKIE)?.value
+  if (!token) return null
+  return verifyAccessToken(token)
 }
 
 export function getSchoolId(request: NextRequest): string | null {

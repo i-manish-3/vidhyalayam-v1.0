@@ -1,8 +1,8 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
-import { useAppStore } from '@/lib/store'
 import { useToast } from '@/hooks/use-toast'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -12,7 +12,6 @@ import { Separator } from '@/components/ui/separator'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
-  ArrowLeft,
   Shield,
   ShieldCheck,
   Users,
@@ -169,12 +168,9 @@ function DetailSkeleton() {
 
 // ─── Main Component ──────────────────────────────────────────────────────────
 
-export function StaffDetailPage() {
+export function StaffDetailPage({ staffId }: { staffId: string }) {
+  const router = useRouter()
   const { toast } = useToast()
-  const staffDetailId = useAppStore((s) => s.staffDetailId)
-  const goBack = useAppStore((s) => s.goBack)
-  const setCurrentPage = useAppStore((s) => s.setCurrentPage)
-  const setStaffDetailId = useAppStore((s) => s.setStaffDetailId)
 
   const [staffInfo, setStaffInfo] = useState<StaffInfo | null>(null)
   const [permissionsData, setPermissionsData] = useState<UserPermissionsResponse | null>(null)
@@ -184,11 +180,6 @@ export function StaffDetailPage() {
 
   // ── Fetch staff details ──
   const fetchStaffDetail = useCallback(async () => {
-    if (!staffDetailId) {
-      setLoading(false)
-      return
-    }
-
     try {
       setLoading(true)
 
@@ -197,17 +188,17 @@ export function StaffDetailPage() {
       const usersRes = await api.get<{ users: StaffInfo[] }>(
         '/api/school/users?roles=TEACHER,STAFF,SCHOOL_ADMIN&limit=500',
       )
-      const user = (usersRes.users || []).find((u) => u.id === staffDetailId)
+      const user = (usersRes.users || []).find((u) => u.id === staffId)
       if (!user) {
         toast({ title: 'Staff Not Found', description: "We couldn't find this staff member. They may have been removed.", variant: 'destructive' })
-        goBack('staff')
+        router.push('/staff')
         return
       }
       setStaffInfo(user)
 
       // Fetch permissions
       const permRes = await api.get<UserPermissionsResponse>(
-        `/api/school/users/${staffDetailId}/permissions`
+        `/api/school/users/${staffId}/permissions`
       )
       setPermissionsData(permRes)
     } catch {
@@ -215,7 +206,7 @@ export function StaffDetailPage() {
     } finally {
       setLoading(false)
     }
-  }, [staffDetailId, toast, setCurrentPage])
+  }, [staffId, toast, router])
 
   useEffect(() => {
     fetchStaffDetail()
@@ -255,9 +246,8 @@ export function StaffDetailPage() {
 
   // ── Handle back navigation ──
   const handleBack = useCallback(() => {
-    setStaffDetailId(null)
-    goBack('staff')
-  }, [setStaffDetailId, goBack])
+    router.push('/staff')
+  }, [router])
 
   // ── Unlock staff account ──
   const handleUnlock = useCallback(async () => {
@@ -286,9 +276,6 @@ export function StaffDetailPage() {
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" className="size-9 shrink-0" disabled>
-            <ArrowLeft className="size-4" />
-          </Button>
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Staff Details</h1>
           </div>
@@ -302,9 +289,6 @@ export function StaffDetailPage() {
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" className="size-9 shrink-0" onClick={handleBack}>
-            <ArrowLeft className="size-4" />
-          </Button>
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Staff Details</h1>
           </div>
@@ -313,10 +297,6 @@ export function StaffDetailPage() {
           <Users className="size-12 text-muted-foreground/30 mb-4" />
           <h3 className="text-lg font-semibold text-muted-foreground">Staff Not Found</h3>
           <p className="text-sm text-muted-foreground/70 mt-1">The staff member you are looking for does not exist.</p>
-          <Button variant="outline" className="mt-4 gap-2" onClick={handleBack}>
-            <ArrowLeft className="size-4" />
-            Back to Staff List
-          </Button>
         </Card>
       </div>
     )
@@ -324,11 +304,8 @@ export function StaffDetailPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header with back button */}
+      {/* Header */}
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" className="size-9 shrink-0" onClick={handleBack}>
-          <ArrowLeft className="size-4" />
-        </Button>
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Staff Details</h1>
           <p className="text-sm text-muted-foreground mt-0.5">

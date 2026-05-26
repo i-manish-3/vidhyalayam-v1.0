@@ -6,7 +6,7 @@ import { useAppStore } from '@/lib/store'
 
 export function BrandHeadManager() {
   const currentSchool = useAppStore((state) => state.currentSchool)
-  const token = useAppStore((state) => state.token)
+  const isAuthenticated = useAppStore((state) => state.isAuthenticated)
   const role = useAppStore((state) => state.user?.role)
   const userAvatar = useAppStore((state) => state.user?.avatar)
   const setCurrentSchool = useAppStore((state) => state.setCurrentSchool)
@@ -16,15 +16,15 @@ export function BrandHeadManager() {
   }, [currentSchool?.favicon, currentSchool?.logo, currentSchool?.name])
 
   useEffect(() => {
-    if (!token) return
+    if (!isAuthenticated) return
 
     let cancelled = false
 
     const refreshProfile = async () => {
       try {
-        const res = await fetch('/api/auth/me', {
-          headers: { Authorization: `Bearer ${token}` },
-        })
+        // Auth travels via the HttpOnly cookie set at login — credentials:
+        // 'include' tells fetch to attach it on this same-origin call.
+        const res = await fetch('/api/auth/me', { credentials: 'include' })
         if (!res.ok || cancelled) return
 
         const profile = await res.json()
@@ -53,7 +53,7 @@ export function BrandHeadManager() {
     return () => {
       cancelled = true
     }
-  }, [role, setCurrentSchool, token, userAvatar])
+  }, [role, setCurrentSchool, isAuthenticated, userAvatar])
 
   return null
 }

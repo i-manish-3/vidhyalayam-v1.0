@@ -28,6 +28,14 @@ export interface JWTPayload {
   schoolId?: string
 }
 
+// Refresh token carries only the user id — role/schoolId are re-fetched from
+// the DB on every refresh so changes (role updates, school reassignment) take
+// effect at the next refresh instead of waiting for the 30-day window.
+export interface RefreshPayload {
+  userId: string
+  type: 'refresh'
+}
+
 export async function hashPassword(password: string): Promise<string> {
   return bcrypt.hash(password, BCRYPT_COST)
 }
@@ -37,15 +45,40 @@ export async function verifyPassword(password: string, hashedPassword: string): 
   return bcrypt.compareSync(password, hashedPassword)
 }
 
-// 7-day access token. The whole session lives in this JWT — no refresh chain.
-// When it expires the user re-logs in.
-export function generateToken(payload: JWTPayload): string {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' })
+// Access token: 15 min. Short enough that a stolen access cookie has limited
+// blast radius; long enough that we don't hit the refresh endpoint on every
+// click. Carried in HttpOnly cookie `erp_access`.
+export function generateAccessToken(payload: JWTPayload): string {
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: '15m' })
 }
 
-export function verifyToken(token: string): JWTPayload | null {
+// Refresh token: 30 days, but the server re-issues it on every refresh so an
+// active user effectively has a sliding session. Carried in HttpOnly cookie
+// `erp_refresh`. The `type: 'refresh'` discriminator prevents misuse — a
+// refresh token replayed against a protected route fails verifyAccessToken,
+// and an access token replayed against the refresh endpoint fails
+// verifyRefreshToken.
+export function generateRefreshToken(userId: string): string {
+  return jwt.sign({ userId, type: 'refresh' }, JWT_SECRET, { expiresIn: '30d' })
+}
+
+export function verifyAccessToken(token: string): JWTPayload | null {
   try {
-    return jwt.verify(token, JWT_SECRET) as JWTPayload
+    const payload = jwt.verify(token, JWT_SECRET) as JWTPayload & { type?: string }
+    // Access tokens don't have a `type` claim. If we see `type: 'refresh'`
+    // here, someone slid a refresh token into the access slot.
+    if (payload.type === 'refresh') return null
+    return payload
+  } catch {
+    return null
+  }
+}
+
+export function verifyRefreshToken(token: string): RefreshPayload | null {
+  try {
+    const payload = jwt.verify(token, JWT_SECRET) as RefreshPayload
+    if (payload.type !== 'refresh') return null
+    return payload
   } catch {
     return null
   }

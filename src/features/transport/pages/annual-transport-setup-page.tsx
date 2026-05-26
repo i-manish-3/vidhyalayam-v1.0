@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
 import { useAppStore } from '@/lib/store'
 import { useToast } from '@/hooks/use-toast'
@@ -279,8 +280,8 @@ interface AllocationCountRow {
 }
 
 export function AnnualTransportSetupPage() {
+  const router = useRouter()
   const { toast } = useToast()
-  const goBack = useAppStore((s) => s.goBack)
   const currentSchoolYear = useAppStore((s) => s.currentSchool?.academicYear)
 
   const [academicYears, setAcademicYears] = useState<string[]>([])
@@ -694,7 +695,7 @@ export function AnnualTransportSetupPage() {
       setPreviewDiff(null)
       setPreviewPayload([])
       setAllocationCounts([])
-      goBack('transport')
+      router.push('/transport/routes')
     } catch (err) {
       toast({
         title: 'Could Not Save Annual Setup',
@@ -723,7 +724,6 @@ export function AnnualTransportSetupPage() {
       <PageHeader
         title="Annual Transport Setup"
         description="Roll forward transport routes and stop fares from one session to the next. Edit fares side-by-side, add new routes, or discontinue old ones."
-        backAction={{ onClick: () => goBack('transport') }}
       />
 
       <Card className="gap-0 overflow-hidden py-0">

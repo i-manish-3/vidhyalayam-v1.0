@@ -1,10 +1,10 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
 import { EmptyState, LoadingState, PageHeader } from '@/components/shared'
 import { api } from '@/lib/api'
 import { cn } from '@/lib/utils'
-import { useAppStore } from '@/lib/store'
 import { useToast } from '@/hooks/use-toast'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -93,9 +93,8 @@ function getFrequencyOption(freq: FeeFrequency) {
 }
 
 export function FeesHeadsPage() {
+  const router = useRouter()
   const { toast } = useToast()
-  const goBack = useAppStore((state) => state.goBack)
-  const navigateTo = useAppStore((state) => state.navigateTo)
 
   const [feeHeads, setFeeHeads] = useState<FeeHead[]>([])
   const [loading, setLoading] = useState(true)
@@ -188,8 +187,7 @@ export function FeesHeadsPage() {
       <PageHeader
         title="Fee Heads"
         description="Define the fee names and billing behavior used in fee structures."
-        backAction={{ onClick: () => goBack('dashboard') }}
-        secondaryAction={{ label: 'Fee Groups', icon: Layers3, onClick: () => navigateTo('fees-groups') }}
+        secondaryAction={{ label: 'Fee Groups', icon: Layers3, onClick: () => router.push('/fees/groups') }}
         action={{ label: 'Add Fee Head', icon: PlusCircle, onClick: () => setShowAdd(true) }}
       />
 

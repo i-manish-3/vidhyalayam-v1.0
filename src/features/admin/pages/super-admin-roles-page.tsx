@@ -151,14 +151,12 @@ function DetailSkeleton() {
 
 export function SuperAdminRolesPage() {
   const { toast } = useToast()
-  const storeSelectedRoleId = useAppStore((s) => s.selectedSuperAdminRoleId)
-  const setSelectedSuperAdminRoleId = useAppStore((s) => s.setSelectedSuperAdminRoleId)
 
   // Data state
   const [roles, setRoles] = useState<RoleListItem[]>([])
   const [schools, setSchools] = useState<SchoolOption[]>([])
   const [allPermissions, setAllPermissions] = useState<Record<string, Permission[]>>({})
-  const [selectedRoleId, setSelectedRoleId] = useState<string | null>(storeSelectedRoleId)
+  const [selectedRoleId, setSelectedRoleId] = useState<string | null>(null)
   const [roleDetail, setRoleDetail] = useState<RoleDetail | null>(null)
   const [grantedPermissionIds, setGrantedPermissionIds] = useState<Set<string>>(new Set())
   const [originalPermissionIds, setOriginalPermissionIds] = useState<Set<string>>(new Set())
@@ -249,11 +247,7 @@ export function SuperAdminRolesPage() {
     fetchRoles()
     fetchSchools()
     fetchAllPermissions()
-    // Clear the store-provided role ID after consuming it
-    if (storeSelectedRoleId) {
-      setSelectedSuperAdminRoleId(null)
-    }
-  }, [fetchRoles, fetchSchools, fetchAllPermissions, storeSelectedRoleId, setSelectedSuperAdminRoleId])
+  }, [fetchRoles, fetchSchools, fetchAllPermissions])
 
   // ── Reload roles when filters change ──
   useEffect(() => {

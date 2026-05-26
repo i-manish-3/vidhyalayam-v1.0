@@ -1,8 +1,8 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
-import { useAppStore } from '@/lib/store'
 import { useToast } from '@/hooks/use-toast'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -21,7 +21,6 @@ import {
 } from '@/components/ui/table'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import {
-  ArrowLeft,
   Users,
   Shield,
   ShieldCheck,
@@ -239,10 +238,8 @@ function Pagination({
 // ─── Main Component ──────────────────────────────────────────────────────────
 
 export function StaffPage() {
+  const router = useRouter()
   const { toast } = useToast()
-  const goBack = useAppStore((s) => s.goBack)
-  const navigateTo = useAppStore((s) => s.navigateTo)
-  const setStaffDetailId = useAppStore((s) => s.setStaffDetailId)
 
   const [users, setUsers] = useState<SchoolUser[]>([])
   const [availableRoles, setAvailableRoles] = useState<AvailableRole[]>([])
@@ -322,14 +319,13 @@ export function StaffPage() {
 
   // ── Navigate to detail ──
   const handleViewStaff = useCallback((userId: string) => {
-    setStaffDetailId(userId)
-    navigateTo('staff-detail')
-  }, [setStaffDetailId, navigateTo])
+    router.push(`/staff/${userId}`)
+  }, [router])
 
   // ── Navigate to create ──
   const handleCreateStaff = useCallback(() => {
-    navigateTo('staff-create')
-  }, [navigateTo])
+    router.push('/staff/new')
+  }, [router])
 
   // ── Derived state ──
   // Search and pagination are server-side — `users` already represents the
@@ -348,9 +344,6 @@ export function StaffPage() {
       {/* Header */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 items-start gap-3">
-          <Button variant="outline" size="icon" onClick={() => goBack('dashboard')} className="mt-0.5 size-9 shrink-0">
-            <ArrowLeft className="size-4" />
-          </Button>
           <div className="min-w-0">
           <h1 className="text-xl font-bold tracking-tight">Staff Management</h1>
           <p className="text-sm text-muted-foreground mt-1">

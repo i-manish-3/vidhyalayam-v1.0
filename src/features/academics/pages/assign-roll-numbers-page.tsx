@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
 import { getCurrentAcademicYear } from '@/lib/academic-years'
 import { useAppStore } from '@/lib/store'
@@ -16,7 +17,6 @@ import { Separator } from '@/components/ui/separator'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { EmptyState, LoadingState } from '@/components/shared'
 import {
-  ArrowLeft,
   ArrowRight,
   Hash,
   ListOrdered,
@@ -70,8 +70,8 @@ function avatarTint(seed: string) {
 }
 
 export function AssignRollNumbersPage() {
+  const router = useRouter()
   const { toast } = useToast()
-  const goBack = useAppStore((s) => s.goBack)
   const currentSchoolAcademicYear = useAppStore((s) => s.currentSchool?.academicYear)
   const viewingAcademicYear = useAppStore((s) => s.viewingAcademicYear)
   const academicYear = viewingAcademicYear || currentSchoolAcademicYear || getCurrentAcademicYear()
@@ -282,9 +282,6 @@ export function AssignRollNumbersPage() {
       {/* ── Page Header ──────────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div className="flex items-center gap-3">
-          <Button variant="outline" size="icon" onClick={() => goBack('classes')} className="size-9 shrink-0">
-            <ArrowLeft className="size-4" />
-          </Button>
           <div>
             <h1 className="text-xl font-bold tracking-tight leading-tight">Assign Roll Numbers</h1>
             <p className="text-xs text-muted-foreground">

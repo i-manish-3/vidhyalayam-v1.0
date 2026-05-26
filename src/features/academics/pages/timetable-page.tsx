@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
 import { useAppStore } from '@/lib/store'
 import { getCurrentAcademicYear } from '@/lib/academic-years'
@@ -34,7 +35,6 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
-  ArrowLeft,
   Calendar,
   PlusCircle,
   Settings2,
@@ -100,8 +100,8 @@ type ViewMode = 'class' | 'teacher'
 // ─── Main Component ──────────────────────────────────────────────────────────
 
 export function TimetablePage() {
+  const router = useRouter()
   const { toast } = useToast()
-  const goBack = useAppStore((s) => s.goBack)
   const currentSchoolAcademicYear = useAppStore((s) => s.currentSchool?.academicYear)
   const viewingAcademicYear = useAppStore((s) => s.viewingAcademicYear)
   const academicYear = viewingAcademicYear || currentSchoolAcademicYear || getCurrentAcademicYear()
@@ -342,9 +342,6 @@ export function TimetablePage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex min-w-0 items-start gap-3">
-          <Button variant="outline" size="icon" onClick={() => goBack('dashboard')} className="mt-0.5 size-9 shrink-0">
-            <ArrowLeft className="size-4" />
-          </Button>
           <div className="min-w-0">
             <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
               <Calendar className="size-6" />

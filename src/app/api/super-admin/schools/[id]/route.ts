@@ -158,7 +158,18 @@ export async function PATCH(
     if (website !== undefined) updateData.website = website
     if (board !== undefined) updateData.board = board
     if (academicYear !== undefined) updateData.academicYear = academicYear
-    if (status !== undefined) updateData.status = status
+    if (status !== undefined) {
+      updateData.status = status
+      // Clear trialEndsAt when moving off trial; keep existing trialEndsAt when staying on trial
+      if (status !== 'trial') {
+        updateData.trialEndsAt = null
+      } else if (body.trialDays !== undefined) {
+        const td = Number(body.trialDays)
+        if (Number.isFinite(td) && td >= 1 && td <= 365) {
+          updateData.trialEndsAt = new Date(Date.now() + Math.floor(td) * 24 * 60 * 60 * 1000)
+        }
+      }
+    }
     if (primaryColor !== undefined) updateData.primaryColor = primaryColor
     if (features !== undefined) updateData.features = features
     if (timezone !== undefined) updateData.timezone = timezone

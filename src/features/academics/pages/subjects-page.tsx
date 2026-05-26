@@ -1,10 +1,10 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
 import { PageHeader, EmptyState, LoadingState } from '@/components/shared'
 import { api } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
-import { useAppStore } from '@/lib/store'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
@@ -79,8 +79,8 @@ interface ClassItem {
 }
 
 export function SubjectsPage() {
+  const router = useRouter()
   const { toast } = useToast()
-  const { navigateTo, goBack, setSelectedSubjectId } = useAppStore()
   const [subjects, setSubjects] = useState<Subject[]>([])
   const [classes, setClasses] = useState<ClassItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -127,8 +127,7 @@ export function SubjectsPage() {
   }
 
   const handleEdit = (subject: Subject) => {
-    setSelectedSubjectId(subject.id)
-    navigateTo('edit-subject')
+    router.push(`/academics/subjects/${subject.id}/edit`)
   }
 
   const handleDelete = async () => {
@@ -179,8 +178,7 @@ export function SubjectsPage() {
       <PageHeader
         title="Subject List"
         description="Manage curriculum subjects, type, order and class assignment."
-        backAction={{ onClick: () => goBack('dashboard') }}
-        action={{ label: 'Add Subject', icon: PlusCircle, onClick: () => navigateTo('add-subject') }}
+        action={{ label: 'Add Subject', icon: PlusCircle, onClick: () => router.push('/academics/subjects/new') }}
       />
 
       {(subjects.length > 0 || hasActiveFilters) && (
@@ -277,7 +275,7 @@ export function SubjectsPage() {
             icon={BookMarked}
             title="No Subjects Yet"
             description="Add subjects to set up your school's curriculum."
-            action={{ label: 'Add Subject', onClick: () => navigateTo('add-subject') }}
+            action={{ label: 'Add Subject', onClick: () => router.push('/academics/subjects/new') }}
           />
         ) : subjects.length === 0 && hasActiveFilters ? (
           <EmptySearch

@@ -1,9 +1,9 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import { EmptyState, LoadingState } from '@/components/shared'
 import { api } from '@/lib/api'
-import { useAppStore } from '@/lib/store'
 import { useToast } from '@/hooks/use-toast'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -28,7 +28,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { AlignLeft, ArrowLeft, Edit2, Layers, ListChecks, PlusCircle, Tag, Trash2 } from 'lucide-react'
+import { AlignLeft, Edit2, Layers, ListChecks, PlusCircle, Tag, Trash2 } from 'lucide-react'
 
 // ── Types ──────────────────────────────────────────────────────────────
 
@@ -47,9 +47,8 @@ const DEFAULT_FEE_GROUP_NAME = '_DEFAULT'
 // ── Component ──────────────────────────────────────────────────────────
 
 export function FeesGroupsPage() {
+  const router = useRouter()
   const { toast } = useToast()
-  const goBack = useAppStore((s) => s.goBack)
-  const navigateTo = useAppStore((s) => s.navigateTo)
 
   // Data
   const [feeGroups, setFeeGroups] = useState<FeeGroup[]>([])
@@ -184,9 +183,6 @@ export function FeesGroupsPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-start gap-3">
-          <Button variant="outline" size="icon" onClick={() => goBack('dashboard')} className="mt-0.5 size-9 shrink-0">
-            <ArrowLeft className="size-4" />
-          </Button>
           <div>
             <h1 className="text-xl font-bold tracking-tight">Fee Groups</h1>
             <p className="mt-1 text-sm text-muted-foreground">{feeGroups.length} fee groups configured</p>
@@ -197,7 +193,7 @@ export function FeesGroupsPage() {
             <PlusCircle className="size-4" />
             Add Fee Group
           </Button>
-          <Button variant="outline" onClick={() => navigateTo('fees-structures')} className="gap-2">
+          <Button variant="outline" onClick={() => router.push('/fees/structures')} className="gap-2">
             <Layers className="size-4" />
             Fees Structure
           </Button>

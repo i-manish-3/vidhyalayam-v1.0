@@ -1,9 +1,9 @@
 import pg from 'pg'
 
 const databaseUrl =
-  process.env.DATABASE_URL || 'postgresql://z:postgres@127.0.0.1:5432/mydigitalacademy'
+  process.env.DATABASE_URL || 'postgresql://z:postgres@127.0.0.1:5432/vidhyalayam'
 const target = new URL(databaseUrl)
-const databaseName = target.pathname.replace(/^\//, '') || 'mydigitalacademy'
+const databaseName = target.pathname.replace(/^\//, '') || 'vidhyalayam'
 
 const adminUrl = new URL(databaseUrl)
 adminUrl.pathname = '/postgres'

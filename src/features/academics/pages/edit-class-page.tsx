@@ -1,8 +1,8 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
-import { useAppStore } from '@/lib/store'
 import { useToast } from '@/hooks/use-toast'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -21,7 +21,6 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import {
-  ArrowLeft,
   PlusCircle,
   X,
   GraduationCap,
@@ -91,10 +90,9 @@ interface NewSectionInput {
 
 // ─── Main Component ──────────────────────────────────────────────────────────
 
-export function EditClassPage() {
+export function EditClassPage({ classId }: { classId: string }) {
+  const router = useRouter()
   const { toast } = useToast()
-  const goBack = useAppStore((s) => s.goBack)
-  const selectedClassId = useAppStore((s) => s.selectedClassId)
 
   // Class data
   const [classData, setClassData] = useState<ClassData | null>(null)
@@ -119,13 +117,12 @@ export function EditClassPage() {
 
   // ── Fetch class data ──
   const fetchClass = useCallback(async () => {
-    if (!selectedClassId) return
     try {
       const res = await api.get<{ classes: ClassData[] }>('/api/school/classes')
-      const found = (res.classes || []).find(c => c.id === selectedClassId)
+      const found = (res.classes || []).find(c => c.id === classId)
       if (!found) {
         toast({ title: 'Class Not Found', description: 'The class could not be found. It may have been deleted.', variant: 'destructive' })
-        goBack('classes')
+        router.push('/academics/classes')
         return
       }
       setClassData(found)
@@ -137,7 +134,7 @@ export function EditClassPage() {
     } finally {
       setLoading(false)
     }
-  }, [selectedClassId, toast, goBack])
+  }, [classId, toast, router])
 
   const fetchSubjects = useCallback(async () => {
     try {
@@ -153,12 +150,6 @@ export function EditClassPage() {
     fetchSubjects()
   }, [fetchClass, fetchSubjects])
 
-  // Redirect if no class selected
-  useEffect(() => {
-    if (!selectedClassId) {
-      goBack('classes')
-    }
-  }, [selectedClassId, goBack])
 
   // ── Group subjects by type ──
   const subjectsByType = SUBJECT_TYPES.map(typeConfig => ({
@@ -272,7 +263,7 @@ export function EditClassPage() {
       }
 
       toast({ title: 'Class Updated', description: `"${name.trim()}" has been updated successfully.` })
-      goBack('classes')
+      router.push('/academics/classes')
     } catch (err) {
       toast({ title: "Couldn't Update Class", description: err instanceof Error ? err.message : 'Something went wrong. Please try again.', variant: 'destructive' })
     } finally {
@@ -298,15 +289,6 @@ export function EditClassPage() {
     <div className="space-y-4">
       {/* Header with back button */}
       <div className="flex items-center gap-3">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="size-9 shrink-0"
-          onClick={() => goBack('classes')}
-          disabled={saving}
-        >
-          <ArrowLeft className="size-4" />
-        </Button>
         <div className="flex-1 min-w-0">
           <h1 className="text-xl font-bold tracking-tight">Edit Class</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
@@ -662,7 +644,7 @@ export function EditClassPage() {
         <Button
           type="button"
           variant="outline"
-          onClick={() => goBack('classes')}
+          onClick={() => router.push('/academics/classes')}
           disabled={saving}
         >
           Cancel

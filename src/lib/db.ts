@@ -5,7 +5,7 @@ const globalForPrisma = globalThis as unknown as {
 }
 
 const DATABASE_URL =
-  process.env.DATABASE_URL || 'postgresql://z:postgres@127.0.0.1:5432/mydigitalacademy'
+  process.env.DATABASE_URL || 'postgresql://z:postgres@127.0.0.1:5432/vidhyalayam'
 
 export const db =
   globalForPrisma.prisma ??

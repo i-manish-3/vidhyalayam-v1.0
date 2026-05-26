@@ -1,261 +1,283 @@
 # Login & Session Flow
 
-This document explains the complete authentication and session lifecycle: login, token issuance, refresh, lockout, manual unlock, password change, and logout. It covers every realistic scenario including failure paths and security guarantees.
+End-to-end documentation of authentication in Vidhyalayam: how a user logs in, how their session stays alive while they work, how lockouts and refreshes work, and what the production-readiness posture is today.
+
+This document reflects the **current implementation** (post HttpOnly cookie migration). Anything that is described in the design but not yet implemented is called out explicitly in [§14](#14-production-readiness-assessment).
 
 ---
 
-## 1. Architecture Overview
+## 1. Architecture at a Glance
 
-The auth system uses a **two-token model**:
+Auth is JWT-based, **stateless** on the server, and uses two HttpOnly cookies. The browser carries the cookies; the server only validates the signature.
 
-| Token | Lifetime | Storage | Purpose |
-|---|---|---|---|
-| Access token (JWT) | 15 minutes | `localStorage` (`erp_token`) + `Authorization: Bearer` header | Identifies the user on every API call |
-| Refresh token (opaque, 256-bit) | 30 days | HttpOnly cookie (`refresh_token`) | Used silently to mint a new access token when the JWT expires |
+| Cookie | Contents | TTL | Set by | Used by |
+|---|---|---|---|---|
+| `erp_access` | Signed JWT — `{ userId, email, role, schoolId }` | **15 minutes** | `/api/auth/login`, `/api/auth/refresh` | Every authenticated API call |
+| `erp_refresh` | Signed JWT — `{ userId, type: 'refresh' }` | **30 days (sliding)** | `/api/auth/login`, `/api/auth/refresh` | Only `/api/auth/refresh` |
 
-The DB stores only **SHA-256 hashes** of refresh tokens (never the raw value). Each token rotation creates a new row and links to its predecessor through `previousHash`, which is what enables replay detection.
+Both cookies are:
+
+```
+HttpOnly        → JavaScript can't read them; XSS can't exfiltrate
+SameSite=Lax    → sent on top-level navigation, blocked on cross-site POST (CSRF mitigation)
+Secure          → HTTPS-only in production (off on localhost so dev works)
+path=/          → sent on every request to the same origin
+```
+
+The DB stores **no session rows**. JWT signature verification alone proves the user is authenticated. The refresh endpoint re-fetches the user from the DB on every refresh to pick up role/active changes.
 
 ### Key files
 
 | Layer | File |
 |---|---|
-| Token signing / verification | [src/lib/auth.ts](src/lib/auth.ts) |
-| Lockout, sessions, rate-limit helpers | [src/lib/auth-security.ts](src/lib/auth-security.ts) |
+| Cookie helpers (single source of truth for flags) | [src/lib/cookies.ts](src/lib/cookies.ts) |
+| JWT signing / verification | [src/lib/auth.ts](src/lib/auth.ts) |
+| Lockout + audit log helpers | [src/lib/auth-security.ts](src/lib/auth-security.ts) |
+| Server-side cookie read (used by every protected route) | [src/lib/api-auth.ts](src/lib/api-auth.ts) |
 | Login route | [src/app/api/auth/login/route.ts](src/app/api/auth/login/route.ts) |
-| Refresh route | [src/app/api/auth/refresh/route.ts](src/app/api/auth/refresh/route.ts) |
-| Logout (single device) | [src/app/api/auth/logout/route.ts](src/app/api/auth/logout/route.ts) |
-| Logout (everywhere) | [src/app/api/auth/logout-all/route.ts](src/app/api/auth/logout-all/route.ts) |
-| List / revoke sessions | [src/app/api/auth/sessions/route.ts](src/app/api/auth/sessions/route.ts), [src/app/api/auth/sessions/[id]/route.ts](src/app/api/auth/sessions/[id]/route.ts) |
+| Refresh route (sliding session) | [src/app/api/auth/refresh/route.ts](src/app/api/auth/refresh/route.ts) |
+| Logout route | [src/app/api/auth/logout/route.ts](src/app/api/auth/logout/route.ts) |
+| Current user / profile | [src/app/api/auth/me/route.ts](src/app/api/auth/me/route.ts) |
+| Current user permissions | [src/app/api/auth/permissions/route.ts](src/app/api/auth/permissions/route.ts) |
 | Password change | [src/app/api/auth/change-password/route.ts](src/app/api/auth/change-password/route.ts) |
-| School-admin unlock | [src/app/api/school/users/[id]/unlock/route.ts](src/app/api/school/users/[id]/unlock/route.ts) |
-| Super-admin unlock | [src/app/api/super-admin/users/[id]/unlock/route.ts](src/app/api/super-admin/users/[id]/unlock/route.ts) |
-| Frontend API client (refresh interceptor) | [src/lib/api.ts](src/lib/api.ts) |
+| School-admin unlock peer | [src/app/api/school/users/[id]/unlock/route.ts](src/app/api/school/users/[id]/unlock/route.ts) |
+| Super-admin unlock anyone | [src/app/api/super-admin/users/[id]/unlock/route.ts](src/app/api/super-admin/users/[id]/unlock/route.ts) |
+| Frontend API client (refresh-on-401 interceptor) | [src/lib/api.ts](src/lib/api.ts) |
 | Zustand auth store | [src/lib/store.ts](src/lib/store.ts) |
-| Sessions UI (dropdown + dialog) | [src/components/app-layout.tsx](src/components/app-layout.tsx) |
-| Locked-user UI + Unlock button | [src/features/admin/pages/school-users-page.tsx](src/features/admin/pages/school-users-page.tsx) |
+| Login screen | [src/components/login-screen.tsx](src/components/login-screen.tsx) |
+| Boot-time auth bootstrap & profile refresh | [src/app/page.tsx](src/app/page.tsx), [src/components/brand-head-manager.tsx](src/components/brand-head-manager.tsx) |
 
-### Database tables
+### Database tables involved
 
-- `User` — credentials + `failedLoginAttempts`, `lastLoginAt`
-- `AccountLockout` — one-to-one with User; `lockedUntil`, `unlockedBy`, `unlockedAt`
-- `LoginEvent` — append-only audit log (`SUCCESS`, `WRONG_PASSWORD`, `USER_NOT_FOUND`, `LOCKED`, `INACTIVE`, etc.)
-- `Session` — refresh-token rows: `tokenHash` (unique), `previousHash`, `userAgent`, `ipAddress`, `expiresAt`, `revokedAt`, `revokeReason`
+- `User` — credentials and `lastLoginAt`. Failed-attempt counts live in `AccountLockout`, not on the user.
+- `AccountLockout` — one-to-one with `User`: `failedAttempts`, `lastFailedAt`, `lockedUntil`, `unlockedBy`, `unlockedAt`.
+- `LoginEvent` — append-only audit log of every login attempt (success or specific failure reason).
+
+There is **no** `Session` table; refresh tokens are stateless JWTs, not opaque DB-backed sessions.
 
 ---
 
 ## 2. Login — Happy Path
 
-User opens the login page and submits email + password.
+User enters credentials on [src/components/login-screen.tsx](src/components/login-screen.tsx) and submits.
 
 ### 2.1 Request
 
-```
+```http
 POST /api/auth/login
-{ "email": "admin@school.com", "password": "..." }
+Content-Type: application/json
+
+{ "email": "admin@dpsdelhi.in", "password": "..." }
 ```
 
-### 2.2 Server pipeline (in order)
+`email` accepts either an email address **or** a 10+ digit phone number (parent accounts often log in by phone).
 
-The login route runs the following checks in strict order — each step can short-circuit with a specific reason logged to `LoginEvent`.
+### 2.2 Server pipeline (strict order)
 
-1. **Rate-limit check** — token bucket in [src/lib/auth-security.ts](src/lib/auth-security.ts):
-   - Per email: 5 attempts / 15 min
-   - Per IP: 15 attempts / 15 min
-   - Exceeded → `429 Too Many Requests`, no DB write.
-2. **User lookup** by lowercased email. Missing user → log `USER_NOT_FOUND`, return generic `401 Invalid credentials` (does not leak whether email exists).
-3. **`isActive` / `deletedAt` check** — disabled or soft-deleted users get `LoginEvent: INACTIVE` and `401`.
-4. **Account lockout check** — `isAccountLocked(userId)`:
-   - If `AccountLockout.lockedUntil > now()` → log `LOCKED`, return `423` with `lockedUntil` so the UI can show countdown.
-5. **Password verify** — `bcrypt.compare()`. The cost factor is embedded in the stored hash, so old hashes still verify.
-   - Wrong → `recordLoginFailure()` increments `User.failedLoginAttempts`. On 5th fail, creates/updates `AccountLockout` with `lockedUntil = now() + 15 min`. Log `WRONG_PASSWORD` or `LOCKED` on the trigger attempt.
-6. **Success** path (covered in §2.3).
+Each step can short-circuit with a specific reason logged to `LoginEvent`. See [src/app/api/auth/login/route.ts](src/app/api/auth/login/route.ts).
+
+1. **Identifier resolution** — phone-shaped input (`/^\d{10,}$/`) → `findFirst` by phone; otherwise → `findUnique` by email.
+2. **User exists?** → No → log `USER_NOT_FOUND`, return `401` with a generic "no account found" message.
+3. **`isActive` check** → false → log `INACTIVE`, return `403`.
+4. **`deletedAt` check** → not null → log `DELETED`, return `403`.
+5. **Lockout check** (skipped for `SUPER_ADMIN` — they cannot be locked out of their own system):
+   - `isAccountLocked(userId)` reads `AccountLockout.lockedUntil > now()`.
+   - If locked → log `LOCKED`, return `423` with a `Retry-After` header (seconds until unlock).
+6. **Password verify** — `bcrypt.compareSync(plain, hashed)`. Cost factor is baked into the hash, so old hashes still verify.
+   - Wrong password (non-SUPER_ADMIN):
+     - `recordLoginFailure(userId)` increments `failedAttempts`. At 5 → sets `lockedUntil = now() + 10 min`.
+     - If this attempt triggered the lock → return `423` with `Retry-After`.
+     - Otherwise return `401`.
+   - Wrong password (SUPER_ADMIN): same `401`, but no DB row update — SUPER_ADMIN is exempt from lockout.
+7. **Success path** (see §2.3).
 
 ### 2.3 Success path
 
 After password verifies:
 
-- `resetLoginFailures(userId)` — clears `failedLoginAttempts`, deletes `AccountLockout` row.
-- Updates `User.lastLoginAt`.
-- `logLoginEvent(SUCCESS)` — records IP + UA.
-- `generateToken({ userId, email, role, schoolId })` — signs a 15-minute JWT.
-- `createSession(userId, userAgent, ipAddress)`:
-  - Generates 32 random bytes → base64url string. This is the raw refresh token.
-  - Hashes with SHA-256 → `tokenHash`. Stores: `userId`, `tokenHash`, `userAgent`, `ipAddress`, `expiresAt = now() + 30 days`.
-  - Returns `{ rawToken, expiresAt }`. The raw token never goes back to the DB.
-- Response sets the cookie:
+- `resetLoginFailures(userId)` — sets `failedAttempts = 0`, clears `lockedUntil`.
+- `db.user.update({ lastLoginAt: new Date() })`.
+- `logLoginEvent({ success: true, userId, email, schoolId, ip, ua })`.
+- Issue tokens:
   ```ts
-  response.cookies.set('refresh_token', session.rawToken, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    path: '/',
-    maxAge: 30 * 24 * 60 * 60,
-    expires: session.expiresAt,
-  })
+  const accessToken  = generateAccessToken({ userId, email, role, schoolId })  // 15m JWT
+  const refreshToken = generateRefreshToken(user.id)                            // 30d JWT, type:'refresh'
   ```
-- JSON body returns the access token + minimal user object:
+- Set both cookies via `setAuthCookies(res, accessToken, refreshToken)`. See [src/lib/cookies.ts](src/lib/cookies.ts) — single source of truth for `httpOnly`, `secure`, `sameSite`, `path`, `maxAge`.
+- Respond with the user shape (no token in the body — the cookies do that work):
   ```json
-  { "token": "<jwt>", "user": { "id": "...", "email": "...", "role": "...", ... } }
+  {
+    "user": {
+      "id": "...", "email": "...", "name": "...", "role": "...",
+      "phone": "...", "avatar": "...", "mustChangePassword": false,
+      "schoolId": "...",
+      "school": { "id": "...", "name": "...", "logo": "...", "status": "...", "subdomain": "...", "primaryColor": "...", "academicYear": "...", "favicon": "..." }
+    }
+  }
   ```
 
 ### 2.4 Client side
 
-[src/lib/store.ts](src/lib/store.ts) `login(user, token)`:
+[src/lib/store.ts](src/lib/store.ts) `login(user)`:
 
-- Writes `erp_token` and a slim user object (without avatar) to `localStorage`.
-- Sets `isAuthenticated: true`.
+- Persists a **slim** user object (avatar stripped — it can be megabytes of base64 and blow past localStorage quota) to `localStorage.erp_user`.
+- Sets `isAuthenticated: true` in Zustand.
 
-From now on every API request includes:
+[src/components/login-screen.tsx](src/components/login-screen.tsx) then makes two follow-up calls inside the same handler:
 
-- `Authorization: Bearer <jwt>` header (from store), and
-- The browser auto-attaches the `refresh_token` cookie because all calls use `credentials: 'include'`.
+- `GET /api/auth/me` → fills `currentSchool` in the store.
+- `GET /api/auth/permissions` → fills the permissions list (drives sidebar visibility).
+
+Both are best-effort: a failure here does not abort the login. The user is already authenticated by virtue of the cookies being set.
+
+From now on every API request automatically attaches both cookies because the fetch wrapper uses `credentials: 'include'`. There is **no `Authorization` header** — JavaScript cannot read the JWT.
 
 ---
 
 ## 3. Login — Failure Scenarios
 
-### 3.1 Wrong password (under 5 fails)
+### 3.1 Wrong password, attempts 1–4
 
-- `User.failedLoginAttempts += 1`.
-- `LoginEvent: WRONG_PASSWORD`.
-- Returns generic `401`. UI shows "Wrong credentials".
+- `AccountLockout.failedAttempts += 1`.
+- `LoginEvent: BAD_PASSWORD`.
+- Returns `401` ("The password you entered is incorrect").
 
 ### 3.2 5th wrong password — auto-lock
 
-- `failedLoginAttempts` hits 5.
-- Upserts `AccountLockout { userId, lockedUntil = now()+15min, attempts: 5 }`.
-- `LoginEvent: LOCKED`.
-- Returns `423` with `lockedUntil` ISO timestamp.
+- `failedAttempts` becomes 5 → `lockedUntil = now() + 10 min`.
+- `LoginEvent: BAD_PASSWORD`.
+- Returns `423 Locked` with `Retry-After: <seconds-until-unlock>` header.
+- UI can show a countdown.
 
-UI flow: the login form switches to a "Account temporarily locked" panel with a live countdown.
+### 3.3 Attempts while locked
 
-### 3.3 6th attempt while locked
+- Step 5 (lockout check) short-circuits → `LoginEvent: LOCKED`.
+- Returns `423` with `Retry-After`.
+- The lock window does **not** extend — keep retrying does not punish the user further.
 
-- Step 4 (lockout check) returns `423` without touching the password. The clock does **not** extend on additional attempts — locked users can't keep extending their own lock.
+### 3.4 Unknown email / phone
 
-### 3.4 Rate limit hit before any DB call
+- `LoginEvent: USER_NOT_FOUND` (email captured for forensic value).
+- Returns `401` with a slightly different message ("No account found with this email or phone number"). Note: this technically leaks user existence vs §3.1. See production-readiness note in §14.
 
-- 6 attempts / 15 min for the same email → `429`. Useful against credential-stuffing where the attacker doesn't even know the password.
+### 3.5 Inactive or soft-deleted user
 
-### 3.5 Inactive / deleted user
+- `LoginEvent: INACTIVE` or `DELETED`.
+- Returns `403`.
 
-- `LoginEvent: INACTIVE`.
-- Returns generic `401` ("Invalid credentials") so we don't leak whether the account exists vs was disabled.
+### 3.6 SUPER_ADMIN exemption
 
-### 3.6 Unknown email
-
-- `LoginEvent: USER_NOT_FOUND` (with the attempted email, for forensic value).
-- Returns the same generic `401`.
+- SUPER_ADMIN is checked **before** the lockout step and skipped. Rationale: the platform owner cannot lose access to their own platform via brute-force.
+- They are still rate-limited at the network layer (whatever the host provides) but not by application logic.
 
 ---
 
-## 4. Manual Unlock
+## 4. Access Token Expiry & Silent Refresh (Sliding Session)
 
-When a school admin is locked at 9 AM and needs to be back in immediately, the 15-min wait isn't acceptable. We provide two endpoints:
+Access tokens live 15 minutes. After that, any API call returns `401`. The client silently refreshes; the user never sees a logout unless their 30-day refresh window has elapsed without activity.
 
-### 4.1 SCHOOL_ADMIN unlocking own-school user
+### 4.1 Client interceptor
+
+[src/lib/api.ts](src/lib/api.ts) `fetchWithRetry`:
+
+```
+fetch(url)
+  → response.status === 401
+  → and: not /api/auth/login or /api/auth/refresh
+  → and: didRefresh === false (not already a retried request)
+  →
+  refreshOnce()  // single-flight; see §4.2
+  → if success: retry original request once with didRefresh=true
+  → if failure: useAppStore.getState().logout() and throw "session expired"
+```
+
+### 4.2 Single-flight refresh
+
+```ts
+private refreshing: Promise<boolean> | null = null
+
+private async refreshOnce(): Promise<boolean> {
+  if (!this.refreshing) {
+    this.refreshing = fetch('/api/auth/refresh', { method: 'POST', credentials: 'include' })
+      .then((r) => r.ok)
+      .catch(() => false)
+      .finally(() => { this.refreshing = null })
+  }
+  return this.refreshing
+}
+```
+
+If 8 parallel API calls all 401 simultaneously (typical after a 15-min idle period when the user comes back and triggers a dashboard re-load), they share **one** `/api/auth/refresh` call, not 8. This is critical because each refresh rotates the refresh token — without single-flight, parallel refreshes would race and only one would succeed, breaking the rest.
+
+`didRefresh: true` on the retry prevents an infinite loop if the retried request also 401s — we fall straight through to logout instead of re-refreshing forever.
+
+### 4.3 Server refresh endpoint
+
+[src/app/api/auth/refresh/route.ts](src/app/api/auth/refresh/route.ts):
+
+1. Read `erp_refresh` cookie. Missing → `401 "No refresh token. Please log in again."`
+2. `verifyRefreshToken(token)`:
+   - Validates signature.
+   - Requires `type === 'refresh'` claim — this is what makes a refresh token unusable as an access token and vice-versa (the `type` discriminator).
+   - Expired/tampered/wrong-type → return `null`.
+3. Token invalid → clear both cookies, return `401`.
+4. Re-fetch user from DB. If `!isActive` or `deletedAt` → clear cookies, return `401`. This is what makes "deactivate this user" take effect within 15 min on every device — once the access token expires, refresh refuses and they're logged out.
+5. Issue **brand new** `accessToken` and `refreshToken`.
+6. `setAuthCookies(res, ...)` rotates both cookies — the new refresh cookie's 30-day expiry slides forward. Active users effectively never log out; inactive users for 30 days will fail to refresh.
+7. Body is just `{ ok: true }` — no sensitive data leaves the server.
+
+---
+
+## 5. Logout
+
+`POST /api/auth/logout` → [src/app/api/auth/logout/route.ts](src/app/api/auth/logout/route.ts).
+
+Stateless — JWTs aren't tracked server-side, so "logout" just means **clear the cookies on this device**.
+
+```ts
+export async function POST() {
+  const response = NextResponse.json({ ok: true })
+  clearAuthCookies(response)
+  return response
+}
+```
+
+Client side ([src/lib/store.ts](src/lib/store.ts) `logout()`):
+
+1. Best-effort `fetch('/api/auth/logout', { method: 'POST', credentials: 'include' })`.
+2. Clear localStorage keys: `erp_user`, `erp_permissions`, `erp_currentPage`, `erp_currentSchool`, `erp_viewingAcademicYear`.
+3. Reset Zustand store: `user: null`, `isAuthenticated: false`, plus navigation reset.
+
+Even if the network call fails, the client still ends up logged out locally and the access cookie expires in ≤15 min. The user lands on the login screen via [src/app/page.tsx](src/app/page.tsx)'s `showLogin` state.
+
+**Limitation**: this only logs out the current device. There is no "log out everywhere" today (see §14).
+
+---
+
+## 6. Manual Unlock
+
+When a school admin is locked out at 9 AM and can't wait 10 minutes, admins can unlock manually.
+
+### 6.1 School admin unlocking a peer
 
 `POST /api/school/users/:id/unlock` → [src/app/api/school/users/[id]/unlock/route.ts](src/app/api/school/users/[id]/unlock/route.ts)
 
 Rules:
 
-- Requester must be `SCHOOL_ADMIN`.
-- Target must be in the **same school** (`target.schoolId === requester.schoolId`). Cross-school → `403`.
-- Target's role must NOT be `SCHOOL_ADMIN` or `SUPER_ADMIN`. Locked admins must escalate to a super-admin to prevent peer-admin collusion → `403`.
+- Requester role: `SCHOOL_ADMIN`.
+- Target must belong to the same school (`target.schoolId === requester.schoolId`).
+- Target role must NOT be `SCHOOL_ADMIN` or `SUPER_ADMIN` — otherwise an admin could unlock a peer-admin (collusion vector) or the platform owner (privilege escalation).
 
 On success:
 
-- Calls `manualUnlock(targetId, requesterId)` which:
-  - Sets `User.failedLoginAttempts = 0`.
-  - Updates `AccountLockout` with `unlockedBy`, `unlockedAt`, `lockedUntil = now()` (so `isAccountLocked` returns false).
-- Logs `LoginEvent: MANUAL_UNLOCK` with both user IDs in metadata.
+- `manualUnlock(targetId, requesterId)` — sets `failedAttempts: 0`, `lockedUntil: null`, records `unlockedBy` + `unlockedAt`.
+- `LoginEvent: MANUAL_UNLOCK` could be added here (currently the audit lives only in `AccountLockout.unlockedBy/unlockedAt`).
 
-UI: lock icon + red "Locked until 9:15 AM" banner with "Unlock Now" button on the user detail card in [src/features/admin/pages/school-users-page.tsx](src/features/admin/pages/school-users-page.tsx).
-
-### 4.2 SUPER_ADMIN unlocking anyone
+### 6.2 Super admin unlocking anyone
 
 `POST /api/super-admin/users/:id/unlock` → [src/app/api/super-admin/users/[id]/unlock/route.ts](src/app/api/super-admin/users/[id]/unlock/route.ts)
 
-Same `manualUnlock` helper, but no school-scope check and no role restriction. This is the escape hatch for locked SCHOOL_ADMINs.
-
----
-
-## 5. Access Token Expiry & Silent Refresh
-
-Access tokens live 15 minutes. After that, any API call returns `401`. The frontend silently rotates via the refresh cookie — the user never sees a logout.
-
-### 5.1 Interceptor in [src/lib/api.ts](src/lib/api.ts)
-
-```
-fetchWithRetry()
-  ↓ response.status === 401
-  ↓ message is the generic "session expired" message (not server-specific)
-  ↓ not an /api/auth/* endpoint
-  ↓ alreadyRefreshed flag === false
-  ↓
-tryRefresh()
-  ↓ POST /api/auth/refresh  (browser sends refresh_token cookie automatically)
-  ↓ on success: store.setToken(newJwt)
-  ↓
-retry original request with Authorization: Bearer <newJwt>
-```
-
-A **singleton `refreshPromise`** ensures that if 10 API calls 401 in parallel, we only hit `/api/auth/refresh` once. The promise is cleared on the next tick so a later 401 (e.g. 14 min later) still triggers a fresh refresh.
-
-If refresh itself returns 401 (refresh token expired or revoked), `useAppStore.getState().logout()` runs and the UI bounces to the login page.
-
-### 5.2 Server side — refresh route
-
-[src/app/api/auth/refresh/route.ts](src/app/api/auth/refresh/route.ts):
-
-1. Reads `refresh_token` cookie. Missing → `401` + clear cookie.
-2. `rotateSession(rawToken, userAgent, ipAddress)`:
-   - Hashes the presented token.
-   - Looks up the Session row by `tokenHash`.
-   - **Three rejection cases** (all return `null` → caller emits `401`):
-     - Session not found.
-     - Session is revoked or expired.
-     - **Replay detection** — see §6.
-   - On accept: revoke current session (`revokeReason: ROTATED`), create new session with `previousHash` pointing at the old one's hash, update `User.lastLoginAt`.
-3. Re-fetches the user (not just decoded values) so the new JWT reflects current `role`, `isActive`, `schoolId`, `deletedAt` state.
-4. Issues new 15-min JWT + sets new refresh cookie with the rotated raw token.
-5. If user is now inactive/deleted, route returns `401` and clears cookie even though the refresh chain was technically valid.
-
----
-
-## 6. Refresh Token Theft & Replay Detection
-
-The chain of `previousHash` links lets us detect a stolen refresh token even though the DB only stores hashes.
-
-### 6.1 Normal rotation
-
-```
-T0: cookie holds RT1.  Session row: tokenHash=H(RT1), previousHash=null
-    POST /refresh
-    → revoke session, create new row: tokenHash=H(RT2), previousHash=H(RT1)
-    → cookie now holds RT2
-
-T1: cookie holds RT2.  POST /refresh
-    → revoke RT2 row, create row: tokenHash=H(RT3), previousHash=H(RT2)
-```
-
-### 6.2 Theft scenario
-
-Attacker grabs RT1 (via XSS, malware, etc.) before the legitimate browser uses it.
-
-```
-Legit browser:   T0 → refresh → got RT2.  (RT1 row is revoked)
-Attacker:        T1 → presents RT1
-```
-
-`rotateSession` sees RT1 in the DB but `revokedAt !== null`. Instead of just rejecting:
-
-- Look up "is there ANY session for this user whose `previousHash === H(RT1)`?" → yes (RT2 row).
-- That means RT1 was rotated AND someone is still trying to use it → **theft confirmed**.
-- `revokeAllSessionsForUser(userId, 'TOKEN_REPLAY')` — every session for this user is killed.
-- Both attacker and legit browser will be forced to re-login next time their access token expires.
-
-This is the canonical OAuth refresh-token rotation defense. The user loses 1–15 min of access (worst case) but the attacker is permanently locked out.
+Same helper, no school-scope check, no role restriction. This is the escape hatch for locked `SCHOOL_ADMIN`s.
 
 ---
 
@@ -263,183 +285,271 @@ This is the canonical OAuth refresh-token rotation defense. The user loses 1–1
 
 `POST /api/auth/change-password` → [src/app/api/auth/change-password/route.ts](src/app/api/auth/change-password/route.ts)
 
-Pipeline:
+Steps:
 
-1. `requireAuth` — must be logged in.
-2. Verify `currentPassword` against stored hash.
-3. `validatePasswordStrength(newPassword)` — min 8 chars, mixed case, digit, symbol.
+1. `requireAuth` — user must have a valid `erp_access` cookie.
+2. Verify `currentPassword` via bcrypt.
+3. `validatePasswordStrength(newPassword)` — minimum 8 chars (see [src/lib/auth-security.ts](src/lib/auth-security.ts)).
 4. Reject `newPassword === currentPassword`.
-5. Hash new password with bcrypt cost 12, save.
-6. **`revokeAllSessionsForUser(userId, 'PASSWORD_CHANGE')`** — kills every refresh session.
-7. Immediately `createSession()` for the **current** device and set a new cookie.
-8. Response includes a new JWT.
+5. `bcrypt.hash(newPassword, 12)` → store on `User.password`.
+6. Optionally re-issue cookies so the current device stays logged in seamlessly.
 
-**Effect**: every other device this user was logged in on gets booted on its next refresh (within 15 min). The current device stays logged in seamlessly. This is the right behavior because the most common reason to change a password is "I think someone may have it".
+**Limitation**: today, other devices the user is logged in on continue to work until their refresh expires (worst case: 30 days if they keep refreshing within a 15-min window). There is no "kill all sessions on password change" because we have no Session table to revoke. See §14.
 
 ---
 
-## 8. Logout
+## 8. Page Boot / Hydration
 
-### 8.1 Single device
+When the SPA loads on a returning user:
 
-`POST /api/auth/logout` → [src/app/api/auth/logout/route.ts](src/app/api/auth/logout/route.ts)
+1. `app/layout.tsx` runs an inline `<script>` that reads `erp_user` from localStorage. If found, it provisionally applies the cached school branding (favicon, page title) immediately — before React even hydrates. This is what makes a returning user's logo "just appear" without flashing the default. See [src/app/layout.tsx](src/app/layout.tsx).
+2. `src/app/page.tsx` Zustand hydration:
+   - Reads `erp_user`, `erp_permissions`, `erp_currentSchool` from localStorage.
+   - Sets `isAuthenticated: true` provisionally — this assumes the access cookie is still valid (we can't read it from JS).
+   - Renders the dashboard immediately for snappy UX.
+3. `BrandHeadManager` fires `GET /api/auth/me` in the background. If it returns:
+   - **200**: the cookies were valid; updates `currentSchool`/`user.avatar` from authoritative DB data.
+   - **401**: the cookies were missing or expired and the client-side refresh chain failed too → falls into the standard 401 flow which triggers `logout()` → bounces to login screen.
 
-- Reads cookie.
-- `revokeSessionByToken(rawToken, 'LOGOUT')` — marks just that one Session row revoked.
-- Clears the cookie.
-
-Client: `app-layout.handleLogout` fires this BEFORE clearing the local store, so even if the network call fails the user still ends up logged out locally (the access token expires in ≤15 min anyway).
-
-### 8.2 Everywhere
-
-`POST /api/auth/logout-all` → [src/app/api/auth/logout-all/route.ts](src/app/api/auth/logout-all/route.ts)
-
-- `requireAuth`.
-- `revokeAllSessionsForUser(user.userId, 'LOGOUT_ALL')` — revokes every Session row for the user.
-- Triggered from the **Active Sessions** dialog → "Sign out everywhere" destructive button in [src/components/app-layout.tsx](src/components/app-layout.tsx).
+**Critical property**: localStorage caches the user's *identity* for fast render, but **the cookie is the source of authentication truth**. Tampering with localStorage cannot grant access — every API call validates the JWT cookie.
 
 ---
 
-## 9. Active Sessions UI
+## 9. Token Lifecycle — Side-by-Side
 
-Visible from the user-avatar dropdown → "Active Sessions" → opens a dialog listing every non-revoked session.
-
-`GET /api/auth/sessions` → [src/app/api/auth/sessions/route.ts](src/app/api/auth/sessions/route.ts)
-
-For each session returns: `id`, `userAgent`, `ipAddress`, `createdAt`, `lastUsedAt`, `expiresAt`, and `isCurrent`.
-
-`isCurrent` detection: the route hashes the incoming `refresh_token` cookie and matches it against each row's `tokenHash`. Exactly one row should match per request; that one gets `isCurrent: true` and is rendered with a "This device" badge.
-
-Per-row delete: `DELETE /api/auth/sessions/:id` → revokes just that session. Ownership check enforced (treats other users' session IDs as 404 to avoid leaking existence).
+| Event | `erp_access` cookie | `erp_refresh` cookie | localStorage | DB |
+|---|---|---|---|---|
+| Login | Set, TTL 15 min | Set, TTL 30 days | `erp_user`, `erp_permissions`, `erp_currentSchool` written | `User.lastLoginAt` updated, `LoginEvent: SUCCESS`, `AccountLockout` reset |
+| API call (within 15 min) | Sent automatically | Sent automatically | Unchanged | None |
+| API call (after 15 min) | Expired → server returns 401 | Sent automatically | Unchanged | None |
+| Silent refresh (within 30 days) | Replaced (new 15-min token) | Replaced (new 30-day token — **sliding**) | Unchanged | None |
+| Refresh fails (30+ days idle) | Cleared | Cleared | All `erp_*` keys removed | None |
+| Logout | Cleared | Cleared | All `erp_*` keys removed | None |
+| Password change | Stays valid until expiry on current device | Stays valid until expiry on current device | Unchanged | `User.password` updated |
+| User deactivated | Stays valid up to 15 min, then refresh refuses → forced logout | Refresh refuses on next attempt | Cleared on the 401 → logout flow | `User.isActive=false` |
+| Manual unlock | n/a (user wasn't logged in) | n/a | n/a | `AccountLockout` cleared, `unlockedBy`/`unlockedAt` recorded |
 
 ---
 
-## 10. Token Lifecycles — Side-by-Side
+## 10. Security Constants
 
-| Event | Access Token | Refresh Cookie | Session DB Row |
+Defined in code:
+
+| Setting | Value | Location | Why |
 |---|---|---|---|
-| Login | New 15-min JWT issued | New raw token set | New row, `previousHash=null` |
-| Silent refresh | Replaced in store | Replaced (rotated) | Old row → `revokedAt + reason=ROTATED`. New row inserted with `previousHash` pointing back |
-| Logout (this device) | Stays in memory until reload, but useless after 15 min | Deleted | Current row `revokedAt + reason=LOGOUT` |
-| Logout everywhere | Same | Deleted | All rows for user → `revokedAt + reason=LOGOUT_ALL` |
-| Password change | New JWT for current device | New cookie for current device | All other rows → `revokeReason=PASSWORD_CHANGE`. New row for current device |
-| Token replay detected | (next 401 logs user out) | (next call clears it) | All rows for user → `revokeReason=TOKEN_REPLAY` |
-| Admin unlock | n/a (user not logged in) | n/a | n/a — only `AccountLockout` is cleared and `failedLoginAttempts` reset |
+| Access token TTL | 15 min | `auth.ts:generateAccessToken` | Limit blast radius if a token leaks (e.g., misconfigured CDN log). |
+| Refresh token TTL | 30 days (sliding) | `auth.ts:generateRefreshToken` | Active users never log out, inactive users fall off cleanly. |
+| Max failed logins before lock | 5 | `auth-security.ts:LOCKOUT_THRESHOLD` | Industry default. |
+| Lock duration | 10 min | `auth-security.ts:LOCKOUT_DURATION_MS` | Discourages bots without permanently DOSing a real user who fat-fingered their password. |
+| bcrypt cost | 12 | `auth.ts:BCRYPT_COST` | ~250 ms per hash on modern hardware — slow enough to make GPU brute force expensive. |
+| Password min length | 8 | `auth-security.ts:PASSWORD_MIN_LENGTH` | Below typical OWASP recommendation (12) — see §14. |
 
 ---
 
-## 11. Rate Limit & Lockout Constants
-
-Defined in [src/lib/auth-security.ts](src/lib/auth-security.ts):
-
-| Setting | Value | Why |
-|---|---|---|
-| Access token TTL | 15 min | Short enough to limit damage from a stolen JWT; long enough that normal browsing doesn't hammer `/refresh` |
-| Refresh token TTL | 30 days | Standard "stay logged in" window |
-| Max failed logins before lock | 5 | Industry default |
-| Lock duration | 15 min | Discourages bots without permanently DOSing real users |
-| Rate limit per email | 5 / 15 min | Catches the obvious case |
-| Rate limit per IP | 15 / 15 min | Catches multi-account credential stuffing from one origin |
-| bcrypt cost | 12 | ~250 ms per hash — slow enough to be costly to brute force |
-
----
-
-## 12. Cookie Security Posture
+## 11. Cookie Security Posture
 
 ```ts
-{
-  httpOnly: true,                                  // JS can't read it → XSS can't exfiltrate
-  secure: process.env.NODE_ENV === 'production',  // HTTPS-only in prod
-  sameSite: 'lax',                                 // CSRF protection (top-level GETs allowed, cross-site POSTs blocked)
-  path: '/',
-  maxAge: 30 * 24 * 60 * 60,
-  expires: <30d from now>,
+// src/lib/cookies.ts
+function flags() {
+  return {
+    httpOnly: true,                                  // JS cannot read → XSS cannot exfiltrate
+    secure: process.env.NODE_ENV === 'production',   // HTTPS-only in prod (localhost stays HTTP in dev)
+    sameSite: 'lax' as const,                        // CSRF mitigation — see below
+    path: '/',
+  }
 }
 ```
 
-The HttpOnly attribute is critical — together with the fact that we never write the refresh token to `localStorage`, an XSS-injected script can read the access JWT but not the refresh token. The blast radius of any XSS is therefore capped at 15 minutes.
+**Why `HttpOnly`** — even if an attacker injects a malicious script into the page (XSS), that script cannot read the JWT. Before the cookie migration the JWT lived in `localStorage`, which any JS could read; the blast radius of an XSS was a full account takeover. Now it is capped at "do whatever the page can do while the script runs" — no token exfiltration.
+
+**Why `SameSite=Lax`** — blocks the classic CSRF pattern: an attacker site posts a form to `our-app.com/api/anything` and the browser would otherwise attach the cookie. With `Lax`, the cookie is sent on top-level navigation (so email-link → dashboard still works after login) but **not** on cross-site form POSTs or `fetch`es. Combined with the fact that all mutations use `POST`/`PUT`/`DELETE` and require JSON content type, classic CSRF is largely defused. Strict would be slightly safer but breaks the email-link login UX.
+
+**Why `Secure` in prod only** — localhost is HTTP. If `Secure` were always on, dev would silently not get the cookie and login would appear to "succeed" then immediately re-401. Conditional `Secure` is correct for any project that uses HTTP locally.
+
+**Token type discriminator** — refresh tokens carry `type: 'refresh'`; access tokens don't. `verifyAccessToken` rejects anything with `type: 'refresh'`; `verifyRefreshToken` requires it. This means an attacker who somehow obtained the refresh token cannot use it as an access token to call protected APIs directly — they'd have to call `/api/auth/refresh` first, which is by design the only consumer of the refresh token.
+
+---
+
+## 12. JWT Secret Handling
+
+[src/lib/auth.ts](src/lib/auth.ts):
+
+```ts
+function loadJwtSecret(): string {
+  const secret = process.env.JWT_SECRET
+  if (!secret || secret.length < 32) {
+    throw new Error('JWT_SECRET environment variable is required and must be at least 32 characters.')
+  }
+  return secret
+}
+const JWT_SECRET = loadJwtSecret()
+```
+
+The app **refuses to start** without a strong `JWT_SECRET`. This prevents a class of bugs where a default/empty secret is silently used in production, allowing attackers to forge tokens.
+
+Generate one with:
+```bash
+node -e "console.log(require('crypto').randomBytes(48).toString('base64'))"
+```
+
+Rotating the secret invalidates every issued token — acceptable for incident response (e.g., suspected key compromise).
 
 ---
 
 ## 13. End-to-End Walkthroughs
 
-### 13.1 First-time login → 12-hour workday
+### 13.1 Standard 12-hour workday
 
 ```
-09:00  Login → JWT15min + refresh cookie set
-09:00–09:15  All API calls use JWT directly
-09:15  First 401 → interceptor calls /refresh → new JWT + rotated cookie → original call retried, user notices nothing
+09:00  Login → erp_access (15m) + erp_refresh (30d) cookies set, dashboard loads.
+09:00–09:15  All API calls go through with the access cookie. No /refresh hits.
+09:15  Next API call returns 401. Client interceptor calls /refresh → server validates the refresh
+       cookie, re-fetches user, mints new pair of cookies. Original request is retried with the
+       fresh cookie. User sees nothing.
 09:15–09:30  …
-...
-21:00  User clicks "Sign out" → POST /logout → cookie deleted, current session row revoked → bounce to login page
+…
+21:00  User clicks Sign Out → POST /api/auth/logout → both cookies cleared → localStorage flushed
+       → login screen.
 ```
 
-### 13.2 Forgotten laptop scenario
+### 13.2 Returning user after weekend
 
 ```
-User loses laptop at airport.
-From phone:
-  Login (new session row created for phone)
-  Open Active Sessions dialog → sees "Chrome on Windows · last used 2 hrs ago"
-  Clicks revoke → DELETE /api/auth/sessions/<id>
-  Laptop's next refresh attempt returns 401 → laptop logs out
-Alternative: clicks "Sign out everywhere" → phone also gets booted, has to log in fresh.
+Monday 10:00  User opens the app. Browser still has erp_refresh (set Friday at 18:00, valid 30 days).
+              erp_access expired Friday at 18:15.
+  - layout.tsx inline script reads erp_user from localStorage → applies cached school logo/title
+    (favicon shows up before React mounts — no flash).
+  - page.tsx hydrates from localStorage → isAuthenticated: true → AppLayout renders.
+  - First API call (e.g., dashboard data fetch) returns 401.
+  - Interceptor calls /refresh → cookie is valid → both cookies rotated → request retried → 200.
+  - User sees their dashboard with no login prompt.
 ```
 
-### 13.3 Compromised credentials suspected
+### 13.3 30+ days of inactivity
 
 ```
-User: changes password.
-Server:
-  revokes ALL sessions for user with reason=PASSWORD_CHANGE
-  creates fresh session for current device
-  responds with new JWT + cookie
-Other devices: within 15 min, their access token expires → /refresh returns 401 (their refresh row is revoked) → forced re-login.
-Attacker (if they had a stolen refresh token): also gets booted on next refresh.
+Day 31  User opens the app. Both cookies are gone (browser deleted expired cookies).
+  - localStorage still has erp_user → page.tsx provisionally renders as if logged in.
+  - First API call returns 401 (no cookies sent at all).
+  - Interceptor calls /refresh → no refresh cookie → 401.
+  - logout() runs → localStorage flushed → bounce to login screen.
+  - User logs in fresh.
 ```
 
-### 13.4 School admin locked at 9 AM
+### 13.4 Brute force attacker
 
 ```
-School admin typos password 5 times → locked until 09:15.
-Calls colleague (another SCHOOL_ADMIN in same school) — can't help (same role can't unlock peers).
-Calls super-admin → super-admin opens user detail, clicks "Unlock Now" → POST /api/super-admin/users/:id/unlock
-   → manualUnlock() clears AccountLockout, resets attempts to 0, logs MANUAL_UNLOCK event with super-admin's ID.
-Admin retries login at 09:03 → succeeds.
+Attacker hits /api/auth/login with target email + many wrong passwords.
+  Attempt 1: AccountLockout.failedAttempts = 1.
+  Attempt 2–4: failedAttempts increments.
+  Attempt 5: failedAttempts = 5 → lockedUntil = now() + 10 min. Returns 423 with Retry-After.
+  Attempt 6+: lockout check fires first → returns 423 without verifying password. Lock window does
+    not extend.
+After 10 minutes the lock auto-expires (or a school/super admin clicks Unlock to clear it).
+LoginEvent rows capture every attempt for audit/forensic review.
 ```
 
-### 13.5 Brute force attacker
+### 13.5 School admin gets locked at 9 AM
 
 ```
-Attacker hits /api/auth/login with target email + 5 wrong passwords in 30 seconds.
-  Attempt 1–4: failedLoginAttempts incremented, generic 401.
-  Attempt 5: failedLoginAttempts=5 → AccountLockout created → 423 + lockedUntil.
-  Attempt 6: lockout check fires first → 423 (does not extend the lock).
-After 5 attempts via /api/auth/login on the same email → rate-limit bucket also empty → 429 for next 15 min.
-After 15 attempts from same IP regardless of email → 429.
-Legit user can either wait 15 min, or ask an admin to unlock immediately.
+School admin types password wrong 5 times → 423 Locked until 09:10.
+Asks colleague (also SCHOOL_ADMIN, same school) — colleague visits the user detail page in
+  school-users-page.tsx, sees the lock banner, clicks "Unlock Now":
+  → POST /api/school/users/<id>/unlock
+  → server enforces: requester is SCHOOL_ADMIN, target is in same school, target is NOT a
+    SCHOOL_ADMIN/SUPER_ADMIN. All three pass.
+  → manualUnlock(targetId, requesterId)
+  → AccountLockout: failedAttempts=0, lockedUntil=null, unlockedBy=<colleague>, unlockedAt=now()
+Admin retries → succeeds at 09:03.
 ```
 
-### 13.6 Refresh token replayed (stolen)
+If the locked user *is* a SCHOOL_ADMIN, only a SUPER_ADMIN can unlock them (the colleague would get
+403). The SUPER_ADMIN endpoint has no school-scope or role restriction.
+
+### 13.6 User deactivated mid-session
 
 ```
-T0  Legit browser: refresh → got RT2. RT1 row marked revoked, RT2 row created with previousHash=H(RT1).
-T1  Attacker (had stolen RT1): /refresh with RT1.
-    Server: H(RT1) found but row is revoked. Check: any row with previousHash=H(RT1)? Yes (RT2).
-    → revokeAllSessionsForUser(reason=TOKEN_REPLAY)
-    → return 401 + clear attacker's cookie.
-T1+1min  Legit browser's JWT expires → /refresh with RT2 → row is now revoked → 401 → forced re-login.
-Net result: 1 forced re-login for the user, permanent lockout for the attacker.
+Day N 14:00  Locked-out user gets deactivated by an admin (User.isActive = false).
+14:00–14:15  Their current access cookie is still valid → they keep working (worst case 15 min).
+14:15  Access cookie expires. First API call returns 401. /refresh fires.
+       Refresh route fetches user → !isActive → clears cookies → returns 401.
+       Client logout() → bounce to login screen.
 ```
+
+Net: within 15 minutes of any user being deactivated, every one of their devices is forced out.
+
+### 13.7 Cross-tab login
+
+```
+Tab A: User logs in at 10:00. Cookies set on the eTLD+1.
+Tab B (same browser, opened later at 10:05, already on app.example.com but never logged in):
+  - Browser sends both cookies automatically (same origin).
+  - First API call succeeds → user metadata loaded → dashboard renders.
+  - The user appears logged in here too without ever entering credentials in this tab.
+```
+
+This works "for free" because cookies are scoped per origin, not per tab.
 
 ---
 
-## 14. What is NOT Yet Implemented
+## 14. Production Readiness Assessment
 
-- IP-based block lists for known bad actors.
-- Geo-velocity checks ("you logged in from India 30 sec after logging in from Brazil").
-- Optional 2FA / TOTP.
-- Email notification on new device login.
-- Admin UI for browsing the `LoginEvent` audit log (rows are written but no read-side surface yet).
+Honest assessment of where the current implementation lands on a production-ready scale, and what's missing if the goal is "enterprise SaaS-grade".
 
-These are deliberately out of scope for the first hardening pass; the foundations (events, sessions, lockout audit) are in place to add them later without schema changes.
+### ✅ Production-ready
+
+| Concern | Status | Notes |
+|---|---|---|
+| XSS-resistant credential storage | ✅ | HttpOnly cookies. JS cannot read tokens. Better than the previous localStorage approach. |
+| CSRF mitigation | ✅ | `SameSite=Lax` + mutations always use POST/PUT/DELETE with JSON body. |
+| HTTPS-only in prod | ✅ | `Secure` flag conditional on `NODE_ENV === 'production'`. |
+| Password storage | ✅ | bcrypt cost 12. Industry-standard. |
+| JWT secret enforcement | ✅ | App refuses to start without a 32+ char `JWT_SECRET`. |
+| Token type discrimination | ✅ | Refresh tokens cannot be replayed as access tokens (the `type: 'refresh'` claim check). |
+| Brute-force protection | ✅ | 5 fails → 10-min lock per account. Persisted in DB so it survives restarts. |
+| Audit log | ✅ | Every login attempt (success or failure) is recorded in `LoginEvent` with IP + UA. |
+| Sliding session | ✅ | Active users stay logged in indefinitely; inactive users fall off after 30 days. |
+| Concurrent refresh handling | ✅ | Client-side single-flight prevents stampede on the refresh endpoint. |
+| Privilege-aware unlock | ✅ | School admins cannot unlock peer admins (no collusion vector); only super admins can. |
+| Inactive-user revocation propagation | ✅ | A deactivated user is forced out within ≤15 min on every device via refresh failure. |
+
+### ⚠️ Gaps worth knowing about
+
+These are not blockers for an MVP / early-stage SaaS, but they should be addressed before serving a large customer base or handling sensitive data (financial, PII).
+
+| Concern | Severity | What's missing | Recommendation |
+|---|---|---|---|
+| **No "log out everywhere"** | Medium | JWT is stateless, so there is no way to invalidate an existing session before its 15-min expiry. If a user thinks their account is compromised, the best we can do is change the password — but the attacker's existing access token still works for up to 15 min. | Add a `Session` table tracking refresh tokens. Refresh route looks the row up; logout marks it revoked. This is the only path to true session control. (Roughly 1–2 days of work.) |
+| **No refresh-token replay detection** | Medium | If an attacker steals a refresh cookie (e.g., through a network compromise, not XSS — XSS is already blocked), they have 30-day access. We have no way to tell legitimate vs replayed use of the same token. | Same `Session` table — store `previousHash` chain so we can detect "this refresh token was already rotated by someone else, but here it is again" and revoke the whole tree. |
+| **No rate limiting at the network/endpoint level** | Medium | Lockout protects per-account, but a credential-stuffing attacker hitting 1000 different emails from one IP will not trip any limit (each email's `failedAttempts` only reaches 1). | Add an IP-based rate limit on `/api/auth/login` (e.g., 30 attempts / 15 min per IP). Easy to add with an in-memory or Redis token bucket. |
+| **Username enumeration** | Low–Medium | The error messages for "user not found" vs "wrong password" differ slightly, letting an attacker confirm which emails are registered. | Return the same generic 401 with the same message for both cases. (5-minute fix.) |
+| **Password policy is weak** | Low | Minimum 8 characters; no requirement for mixed case, digits, or symbols. | Either raise the minimum to 12 (NIST guidance) or add a complexity check. Or — better — integrate `haveibeenpwned`'s password-check API. |
+| **No 2FA** | Low (depends on customer) | No TOTP, no email-OTP, no WebAuthn. | Out of scope for MVP. Add when a customer requires it (typically B2B contract gate). |
+| **No anomaly detection** | Low | No "new device login" email, no impossible-travel detection, no failed-login spike alerts. | Build on top of the `LoginEvent` table once read-side surfaces (admin dashboards) exist. |
+| **JWT secret rotation is a hard-reset** | Low | Rotating `JWT_SECRET` invalidates every session — acceptable for incident response, but no graceful key-rolling support. | Add multi-key support if SLA requires zero-downtime rotation. |
+| **Refresh cookie not domain-scoped** | Low (until multi-subdomain) | Cookie has `path=/` and no `domain` attribute, so it's locked to the exact origin. Fine for single-domain deploys. | When deploying `app.example.com` + `api.example.com` separately, set `domain: '.example.com'` on the cookie. |
+| **No audit UI** | Low | `LoginEvent` rows are written but never read by any admin surface. | Add a `/super-admin/audit-log` page showing recent failed-login spikes per school. |
+| **No structured app telemetry** | Low | `console.error('Login error:', err)` works but isn't picked up by any aggregator. | Wire up a Sentry/Datadog/Posthog SDK in the catch blocks. |
+
+### Bottom line
+
+For a school-management SaaS in early stages: **yes, this is production-ready enough to launch**. The basics are solid (HttpOnly cookies, bcrypt, lockout, audit log, JWT secret enforcement), and the architecture leaves clean room to add the missing pieces incrementally without schema rewrites.
+
+The order I'd address the gaps if growing past ~50 schools or onboarding a security-sensitive customer:
+
+1. **DB-backed sessions + replay detection** (closes the refresh-token theft window).
+2. **IP rate limit on /api/auth/login** (closes credential stuffing).
+3. **Unified error messages** (closes username enumeration).
+4. **Password policy + breach check**.
+5. **2FA**, **anomaly detection**, **audit UI** — only when a customer asks or a real incident demands it.
+
+Everything in (1)–(4) is implementable inside a week of focused work. None require breaking changes to the cookie/JWT structure documented in §1.
+
+---
+
+## 15. Change Log
+
+| Date | Change |
+|---|---|
+| 2026-05-25 | **Major rewrite.** Auth migrated from localStorage JWT + `Authorization: Bearer` header to HttpOnly cookies (`erp_access` + `erp_refresh`). Removed Session-table / replay-detection sections that described an aspirational system never built. Added Production Readiness Assessment. |
+| (earlier) | Original document described a session-table-backed model that was never implemented in code. |

@@ -119,11 +119,16 @@ export async function POST(request: NextRequest) {
       website,
       academicYear,
       board,
+      timezone,
+      currency,
+      primaryColor,
+      dashboardFont,
       adminName,
       adminEmail,
       adminPassword,
       adminPhone,
       permissionIds,
+      trialDays,
     } = body
 
     if (!name || !subdomain || !adminName || !adminEmail || !adminPassword) {
@@ -157,6 +162,17 @@ export async function POST(request: NextRequest) {
     const initialStatus = body.status || 'trial'
     const initialAcademicYear = academicYear || '2025-2026'
 
+    // Trial duration (days). Admin chooses; default 14, allow 1–365.
+    const trialDaysNum = Number(trialDays)
+    const safeTrialDays =
+      Number.isFinite(trialDaysNum) && trialDaysNum >= 1 && trialDaysNum <= 365
+        ? Math.floor(trialDaysNum)
+        : 14
+    const trialEndsAt =
+      initialStatus === 'trial'
+        ? new Date(Date.now() + safeTrialDays * 24 * 60 * 60 * 1000)
+        : null
+
     // ========================================
     // Create school with full provisioning
     // ========================================
@@ -174,8 +190,12 @@ export async function POST(request: NextRequest) {
         website,
         academicYear: initialAcademicYear,
         board: board || 'CBSE',
+        timezone: timezone || undefined,
+        currency: currency || undefined,
+        primaryColor: primaryColor || undefined,
+        dashboardFont: dashboardFont || undefined,
         status: initialStatus,
-        trialEndsAt: initialStatus === 'trial' ? new Date(Date.now() + 14 * 24 * 60 * 60 * 1000) : null,
+        trialEndsAt,
         onboardingDate: new Date(),
         users: {
           create: {

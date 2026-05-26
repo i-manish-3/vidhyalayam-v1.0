@@ -42,7 +42,9 @@ import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { LoadingState } from '@/components/shared'
 import { api } from '@/lib/api'
+import { useRouter } from 'next/navigation'
 import { useAppStore, type PageName } from '@/lib/store'
+import { resolveMigratedUrl } from '@/lib/migrated-routes'
 import { cn } from '@/lib/utils'
 
 const feeTrendData = [
@@ -120,7 +122,13 @@ export function SchoolAdminDashboard() {
   const [data, setData] = useState<DashboardData | null>(null)
   const [birthdays, setBirthdays] = useState<BirthdayPerson[]>([])
   const [now, setNow] = useState(() => new Date())
-  const { currentSchool, setCurrentPage } = useAppStore()
+  const router = useRouter()
+  const { currentSchool } = useAppStore()
+
+  const navigatePage = (page: PageName) => {
+    const url = resolveMigratedUrl(page)
+    if (url) router.push(url)
+  }
 
   useEffect(() => {
     async function fetchData() {
@@ -317,7 +325,7 @@ export function SchoolAdminDashboard() {
               <button
                 key={action.label}
                 type="button"
-                onClick={() => setCurrentPage(action.page)}
+                onClick={() => navigatePage(action.page)}
                 className="inline-flex h-8 shrink-0 items-center gap-2 rounded-md border bg-background px-3 text-sm font-medium text-foreground/85 shadow-xs transition-colors hover:border-primary/40 hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
               >
                 <action.icon className={cn('size-3.5', action.iconClassName)} />
@@ -365,7 +373,7 @@ export function SchoolAdminDashboard() {
               <Badge variant="outline" className="bg-amber-500/10 text-amber-700 dark:text-amber-300">
                 Pending {formatMoney(dashboard.feeStats.totalPending)}
               </Badge>
-              <Button variant="outline" size="sm" onClick={() => setCurrentPage('fee-collections')}>
+              <Button variant="outline" size="sm" onClick={() => router.push('/fees/collections')}>
                 View Fees
                 <ArrowRight className="size-4" />
               </Button>
@@ -469,7 +477,7 @@ export function SchoolAdminDashboard() {
               <CardTitle>Recent Activity</CardTitle>
               <CardDescription>Latest events across school modules</CardDescription>
             </div>
-            <Button variant="outline" size="sm" onClick={() => setCurrentPage('notifications')}>
+            <Button variant="outline" size="sm" onClick={() => router.push('/notifications')}>
               Notifications
               <ArrowRight className="size-4" />
             </Button>

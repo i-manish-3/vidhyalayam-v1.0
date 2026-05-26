@@ -216,7 +216,7 @@ const DEFAULT_TEAM_MEMBERS = [
     id: 'default-1',
     name: 'Manish Kumar',
     role: 'Developer',
-    bio: 'Full-stack developer passionate about building scalable SaaS products. Architect of My Digital Academy\'s platform and core technology.',
+    bio: 'Full-stack developer passionate about building scalable SaaS products. Architect of Vidhyalayam\'s platform and core technology.',
     image: '/uploads/team/manish-kumar.png',
     phone: '+91 98765 43210',
     email: null, linkedin: null, twitter: null, github: null, instagram: null, facebook: null, website: null,
@@ -276,12 +276,12 @@ function Navbar({ onLoginClick }: { onLoginClick: () => void }) {
       }`}
     >
       <div className="mx-auto max-w-7xl flex items-center justify-between px-4 sm:px-6 lg:px-8 h-16">
-        <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="flex items-center gap-2.5 group">
+        <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="flex items-center gap-2.5 group" aria-label="Vidhyalayam">
           <div className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 text-white shadow-lg shadow-emerald-500/25 group-hover:shadow-emerald-500/50 transition-all duration-300 group-hover:scale-105">
             <GraduationCap className="size-5" />
           </div>
-          <span className="text-lg font-bold tracking-tight text-slate-900 dark:text-white">
-            My Digital Academy
+          <span className="text-lg font-bold leading-tight pb-0.5 bg-gradient-to-br from-slate-900 to-slate-700 dark:from-white dark:to-white/70 bg-clip-text text-transparent">
+            Vidhyalayam
           </span>
         </button>
 
@@ -323,9 +323,11 @@ function Navbar({ onLoginClick }: { onLoginClick: () => void }) {
             </SheetTrigger>
             <SheetContent side="right" className="w-72">
               <SheetHeader>
-                <SheetTitle className="flex items-center gap-2">
-                  <GraduationCap className="size-5 text-emerald-500" />
-                  My Digital Academy
+                <SheetTitle className="flex items-center gap-2.5">
+                  <div className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500 text-white shadow-md shadow-emerald-500/25">
+                    <GraduationCap className="size-4" />
+                  </div>
+                  <span className="text-base font-bold">Vidhyalayam</span>
                 </SheetTitle>
               </SheetHeader>
               <div className="flex flex-col gap-1 mt-6">
@@ -480,7 +482,7 @@ function HeroSection({ onLoginClick }: { onLoginClick: () => void }) {
                 <div className="size-3 rounded-full bg-red-400" />
                 <div className="size-3 rounded-full bg-yellow-400" />
                 <div className="size-3 rounded-full bg-green-400" />
-                <span className="ml-2 text-xs text-slate-500 dark:text-white/50 font-medium">My Digital Academy — Dashboard</span>
+                <span className="ml-2 text-xs text-slate-500 dark:text-white/50 font-medium">Vidhyalayam — Dashboard</span>
               </div>
 
               <div className="grid grid-cols-2 gap-4 mb-6">
@@ -1056,7 +1058,7 @@ function FAQSection() {
         <motion.div className="text-center" initial="hidden" animate={inView ? 'visible' : 'hidden'} variants={fadeUp}>
           <Badge variant="secondary" className="mb-4 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"><MessageSquare className="size-3.5 mr-1.5" />FAQ</Badge>
           <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight">Frequently Asked <span className="bg-gradient-to-r from-emerald-500 to-teal-500 bg-clip-text text-transparent">Questions</span></h2>
-          <p className="mt-4 text-lg text-slate-600 dark:text-white/60">Everything you need to know about My Digital Academy</p>
+          <p className="mt-4 text-lg text-slate-600 dark:text-white/60">Everything you need to know about Vidhyalayam</p>
         </motion.div>
 
         <motion.div className="mt-12" initial={{ opacity: 0, y: 20 }} animate={inView ? { opacity: 1, y: 0 } : {}} transition={{ duration: 0.5, delay: 0.2 }}>
@@ -1149,11 +1151,11 @@ function ContactSection({ onLoginClick, addons }: { onLoginClick: () => void; ad
                     <Label>Interested Add-Ons</Label>
                     <div className="grid sm:grid-cols-2 gap-3">
                       {(addons.length > 0 ? addons.filter(a => a.isActive).map(a => ({
-                        id: a.id,
+                        id: a.name,
                         name: a.name,
                         price: a.type === 'recurring' ? `₹${a.price}/staff/month` : `₹${a.price.toLocaleString('en-IN')}`,
                       })) : DEFAULT_ADDONS.map(a => ({
-                        id: a.id,
+                        id: a.name,
                         name: a.name,
                         price: a.price,
                       }))).map((addon) => {
@@ -1217,7 +1219,7 @@ function CTASection({ onLoginClick }: { onLoginClick: () => void }) {
           Ready to Transform Your School?
         </motion.h2>
         <motion.p className="mt-4 text-lg text-emerald-100 max-w-2xl mx-auto" initial={{ opacity: 0, y: 20 }} animate={inView ? { opacity: 1, y: 0 } : {}} transition={{ duration: 0.6, delay: 0.15 }}>
-          Join 500+ schools already using My Digital Academy to streamline operations and improve outcomes.
+          Join 500+ schools already using Vidhyalayam to streamline operations and improve outcomes.
         </motion.p>
         <motion.div className="mt-8 flex flex-col sm:flex-row gap-4 justify-center" initial={{ opacity: 0, y: 20 }} animate={inView ? { opacity: 1, y: 0 } : {}} transition={{ duration: 0.6, delay: 0.3 }}>
           <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
@@ -1249,7 +1251,7 @@ function Footer({ onLoginClick }: { onLoginClick: () => void }) {
               <div className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 text-white shadow-lg">
                 <GraduationCap className="size-5" />
               </div>
-              <span className="text-lg font-bold">My Digital Academy</span>
+              <span className="text-lg font-bold">Vidhyalayam</span>
             </div>
             <p className="text-sm text-slate-400 leading-relaxed">The all-in-one school management platform for modern schools.</p>
           </div>
@@ -1273,14 +1275,14 @@ function Footer({ onLoginClick }: { onLoginClick: () => void }) {
           <div>
             <h4 className="font-semibold mb-4 text-sm uppercase tracking-wider text-slate-300">Contact</h4>
             <ul className="space-y-2.5">
-              <li><a href="mailto:contact@mydigitalacademy.com" className="text-sm text-slate-400 hover:text-emerald-400 transition-colors flex items-center gap-2"><Mail className="size-3.5" />contact@mydigitalacademy.com</a></li>
+              <li><a href="mailto:contact@vidhyalayam.com" className="text-sm text-slate-400 hover:text-emerald-400 transition-colors flex items-center gap-2"><Mail className="size-3.5" />contact@vidhyalayam.com</a></li>
               <li><a href="tel:+91987463210" className="text-sm text-slate-400 hover:text-emerald-400 transition-colors flex items-center gap-2"><Phone className="size-3.5" />+91 987463210</a></li>
               <li><span className="text-sm text-slate-400 flex items-start gap-2"><MapPin className="size-3.5 mt-0.5 shrink-0" />Bairgania, Sitamarhi, Bihar, India</span></li>
             </ul>
           </div>
         </div>
         <div className="mt-10 pt-8 border-t border-slate-800 flex flex-col sm:flex-row justify-between items-center gap-4">
-          <p className="text-sm text-slate-500">&copy; {new Date().getFullYear()} My Digital Academy. All rights reserved.</p>
+          <p className="text-sm text-slate-500">&copy; {new Date().getFullYear()} Vidhyalayam. All rights reserved.</p>
           <div className="flex gap-6">
             <span className="text-sm text-slate-500 hover:text-emerald-400 cursor-pointer transition-colors">Privacy Policy</span>
             <span className="text-sm text-slate-500 hover:text-emerald-400 cursor-pointer transition-colors">Terms of Service</span>

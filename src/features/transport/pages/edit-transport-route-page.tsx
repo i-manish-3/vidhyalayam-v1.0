@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
 import { useAppStore } from '@/lib/store'
 import { getCurrentAcademicYear } from '@/lib/academic-years'
@@ -13,7 +14,7 @@ import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Checkbox } from '@/components/ui/checkbox'
 import { LoadingState } from '@/components/shared'
-import { ArrowLeft, Bus, CalendarDays, Eye, Loader2, MapPin, PlusCircle, Save, X } from 'lucide-react'
+import { Bus, CalendarDays, Eye, Loader2, MapPin, PlusCircle, Save, X } from 'lucide-react'
 
 interface DriverOption {
   id: string
@@ -85,11 +86,9 @@ function parseStops(value: string | null | undefined): TransportRouteStop[] {
   }
 }
 
-export function EditTransportRoutePage() {
+export function EditTransportRoutePage({ routeId }: { routeId: string }) {
+  const router = useRouter()
   const { toast } = useToast()
-  const goBack = useAppStore((s) => s.goBack)
-  const selectedTransportRouteId = useAppStore((s) => s.selectedTransportRouteId)
-  const setSelectedTransportRouteId = useAppStore((s) => s.setSelectedTransportRouteId)
   const currentSchoolAcademicYear = useAppStore((s) => s.currentSchool?.academicYear)
   const viewingAcademicYear = useAppStore((s) => s.viewingAcademicYear)
 
@@ -118,19 +117,12 @@ export function EditTransportRoutePage() {
   const [driverChanged, setDriverChanged] = useState(false)
 
   const returnToRoutes = useCallback(() => {
-    setSelectedTransportRouteId(null)
-    goBack('transport')
-  }, [goBack, setSelectedTransportRouteId])
+    router.push('/transport/routes')
+  }, [router])
 
   const viewRoutes = useCallback(() => {
     returnToRoutes()
   }, [returnToRoutes])
-
-  useEffect(() => {
-    if (!selectedTransportRouteId) {
-      goBack('transport')
-    }
-  }, [goBack, selectedTransportRouteId])
 
   const fetchDrivers = useCallback(async () => {
     try {
@@ -149,19 +141,18 @@ export function EditTransportRoutePage() {
   }, [toast])
 
   const fetchRoute = useCallback(async () => {
-    if (!selectedTransportRouteId) return
+    if (!routeId) return
 
     try {
       setLoading(true)
       const res = await api.get<{ routes: TransportRoute[] }>(
         `/api/school/transport/routes?academicYear=${encodeURIComponent(academicYear)}`
       )
-      const route = (res.routes || []).find((item) => item.id === selectedTransportRouteId)
+      const route = (res.routes || []).find((item) => item.id === routeId)
 
       if (!route) {
         toast({ title: 'Route Not Found', description: 'The selected transport route could not be found in this session.', variant: 'destructive' })
-        setSelectedTransportRouteId(null)
-        goBack('transport')
+        router.push('/transport/routes')
         return
       }
 
@@ -182,11 +173,11 @@ export function EditTransportRoutePage() {
       setDriverChanged(false)
     } catch {
       toast({ title: "Couldn't Load Route", description: 'We could not load this transport route. Please try again.', variant: 'destructive' })
-      goBack('transport')
+      router.push('/transport/routes')
     } finally {
       setLoading(false)
     }
-  }, [academicYear, goBack, selectedTransportRouteId, setSelectedTransportRouteId, toast])
+  }, [academicYear, router, routeId, toast])
 
   useEffect(() => {
     fetchDrivers()
@@ -269,7 +260,7 @@ export function EditTransportRoutePage() {
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault()
 
-    if (!selectedTransportRouteId) return
+    if (!routeId) return
 
     if (!routeName.trim()) {
       toast({ title: 'Route Name Required', description: 'Please enter the route name.', variant: 'destructive' })
@@ -306,7 +297,7 @@ export function EditTransportRoutePage() {
     try {
       setSubmitting(true)
 
-      await api.put(`/api/school/transport/routes/${selectedTransportRouteId}`, {
+      await api.put(`/api/school/transport/routes/${routeId}`, {
         routeName: routeName.trim(),
         routeNumber: routeCode.trim(),
         academicYear,
@@ -345,15 +336,6 @@ export function EditTransportRoutePage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="size-9 shrink-0"
-            onClick={returnToRoutes}
-            disabled={submitting}
-          >
-            <ArrowLeft className="size-4" />
-          </Button>
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Edit Route</h1>
             <p className="text-sm text-muted-foreground mt-0.5">Update the route name, route code, fee months, stop fares, and optional driver</p>

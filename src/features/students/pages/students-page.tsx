@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import { LoadingState, EmptyState } from '@/components/shared'
 import { api } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
@@ -48,7 +49,6 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  ArrowLeft,
   ShieldOff,
   ShieldCheck,
   Loader2,
@@ -257,11 +257,8 @@ function Pagination({
 // ============================================
 
 export function StudentsPage() {
+  const router = useRouter()
   const { toast } = useToast()
-  const setCurrentPage = useAppStore((s) => s.setCurrentPage)
-  const navigateTo = useAppStore((s) => s.navigateTo)
-  const goBack = useAppStore((s) => s.goBack)
-  const setSelectedStudentId = useAppStore((s) => s.setSelectedStudentId)
   // Global "viewing academic year" — top-bar switcher. Without this, the page
   // always returned the school's currently-active session, so changing the
   // year from the top bar appeared to do nothing.
@@ -447,8 +444,7 @@ export function StudentsPage() {
   // ============================================
 
   const handleViewStudent = (student: Student) => {
-    setSelectedStudentId(student.id)
-    navigateTo('student-detail')
+    router.push(`/students/${student.id}`)
   }
 
   // ============================================
@@ -531,16 +527,13 @@ export function StudentsPage() {
       {/* Header */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-start gap-3">
-          <Button variant="outline" size="icon" onClick={() => goBack('dashboard')} className="mt-0.5 size-9 shrink-0">
-            <ArrowLeft className="size-4" />
-          </Button>
           <div>
             <h1 className="text-xl font-bold tracking-tight">Students</h1>
             <p className="mt-0.5 text-sm text-muted-foreground">Manage all students</p>
           </div>
         </div>
         {canAdmit && (
-          <Button onClick={() => navigateTo('admission-form')} className="gap-2 shrink-0">
+          <Button onClick={() => router.push('/students/admit')} className="gap-2 shrink-0">
             <GraduationCap className="size-4" /> Admit Student
           </Button>
         )}
@@ -657,7 +650,7 @@ export function StudentsPage() {
                     ? "No students match your current filters. Click 'Admit Student' to register a new student."
                     : 'No students match your current filters.'
                 }
-                action={canAdmit ? { label: 'Admit Student', onClick: () => navigateTo('admission-form') } : undefined}
+                action={canAdmit ? { label: 'Admit Student', onClick: () => router.push('/students/admit') } : undefined}
               />
             </div>
           ) : (
@@ -776,7 +769,7 @@ export function StudentsPage() {
                                 <Eye className="size-4 mr-2" /> View
                               </DropdownMenuItem>
                               {canEdit && (
-                                <DropdownMenuItem onClick={() => { setSelectedStudentId(s.id); navigateTo('edit-student') }}>
+                                <DropdownMenuItem onClick={() => router.push(`/students/${s.id}/edit`)}>
                                   <Edit className="size-4 mr-2" /> Edit
                                 </DropdownMenuItem>
                               )}

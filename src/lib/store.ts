@@ -1,9 +1,9 @@
 import { create } from 'zustand'
 import { cacheSchoolBranding } from '@/lib/branding'
 
-export type PageName = 
+export type PageName =
   | 'dashboard'
-  | 'students' | 'teachers' | 'parents' | 'admission-form' | 'student-detail'
+  | 'students' | 'teachers' | 'add-teacher' | 'parents' | 'admission-form' | 'student-detail' | 'bulk-admission'
   | 'attendance' | 'mark-attendance' | 'view-attendance'
   | 'fees-heads' | 'fees-groups' | 'fees-structures' | 'fee-collections' | 'fee-change-group'
   | 'salary' | 'salary-structure' | 'salary-payments' | 'salary-advance'
@@ -12,7 +12,7 @@ export type PageName =
   | 'notifications' | 'announcements'
   | 'classes' | 'promote-student' | 'assign-roll-numbers' | 'subjects' | 'academic-years' | 'add-subject' | 'add-class' | 'edit-class' | 'edit-subject'
   | 'settings' | 'support'
-  | 'school-onboarding' | 'schools' | 'school-detail' | 'analytics'
+  | 'school-onboarding' | 'schools' | 'add-school' | 'edit-school' | 'school-detail' | 'analytics'
   | 'my-classes' | 'my-attendance' | 'my-children' | 'fee-details'
   | 'super-admin-permissions' | 'super-admin-roles' | 'school-roles' | 'school-permissions' | 'school-users' | 'staff' | 'staff-create' | 'staff-detail' | 'contact-requests' | 'testimonials' | 'pricing-plans' | 'team-members' | 'edit-student'
 
@@ -51,46 +51,25 @@ export interface School {
 
 interface AuthState {
   user: User | null
-  token: string | null
   isAuthenticated: boolean
   permissions: string[]
   permissionsLoaded: boolean
-  login: (user: User, token: string) => void
-  setToken: (token: string) => void
-  logout: () => void
+  // Tokens live in HttpOnly cookies (erp_access, erp_refresh) set by the
+  // server — JavaScript here can't (and shouldn't) read them. The login
+  // action only mirrors user metadata into the store; the auth cookies
+  // arrive in the same response and the browser persists them.
+  login: (user: User) => void
+  logout: () => Promise<void>
   setPermissions: (permissions: string[]) => void
 }
 
 interface NavigationState {
-  currentPage: PageName
-  pageHistory: PageName[]  // stack of previous pages for back navigation
   sidebarOpen: boolean
   sidebarCollapsed: boolean  // icon-only mode for desktop
-  selectedStudentId: string | null
-  selectedSchoolId: string | null
-  staffDetailId: string | null
-  selectedSuperAdminRoleId: string | null
-  selectedClassId: string | null
-  selectedSubjectId: string | null
-  selectedTransportRouteId: string | null
-  // One-shot: when set, fee-collections page pre-selects this student on mount
-  // and clears the value. Used by "Collect Fees" deep-link from student detail.
-  feesPreselectStudentId: string | null
-  setCurrentPage: (page: PageName) => void
-  navigateTo: (page: PageName) => void  // push current page to history then navigate
-  goBack: (fallback?: PageName) => void  // go back to previous page
   setSidebarOpen: (open: boolean) => void
   setSidebarCollapsed: (collapsed: boolean) => void
   toggleSidebar: () => void
   toggleSidebarCollapse: () => void
-  setSelectedStudentId: (id: string | null) => void
-  setSelectedSchoolId: (id: string | null) => void
-  setStaffDetailId: (id: string | null) => void
-  setSelectedSuperAdminRoleId: (id: string | null) => void
-  setSelectedClassId: (id: string | null) => void
-  setSelectedSubjectId: (id: string | null) => void
-  setSelectedTransportRouteId: (id: string | null) => void
-  setFeesPreselectStudentId: (id: string | null) => void
 }
 
 interface SchoolState {
@@ -130,53 +109,37 @@ function persistUser(user: User) {
 export const useAppStore = create<AppStore>((set) => ({
   // Auth
   user: null,
-  token: null,
   isAuthenticated: false,
   permissions: [],
   permissionsLoaded: false,
-  login: (user, token) => {
+  login: (user) => {
     if (typeof window !== 'undefined') {
-      try {
-        localStorage.setItem('erp_token', token)
-      } catch {
-        // ignore quota errors — handled by persistUser fallback
-      }
       persistUser(user)
     }
-    set({ user, token, isAuthenticated: true })
+    set({ user, isAuthenticated: true })
   },
-  // Updates ONLY the access token — used by the refresh-on-401 flow so the
-  // current user/permissions stay intact while we rotate the short-lived JWT.
-  setToken: (token) => {
+  logout: async () => {
+    // Ask the server to clear the auth cookies. We fire-and-forget if the
+    // server is unreachable — the client-side cleanup below still happens
+    // so the user lands on the login screen regardless.
     if (typeof window !== 'undefined') {
       try {
-        localStorage.setItem('erp_token', token)
+        await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' })
       } catch {
-        // ignore quota errors
+        // Network error — ignore. The cookies will simply expire on their own.
       }
-    }
-    set({ token })
-  },
-  logout: () => {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('erp_token')
       localStorage.removeItem('erp_user')
       localStorage.removeItem('erp_permissions')
-      localStorage.removeItem('erp_currentPage')
       localStorage.removeItem('erp_currentSchool')
       localStorage.removeItem('erp_viewingAcademicYear')
     }
     set({
       user: null,
-      token: null,
       isAuthenticated: false,
       currentSchool: null,
-      currentPage: 'dashboard',
-      pageHistory: [],
       sidebarOpen: true,
       permissions: [],
       permissionsLoaded: false,
-      selectedTransportRouteId: null,
       viewingAcademicYear: null,
     })
   },
@@ -192,58 +155,12 @@ export const useAppStore = create<AppStore>((set) => ({
   },
 
   // Navigation
-  currentPage: 'dashboard',
-  pageHistory: [],
   sidebarOpen: true,
   sidebarCollapsed: false,
-  selectedStudentId: null,
-  selectedSchoolId: null,
-  staffDetailId: null,
-  selectedSuperAdminRoleId: null,
-  selectedClassId: null,
-  selectedSubjectId: null,
-  selectedTransportRouteId: null,
-  feesPreselectStudentId: null,
-  setCurrentPage: (page) => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('erp_currentPage', page)
-    }
-    set({ currentPage: page })
-  },
-  navigateTo: (page) => set((state) => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('erp_currentPage', page)
-    }
-    return { currentPage: page, pageHistory: [...state.pageHistory, state.currentPage] }
-  }),
-  goBack: (fallback) => set((state) => {
-    let targetPage: PageName
-    if (state.pageHistory.length > 0) {
-      const history = [...state.pageHistory]
-      targetPage = history.pop()!
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('erp_currentPage', targetPage)
-      }
-      return { currentPage: targetPage, pageHistory: history }
-    }
-    targetPage = fallback || 'dashboard'
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('erp_currentPage', targetPage)
-    }
-    return { currentPage: targetPage }
-  }),
   setSidebarOpen: (open) => set({ sidebarOpen: open }),
   setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
   toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
   toggleSidebarCollapse: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
-  setSelectedStudentId: (id) => set({ selectedStudentId: id }),
-  setSelectedSchoolId: (id) => set({ selectedSchoolId: id }),
-  setStaffDetailId: (id) => set({ staffDetailId: id }),
-  setSelectedSuperAdminRoleId: (id) => set({ selectedSuperAdminRoleId: id }),
-  setSelectedClassId: (id) => set({ selectedClassId: id }),
-  setSelectedSubjectId: (id) => set({ selectedSubjectId: id }),
-  setSelectedTransportRouteId: (id) => set({ selectedTransportRouteId: id }),
-  setFeesPreselectStudentId: (id) => set({ feesPreselectStudentId: id }),
 
   // School
   currentSchool: null,
@@ -273,14 +190,26 @@ export const useAppStore = create<AppStore>((set) => ({
   },
 }))
 
-// Initialize from localStorage on client
+// Initialize from localStorage on client.
+//
+// The auth token used to live here; it now lives in the HttpOnly `erp_access`
+// cookie. We still cache the *user metadata* (id, name, email, etc.) and
+// permissions in localStorage for fast UI render — those are not security-
+// sensitive (a stolen `erp_user` JSON tells the attacker nothing they can do
+// with). The cookie is the authoritative source of authentication; if it's
+// expired/missing, the first API call will return 401 and trigger logout.
 if (typeof window !== 'undefined') {
-  const token = localStorage.getItem('erp_token')
   const userStr = localStorage.getItem('erp_user')
   const permStr = localStorage.getItem('erp_permissions')
-  const savedPage = localStorage.getItem('erp_currentPage')
   const schoolStr = localStorage.getItem('erp_currentSchool')
-  if (token && userStr) {
+
+  // Clean up any leftover token from the pre-cookie era so it doesn't sit in
+  // localStorage indefinitely. Safe to call even if the key is already gone.
+  localStorage.removeItem('erp_token')
+  // Clean up legacy keys from the pre-route-migration era.
+  localStorage.removeItem('erp_currentPage')
+
+  if (userStr) {
     try {
       const user = JSON.parse(userStr)
       if (user && typeof user === 'object' && 'id' in user && 'email' in user) {
@@ -294,7 +223,8 @@ if (typeof window !== 'undefined') {
         }
         const initialState: Partial<AppStore> = {
           user,
-          token,
+          // Provisional — we assume the cookie is still valid since user
+          // metadata is cached. The next API call confirms or fails with 401.
           isAuthenticated: true,
           permissions,
           // Mark loaded only when we actually rehydrated permissions from
@@ -303,27 +233,19 @@ if (typeof window !== 'undefined') {
           permissionsLoaded: !!permStr,
           currentSchool,
         }
-        // Restore last visited page if valid
-        if (savedPage) {
-          initialState.currentPage = savedPage as PageName
-        }
         const savedViewingYear = localStorage.getItem('erp_viewingAcademicYear')
         if (savedViewingYear) {
           initialState.viewingAcademicYear = savedViewingYear
         }
         useAppStore.setState(initialState as AppStore)
       } else {
-        localStorage.removeItem('erp_token')
         localStorage.removeItem('erp_user')
         localStorage.removeItem('erp_permissions')
-        localStorage.removeItem('erp_currentPage')
         localStorage.removeItem('erp_currentSchool')
       }
     } catch {
-      localStorage.removeItem('erp_token')
       localStorage.removeItem('erp_user')
       localStorage.removeItem('erp_permissions')
-      localStorage.removeItem('erp_currentPage')
       localStorage.removeItem('erp_currentSchool')
     }
   }

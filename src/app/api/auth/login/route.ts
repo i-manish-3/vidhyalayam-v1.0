@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { verifyPassword, generateToken } from '@/lib/auth'
+import { verifyPassword, generateAccessToken, generateRefreshToken } from '@/lib/auth'
+import { setAuthCookies } from '@/lib/cookies'
 import { internalError, apiError } from '@/lib/api-errors'
 import {
   getClientIp,
@@ -87,6 +88,22 @@ export async function POST(request: NextRequest) {
       return apiError(403, 'This account no longer exists. Please contact your school administrator for assistance.')
     }
 
+    // School suspension check — if the user belongs to a school and that school
+    // is suspended by a super admin, refuse login until it's reactivated.
+    // SUPER_ADMIN has no schoolId so user.school is null and this check is skipped.
+    if (user.school?.status === 'suspended') {
+      await logLoginEvent({
+        userId: user.id,
+        email: user.email,
+        schoolId: user.schoolId,
+        ipAddress,
+        userAgent,
+        success: false,
+        failureReason: 'SCHOOL_SUSPENDED',
+      })
+      return apiError(403, 'Your school is currently suspended. Please contact the platform administrator to restore access.')
+    }
+
     // Account lockout check — SUPER_ADMIN is the only role exempt from lockout
     // (the platform owner can't be locked out of their own system). For every
     // other role, an active DB lockout blocks login until it expires or an
@@ -156,15 +173,18 @@ export async function POST(request: NextRequest) {
       success: true,
     })
 
-    const token = generateToken({
+    const accessToken = generateAccessToken({
       userId: user.id,
       email: user.email,
       role: user.role,
       schoolId: user.schoolId || undefined,
     })
+    const refreshToken = generateRefreshToken(user.id)
 
-    return NextResponse.json({
-      token,
+    // Tokens go in HttpOnly cookies, not the JSON body — client JavaScript
+    // never sees the raw JWT. Subsequent API calls auto-include the cookie
+    // because the fetch wrapper uses `credentials: 'include'`.
+    const response = NextResponse.json({
       user: {
         id: user.id,
         email: user.email,
@@ -187,6 +207,8 @@ export async function POST(request: NextRequest) {
           : null,
       },
     })
+    setAuthCookies(response, accessToken, refreshToken)
+    return response
   } catch (error) {
     console.error('Login error:', error)
     return internalError('logging you in')

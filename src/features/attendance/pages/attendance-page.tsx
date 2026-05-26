@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
 import { EmptyState, LoadingState } from '@/components/shared'
 import { api } from '@/lib/api'
 import { useAppStore } from '@/lib/store'
@@ -34,7 +35,6 @@ import {
   Lock,
   ShieldCheck,
   Shield,
-  ArrowLeft,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { usePermissions, PERMISSIONS } from '@/hooks/use-permissions'
@@ -155,11 +155,10 @@ function getInitials(firstName: string, lastName: string): string {
 // ── Component ──────────────────────────────────────────────────────────
 
 export function AttendancePage() {
+  const router = useRouter()
   const { toast } = useToast()
   const { hasPermission } = usePermissions()
   const canView = hasPermission(PERMISSIONS.ATTENDANCE_READ)
-  const goBack = useAppStore((s) => s.goBack)
-  const setCurrentPage = useAppStore((s) => s.setCurrentPage)
   const currentSchoolAcademicYear = useAppStore((s) => s.currentSchool?.academicYear)
   const viewingAcademicYear = useAppStore((s) => s.viewingAcademicYear)
   const academicYear = viewingAcademicYear || currentSchoolAcademicYear || getCurrentAcademicYear()
@@ -401,9 +400,6 @@ export function AttendancePage() {
       {/* ── Page Header ──────────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div className="flex items-center gap-3">
-          <Button variant="outline" size="icon" onClick={() => goBack('dashboard')} className="size-9 shrink-0">
-            <ArrowLeft className="size-4" />
-          </Button>
           <div>
             <h1 className="text-xl font-bold tracking-tight leading-tight">Mark Attendance</h1>
             <p className="text-xs text-muted-foreground">
@@ -413,7 +409,7 @@ export function AttendancePage() {
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           {canView && (
-            <Button variant="outline" size="sm" className="gap-1.5 h-9" onClick={() => setCurrentPage('view-attendance')}>
+            <Button variant="outline" size="sm" className="gap-1.5 h-9" onClick={() => router.push('/attendance/view')}>
               <ClipboardList className="size-4" />
               View Attendance
             </Button>

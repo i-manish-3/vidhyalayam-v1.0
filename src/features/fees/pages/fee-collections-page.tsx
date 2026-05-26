@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { LoadingState } from '@/components/shared'
 import { api } from '@/lib/api'
 import { useAppStore } from '@/lib/store'
@@ -19,7 +20,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator } from '@/components/ui/dropdown-menu'
 import { DatePicker } from '@/components/date-picker'
 import {
-  ArrowLeft,
   Bus,
   CalendarDays,
   ChevronDown,
@@ -388,7 +388,6 @@ export function FeeCollectionsPage() {
   const currentSchool = useAppStore((state) => state.currentSchool)
   const currentSchoolAcademicYear = currentSchool?.academicYear
   const viewingAcademicYear = useAppStore((state) => state.viewingAcademicYear)
-  const goBack = useAppStore((state) => state.goBack)
   const academicYear = viewingAcademicYear || currentSchoolAcademicYear || getCurrentAcademicYear()
 
   const [loading, setLoading] = useState(true)
@@ -434,10 +433,11 @@ export function FeeCollectionsPage() {
   }, [fetchInitialData])
 
   // Consume one-shot pre-select from the student detail page (Collect Fees
-  // button). Fetches the student by ID, selects them, then clears the marker
-  // so future visits to this page start fresh.
-  const feesPreselectStudentId = useAppStore((state) => state.feesPreselectStudentId)
-  const setFeesPreselectStudentId = useAppStore((state) => state.setFeesPreselectStudentId)
+  // button). Reads ?preselect=<id> from the URL, fetches and selects the
+  // student, then strips the param so refresh/back doesn't repeat the action.
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const feesPreselectStudentId = searchParams.get('preselect')
   useEffect(() => {
     if (!feesPreselectStudentId) return
     let cancelled = false
@@ -453,7 +453,7 @@ export function FeeCollectionsPage() {
           variant: 'destructive',
         })
       } finally {
-        if (!cancelled) setFeesPreselectStudentId(null)
+        if (!cancelled) router.replace('/fees/collections')
       }
     })()
     return () => { cancelled = true }
@@ -1212,9 +1212,6 @@ export function FeeCollectionsPage() {
       {/* ── Page Header ──────────────────────────────────────── */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
-          <Button variant="outline" size="icon" onClick={() => goBack('dashboard')} className="size-9 shrink-0">
-            <ArrowLeft className="size-4" />
-          </Button>
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-xl font-bold tracking-tight leading-tight">Collect Fee</h1>

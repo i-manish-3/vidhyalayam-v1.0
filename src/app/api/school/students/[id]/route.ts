@@ -4,6 +4,19 @@ import { requireRole, requirePermission } from '@/lib/api-auth'
 import { unauthorizedError, internalError, apiError, forbiddenError } from '@/lib/api-errors'
 import { uploadIfDataUrl, IMAGE_MIME_TYPES } from '@/lib/storage'
 
+function normName(v: unknown): string | null {
+  if (typeof v !== 'string') return null
+  const trimmed = v.trim()
+  return trimmed ? trimmed.toUpperCase() : null
+}
+
+function normDigits(v: unknown, maxLen?: number): string | null {
+  if (typeof v !== 'string') return null
+  const digits = v.replace(/\D/g, '')
+  if (!digits) return null
+  return maxLen ? digits.slice(0, maxLen) : digits
+}
+
 // GET /api/school/students/[id] - Get full student details
 export async function GET(
   request: NextRequest,
@@ -91,6 +104,10 @@ export async function GET(
             policeStation: true,
             wardNo: true,
             localAddress: true,
+            localVillage: true,
+            localPostOffice: true,
+            localPoliceStation: true,
+            localWardNo: true,
             localCity: true,
             localState: true,
             localPincode: true,
@@ -386,8 +403,8 @@ export async function PATCH(
 
     // Student model updates
     const studentFields: Record<string, unknown> = {}
-    if (firstName !== undefined) studentFields.firstName = firstName
-    if (lastName !== undefined) studentFields.lastName = lastName
+    if (firstName !== undefined) studentFields.firstName = normName(firstName)
+    if (lastName !== undefined) studentFields.lastName = normName(lastName)
     if (classId !== undefined) studentFields.classId = classId || null
     if (sectionId !== undefined) studentFields.sectionId = sectionId || null
     if (rollNumber !== undefined) studentFields.rollNumber = rollNumber || null
@@ -396,8 +413,8 @@ export async function PATCH(
     if (address !== undefined) studentFields.address = address || null
     if (city !== undefined) studentFields.city = city || null
     if (state !== undefined) studentFields.state = state || null
-    if (pincode !== undefined) studentFields.pincode = pincode || null
-    if (aadhaarNumber !== undefined) studentFields.aadhaarNumber = aadhaarNumber || null
+    if (pincode !== undefined) studentFields.pincode = normDigits(pincode, 6)
+    if (aadhaarNumber !== undefined) studentFields.aadhaarNumber = normDigits(aadhaarNumber, 12)
     if (bloodGroup !== undefined) studentFields.bloodGroup = bloodGroup || null
     if (admissionDate !== undefined) studentFields.admissionDate = admissionDate ? new Date(admissionDate) : null
     if (previousSchool !== undefined) studentFields.previousSchool = previousSchool || null
@@ -438,8 +455,8 @@ export async function PATCH(
     if (admissionData && typeof admissionData === 'object') {
       const adm: Record<string, unknown> = {}
       // Personal
-      if (admissionData.firstName !== undefined) adm.firstName = admissionData.firstName
-      if (admissionData.lastName !== undefined) adm.lastName = admissionData.lastName
+      if (admissionData.firstName !== undefined) adm.firstName = normName(admissionData.firstName)
+      if (admissionData.lastName !== undefined) adm.lastName = normName(admissionData.lastName)
       if (admissionData.dateOfBirth !== undefined) adm.dateOfBirth = admissionData.dateOfBirth ? new Date(admissionData.dateOfBirth) : null
       if (admissionData.gender !== undefined) adm.gender = admissionData.gender || null
       if (admissionData.nationality !== undefined) adm.nationality = admissionData.nationality || null
@@ -447,7 +464,7 @@ export async function PATCH(
       if (admissionData.category !== undefined) adm.category = admissionData.category || null
       if (admissionData.caste !== undefined) adm.caste = admissionData.caste || null
       if (admissionData.motherTongue !== undefined) adm.motherTongue = admissionData.motherTongue || null
-      if (admissionData.aadhaarNumber !== undefined) adm.aadhaarNumber = admissionData.aadhaarNumber || null
+      if (admissionData.aadhaarNumber !== undefined) adm.aadhaarNumber = normDigits(admissionData.aadhaarNumber, 12)
       if (admissionData.bloodGroup !== undefined) adm.bloodGroup = admissionData.bloodGroup || null
       if (admissionData.medicalConditions !== undefined) adm.medicalConditions = admissionData.medicalConditions || null
       if (admissionData.registrationNumber !== undefined) adm.registrationNumber = admissionData.registrationNumber || null
@@ -461,32 +478,36 @@ export async function PATCH(
       if (admissionData.address !== undefined) adm.address = admissionData.address || null
       if (admissionData.city !== undefined) adm.city = admissionData.city || null
       if (admissionData.state !== undefined) adm.state = admissionData.state || null
-      if (admissionData.pincode !== undefined) adm.pincode = admissionData.pincode || null
+      if (admissionData.pincode !== undefined) adm.pincode = normDigits(admissionData.pincode, 6)
       if (admissionData.country !== undefined) adm.country = admissionData.country || null
       if (admissionData.village !== undefined) adm.village = admissionData.village || null
       if (admissionData.postOffice !== undefined) adm.postOffice = admissionData.postOffice || null
       if (admissionData.policeStation !== undefined) adm.policeStation = admissionData.policeStation || null
-      if (admissionData.wardNo !== undefined) adm.wardNo = admissionData.wardNo || null
+      if (admissionData.wardNo !== undefined) adm.wardNo = normDigits(admissionData.wardNo, 3)
       if (admissionData.localAddress !== undefined) adm.localAddress = admissionData.localAddress || null
+      if (admissionData.localVillage !== undefined) adm.localVillage = admissionData.localVillage || null
+      if (admissionData.localPostOffice !== undefined) adm.localPostOffice = admissionData.localPostOffice || null
+      if (admissionData.localPoliceStation !== undefined) adm.localPoliceStation = admissionData.localPoliceStation || null
+      if (admissionData.localWardNo !== undefined) adm.localWardNo = normDigits(admissionData.localWardNo, 3)
       if (admissionData.localCity !== undefined) adm.localCity = admissionData.localCity || null
       if (admissionData.localState !== undefined) adm.localState = admissionData.localState || null
-      if (admissionData.localPincode !== undefined) adm.localPincode = admissionData.localPincode || null
+      if (admissionData.localPincode !== undefined) adm.localPincode = normDigits(admissionData.localPincode, 6)
       if (admissionData.localCountry !== undefined) adm.localCountry = admissionData.localCountry || null
       if (admissionData.sameAsPermanent !== undefined) adm.sameAsPermanent = admissionData.sameAsPermanent
       // Father
-      if (admissionData.fatherName !== undefined) adm.fatherName = admissionData.fatherName || null
+      if (admissionData.fatherName !== undefined) adm.fatherName = normName(admissionData.fatherName)
       if (admissionData.fatherPhone !== undefined) adm.fatherPhone = admissionData.fatherPhone || null
       if (admissionData.fatherEmail !== undefined) adm.fatherEmail = admissionData.fatherEmail || null
       if (admissionData.fatherOccupation !== undefined) adm.fatherOccupation = admissionData.fatherOccupation || null
-      if (admissionData.fatherAadhaar !== undefined) adm.fatherAadhaar = admissionData.fatherAadhaar || null
+      if (admissionData.fatherAadhaar !== undefined) adm.fatherAadhaar = normDigits(admissionData.fatherAadhaar, 12)
       if (admissionData.fatherEducation !== undefined) adm.fatherEducation = admissionData.fatherEducation || null
       if (admissionData.fatherIncome !== undefined) adm.fatherIncome = admissionData.fatherIncome ? parseFloat(admissionData.fatherIncome) : null
       // Mother
-      if (admissionData.motherName !== undefined) adm.motherName = admissionData.motherName || null
+      if (admissionData.motherName !== undefined) adm.motherName = normName(admissionData.motherName)
       if (admissionData.motherPhone !== undefined) adm.motherPhone = admissionData.motherPhone || null
       if (admissionData.motherEmail !== undefined) adm.motherEmail = admissionData.motherEmail || null
       if (admissionData.motherOccupation !== undefined) adm.motherOccupation = admissionData.motherOccupation || null
-      if (admissionData.motherAadhaar !== undefined) adm.motherAadhaar = admissionData.motherAadhaar || null
+      if (admissionData.motherAadhaar !== undefined) adm.motherAadhaar = normDigits(admissionData.motherAadhaar, 12)
       if (admissionData.motherEducation !== undefined) adm.motherEducation = admissionData.motherEducation || null
       if (admissionData.motherIncome !== undefined) adm.motherIncome = admissionData.motherIncome ? parseFloat(admissionData.motherIncome) : null
       // Flags

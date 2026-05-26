@@ -9,7 +9,7 @@ async function main() {
   }
 
   const systemNotifications = [
-    { schoolId: null, userId: null, title: 'Welcome to My Digital Academy', message: 'Your School Management ERP system is ready. Explore all features from the dashboard.', type: 'info', isRead: false },
+    { schoolId: null, userId: null, title: 'Welcome to Vidhyalayam', message: 'Your School Management ERP system is ready. Explore all features from the dashboard.', type: 'info', isRead: false },
     { schoolId: null, userId: null, title: 'New School Registration', message: 'A new school has requested onboarding. Review and approve from the Schools section.', type: 'warning', isRead: false },
     { schoolId: null, userId: null, title: 'System Update Complete', message: 'The system has been updated to the latest version with new features and improvements.', type: 'success', isRead: false },
     { schoolId: null, userId: null, title: 'Pricing Inquiry Follow-up', message: 'Review recent demo and pricing inquiries from the contact requests section.', type: 'warning', isRead: false },

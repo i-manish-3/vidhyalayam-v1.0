@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
 import { EmptyState, LoadingState } from '@/components/shared'
 import { api } from '@/lib/api'
 import { useAppStore } from '@/lib/store'
@@ -30,7 +31,6 @@ import {
   ChevronRight,
   BarChart3,
   UserCheck,
-  ArrowLeft,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { usePermissions, PERMISSIONS } from '@/hooks/use-permissions'
@@ -145,13 +145,12 @@ function getInitials(firstName: string, lastName: string): string {
 // ── Component ──────────────────────────────────────────────────────────
 
 export function ViewAttendancePage() {
+  const router = useRouter()
   const { toast } = useToast()
   const { hasPermission } = usePermissions()
   const canMark = hasPermission(PERMISSIONS.ATTENDANCE_MARK)
   const currentSchoolAcademicYear = useAppStore((s) => s.currentSchool?.academicYear)
   const viewingAcademicYear = useAppStore((s) => s.viewingAcademicYear)
-  const goBack = useAppStore((s) => s.goBack)
-  const setCurrentPage = useAppStore((s) => s.setCurrentPage)
   const academicYear = viewingAcademicYear || currentSchoolAcademicYear || getCurrentAcademicYear()
 
   // Filter state
@@ -263,9 +262,6 @@ export function ViewAttendancePage() {
       {/* ── Page Header ──────────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div className="flex items-center gap-3">
-          <Button variant="outline" size="icon" onClick={() => goBack('dashboard')} className="size-9 shrink-0">
-            <ArrowLeft className="size-4" />
-          </Button>
           <div>
             <h1 className="text-xl font-bold tracking-tight leading-tight">View Attendance</h1>
             <p className="text-xs text-muted-foreground">
@@ -279,7 +275,7 @@ export function ViewAttendancePage() {
             {formatDate(date)}
           </Badge>
           {canMark && (
-            <Button size="sm" onClick={() => setCurrentPage('mark-attendance')} className="gap-1.5">
+            <Button size="sm" onClick={() => router.push('/attendance/mark')} className="gap-1.5">
               <ClipboardCheck className="size-4" />
               Mark Attendance
             </Button>

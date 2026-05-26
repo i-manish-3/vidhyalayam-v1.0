@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -48,7 +49,8 @@ interface TeacherDashboardData {
 export function TeacherDashboard() {
   const [loading, setLoading] = useState(true)
   const [data, setData] = useState<TeacherDashboardData | null>(null)
-  const { setCurrentPage, user } = useAppStore()
+  const router = useRouter()
+  const { user } = useAppStore()
 
   const fetchDashboard = useCallback(async () => {
     try {
@@ -142,13 +144,13 @@ export function TeacherDashboard() {
               <CardTitle className="text-base">Quick Actions</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
-              <Button variant="outline" className="w-full justify-start gap-3 h-11" onClick={() => setCurrentPage('attendance')}>
+              <Button variant="outline" className="w-full justify-start gap-3 h-11" onClick={() => router.push('/attendance/mark')}>
                 <ClipboardList className="size-4 text-[var(--button-primary,var(--primary))]" /> Mark Attendance
               </Button>
-              <Button variant="outline" className="w-full justify-start gap-3 h-11" onClick={() => setCurrentPage('exams')}>
+              <Button variant="outline" className="w-full justify-start gap-3 h-11" onClick={() => router.push('/exams')}>
                 <BookOpen className="size-4 text-[var(--button-primary,var(--primary))]" /> Enter Exam Marks
               </Button>
-              <Button variant="outline" className="w-full justify-start gap-3 h-11" onClick={() => setCurrentPage('timetable')}>
+              <Button variant="outline" className="w-full justify-start gap-3 h-11" onClick={() => router.push('/academics/timetable')}>
                 <Clock className="size-4 text-[var(--button-primary,var(--primary))]" /> View Timetable
               </Button>
             </CardContent>

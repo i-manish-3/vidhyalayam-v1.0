@@ -1,13 +1,13 @@
 'use client'
 
+import { useRouter } from 'next/navigation'
 import { ArrowRight, ShieldCheck, UserCog, Users } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { useAppStore } from '@/lib/store'
 
 export function SchoolPermissionsPage() {
-  const navigateTo = useAppStore((s) => s.navigateTo)
+  const router = useRouter()
 
   return (
     <div className="space-y-6">
@@ -35,7 +35,7 @@ export function SchoolPermissionsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Button className="gap-2" onClick={() => navigateTo('school-roles')}>
+            <Button className="gap-2" onClick={() => router.push('/settings/roles')}>
               Open Roles & Permissions
               <ArrowRight className="size-4" />
             </Button>
@@ -53,7 +53,7 @@ export function SchoolPermissionsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Button variant="outline" className="gap-2" onClick={() => navigateTo('school-users')}>
+            <Button variant="outline" className="gap-2" onClick={() => router.push('/settings/users')}>
               Open User Role Assignment
               <ArrowRight className="size-4" />
             </Button>

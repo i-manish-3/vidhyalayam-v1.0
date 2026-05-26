@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
 import { useAppStore } from '@/lib/store'
 import { cn } from '@/lib/utils'
@@ -20,7 +21,6 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { DatePicker } from '@/components/date-picker'
 import { SchoolPrintHeader } from '@/lib/print-header'
 import {
-  ArrowLeft,
   User,
   Users,
   GraduationCap,
@@ -113,6 +113,10 @@ interface AdmissionData {
   policeStation: string | null
   wardNo: string | null
   localAddress: string | null
+  localVillage: string | null
+  localPostOffice: string | null
+  localPoliceStation: string | null
+  localWardNo: string | null
   localCity: string | null
   localState: string | null
   localPincode: string | null
@@ -862,15 +866,15 @@ function BrandedAdmissionFormBody({
 // Main Component
 // ============================================
 
-export function StudentDetailPage() {
+export function StudentDetailPage({ studentId }: { studentId: string }) {
+  const router = useRouter()
   const { toast } = useToast()
   const { hasPermission } = usePermissions()
   const canEdit = hasPermission(PERMISSIONS.STUDENT_UPDATE)
   const canPromote = hasPermission(PERMISSIONS.ADMISSION_UPDATE)
   const canCollectFees = hasPermission(PERMISSIONS.FEES_COLLECT)
-  const goBack = useAppStore((s) => s.goBack)
-  const selectedStudentId = useAppStore((s) => s.selectedStudentId)
   const currentSchool = useAppStore((s) => s.currentSchool)
+
   const currentSchoolAcademicYear = currentSchool?.academicYear
 
   const [student, setStudent] = useState<StudentData | null>(null)
@@ -914,35 +918,31 @@ export function StudentDetailPage() {
         }
       } else {
         toast({ title: 'Not Found', description: 'Student not found', variant: 'destructive' })
-        goBack('students')
+        router.push('/students')
       }
     } catch {
       toast({ title: "Couldn't Load Student", description: "We couldn't load the student details. Please go back and try again.", variant: 'destructive' })
-      goBack('students')
+      router.push('/students')
     } finally {
       setLoading(false)
     }
   }
 
   useEffect(() => {
-    if (!selectedStudentId) {
-      goBack('students')
-      return
-    }
     // Pass viewYear on the very first fetch so the API can resolve the
     // enrollment overlay in one trip. Otherwise the response comes back with
     // hasEnrollmentForRequestedYear=false and the "wasn't enrolled" banner
     // flashes (or sticks if a downstream re-fetch never fires).
-    fetchStudent(selectedStudentId, viewYear || undefined)
+    fetchStudent(studentId, viewYear || undefined)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedStudentId, goBack, toast])
+  }, [studentId, toast])
 
   // Re-fetch when the admin picks a different academic year from the selector.
   useEffect(() => {
-    if (!selectedStudentId || !student || !viewYear) return
+    if (!student || !viewYear) return
     if (student.academicYearContext?.resolvedAcademicYear === viewYear) return
     if (student.academicYearContext?.requestedAcademicYear === viewYear) return
-    fetchStudent(selectedStudentId, viewYear)
+    fetchStudent(studentId, viewYear)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [viewYear])
 
@@ -1014,7 +1014,7 @@ export function StudentDetailPage() {
   }
 
   const submitPromotion = async () => {
-    if (!student || !selectedStudentId) return
+    if (!student) return
     if (!promotionForm.academicYear || !promotionForm.classId) {
       toast({ title: 'Missing Details', description: 'Please select target session and class.', variant: 'destructive' })
       return
@@ -1023,7 +1023,7 @@ export function StudentDetailPage() {
     setPromoting(true)
     try {
       const result = await api.post<{ message?: string; previousSessionDue?: number; transport?: { carried: boolean; warning: string | null; newFare: number | null } | null }>(
-        `/api/school/students/${selectedStudentId}/promote`,
+        `/api/school/students/${studentId}/promote`,
         {
           ...promotionForm,
           feesGroupId: promotionForm.feesGroupId || null,
@@ -1036,7 +1036,7 @@ export function StudentDetailPage() {
         description: result.message || 'New session enrollment has been created.',
       })
       setPromoteOpen(false)
-      await fetchStudent(selectedStudentId)
+      await fetchStudent(studentId)
     } catch (err) {
       toast({
         title: "Couldn't Promote Student",
@@ -1077,7 +1077,7 @@ export function StudentDetailPage() {
 
   const studentPhoto = student.profileImage || a?.profileImage || null
   const permanentAddressLine = [a?.address || student.address, a?.city || student.city, a?.state || student.state, a?.pincode || student.pincode, a?.country || student.country].filter(Boolean).join(', ')
-  const localAddressLine = a?.localAddress ? [a.localAddress, a.localCity, a.localState, a.localPincode, a.localCountry].filter(Boolean).join(', ') : ''
+  const localAddressLine = a?.localAddress ? [a.localAddress, a.localVillage, a.localPostOffice, a.localPoliceStation, a.localWardNo ? `Ward ${a.localWardNo}` : null, a.localCity, a.localState, a.localPincode, a.localCountry].filter(Boolean).join(', ') : ''
 
   const viewingYear = resolvedAcademicYear || currentSchoolAcademicYear || a?.academicYear || null
   const yearTransportAlloc = viewingYear
@@ -1164,9 +1164,6 @@ export function StudentDetailPage() {
         <CardContent className="p-3 sm:p-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
             <div className="flex items-start gap-3 sm:gap-4">
-              <Button variant="outline" size="icon" onClick={() => goBack('students')} className="size-9 shrink-0 sm:hidden">
-                <ArrowLeft className="size-4" />
-              </Button>
               <div className="flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-md border border-primary/20 bg-primary/10 shadow-sm sm:size-24">
                 {(student.profileImage || a?.profileImage) ? (
                   <img src={(student.profileImage || a?.profileImage) as string} alt={fullName} className="size-full object-cover" />
@@ -1177,9 +1174,6 @@ export function StudentDetailPage() {
 
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  <Button variant="outline" size="icon" onClick={() => goBack('students')} className="size-7 shrink-0 hidden sm:inline-flex">
-                    <ArrowLeft className="size-3.5" />
-                  </Button>
                   <h1 className="break-words text-lg font-bold tracking-tight text-foreground sm:text-xl">{fullName}</h1>
                   <Badge variant="outline" className={cn('rounded-md font-semibold gap-1 h-5 px-1.5 text-[10.5px]', statusClass(effectiveEnrollmentStatus))}>
                     <BadgeCheck className="size-3" />
@@ -1209,16 +1203,12 @@ export function StudentDetailPage() {
 
             <div className="flex shrink-0 flex-wrap gap-1.5 sm:ml-auto">
               {canEdit && (
-                <Button variant="outline" size="sm" onClick={() => { useAppStore.getState().navigateTo('edit-student') }} className="h-8 gap-1.5">
+                <Button variant="outline" size="sm" onClick={() => router.push(`/students/${studentId}/edit`)} className="h-8 gap-1.5">
                   <Edit className="size-3.5" /> Edit
                 </Button>
               )}
               {canCollectFees && (
-                <Button variant="default" size="sm" onClick={() => {
-                  const store = useAppStore.getState()
-                  store.setFeesPreselectStudentId(student.id)
-                  store.navigateTo('fee-collections')
-                }} className="h-8 gap-1.5">
+                <Button variant="default" size="sm" onClick={() => router.push(`/fees/collections?preselect=${student.id}`)} className="h-8 gap-1.5">
                   <Banknote className="size-3.5" /> Collect Fees
                 </Button>
               )}
@@ -1448,7 +1438,7 @@ export function StudentDetailPage() {
                   <div className="flex items-start gap-2 rounded-md border border-border/70 bg-muted/20 p-3">
                     <Home className="mt-0.5 size-4 shrink-0 text-primary" />
                     <p className="break-words text-sm font-medium">
-                      {[a.localAddress, a.localCity, a.localState, a.localPincode, a.localCountry].filter(Boolean).join(', ')}
+                      {[a.localAddress, a.localVillage, a.localPostOffice, a.localPoliceStation, a.localWardNo ? `Ward ${a.localWardNo}` : null, a.localCity, a.localState, a.localPincode, a.localCountry].filter(Boolean).join(', ')}
                     </p>
                   </div>
                 </div>

@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
 import { getCurrentAcademicYear } from '@/lib/academic-years'
 import { useAppStore } from '@/lib/store'
@@ -27,7 +28,6 @@ import {
 } from '@/components/ui/alert-dialog'
 import {
   AlertTriangle,
-  ArrowLeft,
   CheckCircle2,
   ExternalLink,
   GraduationCap,
@@ -72,7 +72,8 @@ function fatherName(student: StudentRow) {
 
 export function PromoteStudentPage() {
   const { toast } = useToast()
-  const { goBack, navigateTo, currentSchool } = useAppStore()
+  const router = useRouter()
+  const { currentSchool } = useAppStore()
   const defaultYear = currentSchool?.academicYear || getCurrentAcademicYear()
 
   const [classes, setClasses] = useState<ClassOption[]>([])
@@ -301,9 +302,6 @@ export function PromoteStudentPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-start gap-3">
-        <Button variant="outline" size="icon" onClick={() => goBack('classes')} className="mt-0.5 size-9 shrink-0">
-          <ArrowLeft className="size-4" />
-        </Button>
         <div>
           <h1 className="text-lg font-semibold tracking-tight">Promote Student</h1>
           <p className="text-sm text-muted-foreground">Follow the checklist and submit when ready.</p>
@@ -326,7 +324,7 @@ export function PromoteStudentPage() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => item.number === 1 ? navigateTo('academic-years') : undefined}
+                  onClick={() => item.number === 1 ? router.push('/academics/years') : undefined}
                   className="mt-1 inline-flex max-w-full items-center gap-1 text-left text-[11px] text-muted-foreground hover:text-primary"
                 >
                   {'link' in item && item.link && <ExternalLink className="size-3 shrink-0" />}

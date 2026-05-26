@@ -157,7 +157,7 @@ export async function PUT(
       // Contact / Address
       'address', 'city', 'state', 'pincode', 'country',
       'village', 'postOffice', 'policeStation', 'wardNo',
-      'localAddress', 'localCity', 'localState', 'localPincode', 'localCountry',
+      'localAddress', 'localVillage', 'localPostOffice', 'localPoliceStation', 'localWardNo', 'localCity', 'localState', 'localPincode', 'localCountry',
       'sameAsPermanent',
       // Mother
       'motherName', 'motherPhone', 'motherEmail', 'motherOccupation', 'motherAadhaar',
@@ -200,12 +200,28 @@ export async function PUT(
       updateData.profileImage = upload.url
     }
 
+    const NAME_FIELDS = new Set(['firstName', 'lastName', 'fatherName', 'motherName'])
+    const DIGITS_FIELDS: Record<string, number> = {
+      aadhaarNumber: 12, fatherAadhaar: 12, motherAadhaar: 12,
+      pincode: 6, localPincode: 6,
+      wardNo: 3, localWardNo: 3,
+    }
+
     for (const field of updatableFields) {
       if (body[field] !== undefined) {
         const dateFields = ['dateOfBirth', 'dateOfAdmission', 'tcDate']
-        const newValue = dateFields.includes(field) && body[field]
-          ? new Date(body[field])
-          : body[field]
+        let newValue
+        if (dateFields.includes(field) && body[field]) {
+          newValue = new Date(body[field])
+        } else if (NAME_FIELDS.has(field) && typeof body[field] === 'string') {
+          const trimmed = body[field].trim()
+          newValue = trimmed ? trimmed.toUpperCase() : null
+        } else if (DIGITS_FIELDS[field] !== undefined && typeof body[field] === 'string') {
+          const digits = body[field].replace(/\D/g, '')
+          newValue = digits ? digits.slice(0, DIGITS_FIELDS[field]) : null
+        } else {
+          newValue = body[field]
+        }
 
         updateData[field] = newValue
 

@@ -1,6 +1,6 @@
 import type { School } from '@/lib/store'
 
-const DEFAULT_TITLE = 'My Digital Academy - School Management System'
+const DEFAULT_TITLE = 'Vidhyalayam - School Management System'
 const DEFAULT_ICON = '/icon.svg'
 const BRANDING_STORAGE_KEY = 'erp_schoolBranding'
 const ICON_SELECTOR = "link[rel~='icon'], link[rel='shortcut icon'], link[rel='apple-touch-icon']"
@@ -90,12 +90,11 @@ export function applySchoolBranding(school?: SchoolBranding | null) {
 
   document.title = getSchoolBrowserTitle(school)
 
-  document.querySelectorAll<HTMLLinkElement>(ICON_SELECTOR).forEach((icon) => {
-    if (icon.getAttribute('data-school-branding') !== 'favicon') {
-      icon.remove()
-    }
-  })
-
+  // Do NOT remove existing <link rel="icon"> elements here even if they look
+  // "default" — React's reconciler may still track them, and removing them
+  // out-of-band crashes the next commit with "Cannot read properties of null
+  // (reading 'removeChild')". Browsers honor the LAST favicon link, so
+  // upserting our managed link below is enough to win.
   const iconSource = getSchoolBrowserIcon(school)
   const iconHref = getFreshIconHref(iconSource)
   upsertIconLink('icon', iconSource, iconHref)

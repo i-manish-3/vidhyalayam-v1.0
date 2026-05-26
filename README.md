@@ -1,4 +1,4 @@
-# ðŸŽ“ My Digital Academy â€” School Management ERP System
+# ðŸŽ“ Vidhyalayam â€” School Management ERP System
 
 A full-featured, multi-tenant SaaS School Management ERP built with **Next.js 16**, **TypeScript**, **Tailwind CSS 4**, and **Prisma ORM**. Manage students, teachers, fees, attendance, exams, payroll, library, transport, and more â€” all from one platform.
 
@@ -72,7 +72,7 @@ The `.env` file contains:
 
 ```env
 # Database - PostgreSQL
-DATABASE_URL=postgresql://z:postgres@127.0.0.1:5432/mydigitalacademy
+DATABASE_URL=postgresql://z:postgres@127.0.0.1:5432/vidhyalayam
 
 # JWT Secret â€” Change this in production!
 JWT_SECRET=school-erp-super-secret-key-2025
@@ -237,7 +237,7 @@ Dark mode is fully supported via `next-themes`.
 
 This project uses **PostgreSQL** via Prisma ORM.
 
-- Local default URL: `postgresql://z:postgres@127.0.0.1:5432/mydigitalacademy`
+- Local default URL: `postgresql://z:postgres@127.0.0.1:5432/vidhyalayam`
 - Managed PostgreSQL providers such as Supabase or Neon can be used by changing `DATABASE_URL`
 - Schema: `prisma/schema.prisma` (40+ models)
 - Prisma reads `DATABASE_URL` from `.env`
@@ -268,5 +268,5 @@ This project is proprietary. All rights reserved.
 ---
 
 <p align="center">
-  Built with â¤ï¸ by <strong>My Digital Academy</strong>
+  Built with â¤ï¸ by <strong>Vidhyalayam</strong>
 </p>

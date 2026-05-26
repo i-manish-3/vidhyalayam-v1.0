@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import { PageHeader, EmptyState, LoadingState } from '@/components/shared'
 import { api } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
@@ -46,8 +47,8 @@ interface TransportDriver {
 }
 
 export function TransportPage() {
+  const router = useRouter()
   const { toast } = useToast()
-  const { goBack, navigateTo, setSelectedTransportRouteId } = useAppStore()
   const viewingAcademicYear = useAppStore((state) => state.viewingAcademicYear)
   const currentSchool = useAppStore((state) => state.currentSchool)
   const [routes, setRoutes] = useState<TransportRoute[]>([])
@@ -135,8 +136,7 @@ export function TransportPage() {
   }
 
   const handleEdit = (route: TransportRoute) => {
-    setSelectedTransportRouteId(route.id)
-    navigateTo('edit-transport-route')
+    router.push(`/transport/routes/${route.id}/edit`)
   }
 
   const handleDelete = async () => {
@@ -187,8 +187,7 @@ export function TransportPage() {
       <PageHeader
         title="Transport Routes"
         description={`${routes.length} route${routes.length !== 1 ? 's' : ''} in the transport network`}
-        backAction={{ onClick: () => goBack('dashboard') }}
-        action={{ label: 'Add Route', icon: PlusCircle, onClick: () => navigateTo('add-transport-route') }}
+        action={{ label: 'Add Route', icon: PlusCircle, onClick: () => router.push('/transport/routes/new') }}
       />
 
       {routes.length === 0 ? (
@@ -196,7 +195,7 @@ export function TransportPage() {
           icon={Bus}
           title="No Transport Routes"
           description="Add transport routes to manage student commuting and vehicle assignments."
-          action={{ label: 'Add Route', onClick: () => navigateTo('add-transport-route') }}
+          action={{ label: 'Add Route', onClick: () => router.push('/transport/routes/new') }}
         />
       ) : (
         <div className="overflow-hidden rounded-lg border bg-card">

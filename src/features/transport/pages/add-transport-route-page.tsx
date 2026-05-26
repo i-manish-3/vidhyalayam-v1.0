@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
 import { useAppStore } from '@/lib/store'
 import { getCurrentAcademicYear } from '@/lib/academic-years'
@@ -12,7 +13,7 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Checkbox } from '@/components/ui/checkbox'
-import { ArrowLeft, Bus, CalendarDays, Eye, Loader2, MapPin, PlusCircle, User, X } from 'lucide-react'
+import { Bus, CalendarDays, Eye, Loader2, MapPin, PlusCircle, User, X } from 'lucide-react'
 
 interface DriverOption {
   id: string
@@ -29,8 +30,7 @@ const FEE_MONTH_OPTIONS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug
 
 export function AddTransportRoutePage() {
   const { toast } = useToast()
-  const navigateTo = useAppStore((s) => s.navigateTo)
-  const goBack = useAppStore((s) => s.goBack)
+  const router = useRouter()
   const currentSchoolAcademicYear = useAppStore((s) => s.currentSchool?.academicYear)
   const viewingAcademicYear = useAppStore((s) => s.viewingAcademicYear)
 
@@ -190,7 +190,7 @@ export function AddTransportRoutePage() {
         description: `"${routeName.trim()}" has been added successfully.`,
       })
 
-      navigateTo('transport')
+      router.push('/transport/routes')
     } catch (err) {
       toast({
         title: 'Failed to Create Route',
@@ -206,21 +206,12 @@ export function AddTransportRoutePage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="size-9 shrink-0"
-            onClick={() => goBack('transport')}
-            disabled={submitting}
-          >
-            <ArrowLeft className="size-4" />
-          </Button>
           <div>
             <h1 className="text-xl font-bold tracking-tight">Create Route</h1>
             <p className="text-sm text-muted-foreground mt-0.5">Set the route name, route code, fee months, stop fares, and optional driver</p>
           </div>
         </div>
-        <Button type="button" variant="outline" className="gap-2 self-start sm:self-auto" onClick={() => navigateTo('transport')} disabled={submitting}>
+        <Button type="button" variant="outline" className="gap-2 self-start sm:self-auto" onClick={() => router.push('/transport/routes')} disabled={submitting}>
           <Eye className="size-4" />
           View Routes
         </Button>
@@ -524,7 +515,7 @@ export function AddTransportRoutePage() {
                   </>
                 )}
               </Button>
-              <Button type="button" variant="outline" onClick={() => goBack('transport')} disabled={submitting}>
+              <Button type="button" variant="outline" onClick={() => router.push('/transport/routes')} disabled={submitting}>
                 Cancel
               </Button>
             </div>

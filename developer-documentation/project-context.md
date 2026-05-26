@@ -1,10 +1,10 @@
-# My Digital Academy - Project Context
+# Vidhyalayam - Project Context
 
 This document is a handoff note for any future AI/model working on this project. Read this first before making changes.
 
 ## Project Summary
 
-My Digital Academy is a multi-tenant school management ERP built with Next.js. It supports school admin, super admin, teacher, student, parent, and staff dashboards. The project has modules for admissions, students, attendance, fees, academics, transport, library, inventory, salary, notifications, announcements, roles, and permissions.
+Vidhyalayam is a multi-tenant school management ERP built with Next.js. It supports school admin, super admin, teacher, student, parent, and staff dashboards. The project has modules for admissions, students, attendance, fees, academics, transport, library, inventory, salary, notifications, announcements, roles, and permissions.
 
 ## Tech Stack
 
@@ -27,7 +27,7 @@ The app uses PostgreSQL, not SQLite.
 Current local database URL is usually:
 
 ```env
-DATABASE_URL=postgresql://z:postgres@127.0.0.1:5432/mydigitalacademy
+DATABASE_URL=postgresql://z:postgres@127.0.0.1:5432/vidhyalayam
 ```
 
 Important commands:

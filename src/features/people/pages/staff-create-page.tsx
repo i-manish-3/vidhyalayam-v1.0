@@ -1,9 +1,9 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
 import { compressImage } from '@/lib/image-compress'
-import { useAppStore } from '@/lib/store'
 import { useToast } from '@/hooks/use-toast'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -22,7 +22,6 @@ import {
 } from '@/components/ui/select'
 import {
   UserPlus,
-  ArrowLeft,
   Shield,
   ShieldCheck,
   GraduationCap,
@@ -102,9 +101,8 @@ function FormSkeleton() {
 // ─── Main Component ──────────────────────────────────────────────────────────
 
 export function StaffCreatePage() {
+  const router = useRouter()
   const { toast } = useToast()
-  const setCurrentPage = useAppStore((s) => s.setCurrentPage)
-  const goBack = useAppStore((s) => s.goBack)
 
   // Form state
   const [name, setName] = useState('')
@@ -198,7 +196,7 @@ export function StaffCreatePage() {
         description: `"${res.name}" can now sign in using phone ${phoneDigits} and the default password "staff123". They will be asked to change it on first login.`,
       })
 
-      goBack('staff')
+      router.push('/staff')
     } catch (err) {
       toast({
         title: 'Creation Failed',
@@ -215,14 +213,6 @@ export function StaffCreatePage() {
     <div className="space-y-4">
       {/* Header with back button */}
       <div className="flex items-center gap-3">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="size-9 shrink-0"
-          onClick={() => goBack('staff')}
-        >
-          <ArrowLeft className="size-4" />
-        </Button>
         <div>
           <h1 className="text-xl font-bold tracking-tight">Create Staff</h1>
           <p className="text-xs text-muted-foreground">
@@ -466,7 +456,7 @@ export function StaffCreatePage() {
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => goBack('staff')}
+                  onClick={() => router.push('/staff')}
                   disabled={submitting}
                 >
                   Cancel

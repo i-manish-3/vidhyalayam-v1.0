@@ -1,8 +1,8 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
-import { useAppStore } from '@/lib/store'
 import { useToast } from '@/hooks/use-toast'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -22,7 +22,6 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import {
-  ArrowLeft,
   BookOpen,
   Loader2,
   Save,
@@ -68,10 +67,9 @@ interface ClassItem {
 
 // ─── Main Component ──────────────────────────────────────────────────────────
 
-export function EditSubjectPage() {
+export function EditSubjectPage({ subjectId }: { subjectId: string }) {
+  const router = useRouter()
   const { toast } = useToast()
-  const goBack = useAppStore((s) => s.goBack)
-  const selectedSubjectId = useAppStore((s) => s.selectedSubjectId)
 
   // Subject data
   const [subjectData, setSubjectData] = useState<SubjectData | null>(null)
@@ -97,13 +95,12 @@ export function EditSubjectPage() {
 
   // ── Fetch subject data ──
   const fetchSubject = useCallback(async () => {
-    if (!selectedSubjectId) return
     try {
       const res = await api.get<{ subjects: SubjectData[] }>('/api/school/subjects')
-      const found = (res.subjects || []).find(s => s.id === selectedSubjectId)
+      const found = (res.subjects || []).find(s => s.id === subjectId)
       if (!found) {
         toast({ title: 'Subject Not Found', description: 'The subject could not be found. It may have been deleted.', variant: 'destructive' })
-        goBack('subjects')
+        router.push('/academics/subjects')
         return
       }
       setSubjectData(found)
@@ -117,7 +114,7 @@ export function EditSubjectPage() {
     } finally {
       setLoading(false)
     }
-  }, [selectedSubjectId, toast, goBack])
+  }, [subjectId, toast, router])
 
   const fetchClasses = useCallback(async () => {
     try {
@@ -133,12 +130,6 @@ export function EditSubjectPage() {
     fetchClasses()
   }, [fetchSubject, fetchClasses])
 
-  // Redirect if no subject selected
-  useEffect(() => {
-    if (!selectedSubjectId) {
-      goBack('subjects')
-    }
-  }, [selectedSubjectId, goBack])
 
   // ── Name validation ──
   const validateName = (value: string) => {
@@ -191,7 +182,7 @@ export function EditSubjectPage() {
         classIds: Array.from(selectedClassIds),
       })
       toast({ title: 'Subject Updated', description: `"${name.trim()}" has been updated successfully.` })
-      goBack('subjects')
+      router.push('/academics/subjects')
     } catch (err) {
       toast({ title: "Couldn't Update Subject", description: err instanceof Error ? err.message : 'Something went wrong. Please try again.', variant: 'destructive' })
     } finally {
@@ -207,7 +198,7 @@ export function EditSubjectPage() {
       await api.delete(`/api/school/subjects/${subjectData.id}`)
       toast({ title: 'Subject Deleted', description: `"${subjectData.name}" has been removed.` })
       setShowDeleteDialog(false)
-      goBack('subjects')
+      router.push('/academics/subjects')
     } catch (err) {
       toast({ title: "Couldn't Delete Subject", description: err instanceof Error ? err.message : 'Something went wrong. Please try again.', variant: 'destructive' })
     } finally {
@@ -232,15 +223,6 @@ export function EditSubjectPage() {
     <div className="space-y-6">
       {/* Header with back button */}
       <div className="flex items-center gap-3">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="size-9 shrink-0"
-          onClick={() => goBack('subjects')}
-          disabled={saving}
-        >
-          <ArrowLeft className="size-4" />
-        </Button>
         <div className="flex-1 min-w-0">
           <h1 className="text-2xl font-bold tracking-tight">Edit Subject</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
@@ -481,7 +463,7 @@ export function EditSubjectPage() {
         <Button
           type="button"
           variant="outline"
-          onClick={() => goBack('subjects')}
+          onClick={() => router.push('/academics/subjects')}
           disabled={saving}
         >
           Cancel

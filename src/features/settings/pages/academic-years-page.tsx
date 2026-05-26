@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import type { Dispatch, SetStateAction } from 'react'
-import { AlertTriangle, ArrowLeft, CalendarDays, CheckCircle2, Info, Loader2, PauseCircle, Pencil, PlusCircle, RotateCcw, ShieldCheck, Trash2 } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { AlertTriangle, CalendarDays, CheckCircle2, Info, Loader2, PauseCircle, Pencil, PlusCircle, RotateCcw, ShieldCheck, Trash2 } from 'lucide-react'
 import { api } from '@/lib/api'
 import { useAppStore } from '@/lib/store'
 import { getCurrentAcademicYear, type AcademicYear } from '@/lib/academic-years'
@@ -79,8 +80,9 @@ function ImpactCounts({ preview }: { preview: AcademicYearImpactPreview }) {
 }
 
 export function AcademicYearsPage() {
+  const router = useRouter()
   const { toast } = useToast()
-  const { currentSchool, setCurrentSchool, setViewingAcademicYear, user, goBack } = useAppStore()
+  const { currentSchool, setCurrentSchool, setViewingAcademicYear, user } = useAppStore()
   const [academicYears, setAcademicYears] = useState<AcademicYear[]>([])
   const [deletedAcademicYears, setDeletedAcademicYears] = useState<AcademicYear[]>([])
   const [yearName, setYearName] = useState(getCurrentAcademicYear())
@@ -406,9 +408,6 @@ export function AcademicYearsPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex min-w-0 items-start gap-3">
-          <Button type="button" variant="outline" size="icon" className="mt-0.5 size-9 shrink-0" onClick={() => goBack('dashboard')}>
-            <ArrowLeft className="size-4" />
-          </Button>
           <div className="min-w-0">
             <h1 className="text-2xl font-bold tracking-tight">Academic Years</h1>
             <p className="text-sm text-muted-foreground">Manage current, inactive, deleted, and restored academic sessions with impact review.</p>

@@ -1,37 +1,21 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { ScrollArea } from '@/components/ui/scroll-area'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
 import { Separator } from '@/components/ui/separator'
-import { Skeleton } from '@/components/ui/skeleton'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import { StatsCard } from '@/components/shared'
-import { useAppStore } from '@/lib/store'
+import { type PageName } from '@/lib/store'
+import { resolveMigratedUrl } from '@/lib/migrated-routes'
 import { useToast } from '@/hooks/use-toast'
 import { api } from '@/lib/api'
+import { cn } from '@/lib/utils'
 import {
-  School, CheckCircle, Clock, Users, Building2, ShieldCheck, Lock,
-  ArrowRight, Plus, Search, Save, Trash2,
+  School, CheckCircle2, Clock, Users, Building2, GraduationCap,
+  ArrowRight, ArrowUpRight, ArrowDownRight, AlertTriangle, LifeBuoy,
+  Mail, ShieldCheck, KeyRound, Plus, TrendingUp,
+  Sparkles, type LucideIcon,
 } from 'lucide-react'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -39,48 +23,36 @@ import {
 } from 'recharts'
 import { LoadingState } from '@/components/shared'
 
-const COLORS = ['oklch(0.596 0.145 163.225)', 'oklch(0.562 0.118 175.5)', 'oklch(0.769 0.159 57.7)', 'oklch(0.577 0.245 27.325)', 'oklch(0.558 0.214 293)']
+// ─── Constants ───────────────────────────────────────────────────────────────
 
-const mockGrowthData = [
-  { month: 'Jan', schools: 12 },
-  { month: 'Feb', schools: 18 },
-  { month: 'Mar', schools: 22 },
-  { month: 'Apr', schools: 28 },
-  { month: 'May', schools: 35 },
-  { month: 'Jun', schools: 42 },
-  { month: 'Jul', schools: 48 },
-  { month: 'Aug', schools: 55 },
-  { month: 'Sep', schools: 62 },
-  { month: 'Oct', schools: 68 },
-  { month: 'Nov', schools: 74 },
-  { month: 'Dec', schools: 80 },
-]
-
-const mockStatusData = [
-  { name: 'Active', value: 42 },
-  { name: 'Trial', value: 18 },
-  { name: 'Pending', value: 8 },
-  { name: 'Suspended', value: 3 },
-]
-
-const PRESET_COLORS = [
-  '#10b981', '#059669', '#8b5cf6', '#6366f1', '#ec4899',
-  '#f59e0b', '#06b6d4', '#ef4444', '#0ea5e9', '#14b8a6',
-]
+const STATUS_COLORS: Record<string, string> = {
+  Active: 'oklch(0.596 0.145 163.225)',
+  Trial: 'oklch(0.769 0.159 57.7)',
+  Pending: 'oklch(0.562 0.118 175.5)',
+  Suspended: 'oklch(0.577 0.245 27.325)',
+}
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-interface RoleListItem {
-  id: string
-  name: string
-  description?: string | null
-  color?: string | null
-  isSystem: boolean
-  isActive: boolean
-  createdAt: string
-  permissionCount: number
-  userCount: number
-  school: { id: string; name: string; primaryColor?: string | null } | null
+interface Analytics {
+  totalSchools: number
+  activeSchools: number
+  trialSchools: number
+  suspendedSchools: number
+  pendingSchools: number
+  totalStudents: number
+  totalTeachers: number
+  totalUsers: number
+  schoolsThisMonth: number
+  studentsThisMonth: number
+  schoolsTrend: number
+  studentsTrend: number
+  trialExpiringSoon: number
+  openTickets: number
+  newContactRequests: number
+  growthByMonth: { month: string; schools: number }[]
+  statusBreakdown: { name: string; value: number }[]
+  trialExpiryList: { id: string; name: string; subdomain: string; trialEndsAt: string | null }[]
 }
 
 interface SchoolOption {
@@ -88,6 +60,160 @@ interface SchoolOption {
   name: string
   status: string
   subdomain: string
+  studentCount?: number
+  teacherCount?: number
+  createdAt?: string
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function formatNumber(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`
+  return String(n)
+}
+
+function daysUntil(date: string | null): number {
+  if (!date) return 0
+  const ms = new Date(date).getTime() - Date.now()
+  return Math.max(0, Math.ceil(ms / (1000 * 60 * 60 * 24)))
+}
+
+// ─── Sub-components ──────────────────────────────────────────────────────────
+
+interface HeroStatProps {
+  title: string
+  value: string | number
+  icon: LucideIcon
+  trend?: number
+  trendLabel?: string
+  tone?: 'emerald' | 'blue' | 'amber' | 'violet'
+  accent?: string
+}
+
+const TONES: Record<NonNullable<HeroStatProps['tone']>, { bg: string; ring: string; text: string; bar: string }> = {
+  emerald: {
+    bg: 'bg-emerald-500/10',
+    ring: 'ring-emerald-500/20',
+    text: 'text-emerald-600 dark:text-emerald-400',
+    bar: 'from-emerald-500/60 via-emerald-500 to-emerald-500/40',
+  },
+  blue: {
+    bg: 'bg-sky-500/10',
+    ring: 'ring-sky-500/20',
+    text: 'text-sky-600 dark:text-sky-400',
+    bar: 'from-sky-500/60 via-sky-500 to-sky-500/40',
+  },
+  amber: {
+    bg: 'bg-amber-500/10',
+    ring: 'ring-amber-500/20',
+    text: 'text-amber-600 dark:text-amber-400',
+    bar: 'from-amber-500/60 via-amber-500 to-amber-500/40',
+  },
+  violet: {
+    bg: 'bg-violet-500/10',
+    ring: 'ring-violet-500/20',
+    text: 'text-violet-600 dark:text-violet-400',
+    bar: 'from-violet-500/60 via-violet-500 to-violet-500/40',
+  },
+}
+
+function HeroStat({ title, value, icon: Icon, trend, trendLabel, tone = 'emerald' }: HeroStatProps) {
+  const t = TONES[tone]
+  const trendPositive = (trend ?? 0) >= 0
+  return (
+    <Card className="relative overflow-hidden border-border/60">
+      <CardContent className="p-5">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 space-y-2">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{title}</p>
+            <p className="text-3xl font-bold tracking-tight tabular-nums">{value}</p>
+            {typeof trend === 'number' && (
+              <div className="flex items-center gap-1.5 text-xs">
+                <span
+                  className={cn(
+                    'inline-flex items-center gap-0.5 rounded-md px-1.5 py-0.5 font-medium',
+                    trendPositive
+                      ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                      : 'bg-red-500/10 text-red-600 dark:text-red-400'
+                  )}
+                >
+                  {trendPositive ? <ArrowUpRight className="size-3" /> : <ArrowDownRight className="size-3" />}
+                  {trendPositive ? '+' : ''}{trend}%
+                </span>
+                {trendLabel && <span className="text-muted-foreground">{trendLabel}</span>}
+              </div>
+            )}
+          </div>
+          <div className={cn('flex size-11 shrink-0 items-center justify-center rounded-xl ring-1', t.bg, t.ring)}>
+            <Icon className={cn('size-5', t.text)} />
+          </div>
+        </div>
+      </CardContent>
+      <div className={cn('absolute inset-x-0 bottom-0 h-0.5 bg-gradient-to-r', t.bar)} />
+    </Card>
+  )
+}
+
+interface ActionTileProps {
+  title: string
+  count: number
+  description: string
+  icon: LucideIcon
+  tone: 'amber' | 'rose' | 'sky'
+  onClick: () => void
+}
+
+function ActionTile({ title, count, description, icon: Icon, tone, onClick }: ActionTileProps) {
+  const toneClasses = {
+    amber: { wrap: 'border-amber-500/30 hover:bg-amber-500/[0.04]', dot: 'bg-amber-500/15 text-amber-600 dark:text-amber-400' },
+    rose:  { wrap: 'border-rose-500/30  hover:bg-rose-500/[0.04]',  dot: 'bg-rose-500/15  text-rose-600  dark:text-rose-400'  },
+    sky:   { wrap: 'border-sky-500/30   hover:bg-sky-500/[0.04]',   dot: 'bg-sky-500/15   text-sky-600   dark:text-sky-400'   },
+  }[tone]
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'group flex w-full items-center gap-3 rounded-xl border bg-card p-4 text-left transition-all',
+        toneClasses.wrap
+      )}
+    >
+      <div className={cn('flex size-10 shrink-0 items-center justify-center rounded-lg', toneClasses.dot)}>
+        <Icon className="size-5" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-baseline gap-2">
+          <span className="text-xl font-bold tabular-nums">{count}</span>
+          <span className="text-sm font-medium truncate">{title}</span>
+        </div>
+        <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-1">{description}</p>
+      </div>
+      <ArrowRight className="size-4 text-muted-foreground/40 group-hover:translate-x-0.5 group-hover:text-foreground transition-all" />
+    </button>
+  )
+}
+
+interface QuickActionProps {
+  label: string
+  icon: LucideIcon
+  onClick: () => void
+}
+
+function QuickAction({ label, icon: Icon, onClick }: QuickActionProps) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex flex-col items-center justify-center gap-2 rounded-lg border bg-card p-4 text-center transition-all hover:border-primary/40 hover:bg-primary/[0.03] hover:shadow-sm"
+    >
+      <div className="flex size-9 items-center justify-center rounded-md bg-primary/10 text-primary">
+        <Icon className="size-4" />
+      </div>
+      <span className="text-xs font-medium">{label}</span>
+    </button>
+  )
 }
 
 // ─── Main Component ──────────────────────────────────────────────────────────
@@ -95,546 +221,435 @@ interface SchoolOption {
 export function SuperAdminDashboard() {
   const { toast } = useToast()
   const [loading, setLoading] = useState(true)
-  const [analytics, setAnalytics] = useState<{
-    totalSchools: number
-    activeSchools: number
-    trialSchools: number
-    totalStudents: number
-    totalTeachers: number
-  } | null>(null)
+  const [analytics, setAnalytics] = useState<Analytics | null>(null)
   const [schools, setSchools] = useState<SchoolOption[]>([])
 
-  // School-roles state
-  const [selectedSchoolId, setSelectedSchoolId] = useState<string>('')
-  const [schoolRoles, setSchoolRoles] = useState<RoleListItem[]>([])
-  const [loadingRoles, setLoadingRoles] = useState(false)
-  const [roleSearch, setRoleSearch] = useState('')
+  const router = useRouter()
 
-  // Create role dialog
-  const [showCreateDialog, setShowCreateDialog] = useState(false)
-  const [newRoleName, setNewRoleName] = useState('')
-  const [newRoleDesc, setNewRoleDesc] = useState('')
-  const [newRoleColor, setNewRoleColor] = useState(PRESET_COLORS[0])
-  const [creating, setCreating] = useState(false)
+  const go = (page: PageName) => () => {
+    const url = resolveMigratedUrl(page)
+    if (url) router.push(url)
+  }
 
-  const setCurrentPage = useAppStore((s) => s.setCurrentPage)
-  const setSelectedSuperAdminRoleId = useAppStore((s) => s.setSelectedSuperAdminRoleId)
-
-  // ── Initial data fetch ──
   useEffect(() => {
+    let cancelled = false
     async function fetchData() {
       try {
         const [analyticsData, schoolsData] = await Promise.all([
-          api.get<{
-            totalSchools: number
-            activeSchools: number
-            trialSchools: number
-            totalStudents: number
-            totalTeachers: number
-          }>('/api/super-admin/analytics'),
-          api.get<{ schools: SchoolOption[] }>('/api/super-admin/schools'),
+          api.get<Analytics>('/api/super-admin/analytics'),
+          api.get<{ schools: SchoolOption[] }>('/api/super-admin/schools?limit=6'),
         ])
+        if (cancelled) return
         setAnalytics(analyticsData)
         setSchools(schoolsData.schools || [])
       } catch {
-        // Use defaults
+        if (!cancelled) {
+          toast({
+            title: "Couldn't Load Dashboard",
+            description: 'We had trouble fetching platform data. Please refresh the page.',
+            variant: 'destructive',
+          })
+        }
       } finally {
-        setLoading(false)
+        if (!cancelled) setLoading(false)
       }
     }
     fetchData()
-  }, [])
-
-  // ── Fetch roles when school is selected ──
-  const fetchSchoolRoles = useCallback(async (schoolId: string) => {
-    if (!schoolId) {
-      setSchoolRoles([])
-      return
-    }
-    try {
-      setLoadingRoles(true)
-      const res = await api.get<{ roles: RoleListItem[]; total: number }>(`/api/super-admin/roles?schoolId=${schoolId}&limit=200`)
-      setSchoolRoles(res.roles || [])
-    } catch {
-      toast({ title: "Couldn't Load Roles", description: "We couldn't load the roles list. Please refresh the page.", variant: 'destructive' })
-    } finally {
-      setLoadingRoles(false)
-    }
+    return () => { cancelled = true }
   }, [toast])
-
-  useEffect(() => {
-    if (selectedSchoolId) {
-      fetchSchoolRoles(selectedSchoolId)
-    } else {
-      setSchoolRoles([])
-    }
-  }, [selectedSchoolId, fetchSchoolRoles])
-
-  // ── Create role handler ──
-  const handleCreateRole = useCallback(async () => {
-    if (!newRoleName.trim() || !selectedSchoolId) {
-      toast({ title: 'Missing Information', description: 'Please enter a name for the role.', variant: 'destructive' })
-      return
-    }
-    try {
-      setCreating(true)
-      await api.post<RoleListItem>('/api/super-admin/roles', {
-        schoolId: selectedSchoolId,
-        name: newRoleName.trim(),
-        description: newRoleDesc.trim() || undefined,
-        color: newRoleColor || undefined,
-      })
-      setShowCreateDialog(false)
-      setNewRoleName('')
-      setNewRoleDesc('')
-      setNewRoleColor(PRESET_COLORS[0])
-      await fetchSchoolRoles(selectedSchoolId)
-      toast({ title: 'Role Created', description: `"${newRoleName.trim()}" has been created successfully.` })
-    } catch (err) {
-      toast({
-        title: "Couldn't Create Role",
-        description: err instanceof Error ? err.message : 'Something went wrong. Please try again.',
-        variant: 'destructive',
-      })
-    } finally {
-      setCreating(false)
-    }
-  }, [newRoleName, newRoleDesc, newRoleColor, selectedSchoolId, fetchSchoolRoles, toast])
 
   if (loading) return <LoadingState />
 
-  const totalSchools = analytics?.totalSchools || schools.length
-  const activeSchools = analytics?.activeSchools || schools.filter(s => s.status === 'active').length
-  const trialSchools = analytics?.trialSchools || schools.filter(s => s.status === 'trial').length
-  const totalStudents = analytics?.totalStudents || 0
-
-  const selectedSchool = schools.find(s => s.id === selectedSchoolId)
-
-  // Filter roles by search
-  const filteredRoles = roleSearch.trim()
-    ? schoolRoles.filter(r => r.name.toLowerCase().includes(roleSearch.toLowerCase()))
-    : schoolRoles
-
-  // Count stats for selected school
-  const predefinedCount = schoolRoles.filter(r => r.isSystem).length
-  const customCount = schoolRoles.filter(r => !r.isSystem).length
-
-  const handleRoleClick = (roleId: string) => {
-    setSelectedSuperAdminRoleId(roleId)
-    setCurrentPage('super-admin-roles')
-  }
-
-  const handleManageAllRoles = () => {
-    setCurrentPage('super-admin-roles')
-  }
+  const a = analytics
+  const totalSchools = a?.totalSchools ?? 0
+  const activeSchools = a?.activeSchools ?? 0
+  const trialSchools = a?.trialSchools ?? 0
+  const totalStudents = a?.totalStudents ?? 0
+  const totalTeachers = a?.totalTeachers ?? 0
+  const growthData = a?.growthByMonth ?? []
+  const statusData = (a?.statusBreakdown ?? []).filter((s) => s.value > 0)
+  const trialExpiryList = a?.trialExpiryList ?? []
+  const openTickets = a?.openTickets ?? 0
+  const newLeads = a?.newContactRequests ?? 0
+  const trialExpiringSoon = a?.trialExpiringSoon ?? 0
+  const statusTotal = statusData.reduce((acc, s) => acc + s.value, 0)
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Platform Dashboard</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Overview of all schools on the My Digital Academy platform
-        </p>
+      {/* ── Header ─────────────────────────────────────────────────────── */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <div className="flex items-center gap-2">
+            <Sparkles className="size-5 text-primary" />
+            <h1 className="text-2xl font-bold tracking-tight">Platform Overview</h1>
+          </div>
+          <p className="text-sm text-muted-foreground mt-1">
+            Real-time pulse across all schools on Vidhyalayam
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={go('schools')}>
+            <Building2 className="size-3.5" />
+            All Schools
+          </Button>
+          <Button size="sm" className="gap-1.5" onClick={go('add-school')}>
+            <Plus className="size-3.5" />
+            Onboard School
+          </Button>
+        </div>
       </div>
 
-      {/* Stats Cards */}
+      {/* ── Hero KPI grid ──────────────────────────────────────────────── */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatsCard
+        <HeroStat
           title="Total Schools"
-          value={totalSchools}
+          value={formatNumber(totalSchools)}
           icon={School}
-          trend={{ value: 12, isPositive: true }}
-          description="from last month"
+          trend={a?.schoolsTrend}
+          trendLabel="vs last month"
+          tone="emerald"
         />
-        <StatsCard
+        <HeroStat
           title="Active Schools"
-          value={activeSchools}
-          icon={CheckCircle}
-          trend={{ value: 8, isPositive: true }}
-          description="from last month"
+          value={formatNumber(activeSchools)}
+          icon={CheckCircle2}
+          trendLabel={`${trialSchools} on trial`}
+          tone="blue"
         />
-        <StatsCard
-          title="Trial Schools"
-          value={trialSchools}
-          icon={Clock}
-          trend={{ value: 3, isPositive: false }}
-          description="from last month"
-        />
-        <StatsCard
+        <HeroStat
           title="Total Students"
-          value={totalStudents}
+          value={formatNumber(totalStudents)}
+          icon={GraduationCap}
+          trend={a?.studentsTrend}
+          trendLabel="vs last month"
+          tone="violet"
+        />
+        <HeroStat
+          title="Total Teachers"
+          value={formatNumber(totalTeachers)}
           icon={Users}
-          trend={{ value: 18, isPositive: true }}
-          description="across all schools"
+          trendLabel="across platform"
+          tone="amber"
         />
       </div>
 
-      {/* School Roles Management Section */}
-      <Card>
-        <CardHeader className="pb-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <CardTitle className="text-base flex items-center gap-2">
-                <ShieldCheck className="size-4" />
-                School Roles
-              </CardTitle>
-              <CardDescription className="text-xs mt-0.5">
-                Select a school to view and manage its roles and permissions
-              </CardDescription>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="gap-1 h-8 text-xs"
-                onClick={handleManageAllRoles}
-              >
-                Manage All Roles
-                <ArrowRight className="size-3" />
-              </Button>
-            </div>
-          </div>
+      {/* ── Action items strip ────────────────────────────────────────── */}
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <ActionTile
+          title="Trials expiring"
+          count={trialExpiringSoon}
+          description="Schools whose trial ends within 7 days"
+          icon={AlertTriangle}
+          tone="amber"
+          onClick={go('schools')}
+        />
+        <ActionTile
+          title="Open tickets"
+          count={openTickets}
+          description="Support tickets awaiting response"
+          icon={LifeBuoy}
+          tone="rose"
+          onClick={go('support')}
+        />
+        <ActionTile
+          title="New leads"
+          count={newLeads}
+          description="Fresh contact requests from prospects"
+          icon={Mail}
+          tone="sky"
+          onClick={go('contact-requests')}
+        />
+      </div>
 
-          {/* School Selector */}
-          <div className="flex flex-col sm:flex-row gap-3 mt-3">
-            <Select value={selectedSchoolId} onValueChange={(val) => { setSelectedSchoolId(val); setRoleSearch('') }}>
-              <SelectTrigger className="w-full sm:w-[280px] h-9">
-                <Building2 className="size-3.5 mr-1.5 shrink-0" />
-                <SelectValue placeholder="Select a school..." />
-              </SelectTrigger>
-              <SelectContent>
-                {schools.map((school) => (
-                  <SelectItem key={school.id} value={school.id}>
-                    {school.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {selectedSchoolId && (
-              <div className="relative flex-1 max-w-xs">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
-                <Input
-                  placeholder="Search roles..."
-                  value={roleSearch}
-                  onChange={(e) => setRoleSearch(e.target.value)}
-                  className="pl-8 h-9"
-                />
-              </div>
-            )}
-          </div>
-        </CardHeader>
-        <CardContent>
-          {!selectedSchoolId ? (
-            /* No school selected - prompt to select */
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <div className="size-14 rounded-full bg-muted flex items-center justify-center mb-4">
-                <Building2 className="size-7 text-muted-foreground/40" />
-              </div>
-              <h3 className="text-sm font-semibold text-muted-foreground">Select a School</h3>
-              <p className="text-xs text-muted-foreground/60 mt-1 max-w-xs">
-                Choose a school above to view and manage its roles and permissions
-              </p>
-            </div>
-          ) : loadingRoles ? (
-            /* Loading skeleton */
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} className="p-4 rounded-lg border">
-                  <div className="flex items-center gap-3">
-                    <Skeleton className="size-9 rounded-md" />
-                    <div className="flex-1 space-y-1.5">
-                      <Skeleton className="h-4 w-24" />
-                      <Skeleton className="h-3 w-16" />
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : schoolRoles.length === 0 ? (
-            /* No roles */
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <ShieldCheck className="size-10 text-muted-foreground/30 mb-3" />
-              <h3 className="text-sm font-semibold text-muted-foreground">No Roles Found</h3>
-              <p className="text-xs text-muted-foreground/60 mt-1">
-                This school doesn&apos;t have any roles yet. Create the first one.
-              </p>
-              <Button
-                size="sm"
-                className="gap-1.5 mt-4"
-                onClick={() => setShowCreateDialog(true)}
-              >
-                <Plus className="size-3.5" />
-                Create Role
-              </Button>
-            </div>
-          ) : (
-            /* Roles grid */
-            <div className="space-y-4">
-              {/* Quick stats for selected school */}
-              <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                <span className="flex items-center gap-1.5">
-                  <ShieldCheck className="size-3.5" />
-                  {schoolRoles.length} total role{schoolRoles.length !== 1 ? 's' : ''}
-                </span>
-                <span className="text-muted-foreground/30">·</span>
-                <span className="flex items-center gap-1.5">
-                  <Lock className="size-3" />
-                  {predefinedCount} predefined
-                </span>
-                <span className="text-muted-foreground/30">·</span>
-                <span className="flex items-center gap-1.5">
-                  <Plus className="size-3" />
-                  {customCount} custom
-                </span>
-                {selectedSchool && (
-                  <>
-                    <span className="text-muted-foreground/30 hidden sm:inline">·</span>
-                    <span className="hidden sm:flex items-center gap-1.5">
-                      <Building2 className="size-3" />
-                      {selectedSchool.name}
-                    </span>
-                  </>
-                )}
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {filteredRoles.map((role) => (
-                  <button
-                    key={role.id}
-                    onClick={() => handleRoleClick(role.id)}
-                    className="w-full text-left p-3.5 rounded-lg border hover:border-primary/30 hover:bg-primary/[0.02] transition-all group"
-                  >
-                    <div className="flex items-start gap-3">
-                      <div
-                        className="size-9 rounded-md flex items-center justify-center shrink-0 mt-0.5"
-                        style={{ backgroundColor: `${role.color || 'oklch(0.554 0.046 257)'}15` }}
-                      >
-                        <ShieldCheck
-                          className="size-4"
-                          style={{ color: role.color || 'oklch(0.554 0.046 257)' }}
-                        />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-sm font-medium truncate">{role.name}</span>
-                          {role.isSystem && (
-                            <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-4 gap-0.5 shrink-0">
-                              <Lock className="size-2.5" />
-                              System
-                            </Badge>
-                          )}
-                        </div>
-                        {role.description && (
-                          <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-1">
-                            {role.description}
-                          </p>
-                        )}
-                        <div className="flex items-center gap-3 mt-1.5">
-                          <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-                            <ShieldCheck className="size-2.5" />
-                            {role.permissionCount} perm{role.permissionCount !== 1 ? 's' : ''}
-                          </span>
-                          <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-                            <Users className="size-2.5" />
-                            {role.userCount} user{role.userCount !== 1 ? 's' : ''}
-                          </span>
-                        </div>
-                      </div>
-                      <ArrowRight className="size-3.5 text-muted-foreground/0 group-hover:text-primary/60 transition-colors shrink-0 mt-1" />
-                    </div>
-                  </button>
-                ))}
-              </div>
-
-              {/* Add Role Button */}
-              <Separator />
-              <div className="flex items-center justify-between">
-                <p className="text-xs text-muted-foreground">
-                  Click any role to view and edit its permissions
-                </p>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="gap-1.5"
-                  onClick={() => setShowCreateDialog(true)}
-                >
-                  <Plus className="size-3.5" />
-                  Add Custom Role
-                </Button>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Charts Row */}
-      <div className="grid gap-6 lg:grid-cols-3">
-        {/* Schools Growth Chart */}
+      {/* ── Charts row ────────────────────────────────────────────────── */}
+      <div className="grid gap-4 lg:grid-cols-3">
+        {/* Growth chart */}
         <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="text-base">Schools Growth</CardTitle>
-            <CardDescription>Platform schools growth over the last 12 months</CardDescription>
+          <CardHeader className="pb-2">
+            <div className="flex items-start justify-between">
+              <div>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <TrendingUp className="size-4 text-primary" />
+                  Schools Growth
+                </CardTitle>
+                <CardDescription className="text-xs mt-0.5">
+                  New schools onboarded over the last 12 months
+                </CardDescription>
+              </div>
+              <Badge variant="secondary" className="text-[10px] gap-1">
+                <span className="size-1.5 rounded-full bg-emerald-500" />
+                Live
+              </Badge>
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="h-72">
+            <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={mockGrowthData}>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                  <XAxis dataKey="month" className="text-xs text-muted-foreground" />
-                  <YAxis className="text-xs text-muted-foreground" />
+                <BarChart data={growthData} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="growthFill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="oklch(0.596 0.145 163.225)" stopOpacity={0.95} />
+                      <stop offset="100%" stopColor="oklch(0.596 0.145 163.225)" stopOpacity={0.5} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" vertical={false} />
+                  <XAxis
+                    dataKey="month"
+                    tickLine={false}
+                    axisLine={false}
+                    tick={{ fontSize: 11 }}
+                    className="text-muted-foreground"
+                  />
+                  <YAxis
+                    tickLine={false}
+                    axisLine={false}
+                    tick={{ fontSize: 11 }}
+                    allowDecimals={false}
+                    className="text-muted-foreground"
+                  />
                   <Tooltip
-                    formatter={(value: number) => [value, 'Schools']}
+                    cursor={{ fill: 'oklch(0.596 0.145 163.225 / 0.06)' }}
+                    formatter={(value: number) => [`${value} schools`, '']}
+                    labelClassName="font-medium"
                     contentStyle={{
                       borderRadius: '8px',
+                      border: '1px solid var(--border)',
+                      fontSize: '12px',
+                      background: 'var(--popover)',
                     }}
                   />
-                  <Bar dataKey="schools" fill="oklch(0.596 0.145 163.225)" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="schools" fill="url(#growthFill)" radius={[6, 6, 0, 0]} maxBarSize={36} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
           </CardContent>
         </Card>
 
-        {/* Status Pie Chart */}
+        {/* Status donut */}
         <Card>
-          <CardHeader>
+          <CardHeader className="pb-2">
             <CardTitle className="text-base">Schools by Status</CardTitle>
-            <CardDescription>Distribution of school statuses</CardDescription>
+            <CardDescription className="text-xs mt-0.5">Distribution across {statusTotal} schools</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="h-52">
+            <div className="relative h-44">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
-                    data={mockStatusData}
+                    data={statusData.length ? statusData : [{ name: 'No data', value: 1 }]}
                     cx="50%"
                     cy="50%"
-                    innerRadius={50}
-                    outerRadius={80}
-                    paddingAngle={4}
+                    innerRadius={48}
+                    outerRadius={72}
+                    paddingAngle={statusData.length > 1 ? 3 : 0}
                     dataKey="value"
+                    stroke="none"
                   >
-                    {mockStatusData.map((_, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    {(statusData.length ? statusData : [{ name: 'No data', value: 1 }]).map((entry) => (
+                      <Cell key={entry.name} fill={STATUS_COLORS[entry.name] || 'oklch(0.85 0 0)'} />
                     ))}
                   </Pie>
-                  <Tooltip />
+                  {statusData.length > 0 && (
+                    <Tooltip
+                      formatter={(value: number, name: string) => [`${value} schools`, name]}
+                      contentStyle={{
+                        borderRadius: '8px',
+                        border: '1px solid var(--border)',
+                        fontSize: '12px',
+                        background: 'var(--popover)',
+                      }}
+                    />
+                  )}
                 </PieChart>
               </ResponsiveContainer>
+              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                <span className="text-2xl font-bold tabular-nums">{statusTotal}</span>
+                <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Total</span>
+              </div>
             </div>
-            <div className="flex flex-wrap gap-3 mt-2">
-              {mockStatusData.map((entry, index) => (
-                <div key={entry.name} className="flex items-center gap-2 text-xs">
-                  <div className="size-3 rounded-full" style={{ backgroundColor: COLORS[index] }} />
-                  <span className="text-muted-foreground">{entry.name}: {entry.value}</span>
-                </div>
-              ))}
+            <div className="mt-3 space-y-1.5">
+              {(statusData.length ? statusData : []).map((entry) => {
+                const pct = statusTotal > 0 ? Math.round((entry.value / statusTotal) * 100) : 0
+                return (
+                  <div key={entry.name} className="flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-2">
+                      <span className="size-2.5 rounded-full" style={{ backgroundColor: STATUS_COLORS[entry.name] }} />
+                      <span className="text-muted-foreground">{entry.name}</span>
+                    </div>
+                    <div className="flex items-center gap-2 tabular-nums">
+                      <span className="font-medium">{entry.value}</span>
+                      <span className="text-muted-foreground/60 w-9 text-right">{pct}%</span>
+                    </div>
+                  </div>
+                )
+              })}
+              {statusData.length === 0 && (
+                <p className="text-xs text-muted-foreground text-center py-2">No schools yet</p>
+              )}
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Recent Schools Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Recent Schools</CardTitle>
-          <CardDescription>Recently registered schools on the platform</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {schools.slice(0, 5).map((school) => (
-              <div key={school.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
-                <div className="flex items-center gap-3">
-                  <div className="flex size-10 items-center justify-center rounded-lg bg-primary/10">
-                    <Building2 className="size-5 text-primary" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium">{school.name}</p>
-                    <p className="text-xs text-muted-foreground">{school.subdomain}.mydigitalacademy.in</p>
-                  </div>
-                </div>
-                <Badge variant={school.status === 'active' ? 'default' : school.status === 'trial' ? 'secondary' : 'outline'}>
-                  {school.status}
-                </Badge>
+      {/* ── Trial expiry + Recent schools ─────────────────────────────── */}
+      <div className="grid gap-4 lg:grid-cols-5">
+        {/* Trial expiry */}
+        <Card className="lg:col-span-2">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Clock className="size-4 text-amber-600" />
+                  Trials Expiring Soon
+                </CardTitle>
+                <CardDescription className="text-xs mt-0.5">
+                  Within the next 7 days
+                </CardDescription>
               </div>
-            ))}
-            {schools.length === 0 && (
-              <div className="flex items-center gap-2 p-4 text-sm text-muted-foreground">
-                <Users className="size-4" />
-                No schools found. Demo data will appear here.
+              {trialExpiryList.length > 0 && (
+                <Badge variant="outline" className="text-[10px]">
+                  {trialExpiryList.length}
+                </Badge>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent>
+            {trialExpiryList.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-8 text-center">
+                <div className="size-10 rounded-full bg-emerald-500/10 flex items-center justify-center mb-2">
+                  <CheckCircle2 className="size-5 text-emerald-600" />
+                </div>
+                <p className="text-sm font-medium">All clear</p>
+                <p className="text-xs text-muted-foreground mt-0.5">No trials expiring this week</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {trialExpiryList.map((s) => {
+                  const days = daysUntil(s.trialEndsAt)
+                  const urgent = days <= 2
+                  return (
+                    <div
+                      key={s.id}
+                      className="flex items-center justify-between gap-2 rounded-lg border bg-card p-2.5"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-amber-500/10">
+                          <Building2 className="size-4 text-amber-600" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium truncate">{s.name}</p>
+                          <p className="text-[11px] text-muted-foreground truncate">{s.subdomain}.vidhyalayam.com</p>
+                        </div>
+                      </div>
+                      <Badge
+                        variant={urgent ? 'destructive' : 'secondary'}
+                        className="text-[10px] shrink-0"
+                      >
+                        {days === 0 ? 'Today' : days === 1 ? '1 day' : `${days} days`}
+                      </Badge>
+                    </div>
+                  )
+                })}
               </div>
             )}
+          </CardContent>
+        </Card>
+
+        {/* Recent schools */}
+        <Card className="lg:col-span-3">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Building2 className="size-4 text-primary" />
+                  Recent Schools
+                </CardTitle>
+                <CardDescription className="text-xs mt-0.5">
+                  Newest schools onboarded to the platform
+                </CardDescription>
+              </div>
+              <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs" onClick={go('schools')}>
+                View all
+                <ArrowRight className="size-3" />
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {schools.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-8 text-center">
+                <Building2 className="size-8 text-muted-foreground/30 mb-2" />
+                <p className="text-sm font-medium text-muted-foreground">No schools yet</p>
+                <p className="text-xs text-muted-foreground/60 mt-0.5">Onboard your first school to get started</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {schools.slice(0, 5).map((school) => (
+                  <div
+                    key={school.id}
+                    className="flex items-center justify-between gap-3 rounded-lg border bg-card p-2.5 transition-colors hover:bg-muted/40"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-primary/10">
+                        <Building2 className="size-4 text-primary" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium truncate">{school.name}</p>
+                        <p className="text-[11px] text-muted-foreground truncate">
+                          {school.subdomain}.vidhyalayam.com
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 shrink-0">
+                      {typeof school.studentCount === 'number' && (
+                        <span className="hidden sm:flex items-center gap-1 text-[11px] text-muted-foreground tabular-nums">
+                          <GraduationCap className="size-3" />
+                          {formatNumber(school.studentCount)}
+                        </span>
+                      )}
+                      <Badge
+                        variant={
+                          school.status === 'active'
+                            ? 'default'
+                            : school.status === 'trial'
+                            ? 'secondary'
+                            : school.status === 'suspended'
+                            ? 'destructive'
+                            : 'outline'
+                        }
+                        className="text-[10px] capitalize"
+                      >
+                        {school.status}
+                      </Badge>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* ── Quick actions ─────────────────────────────────────────────── */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Quick Actions</CardTitle>
+          <CardDescription className="text-xs">Jump straight to common platform tasks</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-6">
+            <QuickAction label="Onboard School" icon={Plus} onClick={go('add-school')} />
+            <QuickAction label="All Schools" icon={Building2} onClick={go('schools')} />
+            <QuickAction label="Manage Roles" icon={ShieldCheck} onClick={go('super-admin-roles')} />
+            <QuickAction label="Permissions" icon={KeyRound} onClick={go('super-admin-permissions')} />
+            <QuickAction label="Support" icon={LifeBuoy} onClick={go('support')} />
+            <QuickAction label="Leads" icon={Mail} onClick={go('contact-requests')} />
           </div>
+          <Separator className="my-4" />
+          <p className="text-[11px] text-muted-foreground text-center">
+            Tip: Use the sidebar for full platform management, or the quick actions above for everyday tasks.
+          </p>
         </CardContent>
       </Card>
-
-      {/* Create Role Dialog */}
-      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Plus className="size-5" />
-              Create Custom Role
-            </DialogTitle>
-            <DialogDescription>
-              Add a new role to {selectedSchool?.name || 'the selected school'}. You can assign permissions after creation.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label htmlFor="dash-new-role-name" className="text-xs font-medium">Role Name *</Label>
-              <Input
-                id="dash-new-role-name"
-                value={newRoleName}
-                onChange={(e) => setNewRoleName(e.target.value)}
-                placeholder="e.g., Department Head, Lab Assistant"
-                className="h-9"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="dash-new-role-desc" className="text-xs font-medium">Description</Label>
-              <Textarea
-                id="dash-new-role-desc"
-                value={newRoleDesc}
-                onChange={(e) => setNewRoleDesc(e.target.value)}
-                placeholder="Describe what this role is for..."
-                className="min-h-[60px] resize-none"
-                rows={2}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label className="text-xs font-medium">Color</Label>
-              <div className="flex items-center gap-2 flex-wrap">
-                {PRESET_COLORS.map((color) => (
-                  <button
-                    key={color}
-                    type="button"
-                    onClick={() => setNewRoleColor(color)}
-                    className={`size-7 rounded-md border-2 transition-all ${
-                      newRoleColor === color ? 'border-foreground scale-110' : 'border-transparent hover:border-muted-foreground/30'
-                    }`}
-                    style={{ backgroundColor: color }}
-                  />
-                ))}
-                <Input
-                  type="color"
-                  value={newRoleColor}
-                  onChange={(e) => setNewRoleColor(e.target.value)}
-                  className="size-7 p-0 border-0 cursor-pointer rounded-md"
-                />
-              </div>
-            </div>
-          </div>
-          <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setShowCreateDialog(false)} disabled={creating}>
-              Cancel
-            </Button>
-            <Button onClick={handleCreateRole} disabled={creating || !newRoleName.trim()}>
-              {creating ? 'Creating...' : 'Create Role'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }

@@ -1,8 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
-import { useAppStore } from '@/lib/store'
 import { useToast } from '@/hooks/use-toast'
 import { PageHeader } from '@/components/shared'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -32,8 +32,7 @@ interface ClassItem {
 
 export function AddSubjectPage() {
   const { toast } = useToast()
-  const navigateTo = useAppStore((s) => s.navigateTo)
-  const goBack = useAppStore((s) => s.goBack)
+  const router = useRouter()
 
   // Form state
   const [name, setName] = useState('')
@@ -123,7 +122,7 @@ export function AddSubjectPage() {
         description: `"${name.trim()}" has been added to your subjects list.`,
       })
 
-      navigateTo('subjects')
+      router.push('/academics/subjects')
     } catch (err) {
       toast({
         title: 'Failed to Add Subject',
@@ -140,8 +139,7 @@ export function AddSubjectPage() {
       <PageHeader
         title="Add Subject"
         description="Create a new subject for your school curriculum."
-        backAction={{ onClick: () => goBack('subjects') }}
-        action={{ label: 'Subject List', icon: List, onClick: () => navigateTo('subjects') }}
+        action={{ label: 'Subject List', icon: List, onClick: () => router.push('/academics/subjects') }}
       />
 
       {/* Form */}
@@ -324,7 +322,7 @@ export function AddSubjectPage() {
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => goBack('subjects')}
+                onClick={() => router.push('/academics/subjects')}
                 disabled={submitting}
               >
                 Cancel

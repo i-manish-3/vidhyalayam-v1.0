@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -87,7 +88,8 @@ interface ChildInfo {
 // ============================================
 
 export function ParentDashboard() {
-  const { user, setCurrentPage, setSelectedStudentId } = useAppStore()
+  const router = useRouter()
+  const { user } = useAppStore()
   const { toast } = useToast()
 
   const [dashboardData, setDashboardData] = useState<ParentDashboardData | null>(null)
@@ -172,8 +174,7 @@ export function ParentDashboard() {
       })
       return
     }
-    setSelectedStudentId(child.id)
-    setCurrentPage('student-detail')
+    router.push(`/students/${child.id}`)
   }
 
   if (loading) {

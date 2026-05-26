@@ -10,7 +10,7 @@ const postgres = new EmbeddedPostgres({
   port: 5432,
   user: 'z',
   password: 'postgres',
-  dbName: 'mydigitalacademy',
+  dbName: 'vidhyalayam',
   persistent: true,
 })
 

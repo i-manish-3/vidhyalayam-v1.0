@@ -1,12 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { randomUUID } from 'node:crypto'
+import { Prisma } from '@prisma/client'
 import { db } from '@/lib/db'
 import { requireRole, requirePermission } from '@/lib/api-auth'
 import { unauthorizedError, internalError, apiError, forbiddenError } from '@/lib/api-errors'
 import { hashPassword } from '@/lib/auth'
 import { assignStudentFeesFromStructure, createFeeDebitLedgerEntry } from '@/lib/fees'
-import { generateSchoolNumber } from '@/lib/admission-numbering'
-import { uploadIfDataUrl, IMAGE_MIME_TYPES } from '@/lib/storage'
+import { allocateSchoolNumber } from '@/lib/admission-numbering'
+import { uploadIfDataUrl, deleteFile, IMAGE_MIME_TYPES } from '@/lib/storage'
+
+function normName(v: unknown): string | null {
+  if (typeof v !== 'string') return null
+  const trimmed = v.trim()
+  return trimmed ? trimmed.toUpperCase() : null
+}
+
+function normDigits(v: unknown, maxLen?: number): string | null {
+  if (typeof v !== 'string') return null
+  const digits = v.replace(/\D/g, '')
+  if (!digits) return null
+  return maxLen ? digits.slice(0, maxLen) : digits
+}
 
 const ACADEMIC_YEAR_PATTERN = /^\d{4}-\d{4}$/
 
@@ -223,6 +237,10 @@ export async function GET(request: NextRequest) {
       policeStation: a.policeStation,
       wardNo: a.wardNo,
       localAddress: a.localAddress,
+      localVillage: a.localVillage,
+      localPostOffice: a.localPostOffice,
+      localPoliceStation: a.localPoliceStation,
+      localWardNo: a.localWardNo,
       localCity: a.localCity,
       localState: a.localState,
       localPincode: a.localPincode,
@@ -316,6 +334,11 @@ export async function GET(request: NextRequest) {
 
 // POST /api/school/admissions - Create new admission
 export async function POST(request: NextRequest) {
+  // Declared outside the try block so the catch can clean up an orphan photo
+  // if the transaction below fails (block-scoped `let` inside try wouldn't be
+  // visible in catch).
+  let photoToCleanupOnFailure: string | null = null
+
   try {
     const user = requireRole(request, ['SUPER_ADMIN', 'SCHOOL_ADMIN', 'STAFF'])
     if (!user || !user.schoolId) {
@@ -577,17 +600,11 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Generate school-controlled numbers in serial order.
-    const [admissionNumber, registrationNumber] = await Promise.all([
-      generateSchoolNumber(user.schoolId, 'admission', body.classId),
-      typeof body.registrationNumber === 'string' && body.registrationNumber.trim()
-        ? Promise.resolve(String(body.registrationNumber).trim())
-        : generateSchoolNumber(user.schoolId, 'registration', body.classId),
-    ])
-
     // Upload profile photo before the transaction so a failed upload doesn't
     // leave a half-created admission. Same URL is used on both Admission and
-    // Student records (single physical file, two DB references).
+    // Student records (single physical file, two DB references). If the
+    // transaction below fails we delete this file in the catch block so it
+    // doesn't become an orphan.
     const photoUpload = await uploadIfDataUrl(body.profileImage, {
       folder: `schools/${user.schoolId}/admissions`,
       maxBytes: 2 * 1024 * 1024,
@@ -597,9 +614,26 @@ export async function POST(request: NextRequest) {
       return apiError(400, `Profile image: ${photoUpload.error}`)
     }
     const profileImageUrl = photoUpload.url ?? null
+    photoToCleanupOnFailure = photoUpload.uploaded ? profileImageUrl : null
 
-    // Use transaction for atomicity — all records created or none
+    let admissionNumber = ''
+    let registrationNumber: string | null = null
+
+    // Use transaction for atomicity — all records created or none.
+    // Number allocation runs INSIDE the transaction (via allocateSchoolNumber)
+    // so two simultaneous admissions can't grab the same sequence: the
+    // NumberCounter row-level lock serializes them, and a rollback rolls back
+    // the counter increment too (no gaps from failed transactions).
     const admission = await db.$transaction(async (tx) => {
+      // Allocate admission/registration numbers inside the tx so the counter
+      // increment is part of the same atomic unit. registrationNumber from the
+      // request body (if any) overrides the auto-allocated one.
+      admissionNumber = await allocateSchoolNumber(tx, user.schoolId!, 'admission', body.classId)
+      registrationNumber =
+        typeof body.registrationNumber === 'string' && body.registrationNumber.trim()
+          ? String(body.registrationNumber).trim()
+          : await allocateSchoolNumber(tx, user.schoolId!, 'registration', body.classId)
+
       // 0. Resolve familyId. If a sibling was selected, adopt the sibling's
       //    familyId (minting one for the sibling first if it's missing — can
       //    happen for pre-backfill data). Otherwise mint a fresh family of one.
@@ -638,8 +672,8 @@ export async function POST(request: NextRequest) {
           admissionType: 'new',
           status: 'admitted',
           // Personal info
-          firstName: body.firstName,
-          lastName: body.lastName,
+          firstName: normName(body.firstName),
+          lastName: normName(body.lastName),
           dateOfBirth: body.dateOfBirth ? new Date(body.dateOfBirth) : null,
           dateOfAdmission: new Date(),
           gender: body.gender || null,
@@ -648,7 +682,7 @@ export async function POST(request: NextRequest) {
           category: body.category || null,
           caste: body.caste || null,
           motherTongue: body.motherTongue || null,
-          aadhaarNumber: body.aadhaarNumber || null,
+          aadhaarNumber: normDigits(body.aadhaarNumber, 12),
           bloodGroup: body.bloodGroup || null,
           medicalConditions: body.medicalConditions || null,
           profileImage: profileImageUrl,
@@ -663,32 +697,36 @@ export async function POST(request: NextRequest) {
           address: body.address || null,
           city: body.city || null,
           state: body.state || null,
-          pincode: body.pincode || null,
+          pincode: normDigits(body.pincode, 6),
           country: body.country || null,
           village: body.village || null,
           postOffice: body.postOffice || null,
           policeStation: body.policeStation || null,
-          wardNo: body.wardNo || null,
+          wardNo: normDigits(body.wardNo, 3),
           localAddress: body.localAddress || null,
+          localVillage: body.localVillage || null,
+          localPostOffice: body.localPostOffice || null,
+          localPoliceStation: body.localPoliceStation || null,
+          localWardNo: normDigits(body.localWardNo, 3),
           localCity: body.localCity || null,
           localState: body.localState || null,
-          localPincode: body.localPincode || null,
+          localPincode: normDigits(body.localPincode, 6),
           localCountry: body.localCountry || null,
           sameAsPermanent: body.sameAsPermanent !== undefined ? body.sameAsPermanent : true,
           // Mother's info
-          motherName: body.motherName || null,
+          motherName: normName(body.motherName),
           motherPhone: body.motherPhone || null,
           motherEmail: body.motherEmail || null,
           motherOccupation: body.motherOccupation || null,
-          motherAadhaar: body.motherAadhaar || null,
+          motherAadhaar: normDigits(body.motherAadhaar, 12),
           motherEducation: body.motherEducation || null,
           motherIncome: body.motherIncome || null,
           // Father's info
-          fatherName: body.fatherName || null,
+          fatherName: normName(body.fatherName),
           fatherPhone: body.fatherPhone || null,
           fatherEmail: body.fatherEmail || null,
           fatherOccupation: body.fatherOccupation || null,
-          fatherAadhaar: body.fatherAadhaar || null,
+          fatherAadhaar: normDigits(body.fatherAadhaar, 12),
           fatherEducation: body.fatherEducation || null,
           fatherIncome: body.fatherIncome || null,
           // Other details
@@ -1067,12 +1105,39 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(admission, { status: 201 })
   } catch (error) {
+    // Transaction (or anything after the upload) failed — clean up the orphan
+    // profile photo we uploaded before the transaction, so storage doesn't
+    // accumulate dead files.
+    if (photoToCleanupOnFailure) {
+      try {
+        await deleteFile(photoToCleanupOnFailure)
+      } catch (cleanupErr) {
+        console.warn('Profile photo cleanup failed:', cleanupErr)
+      }
+    }
+
     if (error instanceof Error && error.message === 'PARENT_ACCOUNT_CONFLICT') {
       return apiError(
         400,
         'This parent phone number already belongs to a non-parent user. Please use a separate parent account, or change the existing user profile type first.'
       )
     }
+
+    // P2002 = unique constraint violation. The schema-level
+    // @@unique([schoolId, admissionNumber]) / @@unique([schoolId, registrationNumber])
+    // is a safety net behind the NumberCounter — if it ever fires, two parallel
+    // transactions raced into the same allocated value. We surface this as 409
+    // Conflict so the client knows to retry rather than treat it as a bug.
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2002'
+    ) {
+      return apiError(
+        409,
+        'Another admission was being created at the same time. Please try submitting again.'
+      )
+    }
+
     console.error('Create admission error:', error)
     return internalError('creating the admission')
   }

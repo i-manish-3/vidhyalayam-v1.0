@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useTheme } from 'next-themes'
 import { useAppStore } from '@/lib/store'
@@ -75,6 +76,7 @@ interface LoginScreenProps {
 }
 
 export function LoginScreen({ onBack }: LoginScreenProps) {
+  const router = useRouter()
   const [email, setEmail] = useState('admin@dpsdelhi.in')
   const [password, setPassword] = useState('admin123')
   const [showPassword, setShowPassword] = useState(false)
@@ -98,8 +100,11 @@ export function LoginScreen({ onBack }: LoginScreenProps) {
     }
     setIsLoading(true)
     try {
-      const response = await api.post<{ token: string; user: { id: string; email: string; name: string; role: string; schoolId?: string; mustChangePassword?: boolean } }>('/api/auth/login', { email, password })
-      login(response.user, response.token)
+      const response = await api.post<{ user: { id: string; email: string; name: string; role: string; schoolId?: string; mustChangePassword?: boolean } }>('/api/auth/login', { email, password })
+      // The server set HttpOnly auth cookies in this response — no token in the
+      // body. We just mirror user metadata into the store; subsequent API calls
+      // pick up the cookies automatically.
+      login(response.user)
 
       // Fetch user profile with school info
       try {
@@ -126,6 +131,12 @@ export function LoginScreen({ onBack }: LoginScreenProps) {
           ? 'Please change your generated password before continuing.'
           : `Logged in as ${response.user.name}`,
       })
+
+      // Drive the navigation from here (after the login flow settles) instead
+      // of relying on a reactive useEffect in /login/page.tsx — that race was
+      // unmounting LoginScreen mid-animation and crashing framer-motion with
+      // "Cannot read properties of null (reading 'removeChild')".
+      router.replace('/dashboard')
     } catch (err) {
       toast({
         title: 'Login Failed',
@@ -196,7 +207,7 @@ export function LoginScreen({ onBack }: LoginScreenProps) {
               Welcome back
             </h1>
             <p className="mt-1.5 text-sm text-slate-500 dark:text-slate-400">
-              Sign in to My Digital Academy
+              Sign in to Vidhyalayam
             </p>
           </motion.div>
 
@@ -301,7 +312,7 @@ export function LoginScreen({ onBack }: LoginScreenProps) {
 
       {/* Footer */}
       <div className="shrink-0 py-4 text-center text-[11px] text-slate-400 dark:text-slate-600 relative z-10">
-        &copy; {new Date().getFullYear()} My Digital Academy
+        &copy; {new Date().getFullYear()} Vidhyalayam
       </div>
     </div>
   )

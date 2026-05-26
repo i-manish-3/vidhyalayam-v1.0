@@ -626,10 +626,10 @@ export function TeamMembersPage() {
                       const formData = new FormData()
                       formData.append('file', uploadFile)
                       
-                      const token = useAppStore.getState().token
+                      // Auth cookie attaches automatically via credentials: 'include'.
                       const response = await fetch('/api/upload/team', {
                         method: 'POST',
-                        headers: token ? { Authorization: `Bearer ${token}` } : {},
+                        credentials: 'include',
                         body: formData,
                       })
                       

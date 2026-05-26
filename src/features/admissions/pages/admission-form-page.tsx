@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
 import { useAppStore } from '@/lib/store'
 import { api } from '@/lib/api'
 import { compressImage } from '@/lib/image-compress'
@@ -20,7 +21,7 @@ import { DatePicker } from '@/components/date-picker'
 import { cn } from '@/lib/utils'
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden'
 import {
-  UserPlus, ChevronLeft, ChevronRight, Check, Upload, X, ArrowLeft, Plus,
+  UserPlus, ChevronLeft, ChevronRight, Check, Upload, X, Plus,
   MapPin, Phone, Mail, CalendarDays, GraduationCap, Building, Bus,
   Home, Banknote, FileText, Camera, AlertTriangle, Info, Save, Send,
   ShieldCheck, Edit, User, Heart, Search, CircleUser, CircleUserRound
@@ -155,6 +156,8 @@ interface WizardForm {
   localAddress: string
   localVillage: string
   localPostOffice: string
+  localPoliceStation: string
+  localWardNo: string
   localCity: string
   localState: string
   localPincode: string
@@ -199,7 +202,7 @@ interface WizardForm {
 
 const DEFAULT_FORM: WizardForm = {
   profileImage: '',
-  academicYear: getCurrentAcademicYear(),
+  academicYear: '',
   registrationNumber: '',
   firstName: '',
   lastName: '',
@@ -236,10 +239,12 @@ const DEFAULT_FORM: WizardForm = {
   state: '',
   pincode: '',
   country: 'India',
-  sameAsPermanent: true,
+  sameAsPermanent: false,
   localAddress: '',
   localVillage: '',
   localPostOffice: '',
+  localPoliceStation: '',
+  localWardNo: '',
   localCity: '',
   localState: '',
   localPincode: '',
@@ -346,7 +351,8 @@ function formatDate(dateStr: string | null | undefined): string {
 // ============================================
 
 export function AdmissionFormPage() {
-  const { currentSchool, setCurrentPage, goBack } = useAppStore()
+  const router = useRouter()
+  const { currentSchool } = useAppStore()
   const schoolId = currentSchool?.id
   const { toast } = useToast()
 
@@ -368,6 +374,7 @@ export function AdmissionFormPage() {
   const [transportRoutes, setTransportRoutes] = useState<TransportRouteOption[]>([])
   const [feesGroups, setFeesGroups] = useState<FeesGroupOption[]>([])
   const [availableAcademicYears, setAvailableAcademicYears] = useState<string[]>([])
+  const [currentAcademicYear, setCurrentAcademicYear] = useState<string>('')
   const academicYearOptions = useMemo(
     () => availableAcademicYears
       .filter((year) => /^\d{4}-\d{4}$/.test(year))
@@ -414,7 +421,7 @@ export function AdmissionFormPage() {
         const [secData, admNumData, academicYearData] = await Promise.allSettled([
           api.get<{ sections: SectionOption[] }>('/api/school/sections', undefined, { skipLogoutOn401: true }),
           api.get<{ nextAdmissionNumber: string; nextRegistrationNumber: string }>('/api/school/admissions/next-number', undefined, { skipLogoutOn401: true }),
-          api.get<{ academicYears: string[] }>('/api/school/academic-years', undefined, { skipLogoutOn401: true }),
+          api.get<{ academicYears: string[]; years?: Array<{ name: string; isCurrent: boolean }> }>('/api/school/academic-years', undefined, { skipLogoutOn401: true }),
         ])
         if (secData.status === 'fulfilled' && secData.value?.sections) setSections(secData.value.sections)
         if (admNumData.status === 'fulfilled') {
@@ -423,6 +430,8 @@ export function AdmissionFormPage() {
         }
         if (academicYearData.status === 'fulfilled' && academicYearData.value?.academicYears) {
           setAvailableAcademicYears(academicYearData.value.academicYears)
+          const apiCurrent = academicYearData.value.years?.find((y) => y.isCurrent)?.name
+          if (apiCurrent) setCurrentAcademicYear(apiCurrent)
         }
       } catch {
         // Silently handle - use empty arrays
@@ -518,13 +527,19 @@ export function AdmissionFormPage() {
   }, [form.classId])
 
   useEffect(() => {
-    if (!academicYearOptions.some((year) => year.value === form.academicYear)) {
-      setForm((prev) => ({
-        ...prev,
-        academicYear: academicYearOptions[0]?.value || '',
-      }))
-    }
-  }, [academicYearOptions, form.academicYear])
+    if (academicYearOptions.length === 0) return
+    if (form.academicYear && academicYearOptions.some((year) => year.value === form.academicYear)) return
+    const hasOption = (value: string) => !!value && academicYearOptions.some((o) => o.value === value)
+    const preferred =
+      (hasOption(currentAcademicYear) && currentAcademicYear) ||
+      (hasOption(getCurrentAcademicYear()) && getCurrentAcademicYear()) ||
+      academicYearOptions[0]?.value ||
+      ''
+    setForm((prev) => ({
+      ...prev,
+      academicYear: preferred,
+    }))
+  }, [academicYearOptions, currentAcademicYear, form.academicYear])
 
   useEffect(() => {
     let mounted = true
@@ -627,7 +642,7 @@ export function AdmissionFormPage() {
           fatherPhone: father?.phone || prev.fatherPhone,
           fatherEmail: father?.email || prev.fatherEmail,
           fatherOccupation: father?.occupation || prev.fatherOccupation,
-          fatherAadhaar: father?.aadhaar || prev.fatherAadhaar,
+          fatherAadhaar: father?.aadhaar ? formatAadhaar(father.aadhaar) : prev.fatherAadhaar,
           fatherEducation: father?.education || prev.fatherEducation,
           fatherIncome: father?.income ? String(father.income) : prev.fatherIncome,
           // Mother details
@@ -635,7 +650,7 @@ export function AdmissionFormPage() {
           motherPhone: mother?.phone || prev.motherPhone,
           motherEmail: mother?.email || prev.motherEmail,
           motherOccupation: mother?.occupation || prev.motherOccupation,
-          motherAadhaar: mother?.aadhaar || prev.motherAadhaar,
+          motherAadhaar: mother?.aadhaar ? formatAadhaar(mother.aadhaar) : prev.motherAadhaar,
           motherEducation: mother?.education || prev.motherEducation,
           motherIncome: mother?.income ? String(mother.income) : prev.motherIncome,
           // Address (from sibling student record)
@@ -733,7 +748,7 @@ export function AdmissionFormPage() {
           fatherPhone: father?.phone || prev.fatherPhone,
           fatherEmail: father?.email || prev.fatherEmail,
           fatherOccupation: father?.occupation || prev.fatherOccupation,
-          fatherAadhaar: father?.aadhaar || prev.fatherAadhaar,
+          fatherAadhaar: father?.aadhaar ? formatAadhaar(father.aadhaar) : prev.fatherAadhaar,
           fatherEducation: father?.education || prev.fatherEducation,
           fatherIncome: father?.income ? String(father.income) : prev.fatherIncome,
           // Mother details
@@ -741,7 +756,7 @@ export function AdmissionFormPage() {
           motherPhone: mother?.phone || prev.motherPhone,
           motherEmail: mother?.email || prev.motherEmail,
           motherOccupation: mother?.occupation || prev.motherOccupation,
-          motherAadhaar: mother?.aadhaar || prev.motherAadhaar,
+          motherAadhaar: mother?.aadhaar ? formatAadhaar(mother.aadhaar) : prev.motherAadhaar,
           motherEducation: mother?.education || prev.motherEducation,
           motherIncome: mother?.income ? String(mother.income) : prev.motherIncome,
           // Address
@@ -875,7 +890,7 @@ export function AdmissionFormPage() {
         return null
       case 'motherPhone':
         if (!v) return null
-        if (!/^[6-9]\d{9}$/.test(v as string)) return 'Must be a valid 10-digit Indian phone number'
+        if (!/^[6-9]\d{9}$/.test(v as string)) return 'Phone must be 10 digits starting with 6, 7, 8 or 9'
         return null
       case 'motherEmail':
         if (!v) return null
@@ -899,7 +914,7 @@ export function AdmissionFormPage() {
         return null
       case 'fatherPhone':
         if (!v) return "Father's phone is required"
-        if (!/^[6-9]\d{9}$/.test(v as string)) return 'Must be a valid 10-digit Indian phone number'
+        if (!/^[6-9]\d{9}$/.test(v as string)) return 'Phone must be 10 digits starting with 6, 7, 8 or 9'
         return null
       case 'fatherEmail':
         if (!v) return null
@@ -1028,6 +1043,8 @@ export function AdmissionFormPage() {
     ...form,
     schoolId,
     aadhaarNumber: form.aadhaarNumber ? form.aadhaarNumber.replace(/\D/g, '') : null,
+    motherAadhaar: form.motherAadhaar ? form.motherAadhaar.replace(/\D/g, '') : null,
+    fatherAadhaar: form.fatherAadhaar ? form.fatherAadhaar.replace(/\D/g, '') : null,
     heightCm: form.heightCm ? parseFloat(form.heightCm) : null,
     weightKg: form.weightKg ? parseFloat(form.weightKg) : null,
     motherIncome: form.motherIncome ? parseFloat(form.motherIncome) : null,
@@ -1201,12 +1218,12 @@ export function AdmissionFormPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label>First Name <span className="text-destructive">*</span></Label>
-            <Input value={form.firstName} onChange={e => updateForm('firstName', e.target.value)} onBlur={() => handleBlur('firstName')} placeholder="Enter first name" className={ec('firstName')} />
+            <Input value={form.firstName} onChange={e => updateForm('firstName', e.target.value.toUpperCase())} onBlur={() => handleBlur('firstName')} placeholder="Enter first name" className={`uppercase ${ec('firstName')}`} />
             <FieldError message={touched.firstName ? fieldErrors.firstName : null} />
           </div>
           <div className="space-y-2">
             <Label>Last Name <span className="text-destructive">*</span></Label>
-            <Input value={form.lastName} onChange={e => updateForm('lastName', e.target.value)} onBlur={() => handleBlur('lastName')} placeholder="Enter last name" className={ec('lastName')} />
+            <Input value={form.lastName} onChange={e => updateForm('lastName', e.target.value.toUpperCase())} onBlur={() => handleBlur('lastName')} placeholder="Enter last name" className={`uppercase ${ec('lastName')}`} />
             <FieldError message={touched.lastName ? fieldErrors.lastName : null} />
           </div>
         </div>
@@ -1423,13 +1440,13 @@ export function AdmissionFormPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Mother&apos;s Name</Label>
-          <Input value={form.motherName} onChange={e => updateForm('motherName', e.target.value)} onBlur={() => handleBlur('motherName')} placeholder="Full name" className={ec('motherName')} />
+          <Input value={form.motherName} onChange={e => updateForm('motherName', e.target.value.toUpperCase())} onBlur={() => handleBlur('motherName')} placeholder="Full name" className={`uppercase ${ec('motherName')}`} />
           <FieldError message={touched.motherName ? fieldErrors.motherName : null} />
         </div>
         <div className="space-y-2">
           <Label>Phone</Label>
           <div className="relative">
-            <Input value={form.motherPhone} onChange={e => updateForm('motherPhone', e.target.value)} onBlur={() => { handleBlur('motherPhone'); handlePhoneLookup(form.motherPhone, 'mother') }} placeholder="Phone number" className={ec('motherPhone')} />
+            <Input value={form.motherPhone} onChange={e => updateForm('motherPhone', e.target.value.replace(/\D/g, '').slice(0, 10))} onBlur={() => { handleBlur('motherPhone'); handlePhoneLookup(form.motherPhone, 'mother') }} placeholder="10-digit phone" maxLength={10} inputMode="numeric" className={ec('motherPhone')} />
             {phoneLookupLoading && parentMatchField === 'mother' && (
               <div className="absolute right-3 top-1/2 -translate-y-1/2">
                 <div className="size-3.5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
@@ -1451,7 +1468,7 @@ export function AdmissionFormPage() {
         </div>
         <div className="space-y-2">
           <Label>Aadhaar</Label>
-          <Input value={form.motherAadhaar} onChange={e => updateForm('motherAadhaar', e.target.value)} onBlur={() => handleBlur('motherAadhaar')} placeholder="Aadhaar number" className={ec('motherAadhaar')} />
+          <Input value={form.motherAadhaar} onChange={e => updateForm('motherAadhaar', formatAadhaar(e.target.value))} onBlur={() => handleBlur('motherAadhaar')} placeholder="XXXX XXXX XXXX" maxLength={14} className={ec('motherAadhaar')} />
           <FieldError message={touched.motherAadhaar ? fieldErrors.motherAadhaar : null} />
         </div>
       </div>
@@ -1476,13 +1493,13 @@ export function AdmissionFormPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Father&apos;s Name <span className="text-destructive">*</span></Label>
-          <Input value={form.fatherName} onChange={e => updateForm('fatherName', e.target.value)} onBlur={() => handleBlur('fatherName')} placeholder="Full name" className={ec('fatherName')} />
+          <Input value={form.fatherName} onChange={e => updateForm('fatherName', e.target.value.toUpperCase())} onBlur={() => handleBlur('fatherName')} placeholder="Full name" className={`uppercase ${ec('fatherName')}`} />
           <FieldError message={touched.fatherName ? fieldErrors.fatherName : null} />
         </div>
         <div className="space-y-2">
           <Label>Phone <span className="text-destructive">*</span></Label>
           <div className="relative">
-            <Input value={form.fatherPhone} onChange={e => updateForm('fatherPhone', e.target.value)} onBlur={() => { handleBlur('fatherPhone'); handlePhoneLookup(form.fatherPhone, 'father') }} placeholder="Phone number" className={ec('fatherPhone')} />
+            <Input value={form.fatherPhone} onChange={e => updateForm('fatherPhone', e.target.value.replace(/\D/g, '').slice(0, 10))} onBlur={() => { handleBlur('fatherPhone'); handlePhoneLookup(form.fatherPhone, 'father') }} placeholder="10-digit phone" maxLength={10} inputMode="numeric" className={ec('fatherPhone')} />
             {phoneLookupLoading && parentMatchField === 'father' && (
               <div className="absolute right-3 top-1/2 -translate-y-1/2">
                 <div className="size-3.5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
@@ -1504,7 +1521,7 @@ export function AdmissionFormPage() {
         </div>
         <div className="space-y-2">
           <Label>Aadhaar</Label>
-          <Input value={form.fatherAadhaar} onChange={e => updateForm('fatherAadhaar', e.target.value)} onBlur={() => handleBlur('fatherAadhaar')} placeholder="Aadhaar number" className={ec('fatherAadhaar')} />
+          <Input value={form.fatherAadhaar} onChange={e => updateForm('fatherAadhaar', formatAadhaar(e.target.value))} onBlur={() => handleBlur('fatherAadhaar')} placeholder="XXXX XXXX XXXX" maxLength={14} className={ec('fatherAadhaar')} />
           <FieldError message={touched.fatherAadhaar ? fieldErrors.fatherAadhaar : null} />
         </div>
       </div>
@@ -1546,7 +1563,7 @@ export function AdmissionFormPage() {
         </div>
         <div className="space-y-2">
           <Label>Ward No</Label>
-          <Input value={form.wardNo} onChange={e => updateForm('wardNo', e.target.value)} placeholder="Ward No" />
+          <Input value={form.wardNo} onChange={e => updateForm('wardNo', e.target.value.replace(/\D/g, '').slice(0, 3))} placeholder="Ward No" maxLength={3} inputMode="numeric" />
         </div>
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -1565,7 +1582,7 @@ export function AdmissionFormPage() {
         </div>
         <div className="space-y-2">
           <Label>Pincode</Label>
-          <Input value={form.pincode} onChange={e => updateForm('pincode', e.target.value)} onBlur={() => handleBlur('pincode')} placeholder="6-digit" maxLength={6} className={ec('pincode')} />
+          <Input value={form.pincode} onChange={e => updateForm('pincode', e.target.value.replace(/\D/g, ''))} onBlur={() => handleBlur('pincode')} placeholder="6-digit" maxLength={6} inputMode="numeric" className={ec('pincode')} />
           <FieldError message={touched.pincode ? fieldErrors.pincode : null} />
         </div>
         <div className="space-y-2">
@@ -1590,7 +1607,7 @@ export function AdmissionFormPage() {
             <Label>Street / Landmark / Area</Label>
             <Textarea value={form.localAddress} onChange={e => updateForm('localAddress', e.target.value)} placeholder="House No., Street, Landmark..." rows={2} />
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <div className="space-y-2">
               <Label>Village / Post</Label>
               <Input value={form.localVillage} onChange={e => updateForm('localVillage', e.target.value)} placeholder="Village / Post" />
@@ -1600,11 +1617,19 @@ export function AdmissionFormPage() {
               <Input value={form.localPostOffice} onChange={e => updateForm('localPostOffice', e.target.value)} placeholder="Post Office" />
             </div>
             <div className="space-y-2">
+              <Label>Police Station</Label>
+              <Input value={form.localPoliceStation} onChange={e => updateForm('localPoliceStation', e.target.value)} placeholder="Police Station" />
+            </div>
+            <div className="space-y-2">
+              <Label>Ward No</Label>
+              <Input value={form.localWardNo} onChange={e => updateForm('localWardNo', e.target.value.replace(/\D/g, '').slice(0, 3))} placeholder="Ward No" maxLength={3} inputMode="numeric" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="space-y-2">
               <Label>City</Label>
               <Input value={form.localCity} onChange={e => updateForm('localCity', e.target.value)} placeholder="City" />
             </div>
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label>State</Label>
               <Select value={form.localState} onValueChange={v => updateForm('localState', v)}>
@@ -1616,7 +1641,7 @@ export function AdmissionFormPage() {
             </div>
             <div className="space-y-2">
               <Label>Pincode</Label>
-              <Input value={form.localPincode} onChange={e => updateForm('localPincode', e.target.value)} onBlur={() => handleBlur('localPincode')} placeholder="6-digit" maxLength={6} className={ec('localPincode')} />
+              <Input value={form.localPincode} onChange={e => updateForm('localPincode', e.target.value.replace(/\D/g, ''))} onBlur={() => handleBlur('localPincode')} placeholder="6-digit" maxLength={6} inputMode="numeric" className={ec('localPincode')} />
               <FieldError message={touched.localPincode ? fieldErrors.localPincode : null} />
             </div>
             <div className="space-y-2">
@@ -2241,9 +2266,6 @@ export function AdmissionFormPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-6">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => goBack('students')} className="shrink-0">
-            <ArrowLeft className="size-5" />
-          </Button>
           <div>
             <h1 className="text-xl font-bold">Admit New Student</h1>
             <p className="text-sm text-muted-foreground">Fill in the details to register a new student admission</p>
@@ -2430,7 +2452,7 @@ export function AdmissionFormPage() {
       <Dialog open={showSuccessDialog} onOpenChange={(open) => {
           if (!open) {
             setShowSuccessDialog(false)
-            goBack('students')
+            router.push('/students')
           }
         }}>
         <DialogContent className="sm:max-w-md" onInteractOutside={(e) => e.preventDefault()} onPointerDownOutside={(e) => e.preventDefault()}>
@@ -2506,7 +2528,7 @@ export function AdmissionFormPage() {
               }}>
                 Admit Another
               </Button>
-              <Button onClick={() => goBack('students')}>
+              <Button onClick={() => router.push('/students')}>
                 Go to Student List
               </Button>
             </div>

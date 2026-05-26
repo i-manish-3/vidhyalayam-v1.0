@@ -726,10 +726,10 @@ async function seed() {
 
   // Demo testimonials for the landing page
   const demoTestimonials = [
-    { name: 'Rajesh Kumar', role: 'Principal, DPS Delhi', quote: 'My Digital Academy has transformed how we manage our school. Attendance and fees are no longer headaches.', stars: 5, sortOrder: 1 },
+    { name: 'Rajesh Kumar', role: 'Principal, DPS Delhi', quote: 'Vidhyalayam has transformed how we manage our school. Attendance and fees are no longer headaches.', stars: 5, sortOrder: 1 },
     { name: 'Priya Sharma', role: "Administrator, St. Mary's School", quote: 'The parent communication features have brought our school community closer than ever.', stars: 5, sortOrder: 2 },
     { name: 'Dr. Ahmed Khan', role: 'Director, Sunrise Academy', quote: 'From admissions to exams, everything is streamlined. Our teachers now focus on teaching, not paperwork.', stars: 5, sortOrder: 3 },
-    { name: 'Sunita Verma', role: 'Vice Principal, KV Delhi', quote: 'We switched from three different tools to just My Digital Academy. The all-in-one platform saved us time and money.', stars: 5, sortOrder: 4 },
+    { name: 'Sunita Verma', role: 'Vice Principal, KV Delhi', quote: 'We switched from three different tools to just Vidhyalayam. The all-in-one platform saved us time and money.', stars: 5, sortOrder: 4 },
     { name: 'Arun Reddy', role: 'Accounts Manager, Green Valley School', quote: 'The fee management module alone has reduced our collection time by 70%. Parents love the online payment option.', stars: 5, sortOrder: 5 },
     { name: 'Meena Joshi', role: 'Parent, DPS Delhi', quote: 'Real-time attendance tracking gives me peace of mind. I know my child is safe the moment they swipe in.', stars: 4, sortOrder: 6 },
     { name: 'Vikram Patel', role: 'Academic Coordinator, Ryan International', quote: 'The timetable generator is a lifesaver. What used to take us a week now takes just a few clicks.', stars: 5, sortOrder: 7 },

@@ -19,6 +19,7 @@ export async function GET(request: NextRequest) {
             name: true,
             logo: true,
             favicon: true,
+            printHeader: true,
             status: true,
             subdomain: true,
             primaryColor: true,
@@ -36,6 +37,12 @@ export async function GET(request: NextRequest) {
 
     if (!dbUser) {
       return apiError(404, 'We couldn\'t find your account. Please try logging in again.')
+    }
+
+    // Return 401 (not 403) so the api wrapper's session-expired handling kicks
+    // in and logs the user out cleanly. SUPER_ADMIN has no school so is exempt.
+    if (dbUser.school?.status === 'suspended') {
+      return apiError(401, 'Your school is currently suspended. Please contact the platform administrator to restore access.')
     }
 
     return NextResponse.json({

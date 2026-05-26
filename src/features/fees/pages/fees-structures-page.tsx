@@ -1,6 +1,7 @@
 'use client'
 
 import { Fragment, useState, useEffect, useCallback, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
 import { EmptyState, LoadingState } from '@/components/shared'
 import { api } from '@/lib/api'
 import { useAppStore } from '@/lib/store'
@@ -28,7 +29,6 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import {
-  ArrowLeft,
   Calendar,
   CheckCircle2,
   ChevronDown,
@@ -229,11 +229,10 @@ function dueDateForPeriod(period: string, academicYear: string, day: number) {
 // ── Component ──────────────────────────────────────────────────────────
 
 export function FeesStructuresPage() {
+  const router = useRouter()
   const { toast } = useToast()
   const currentSchoolAcademicYear = useAppStore((s) => s.currentSchool?.academicYear)
   const viewingAcademicYear = useAppStore((s) => s.viewingAcademicYear)
-  const goBack = useAppStore((s) => s.goBack)
-  const navigateTo = useAppStore((s) => s.navigateTo)
   const effectiveAcademicYear = viewingAcademicYear || currentSchoolAcademicYear || getCurrentAcademicYear()
 
   // Data
@@ -724,9 +723,6 @@ export function FeesStructuresPage() {
     <div className="space-y-4">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-start gap-3">
-          <Button variant="outline" size="icon" onClick={() => goBack('dashboard')} className="mt-0.5 size-9 shrink-0">
-            <ArrowLeft className="size-4" />
-          </Button>
           <div>
             <h1 className="text-xl font-bold tracking-tight">Class Fee Structure</h1>
             <p className="mt-0.5 text-sm text-muted-foreground">
@@ -739,7 +735,7 @@ export function FeesStructuresPage() {
             <PlusCircle className="size-4" />
             Add Structure
           </Button>
-          <Button variant="outline" onClick={() => navigateTo('fees-groups')} className="gap-2">
+          <Button variant="outline" onClick={() => router.push('/fees/groups')} className="gap-2">
             <Tags className="size-4" />
             Fee Group
           </Button>

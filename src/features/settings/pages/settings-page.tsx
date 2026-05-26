@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
-import { ArrowLeft, Banknote, CalendarCheck, Check, Hash, ImagePlus, Loader2, Palette, Save, School, Sparkles, Type, Users, X } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { Banknote, CalendarCheck, Check, Hash, ImagePlus, Loader2, Palette, Save, School, Sparkles, Type, Users, X } from 'lucide-react'
 import { api } from '@/lib/api'
 import { compressImage } from '@/lib/image-compress'
 import { useAppStore, type School as SchoolInfo } from '@/lib/store'
@@ -43,8 +44,9 @@ const DEFAULT_ADMISSION_SETTINGS: AdmissionSettings = {
 }
 
 export function SettingsPage() {
+  const router = useRouter()
   const { toast } = useToast()
-  const { currentSchool, setCurrentSchool, user, goBack } = useAppStore()
+  const { currentSchool, setCurrentSchool, user } = useAppStore()
   const logoInputRef = useRef<HTMLInputElement>(null)
   const faviconInputRef = useRef<HTMLInputElement>(null)
   const printHeaderInputRef = useRef<HTMLInputElement>(null)
@@ -253,9 +255,6 @@ export function SettingsPage() {
     <div className="space-y-4">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 items-start gap-3">
-          <Button type="button" variant="outline" size="icon" className="mt-0.5 size-9 shrink-0" onClick={() => goBack('dashboard')}>
-            <ArrowLeft className="size-4" />
-          </Button>
           <div className="min-w-0">
             <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
             <p className="text-sm text-muted-foreground">Manage school branding and dashboard appearance.</p>

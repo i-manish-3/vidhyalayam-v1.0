@@ -99,6 +99,7 @@ export type LoginFailureReason =
   | 'INACTIVE'
   | 'DELETED'
   | 'LOCKED'
+  | 'SCHOOL_SUSPENDED'
 
 interface LoginEventInput {
   userId?: string | null

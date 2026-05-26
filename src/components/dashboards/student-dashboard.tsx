@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -41,7 +42,8 @@ interface StudentDashboardData {
 export function StudentDashboard() {
   const [loading, setLoading] = useState(true)
   const [data, setData] = useState<StudentDashboardData | null>(null)
-  const { setCurrentPage, user } = useAppStore()
+  const router = useRouter()
+  const { user } = useAppStore()
 
   const fetchDashboard = useCallback(async () => {
     try {
@@ -137,7 +139,7 @@ export function StudentDashboard() {
                     </div>
                   ))}
                   <div className="border-t pt-2">
-                    <Button size="sm" className="w-full" onClick={() => setCurrentPage('fee-collections')}>
+                    <Button size="sm" className="w-full" onClick={() => router.push('/fees/collections')}>
                       <IndianRupee className="size-4 mr-2" /> View Fee Details
                     </Button>
                   </div>
@@ -151,13 +153,13 @@ export function StudentDashboard() {
               <CardTitle className="text-base">Quick Actions</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
-              <Button variant="outline" className="w-full justify-start gap-3 h-11" onClick={() => setCurrentPage('my-attendance')}>
+              <Button variant="outline" className="w-full justify-start gap-3 h-11" onClick={() => router.push('/attendance/me')}>
                 <ClipboardList className="size-4 text-[var(--button-primary,var(--primary))]" /> My Attendance
               </Button>
-              <Button variant="outline" className="w-full justify-start gap-3 h-11" onClick={() => setCurrentPage('exam-results')}>
+              <Button variant="outline" className="w-full justify-start gap-3 h-11" onClick={() => router.push('/exams/results')}>
                 <Award className="size-4 text-[var(--button-primary,var(--primary))]" /> Exam Results
               </Button>
-              <Button variant="outline" className="w-full justify-start gap-3 h-11" onClick={() => setCurrentPage('timetable')}>
+              <Button variant="outline" className="w-full justify-start gap-3 h-11" onClick={() => router.push('/academics/timetable')}>
                 <Clock className="size-4 text-[var(--button-primary,var(--primary))]" /> View Timetable
               </Button>
             </CardContent>

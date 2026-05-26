@@ -372,6 +372,10 @@ model Admission {
   policeStation   String?
   wardNo          String?
   localAddress    String? // Local / Residential Address
+  localVillage    String?
+  localPostOffice String?
+  localPoliceStation String?
+  localWardNo     String?
   localCity       String?
   localState      String?
   localPincode    String?
@@ -473,11 +477,29 @@ model Admission {
   notes      AdmissionNote[]
   activities AdmissionActivity[]
 
+  @@unique([schoolId, admissionNumber])
+  @@unique([schoolId, registrationNumber])
   @@index([schoolId])
   @@index([status])
-  @@index([admissionNumber])
   @@index([classId])
   @@index([familyId])
+}
+
+// Per-school, per-kind, per-year counter for admission/registration numbers.
+// Row-level lock on UPDATE ... increment serializes allocation so two
+// simultaneous admissions can never receive the same sequence number, and the
+// increment rolls back with the surrounding transaction (no gaps from
+// abandoned transactions).
+model NumberCounter {
+  schoolId  String
+  kind      String   // 'admission' | 'registration'
+  year      Int      // calendar year of dateOfAdmission; or 0 when resetYearly is false
+  lastValue Int      // last sequence number allocated
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@id([schoolId, kind, year])
 }
 
 model AdmissionDocument {

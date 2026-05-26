@@ -136,19 +136,31 @@ const MAX_RETRIES = 8
 const RETRY_BASE_DELAY = 500
 
 class ApiClient {
-  private getToken(): string | null {
-    return useAppStore.getState().token
-  }
+  // Single-flight guard: when N parallel requests all see 401 at the same time
+  // (typical after the access cookie expires and the dashboard fires 5+ queries),
+  // they share one /api/auth/refresh call instead of stampeding the endpoint.
+  private refreshing: Promise<boolean> | null = null
 
   private getHeaders(): HeadersInit {
-    const headers: HeadersInit = {
-      'Content-Type': 'application/json',
+    // No Authorization header — the access token lives in the HttpOnly cookie
+    // `erp_access`, which the browser attaches automatically because every
+    // fetch below uses `credentials: 'include'`.
+    return { 'Content-Type': 'application/json' }
+  }
+
+  private async refreshOnce(): Promise<boolean> {
+    if (!this.refreshing) {
+      this.refreshing = fetch(`${BASE_URL}/api/auth/refresh`, {
+        method: 'POST',
+        credentials: 'include',
+      })
+        .then((r) => r.ok)
+        .catch(() => false)
+        .finally(() => {
+          this.refreshing = null
+        })
     }
-    const token = this.getToken()
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`
-    }
-    return headers
+    return this.refreshing
   }
 
   async get<T>(path: string, params?: Record<string, string>, options?: { skipLogoutOn401?: boolean }): Promise<T> {
@@ -255,6 +267,7 @@ class ApiClient {
     init: RequestInit,
     skipLogoutOn401?: boolean,
     attempt: number = 0,
+    didRefresh: boolean = false,
   ): Promise<T> {
     let response: Response
 
@@ -265,7 +278,7 @@ class ApiClient {
       if (attempt < MAX_RETRIES) {
         const delay = RETRY_BASE_DELAY * Math.pow(2, attempt)
         await sleep(delay)
-        return this.fetchWithRetry<T>(url, init, skipLogoutOn401, attempt + 1)
+        return this.fetchWithRetry<T>(url, init, skipLogoutOn401, attempt + 1, didRefresh)
       }
       // All retries exhausted
       throw new Error(
@@ -273,10 +286,34 @@ class ApiClient {
       )
     }
 
-    // Handle 401 — read the server's message first (e.g., wrong credentials on login).
-    // No refresh chain: a 401 on any authenticated route means the JWT is invalid
-    // or expired (7-day TTL), and the user must log in again.
+    // Handle 401. The access cookie (`erp_access`) is short-lived (15 min);
+    // most 401s on authenticated routes mean it just expired. We try a single
+    // refresh: if the refresh cookie is still valid (within 30 days), the
+    // server rotates both cookies and we retry the original request silently.
+    // The user sees no interruption.
+    //
+    // We skip the refresh attempt for:
+    //   - /api/auth/login   — 401 here means wrong credentials, not expiry.
+    //   - /api/auth/refresh — refreshing the refresh would loop.
+    //   - retries that already came out of a refresh — prevents the
+    //     refresh→retry→401→refresh→... loop.
     if (response.status === 401) {
+      const isAuthEndpoint =
+        url.includes('/api/auth/login') || url.includes('/api/auth/refresh')
+
+      if (!skipLogoutOn401 && !didRefresh && !isAuthEndpoint) {
+        const refreshed = await this.refreshOnce()
+        if (refreshed) {
+          // Cookies are fresh now — retry exactly once with didRefresh=true so
+          // a second 401 falls through to the logout path below instead of
+          // looping.
+          return this.fetchWithRetry<T>(url, init, skipLogoutOn401, attempt, true)
+        }
+      }
+
+      // Refresh wasn't possible (or already tried and failed). Distinguish
+      // "wrong credentials" style messages from "session expired" so we don't
+      // log the user out on a fresh login-page submission.
       let serverMessage: string | undefined
       try {
         const data = await response.json()
@@ -284,17 +321,17 @@ class ApiClient {
       } catch {
         // Can't parse response
       }
-      // If the server gave a specific message (like "wrong credentials"), use it.
-      // Otherwise, fall back to "session expired" for authenticated routes.
       const isSessionExpired = !serverMessage || serverMessage === STATUS_MESSAGES[401]
 
       if (isSessionExpired) {
         if (!skipLogoutOn401) {
-          useAppStore.getState().logout()
+          // Fire-and-forget — logout is async now (it calls the logout
+          // endpoint to clear cookies), but we don't want to block the
+          // error throw on it.
+          void useAppStore.getState().logout()
         }
         throw new Error('Your session has expired. Please log in again to continue.')
       }
-      // Server gave a specific message (e.g., wrong credentials on login) — show that instead
       throw new Error(serverMessage)
     }
 
@@ -302,7 +339,7 @@ class ApiClient {
     if (RETRYABLE_STATUS.has(response.status) && attempt < MAX_RETRIES) {
       const delay = RETRY_BASE_DELAY * Math.pow(2, attempt)
       await sleep(delay)
-      return this.fetchWithRetry<T>(url, init, skipLogoutOn401, attempt + 1)
+      return this.fetchWithRetry<T>(url, init, skipLogoutOn401, attempt + 1, didRefresh)
     }
 
     // Handle non-ok responses

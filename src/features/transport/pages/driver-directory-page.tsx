@@ -1,9 +1,9 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { PageHeader, EmptyState, LoadingState } from '@/components/shared'
 import { api } from '@/lib/api'
-import { useAppStore } from '@/lib/store'
 import { useToast } from '@/hooks/use-toast'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
@@ -41,8 +41,8 @@ function formatDate(value?: string | null) {
 }
 
 export function DriverDirectoryPage() {
+  const router = useRouter()
   const { toast } = useToast()
-  const { goBack, navigateTo } = useAppStore()
   const [drivers, setDrivers] = useState<Driver[]>([])
   const [routes, setRoutes] = useState<TransportRoute[]>([])
   const [search, setSearch] = useState('')
@@ -107,8 +107,7 @@ export function DriverDirectoryPage() {
       <PageHeader
         title="Driver Directory"
         description={`${drivers.length} transport driver${drivers.length !== 1 ? 's' : ''} registered`}
-        backAction={{ onClick: () => goBack('transport') }}
-        action={{ label: 'Add Driver', icon: PlusCircle, onClick: () => navigateTo('add-driver') }}
+        action={{ label: 'Add Driver', icon: PlusCircle, onClick: () => router.push('/transport/drivers/new') }}
       />
 
       {drivers.length === 0 ? (
@@ -116,7 +115,7 @@ export function DriverDirectoryPage() {
           icon={UserCheck}
           title="No Drivers"
           description="Add transport drivers to assign them to routes."
-          action={{ label: 'Add Driver', onClick: () => navigateTo('add-driver') }}
+          action={{ label: 'Add Driver', onClick: () => router.push('/transport/drivers/new') }}
         />
       ) : (
         <div className="overflow-hidden rounded-lg border bg-card">

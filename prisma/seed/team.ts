@@ -9,7 +9,7 @@ async function main() {
     {
       name: 'Manish Kumar',
       role: 'Developer',
-      bio: "Full-stack developer passionate about building scalable SaaS products. Architect of My Digital Academy's platform and core technology.",
+      bio: "Full-stack developer passionate about building scalable SaaS products. Architect of Vidhyalayam's platform and core technology.",
       image: '/uploads/team/manish-kumar.png',
       phone: '+91 98765 43210',
       email: null,

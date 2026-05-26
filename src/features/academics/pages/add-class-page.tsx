@@ -1,8 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
-import { useAppStore } from '@/lib/store'
 import { useToast } from '@/hooks/use-toast'
 import { PageHeader } from '@/components/shared'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -67,8 +67,7 @@ function getTypeConfig(type: string) {
 
 export function AddClassPage() {
   const { toast } = useToast()
-  const navigateTo = useAppStore((s) => s.navigateTo)
-  const goBack = useAppStore((s) => s.goBack)
+  const router = useRouter()
 
   // Form state
   const [name, setName] = useState('')
@@ -209,7 +208,7 @@ export function AddClassPage() {
         title: 'Class Added Successfully',
         description: `${name.trim() || 'New class'} has been created${selectedSubjectIds.size > 0 ? ` with ${selectedSubjectIds.size} subject${selectedSubjectIds.size > 1 ? 's' : ''} assigned` : ''}.`,
       })
-      navigateTo('classes')
+      router.push('/academics/classes')
     } catch (err) {
       toast({
         title: 'Something Went Wrong',
@@ -230,8 +229,7 @@ export function AddClassPage() {
       <PageHeader
         title="Add Class"
         description="Create a new class, add sections, and assign subjects."
-        backAction={{ onClick: () => goBack('classes') }}
-        action={{ label: 'Class List', icon: List, onClick: () => navigateTo('classes') }}
+        action={{ label: 'Class List', icon: List, onClick: () => router.push('/academics/classes') }}
       />
 
       {/* Form */}
@@ -542,7 +540,7 @@ export function AddClassPage() {
           <Button
             type="button"
             variant="outline"
-            onClick={() => goBack('classes')}
+            onClick={() => router.push('/academics/classes')}
             disabled={submitting}
           >
             Cancel

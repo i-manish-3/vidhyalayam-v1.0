@@ -32,10 +32,10 @@ import {
   Users,
   Clock,
   Wallet,
-  Bell,
-  Settings,
-  School,
   Crown,
+  Palette,
+  Globe,
+  Sparkles,
   Eye,
   Loader2,
   ChevronLeft,
@@ -73,11 +73,17 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; icon: typeof
   lost: { label: 'Lost', color: 'bg-red-100 text-red-700 dark:bg-red-950/50 dark:text-red-400', icon: XCircle },
 }
 
-const ADD_ON_LABELS: Record<string, { label: string; icon: typeof Wallet }> = {
-  salary_payroll: { label: 'Salary & Payroll', icon: Wallet },
-  premium_feature: { label: 'Premium Feature', icon: Crown },
-  custom_branding: { label: 'Custom Branding', icon: Settings },
-  school_landing_page: { label: 'Landing Page', icon: School },
+const ADD_ON_ICONS: Record<string, typeof Wallet> = {
+  'Salary & Payroll': Wallet,
+  'Premium Feature': Crown,
+  'Premium Features': Crown,
+  'Custom Branding': Palette,
+  'School Landing Page': Globe,
+  'Landing Page': Globe,
+}
+
+function getAddOnIcon(name: string) {
+  return ADD_ON_ICONS[name] || Sparkles
 }
 
 function formatTimeAgo(dateStr: string) {
@@ -110,6 +116,22 @@ export function ContactRequestsPage() {
   const [updateStatus, setUpdateStatus] = useState('')
   const [updateNotes, setUpdateNotes] = useState('')
   const [isUpdating, setIsUpdating] = useState(false)
+  const [addonIdToName, setAddonIdToName] = useState<Record<string, string>>({})
+
+  useEffect(() => {
+    fetch('/api/pricing')
+      .then((res) => res.json())
+      .then((data: { addons?: Array<{ id: string; name: string }> }) => {
+        if (data.addons) {
+          const map: Record<string, string> = {}
+          for (const a of data.addons) map[a.id] = a.name
+          setAddonIdToName(map)
+        }
+      })
+      .catch(() => { /* fallback to raw value */ })
+  }, [])
+
+  const resolveAddon = useCallback((value: string) => addonIdToName[value] || value, [addonIdToName])
 
   const fetchContacts = useCallback(async () => {
     setIsLoading(true)
@@ -268,13 +290,14 @@ export function ContactRequestsPage() {
                             {addOns.length > 0 && (
                               <div className="flex flex-wrap gap-1.5 mt-2">
                                 {addOns.map((ao) => {
-                                  const addonCfg = ADD_ON_LABELS[ao]
-                                  return addonCfg ? (
+                                  const label = resolveAddon(ao)
+                                  const Icon = getAddOnIcon(label)
+                                  return (
                                     <Badge key={ao} variant="outline" className="text-xs py-0">
-                                      <addonCfg.icon className="size-3 mr-1" />
-                                      {addonCfg.label}
+                                      <Icon className="size-3 mr-1" />
+                                      {label}
                                     </Badge>
-                                  ) : null
+                                  )
                                 })}
                               </div>
                             )}
@@ -363,13 +386,14 @@ export function ContactRequestsPage() {
                       <p className="text-xs font-medium text-muted-foreground mb-2">Interested Add-Ons</p>
                       <div className="flex flex-wrap gap-2">
                         {addOns.map((ao) => {
-                          const cfg = ADD_ON_LABELS[ao]
-                          return cfg ? (
+                          const label = resolveAddon(ao)
+                          const Icon = getAddOnIcon(label)
+                          return (
                             <Badge key={ao} variant="secondary" className="bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400">
-                              <cfg.icon className="size-3 mr-1" />
-                              {cfg.label}
+                              <Icon className="size-3 mr-1" />
+                              {label}
                             </Badge>
-                          ) : null
+                          )
                         })}
                       </div>
                     </div>

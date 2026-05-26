@@ -1,9 +1,9 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
 import { compressImage } from '@/lib/image-compress'
-import { useAppStore } from '@/lib/store'
 import { useToast } from '@/hooks/use-toast'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { DatePicker } from '@/components/date-picker'
-import { ArrowLeft, Bus, IdCard, Loader2, Phone, Upload, UserCheck, UserPlus } from 'lucide-react'
+import { Bus, IdCard, Loader2, Phone, Upload, UserCheck, UserPlus } from 'lucide-react'
 
 interface CreatedDriver {
   name: string
@@ -20,8 +20,7 @@ interface CreatedDriver {
 
 export function AddDriverPage() {
   const { toast } = useToast()
-  const goBack = useAppStore((s) => s.goBack)
-  const navigateTo = useAppStore((s) => s.navigateTo)
+  const router = useRouter()
 
   const [name, setName] = useState('')
   const [dob, setDob] = useState('')
@@ -84,7 +83,7 @@ export function AddDriverPage() {
       setPhone('')
       setPhoto('')
       setPhotoError('')
-      navigateTo('drivers')
+      router.push('/transport/drivers')
     } catch (err) {
       toast({
         title: "Couldn't Add Driver",
@@ -100,15 +99,6 @@ export function AddDriverPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
-          <Button
-            variant="outline"
-            size="icon"
-            className="mt-0.5 size-9 shrink-0"
-            onClick={() => goBack('transport')}
-            disabled={submitting}
-          >
-            <ArrowLeft className="size-4" />
-          </Button>
           <div>
             <h1 className="text-xl font-bold tracking-tight">Add Driver</h1>
             <p className="text-sm text-muted-foreground mt-0.5">Create a transport driver account</p>
@@ -118,7 +108,7 @@ export function AddDriverPage() {
           type="button"
           variant="outline"
           className="gap-2 self-start sm:self-auto"
-          onClick={() => navigateTo('drivers')}
+          onClick={() => router.push('/transport/drivers')}
           disabled={submitting}
         >
           <UserCheck className="size-4" />
@@ -255,7 +245,7 @@ export function AddDriverPage() {
                   </>
                 )}
               </Button>
-              <Button type="button" variant="outline" onClick={() => goBack('transport')} disabled={submitting}>
+              <Button type="button" variant="outline" onClick={() => router.push('/transport/routes')} disabled={submitting}>
                 Cancel
               </Button>
             </div>

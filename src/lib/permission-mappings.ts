@@ -15,12 +15,14 @@
 const MODULE_PERMISSION_MAP: Record<string, string[]> = {
   // Students & Admissions
   'admission-form': ['admission:read', 'admission:create', 'student:create'],
+  'bulk-admission': ['admission:create', 'student:create'],
   'students': ['student:read', 'student:create'],
   'student-detail': ['student:read'],
   'edit-student': ['student:read', 'student:update'],
 
   // People
   'teachers': ['teacher:read', 'teacher:create'],
+  'add-teacher': ['teacher:create'],
   'parents': ['parent:read', 'parent:create'],
 
   // Academic

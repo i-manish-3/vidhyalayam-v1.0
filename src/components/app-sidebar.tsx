@@ -2,8 +2,10 @@
 
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { createPortal } from 'react-dom'
+import { useRouter, usePathname } from 'next/navigation'
 import { useAppStore, type PageName } from '@/lib/store'
 import { isPageVisible } from '@/lib/permission-mappings'
+import { resolveMigratedUrl } from '@/lib/migrated-routes'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -51,6 +53,7 @@ import {
   UsersRound,
   LayoutTemplate,
   RefreshCw,
+  Upload,
 } from 'lucide-react'
 
 export interface MenuChild {
@@ -97,10 +100,19 @@ export const MENUS: Record<string, MenuItem[]> = {
       icon: GraduationCap,
       children: [
         { label: 'Add New Admission', page: 'admission-form', icon: UserPlus },
+        { label: 'Bulk Admission', page: 'bulk-admission', icon: Upload },
         { label: 'Student List', page: 'students', icon: Users },
       ],
     },
-    { label: 'Teachers', page: 'teachers', icon: BookOpen },
+    {
+      label: 'Teachers',
+      page: 'teachers',
+      icon: BookOpen,
+      children: [
+        { label: 'Add Teacher', page: 'add-teacher', icon: UserPlus },
+        { label: 'Teacher List', page: 'teachers', icon: BookOpen },
+      ],
+    },
     { label: 'Parents', page: 'parents', icon: Users },
     {
       label: 'Academics',
@@ -306,9 +318,17 @@ export const MENUS: Record<string, MenuItem[]> = {
   ],
 }
 
-function hasActiveDescendant(item: MenuChild, currentPage: PageName): boolean {
-  if (item.page === currentPage) return true
-  if (item.children) return item.children.some(child => hasActiveDescendant(child, currentPage))
+function isPageActiveOnPath(page: PageName, pathname: string): boolean {
+  const url = resolveMigratedUrl(page)
+  if (!url) return false
+  // Exact match OR pathname is a sub-route of this URL (covers e.g. /students/[id]
+  // matching the "Students" menu item, /academics/classes/new matching "Classes").
+  return pathname === url || pathname.startsWith(url + '/')
+}
+
+function hasActiveDescendant(item: MenuChild, pathname: string): boolean {
+  if (isPageActiveOnPath(item.page, pathname)) return true
+  if (item.children) return item.children.some(child => hasActiveDescendant(child, pathname))
   return false
 }
 
@@ -343,7 +363,9 @@ function filterChildren(children: MenuChild[], permissions: string[], role: stri
 }
 
 export function AppSidebar() {
-  const { user, currentSchool, currentPage, setCurrentPage, sidebarOpen, setSidebarOpen, sidebarCollapsed, permissions, permissionsLoaded } = useAppStore()
+  const router = useRouter()
+  const pathname = usePathname()
+  const { user, currentSchool, sidebarOpen, setSidebarOpen, sidebarCollapsed, permissions, permissionsLoaded } = useAppStore()
   const [menuStack, setMenuStack] = useState<Array<{ label: string; items: SidebarMenuEntry[] }>>([])
   const [menuPanelPos, setMenuPanelPos] = useState({ top: 0, left: 0 })
   const [flyoutMenu, setFlyoutMenu] = useState<string | null>(null)
@@ -351,8 +373,8 @@ export function AppSidebar() {
   const flyoutTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const role = user?.role || 'SCHOOL_ADMIN' as const
   const schoolDisplayName = role === 'SUPER_ADMIN'
-    ? 'My Digital Academy'
-    : currentSchool?.name || 'My Digital Academy'
+    ? 'Vidhyalayam'
+    : currentSchool?.name || 'Vidhyalayam'
   const schoolSubLabel = role === 'SUPER_ADMIN'
     ? 'Platform Admin'
     : currentSchool?.subdomain
@@ -411,7 +433,8 @@ export function AppSidebar() {
   }
 
   const handleNavigate = (page: PageName) => {
-    setCurrentPage(page)
+    const url = resolveMigratedUrl(page)
+    if (url) router.push(url)
     setFlyoutMenu(null)
     setMenuStack([])
     if (window.innerWidth < 1024) {
@@ -515,8 +538,8 @@ export function AppSidebar() {
             <TooltipProvider delayDuration={0}>
               <nav className={cn('py-2 space-y-0.5 transition-[padding] duration-300 ease-in-out', isCollapsed ? 'px-2' : 'px-3')}>
                 {menus.map((item) => {
-                  const isActive = currentPage === item.page || 
-                    (item.children && item.children.some((child) => hasActiveDescendant(child, currentPage)))
+                  const isActive = isPageActiveOnPath(item.page, pathname) ||
+                    (item.children && item.children.some((child) => hasActiveDescendant(child, pathname)))
 
                   /* ─── Collapsed mode: icon-only buttons ─── */
                   if (isCollapsed) {
@@ -676,7 +699,7 @@ export function AppSidebar() {
 
           <div className="max-h-[min(520px,calc(100vh-96px))] overflow-y-auto p-2">
             {activeDrill.items.map((item) => {
-              const isActive = currentPage === item.page || (item.children && item.children.some((child) => hasActiveDescendant(child, currentPage)))
+              const isActive = isPageActiveOnPath(item.page, pathname) || (item.children && item.children.some((child) => hasActiveDescendant(child, pathname)))
 
               if (item.children?.length) {
                 return (
@@ -705,7 +728,7 @@ export function AppSidebar() {
                   onClick={() => handleNavigate(item.page)}
                   className={cn(
                     'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
-                    currentPage === item.page
+                    isPageActiveOnPath(item.page, pathname)
                       ? 'bg-sidebar-accent text-sidebar-primary'
                       : 'text-sidebar-foreground/75 hover:bg-sidebar-accent hover:text-sidebar-foreground'
                   )}
@@ -746,7 +769,7 @@ export function AppSidebar() {
                         onClick={() => handleNavigate(grandChild.page)}
                         className={cn(
                           'flex w-full items-center gap-2.5 px-3 py-2 text-sm transition-colors',
-                          currentPage === grandChild.page
+                          isPageActiveOnPath(grandChild.page, pathname)
                             ? 'bg-accent text-accent-foreground font-medium'
                             : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
                         )}
@@ -765,7 +788,7 @@ export function AppSidebar() {
                   onClick={() => handleNavigate(child.page)}
                   className={cn(
                     'flex w-full items-center gap-2.5 px-3 py-2 text-sm transition-colors',
-                    currentPage === child.page
+                    isPageActiveOnPath(child.page, pathname)
                       ? 'bg-accent text-accent-foreground font-medium'
                       : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
                   )}

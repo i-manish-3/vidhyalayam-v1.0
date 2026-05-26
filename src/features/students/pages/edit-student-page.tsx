@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
 import { compressImage } from '@/lib/image-compress'
 import { useAppStore } from '@/lib/store'
@@ -16,7 +17,7 @@ import { Separator } from '@/components/ui/separator'
 import { Checkbox } from '@/components/ui/checkbox'
 import { DatePicker } from '@/components/date-picker'
 import {
-  ArrowLeft, Save, User, Phone, MapPin, GraduationCap, Banknote,
+  Save, User, Phone, MapPin, GraduationCap, Banknote,
   Home, Shield, FileText, Camera, Upload, X,
   CircleUser, CircleUserRound, CalendarDays, IdCard,
   Ruler, Weight, Briefcase, Mail, CreditCard, Building, Heart,
@@ -77,6 +78,8 @@ interface AdmissionData {
   localCountry: string | null
   localVillage: string | null
   localPostOffice: string | null
+  localPoliceStation: string | null
+  localWardNo: string | null
   sameAsPermanent: boolean | null
   fatherName: string | null
   fatherPhone: string | null
@@ -203,6 +206,11 @@ const REQUIRED_DOCUMENTS = [
   { type: 'medical_cert', name: 'Medical Certificate' },
 ]
 
+function formatAadhaar(value: string): string {
+  const digits = value.replace(/\D/g, '').slice(0, 12)
+  return digits.replace(/(\d{4})(?=\d)/g, '$1 ').trim()
+}
+
 interface ClassOption { id: string; name: string }
 interface SectionOption { id: string; name: string; classId: string }
 
@@ -248,6 +256,8 @@ interface EditForm {
   localAddress: string
   localVillage: string
   localPostOffice: string
+  localPoliceStation: string
+  localWardNo: string
   localCity: string
   localState: string
   localPincode: string
@@ -289,11 +299,9 @@ interface EditForm {
 // Main Component
 // ============================================
 
-export function EditStudentPage() {
+export function EditStudentPage({ studentId }: { studentId: string }) {
+  const router = useRouter()
   const { toast } = useToast()
-  const setCurrentPage = useAppStore((s) => s.setCurrentPage)
-  const goBack = useAppStore((s) => s.goBack)
-  const selectedStudentId = useAppStore((s) => s.selectedStudentId)
   const viewingAcademicYear = useAppStore((s) => s.viewingAcademicYear)
   const currentSchoolAcademicYear = useAppStore((s) => s.currentSchool?.academicYear)
   const resolvedYear = viewingAcademicYear || currentSchoolAcademicYear || ''
@@ -328,15 +336,11 @@ export function EditStudentPage() {
   // ============================================
 
   useEffect(() => {
-    if (!selectedStudentId) {
-      goBack('students')
-      return
-    }
     const fetchData = async () => {
       setLoading(true)
       try {
         const [studentData, clsData, secData, feesGroupData] = await Promise.allSettled([
-          api.get<StudentData>(`/api/school/students/${selectedStudentId}`, undefined, { skipLogoutOn401: true }),
+          api.get<StudentData>(`/api/school/students/${studentId}`, undefined, { skipLogoutOn401: true }),
           api.get<{ classes: ClassOption[] }>('/api/school/classes', undefined, { skipLogoutOn401: true }),
           api.get<{ sections: SectionOption[] }>('/api/school/sections', undefined, { skipLogoutOn401: true }),
           api.get<{ groups: FeesGroupOption[] }>('/api/school/fees/groups', undefined, { skipLogoutOn401: true }),
@@ -383,6 +387,8 @@ export function EditStudentPage() {
             localAddress: a?.localAddress || '',
             localVillage: a?.localVillage || '',
             localPostOffice: a?.localPostOffice || '',
+            localPoliceStation: a?.localPoliceStation || '',
+            localWardNo: a?.localWardNo || '',
             localCity: a?.localCity || '',
             localState: a?.localState || '',
             localPincode: a?.localPincode || '',
@@ -391,14 +397,14 @@ export function EditStudentPage() {
             fatherPhone: a?.fatherPhone || '',
             fatherEmail: a?.fatherEmail || '',
             fatherOccupation: a?.fatherOccupation || '',
-            fatherAadhaar: a?.fatherAadhaar || '',
+            fatherAadhaar: a?.fatherAadhaar ? formatAadhaar(a.fatherAadhaar) : '',
             fatherEducation: a?.fatherEducation || '',
             fatherIncome: a?.fatherIncome ? String(a.fatherIncome) : '',
             motherName: a?.motherName || '',
             motherPhone: a?.motherPhone || '',
             motherEmail: a?.motherEmail || '',
             motherOccupation: a?.motherOccupation || '',
-            motherAadhaar: a?.motherAadhaar || '',
+            motherAadhaar: a?.motherAadhaar ? formatAadhaar(a.motherAadhaar) : '',
             motherEducation: a?.motherEducation || '',
             motherIncome: a?.motherIncome ? String(a.motherIncome) : '',
             belongsToEws: a?.belongsToEws || false,
@@ -448,20 +454,21 @@ export function EditStudentPage() {
           }
         } else {
           toast({ title: 'Not Found', description: 'Student not found', variant: 'destructive' })
-          goBack('students')
+          router.push('/students')
         }
         if (clsData.status === 'fulfilled' && clsData.value?.classes) setClasses(clsData.value.classes)
         if (secData.status === 'fulfilled' && secData.value?.sections) setSections(secData.value.sections)
         if (feesGroupData.status === 'fulfilled' && feesGroupData.value?.groups) setFeesGroups(feesGroupData.value.groups)
       } catch {
         toast({ title: "Couldn't Load Student Data", description: "We couldn't load the student data. Please refresh the page.", variant: 'destructive' })
-        goBack('students')
+        router.push('/students')
       } finally {
         setLoading(false)
       }
     }
     fetchData()
-  }, [selectedStudentId, goBack, toast])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [studentId])
 
   const filteredSections = useMemo(
     () => form?.classId ? sections.filter(s => s.classId === form.classId) : [],
@@ -551,6 +558,8 @@ export function EditStudentPage() {
         updated.localAddress = prev.address
         updated.localVillage = prev.village
         updated.localPostOffice = prev.postOffice
+        updated.localPoliceStation = prev.policeStation
+        updated.localWardNo = prev.wardNo
         updated.localCity = prev.city
         updated.localState = prev.state
         updated.localPincode = prev.pincode
@@ -685,6 +694,8 @@ export function EditStudentPage() {
           localAddress: form.localAddress || null,
           localVillage: form.localVillage || null,
           localPostOffice: form.localPostOffice || null,
+          localPoliceStation: form.localPoliceStation || null,
+          localWardNo: form.localWardNo || null,
           localCity: form.localCity || null,
           localState: form.localState || null,
           localPincode: form.localPincode || null,
@@ -694,14 +705,14 @@ export function EditStudentPage() {
           fatherPhone: form.fatherPhone || null,
           fatherEmail: form.fatherEmail || null,
           fatherOccupation: form.fatherOccupation || null,
-          fatherAadhaar: form.fatherAadhaar || null,
+          fatherAadhaar: form.fatherAadhaar ? form.fatherAadhaar.replace(/\D/g, '') : null,
           fatherEducation: form.fatherEducation || null,
           fatherIncome: form.fatherIncome || null,
           motherName: form.motherName || null,
           motherPhone: form.motherPhone || null,
           motherEmail: form.motherEmail || null,
           motherOccupation: form.motherOccupation || null,
-          motherAadhaar: form.motherAadhaar || null,
+          motherAadhaar: form.motherAadhaar ? form.motherAadhaar.replace(/\D/g, '') : null,
           motherEducation: form.motherEducation || null,
           motherIncome: form.motherIncome || null,
           belongsToEws: form.belongsToEws,
@@ -735,7 +746,7 @@ export function EditStudentPage() {
 
       await api.patch(`/api/school/students/${student.id}`, payload)
       toast({ title: 'Student Updated', description: `${form.firstName} ${form.lastName}'s details have been saved` })
-      goBack('student-detail')
+      router.push(`/students/${studentId}`)
     } catch (err) {
       toast({ title: "Couldn't Update Student", description: err instanceof Error ? err.message : "We couldn't update the student. Please try again.", variant: 'destructive' })
     } finally {
@@ -864,11 +875,11 @@ export function EditStudentPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>First Name <span className="text-destructive">*</span></Label>
-          <Input value={form.firstName} onChange={e => updateForm('firstName', e.target.value)} placeholder="Enter first name" />
+          <Input value={form.firstName} onChange={e => updateForm('firstName', e.target.value.toUpperCase())} placeholder="Enter first name" className="uppercase" />
         </div>
         <div className="space-y-2">
           <Label>Last Name <span className="text-destructive">*</span></Label>
-          <Input value={form.lastName} onChange={e => updateForm('lastName', e.target.value)} placeholder="Enter last name" />
+          <Input value={form.lastName} onChange={e => updateForm('lastName', e.target.value.toUpperCase())} placeholder="Enter last name" className="uppercase" />
         </div>
       </div>
 
@@ -926,7 +937,7 @@ export function EditStudentPage() {
         </div>
         <div className="space-y-2">
           <Label>Aadhaar Number</Label>
-          <Input value={form.aadhaarNumber} onChange={e => updateForm('aadhaarNumber', e.target.value)} placeholder="XXXX XXXX XXXX" maxLength={14} />
+          <Input value={form.aadhaarNumber} onChange={e => updateForm('aadhaarNumber', formatAadhaar(e.target.value))} placeholder="XXXX XXXX XXXX" maxLength={14} inputMode="numeric" />
         </div>
       </div>
 
@@ -977,11 +988,11 @@ export function EditStudentPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Mother&apos;s Name</Label>
-          <Input value={form.motherName} onChange={e => updateForm('motherName', e.target.value)} placeholder="Full name" />
+          <Input value={form.motherName} onChange={e => updateForm('motherName', e.target.value.toUpperCase())} placeholder="Full name" className="uppercase" />
         </div>
         <div className="space-y-2">
           <Label>Phone</Label>
-          <Input value={form.motherPhone} onChange={e => updateForm('motherPhone', e.target.value)} placeholder="Phone number" />
+          <Input value={form.motherPhone} onChange={e => updateForm('motherPhone', e.target.value.replace(/\D/g, '').slice(0, 10))} placeholder="10-digit phone" maxLength={10} inputMode="numeric" />
         </div>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -995,7 +1006,7 @@ export function EditStudentPage() {
         </div>
         <div className="space-y-2">
           <Label>Aadhaar</Label>
-          <Input value={form.motherAadhaar} onChange={e => updateForm('motherAadhaar', e.target.value)} placeholder="Aadhaar number" />
+          <Input value={form.motherAadhaar} onChange={e => updateForm('motherAadhaar', formatAadhaar(e.target.value))} placeholder="XXXX XXXX XXXX" maxLength={14} inputMode="numeric" />
         </div>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1018,11 +1029,11 @@ export function EditStudentPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Father&apos;s Name</Label>
-          <Input value={form.fatherName} onChange={e => updateForm('fatherName', e.target.value)} placeholder="Full name" />
+          <Input value={form.fatherName} onChange={e => updateForm('fatherName', e.target.value.toUpperCase())} placeholder="Full name" className="uppercase" />
         </div>
         <div className="space-y-2">
           <Label>Phone</Label>
-          <Input value={form.fatherPhone} onChange={e => updateForm('fatherPhone', e.target.value)} placeholder="Phone number" />
+          <Input value={form.fatherPhone} onChange={e => updateForm('fatherPhone', e.target.value.replace(/\D/g, '').slice(0, 10))} placeholder="10-digit phone" maxLength={10} inputMode="numeric" />
         </div>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -1036,7 +1047,7 @@ export function EditStudentPage() {
         </div>
         <div className="space-y-2">
           <Label>Aadhaar</Label>
-          <Input value={form.fatherAadhaar} onChange={e => updateForm('fatherAadhaar', e.target.value)} placeholder="Aadhaar number" />
+          <Input value={form.fatherAadhaar} onChange={e => updateForm('fatherAadhaar', formatAadhaar(e.target.value))} placeholder="XXXX XXXX XXXX" maxLength={14} inputMode="numeric" />
         </div>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1096,7 +1107,7 @@ export function EditStudentPage() {
         </div>
         <div className="space-y-2">
           <Label>Ward No</Label>
-          <Input value={form.wardNo} onChange={e => updateForm('wardNo', e.target.value)} placeholder="Ward no" />
+          <Input value={form.wardNo} onChange={e => updateForm('wardNo', e.target.value.replace(/\D/g, '').slice(0, 3))} placeholder="Ward no" maxLength={3} inputMode="numeric" />
         </div>
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -1115,7 +1126,7 @@ export function EditStudentPage() {
         </div>
         <div className="space-y-2">
           <Label>Pincode</Label>
-          <Input value={form.pincode} onChange={e => updateForm('pincode', e.target.value)} placeholder="6-digit pincode" />
+          <Input value={form.pincode} onChange={e => updateForm('pincode', e.target.value.replace(/\D/g, ''))} placeholder="6-digit pincode" maxLength={6} inputMode="numeric" />
         </div>
         <div className="space-y-2">
           <Label>Country</Label>
@@ -1150,6 +1161,14 @@ export function EditStudentPage() {
               <Input value={form.localPostOffice} onChange={e => updateForm('localPostOffice', e.target.value)} placeholder="Post office" />
             </div>
             <div className="space-y-2">
+              <Label>Police Station</Label>
+              <Input value={form.localPoliceStation} onChange={e => updateForm('localPoliceStation', e.target.value)} placeholder="Police station" />
+            </div>
+            <div className="space-y-2">
+              <Label>Ward No</Label>
+              <Input value={form.localWardNo} onChange={e => updateForm('localWardNo', e.target.value.replace(/\D/g, '').slice(0, 3))} placeholder="Ward No" maxLength={3} inputMode="numeric" />
+            </div>
+            <div className="space-y-2">
               <Label>City</Label>
               <Input value={form.localCity} onChange={e => updateForm('localCity', e.target.value)} placeholder="City" />
             </div>
@@ -1164,7 +1183,7 @@ export function EditStudentPage() {
             </div>
             <div className="space-y-2">
               <Label>Pincode</Label>
-              <Input value={form.localPincode} onChange={e => updateForm('localPincode', e.target.value)} placeholder="Pincode" />
+              <Input value={form.localPincode} onChange={e => updateForm('localPincode', e.target.value.replace(/\D/g, ''))} placeholder="Pincode" maxLength={6} inputMode="numeric" />
             </div>
             <div className="space-y-2">
               <Label>Country</Label>
@@ -1658,9 +1677,6 @@ export function EditStudentPage() {
       {/* Header — matches admission page style */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-6">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => goBack('student-detail')} className="shrink-0">
-            <ArrowLeft className="size-5" />
-          </Button>
           <div className="flex items-center gap-3">
             <div className="size-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0 overflow-hidden">
               {form.profileImage ? (
@@ -1679,7 +1695,7 @@ export function EditStudentPage() {
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <Button variant="outline" onClick={() => goBack('student-detail')} className="gap-1">
+          <Button variant="outline" onClick={() => router.push(`/students/${studentId}`)} className="gap-1">
             Cancel
           </Button>
           <Button onClick={handleSave} disabled={saving} className="gap-1">

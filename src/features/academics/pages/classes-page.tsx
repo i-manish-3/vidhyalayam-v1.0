@@ -1,10 +1,10 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
 import { PageHeader, EmptyState, LoadingState } from '@/components/shared'
 import { api } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
-import { useAppStore } from '@/lib/store'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
@@ -65,8 +65,8 @@ interface ClassItem {
 }
 
 export function ClassesPage() {
+  const router = useRouter()
   const { toast } = useToast()
-  const { navigateTo, goBack, setSelectedClassId } = useAppStore()
   const [classes, setClasses] = useState<ClassItem[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
@@ -106,8 +106,7 @@ export function ClassesPage() {
   }), [classes, searchQuery])
 
   const handleEdit = (cls: ClassItem) => {
-    setSelectedClassId(cls.id)
-    navigateTo('edit-class')
+    router.push(`/academics/classes/${cls.id}/edit`)
   }
 
   const handleDelete = async () => {
@@ -132,8 +131,7 @@ export function ClassesPage() {
       <PageHeader
         title="Class List"
         description="Manage class structure, sections, subjects and student strength."
-        backAction={{ onClick: () => goBack('dashboard') }}
-        action={{ label: 'Add Class', icon: PlusCircle, onClick: () => navigateTo('add-class') }}
+        action={{ label: 'Add Class', icon: PlusCircle, onClick: () => router.push('/academics/classes/new') }}
       />
 
       {classes.length > 0 && (
@@ -179,7 +177,7 @@ export function ClassesPage() {
           icon={GraduationCap}
           title="No Classes Yet"
           description="Add classes to organize students and sections."
-          action={{ label: 'Add Class', onClick: () => navigateTo('add-class') }}
+          action={{ label: 'Add Class', onClick: () => router.push('/academics/classes/new') }}
         />
       ) : filteredClasses.length === 0 ? (
         <Card className="py-0">
