@@ -292,7 +292,7 @@ export function SchoolAdminDashboard() {
               <span className="font-mono tabular-nums">{currentTime}</span>
             </Badge>
             <h1 className="text-lg font-semibold tracking-tight text-foreground/85 sm:text-xl">
-              {currentSchool?.name || 'School'} Dashboard
+              {currentSchool?.name || 'School'}
             </h1>
           </div>
           <div className="grid w-full gap-2 sm:grid-cols-2 lg:max-w-md lg:shrink-0">

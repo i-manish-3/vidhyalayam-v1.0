@@ -32,6 +32,7 @@ import {
   Calendar,
   CheckCircle2,
   ChevronDown,
+  ChevronLeft,
   ChevronRight,
   FileText,
   Info,
@@ -261,6 +262,8 @@ export function FeesStructuresPage() {
   const [structureYearFilter, setStructureYearFilter] = useState('')
   const [classSelectSearch, setClassSelectSearch] = useState('')
   const [feeGroupSelectSearch, setFeeGroupSelectSearch] = useState('')
+  const [structurePage, setStructurePage] = useState(1)
+  const [structurePageSize, setStructurePageSize] = useState(10)
   const selectedStructureYearFilter = structureYearFilter || activeSessionYear
 
   // Dialog state
@@ -448,6 +451,24 @@ export function FeesStructuresPage() {
       return matchesSearch && matchesClass && matchesGroup && matchesYear
     })
   }, [selectedStructureYearFilter, structureClassFilter, structureGroupFilter, structureSearch, structures])
+
+  const structureTotalPages = Math.max(1, Math.ceil(filteredStructures.length / structurePageSize))
+  const paginatedStructures = useMemo(() => {
+    const start = (structurePage - 1) * structurePageSize
+    return filteredStructures.slice(start, start + structurePageSize)
+  }, [filteredStructures, structurePage, structurePageSize])
+  const structureRangeFrom = filteredStructures.length === 0 ? 0 : (structurePage - 1) * structurePageSize + 1
+  const structureRangeTo = Math.min(structurePage * structurePageSize, filteredStructures.length)
+
+  useEffect(() => {
+    if (structurePage > structureTotalPages) {
+      setStructurePage(structureTotalPages)
+    }
+  }, [structurePage, structureTotalPages])
+
+  useEffect(() => {
+    setStructurePage(1)
+  }, [structureSearch, structureClassFilter, structureGroupFilter, selectedStructureYearFilter, structurePageSize])
 
   const toggleClassStructureHead = (feeHead: FeeHead) => {
     const isSelected = classStructureHeadIds.includes(feeHead.id)
@@ -1239,7 +1260,7 @@ export function FeesStructuresPage() {
                       No saved structures match the selected filters.
                     </TableCell>
                   </TableRow>
-                ) : filteredStructures.map((structure) => {
+                ) : paginatedStructures.map((structure) => {
                   const isExpanded = expandedIds.has(structure.id)
                   const groupedItems = groupItemsByFeeHead(structure.items || [])
 
@@ -1352,6 +1373,51 @@ export function FeesStructuresPage() {
                 })}
               </TableBody>
             </Table>
+            {filteredStructures.length > 0 && (
+              <div className="flex flex-col items-center justify-between gap-3 border-t px-4 py-3 sm:flex-row">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <span>Rows per page:</span>
+                  <Select value={String(structurePageSize)} onValueChange={(v) => setStructurePageSize(Number(v))}>
+                    <SelectTrigger className="h-8 w-[70px] text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {[5, 10, 25, 50, 100].map((size) => (
+                        <SelectItem key={size} value={String(size)}>{size}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <span className="ml-2">
+                    Showing {structureRangeFrom} to {structureRangeTo} of {filteredStructures.length} structure{filteredStructures.length !== 1 ? 's' : ''}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="size-8"
+                    onClick={() => setStructurePage((p) => Math.max(1, p - 1))}
+                    disabled={structurePage <= 1}
+                    aria-label="Previous page"
+                  >
+                    <ChevronLeft className="size-4" />
+                  </Button>
+                  <span className="px-2 text-sm">
+                    Page {structurePage} of {structureTotalPages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="size-8"
+                    onClick={() => setStructurePage((p) => Math.min(structureTotalPages, p + 1))}
+                    disabled={structurePage >= structureTotalPages}
+                    aria-label="Next page"
+                  >
+                    <ChevronRight className="size-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
