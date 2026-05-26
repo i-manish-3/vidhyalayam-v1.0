@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
+import { compressImage } from '@/lib/image-compress'
 import { useToast } from '@/hooks/use-toast'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -17,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { UserPlus } from 'lucide-react'
+import { Upload, UserPlus, X } from 'lucide-react'
 
 export function AddTeacherPage() {
   const router = useRouter()
@@ -35,16 +36,38 @@ export function AddTeacherPage() {
     phone: '',
     address: '',
   })
+  const [profileImage, setProfileImage] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const photoInputRef = useRef<HTMLInputElement>(null)
 
   const isValid = form.firstName.trim() && form.lastName.trim()
+
+  const handlePhotoChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+    try {
+      const { dataUrl, finalBytes, compressed } = await compressImage(file)
+      if (finalBytes > 200 * 1024) {
+        toast({ title: 'Photo Too Large', description: 'This image format cannot be compressed under 200 KB. Please upload a JPG, PNG, or WebP.', variant: 'destructive' })
+        if (photoInputRef.current) photoInputRef.current.value = ''
+        return
+      }
+      setProfileImage(dataUrl)
+      if (compressed) {
+        toast({ title: 'Photo Compressed', description: `Resized to ${Math.round(finalBytes / 1024)} KB for upload.` })
+      }
+    } catch {
+      toast({ title: 'Could Not Read Photo', description: 'Please try a different image.', variant: 'destructive' })
+      if (photoInputRef.current) photoInputRef.current.value = ''
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!isValid || submitting) return
     try {
       setSubmitting(true)
-      await api.post('/api/school/teachers', form)
+      await api.post('/api/school/teachers', { ...form, profileImage })
       toast({ title: 'Teacher Added', description: `${form.firstName} ${form.lastName} has been added successfully.` })
       router.push('/teachers')
     } catch (err) {
@@ -84,6 +107,55 @@ export function AddTeacherPage() {
                 <div className="size-1.5 rounded-full bg-primary" />
                 Personal Details
               </h3>
+
+              <div className="mb-3 flex items-center gap-3">
+                <div className="relative size-16 shrink-0 overflow-hidden rounded-full border bg-muted">
+                  {profileImage ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={profileImage} alt="" className="size-full object-cover" />
+                  ) : (
+                    <div className="flex size-full items-center justify-center text-muted-foreground">
+                      <UserPlus className="size-6" />
+                    </div>
+                  )}
+                </div>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => photoInputRef.current?.click()}
+                    >
+                      <Upload className="size-4" />
+                      {profileImage ? 'Change Photo' : 'Upload Photo'}
+                    </Button>
+                    {profileImage && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setProfileImage(null)
+                          if (photoInputRef.current) photoInputRef.current.value = ''
+                        }}
+                      >
+                        <X className="size-4" />
+                        Remove
+                      </Button>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">JPG/PNG/WebP — auto-compressed to 200 KB.</p>
+                  <input
+                    ref={photoInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handlePhotoChange}
+                  />
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label className="text-xs font-medium">
