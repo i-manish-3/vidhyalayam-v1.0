@@ -4,11 +4,12 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useRouter, usePathname } from 'next/navigation'
 import { useTheme } from 'next-themes'
-import { useAppStore, type PageName } from '@/lib/store'
+import { useAppStore, type PageName, type User as StoreUser } from '@/lib/store'
 import { AppSidebar, MENUS } from './app-sidebar'
 import { isPageVisible } from '@/lib/permission-mappings'
 import { SCHOOL_THEME_VARIABLE_NAMES, findDashboardFont, getSchoolThemeVariables, getSuperAdminThemeVariables } from '@/lib/theme-palettes'
 import { api } from '@/lib/api'
+import { compressImage } from '@/lib/image-compress'
 import { useToast } from '@/hooks/use-toast'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -25,7 +26,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { Sun, Moon, Bell, LogOut, User, PanelLeftOpen, Search, ArrowRight, Lock, Sunrise, Sunset, MoonStar } from 'lucide-react'
+import { Sun, Moon, Bell, LogOut, User, PanelLeftOpen, Search, ArrowRight, Lock, Sunrise, Sunset, MoonStar, ImagePlus, Trash2 } from 'lucide-react'
 import { AcademicYearSwitcher } from '@/components/academic-year-switcher'
 import { resolveMigratedUrl } from '@/lib/migrated-routes'
 
@@ -317,6 +318,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [changingPassword, setChangingPassword] = useState(false)
   const [currentHour, setCurrentHour] = useState(() => new Date().getHours())
+  const [showProfileDialog, setShowProfileDialog] = useState(false)
+  const [savingAvatar, setSavingAvatar] = useState(false)
+  const avatarInputRef = useRef<HTMLInputElement>(null)
 
   const initials = user?.name
     ? user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
@@ -453,6 +457,80 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     }
   }
 
+  const handleAvatarSelect = async (file: File | undefined) => {
+    if (!file) return
+    if (!file.type.startsWith('image/')) {
+      toast({ title: 'Invalid File', description: 'Please choose an image file (JPG, PNG, or WebP).', variant: 'destructive' })
+      return
+    }
+    try {
+      setSavingAvatar(true)
+      const { dataUrl, finalBytes, compressed } = await compressImage(file)
+      if (finalBytes > 200 * 1024) {
+        toast({
+          title: 'Photo Too Large',
+          description: 'The profile photo must be under 200 KB. Please pick a smaller image.',
+          variant: 'destructive',
+        })
+        return
+      }
+      const res = await api.patch<{ user: StoreUser }>('/api/auth/profile', { avatar: dataUrl })
+      if (res?.user) {
+        useAppStore.setState({ user: res.user })
+        if (typeof window !== 'undefined') {
+          const { avatar: _avatar, ...slim } = res.user
+          void _avatar
+          try {
+            localStorage.setItem('erp_user', JSON.stringify(slim))
+          } catch {
+            // Non-fatal
+          }
+        }
+      }
+      toast({
+        title: 'Profile Photo Updated',
+        description: compressed ? `Resized to ${Math.round(finalBytes / 1024)} KB and saved.` : 'Your new photo is live.',
+      })
+    } catch (err) {
+      toast({
+        title: "Couldn't Update Photo",
+        description: err instanceof Error ? err.message : 'Please try again with a different image.',
+        variant: 'destructive',
+      })
+    } finally {
+      setSavingAvatar(false)
+      if (avatarInputRef.current) avatarInputRef.current.value = ''
+    }
+  }
+
+  const handleAvatarRemove = async () => {
+    try {
+      setSavingAvatar(true)
+      const res = await api.patch<{ user: StoreUser }>('/api/auth/profile', { avatar: null })
+      if (res?.user) {
+        useAppStore.setState({ user: res.user })
+        if (typeof window !== 'undefined') {
+          const { avatar: _avatar, ...slim } = res.user
+          void _avatar
+          try {
+            localStorage.setItem('erp_user', JSON.stringify(slim))
+          } catch {
+            // Non-fatal
+          }
+        }
+      }
+      toast({ title: 'Photo Removed', description: 'Your profile photo was removed.' })
+    } catch (err) {
+      toast({
+        title: "Couldn't Remove Photo",
+        description: err instanceof Error ? err.message : 'Please try again.',
+        variant: 'destructive',
+      })
+    } finally {
+      setSavingAvatar(false)
+    }
+  }
+
   return (
     <div className="fixed inset-0 flex flex-col overflow-hidden bg-background font-sans" style={schoolThemeStyle}>
       <header className="shrink-0 flex h-14 items-center gap-3 border-b border-primary/30 bg-primary text-primary-foreground shadow-sm px-3 lg:px-4 z-30 dark:border-sidebar-border dark:bg-sidebar dark:text-sidebar-foreground">
@@ -558,7 +636,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setShowProfileDialog(true)}>
                 <User className="mr-2 size-4" />
                 Profile
               </DropdownMenuItem>
@@ -593,6 +671,131 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </footer>
         </main>
       </div>
+
+      <Dialog open={showProfileDialog} onOpenChange={(open) => {
+        setShowProfileDialog(open)
+        if (!open) {
+          setCurrentPassword('')
+          setNewPassword('')
+          setConfirmPassword('')
+        }
+      }}>
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <User className="size-4" />
+              My Profile
+            </DialogTitle>
+            <DialogDescription>
+              Update your profile photo and password.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-6 py-2">
+            <section className="space-y-3">
+              <h3 className="text-sm font-semibold">Profile Photo</h3>
+              <input
+                ref={avatarInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="hidden"
+                onChange={(event) => handleAvatarSelect(event.target.files?.[0])}
+              />
+              <div className="flex items-center gap-4 rounded-lg border bg-muted/20 p-3">
+                <Avatar className="size-16">
+                  {user?.avatar && <AvatarImage src={user.avatar} alt={user?.name || 'User'} />}
+                  <AvatarFallback className="text-base">{initials}</AvatarFallback>
+                </Avatar>
+                <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                  <p className="truncate text-sm font-medium">{user?.name}</p>
+                  <p className="truncate text-xs text-muted-foreground">{user?.email}</p>
+                  <div className="mt-1 flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 gap-1.5"
+                      disabled={savingAvatar}
+                      onClick={() => avatarInputRef.current?.click()}
+                    >
+                      <ImagePlus className="size-3.5" />
+                      {user?.avatar ? 'Change Photo' : 'Upload Photo'}
+                    </Button>
+                    {user?.avatar && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 gap-1.5 text-destructive hover:text-destructive"
+                        disabled={savingAvatar}
+                        onClick={handleAvatarRemove}
+                      >
+                        <Trash2 className="size-3.5" />
+                        Remove
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                JPG, PNG, or WebP up to 200 KB. Larger images are compressed automatically.
+              </p>
+            </section>
+
+            <section className="space-y-3">
+              <h3 className="flex items-center gap-2 text-sm font-semibold">
+                <Lock className="size-3.5" />
+                Change Password
+              </h3>
+              <div className="space-y-3 rounded-lg border bg-muted/20 p-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="profile-current-password">Current Password</Label>
+                  <Input
+                    id="profile-current-password"
+                    type="password"
+                    value={currentPassword}
+                    onChange={(event) => setCurrentPassword(event.target.value)}
+                    autoComplete="current-password"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="profile-new-password">New Password</Label>
+                  <Input
+                    id="profile-new-password"
+                    type="password"
+                    value={newPassword}
+                    onChange={(event) => setNewPassword(event.target.value)}
+                    autoComplete="new-password"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="profile-confirm-password">Confirm New Password</Label>
+                  <Input
+                    id="profile-confirm-password"
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(event) => setConfirmPassword(event.target.value)}
+                    autoComplete="new-password"
+                  />
+                </div>
+                <Button
+                  onClick={handleRequiredPasswordChange}
+                  disabled={changingPassword}
+                  className="w-full"
+                >
+                  {changingPassword ? 'Saving...' : 'Update Password'}
+                </Button>
+              </div>
+            </section>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowProfileDialog(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!user?.mustChangePassword}>
         <DialogContent className="sm:max-w-md [&>button]:hidden">
