@@ -170,6 +170,13 @@ export async function DELETE(
 
     // Soft delete the class and all its sections in a transaction
     await db.$transaction(async (tx) => {
+      await tx.classTeacherAssignment.deleteMany({
+        where: {
+          classId: id,
+          schoolId: user.schoolId,
+        },
+      })
+
       // Soft delete all sections belonging to this class
       await tx.section.updateMany({
         where: {

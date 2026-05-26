@@ -31,23 +31,28 @@ export async function POST(request: NextRequest) {
 
     // Find user by email or phone
     let user
+    const userInclude = {
+      school: true,
+      userRoles: { select: { role: { select: { name: true } } } },
+    } as const
+
     if (isPhone) {
       const phone = identifier.replace(/\D/g, '').slice(-10) // Last 10 digits
       user = await db.user.findFirst({
         where: { phone, isActive: true, deletedAt: null },
-        include: { school: true },
+        include: userInclude,
       })
       // Also try finding by email with phone pattern (for parent accounts)
       if (!user) {
         user = await db.user.findFirst({
           where: { email: { endsWith: `@parent.local` }, phone, isActive: true, deletedAt: null },
-          include: { school: true },
+          include: userInclude,
         })
       }
     } else {
       user = await db.user.findUnique({
         where: { email: identifier },
-        include: { school: true },
+        include: userInclude,
       })
     }
 
@@ -194,6 +199,7 @@ export async function POST(request: NextRequest) {
         avatar: user.avatar,
         mustChangePassword: user.mustChangePassword,
         schoolId: user.schoolId,
+        assignedRoleName: user.userRoles[0]?.role.name ?? null,
         school: user.school
           ? {
               id: user.school.id,

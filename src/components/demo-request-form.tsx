@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/dialog'
 import { GraduationCap, Loader2, CheckCircle2, Phone, Mail, Building2, Users, MessageSquare, Wallet, Crown, Settings, School } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
+import { api } from '@/lib/api'
 
 const ADD_ON_OPTIONS = [
   { id: 'salary_payroll', label: 'Salary & Payroll Management', icon: Wallet },
@@ -68,25 +69,15 @@ export function DemoRequestForm({ open, onOpenChange }: DemoRequestFormProps) {
 
     setIsLoading(true)
     try {
-      const response = await fetch('/api/contact', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name,
-          schoolName,
-          email,
-          phone,
-          studentCount: studentCount ? parseInt(studentCount) : 0,
-          message,
-          addOns: selectedAddOns,
-        }),
-      })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to submit')
-      }
+      await api.post('/api/contact', {
+        name,
+        schoolName,
+        email,
+        phone,
+        studentCount: studentCount ? parseInt(studentCount) : 0,
+        message,
+        addOns: selectedAddOns,
+      }, { skipLogoutOn401: true })
 
       setIsSuccess(true)
       toast({ title: 'Request Submitted!', description: 'We will contact you shortly.' })

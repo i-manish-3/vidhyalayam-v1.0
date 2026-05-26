@@ -625,20 +625,8 @@ export function TeamMembersPage() {
                     try {
                       const formData = new FormData()
                       formData.append('file', uploadFile)
-                      
-                      // Auth cookie attaches automatically via credentials: 'include'.
-                      const response = await fetch('/api/upload/team', {
-                        method: 'POST',
-                        credentials: 'include',
-                        body: formData,
-                      })
-                      
-                      if (!response.ok) {
-                        const data = await response.json().catch(() => ({}))
-                        throw new Error(data.error || 'Upload failed')
-                      }
-                      
-                      const data = await response.json()
+
+                      const data = await api.upload<{ url: string }>('/api/upload/team', formData)
                       updateForm('image', data.url)
                       toast({ title: 'Uploaded', description: 'Photo uploaded successfully' })
                     } catch (err) {

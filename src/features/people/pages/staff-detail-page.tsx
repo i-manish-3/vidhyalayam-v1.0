@@ -33,7 +33,11 @@ import {
 
 interface StaffInfo {
   id: string
+  userId?: string | null
+  employeeId?: string | null
   name: string
+  firstName?: string
+  lastName?: string
   email: string
   role: string
   phone?: string | null
@@ -41,6 +45,13 @@ interface StaffInfo {
   isLocked?: boolean
   lockedUntil?: string | null
   failedAttempts?: number
+  gender?: string | null
+  dob?: string | null
+  joinDate?: string | null
+  designation?: string | null
+  department?: string | null
+  qualification?: string | null
+  address?: string | null
 }
 
 interface RolePermission {
@@ -183,30 +194,59 @@ export function StaffDetailPage({ staffId }: { staffId: string }) {
     try {
       setLoading(true)
 
-      // Fetch user info — same roles filter as the staff list so drivers and
-      // other STAFF users aren't dropped behind students/parents past the limit.
-      const usersRes = await api.get<{ users: StaffInfo[] }>(
-        '/api/school/users?roles=TEACHER,STAFF,SCHOOL_ADMIN&limit=500',
-      )
-      const user = (usersRes.users || []).find((u) => u.id === staffId)
-      if (!user) {
-        toast({ title: 'Staff Not Found', description: "We couldn't find this staff member. They may have been removed.", variant: 'destructive' })
-        router.push('/staff')
-        return
-      }
-      setStaffInfo(user)
+      const staffRes = await api.get<{
+        id: string
+        userId?: string | null
+        employeeId?: string | null
+        firstName: string
+        lastName: string
+        name: string
+        email?: string | null
+        phone?: string | null
+        gender?: string | null
+        dateOfBirth?: string | null
+        joinDate?: string | null
+        designation?: string | null
+        department?: string | null
+        qualification?: string | null
+        address?: string | null
+        isActive: boolean
+      }>(`/api/school/staff/${staffId}`)
 
-      // Fetch permissions
-      const permRes = await api.get<UserPermissionsResponse>(
-        `/api/school/users/${staffId}/permissions`
-      )
-      setPermissionsData(permRes)
+      const mapped: StaffInfo = {
+        id: staffRes.id,
+        userId: staffRes.userId,
+        employeeId: staffRes.employeeId,
+        firstName: staffRes.firstName,
+        lastName: staffRes.lastName,
+        name: staffRes.name,
+        email: staffRes.email || '',
+        role: 'STAFF',
+        phone: staffRes.phone,
+        isActive: staffRes.isActive,
+        gender: staffRes.gender,
+        dob: staffRes.dateOfBirth,
+        joinDate: staffRes.joinDate,
+        designation: staffRes.designation,
+        department: staffRes.department,
+        qualification: staffRes.qualification,
+        address: staffRes.address,
+      }
+      setStaffInfo(mapped)
+
+      // Permissions are still keyed by User.id (login account).
+      if (mapped.userId) {
+        const permRes = await api.get<UserPermissionsResponse>(
+          `/api/school/users/${mapped.userId}/permissions`
+        )
+        setPermissionsData(permRes)
+      }
     } catch {
       toast({ title: "Couldn't Load Staff Details", description: "We couldn't load the staff details. Please try again.", variant: 'destructive' })
     } finally {
       setLoading(false)
     }
-  }, [staffId, toast, router])
+  }, [staffId, toast])
 
   useEffect(() => {
     fetchStaffDetail()
@@ -254,7 +294,7 @@ export function StaffDetailPage({ staffId }: { staffId: string }) {
     if (!staffInfo?.id) return
     try {
       setUnlocking(true)
-      await api.post(`/api/school/users/${staffInfo.id}/unlock`, {})
+      await api.post(`/api/school/users/${staffInfo.userId}/unlock`, {})
       await fetchStaffDetail()
       toast({
         title: 'Account Unlocked',

@@ -32,6 +32,9 @@ export async function GET(request: NextRequest) {
             currency: true,
           },
         },
+        userRoles: {
+          select: { role: { select: { name: true } } },
+        },
       },
     })
 
@@ -45,6 +48,13 @@ export async function GET(request: NextRequest) {
       return apiError(401, 'Your school is currently suspended. Please contact the platform administrator to restore access.')
     }
 
+    // Account was disabled (e.g. driver let go, teacher disabled, etc.) since
+    // this session was issued. Boot them out on the next page navigation so
+    // they don't keep using the app with a still-valid access token.
+    if (!dbUser.isActive || dbUser.deletedAt) {
+      return apiError(401, 'Your account is no longer active. Please contact your school administrator.')
+    }
+
     return NextResponse.json({
       id: dbUser.id,
       email: dbUser.email,
@@ -56,6 +66,7 @@ export async function GET(request: NextRequest) {
       schoolId: dbUser.schoolId,
       isActive: dbUser.isActive,
       lastLoginAt: dbUser.lastLoginAt,
+      assignedRoleName: dbUser.userRoles[0]?.role.name ?? null,
       school: dbUser.school,
     })
   } catch (error) {

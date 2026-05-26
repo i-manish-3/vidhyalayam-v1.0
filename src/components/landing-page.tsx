@@ -20,6 +20,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { useToast } from '@/hooks/use-toast'
+import { api } from '@/lib/api'
 
 /* ─── Types ─── */
 interface LandingPageProps {
@@ -874,8 +875,7 @@ function TestimonialsSection() {
   const [loaded, setLoaded] = useState(false)
 
   useEffect(() => {
-    fetch('/api/testimonials')
-      .then(res => res.json())
+    api.get<{ testimonials?: Array<{ name: string; role: string; quote: string; stars: number; avatarUrl?: string | null }> }>('/api/testimonials', undefined, { skipLogoutOn401: true })
       .then(data => {
         if (data.testimonials && data.testimonials.length > 0) {
           setTestimonials(data.testimonials)
@@ -1098,16 +1098,15 @@ function ContactSection({ onLoginClick, addons }: { onLoginClick: () => void; ad
     e.preventDefault()
     setSubmitting(true)
     try {
-      const res = await fetch('/api/contact', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) })
-      const data = await res.json()
-      if (res.ok) {
-        setSubmitted(true)
-        toast({ title: 'Success', description: data.message || 'Thank you! We will contact you shortly.' })
-      } else {
-        toast({ title: "Couldn't Submit", description: data.error || data.message || "We couldn't submit your request. Please try again.", variant: 'destructive' })
-      }
-    } catch {
-      toast({ title: 'Connection Issue', description: "We couldn't reach the server. Please check your internet connection and try again.", variant: 'destructive' })
+      const data = await api.post<{ message?: string }>('/api/contact', form, { skipLogoutOn401: true })
+      setSubmitted(true)
+      toast({ title: 'Success', description: data.message || 'Thank you! We will contact you shortly.' })
+    } catch (err) {
+      toast({
+        title: "Couldn't Submit",
+        description: err instanceof Error ? err.message : "We couldn't submit your request. Please try again.",
+        variant: 'destructive',
+      })
     } finally {
       setSubmitting(false)
     }
@@ -1340,8 +1339,7 @@ export function LandingPage({ onLoginClick }: LandingPageProps) {
 
   // Fetch pricing data from API
   useEffect(() => {
-    fetch('/api/pricing')
-      .then(res => res.json())
+    api.get<{ plans?: PricingPlanData[]; addons?: PricingAddonData[] }>('/api/pricing', undefined, { skipLogoutOn401: true })
       .then(data => {
         if (data.plans) setPricingPlans(data.plans)
         if (data.addons) setPricingAddons(data.addons)
@@ -1352,8 +1350,7 @@ export function LandingPage({ onLoginClick }: LandingPageProps) {
 
   // Fetch team data from API
   useEffect(() => {
-    fetch('/api/team')
-      .then(res => res.json())
+    api.get<{ members?: TeamMemberData[] }>('/api/team', undefined, { skipLogoutOn401: true })
       .then(data => {
         if (data.members) setTeamMembers(data.members)
       })

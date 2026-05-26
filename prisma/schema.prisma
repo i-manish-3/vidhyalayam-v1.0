@@ -17,6 +17,7 @@ datasource db {
 
 model User {
   id                   String    @id @default(cuid())
+  employeeId           String?
   email                String    @unique
   password             String
   name                 String
@@ -41,6 +42,7 @@ model User {
   accountLockout   AccountLockout?
 
   @@index([schoolId])
+  @@index([schoolId, employeeId])
   @@index([role])
 }
 
@@ -83,6 +85,8 @@ model School {
   subjects                    Subject[]
   students                    Student[]
   teachers                    Teacher[]
+  drivers                     Driver[]
+  staff                       Staff[]
   parents                     Parent[]
   feesHeads                   FeesHead[]
   feesGroups                  FeesGroup[]
@@ -114,6 +118,7 @@ model School {
   admissionSetting            AdmissionSetting?
   studentAcademicEnrollments  StudentAcademicEnrollment[]
   academicYears               AcademicYear[]
+  classTeacherAssignments     ClassTeacherAssignment[]
   schoolPermissions           SchoolPermission[]
   roles                       Role[]
 
@@ -161,6 +166,7 @@ model Class {
   feesStructures             FeesStructure[]
   feeAssignments             StudentFeeAssignment[]
   classSubjects              ClassSubject[]
+  classTeacherAssignments    ClassTeacherAssignment[]
 
   @@index([schoolId])
 }
@@ -170,7 +176,6 @@ model Section {
   schoolId  String
   classId   String
   name      String // A, B, C, D
-  capacity  Int       @default(40)
   teacherId String? // Class teacher
   isActive  Boolean   @default(true)
   createdAt DateTime  @default(now())
@@ -184,10 +189,33 @@ model Section {
   timetables                 Timetable[]
   feesStructures             FeesStructure[]
   feeAssignments             StudentFeeAssignment[]
+  classTeacherAssignments    ClassTeacherAssignment[]
 
   @@unique([schoolId, classId, name])
   @@index([schoolId])
   @@index([classId])
+}
+
+model ClassTeacherAssignment {
+  id           String    @id @default(cuid())
+  schoolId     String
+  academicYear String
+  classId      String
+  sectionId    String?
+  teacherId    String
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+
+  school  School   @relation(fields: [schoolId], references: [id])
+  class   Class    @relation(fields: [classId], references: [id])
+  section Section? @relation(fields: [sectionId], references: [id])
+  teacher Teacher  @relation(fields: [teacherId], references: [id])
+
+  @@unique([schoolId, academicYear, sectionId])
+  @@index([schoolId, academicYear])
+  @@index([classId])
+  @@index([teacherId])
 }
 
 model Subject {
@@ -362,25 +390,25 @@ model Admission {
   weightKg           Float? // Weight in KGs
 
   // Contact / Address (Tab 2)
-  address         String? // Permanent / Official Address (Street, Landmark, Area)
-  city            String?
-  state           String?
-  pincode         String?
-  country         String? @default("India")
-  village         String? // Village / Post
-  postOffice      String?
-  policeStation   String?
-  wardNo          String?
-  localAddress    String? // Local / Residential Address
-  localVillage    String?
-  localPostOffice String?
+  address            String? // Permanent / Official Address (Street, Landmark, Area)
+  city               String?
+  state              String?
+  pincode            String?
+  country            String? @default("India")
+  village            String? // Village / Post
+  postOffice         String?
+  policeStation      String?
+  wardNo             String?
+  localAddress       String? // Local / Residential Address
+  localVillage       String?
+  localPostOffice    String?
   localPoliceStation String?
-  localWardNo     String?
-  localCity       String?
-  localState      String?
-  localPincode    String?
-  localCountry    String?
-  sameAsPermanent Boolean @default(true) // Local same as permanent
+  localWardNo        String?
+  localCity          String?
+  localState         String?
+  localPincode       String?
+  localCountry       String?
+  sameAsPermanent    Boolean @default(true) // Local same as permanent
 
   // Mother's Info (Tab 2)
   motherName       String?
@@ -485,16 +513,16 @@ model Admission {
   @@index([familyId])
 }
 
-// Per-school, per-kind, per-year counter for admission/registration numbers.
+// Per-school, per-kind, per-year counter for admission/registration/employee numbers.
 // Row-level lock on UPDATE ... increment serializes allocation so two
-// simultaneous admissions can never receive the same sequence number, and the
+// simultaneous records can never receive the same sequence number, and the
 // increment rolls back with the surrounding transaction (no gaps from
 // abandoned transactions).
 model NumberCounter {
   schoolId  String
-  kind      String   // 'admission' | 'registration'
-  year      Int      // calendar year of dateOfAdmission; or 0 when resetYearly is false
-  lastValue Int      // last sequence number allocated
+  kind      String // 'admission' | 'registration' | 'employee'
+  year      Int // calendar year of dateOfAdmission; or 0 when resetYearly is false
+  lastValue Int // last sequence number allocated
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -567,6 +595,11 @@ model AdmissionSetting {
   registrationSequenceStart  Int       @default(1)
   registrationSequenceDigits Int       @default(3)
   registrationResetYearly    Boolean   @default(true)
+  employeeNumberPrefix       String    @default("EMP")
+  employeeNumberFormat       String    @default("{PREFIX}-{SEQ}") // {PREFIX}, {YEAR}, {YY}, {SEQ}
+  employeeSequenceStart      Int       @default(1)
+  employeeSequenceDigits     Int       @default(4)
+  employeeResetYearly        Boolean   @default(false)
   sequenceStart              Int       @default(1)
   sequenceDigits             Int       @default(3) // 001, 0001, etc.
   resetSequenceYearly        Boolean   @default(true)
@@ -621,13 +654,75 @@ model Teacher {
   updatedAt      DateTime  @updatedAt
   deletedAt      DateTime?
 
-  school          School           @relation(fields: [schoolId], references: [id])
-  timetables      Timetable[]
-  salaryStructure SalaryStructure?
-  salaryPayments  SalaryPayment[]
-  advanceRequests AdvanceRequest[]
+  school                  School                   @relation(fields: [schoolId], references: [id])
+  timetables              Timetable[]
+  classTeacherAssignments ClassTeacherAssignment[]
+  salaryStructure         SalaryStructure?
+  salaryPayments          SalaryPayment[]
+  advanceRequests         AdvanceRequest[]
 
   @@index([schoolId])
+  @@index([schoolId, employeeId])
+}
+
+model Driver {
+  id                   String    @id @default(cuid())
+  schoolId             String
+  userId               String?
+  employeeId           String?
+  firstName            String
+  lastName             String
+  dateOfBirth          DateTime?
+  gender               String?
+  address              String?
+  city                 String?
+  state                String?
+  pincode              String?
+  drivingLicenseNumber String?
+  joinDate             DateTime?
+  profileImage         String?
+  isActive             Boolean   @default(true)
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  deletedAt            DateTime?
+
+  school School @relation(fields: [schoolId], references: [id])
+
+  @@index([schoolId])
+  @@index([schoolId, employeeId])
+  @@index([userId])
+}
+
+model Staff {
+  id            String    @id @default(cuid())
+  schoolId      String
+  userId        String?
+  employeeId    String?
+  firstName     String
+  lastName      String
+  gender        String?
+  dateOfBirth   DateTime?
+  joinDate      DateTime?
+  designation   String?
+  department    String?
+  qualification String?
+  experience    Int       @default(0)
+  address       String?
+  city          String?
+  state         String?
+  pincode       String?
+  aadhaarNumber String?
+  profileImage  String?
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
+
+  school School @relation(fields: [schoolId], references: [id])
+
+  @@index([schoolId])
+  @@index([schoolId, employeeId])
+  @@index([userId])
 }
 
 model Parent {

@@ -4,6 +4,45 @@ import { requireRole } from '@/lib/api-auth'
 import { unauthorizedError, notFoundError, internalError, apiError } from '@/lib/api-errors'
 import { uploadIfDataUrl, IMAGE_MIME_TYPES } from '@/lib/storage'
 
+// GET /api/school/teachers/[id] - Get one teacher for editing
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const user = requireRole(request, ['SCHOOL_ADMIN', 'TEACHER', 'STAFF'])
+    if (!user || !user.schoolId) {
+      return unauthorizedError()
+    }
+
+    const { id } = await params
+    const teacher = await db.teacher.findFirst({
+      where: { id, schoolId: user.schoolId, deletedAt: null },
+    })
+    if (!teacher) {
+      return notFoundError('Teacher')
+    }
+
+    const linkedUser = teacher.userId
+      ? await db.user.findFirst({
+          where: { id: teacher.userId, schoolId: user.schoolId, deletedAt: null },
+          select: { phone: true, email: true, isActive: true },
+        })
+      : null
+
+    return NextResponse.json({
+      ...teacher,
+      phone: linkedUser?.phone ?? null,
+      email: linkedUser?.email ?? null,
+      isActive: teacher.isActive && (linkedUser?.isActive ?? true),
+      fullName: `${teacher.firstName} ${teacher.lastName}`,
+    })
+  } catch (error) {
+    console.error('Get teacher error:', error)
+    return internalError('loading the teacher record')
+  }
+}
+
 // PATCH /api/school/teachers/[id] - Update teacher
 export async function PATCH(
   request: NextRequest,
@@ -43,6 +82,8 @@ export async function PATCH(
       joinDate,
       profileImage,
       isActive,
+      phone,
+      email,
     } = body
 
     const updateData: Record<string, unknown> = {}
@@ -74,9 +115,71 @@ export async function PATCH(
     }
     if (isActive !== undefined) updateData.isActive = isActive
 
-    const updated = await db.teacher.update({
-      where: { id },
-      data: updateData,
+    const userUpdateData: Record<string, unknown> = {}
+    if (firstName !== undefined || lastName !== undefined) {
+      userUpdateData.name = `${firstName ?? teacher.firstName} ${lastName ?? teacher.lastName}`.trim()
+    }
+    if (profileImage !== undefined) {
+      userUpdateData.avatar = updateData.profileImage ?? null
+    }
+    if (isActive !== undefined) {
+      userUpdateData.isActive = isActive
+    }
+    if (phone !== undefined) {
+      const normalizedPhone = String(phone).replace(/\D/g, '').slice(-10)
+      if (normalizedPhone.length !== 10) {
+        return apiError(400, 'Please enter a valid 10-digit phone number.')
+      }
+      const existingPhoneUser = await db.user.findFirst({
+        where: {
+          phone: normalizedPhone,
+          deletedAt: null,
+          ...(teacher.userId ? { id: { not: teacher.userId } } : {}),
+        },
+        select: { id: true },
+      })
+      if (existingPhoneUser) {
+        return apiError(400, 'A user with this phone number already exists. Please use a different phone number.')
+      }
+      userUpdateData.phone = normalizedPhone
+    }
+    if (email !== undefined) {
+      const trimmedEmail = typeof email === 'string' ? email.trim() : ''
+      if (trimmedEmail) {
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+          return apiError(400, 'Please enter a valid email address.')
+        }
+        const existingEmailUser = await db.user.findFirst({
+          where: {
+            email: trimmedEmail,
+            deletedAt: null,
+            ...(teacher.userId ? { id: { not: teacher.userId } } : {}),
+          },
+          select: { id: true },
+        })
+        if (existingEmailUser) {
+          return apiError(400, 'A user with this email already exists. Please use a different email address.')
+        }
+        userUpdateData.email = trimmedEmail
+      }
+    }
+
+    const updated = await db.$transaction(async (tx) => {
+      const updatedTeacher = Object.keys(updateData).length > 0
+        ? await tx.teacher.update({
+            where: { id },
+            data: updateData,
+          })
+        : teacher
+
+      if (teacher.userId && Object.keys(userUpdateData).length > 0) {
+        await tx.user.update({
+          where: { id: teacher.userId },
+          data: userUpdateData,
+        })
+      }
+
+      return updatedTeacher
     })
 
     return NextResponse.json(updated)

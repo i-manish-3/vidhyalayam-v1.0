@@ -2,7 +2,9 @@
 
 import { useEffect, useLayoutEffect } from 'react'
 import { applySchoolBranding } from '@/lib/branding'
+import { api } from '@/lib/api'
 import { useAppStore } from '@/lib/store'
+import type { School } from '@/lib/store'
 
 export function BrandHeadManager() {
   const currentSchool = useAppStore((state) => state.currentSchool)
@@ -22,22 +24,32 @@ export function BrandHeadManager() {
 
     const refreshProfile = async () => {
       try {
-        // Auth travels via the HttpOnly cookie set at login — credentials:
-        // 'include' tells fetch to attach it on this same-origin call.
-        const res = await fetch('/api/auth/me', { credentials: 'include' })
-        if (!res.ok || cancelled) return
-
-        const profile = await res.json()
+        // Use shared auth handling while keeping this background refresh quiet.
+        const profile = await api.get<{
+          avatar?: string | null
+          assignedRoleName?: string | null
+          school?: School | null
+        }>('/api/auth/me', undefined, { skipLogoutOn401: true })
         if (cancelled) return
 
         // Avatar is stripped from localStorage to stay under quota, so after
         // a page reload the in-memory user has no avatar. Restore it here so
-        // the header photo shows again.
-        if (profile.avatar && !userAvatar) {
-          useAppStore.setState((s) => ({
-            user: s.user ? { ...s.user, avatar: profile.avatar } : s.user,
-          }))
-        }
+        // the header photo shows again. Also sync the assigned permission role
+        // name so the header badge shows "Accountant" instead of "Staff".
+        useAppStore.setState((s) => {
+          if (!s.user) return s
+          const needsAvatar = !!profile.avatar && !userAvatar
+          const needsRoleName = profile.assignedRoleName !== undefined
+            && profile.assignedRoleName !== s.user.assignedRoleName
+          if (!needsAvatar && !needsRoleName) return s
+          return {
+            user: {
+              ...s.user,
+              ...(needsAvatar ? { avatar: profile.avatar ?? undefined } : {}),
+              ...(needsRoleName ? { assignedRoleName: profile.assignedRoleName ?? null } : {}),
+            },
+          }
+        })
 
         if (role !== 'SUPER_ADMIN' && profile.school) {
           setCurrentSchool(profile.school)

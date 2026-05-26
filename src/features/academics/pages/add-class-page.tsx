@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
+import { getCurrentAcademicYear } from '@/lib/academic-years'
+import { useAppStore } from '@/lib/store'
 import { useToast } from '@/hooks/use-toast'
 import { PageHeader } from '@/components/shared'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -11,6 +13,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 // Checkbox removed — using custom visual indicator to avoid Radix internal state issues
 import {
   List,
@@ -38,6 +41,7 @@ const SUBJECT_TYPES = [
 interface SectionInput {
   id: string
   name: string
+  teacherId: string
 }
 
 interface SubjectItem {
@@ -49,6 +53,14 @@ interface SubjectItem {
   isActive: boolean
 }
 
+interface TeacherOption {
+  id: string
+  firstName: string
+  lastName: string
+  employeeId?: string | null
+  isActive: boolean
+}
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function createSectionId(): string {
@@ -56,11 +68,15 @@ function createSectionId(): string {
 }
 
 function createEmptySection(): SectionInput {
-  return { id: createSectionId(), name: '' }
+  return { id: createSectionId(), name: '', teacherId: '' }
 }
 
 function getTypeConfig(type: string) {
   return SUBJECT_TYPES.find(t => t.value === type) || SUBJECT_TYPES[0]
+}
+
+function getTeacherName(teacher: TeacherOption) {
+  return `${teacher.firstName} ${teacher.lastName}`.trim()
 }
 
 // ─── Main Component ──────────────────────────────────────────────────────────
@@ -68,17 +84,23 @@ function getTypeConfig(type: string) {
 export function AddClassPage() {
   const { toast } = useToast()
   const router = useRouter()
+  const currentSchoolAcademicYear = useAppStore((s) => s.currentSchool?.academicYear)
+  const viewingAcademicYear = useAppStore((s) => s.viewingAcademicYear)
+  const academicYear = viewingAcademicYear || currentSchoolAcademicYear || getCurrentAcademicYear()
 
   // Form state
   const [name, setName] = useState('')
   const [nameError, setNameError] = useState('')
   const [sections, setSections] = useState<SectionInput[]>([createEmptySection()])
+  const [classTeacherId, setClassTeacherId] = useState('')
   const [selectedSubjectIds, setSelectedSubjectIds] = useState<Set<string>>(new Set())
   const [submitting, setSubmitting] = useState(false)
 
   // Subjects data
   const [subjects, setSubjects] = useState<SubjectItem[]>([])
   const [loadingSubjects, setLoadingSubjects] = useState(true)
+  const [teachers, setTeachers] = useState<TeacherOption[]>([])
+  const [loadingTeachers, setLoadingTeachers] = useState(true)
 
   // Fetch subjects on mount
   useEffect(() => {
@@ -90,6 +112,18 @@ export function AddClassPage() {
         toast({ title: 'Could not load subjects', description: 'Subjects list could not be loaded. You can still create the class and assign subjects later.', variant: 'destructive' })
       })
       .finally(() => setLoadingSubjects(false))
+  }, [toast])
+
+  // Fetch teachers on mount
+  useEffect(() => {
+    api.get<{ teachers: TeacherOption[] }>('/api/school/teachers', { limit: '500' })
+      .then(res => {
+        setTeachers((res.teachers || []).filter((teacher) => teacher.isActive))
+      })
+      .catch(() => {
+        toast({ title: 'Could not load teachers', description: 'Class teachers can still be assigned later from Edit Class.', variant: 'destructive' })
+      })
+      .finally(() => setLoadingTeachers(false))
   }, [toast])
 
   // Group subjects by type
@@ -145,6 +179,12 @@ export function AddClassPage() {
     )
   }
 
+  const updateSectionTeacher = (sectionId: string, teacherId: string) => {
+    setSections((prev) =>
+      prev.map((s) => (s.id === sectionId ? { ...s, teacherId: teacherId === 'none' ? '' : teacherId } : s))
+    )
+  }
+
   const addSection = () => {
     setSections((prev) => [...prev, createEmptySection()])
   }
@@ -194,8 +234,10 @@ export function AddClassPage() {
     const payload = {
       name: name.trim(),
       sections: namedSections.length > 0
-        ? namedSections.map((s) => ({ name: s.name.trim() }))
+        ? namedSections.map((s) => ({ name: s.name.trim(), teacherId: s.teacherId || undefined }))
         : undefined,
+      classTeacherId: namedSections.length === 0 ? classTeacherId || undefined : undefined,
+      academicYear,
       subjectIds: selectedSubjectIds.size > 0
         ? Array.from(selectedSubjectIds)
         : undefined,
@@ -223,12 +265,15 @@ export function AddClassPage() {
   // ── Count sections with names ──
   const namedSectionCount = sections.filter((s) => s.name.trim()).length
   const activeSubjectCount = subjects.length
+  const assignedClassTeacherCount = namedSectionCount > 0
+    ? sections.filter((s) => s.name.trim() && s.teacherId).length
+    : classTeacherId ? 1 : 0
 
   return (
     <div className="space-y-4">
       <PageHeader
         title="Add Class"
-        description="Create a new class, add sections, and assign subjects."
+        description="Create a new class, add sections, assign subjects, and optionally set class teachers."
         action={{ label: 'Class List', icon: List, onClick: () => router.push('/academics/classes') }}
       />
 
@@ -284,9 +329,14 @@ export function AddClassPage() {
                       {namedSectionCount} section{namedSectionCount !== 1 ? 's' : ''}
                     </Badge>
                   )}
+                  {assignedClassTeacherCount > 0 && (
+                    <Badge variant="outline" className="ml-1">
+                      {assignedClassTeacherCount} teacher{assignedClassTeacherCount !== 1 ? 's' : ''}
+                    </Badge>
+                  )}
                 </CardTitle>
                 <CardDescription className="mt-1 text-xs">
-                  Add sections to organize students within this class (optional)
+                  Add sections and optionally assign class teachers for {academicYear}
                 </CardDescription>
               </div>
               <Button
@@ -305,8 +355,9 @@ export function AddClassPage() {
           <CardContent className="p-4">
             <div className="space-y-2.5">
               {/* Section list header */}
-              <div className="hidden sm:grid sm:grid-cols-[1fr_36px] gap-3 px-1">
+              <div className="hidden gap-3 px-1 sm:grid sm:grid-cols-[1fr_1fr_36px]">
                 <span className="text-xs font-medium text-muted-foreground">Section Name</span>
+                <span className="text-xs font-medium text-muted-foreground">Class Teacher</span>
                 <span />
               </div>
 
@@ -314,7 +365,7 @@ export function AddClassPage() {
               {sections.map((section, index) => (
                 <div
                   key={section.id}
-                  className="grid grid-cols-1 sm:grid-cols-[1fr_36px] gap-2 items-start p-2.5 rounded-lg border bg-background"
+                  className="grid grid-cols-1 items-start gap-2 rounded-lg border bg-background p-2.5 sm:grid-cols-[1fr_1fr_36px]"
                 >
                   <div className="space-y-1 sm:space-y-0">
                     <Label className="text-xs font-medium text-muted-foreground sm:hidden">
@@ -333,6 +384,28 @@ export function AddClassPage() {
                         maxLength={10}
                       />
                     </div>
+                  </div>
+                  <div className="space-y-1 sm:space-y-0">
+                    <Label className="text-xs font-medium text-muted-foreground sm:hidden">
+                      Class Teacher
+                    </Label>
+                    <Select
+                      value={section.teacherId || 'none'}
+                      onValueChange={(value) => updateSectionTeacher(section.id, value)}
+                      disabled={submitting || loadingTeachers || !section.name.trim()}
+                    >
+                      <SelectTrigger className="h-9">
+                        <SelectValue placeholder={loadingTeachers ? 'Loading teachers...' : 'Optional'} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Unassigned</SelectItem>
+                        {teachers.map((teacher) => (
+                          <SelectItem key={teacher.id} value={teacher.id}>
+                            {getTeacherName(teacher)}{teacher.employeeId ? ` (${teacher.employeeId})` : ''}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="flex items-center justify-end sm:pt-0">
                     <Button
@@ -361,6 +434,37 @@ export function AddClassPage() {
                 <PlusCircle className="size-4" />
                 Add Another Section
               </Button>
+
+              {namedSectionCount === 0 && (
+                <div className="rounded-lg border border-dashed bg-muted/20 p-3">
+                  <div className="mb-1.5 flex items-center justify-between gap-2">
+                    <Label className="text-xs font-medium">Class Teacher</Label>
+                    <Badge variant="outline" className="h-5 rounded-md px-1.5 text-[11px]">
+                      {academicYear}
+                    </Badge>
+                  </div>
+                  <Select
+                    value={classTeacherId || 'none'}
+                    onValueChange={(value) => setClassTeacherId(value === 'none' ? '' : value)}
+                    disabled={submitting || loadingTeachers}
+                  >
+                    <SelectTrigger className="h-9">
+                      <SelectValue placeholder={loadingTeachers ? 'Loading teachers...' : 'Optional'} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Unassigned</SelectItem>
+                      {teachers.map((teacher) => (
+                        <SelectItem key={teacher.id} value={teacher.id}>
+                          {getTeacherName(teacher)}{teacher.employeeId ? ` (${teacher.employeeId})` : ''}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="mt-1.5 text-xs text-muted-foreground">
+                    Use this when the class has no sections.
+                  </p>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>

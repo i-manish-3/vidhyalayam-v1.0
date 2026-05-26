@@ -2,19 +2,22 @@ import { db } from '../../src/lib/db'
 import { hashPassword } from '../../src/lib/auth'
 
 type DriverSeed = {
-  name: string
+  firstName: string
+  lastName: string
+  gender: string
   phone: string
   dob: Date
+  joinDate: Date
   drivingLicenseNumber: string
   assignedRouteNumber?: string // optional: which TransportRoute they drive
 }
 
 const drivers: DriverSeed[] = [
-  { name: 'Ramesh Yadav', phone: '9810011001', dob: new Date('1978-06-12'), drivingLicenseNumber: 'DL-0420180000111', assignedRouteNumber: 'R1' },
-  { name: 'Sunil Kumar', phone: '9810011002', dob: new Date('1982-02-25'), drivingLicenseNumber: 'DL-0420180000222', assignedRouteNumber: 'R2' },
-  { name: 'Mohan Singh', phone: '9810011003', dob: new Date('1975-11-04'), drivingLicenseNumber: 'DL-0420180000333', assignedRouteNumber: 'R3' },
-  { name: 'Vijay Sharma', phone: '9810011004', dob: new Date('1980-09-18'), drivingLicenseNumber: 'DL-0420180000444' },
-  { name: 'Anil Verma', phone: '9810011005', dob: new Date('1985-03-30'), drivingLicenseNumber: 'DL-0420180000555' },
+  { firstName: 'Ramesh', lastName: 'Yadav', gender: 'Male', phone: '9810011001', dob: new Date('1978-06-12'), joinDate: new Date('2018-07-01'), drivingLicenseNumber: 'DL-0420180000111', assignedRouteNumber: 'R1' },
+  { firstName: 'Sunil', lastName: 'Kumar', gender: 'Male', phone: '9810011002', dob: new Date('1982-02-25'), joinDate: new Date('2019-04-15'), drivingLicenseNumber: 'DL-0420180000222', assignedRouteNumber: 'R2' },
+  { firstName: 'Mohan', lastName: 'Singh', gender: 'Male', phone: '9810011003', dob: new Date('1975-11-04'), joinDate: new Date('2017-09-10'), drivingLicenseNumber: 'DL-0420180000333', assignedRouteNumber: 'R3' },
+  { firstName: 'Vijay', lastName: 'Sharma', gender: 'Male', phone: '9810011004', dob: new Date('1980-09-18'), joinDate: new Date('2020-06-20'), drivingLicenseNumber: 'DL-0420180000444' },
+  { firstName: 'Anil', lastName: 'Verma', gender: 'Male', phone: '9810011005', dob: new Date('1985-03-30'), joinDate: new Date('2021-08-05'), drivingLicenseNumber: 'DL-0420180000555' },
 ]
 
 function localDriverEmail(phone: string, schoolId: string): string {
@@ -45,11 +48,12 @@ async function main() {
 
   let created = 0
   for (const d of drivers) {
+    const fullName = `${d.firstName} ${d.lastName}`.trim()
     const email = localDriverEmail(d.phone, school.id)
     const existing = await db.user.findFirst({
       where: {
         schoolId: school.id,
-        OR: [{ email }, { phone: d.phone }, { drivingLicenseNumber: d.drivingLicenseNumber }],
+        OR: [{ email }, { phone: d.phone }],
         deletedAt: null,
       },
     })
@@ -61,10 +65,8 @@ async function main() {
           schoolId: school.id,
           email,
           password: defaultPassword,
-          name: d.name,
+          name: fullName,
           phone: d.phone,
-          dob: d.dob,
-          drivingLicenseNumber: d.drivingLicenseNumber,
           mustChangePassword: true,
           role: 'STAFF',
           isActive: true,
@@ -74,13 +76,26 @@ async function main() {
         data: { userId: driverUser.id, roleId: transportRole.id, assignedBy: schoolAdmin.id },
       })
 
+      await tx.driver.create({
+        data: {
+          schoolId: school.id,
+          userId: driverUser.id,
+          firstName: d.firstName,
+          lastName: d.lastName,
+          gender: d.gender,
+          dateOfBirth: d.dob,
+          joinDate: d.joinDate,
+          drivingLicenseNumber: d.drivingLicenseNumber,
+        },
+      })
+
       // Stamp route's driver fields when an assignment is given (display-only on TransportRoute).
       if (d.assignedRouteNumber) {
         const route = routeByNumber.get(d.assignedRouteNumber)
         if (route) {
           await tx.transportRoute.update({
             where: { id: route.id },
-            data: { driverName: d.name, driverPhone: d.phone },
+            data: { driverName: fullName, driverPhone: d.phone },
           })
         }
       }
@@ -88,7 +103,7 @@ async function main() {
     created++
   }
 
-  console.log(`✅ Created ${created} drivers (Transport role). Default password: driver123 — must change on first login.`)
+  console.log(`✅ Created ${created} drivers (Driver model + Transport-role User). Default password: driver123 — must change on first login.`)
   console.log('🚐 Drivers seed complete.')
 }
 

@@ -37,10 +37,19 @@ export async function DELETE(
       )
     }
 
-    // Soft delete the section
-    await db.section.update({
-      where: { id },
-      data: { deletedAt: new Date() },
+    await db.$transaction(async (tx) => {
+      await tx.classTeacherAssignment.deleteMany({
+        where: {
+          sectionId: id,
+          schoolId: user.schoolId,
+        },
+      })
+
+      // Soft delete the section
+      await tx.section.update({
+        where: { id },
+        data: { deletedAt: new Date() },
+      })
     })
 
     return NextResponse.json({

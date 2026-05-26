@@ -300,7 +300,7 @@ This section lists fields from `schema.prisma`. Relation fields are included bec
 | `School` | `id`, `name`, `logo`, `address`, `city`, `state`, `pincode`, `country`, `contactPhone`, `contactEmail`, `website`, `academicYear`, `board`, `timezone`, `currency`, `subdomain`, `status`, `trialEndsAt`, `onboardingDate`, `favicon`, `primaryColor`, `dashboardFont`, `features`, `createdAt`, `updatedAt`, `deletedAt`, plus relations to all school-owned modules |
 | `AcademicYear` | `id`, `schoolId`, `name`, `startDate`, `endDate`, `isCurrent`, `isActive`, `createdAt`, `updatedAt`, `deletedAt`, `school` |
 | `Class` | `id`, `schoolId`, `name`, `isActive`, `createdAt`, `updatedAt`, `deletedAt`, `school`, `sections`, `students`, `feesStructures`, `feeAssignments`, `classSubjects` |
-| `Section` | `id`, `schoolId`, `classId`, `name`, `capacity`, `teacherId`, `isActive`, `createdAt`, `updatedAt`, `deletedAt`, `school`, `class`, `students`, `timetables`, `feesStructures`, `feeAssignments` |
+| `Section` | `id`, `schoolId`, `classId`, `name`, `teacherId`, `isActive`, `createdAt`, `updatedAt`, `deletedAt`, `school`, `class`, `students`, `timetables`, `feesStructures`, `feeAssignments` |
 | `Subject` | `id`, `schoolId`, `name`, `code`, `sequenceNo`, `type`, `isActive`, `createdAt`, `updatedAt`, `deletedAt`, `school`, `timetables`, `exams`, `classSubjects` |
 | `ClassSubject` | `id`, `classId`, `subjectId`, `createdAt`, `class`, `subject` |
 

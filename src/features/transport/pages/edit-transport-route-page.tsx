@@ -20,6 +20,7 @@ interface DriverOption {
   id: string
   name: string
   phone: string | null
+  isActive?: boolean
 }
 
 interface RouteStop {
@@ -572,11 +573,13 @@ export function EditTransportRoutePage({ routeId }: { routeId: string }) {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value={NO_DRIVER_VALUE}>No driver</SelectItem>
-                  {drivers.map((driver) => (
-                    <SelectItem key={driver.id} value={driver.id}>
-                      {driver.name}{driver.phone ? ` - ${driver.phone}` : ''}
-                    </SelectItem>
-                  ))}
+                  {drivers
+                    .filter((driver) => driver.isActive !== false || driver.id === driverId)
+                    .map((driver) => (
+                      <SelectItem key={driver.id} value={driver.id}>
+                        {driver.name}{driver.phone ? ` - ${driver.phone}` : ''}{driver.isActive === false ? ' (Inactive)' : ''}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
               {!loadingDrivers && drivers.length === 0 && (

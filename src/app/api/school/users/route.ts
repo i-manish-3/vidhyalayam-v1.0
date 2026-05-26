@@ -4,6 +4,7 @@ import { requireRole } from '@/lib/api-auth'
 import { hashPassword } from '@/lib/auth'
 import { unauthorizedError, internalError, apiError } from '@/lib/api-errors'
 import { uploadIfDataUrl, IMAGE_MIME_TYPES } from '@/lib/storage'
+import { employeeIdExists, normalizeEmployeeId, resolveEmployeeId } from '@/lib/employee-numbering'
 
 // Roles that cannot be assigned via staff creation
 // Staff creation always creates a STAFF account, then assigns a staff permission role.
@@ -45,6 +46,7 @@ export async function GET(request: NextRequest) {
         { name: { contains: search } },
         { email: { contains: search } },
         { phone: { contains: search } },
+        { employeeId: { contains: search } },
       ]
     }
 
@@ -53,6 +55,7 @@ export async function GET(request: NextRequest) {
         where,
         select: {
           id: true,
+          employeeId: true,
           name: true,
           email: true,
           phone: true,
@@ -82,6 +85,7 @@ export async function GET(request: NextRequest) {
       const isLocked = !!lockedUntil && lockedUntil.getTime() > now
       return {
         id: u.id,
+        employeeId: u.employeeId,
         name: u.name,
         email: u.email,
         phone: u.phone,
@@ -127,7 +131,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { name, phone, email, dob, avatar, roleId } = body
+    const { name, phone, email, dob, avatar, roleId, employeeId } = body
 
     if (!name || !phone || !dob || !roleId) {
       return apiError(400, "Please fill in the staff member's name, phone number, date of birth, and select a role.")
@@ -205,9 +209,16 @@ export async function POST(request: NextRequest) {
       return apiError(400, `Avatar: ${avatarUpload.error}`)
     }
 
+    const requestedEmployeeId = normalizeEmployeeId(employeeId)
+    if (requestedEmployeeId && await employeeIdExists(db, authUser.schoolId, requestedEmployeeId)) {
+      return apiError(400, `Employee ID "${requestedEmployeeId}" is already in use.`)
+    }
+
     const newUser = await db.$transaction(async (tx) => {
+      const finalEmployeeId = await resolveEmployeeId(tx, authUser.schoolId!, employeeId)
       const user = await tx.user.create({
         data: {
+          employeeId: finalEmployeeId,
           email: finalEmail,
           password: hashedPwd,
           name: name.trim(),
@@ -235,6 +246,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         id: newUser.id,
+        employeeId: newUser.employeeId,
         name: newUser.name,
         email: newUser.email,
         phone: newUser.phone,

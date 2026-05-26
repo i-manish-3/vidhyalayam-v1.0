@@ -105,16 +105,6 @@ export const MENUS: Record<string, MenuItem[]> = {
       ],
     },
     {
-      label: 'Teachers',
-      page: 'teachers',
-      icon: BookOpen,
-      children: [
-        { label: 'Add Teacher', page: 'add-teacher', icon: UserPlus },
-        { label: 'Teacher List', page: 'teachers', icon: BookOpen },
-      ],
-    },
-    { label: 'Parents', page: 'parents', icon: Users },
-    {
       label: 'Academics',
       page: 'subjects',
       icon: GraduationCap,
@@ -163,6 +153,16 @@ export const MENUS: Record<string, MenuItem[]> = {
         { label: 'Change Fee Group', page: 'fee-change-group', icon: RefreshCw },
       ],
     },
+    {
+      label: 'Teachers',
+      page: 'teachers',
+      icon: BookOpen,
+      children: [
+        { label: 'Add Teacher', page: 'add-teacher', icon: UserPlus },
+        { label: 'Teacher List', page: 'teachers', icon: BookOpen },
+      ],
+    },
+    { label: 'Parents', page: 'parents', icon: Users },
     {
       label: 'Salary',
       page: 'salary',

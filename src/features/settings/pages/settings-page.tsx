@@ -28,6 +28,11 @@ type AdmissionSettings = {
   registrationSequenceStart: number
   registrationSequenceDigits: number
   registrationResetYearly: boolean
+  employeeNumberPrefix: string
+  employeeNumberFormat: string
+  employeeSequenceStart: number
+  employeeSequenceDigits: number
+  employeeResetYearly: boolean
 }
 
 const DEFAULT_ADMISSION_SETTINGS: AdmissionSettings = {
@@ -41,6 +46,11 @@ const DEFAULT_ADMISSION_SETTINGS: AdmissionSettings = {
   registrationSequenceStart: 1,
   registrationSequenceDigits: 3,
   registrationResetYearly: true,
+  employeeNumberPrefix: 'EMP',
+  employeeNumberFormat: '{PREFIX}-{SEQ}',
+  employeeSequenceStart: 1,
+  employeeSequenceDigits: 4,
+  employeeResetYearly: false,
 }
 
 export function SettingsPage() {
@@ -62,7 +72,7 @@ export function SettingsPage() {
   const [selectedFont, setSelectedFont] = useState(findDashboardFont(currentSchool?.dashboardFont).id)
   const [saving, setSaving] = useState(false)
   const [admissionSettings, setAdmissionSettings] = useState<AdmissionSettings>(DEFAULT_ADMISSION_SETTINGS)
-  const [admissionSamples, setAdmissionSamples] = useState({ admissionNumber: 'STD-2026-001', registrationNumber: 'REG-2026-001' })
+  const [admissionSamples, setAdmissionSamples] = useState({ admissionNumber: 'STD-2026-001', registrationNumber: 'REG-2026-001', employeeId: 'EMP-0001' })
   const [settingsLoading, setSettingsLoading] = useState(true)
   const [settingsSaving, setSettingsSaving] = useState(false)
 
@@ -483,10 +493,10 @@ export function SettingsPage() {
             <div>
               <CardTitle className="flex items-center gap-2">
                 <Hash className="size-5 text-primary" />
-                Admission Numbering
+                School Numbering
               </CardTitle>
               <CardDescription>
-                Configure admission and registration number prefixes, formats, and serial sequence for this school.
+                Configure admission, registration, and employee ID prefixes, formats, and serial sequence for this school.
               </CardDescription>
             </div>
             <Button onClick={saveAdmissionSettings} disabled={settingsLoading || settingsSaving}>
@@ -496,7 +506,7 @@ export function SettingsPage() {
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid gap-3 lg:grid-cols-2">
+          <div className="grid gap-3 lg:grid-cols-3">
             <div className="space-y-3 rounded-lg border p-3">
               <div className="flex items-center justify-between gap-3">
                 <div>
@@ -608,10 +618,66 @@ export function SettingsPage() {
                 />
               </div>
             </div>
+
+            <div className="space-y-3 rounded-lg border p-3">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-sm font-semibold">Employee ID</h3>
+                  <p className="text-xs text-muted-foreground">Used for teachers, staff, and transport drivers.</p>
+                </div>
+                <Badge variant="outline" className="font-mono">{admissionSamples.employeeId}</Badge>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Prefix</Label>
+                  <Input
+                    value={admissionSettings.employeeNumberPrefix}
+                    onChange={(event) => updateAdmissionSetting('employeeNumberPrefix', event.target.value.toUpperCase())}
+                    placeholder="EMP"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Format</Label>
+                  <Input
+                    value={admissionSettings.employeeNumberFormat}
+                    onChange={(event) => updateAdmissionSetting('employeeNumberFormat', event.target.value.toUpperCase())}
+                    placeholder="{PREFIX}-{SEQ}"
+                    className="font-mono"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Start From</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={admissionSettings.employeeSequenceStart}
+                    onChange={(event) => updateAdmissionSetting('employeeSequenceStart', Number(event.target.value) || 1)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Serial Digits</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={10}
+                    value={admissionSettings.employeeSequenceDigits}
+                    onChange={(event) => updateAdmissionSetting('employeeSequenceDigits', Number(event.target.value) || 4)}
+                  />
+                </div>
+              </div>
+              <div className="flex items-center justify-between rounded-md border bg-muted/30 px-3 py-2">
+                <Label htmlFor="reset-employee-number" className="text-sm">Reset serial every year</Label>
+                <Switch
+                  id="reset-employee-number"
+                  checked={admissionSettings.employeeResetYearly}
+                  onCheckedChange={(checked) => updateAdmissionSetting('employeeResetYearly', checked)}
+                />
+              </div>
+            </div>
           </div>
 
           <p className="text-xs text-muted-foreground">
-            Available tokens: <span className="font-mono">{'{PREFIX}'}</span>, <span className="font-mono">{'{YEAR}'}</span>, <span className="font-mono">{'{YY}'}</span>, <span className="font-mono">{'{SEQ}'}</span>, <span className="font-mono">{'{CLASS}'}</span>. The serial continues from existing admission records.
+            Available tokens: <span className="font-mono">{'{PREFIX}'}</span>, <span className="font-mono">{'{YEAR}'}</span>, <span className="font-mono">{'{YY}'}</span>, <span className="font-mono">{'{SEQ}'}</span>. Admission and registration also support <span className="font-mono">{'{CLASS}'}</span>.
           </p>
         </CardContent>
       </Card>

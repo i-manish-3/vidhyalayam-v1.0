@@ -100,7 +100,7 @@ export function LoginScreen({ onBack }: LoginScreenProps) {
     }
     setIsLoading(true)
     try {
-      const response = await api.post<{ user: { id: string; email: string; name: string; role: string; schoolId?: string; mustChangePassword?: boolean } }>('/api/auth/login', { email, password })
+      const response = await api.post<{ user: { id: string; email: string; name: string; role: string; schoolId?: string; mustChangePassword?: boolean; assignedRoleName?: string | null } }>('/api/auth/login', { email, password })
       // The server set HttpOnly auth cookies in this response — no token in the
       // body. We just mirror user metadata into the store; subsequent API calls
       // pick up the cookies automatically.

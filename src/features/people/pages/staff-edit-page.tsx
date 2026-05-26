@@ -21,7 +21,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import {
-  UserPlus,
+  Pencil,
   Shield,
   ShieldCheck,
   GraduationCap,
@@ -33,12 +33,10 @@ import {
   CheckCircle2,
   Upload,
   X,
-  KeyRound,
   Users,
+  UserPlus,
   type LucideIcon,
 } from 'lucide-react'
-
-// ─── Types ───────────────────────────────────────────────────────────────────
 
 interface AvailableRole {
   id: string
@@ -51,43 +49,53 @@ interface AvailableRole {
   userCount: number
 }
 
-// ─── Constants ───────────────────────────────────────────────────────────────
+interface StaffDetailResponse {
+  id: string
+  userId?: string | null
+  employeeId?: string | null
+  firstName: string
+  lastName: string
+  name: string
+  email?: string | null
+  phone?: string | null
+  gender?: string | null
+  dateOfBirth?: string | null
+  joinDate?: string | null
+  designation?: string | null
+  department?: string | null
+  qualification?: string | null
+  address?: string | null
+  profileImage?: string | null
+  isActive: boolean
+  assignedRoles?: { id: string; name: string; color?: string | null }[]
+}
 
-// Staff creation only shows staff permission roles.
-// Primary identity roles are created from their own modules.
 const EXCLUDED_ROLES = new Set(['School Admin', 'Teacher', 'Student', 'Parent', 'Staff', 'Transport'])
 
 const ROLE_ICONS: Record<string, LucideIcon> = {
-  'Teacher': GraduationCap,
-  'Accountant': Calculator,
+  Teacher: GraduationCap,
+  Accountant: Calculator,
   'Sr. Accountant': Calculator,
-  'Librarian': Library,
-  'Office': Briefcase,
-  'Controller': ShieldCheck,
-  'Reception': Headphones,
-  'Transport': Bus,
-  'Security': Shield,
+  Librarian: Library,
+  Office: Briefcase,
+  Controller: ShieldCheck,
+  Reception: Headphones,
+  Transport: Bus,
+  Security: Shield,
 }
 
-const ROLE_COLORS: Record<string, string> = {
-  'Teacher': 'bg-violet-100 text-violet-700 dark:bg-violet-950/40 dark:text-violet-400',
-  'Accountant': 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400',
-  'Sr. Accountant': 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400',
-  'Librarian': 'bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400',
-  'Office': 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400',
-  'Controller': 'bg-cyan-100 text-cyan-700 dark:bg-cyan-950/40 dark:text-cyan-400',
-  'Reception': 'bg-pink-100 text-pink-700 dark:bg-pink-950/40 dark:text-pink-400',
-  'Transport': 'bg-sky-100 text-sky-700 dark:bg-sky-950/40 dark:text-sky-400',
-  'Security': 'bg-slate-100 text-slate-700 dark:bg-slate-950/40 dark:text-slate-400',
+function toDateInputValue(value?: string | null): string {
+  if (!value) return ''
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return ''
+  return d.toISOString().slice(0, 10)
 }
-
-// ─── Sub-Components ──────────────────────────────────────────────────────────
 
 function FormSkeleton() {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {Array.from({ length: 4 }).map((_, i) => (
+        {Array.from({ length: 6 }).map((_, i) => (
           <div key={i} className="space-y-2">
             <Skeleton className="h-4 w-24" />
             <Skeleton className="h-10 w-full" />
@@ -99,9 +107,7 @@ function FormSkeleton() {
   )
 }
 
-// ─── Main Component ──────────────────────────────────────────────────────────
-
-export function StaffCreatePage() {
+export function StaffEditPage({ staffId }: { staffId: string }) {
   const router = useRouter()
   const { toast } = useToast()
 
@@ -122,49 +128,73 @@ export function StaffCreatePage() {
   const photoInputRef = useRef<HTMLInputElement>(null)
 
   // Data state
+  const [userId, setUserId] = useState<string | null>(null)
+  const [initialRoleId, setInitialRoleId] = useState<string>('')
   const [availableRoles, setAvailableRoles] = useState<AvailableRole[]>([])
   const [loadingRoles, setLoadingRoles] = useState(true)
+  const [loadingStaff, setLoadingStaff] = useState(true)
   const [submitting, setSubmitting] = useState(false)
+  const [notFound, setNotFound] = useState(false)
 
-  // ── Fetch available roles (excluding School Admin, Student, Parent) ──
+  // ── Fetch roles ──
   const fetchRoles = useCallback(async () => {
     try {
       setLoadingRoles(true)
       const res = await api.get<{ roles: AvailableRole[] }>('/api/school/roles')
-      // Hide primary identity roles; staff users should choose permission roles only.
-      const staffRoles = (res.roles || []).filter(
-        (r) => !EXCLUDED_ROLES.has(r.name)
-      )
-      setAvailableRoles(staffRoles)
+      setAvailableRoles((res.roles || []).filter((r) => !EXCLUDED_ROLES.has(r.name)))
     } catch {
-      toast({ title: "Couldn't Load Roles", description: "We couldn't load the roles. Please refresh the page.", variant: 'destructive' })
+      toast({
+        title: "Couldn't Load Roles",
+        description: "We couldn't load the roles. Please refresh the page.",
+        variant: 'destructive',
+      })
     } finally {
       setLoadingRoles(false)
     }
   }, [toast])
 
+  // ── Fetch existing staff ──
+  const fetchStaff = useCallback(async () => {
+    try {
+      setLoadingStaff(true)
+      const res = await api.get<StaffDetailResponse>(`/api/school/staff/${staffId}`)
+      setUserId(res.userId ?? null)
+      setFirstName(res.firstName ?? '')
+      setLastName(res.lastName ?? '')
+      setEmployeeId(res.employeeId ?? '')
+      setPhone(res.phone ?? '')
+      setEmail(res.email && !res.email.endsWith('@staff.local') ? res.email : '')
+      setGender(res.gender || 'Male')
+      setDob(toDateInputValue(res.dateOfBirth))
+      setJoinDate(toDateInputValue(res.joinDate))
+      setDesignation(res.designation ?? '')
+      setQualification(res.qualification ?? '')
+      setAddress(res.address ?? '')
+      setAvatar(res.profileImage ?? null)
+      const roleId = res.assignedRoles?.[0]?.id ?? ''
+      setSelectedRoleId(roleId)
+      setInitialRoleId(roleId)
+    } catch (err) {
+      setNotFound(true)
+      toast({
+        title: "Couldn't Load Staff",
+        description: err instanceof Error ? err.message : "We couldn't load this staff member.",
+        variant: 'destructive',
+      })
+    } finally {
+      setLoadingStaff(false)
+    }
+  }, [staffId, toast])
+
   useEffect(() => {
     fetchRoles()
-  }, [fetchRoles])
+    fetchStaff()
+  }, [fetchRoles, fetchStaff])
 
-  useEffect(() => {
-    let mounted = true
-    api.get<{ employeeId: string }>('/api/school/employees/next-number', undefined, { skipLogoutOn401: true })
-      .then((res) => {
-        if (mounted) setEmployeeId((current) => current || res.employeeId || '')
-      })
-      .catch(() => {})
-
-    return () => {
-      mounted = false
-    }
-  }, [])
-
-  // ── Selected role info ──
   const selectedRole = availableRoles.find((r) => r.id === selectedRoleId)
-  const RoleIcon = selectedRole ? (ROLE_ICONS[selectedRole.name] || Shield) : null
+  const RoleIcon = selectedRole ? ROLE_ICONS[selectedRole.name] || Shield : null
 
-  // ── Form validation ──
+  // ── Validation ──
   const phoneDigits = phone.replace(/\D/g, '')
   const phoneIsValid = /^[6-9]\d{9}$/.test(phoneDigits)
   const phoneError = phone.trim() && !phoneIsValid
@@ -189,7 +219,11 @@ export function StaffCreatePage() {
     try {
       const { dataUrl, finalBytes, compressed } = await compressImage(file)
       if (finalBytes > 200 * 1024) {
-        toast({ title: 'Photo Too Large', description: 'This image format cannot be compressed under 200 KB. Please upload a JPG, PNG, or WebP.', variant: 'destructive' })
+        toast({
+          title: 'Photo Too Large',
+          description: 'This image format cannot be compressed under 200 KB. Please upload a JPG, PNG, or WebP.',
+          variant: 'destructive',
+        })
         if (photoInputRef.current) photoInputRef.current.value = ''
         return
       }
@@ -203,44 +237,45 @@ export function StaffCreatePage() {
     }
   }
 
-  // ── Submit handler ──
+  // ── Submit ──
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!isFormValid || submitting) return
 
     try {
       setSubmitting(true)
-      const res = await api.post<{
-        id: string
-        employeeId?: string
-        name: string
-        phone: string
-        assignedRole: { name: string }
-      }>('/api/school/staff', {
+      await api.patch(`/api/school/staff/${staffId}`, {
         firstName: firstName.trim(),
         lastName: lastName.trim(),
         gender,
         phone: phoneDigits,
         email: email.trim() || undefined,
-        dob,
+        dateOfBirth: dob,
         joinDate: joinDate || undefined,
-        designation: designation.trim() || undefined,
-        qualification: qualification.trim() || undefined,
-        address: address.trim() || undefined,
-        avatar,
-        roleId: selectedRoleId,
+        designation: designation.trim() || null,
+        qualification: qualification.trim() || null,
+        address: address.trim() || null,
+        profileImage: avatar,
       })
+
+      if (selectedRoleId !== initialRoleId) {
+        if (!userId) {
+          throw new Error("This staff member has no linked user account — role cannot be changed.")
+        }
+        await api.put(`/api/school/users/${userId}/roles`, {
+          roleIds: [selectedRoleId],
+        })
+      }
 
       toast({
-        title: 'Staff Created',
-        description: `${res.employeeId ? `${res.employeeId} - ` : ''}${res.name} can sign in with phone ${res.phone} and password "staff123". Password change required on first login.`,
+        title: 'Staff Updated',
+        description: `${firstName.trim()} ${lastName.trim()}'s details have been saved.`,
       })
-
       router.push('/staff')
     } catch (err) {
       toast({
-        title: 'Creation Failed',
-        description: err instanceof Error ? err.message : "We couldn't create the staff member. Please try again.",
+        title: 'Update Failed',
+        description: err instanceof Error ? err.message : "We couldn't update the staff member. Please try again.",
         variant: 'destructive',
       })
     } finally {
@@ -249,50 +284,59 @@ export function StaffCreatePage() {
   }
 
   // ── Render ──
+  if (notFound) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between gap-3">
+          <h1 className="text-xl font-bold tracking-tight">Edit Staff</h1>
+          <Button type="button" variant="outline" size="sm" onClick={() => router.push('/staff')} className="gap-2">
+            <Users className="size-4" />
+            Staff List
+          </Button>
+        </div>
+        <Card className="flex flex-col items-center justify-center py-20 text-center">
+          <Users className="size-12 text-muted-foreground/30 mb-4" />
+          <h3 className="text-lg font-semibold text-muted-foreground">Staff Not Found</h3>
+          <p className="text-sm text-muted-foreground/70 mt-1">The staff member you are trying to edit does not exist.</p>
+        </Card>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-4">
-      {/* Header with back button */}
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold tracking-tight">Create Staff</h1>
+          <h1 className="text-xl font-bold tracking-tight">Edit Staff</h1>
           <p className="text-xs text-muted-foreground">
-            Add a new staff member and assign them a role — permissions are automatically inherited
+            Update this staff member&apos;s personal and contact details.
           </p>
         </div>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => router.push('/staff')}
-          className="gap-2"
-        >
+        <Button type="button" variant="outline" size="sm" onClick={() => router.push('/staff')} className="gap-2">
           <Users className="size-4" />
           Staff List
         </Button>
       </div>
 
-      {/* Form */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
-            <UserPlus className="size-4" />
+            <Pencil className="size-4" />
             Staff Information
           </CardTitle>
-          <CardDescription className="text-xs">Fill in the details below to create a new staff member</CardDescription>
+          <CardDescription className="text-xs">Make changes and save to update this staff member</CardDescription>
         </CardHeader>
         <CardContent>
-          {loadingRoles ? (
+          {loadingRoles || loadingStaff ? (
             <FormSkeleton />
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Personal Details */}
               <div>
                 <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
                   <div className="size-1.5 rounded-full bg-primary" />
                   Personal Details
                 </h3>
 
-                {/* Photo */}
                 <div className="mb-3 flex items-center gap-3">
                   <div className="relative size-16 shrink-0 overflow-hidden rounded-full border bg-muted">
                     {avatar ? (
@@ -306,22 +350,12 @@ export function StaffCreatePage() {
                   </div>
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => photoInputRef.current?.click()}
-                      >
+                      <Button type="button" variant="outline" size="sm" onClick={() => photoInputRef.current?.click()}>
                         <Upload className="size-4" />
                         {avatar ? 'Change Photo' : 'Upload Photo'}
                       </Button>
                       {avatar && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setAvatar(null)}
-                        >
+                        <Button type="button" variant="ghost" size="sm" onClick={() => setAvatar(null)}>
                           <X className="size-4" />
                           Remove
                         </Button>
@@ -340,12 +374,9 @@ export function StaffCreatePage() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div className="space-y-1.5">
-                    <Label htmlFor="staff-employee-id" className="text-xs font-medium">
-                      Employee ID
-                    </Label>
+                    <Label htmlFor="staff-employee-id" className="text-xs font-medium">Employee ID</Label>
                     <Input
                       id="staff-employee-id"
-                      placeholder="Auto generated from settings"
                       value={employeeId}
                       className="h-9 bg-muted/40 font-mono text-muted-foreground"
                       disabled
@@ -357,7 +388,6 @@ export function StaffCreatePage() {
                     </Label>
                     <Input
                       id="staff-first-name"
-                      placeholder="e.g., Ramesh"
                       value={firstName}
                       onChange={(e) => setFirstName(e.target.value)}
                       className="h-9"
@@ -369,7 +399,6 @@ export function StaffCreatePage() {
                     </Label>
                     <Input
                       id="staff-last-name"
-                      placeholder="e.g., Kumar"
                       value={lastName}
                       onChange={(e) => setLastName(e.target.value)}
                       className="h-9"
@@ -398,15 +427,12 @@ export function StaffCreatePage() {
                       id="staff-phone"
                       inputMode="numeric"
                       maxLength={10}
-                      placeholder="10-digit phone number"
                       value={phone}
                       onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
                       className={`h-9 ${phoneError ? 'border-destructive focus-visible:ring-destructive/20' : ''}`}
                       aria-invalid={!!phoneError}
                     />
-                    {phoneError && (
-                      <p className="text-[11px] text-destructive">{phoneError}</p>
-                    )}
+                    {phoneError && <p className="text-[11px] text-destructive">{phoneError}</p>}
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="staff-email" className="text-xs font-medium">
@@ -415,7 +441,6 @@ export function StaffCreatePage() {
                     <Input
                       id="staff-email"
                       type="email"
-                      placeholder="name@example.com"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       aria-invalid={emailHasError}
@@ -426,7 +451,7 @@ export function StaffCreatePage() {
                     )}
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="staff-dob" className="text-xs font-medium">
+                    <Label className="text-xs font-medium">
                       Date of Birth <span className="text-destructive">*</span>
                     </Label>
                     <DatePicker
@@ -441,7 +466,7 @@ export function StaffCreatePage() {
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="staff-join-date" className="text-xs font-medium">
+                    <Label className="text-xs font-medium">
                       Join Date <span className="text-destructive">*</span>
                     </Label>
                     <DatePicker
@@ -460,12 +485,10 @@ export function StaffCreatePage() {
                     </Label>
                     <Input
                       id="staff-designation"
-                      placeholder="e.g., Sr. Accountant, Head Librarian"
                       value={designation}
                       onChange={(e) => setDesignation(e.target.value)}
                       className="h-9"
                     />
-                    <p className="text-[11px] text-muted-foreground">Defaults to selected role if left blank.</p>
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="staff-qualification" className="text-xs font-medium">
@@ -473,7 +496,6 @@ export function StaffCreatePage() {
                     </Label>
                     <Input
                       id="staff-qualification"
-                      placeholder="e.g., B.Com, M.A."
                       value={qualification}
                       onChange={(e) => setQualification(e.target.value)}
                       className="h-9"
@@ -485,25 +507,16 @@ export function StaffCreatePage() {
                     </Label>
                     <Input
                       id="staff-address"
-                      placeholder="Residential address"
                       value={address}
                       onChange={(e) => setAddress(e.target.value)}
                       className="h-9"
                     />
                   </div>
                 </div>
-
-                <div className="mt-3 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-2.5 text-xs text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-300">
-                  <KeyRound className="mt-0.5 size-3.5 shrink-0" />
-                  <span>
-                    The staff member will sign in with their phone number and the default password <span className="font-mono font-semibold">staff123</span>. They&apos;ll be prompted to change the password on first login.
-                  </span>
-                </div>
               </div>
 
               <Separator />
 
-              {/* Role Selection */}
               <div>
                 <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
                   <div className="size-1.5 rounded-full bg-primary" />
@@ -515,7 +528,7 @@ export function StaffCreatePage() {
                     <Label className="text-xs font-medium">
                       Staff Permission Role <span className="text-destructive">*</span>
                     </Label>
-                    <Select value={selectedRoleId} onValueChange={setSelectedRoleId}>
+                    <Select value={selectedRoleId} onValueChange={setSelectedRoleId} disabled={!userId}>
                       <SelectTrigger className="h-9">
                         <SelectValue placeholder="Choose access for this staff member" />
                       </SelectTrigger>
@@ -533,9 +546,13 @@ export function StaffCreatePage() {
                         })}
                       </SelectContent>
                     </Select>
+                    {!userId && (
+                      <p className="text-[11px] text-muted-foreground">
+                        Role cannot be changed — this staff record has no linked sign-in account.
+                      </p>
+                    )}
                   </div>
 
-                  {/* Selected Role Preview */}
                   {selectedRole && (
                     <div className="rounded-lg border bg-card p-3 shadow-sm ring-1 ring-primary/10">
                       <div className="flex items-start gap-3">
@@ -546,8 +563,11 @@ export function StaffCreatePage() {
                           <div className="flex flex-wrap items-center gap-2">
                             <h4 className="text-sm font-semibold text-foreground">{selectedRole.name}</h4>
                             {selectedRole.isSystem && (
-                              <Badge variant="secondary" className="h-5 px-2 text-[10px]">
-                                System
+                              <Badge variant="secondary" className="h-5 px-2 text-[10px]">System</Badge>
+                            )}
+                            {selectedRoleId !== initialRoleId && (
+                              <Badge variant="outline" className="h-5 px-2 text-[10px] border-amber-400 text-amber-700 dark:text-amber-400">
+                                Changed
                               </Badge>
                             )}
                           </div>
@@ -578,22 +598,17 @@ export function StaffCreatePage() {
 
               <Separator />
 
-              {/* Action Buttons */}
               <div className="flex items-center gap-3">
-                <Button
-                  type="submit"
-                  disabled={!isFormValid || submitting}
-                  className="gap-2 min-w-[140px]"
-                >
+                <Button type="submit" disabled={!isFormValid || submitting} className="gap-2 min-w-[140px]">
                   {submitting ? (
                     <>
                       <div className="size-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                      Creating...
+                      Saving...
                     </>
                   ) : (
                     <>
-                      <UserPlus className="size-4" />
-                      Create Staff
+                      <Pencil className="size-4" />
+                      Save Changes
                     </>
                   )}
                 </Button>

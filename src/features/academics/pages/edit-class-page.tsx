@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
+import { getCurrentAcademicYear } from '@/lib/academic-years'
+import { useAppStore } from '@/lib/store'
 import { useToast } from '@/hooks/use-toast'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -10,6 +12,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,6 +28,7 @@ import {
   X,
   GraduationCap,
   Users,
+  UserCheck,
   Layers,
   BookOpen,
   Loader2,
@@ -46,13 +50,22 @@ function getTypeConfig(type: string) {
   return SUBJECT_TYPES.find(t => t.value === type) || SUBJECT_TYPES[0]
 }
 
+function getTeacherName(teacher: TeacherOption) {
+  return `${teacher.firstName} ${teacher.lastName}`.trim()
+}
+
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 interface SectionData {
   id: string
   name: string
-  capacity: number
   _count?: { students: number }
+  classTeacherAssignment?: {
+    id: string
+    academicYear: string
+    teacherId: string
+    teacher: TeacherOption
+  } | null
 }
 
 interface SubjectInfo {
@@ -70,6 +83,13 @@ interface ClassData {
   isActive: boolean
   sections?: SectionData[]
   subjects?: SubjectInfo[]
+  classTeacherAssignment?: {
+    id: string
+    academicYear: string
+    teacherId: string
+    teacher: TeacherOption
+  } | null
+  classTeacher?: TeacherOption | null
   _count?: { students: number }
 }
 
@@ -79,6 +99,14 @@ interface AllSubject {
   code: string | null
   type: string
   sequenceNo: number | null
+  isActive: boolean
+}
+
+interface TeacherOption {
+  id: string
+  firstName: string
+  lastName: string
+  employeeId?: string | null
   isActive: boolean
 }
 
@@ -93,6 +121,9 @@ interface NewSectionInput {
 export function EditClassPage({ classId }: { classId: string }) {
   const router = useRouter()
   const { toast } = useToast()
+  const currentSchoolAcademicYear = useAppStore((s) => s.currentSchool?.academicYear)
+  const viewingAcademicYear = useAppStore((s) => s.viewingAcademicYear)
+  const academicYear = viewingAcademicYear || currentSchoolAcademicYear || getCurrentAcademicYear()
 
   // Class data
   const [classData, setClassData] = useState<ClassData | null>(null)
@@ -108,9 +139,13 @@ export function EditClassPage({ classId }: { classId: string }) {
   const [newSections, setNewSections] = useState<NewSectionInput[]>([])
   const [deleteSectionId, setDeleteSectionId] = useState<string | null>(null)
   const [deletingSection, setDeletingSection] = useState(false)
+  const [sectionTeacherIds, setSectionTeacherIds] = useState<Record<string, string>>({})
+  const [classTeacherId, setClassTeacherId] = useState('')
 
   // All subjects
   const [allSubjects, setAllSubjects] = useState<AllSubject[]>([])
+  const [teachers, setTeachers] = useState<TeacherOption[]>([])
+  const [loadingTeachers, setLoadingTeachers] = useState(true)
 
   // Save state
   const [saving, setSaving] = useState(false)
@@ -118,7 +153,7 @@ export function EditClassPage({ classId }: { classId: string }) {
   // ── Fetch class data ──
   const fetchClass = useCallback(async () => {
     try {
-      const res = await api.get<{ classes: ClassData[] }>('/api/school/classes')
+      const res = await api.get<{ classes: ClassData[] }>('/api/school/classes', { assignmentAcademicYear: academicYear })
       const found = (res.classes || []).find(c => c.id === classId)
       if (!found) {
         toast({ title: 'Class Not Found', description: 'The class could not be found. It may have been deleted.', variant: 'destructive' })
@@ -129,12 +164,18 @@ export function EditClassPage({ classId }: { classId: string }) {
       setName(found.name || '')
       setSelectedSubjectIds(new Set(found.subjects?.map(s => s.id) || []))
       setExistingSections(found.sections || [])
+      setSectionTeacherIds(Object.fromEntries(
+        (found.sections || [])
+          .filter((section) => section.classTeacherAssignment?.teacherId)
+          .map((section) => [section.id, section.classTeacherAssignment!.teacherId])
+      ))
+      setClassTeacherId(found.classTeacherAssignment?.teacherId || '')
     } catch {
       toast({ title: "Couldn't Load Class", description: 'We couldn\'t load the class details. Please try again.', variant: 'destructive' })
     } finally {
       setLoading(false)
     }
-  }, [classId, toast, router])
+  }, [academicYear, classId, toast, router])
 
   const fetchSubjects = useCallback(async () => {
     try {
@@ -145,10 +186,31 @@ export function EditClassPage({ classId }: { classId: string }) {
     }
   }, [])
 
+  const fetchTeachers = useCallback(async () => {
+    try {
+      const res = await api.get<{ teachers: TeacherOption[] }>('/api/school/teachers', { limit: '500' })
+      setTeachers((res.teachers || []).filter((teacher) => teacher.isActive))
+    } catch {
+      toast({ title: "Couldn't Load Teachers", description: 'Class teacher selection could not be loaded.', variant: 'destructive' })
+    } finally {
+      setLoadingTeachers(false)
+    }
+  }, [toast])
+
   useEffect(() => {
     fetchClass()
     fetchSubjects()
-  }, [fetchClass, fetchSubjects])
+    fetchTeachers()
+  }, [fetchClass, fetchSubjects, fetchTeachers])
+
+  useEffect(() => {
+    if (loading || !classData || window.location.hash !== '#class-teachers') return
+    const timer = window.setTimeout(() => {
+      document.getElementById('class-teachers')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 100)
+
+    return () => window.clearTimeout(timer)
+  }, [classData, loading])
 
 
   // ── Group subjects by type ──
@@ -261,6 +323,15 @@ export function EditClassPage({ classId }: { classId: string }) {
           sections: validNewSections.map(s => ({ name: s.name.trim() })),
         })
       }
+
+      await api.put(`/api/school/classes/${classData.id}/class-teachers`, {
+        academicYear,
+        classTeacherId: existingSections.length === 0 ? classTeacherId || null : null,
+        assignments: existingSections.map((section) => ({
+          sectionId: section.id,
+          teacherId: sectionTeacherIds[section.id] || null,
+        })),
+      })
 
       toast({ title: 'Class Updated', description: `"${name.trim()}" has been updated successfully.` })
       router.push('/academics/classes')
@@ -617,6 +688,86 @@ export function EditClassPage({ classId }: { classId: string }) {
                   </div>
                 </>
               )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Class Teacher Assignment Card */}
+      <Card id="class-teachers" className="scroll-mt-20 gap-0 overflow-hidden py-0 shadow-sm">
+        <CardHeader className="border-b bg-muted/30 px-4 py-2.5 sm:px-5">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <UserCheck className="size-4 text-muted-foreground" />
+            Class Teachers
+            <Badge variant="secondary" className="ml-1">
+              {academicYear}
+            </Badge>
+          </CardTitle>
+          <CardDescription className="text-xs">
+            Assign one class teacher per section for this academic session
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="px-4 pb-4 pt-3 sm:px-5">
+          {existingSections.length === 0 ? (
+            <div className="max-w-md rounded-md border bg-background p-2.5">
+              <div className="mb-1.5 flex items-center justify-between gap-2">
+                <Label className="text-xs font-medium">Class Teacher</Label>
+                <span className="text-[11px] text-muted-foreground">No sections</span>
+              </div>
+              <Select
+                value={classTeacherId || 'none'}
+                onValueChange={(value) => setClassTeacherId(value === 'none' ? '' : value)}
+                disabled={saving || loadingTeachers}
+              >
+                <SelectTrigger className="h-9">
+                  <SelectValue placeholder={loadingTeachers ? 'Loading teachers...' : 'Select teacher'} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Unassigned</SelectItem>
+                  {teachers.map((teacher) => (
+                    <SelectItem key={teacher.id} value={teacher.id}>
+                      {getTeacherName(teacher)}{teacher.employeeId ? ` (${teacher.employeeId})` : ''}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          ) : (
+            <div className="grid gap-2 sm:grid-cols-2">
+              {existingSections.map((section) => (
+                <div key={section.id} className="rounded-md border bg-background p-2.5">
+                  <div className="mb-1.5 flex items-center justify-between gap-2">
+                    <Label className="text-xs font-medium">Section {section.name}</Label>
+                    <span className="text-[11px] text-muted-foreground">
+                      {section._count?.students ?? 0} student{(section._count?.students ?? 0) !== 1 ? 's' : ''}
+                    </span>
+                  </div>
+                  <Select
+                    value={sectionTeacherIds[section.id] || 'none'}
+                    onValueChange={(value) => {
+                      setSectionTeacherIds((prev) => {
+                        const next = { ...prev }
+                        if (value === 'none') delete next[section.id]
+                        else next[section.id] = value
+                        return next
+                      })
+                    }}
+                    disabled={saving || loadingTeachers}
+                  >
+                    <SelectTrigger className="h-9">
+                      <SelectValue placeholder={loadingTeachers ? 'Loading teachers...' : 'Select teacher'} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Unassigned</SelectItem>
+                      {teachers.map((teacher) => (
+                        <SelectItem key={teacher.id} value={teacher.id}>
+                          {getTeacherName(teacher)}{teacher.employeeId ? ` (${teacher.employeeId})` : ''}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ))}
             </div>
           )}
         </CardContent>

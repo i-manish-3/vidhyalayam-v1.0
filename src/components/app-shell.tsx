@@ -341,7 +341,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     router.push('/notifications')
   }, [router])
 
-  const roleBadge = user?.role?.replace('_', ' ') || 'User'
+  // Prefer the custom permission role (e.g. "Accountant") for STAFF users so the
+  // header shows their actual job role instead of the generic "Staff" label.
+  const roleBadge = user?.role === 'STAFF' && user.assignedRoleName
+    ? user.assignedRoleName
+    : user?.role?.replace('_', ' ') || 'User'
   const firstName = user?.name?.trim().split(/\s+/)[0] || 'User'
   const displayName = `Dear ${firstName}`
   const timeGreeting = getTimeGreeting(currentHour)
@@ -395,16 +399,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, [])
 
   useEffect(() => {
-    if (!isAuthenticated) return
+    if (!isAuthenticated || !user?.id) return
     const fetchUnread = async () => {
       try {
-        const res = await fetch('/api/school/notifications?limit=1', {
-          credentials: 'include',
-        })
-        if (res.ok) {
-          const data = await res.json()
-          setUnreadCount(data.unreadCount || 0)
-        }
+        const data = await api.get<{ unreadCount?: number }>('/api/school/notifications', { limit: '1' })
+        setUnreadCount(data.unreadCount || 0)
       } catch {
         // Silently ignore
       }
@@ -412,7 +411,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     fetchUnread()
     const interval = setInterval(fetchUnread, 30000)
     return () => clearInterval(interval)
-  }, [isAuthenticated])
+  }, [isAuthenticated, user?.id])
 
   const handleRequiredPasswordChange = async () => {
     if (!currentPassword || !newPassword || !confirmPassword) {
@@ -661,7 +660,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 on Next.js 16 / React 19 / framer-motion 12, because the App
                 Router swaps children before framer-motion finishes its exit
                 cleanup. */}
-            <div key={pathname}>
+            <div key={pathname} className="page-transition">
               {children}
             </div>
           </div>

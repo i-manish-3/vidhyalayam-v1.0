@@ -12,6 +12,14 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import {
   Table,
   TableBody,
   TableCell,
@@ -20,6 +28,24 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import {
   Users,
   Shield,
@@ -36,6 +62,19 @@ import {
   Lock,
   ChevronLeft,
   ChevronRight,
+  MoreHorizontal,
+  Power,
+  PowerOff,
+  CircleDot,
+  Mail,
+  Phone,
+  CalendarDays,
+  IdCard,
+  MapPin,
+  User as UserIcon,
+  Loader2,
+  Pencil,
+  X,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -43,6 +82,7 @@ import {
 
 interface SchoolUser {
   id: string
+  employeeId?: string | null
   name: string
   email: string
   role: string
@@ -51,6 +91,30 @@ interface SchoolUser {
   isLocked?: boolean
   lockedUntil?: string | null
   failedAttempts?: number
+  assignedRoles?: { id: string; name: string; color?: string | null }[]
+}
+
+interface StaffDetail {
+  id: string
+  userId?: string | null
+  employeeId?: string | null
+  firstName?: string
+  lastName?: string
+  name: string
+  email?: string | null
+  phone?: string | null
+  gender?: string | null
+  dateOfBirth?: string | null
+  joinDate?: string | null
+  designation?: string | null
+  department?: string | null
+  qualification?: string | null
+  address?: string | null
+  city?: string | null
+  state?: string | null
+  pincode?: string | null
+  profileImage?: string | null
+  isActive: boolean
   assignedRoles?: { id: string; name: string; color?: string | null }[]
 }
 
@@ -71,6 +135,8 @@ interface PaginationInfo {
   total: number
   totalPages: number
 }
+
+type StatusFilter = 'all' | 'active' | 'inactive'
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -109,6 +175,39 @@ function formatRoleName(role: string): string {
   return role.replace(/_/g, ' ')
 }
 
+function formatDate(value?: string | null): string | null {
+  if (!value) return null
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return null
+  return date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+}
+
+function DetailItem({
+  icon: Icon,
+  label,
+  value,
+  mono = false,
+}: {
+  icon: React.ComponentType<{ className?: string }>
+  label: string
+  value: React.ReactNode
+  mono?: boolean
+}) {
+  return (
+    <div className="flex items-start gap-2 rounded-md border bg-background p-2.5">
+      <div className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
+        <Icon className="size-3.5" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-[11px] leading-4 text-muted-foreground">{label}</p>
+        <p className={`break-words text-xs font-medium leading-4 text-foreground ${mono ? 'font-mono' : ''}`}>
+          {value || <span className="font-sans text-muted-foreground">Not added</span>}
+        </p>
+      </div>
+    </div>
+  )
+}
+
 // ─── Sub-Components ──────────────────────────────────────────────────────────
 
 function StaffTableSkeleton() {
@@ -129,18 +228,26 @@ function StaffTableSkeleton() {
   )
 }
 
-function StatsSkeleton() {
+function StatusBadge({ active }: { active: boolean }) {
+  if (active) {
+    return (
+      <Badge
+        variant="secondary"
+        className="text-[10px] px-1.5 py-0 h-5 leading-none gap-1 bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400"
+      >
+        <CircleDot className="size-2.5" />
+        Active
+      </Badge>
+    )
+  }
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-      {Array.from({ length: 4 }).map((_, i) => (
-        <Card key={i}>
-          <CardContent className="p-4">
-            <Skeleton className="h-4 w-20 mb-2" />
-            <Skeleton className="h-7 w-10" />
-          </CardContent>
-        </Card>
-      ))}
-    </div>
+    <Badge
+      variant="secondary"
+      className="text-[10px] px-1.5 py-0 h-5 leading-none gap-1 bg-slate-100 text-slate-600 dark:bg-slate-900/60 dark:text-slate-400"
+    >
+      <CircleDot className="size-2.5" />
+      Inactive
+    </Badge>
   )
 }
 
@@ -157,7 +264,6 @@ function Pagination({
   const from = total === 0 ? 0 : (page - 1) * limit + 1
   const to = Math.min(page * limit, total)
 
-  // Generate page numbers with ellipsis (max 5 visible)
   const getPageNumbers = () => {
     if (totalPages <= 5) {
       return Array.from({ length: totalPages }, (_, i) => i + 1)
@@ -245,6 +351,8 @@ export function StaffPage() {
   const [availableRoles, setAvailableRoles] = useState<AvailableRole[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [roleFilter, setRoleFilter] = useState<string>('all')
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [loadingUsers, setLoadingUsers] = useState(true)
   const [pagination, setPagination] = useState<PaginationInfo>({
     page: 1,
@@ -253,56 +361,120 @@ export function StaffPage() {
     totalPages: 1,
   })
 
-  // Debounce search input → server query. Resets to page 1 whenever the
-  // active search term changes so users don't end up viewing page 5 of a
-  // narrower result set that only has 2 pages.
+  // Pending toggle target — opens the confirm dialog when set.
+  const [toggleTarget, setToggleTarget] = useState<SchoolUser | null>(null)
+  const [togglingId, setTogglingId] = useState<string | null>(null)
+
+  // Detail modal state
+  const [detailOpen, setDetailOpen] = useState(false)
+  const [detailLoading, setDetailLoading] = useState(false)
+  const [selectedStaff, setSelectedStaff] = useState<StaffDetail | null>(null)
+
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(searchQuery.trim()), 300)
     return () => clearTimeout(t)
   }, [searchQuery])
 
-  // ── Fetch staff users ──
-  // Server-side filter by base role — without this, the shared /api/school/users
-  // endpoint can drop staff/drivers behind hundreds of STUDENT/PARENT rows when
-  // the school has more than ~100 users.
-  const fetchUsers = useCallback(async (page: number, limit: number, search: string) => {
-    try {
-      setLoadingUsers(true)
-      const params = new URLSearchParams({
-        roles: 'TEACHER,STAFF,SCHOOL_ADMIN',
-        page: String(page),
-        limit: String(limit),
-      })
-      if (search) params.set('search', search)
-      const res = await api.get<{ users: SchoolUser[]; pagination?: PaginationInfo }>(
-        `/api/school/users?${params.toString()}`,
-      )
-      setUsers(res.users || [])
-      if (res.pagination) setPagination(res.pagination)
-    } catch {
-      toast({ title: "Couldn't Load Staff", description: "We couldn't load the staff list. Please refresh the page.", variant: 'destructive' })
-    } finally {
-      setLoadingUsers(false)
-    }
-  }, [toast])
+  // ── Fetch staff ──
+  // Server returns the full set; filtering/pagination is applied client-side
+  // here because the search, role, and status filters need to compose against
+  // the same in-memory list.
+  const fetchUsers = useCallback(
+    async (
+      page: number,
+      limit: number,
+      search: string,
+      role: string,
+      status: StatusFilter,
+    ) => {
+      try {
+        setLoadingUsers(true)
+        const res = await api.get<{
+          staff: Array<{
+            id: string
+            employeeId?: string | null
+            firstName: string
+            lastName: string
+            name: string
+            phone?: string | null
+            email?: string | null
+            designation?: string | null
+            joinDate?: string | null
+            isActive: boolean
+            assignedRoles?: { id: string; name: string; color?: string | null }[]
+          }>
+        }>('/api/school/staff')
 
-  // ── Fetch roles for permission counts ──
+        const all = res.staff || []
+        const q = search.trim().toLowerCase()
+        const filtered = all.filter((s) => {
+          if (q) {
+            const matches = [s.name, s.employeeId, s.phone, s.email, s.designation]
+              .filter(Boolean)
+              .some((v) => String(v).toLowerCase().includes(q))
+            if (!matches) return false
+          }
+          if (role !== 'all') {
+            const hasRole = s.assignedRoles?.some((r) => r.id === role)
+            if (!hasRole) return false
+          }
+          if (status === 'active' && !s.isActive) return false
+          if (status === 'inactive' && s.isActive) return false
+          return true
+        })
+
+        const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' })
+        filtered.sort((a, b) => {
+          const aId = a.employeeId ?? ''
+          const bId = b.employeeId ?? ''
+          if (!aId && !bId) return 0
+          if (!aId) return 1
+          if (!bId) return -1
+          return collator.compare(aId, bId)
+        })
+
+        const total = filtered.length
+        const totalPages = Math.max(1, Math.ceil(total / limit))
+        const safePage = Math.min(page, totalPages)
+        const start = (safePage - 1) * limit
+        const slice = filtered.slice(start, start + limit)
+
+        const mapped: SchoolUser[] = slice.map((s) => ({
+          id: s.id,
+          employeeId: s.employeeId ?? null,
+          name: s.name,
+          email: s.email || '',
+          role: 'STAFF',
+          phone: s.phone ?? null,
+          isActive: s.isActive,
+          assignedRoles: s.assignedRoles ?? [],
+        }))
+
+        setUsers(mapped)
+        setPagination({ page: safePage, limit, total, totalPages })
+      } catch {
+        toast({ title: "Couldn't Load Staff", description: "We couldn't load the staff list. Please refresh the page.", variant: 'destructive' })
+      } finally {
+        setLoadingUsers(false)
+      }
+    },
+    [toast],
+  )
+
   const fetchRoles = useCallback(async () => {
     try {
       const res = await api.get<{ roles: AvailableRole[] }>('/api/school/roles')
       setAvailableRoles(res.roles || [])
     } catch {
-      // silent — roles are just for display
+      // silent — roles are just for display + filter options
     }
   }, [])
 
-  // ── Initial load + refetch on search change ──
-  // Search change always resets to page 1; page/limit changes are handled by
-  // the explicit handlers below to avoid double-fetches on initial mount.
+  // Filter changes always reset back to page 1.
   useEffect(() => {
-    fetchUsers(1, pagination.limit, debouncedSearch)
+    fetchUsers(1, pagination.limit, debouncedSearch, roleFilter, statusFilter)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debouncedSearch])
+  }, [debouncedSearch, roleFilter, statusFilter])
 
   useEffect(() => {
     fetchRoles()
@@ -310,46 +482,89 @@ export function StaffPage() {
 
   // ── Pagination handlers ──
   const handlePageChange = useCallback((page: number) => {
-    fetchUsers(page, pagination.limit, debouncedSearch)
-  }, [fetchUsers, pagination.limit, debouncedSearch])
+    fetchUsers(page, pagination.limit, debouncedSearch, roleFilter, statusFilter)
+  }, [fetchUsers, pagination.limit, debouncedSearch, roleFilter, statusFilter])
 
   const handlePageSizeChange = useCallback((size: number) => {
-    fetchUsers(1, size, debouncedSearch)
-  }, [fetchUsers, debouncedSearch])
+    fetchUsers(1, size, debouncedSearch, roleFilter, statusFilter)
+  }, [fetchUsers, debouncedSearch, roleFilter, statusFilter])
 
-  // ── Navigate to detail ──
-  const handleViewStaff = useCallback((userId: string) => {
-    router.push(`/staff/${userId}`)
-  }, [router])
+  // ── Navigation ──
+  const handleViewStaff = useCallback(async (userId: string) => {
+    setDetailOpen(true)
+    setDetailLoading(true)
+    setSelectedStaff(null)
+    try {
+      const res = await api.get<StaffDetail>(`/api/school/staff/${userId}`)
+      setSelectedStaff(res)
+    } catch (err) {
+      setDetailOpen(false)
+      toast({
+        title: "Couldn't Load Staff",
+        description: err instanceof Error ? err.message : "We couldn't load this staff member's details. Please try again.",
+        variant: 'destructive',
+      })
+    } finally {
+      setDetailLoading(false)
+    }
+  }, [toast])
 
-  // ── Navigate to create ──
   const handleCreateStaff = useCallback(() => {
     router.push('/staff/new')
   }, [router])
 
-  // ── Derived state ──
-  // Search and pagination are server-side — `users` already represents the
-  // current page's slice for the active search.
-  const roleBreakdown = useMemo(() => {
-    const counts: Record<string, number> = {}
-    for (const u of users) {
-      counts[u.role] = (counts[u.role] || 0) + 1
+  // ── Toggle active/inactive ──
+  const handleConfirmToggle = useCallback(async () => {
+    if (!toggleTarget) return
+    const target = toggleTarget
+    const nextActive = !target.isActive
+    try {
+      setTogglingId(target.id)
+      await api.patch(`/api/school/staff/${target.id}`, { isActive: nextActive })
+      toast({
+        title: nextActive ? 'Staff Enabled' : 'Staff Disabled',
+        description: `${target.name} ${nextActive ? 'can now sign in.' : 'will no longer be able to sign in.'}`,
+      })
+      setToggleTarget(null)
+      await fetchUsers(pagination.page, pagination.limit, debouncedSearch, roleFilter, statusFilter)
+    } catch (err) {
+      toast({
+        title: 'Update Failed',
+        description: err instanceof Error ? err.message : "We couldn't update the staff status. Please try again.",
+        variant: 'destructive',
+      })
+    } finally {
+      setTogglingId(null)
     }
-    return counts
-  }, [users])
+  }, [toggleTarget, toast, fetchUsers, pagination.page, pagination.limit, debouncedSearch, roleFilter, statusFilter])
+
+  // ── Derived state ──
+  const filterableRoles = useMemo(() => {
+    // Hide identity/system roles that aren't assignable to staff.
+    const excluded = new Set(['School Admin', 'Teacher', 'Student', 'Parent', 'Staff', 'Transport'])
+    return availableRoles
+      .filter((r) => !excluded.has(r.name))
+      .sort((a, b) => a.name.localeCompare(b.name))
+  }, [availableRoles])
+
+  const hasActiveFilters = roleFilter !== 'all' || statusFilter !== 'all' || debouncedSearch !== ''
+
+  const clearFilters = useCallback(() => {
+    setSearchQuery('')
+    setRoleFilter('all')
+    setStatusFilter('all')
+  }, [])
 
   // ── Render ──
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Header */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex min-w-0 items-start gap-3">
-          <div className="min-w-0">
-          <h1 className="text-xl font-bold tracking-tight">Staff Management</h1>
+        <div className="min-w-0">
+          <h1 className="text-xl font-bold tracking-tight">Staff List</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Manage staff members and their roles — permissions are automatically inherited
+            View and manage staff profiles, roles, and account status
           </p>
-          </div>
         </div>
         <Button onClick={handleCreateStaff} className="gap-2 shrink-0">
           <UserPlus className="size-4" />
@@ -357,75 +572,79 @@ export function StaffPage() {
         </Button>
       </div>
 
-      {/* Info Banner */}
-      <div className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800">
-        <ShieldCheck className="size-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-        <span className="text-xs font-medium text-emerald-700 dark:text-emerald-400">
-          Permissions are automatically inherited from roles — when you assign a role to a staff member, they instantly receive all permissions defined for that role.
-        </span>
-      </div>
-
-      {/* Stats Row */}
-      {loadingUsers ? (
-        <StatsSkeleton />
-      ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <Card className="relative overflow-hidden">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Total Staff</p>
-                  <p className="text-2xl font-bold tracking-tight">{pagination.total}</p>
-                </div>
-                <div className="flex size-10 items-center justify-center rounded-xl bg-primary/10">
-                  <Users className="size-5 text-primary" />
-                </div>
-              </div>
-            </CardContent>
-            <div className="absolute bottom-0 left-0 h-1 w-full bg-gradient-to-r from-primary/60 via-primary to-primary/40" />
-          </Card>
-
-          {Object.entries(roleBreakdown)
-            .sort(([a], [b]) => a.localeCompare(b))
-            .slice(0, 3)
-            .map(([role, count]) => (
-              <Card key={role} className="relative overflow-hidden">
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">{formatRoleName(role)}</p>
-                      <p className="text-2xl font-bold tracking-tight">{count}</p>
-                    </div>
-                    <div className="flex size-10 items-center justify-center rounded-xl bg-muted">
-                      <Shield className="size-5 text-muted-foreground" />
-                    </div>
-                  </div>
-                </CardContent>
-                <div className="absolute bottom-0 left-0 h-1 w-full bg-gradient-to-r from-muted/60 via-muted to-muted/40" />
-              </Card>
-            ))}
-        </div>
-      )}
-
       {/* Staff Table */}
       <Card>
         <CardHeader className="pb-3">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <CardTitle className="text-sm font-semibold flex items-center gap-2">
-              <Users className="size-4" />
-              Staff Members
-              <Badge variant="secondary" className="text-[10px]">
-                {pagination.total}
-              </Badge>
-            </CardTitle>
-            <div className="relative w-full sm:w-72">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
-              <Input
-                placeholder="Search by name, email, role..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-8 h-8 text-sm"
-              />
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                <Users className="size-4" />
+                Staff Members
+                <Badge variant="secondary" className="text-[10px]">
+                  {pagination.total}
+                </Badge>
+              </CardTitle>
+            </div>
+
+            {/* Filters Row */}
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <div className="relative w-full sm:max-w-xs">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
+                <Input
+                  placeholder="Search by name, employee ID, email..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-8 h-9 text-sm"
+                />
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Select value={roleFilter} onValueChange={setRoleFilter}>
+                  <SelectTrigger className="h-9 w-full sm:w-[180px] text-sm">
+                    <SelectValue placeholder="All roles" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All roles</SelectItem>
+                    {filterableRoles.map((role) => {
+                      const Icon = ROLE_DISPLAY_ICONS[role.name] || Shield
+                      return (
+                        <SelectItem key={role.id} value={role.id}>
+                          <span className="inline-flex items-center gap-2">
+                            <Icon className="size-3.5" />
+                            {role.name}
+                          </span>
+                        </SelectItem>
+                      )
+                    })}
+                  </SelectContent>
+                </Select>
+
+                <Select
+                  value={statusFilter}
+                  onValueChange={(v) => setStatusFilter(v as StatusFilter)}
+                >
+                  <SelectTrigger className="h-9 w-full sm:w-[140px] text-sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All status</SelectItem>
+                    <SelectItem value="active">Active only</SelectItem>
+                    <SelectItem value="inactive">Inactive only</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                {hasActiveFilters && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={clearFilters}
+                    className="h-9 gap-1 text-xs"
+                  >
+                    <X className="size-3.5" />
+                    Clear
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
         </CardHeader>
@@ -441,10 +660,16 @@ export function StaffPage() {
               </div>
               <h3 className="text-lg font-semibold text-muted-foreground">No Staff Found</h3>
               <p className="text-sm text-muted-foreground/70 mt-1 max-w-sm">
-                {debouncedSearch
-                  ? 'No staff members match your search criteria.'
+                {hasActiveFilters
+                  ? 'No staff members match your current filters.'
                   : 'No staff members have been added yet. Click "Add Staff" to get started.'}
               </p>
+              {hasActiveFilters && (
+                <Button variant="outline" size="sm" onClick={clearFilters} className="mt-3 gap-1">
+                  <X className="size-3.5" />
+                  Clear filters
+                </Button>
+              )}
             </div>
           ) : (
             <>
@@ -454,26 +679,26 @@ export function StaffPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Name</TableHead>
+                      <TableHead className="w-[130px]">Employee ID</TableHead>
                       <TableHead>Email</TableHead>
                       <TableHead className="hidden lg:table-cell">Phone</TableHead>
                       <TableHead>Role</TableHead>
-                      <TableHead className="hidden lg:table-cell">Permissions</TableHead>
-                      <TableHead className="w-12">View</TableHead>
+                      <TableHead className="w-[110px]">Status</TableHead>
+                      <TableHead className="w-12 text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {users.map((staff) => {
                       const firstAssignedRole = staff.assignedRoles?.[0]
-                      const roleInfo = firstAssignedRole
-                        ? availableRoles.find((r) => r.id === firstAssignedRole.id)
-                        : availableRoles.find(
-                            (r) => r.name.toLowerCase() === staff.role.replace('_', ' ').toLowerCase() || (r.name === 'Teacher' && staff.role === 'TEACHER')
-                          )
-                      const permCount = roleInfo?.permissionCount ?? 0
                       const displayRoleName = firstAssignedRole?.name ?? formatRoleName(staff.role)
                       const extraRoleCount = (staff.assignedRoles?.length ?? 0) > 1 ? (staff.assignedRoles!.length - 1) : 0
+                      const isToggling = togglingId === staff.id
                       return (
-                        <TableRow key={staff.id} className="cursor-pointer" onClick={() => handleViewStaff(staff.id)}>
+                        <TableRow
+                          key={staff.id}
+                          className={`cursor-pointer ${!staff.isActive ? 'opacity-70' : ''}`}
+                          onClick={() => handleViewStaff(staff.id)}
+                        >
                           <TableCell>
                             <div className="flex items-center gap-3">
                               <Avatar className="size-8 shrink-0">
@@ -493,6 +718,13 @@ export function StaffPage() {
                                 )}
                               </div>
                             </div>
+                          </TableCell>
+                          <TableCell>
+                            {staff.employeeId ? (
+                              <span className="font-mono text-xs">{staff.employeeId}</span>
+                            ) : (
+                              <span className="text-sm text-muted-foreground">-</span>
+                            )}
                           </TableCell>
                           <TableCell className="text-sm text-muted-foreground">{staff.email}</TableCell>
                           <TableCell className="hidden lg:table-cell text-sm text-muted-foreground">
@@ -514,16 +746,47 @@ export function StaffPage() {
                               )}
                             </div>
                           </TableCell>
-                          <TableCell className="hidden lg:table-cell">
-                            <span className="text-xs text-muted-foreground flex items-center gap-1">
-                              <ShieldCheck className="size-3" />
-                              {permCount} perm{permCount !== 1 ? 's' : ''}
-                            </span>
-                          </TableCell>
                           <TableCell>
-                            <Button variant="ghost" size="icon" className="size-8" onClick={(e) => { e.stopPropagation(); handleViewStaff(staff.id) }}>
-                              <Eye className="size-4 text-muted-foreground" />
-                            </Button>
+                            <StatusBadge active={staff.isActive} />
+                          </TableCell>
+                          <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="size-8"
+                                  disabled={isToggling}
+                                >
+                                  <MoreHorizontal className="size-4 text-muted-foreground" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="w-44">
+                                <DropdownMenuLabel className="text-xs">Actions</DropdownMenuLabel>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => handleViewStaff(staff.id)}>
+                                  <Eye className="size-4" />
+                                  View profile
+                                </DropdownMenuItem>
+                                {staff.isActive ? (
+                                  <DropdownMenuItem
+                                    onClick={() => setToggleTarget(staff)}
+                                    className="text-red-600 focus:text-red-600 dark:text-red-400 dark:focus:text-red-400"
+                                  >
+                                    <PowerOff className="size-4" />
+                                    Disable account
+                                  </DropdownMenuItem>
+                                ) : (
+                                  <DropdownMenuItem
+                                    onClick={() => setToggleTarget(staff)}
+                                    className="text-emerald-700 focus:text-emerald-700 dark:text-emerald-400 dark:focus:text-emerald-400"
+                                  >
+                                    <Power className="size-4" />
+                                    Enable account
+                                  </DropdownMenuItem>
+                                )}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           </TableCell>
                         </TableRow>
                       )
@@ -538,59 +801,88 @@ export function StaffPage() {
                   <div className="space-y-1 px-3 pb-3">
                     {users.map((staff) => {
                       const firstAssignedRole = staff.assignedRoles?.[0]
-                      const roleInfo = firstAssignedRole
-                        ? availableRoles.find((r) => r.id === firstAssignedRole.id)
-                        : availableRoles.find(
-                            (r) => r.name.toLowerCase() === staff.role.replace('_', ' ').toLowerCase() || (r.name === 'Teacher' && staff.role === 'TEACHER')
-                          )
-                      const permCount = roleInfo?.permissionCount ?? 0
                       const displayRoleName = firstAssignedRole?.name ?? formatRoleName(staff.role)
                       const extraRoleCount = (staff.assignedRoles?.length ?? 0) > 1 ? (staff.assignedRoles!.length - 1) : 0
+                      const isToggling = togglingId === staff.id
                       return (
-                        <button
+                        <div
                           key={staff.id}
-                          onClick={() => handleViewStaff(staff.id)}
-                          className="w-full flex items-center gap-3 p-3 rounded-lg text-left transition-all duration-150 hover:bg-muted/60 border border-transparent"
+                          className={`w-full flex items-center gap-3 p-3 rounded-lg transition-all duration-150 hover:bg-muted/60 border border-transparent ${!staff.isActive ? 'opacity-70' : ''}`}
                         >
-                          <Avatar className="size-9 shrink-0">
-                            <AvatarFallback className="bg-primary/10 text-primary text-[10px] font-medium">
-                              {getInitials(staff.name)}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-1.5">
-                              <p className="text-sm font-medium truncate">{staff.name}</p>
-                              {staff.isLocked && (
-                                <Lock className="size-3 text-red-600 dark:text-red-400 shrink-0" />
-                              )}
+                          <button
+                            onClick={() => handleViewStaff(staff.id)}
+                            className="flex flex-1 items-center gap-3 text-left min-w-0"
+                          >
+                            <Avatar className="size-9 shrink-0">
+                              <AvatarFallback className="bg-primary/10 text-primary text-[10px] font-medium">
+                                {getInitials(staff.name)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1.5">
+                                <p className="text-sm font-medium truncate">{staff.name}</p>
+                                {staff.isLocked && (
+                                  <Lock className="size-3 text-red-600 dark:text-red-400 shrink-0" />
+                                )}
+                              </div>
+                              <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                                {staff.employeeId && (
+                                  <span className="font-mono text-[11px] text-muted-foreground">{staff.employeeId}</span>
+                                )}
+                                <Badge
+                                  variant="secondary"
+                                  className={`text-[9px] px-1.5 py-0 h-4 leading-none ${getRoleBadgeColor(staff.role)}`}
+                                  style={firstAssignedRole?.color ? { backgroundColor: `${firstAssignedRole.color}20`, color: firstAssignedRole.color } : undefined}
+                                >
+                                  {displayRoleName}
+                                </Badge>
+                                {extraRoleCount > 0 && (
+                                  <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 leading-none">
+                                    +{extraRoleCount}
+                                  </Badge>
+                                )}
+                                <StatusBadge active={staff.isActive} />
+                              </div>
                             </div>
-                            <div className="flex items-center gap-2 mt-0.5">
-                              <Badge
-                                variant="secondary"
-                                className={`text-[9px] px-1.5 py-0 h-4 leading-none ${getRoleBadgeColor(staff.role)}`}
-                                style={firstAssignedRole?.color ? { backgroundColor: `${firstAssignedRole.color}20`, color: firstAssignedRole.color } : undefined}
+                          </button>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="size-8 shrink-0"
+                                disabled={isToggling}
                               >
-                                {displayRoleName}
-                              </Badge>
-                              {extraRoleCount > 0 && (
-                                <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 leading-none">
-                                  +{extraRoleCount}
-                                </Badge>
+                                <MoreHorizontal className="size-4 text-muted-foreground" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-44">
+                              <DropdownMenuLabel className="text-xs">Actions</DropdownMenuLabel>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem onClick={() => handleViewStaff(staff.id)}>
+                                <Eye className="size-4" />
+                                View profile
+                              </DropdownMenuItem>
+                              {staff.isActive ? (
+                                <DropdownMenuItem
+                                  onClick={() => setToggleTarget(staff)}
+                                  className="text-red-600 focus:text-red-600 dark:text-red-400 dark:focus:text-red-400"
+                                >
+                                  <PowerOff className="size-4" />
+                                  Disable account
+                                </DropdownMenuItem>
+                              ) : (
+                                <DropdownMenuItem
+                                  onClick={() => setToggleTarget(staff)}
+                                  className="text-emerald-700 focus:text-emerald-700 dark:text-emerald-400 dark:focus:text-emerald-400"
+                                >
+                                  <Power className="size-4" />
+                                  Enable account
+                                </DropdownMenuItem>
                               )}
-                              <span className="text-muted-foreground/40">·</span>
-                              <span className="text-[11px] text-muted-foreground flex items-center gap-1">
-                                <ShieldCheck className="size-3" />
-                                {permCount}
-                              </span>
-                              {staff.isLocked && (
-                                <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 leading-none border-red-300 text-red-700 dark:border-red-700 dark:text-red-400">
-                                  Locked
-                                </Badge>
-                              )}
-                            </div>
-                          </div>
-                          <Eye className="size-4 text-muted-foreground/50 shrink-0" />
-                        </button>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
                       )
                     })}
                   </div>
@@ -606,6 +898,158 @@ export function StaffPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Disable / Enable confirmation */}
+      <AlertDialog open={!!toggleTarget} onOpenChange={(open) => !open && setToggleTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {toggleTarget?.isActive ? 'Disable this staff account?' : 'Enable this staff account?'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {toggleTarget?.isActive ? (
+                <>
+                  <span className="font-medium text-foreground">{toggleTarget?.name}</span>{' '}
+                  will no longer be able to sign in. Their record stays intact and you can re-enable the account at any time.
+                </>
+              ) : (
+                <>
+                  <span className="font-medium text-foreground">{toggleTarget?.name}</span>{' '}
+                  will regain sign-in access immediately with their existing role and permissions.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={!!togglingId}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault()
+                handleConfirmToggle()
+              }}
+              disabled={!!togglingId}
+              className={
+                toggleTarget?.isActive
+                  ? 'bg-red-600 text-white hover:bg-red-700 focus-visible:ring-red-600/40'
+                  : 'bg-emerald-600 text-white hover:bg-emerald-700 focus-visible:ring-emerald-600/40'
+              }
+            >
+              {togglingId
+                ? 'Working…'
+                : toggleTarget?.isActive
+                  ? 'Disable account'
+                  : 'Enable account'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Staff Detail Modal */}
+      <Dialog
+        open={detailOpen}
+        onOpenChange={(open) => {
+          setDetailOpen(open)
+          if (!open) setSelectedStaff(null)
+        }}
+      >
+        <DialogContent className="max-h-[85vh] overflow-y-auto p-3.5 sm:max-w-lg">
+          <DialogHeader className="gap-0.5">
+            <DialogTitle className="text-[15px]">Staff Profile</DialogTitle>
+            <DialogDescription className="text-xs">
+              Profile, contact, and employment information.
+            </DialogDescription>
+          </DialogHeader>
+
+          {detailLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="size-5 animate-spin text-primary" />
+            </div>
+          ) : selectedStaff ? (
+            <div className="space-y-2">
+              <div className="rounded-md border bg-muted/30 p-2.5">
+                <div className="flex items-center gap-2.5">
+                  <Avatar className="size-10 border bg-background">
+                    <AvatarFallback className="bg-primary/10 text-primary text-xs font-semibold">
+                      {getInitials(selectedStaff.name)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <h3 className="truncate text-sm font-semibold text-foreground">{selectedStaff.name}</h3>
+                      <Badge variant={selectedStaff.isActive ? 'default' : 'destructive'} className="h-4 px-1 text-[9px]">
+                        {selectedStaff.isActive ? 'Active' : 'Inactive'}
+                      </Badge>
+                    </div>
+                    <div className="mt-0.5 flex flex-wrap gap-x-2 gap-y-0.5 text-[10px] text-muted-foreground">
+                      {selectedStaff.employeeId && <span className="font-mono">{selectedStaff.employeeId}</span>}
+                      {selectedStaff.designation && <span>{selectedStaff.designation}</span>}
+                      {selectedStaff.department && <span>{selectedStaff.department}</span>}
+                    </div>
+                    {(selectedStaff.assignedRoles?.length ?? 0) > 0 && (
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {selectedStaff.assignedRoles!.map((role) => (
+                          <Badge
+                            key={role.id}
+                            variant="secondary"
+                            className="text-[9px] px-1 py-0 h-4 leading-none"
+                            style={role.color ? { backgroundColor: `${role.color}20`, color: role.color } : undefined}
+                          >
+                            {role.name}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid gap-1.5 sm:grid-cols-2">
+                <DetailItem icon={IdCard} label="Employee ID" value={selectedStaff.employeeId} mono />
+                <DetailItem icon={Briefcase} label="Designation" value={selectedStaff.designation} />
+                <DetailItem icon={Phone} label="Phone" value={selectedStaff.phone} />
+                <DetailItem
+                  icon={Mail}
+                  label="Email"
+                  value={selectedStaff.email && !selectedStaff.email.endsWith('@staff.local') ? selectedStaff.email : null}
+                />
+                <DetailItem icon={UserIcon} label="Gender" value={selectedStaff.gender} />
+                <DetailItem icon={CalendarDays} label="Date of Birth" value={formatDate(selectedStaff.dateOfBirth)} />
+                <DetailItem icon={Briefcase} label="Department" value={selectedStaff.department} />
+                <DetailItem icon={CalendarDays} label="Join Date" value={formatDate(selectedStaff.joinDate)} />
+                <DetailItem icon={GraduationCap} label="Qualification" value={selectedStaff.qualification} />
+                <div className="sm:col-span-2">
+                  <DetailItem
+                    icon={MapPin}
+                    label="Address"
+                    value={[selectedStaff.address, selectedStaff.city, selectedStaff.state, selectedStaff.pincode]
+                      .filter(Boolean)
+                      .join(', ') || null}
+                  />
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          <DialogFooter className="gap-2">
+            <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setDetailOpen(false)}>
+              Close
+            </Button>
+            {selectedStaff && (
+              <Button
+                size="sm"
+                className="h-7 text-xs gap-1.5"
+                onClick={() => {
+                  setDetailOpen(false)
+                  router.push(`/staff/${selectedStaff.id}/edit`)
+                }}
+              >
+                <Pencil className="size-3.5" />
+                Edit
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

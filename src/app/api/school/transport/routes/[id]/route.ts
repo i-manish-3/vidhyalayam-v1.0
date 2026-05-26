@@ -189,28 +189,32 @@ export async function PUT(
     let selectedDriver: { name: string; phone: string | null } | null = null
     const cleanedDriverId = optionalText(driverId)
     if (driverId !== undefined && cleanedDriverId) {
-      selectedDriver = await db.user.findFirst({
+      const driverRecord = await db.driver.findFirst({
         where: {
           id: cleanedDriverId,
           schoolId: user.schoolId,
           deletedAt: null,
           isActive: true,
-          userRoles: {
-            some: {
-              role: {
-                schoolId: user.schoolId,
-                name: 'Transport',
-                deletedAt: null,
-                isActive: true,
-              },
-            },
-          },
         },
         select: {
-          name: true,
-          phone: true,
+          firstName: true,
+          lastName: true,
+          userId: true,
         },
       })
+
+      if (driverRecord) {
+        const linkedUser = driverRecord.userId
+          ? await db.user.findFirst({
+              where: { id: driverRecord.userId, deletedAt: null },
+              select: { phone: true },
+            })
+          : null
+        selectedDriver = {
+          name: `${driverRecord.firstName} ${driverRecord.lastName}`.trim(),
+          phone: linkedUser?.phone ?? null,
+        }
+      }
 
       if (!selectedDriver) {
         return apiError(400, 'Please choose a valid driver from the driver list.')

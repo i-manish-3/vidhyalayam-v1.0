@@ -44,6 +44,7 @@ interface TransportDriver {
   name: string
   phone: string | null
   avatar?: string | null
+  isActive?: boolean
 }
 
 export function TransportPage() {

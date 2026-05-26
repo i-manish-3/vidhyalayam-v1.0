@@ -89,11 +89,10 @@ export async function POST(request: NextRequest) {
 
     // Create sections
     const created = await db.section.createMany({
-      data: validSections.map((s: { name: string; capacity?: number }) => ({
+      data: validSections.map((s: { name: string }) => ({
         schoolId: user.schoolId!,
         classId,
         name: s.name.trim(),
-        capacity: s.capacity || 40,
       })),
     })
 

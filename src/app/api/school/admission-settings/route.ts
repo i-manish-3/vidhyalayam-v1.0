@@ -3,9 +3,11 @@ import { db } from '@/lib/db'
 import { requirePermission, requireRole } from '@/lib/api-auth'
 import { apiError, forbiddenError, internalError, unauthorizedError } from '@/lib/api-errors'
 import { formatSchoolNumber } from '@/lib/admission-numbering'
+import { formatEmployeeNumber } from '@/lib/employee-numbering'
 
 const FORMAT_PATTERN = /^[A-Za-z0-9{}_\-\/]+$/
 const TOKEN_PATTERN = /\{(PREFIX|YEAR|YY|SEQ|CLASS)\}/g
+const EMPLOYEE_TOKEN_PATTERN = /\{(PREFIX|YEAR|YY|SEQ)\}/g
 
 function cleanText(value: unknown, fallback: string) {
   return typeof value === 'string' ? value.trim().toUpperCase() || fallback : fallback
@@ -29,13 +31,30 @@ function validateFormat(format: string) {
   return !/[{}]/.test(stripped)
 }
 
-function sample(format: string, prefix: string, digits: number) {
+function validateEmployeeFormat(format: string) {
+  if (!FORMAT_PATTERN.test(format)) return false
+  if (!format.includes('{SEQ}')) return false
+
+  const stripped = format.replace(EMPLOYEE_TOKEN_PATTERN, '')
+  return !/[{}]/.test(stripped)
+}
+
+function sample(format: string, prefix: string, digits: number, sequence = 1) {
   return formatSchoolNumber({
     format,
     prefix,
-    sequence: 1,
+    sequence,
     digits,
     classId: 'CLASS',
+  })
+}
+
+function employeeSample(format: string, prefix: string, digits: number, sequence = 1) {
+  return formatEmployeeNumber({
+    format,
+    prefix,
+    sequence,
+    digits,
   })
 }
 
@@ -52,14 +71,15 @@ export async function GET(request: NextRequest) {
     const settings = await db.admissionSetting.upsert({
       where: { schoolId: user.schoolId },
       update: {},
-      create: { schoolId: user.schoolId },
+      create: { school: { connect: { id: user.schoolId } } },
     })
 
     return NextResponse.json({
       settings,
       samples: {
-        admissionNumber: sample(settings.admissionNumberFormat, settings.admissionNumberPrefix, settings.sequenceDigits),
-        registrationNumber: sample(settings.registrationNumberFormat, settings.registrationNumberPrefix, settings.registrationSequenceDigits),
+        admissionNumber: sample(settings.admissionNumberFormat, settings.admissionNumberPrefix, settings.sequenceDigits, settings.sequenceStart),
+        registrationNumber: sample(settings.registrationNumberFormat, settings.registrationNumberPrefix, settings.registrationSequenceDigits, settings.registrationSequenceStart),
+        employeeId: employeeSample(settings.employeeNumberFormat, settings.employeeNumberPrefix, settings.employeeSequenceDigits, settings.employeeSequenceStart),
       },
     })
   } catch (error) {
@@ -91,11 +111,20 @@ export async function PATCH(request: NextRequest) {
     const registrationSequenceDigits = cleanNumber(body.registrationSequenceDigits, 3, 1, 10)
     const registrationResetYearly = cleanBoolean(body.registrationResetYearly, true)
 
+    const employeeNumberPrefix = cleanText(body.employeeNumberPrefix, 'EMP')
+    const employeeNumberFormat = cleanText(body.employeeNumberFormat, '{PREFIX}-{SEQ}')
+    const employeeSequenceStart = cleanNumber(body.employeeSequenceStart, 1, 1, 999999)
+    const employeeSequenceDigits = cleanNumber(body.employeeSequenceDigits, 4, 1, 10)
+    const employeeResetYearly = cleanBoolean(body.employeeResetYearly, false)
+
     if (!validateFormat(admissionNumberFormat)) {
       return apiError(400, 'Admission number format must include {SEQ} and only use supported tokens.')
     }
     if (!validateFormat(registrationNumberFormat)) {
       return apiError(400, 'Registration number format must include {SEQ} and only use supported tokens.')
+    }
+    if (!validateEmployeeFormat(employeeNumberFormat)) {
+      return apiError(400, 'Employee ID format must include {SEQ} and only use supported tokens.')
     }
 
     const settings = await db.admissionSetting.upsert({
@@ -112,6 +141,11 @@ export async function PATCH(request: NextRequest) {
         registrationSequenceStart,
         registrationSequenceDigits,
         registrationResetYearly,
+        employeeNumberPrefix,
+        employeeNumberFormat,
+        employeeSequenceStart,
+        employeeSequenceDigits,
+        employeeResetYearly,
       },
       update: {
         admissionNumberPrefix,
@@ -124,14 +158,20 @@ export async function PATCH(request: NextRequest) {
         registrationSequenceStart,
         registrationSequenceDigits,
         registrationResetYearly,
+        employeeNumberPrefix,
+        employeeNumberFormat,
+        employeeSequenceStart,
+        employeeSequenceDigits,
+        employeeResetYearly,
       },
     })
 
     return NextResponse.json({
       settings,
       samples: {
-        admissionNumber: sample(settings.admissionNumberFormat, settings.admissionNumberPrefix, settings.sequenceDigits),
-        registrationNumber: sample(settings.registrationNumberFormat, settings.registrationNumberPrefix, settings.registrationSequenceDigits),
+        admissionNumber: sample(settings.admissionNumberFormat, settings.admissionNumberPrefix, settings.sequenceDigits, settings.sequenceStart),
+        registrationNumber: sample(settings.registrationNumberFormat, settings.registrationNumberPrefix, settings.registrationSequenceDigits, settings.registrationSequenceStart),
+        employeeId: employeeSample(settings.employeeNumberFormat, settings.employeeNumberPrefix, settings.employeeSequenceDigits, settings.employeeSequenceStart),
       },
     })
   } catch (error) {

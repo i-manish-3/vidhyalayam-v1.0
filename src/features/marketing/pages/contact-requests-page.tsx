@@ -119,8 +119,7 @@ export function ContactRequestsPage() {
   const [addonIdToName, setAddonIdToName] = useState<Record<string, string>>({})
 
   useEffect(() => {
-    fetch('/api/pricing')
-      .then((res) => res.json())
+    api.get<{ addons?: Array<{ id: string; name: string }> }>('/api/pricing', undefined, { skipLogoutOn401: true })
       .then((data: { addons?: Array<{ id: string; name: string }> }) => {
         if (data.addons) {
           const map: Record<string, string> = {}

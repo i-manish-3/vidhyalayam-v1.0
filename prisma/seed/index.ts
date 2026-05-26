@@ -106,7 +106,7 @@ async function seed() {
   const sections: any[] = []
   for (const cls of classes) {
     for (const s of ['A', 'B']) {
-      sections.push(await db.section.create({ data: { schoolId: school.id, classId: cls.id, name: s, capacity: 40 } }))
+      sections.push(await db.section.create({ data: { schoolId: school.id, classId: cls.id, name: s } }))
     }
   }
   console.log(`✅ Created ${classes.length} classes and ${sections.length} sections`)

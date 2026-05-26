@@ -233,6 +233,17 @@ class ApiClient {
     return result
   }
 
+  async upload<T>(path: string, formData: FormData, options?: { skipLogoutOn401?: boolean }): Promise<T> {
+    const result = await this.fetchWithRetry<T>(`${BASE_URL}${path}`, {
+      method: 'POST',
+      body: formData,
+    }, options?.skipLogoutOn401)
+
+    clearRelatedCache(path)
+
+    return result
+  }
+
   async delete<T>(
     path: string,
     bodyOrOptions?: unknown | { skipLogoutOn401?: boolean },

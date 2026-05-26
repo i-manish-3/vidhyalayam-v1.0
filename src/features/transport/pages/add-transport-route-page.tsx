@@ -19,6 +19,7 @@ interface DriverOption {
   id: string
   name: string
   phone: string | null
+  isActive?: boolean
 }
 
 interface RouteStop {
@@ -482,7 +483,7 @@ export function AddTransportRoutePage() {
                   <SelectValue placeholder={loadingDrivers ? 'Loading drivers...' : 'Choose driver later or now'} />
                 </SelectTrigger>
                 <SelectContent>
-                  {drivers.map((driver) => (
+                  {drivers.filter((driver) => driver.isActive !== false).map((driver) => (
                     <SelectItem key={driver.id} value={driver.id}>
                       {driver.name}{driver.phone ? ` - ${driver.phone}` : ''}
                     </SelectItem>
