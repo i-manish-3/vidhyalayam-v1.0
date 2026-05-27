@@ -13,6 +13,7 @@ export const MIGRATED_PAGES: Partial<Record<PageName, (...args: string[]) => str
   'attendance': () => '/attendance/mark',
   'mark-attendance': () => '/attendance/mark',
   'view-attendance': () => '/attendance/view',
+  'attendance-audit-log': () => '/audit-logs/attendance',
   'my-attendance': () => '/attendance/me',
   'fees-heads': () => '/fees/heads',
   'fees-groups': () => '/fees/groups',

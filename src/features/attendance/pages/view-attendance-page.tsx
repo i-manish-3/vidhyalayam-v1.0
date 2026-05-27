@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { EmptyState, LoadingState } from '@/components/shared'
 import { api } from '@/lib/api'
 import { useAppStore } from '@/lib/store'
@@ -207,6 +207,7 @@ function matchesRecordSearch(record: AttendanceRecord, query: string): boolean {
 
 export function ViewAttendancePage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { toast } = useToast()
   const { hasPermission } = usePermissions()
   const canMark = hasPermission(PERMISSIONS.ATTENDANCE_MARK)
@@ -214,10 +215,11 @@ export function ViewAttendancePage() {
   const viewingAcademicYear = useAppStore((s) => s.viewingAcademicYear)
   const academicYear = viewingAcademicYear || currentSchoolAcademicYear || getCurrentAcademicYear()
 
-  // Filter state
-  const [date, setDate] = useState(getTodayString())
-  const [classId, setClassId] = useState<string>('')
-  const [sectionId, setSectionId] = useState<string>('')
+  // Filter state — initial values can come from URL params so the Audit Log
+  // page (and any future deep link) can land on a specific date/class/section.
+  const [date, setDate] = useState(() => searchParams.get('date') || getTodayString())
+  const [classId, setClassId] = useState<string>(() => searchParams.get('classId') || '')
+  const [sectionId, setSectionId] = useState<string>(() => searchParams.get('sectionId') || '')
   const [searchQuery, setSearchQuery] = useState('')
 
   // Data state

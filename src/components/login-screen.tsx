@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence, type Variants } from 'framer-motion'
 import { useTheme } from 'next-themes'
 import { useAppStore } from '@/lib/store'
 import { api } from '@/lib/api'
@@ -20,11 +20,12 @@ import {
   Sun,
   Moon,
   GraduationCap,
+  BookOpenCheck,
   Eye,
   EyeOff,
   Loader2,
-  ArrowLeft,
-  Sparkles,
+  ArrowRight,
+  ShieldCheck,
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 
@@ -36,52 +37,26 @@ const DEMO_ACCOUNTS = [
   { label: 'Parent', email: '9876543201', password: 'parent123', role: 'PARENT' },
 ]
 
-// Animation variants
-const containerVariants = {
+const containerVariants: Variants = {
   hidden: { opacity: 0 },
   visible: {
     opacity: 1,
-    transition: { staggerChildren: 0.06, delayChildren: 0.2 },
+    transition: { staggerChildren: 0.06, delayChildren: 0.12 },
   },
 }
 
-const itemVariants = {
+const itemVariants: Variants = {
   hidden: { opacity: 0, y: 16, filter: 'blur(4px)' },
   visible: { opacity: 1, y: 0, filter: 'blur(0px)', transition: { duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] } },
 }
 
-// Animated gradient background orbs
-function BackgroundOrbs() {
-  return (
-    <div className="absolute inset-0 overflow-hidden pointer-events-none">
-      <motion.div
-        className="absolute w-[600px] h-[600px] rounded-full opacity-20 dark:opacity-10"
-        style={{ background: 'radial-gradient(circle, rgba(16,185,129,0.3), transparent 70%)', top: '-15%', right: '-10%' }}
-        animate={{ x: [0, -40, 20, 0], y: [0, 30, -20, 0], scale: [1, 1.05, 0.97, 1] }}
-        transition={{ duration: 20, repeat: Infinity, ease: 'easeInOut' }}
-      />
-      <motion.div
-        className="absolute w-[500px] h-[500px] rounded-full opacity-15 dark:opacity-8"
-        style={{ background: 'radial-gradient(circle, rgba(20,184,166,0.3), transparent 70%)', bottom: '-10%', left: '-5%' }}
-        animate={{ x: [0, 30, -20, 0], y: [0, -25, 15, 0], scale: [1, 0.95, 1.05, 1] }}
-        transition={{ duration: 24, repeat: Infinity, ease: 'easeInOut', delay: 2 }}
-      />
-    </div>
-  )
-}
-
-interface LoginScreenProps {
-  onBack?: () => void
-  schoolSubdomain?: string | null
-}
-
-export function LoginScreen({ onBack }: LoginScreenProps) {
+export function LoginScreen() {
   const router = useRouter()
   const [email, setEmail] = useState('admin@dpsdelhi.in')
   const [password, setPassword] = useState('admin123')
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
-  const { theme, setTheme } = useTheme()
+  const { resolvedTheme, setTheme } = useTheme()
   const { login, setCurrentSchool, setPermissions } = useAppStore()
   const { toast } = useToast()
 
@@ -101,27 +76,21 @@ export function LoginScreen({ onBack }: LoginScreenProps) {
     setIsLoading(true)
     try {
       const response = await api.post<{ user: { id: string; email: string; name: string; role: string; schoolId?: string; mustChangePassword?: boolean; assignedRoleName?: string | null } }>('/api/auth/login', { email, password })
-      // The server set HttpOnly auth cookies in this response — no token in the
-      // body. We just mirror user metadata into the store; subsequent API calls
-      // pick up the cookies automatically.
       login(response.user)
 
-      // Fetch user profile with school info
       try {
         const profile = await api.get<{ user: { id: string; email: string; name: string; role: string; schoolId?: string }; school?: { id: string; name: string; logo?: string; favicon?: string; subdomain: string; status: string; primaryColor?: string; dashboardFont?: string; academicYear?: string; board?: string; address?: string; city?: string; state: string } }>('/api/auth/me')
         if (profile.school) {
           setCurrentSchool(profile.school as { id: string; name: string; logo?: string; favicon?: string; subdomain: string; status: string; primaryColor?: string; dashboardFont?: string; academicYear?: string; board?: string; address?: string; city?: string; state: string })
         }
       } catch {
-        // Profile fetch failed, but login succeeded - continue
+        // Profile fetch is non-blocking after a successful login.
       }
 
-      // Fetch user permissions
       try {
         const permData = await api.get<{ permissions: string[]; role: string }>('/api/auth/permissions')
         setPermissions(permData.permissions || [])
       } catch {
-        // Permissions fetch failed - continue with empty permissions
         setPermissions([])
       }
 
@@ -132,16 +101,12 @@ export function LoginScreen({ onBack }: LoginScreenProps) {
           : `Logged in as ${response.user.name}`,
       })
 
-      // Drive the navigation from here (after the login flow settles) instead
-      // of relying on a reactive useEffect in /login/page.tsx — that race was
-      // unmounting LoginScreen mid-animation and crashing framer-motion with
-      // "Cannot read properties of null (reading 'removeChild')".
       router.replace('/dashboard')
     } catch (err) {
       toast({
         title: 'Login Failed',
         description: err instanceof Error ? err.message : "We couldn't log you in. Please try again.",
-        variant: 'destructive'
+        variant: 'destructive',
       })
     } finally {
       setIsLoading(false)
@@ -149,171 +114,190 @@ export function LoginScreen({ onBack }: LoginScreenProps) {
   }
 
   return (
-    <div className="min-h-screen flex flex-col relative overflow-hidden bg-gradient-to-br from-emerald-50 via-white to-teal-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
-      <BackgroundOrbs />
+    <div className="relative h-svh overflow-hidden bg-gradient-to-br from-emerald-50 via-white to-teal-50 text-slate-900 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 dark:text-white">
+      <div className="absolute inset-0 opacity-[0.035] dark:opacity-[0.025]" style={{ backgroundImage: 'radial-gradient(circle, currentColor 1px, transparent 1px)', backgroundSize: '32px 32px' }} />
+      <div className="absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500" />
 
-      {/* Top bar — back + theme toggle */}
-      <div className="shrink-0 flex items-center justify-between px-5 pt-4 relative z-20">
-        {onBack && (
-          <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3 }}>
-            <Button variant="ghost" size="sm" onClick={onBack} className="gap-2 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200">
-              <ArrowLeft className="size-4" />
-              Back
-            </Button>
-          </motion.div>
-        )}
-
-        <motion.div className="ml-auto" initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.3, delay: 0.1 }}>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-            className="rounded-full size-9 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
-          >
-            <AnimatePresence mode="wait" initial={false}>
-              {theme === 'dark' ? (
-                <motion.div key="sun" initial={{ rotate: -90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: 90, opacity: 0 }} transition={{ duration: 0.2 }}>
-                  <Sun className="size-4" />
-                </motion.div>
-              ) : (
-                <motion.div key="moon" initial={{ rotate: 90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: -90, opacity: 0 }} transition={{ duration: 0.2 }}>
-                  <Moon className="size-4" />
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </Button>
-        </motion.div>
-      </div>
-
-      {/* Centered login card */}
-      <div className="flex-1 flex items-center justify-center px-5 py-8 relative z-10">
-        <motion.div
+      <main className="relative z-10 flex h-full items-center justify-center p-2 sm:p-4">
+        <motion.section
           variants={containerVariants}
           initial="hidden"
           animate="visible"
-          className="w-full max-w-[400px]"
+          className="grid h-[calc(100svh-16px)] max-h-[640px] w-full max-w-5xl overflow-hidden rounded-2xl border border-slate-200 bg-white/90 shadow-2xl shadow-emerald-500/10 backdrop-blur-xl dark:border-white/10 dark:bg-white/5 dark:shadow-black/20 sm:h-[calc(100svh-32px)] md:grid-cols-[0.95fr_1.05fr]"
         >
-          {/* Logo + Brand */}
-          <motion.div variants={itemVariants} className="flex flex-col items-center mb-8">
-            <motion.div
-              className="flex size-16 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 shadow-xl shadow-emerald-500/20 mb-4"
-              whileHover={{ scale: 1.05, rotate: 2 }}
-              whileTap={{ scale: 0.98 }}
-              transition={{ type: 'spring', stiffness: 400 }}
-            >
-              <GraduationCap className="size-8 text-white" />
-            </motion.div>
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
-              Welcome back
-            </h1>
-            <p className="mt-1.5 text-sm text-slate-500 dark:text-slate-400">
-              Sign in to Vidhyalayam
-            </p>
+          <motion.div variants={itemVariants} className="relative hidden h-full overflow-hidden bg-gradient-to-br from-emerald-600 via-teal-600 to-cyan-600 p-7 text-white md:flex md:flex-col md:justify-between lg:p-8">
+            <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,.25) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.25) 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
+            <div className="relative">
+              <div className="flex items-center gap-3">
+                <div className="flex size-11 items-center justify-center rounded-xl bg-white/15 shadow-lg backdrop-blur">
+                  <GraduationCap className="size-6" />
+                </div>
+                <div>
+                  <p className="text-xl font-bold">Vidhyalayam</p>
+                  <p className="text-sm text-emerald-50/80">Empowering tradition with technology</p>
+                </div>
+              </div>
+
+              <div className="mt-12 lg:mt-14">
+                <p className="mb-4 inline-flex rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-medium text-emerald-50 backdrop-blur">
+                  Secure school workspace
+                </p>
+                <h1 className="max-w-sm text-4xl font-extrabold leading-tight lg:text-[2.7rem]">
+                  One login for every school workflow.
+                </h1>
+                <p className="mt-4 max-w-sm text-sm leading-6 text-emerald-50/80">
+                  Attendance, academics, fees, staff, and parent communication stay organized in one place.
+                </p>
+              </div>
+            </div>
+
+            <div className="relative grid grid-cols-2 gap-3">
+              {[
+                ['Attendance', '94.2%'],
+                ['Fee Collection', '18.5L'],
+                ['Students', '2,847'],
+                ['Active Classes', '42'],
+              ].map(([label, value]) => (
+                <div key={label} className="rounded-xl border border-white/15 bg-white/10 p-3.5 backdrop-blur">
+                  <p className="text-xs text-emerald-50/70">{label}</p>
+                  <p className="mt-1 text-2xl font-bold">{value}</p>
+                </div>
+              ))}
+            </div>
           </motion.div>
 
-          {/* Login Card */}
-          <motion.div
-            variants={itemVariants}
-            className="rounded-2xl bg-white/80 dark:bg-white/5 backdrop-blur-xl border border-slate-200/60 dark:border-white/10 p-7 shadow-xl shadow-black/5 dark:shadow-black/20"
-          >
-            {/* Demo selector */}
-            <div className="mb-5">
-              <Label className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Quick Demo</Label>
-              <Select onValueChange={handleDemoSelect} defaultValue="School Admin">
-                <SelectTrigger className="mt-1.5 h-11 bg-white dark:bg-slate-900/80 border-slate-200 dark:border-slate-700/80 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all text-sm">
-                  <SelectValue placeholder="Select a role" />
-                </SelectTrigger>
-                <SelectContent>
-                  {DEMO_ACCOUNTS.map((account) => (
-                    <SelectItem key={account.label} value={account.label}>
-                      {account.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Divider */}
-            <div className="relative mb-5">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t border-slate-100 dark:border-slate-700/60" />
+          <motion.div variants={itemVariants} className="flex h-full min-h-0 flex-col justify-center p-4 sm:p-7 md:p-8 lg:p-10">
+            <div className="mb-4 flex items-center justify-between gap-3 sm:mb-6">
+              <div className="flex min-w-0 items-center gap-3 md:hidden">
+                <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 text-white shadow-lg shadow-emerald-500/25">
+                  <GraduationCap className="size-6" />
+                </div>
+                <div className="min-w-0">
+                  <p className="truncate text-lg font-bold">Vidhyalayam</p>
+                  <p className="text-xs text-emerald-600 dark:text-emerald-400">Empowering tradition with technology</p>
+                </div>
               </div>
-              <div className="relative flex justify-center">
-                <span className="bg-white dark:bg-slate-900/80 px-3 text-[11px] text-slate-300 dark:text-slate-600 uppercase tracking-widest">or</span>
-              </div>
-            </div>
 
-            {/* Email */}
-            <div className="mb-4">
-              <Label htmlFor="email" className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                Email / Phone
-              </Label>
-              <Input
-                id="email"
-                type="text"
-                placeholder="you@school.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
-                className="mt-1.5 h-11 bg-white dark:bg-slate-900/80 border-slate-200 dark:border-slate-700/80 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all placeholder:text-slate-300 dark:placeholder:text-slate-600 text-sm"
-              />
-            </div>
-
-            {/* Password */}
-            <div className="mb-6">
-              <Label htmlFor="password" className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                Password
-              </Label>
-              <div className="relative mt-1.5">
-                <Input
-                  id="password"
-                  type={showPassword ? 'text' : 'password'}
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
-                  className="h-11 pr-10 bg-white dark:bg-slate-900/80 border-slate-200 dark:border-slate-700/80 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all placeholder:text-slate-300 dark:placeholder:text-slate-600 text-sm"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-300 dark:text-slate-600 hover:text-slate-500 dark:hover:text-slate-400 transition-colors"
+              <div className="ml-auto flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
+                  className="size-9 rounded-lg text-slate-500 hover:bg-emerald-50 hover:text-slate-900 dark:text-white/60 dark:hover:bg-white/5 dark:hover:text-white"
                 >
-                  {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-                </button>
+                  <AnimatePresence mode="wait" initial={false}>
+                    {resolvedTheme === 'dark' ? (
+                      <motion.div key="sun" initial={{ rotate: -90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: 90, opacity: 0 }} transition={{ duration: 0.2 }}>
+                        <Sun className="size-4" />
+                      </motion.div>
+                    ) : (
+                      <motion.div key="moon" initial={{ rotate: 90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: -90, opacity: 0 }} transition={{ duration: 0.2 }}>
+                        <Moon className="size-4" />
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </Button>
               </div>
             </div>
 
-            {/* Sign In */}
-            <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}>
-              <Button
-                className="w-full h-11 text-sm font-semibold bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white shadow-lg shadow-emerald-600/25 hover:shadow-emerald-600/35 transition-all duration-200 rounded-xl border-0"
-                onClick={handleLogin}
-                disabled={isLoading}
-              >
-                {isLoading ? (
-                  <Loader2 className="size-4 animate-spin" />
-                ) : (
-                  <>
-                    Sign In
-                    <Sparkles className="size-3.5 ml-2 opacity-70" />
-                  </>
-                )}
-              </Button>
-            </motion.div>
+            <div className="mb-4 sm:mb-6">
+              <div className="mb-3 hidden size-12 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 text-white shadow-lg shadow-emerald-500/25 md:flex">
+                <BookOpenCheck className="size-6" />
+              </div>
+              <h2 className="text-2xl font-extrabold leading-tight sm:text-3xl">Welcome back</h2>
+              <p className="mt-1 text-sm text-slate-500 dark:text-white/50">Sign in with your registered email or phone number.</p>
+            </div>
+
+            <div>
+                <div className="mb-3.5">
+                  <Label className="text-xs font-medium uppercase text-slate-500 dark:text-white/50">Quick Demo</Label>
+                  <Select onValueChange={handleDemoSelect} defaultValue="School Admin">
+                    <SelectTrigger className="mt-1.5 h-10 rounded-xl bg-white text-sm transition-all focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 dark:border-white/10 dark:bg-slate-950/60 sm:h-11">
+                      <SelectValue placeholder="Select a role" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {DEMO_ACCOUNTS.map((account) => (
+                        <SelectItem key={account.label} value={account.label}>
+                          {account.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="relative mb-3.5">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t border-slate-100 dark:border-white/10" />
+                  </div>
+                  <div className="relative flex justify-center">
+                    <span className="bg-white px-3 text-[11px] uppercase text-slate-300 dark:bg-slate-900 dark:text-white/25">or</span>
+                  </div>
+                </div>
+
+                <div className="mb-3">
+                  <Label htmlFor="email" className="text-xs font-medium uppercase text-slate-500 dark:text-white/50">
+                    Email / Phone
+                  </Label>
+                  <Input
+                    id="email"
+                    type="text"
+                    placeholder="you@school.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
+                    className="mt-1.5 h-10 rounded-xl bg-white text-sm transition-all placeholder:text-slate-300 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 dark:border-white/10 dark:bg-slate-950/60 dark:placeholder:text-white/25 sm:h-11"
+                  />
+                </div>
+
+                <div className="mb-4">
+                  <Label htmlFor="password" className="text-xs font-medium uppercase text-slate-500 dark:text-white/50">
+                    Password
+                  </Label>
+                  <div className="relative mt-1.5">
+                    <Input
+                      id="password"
+                      type={showPassword ? 'text' : 'password'}
+                      placeholder="Password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
+                      className="h-10 rounded-xl bg-white pr-10 text-sm transition-all placeholder:text-slate-300 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 dark:border-white/10 dark:bg-slate-950/60 dark:placeholder:text-white/25 sm:h-11"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-300 transition-colors hover:text-slate-500 dark:text-white/25 dark:hover:text-white/60"
+                    >
+                      {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}>
+                  <Button
+                    className="h-10 w-full rounded-xl border-0 bg-gradient-to-r from-emerald-500 to-teal-500 text-sm font-semibold text-white shadow-lg shadow-emerald-500/25 transition-all duration-300 hover:from-emerald-600 hover:to-teal-600 hover:shadow-emerald-500/40 sm:h-11"
+                    onClick={handleLogin}
+                    disabled={isLoading}
+                  >
+                    {isLoading ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      <>
+                        Sign In
+                        <ArrowRight className="ml-2 size-3.5" />
+                      </>
+                    )}
+                  </Button>
+                </motion.div>
+
+                <div className="mt-3 flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300 sm:mt-4">
+                  <ShieldCheck className="size-3.5 shrink-0" />
+                  <span className="truncate">Secure access for school teams and families</span>
+                </div>
+            </div>
           </motion.div>
-
-          {/* Helper text */}
-          <motion.p variants={itemVariants} className="text-[11px] text-center text-slate-400 dark:text-slate-600 mt-5">
-            Pick a demo role above to auto-fill credentials
-          </motion.p>
-        </motion.div>
-      </div>
-
-      {/* Footer */}
-      <div className="shrink-0 py-4 text-center text-[11px] text-slate-400 dark:text-slate-600 relative z-10">
-        &copy; {new Date().getFullYear()} Vidhyalayam
-      </div>
+        </motion.section>
+      </main>
     </div>
   )
 }

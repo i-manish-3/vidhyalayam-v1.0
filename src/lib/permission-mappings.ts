@@ -38,6 +38,7 @@ const MODULE_PERMISSION_MAP: Record<string, string[]> = {
   'attendance': ['attendance:read', 'attendance:mark'],
   'mark-attendance': ['attendance:mark'],
   'view-attendance': ['attendance:read'],
+  'attendance-audit-log': ['attendance:audit:view'],
   'timetable': ['timetable:read', 'timetable:create'],
   'exams': ['exam:read', 'exam:create'],
   'exam-results': ['exam:read', 'exam:results'],
@@ -96,6 +97,7 @@ const PARENT_MENU_MODULES: Record<string, string> = {
   'Fees': 'fees-heads',
   'Salary': 'salary-structure',
   'Roles & Permissions': 'school-roles',
+  'Audit Logs': 'attendance-audit-log',
 }
 
 /**

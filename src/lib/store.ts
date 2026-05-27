@@ -4,7 +4,7 @@ import { cacheSchoolBranding } from '@/lib/branding'
 export type PageName =
   | 'dashboard'
   | 'students' | 'teachers' | 'add-teacher' | 'parents' | 'admission-form' | 'student-detail' | 'bulk-admission'
-  | 'attendance' | 'mark-attendance' | 'view-attendance'
+  | 'attendance' | 'mark-attendance' | 'view-attendance' | 'attendance-audit-log'
   | 'fees-heads' | 'fees-groups' | 'fees-structures' | 'fee-collections' | 'fee-change-group'
   | 'salary' | 'salary-structure' | 'salary-payments' | 'salary-advance'
   | 'timetable' | 'exams' | 'exam-results'

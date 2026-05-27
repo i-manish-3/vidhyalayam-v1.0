@@ -499,6 +499,7 @@ async function seed() {
     { code: 'attendance:update', name: 'Update Attendance', module: 'attendance', action: 'update' },
     { code: 'attendance:reopen', name: 'Reopen Finalized Attendance', module: 'attendance', action: 'update' },
     { code: 'attendance:export', name: 'Export Attendance', module: 'attendance', action: 'read' },
+    { code: 'attendance:audit:view', name: 'View Attendance Audit Log', module: 'attendance', action: 'read' },
     // Fees
     { code: 'fees:read', name: 'View Fees', module: 'fees', action: 'read' },
     { code: 'fees:create', name: 'Create Fee', module: 'fees', action: 'create' },

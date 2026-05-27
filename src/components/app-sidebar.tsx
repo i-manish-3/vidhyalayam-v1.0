@@ -54,6 +54,7 @@ import {
   LayoutTemplate,
   RefreshCw,
   Upload,
+  History,
 } from 'lucide-react'
 
 export interface MenuChild {
@@ -215,6 +216,14 @@ export const MENUS: Record<string, MenuItem[]> = {
       ],
     },
     { label: 'Roles & Permissions', page: 'school-roles', icon: ShieldCheck },
+    {
+      label: 'Audit Logs',
+      page: 'attendance-audit-log',
+      icon: History,
+      children: [
+        { label: 'Attendance', page: 'attendance-audit-log', icon: ClipboardList },
+      ],
+    },
     { label: 'Academic Years', page: 'academic-years', icon: Calendar },
     { label: 'Settings', page: 'settings', icon: Settings },
   ],

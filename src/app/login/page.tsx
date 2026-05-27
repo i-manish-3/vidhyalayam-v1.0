@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { ThemeProvider } from 'next-themes'
 import { useAppStore } from '@/lib/store'
 import { LoginScreen } from '@/components/login-screen'
 
@@ -19,10 +20,9 @@ export default function LoginPage() {
     }
   }, [router])
 
-  // Defer the navigation by a tick so framer-motion on the login screen
-  // (BackgroundOrbs's infinite loop, AnimatePresence theme-icon swap) can
-  // settle before unmount. Synchronous router.push during a motion frame
-  // crashes Turbopack with "Cannot read properties of null (reading
-  // 'removeChild')".
-  return <LoginScreen onBack={() => setTimeout(() => router.push('/'), 0)} />
+  return (
+    <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
+      <LoginScreen />
+    </ThemeProvider>
+  )
 }
