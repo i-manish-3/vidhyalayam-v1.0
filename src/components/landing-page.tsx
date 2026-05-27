@@ -9,6 +9,9 @@ import { Badge } from '@/components/ui/badge'
 import {
   Accordion, AccordionContent, AccordionItem, AccordionTrigger,
 } from '@/components/ui/accordion'
+import {
+  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
+} from '@/components/ui/dialog'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import {
   GraduationCap, Users, ClipboardCheck, CreditCard, BookOpen, Bell, Shield,
@@ -25,6 +28,13 @@ import { api } from '@/lib/api'
 /* ─── Types ─── */
 interface LandingPageProps {
   onLoginClick: () => void
+}
+
+interface LegalDocument {
+  title: string
+  description: string
+  lastUpdated: string
+  sections: Array<{ title: string; body: string[] }>
 }
 
 /* ─── Smooth scroll helper ─── */
@@ -107,6 +117,116 @@ const NAV_LINKS = [
 ]
 
 const BRAND_TAGLINE = 'Empowering tradition with technology'
+
+const LEGAL_DOCUMENTS: Record<'privacy' | 'terms', LegalDocument> = {
+  privacy: {
+    title: 'Privacy Policy',
+    description: 'How Vidhyalayam collects, uses, protects, and manages information for schools, staff, students, parents, and platform users.',
+    lastUpdated: 'May 27, 2026',
+    sections: [
+      {
+        title: '1. Information We Collect',
+        body: [
+          'We collect information needed to provide school management services, including school details, user accounts, student records, attendance, fees, academic records, communication data, and support requests.',
+          'We may also collect technical information such as device details, browser type, IP address, login activity, and usage logs to keep the platform secure and reliable.',
+        ],
+      },
+      {
+        title: '2. How We Use Information',
+        body: [
+          'We use information to operate Vidhyalayam, manage school workflows, authenticate users, provide role-based access, generate reports, send notifications, improve features, and provide support.',
+          'We do not sell personal information. Data is used only for legitimate school operations, product security, service delivery, and compliance needs.',
+        ],
+      },
+      {
+        title: '3. School Data Ownership',
+        body: [
+          'Schools remain responsible for the data they enter and manage in the platform. Vidhyalayam acts as a service provider for storing, processing, and presenting that data according to the school account setup and user permissions.',
+        ],
+      },
+      {
+        title: '4. Notifications And Communication',
+        body: [
+          'The platform may send operational notifications such as attendance updates, fee reminders, announcements, account alerts, and support messages through web, mobile, email, SMS, or other configured channels.',
+        ],
+      },
+      {
+        title: '5. Data Security And Retention',
+        body: [
+          'We use reasonable technical and organizational safeguards to protect data, including access controls, authentication, secure transport, backups, and monitoring where applicable.',
+          'We retain data for as long as required to provide services, support school operations, meet legal or accounting requirements, resolve disputes, and maintain audit records.',
+        ],
+      },
+      {
+        title: '6. Third-Party Services',
+        body: [
+          'Vidhyalayam may use trusted third-party providers for hosting, storage, payment processing, analytics, communication, notification delivery, and support tools.',
+        ],
+      },
+      {
+        title: '7. Contact',
+        body: ['For privacy questions, data requests, or security concerns, contact us at contact@vidhyalayam.com.'],
+      },
+    ],
+  },
+  terms: {
+    title: 'Terms of Service',
+    description: 'The rules for using Vidhyalayam and the responsibilities of schools, administrators, staff, parents, students, and other users.',
+    lastUpdated: 'May 27, 2026',
+    sections: [
+      {
+        title: '1. Acceptance Of Terms',
+        body: [
+          'By accessing or using Vidhyalayam, you agree to these Terms of Service. If you are using the platform on behalf of a school or organization, you confirm that you are authorized to accept these terms for that organization.',
+        ],
+      },
+      {
+        title: '2. Use Of The Platform',
+        body: [
+          'Vidhyalayam provides school management tools for admissions, students, staff, attendance, fees, academics, communication, reports, and related workflows.',
+          'You agree to use the platform only for lawful school operations and in a way that does not disrupt, misuse, or compromise the service.',
+        ],
+      },
+      {
+        title: '3. Accounts And Permissions',
+        body: [
+          'Users are responsible for maintaining the confidentiality of their login credentials and for activity performed through their accounts.',
+          'Schools are responsible for assigning appropriate roles and permissions to administrators, staff, teachers, parents, students, and other users.',
+        ],
+      },
+      {
+        title: '4. School Data',
+        body: [
+          'Schools are responsible for the accuracy, legality, and ownership of data entered into Vidhyalayam, including student, staff, parent, fee, attendance, and academic records.',
+        ],
+      },
+      {
+        title: '5. Fees, Availability, And Changes',
+        body: [
+          'Subscription fees, add-ons, setup charges, and payment terms may be defined in the selected plan, invoice, order form, or written agreement.',
+          'We aim to keep Vidhyalayam reliable and available, but service may be interrupted for maintenance, upgrades, outages, security incidents, or events outside our control.',
+        ],
+      },
+      {
+        title: '6. Prohibited Activities',
+        body: [
+          'You must not attempt unauthorized access, interfere with platform security, upload malicious code, misuse another user account, copy the platform unlawfully, or use the service for fraudulent or harmful activity.',
+        ],
+      },
+      {
+        title: '7. Limitation Of Liability And Termination',
+        body: [
+          'To the fullest extent permitted by applicable law, Vidhyalayam is not liable for indirect, incidental, special, consequential, or punitive damages arising from use of the platform.',
+          'We may suspend or terminate access for non-payment, misuse, security risks, or violation of these terms.',
+        ],
+      },
+      {
+        title: '8. Contact',
+        body: ['For questions about these terms, contact us at contact@vidhyalayam.com.'],
+      },
+    ],
+  },
+}
 
 const STATS = [
   { label: 'Schools', value: 500, suffix: '+' },
@@ -1246,7 +1366,56 @@ function CTASection({ onLoginClick }: { onLoginClick: () => void }) {
 /* ═══════════════════════════════════════════════════════════════════
    FOOTER
    ═══════════════════════════════════════════════════════════════════ */
+function LegalModal({
+  document,
+  open,
+  onOpenChange,
+}: {
+  document: LegalDocument | null
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}) {
+  if (!document) return null
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[88svh] gap-0 overflow-hidden border-slate-200 bg-white/95 p-0 shadow-2xl shadow-emerald-950/20 backdrop-blur-xl sm:max-w-3xl dark:border-white/10 dark:bg-slate-950/95">
+        <DialogHeader className="border-b border-slate-200 bg-gradient-to-br from-emerald-50 via-white to-teal-50 px-5 py-5 pr-12 text-left dark:border-white/10 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 sm:px-7">
+          <div className="mb-3 inline-flex w-fit items-center gap-2 rounded-full border border-emerald-200 bg-emerald-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300">
+            <Shield className="size-3.5" />
+            Legal
+          </div>
+          <DialogTitle className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white sm:text-3xl">
+            {document.title}
+          </DialogTitle>
+          <DialogDescription className="max-w-2xl text-sm leading-6 text-slate-600 dark:text-white/60">
+            {document.description}
+          </DialogDescription>
+          <p className="text-xs font-medium text-slate-500 dark:text-white/45">Last updated: {document.lastUpdated}</p>
+        </DialogHeader>
+
+        <div className="h-[58svh] overflow-y-auto overscroll-contain pr-1 [scrollbar-color:theme(colors.emerald.400)_transparent] [scrollbar-width:thin] sm:h-[60svh] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-emerald-400/70 [&::-webkit-scrollbar-thumb:hover]:bg-emerald-500 [&::-webkit-scrollbar-track]:bg-transparent">
+          <div className="space-y-7 px-5 py-6 sm:px-7">
+            {document.sections.map((section) => (
+              <section key={section.title} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.03]">
+                <h3 className="text-base font-bold text-slate-900 dark:text-white sm:text-lg">{section.title}</h3>
+                <div className="mt-3 space-y-3 text-sm leading-7 text-slate-600 dark:text-white/65">
+                  {section.body.map((paragraph) => (
+                    <p key={paragraph}>{paragraph}</p>
+                  ))}
+                </div>
+              </section>
+            ))}
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 function Footer({ onLoginClick }: { onLoginClick: () => void }) {
+  const [legalDocument, setLegalDocument] = useState<LegalDocument | null>(null)
+
   return (
     <footer className="relative bg-slate-900 dark:bg-slate-950 text-white py-12">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -1292,11 +1461,12 @@ function Footer({ onLoginClick }: { onLoginClick: () => void }) {
         <div className="mt-10 pt-8 border-t border-slate-800 flex flex-col sm:flex-row justify-between items-center gap-4">
           <p className="text-sm text-slate-500">&copy; {new Date().getFullYear()} Vidhyalayam. All rights reserved.</p>
           <div className="flex gap-6">
-            <span className="text-sm text-slate-500 hover:text-emerald-400 cursor-pointer transition-colors">Privacy Policy</span>
-            <span className="text-sm text-slate-500 hover:text-emerald-400 cursor-pointer transition-colors">Terms of Service</span>
+            <button type="button" onClick={() => setLegalDocument(LEGAL_DOCUMENTS.privacy)} className="text-sm text-slate-500 hover:text-emerald-400 transition-colors">Privacy Policy</button>
+            <button type="button" onClick={() => setLegalDocument(LEGAL_DOCUMENTS.terms)} className="text-sm text-slate-500 hover:text-emerald-400 transition-colors">Terms of Service</button>
           </div>
         </div>
       </div>
+      <LegalModal document={legalDocument} open={Boolean(legalDocument)} onOpenChange={(open) => { if (!open) setLegalDocument(null) }} />
     </footer>
   )
 }

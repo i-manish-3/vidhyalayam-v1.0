@@ -31,6 +31,8 @@ import {
   ChevronRight,
   BarChart3,
   UserCheck,
+  Camera,
+  RefreshCw,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { usePermissions, PERMISSIONS } from '@/hooks/use-permissions'
@@ -222,6 +224,29 @@ export function ViewAttendancePage() {
   const [sectionId, setSectionId] = useState<string>(() => searchParams.get('sectionId') || '')
   const [searchQuery, setSearchQuery] = useState('')
 
+  // Snapshot mode — when navigated from the Audit Log, ?snapshot=<auditId>
+  // tells us to reconstruct the attendance state as it was at that moment
+  // rather than showing the current state.
+  const [snapshotId, setSnapshotId] = useState<string | null>(() => searchParams.get('snapshot'))
+  const [snapshotMeta, setSnapshotMeta] = useState<null | {
+    action: string
+    capturedAt: string
+    capturedByName: string | null
+    reason: string | null
+    isCurrent: boolean
+  }>(null)
+  // `effectiveSnapshot` is the user-visible "snapshot mode" — we suppress the
+  // banner and re-enable live actions when the audit event being viewed is the
+  // most recent and no per-student changes happened after it (i.e. snapshot
+  // equals current state, so showing it as historical is misleading).
+  const isSnapshot = snapshotId !== null
+  const effectiveSnapshot = isSnapshot && snapshotMeta?.isCurrent === false
+  const exitSnapshot = () => {
+    if (!snapshotId) return
+    setSnapshotId(null)
+    setSnapshotMeta(null)
+  }
+
   // Data state
   const [records, setRecords] = useState<AttendanceRecord[]>([])
   const [stats, setStats] = useState({ total: 0, present: 0, absent: 0, leave: 0 })
@@ -258,10 +283,31 @@ export function ViewAttendancePage() {
 
   const filteredSections = classId ? sections.filter((s) => s.classId === classId) : []
 
-  // Fetch attendance records
+  // Fetch attendance records — uses the snapshot endpoint when in snapshot
+  // mode (auditId is set) so we render historical state.
   const fetchAttendance = useCallback(async () => {
     setLoading(true)
     try {
+      if (snapshotId) {
+        const res = await api.get<{
+          records: AttendanceRecord[]
+          stats: { total: number; present: number; absent: number; leave: number }
+          snapshot: { action: string; capturedAt: string; capturedByName: string | null; reason: string | null; isCurrent: boolean }
+        }>('/api/school/attendance/snapshot', { auditId: snapshotId })
+        setRecords([...(res.records || [])].sort(compareRecordsByRollNumber))
+        setStats(res.stats || { total: 0, present: 0, absent: 0, leave: 0 })
+        if (res.snapshot) {
+          setSnapshotMeta({
+            action: res.snapshot.action,
+            capturedAt: res.snapshot.capturedAt,
+            capturedByName: res.snapshot.capturedByName,
+            reason: res.snapshot.reason,
+            isCurrent: !!res.snapshot.isCurrent,
+          })
+        }
+        return
+      }
+
       const params: Record<string, string> = { date, academicYear }
       if (classId) params.classId = classId
       // Only include sectionId if the class has sections and one is selected
@@ -278,15 +324,33 @@ export function ViewAttendancePage() {
     } finally {
       setLoading(false)
     }
-  }, [academicYear, date, classId, sectionId, classHasNoSections, toast])
+  }, [academicYear, date, classId, sectionId, classHasNoSections, snapshotId, toast])
 
   useEffect(() => {
-    if (!initialLoad && classId && (sectionId || classHasNoSections)) fetchAttendance()
-  }, [date, classId, sectionId, classHasNoSections, initialLoad, fetchAttendance])
+    if (initialLoad) return
+    if (snapshotId) {
+      // Snapshot mode bypasses the class/section gate — the audit row carries
+      // the class/section context server-side.
+      fetchAttendance()
+      return
+    }
+    if (classId && (sectionId || classHasNoSections)) fetchAttendance()
+  }, [date, classId, sectionId, classHasNoSections, initialLoad, snapshotId, fetchAttendance])
 
+  // Any manual filter change exits snapshot mode — snapshots are point-in-time
+  // captures, so editing the filters means the user wants live data.
   const handleClassChange = (value: string) => {
+    exitSnapshot()
     setClassId(value)
     setSectionId('')
+  }
+  const handleSectionChangeWithSnapshot = (value: string) => {
+    exitSnapshot()
+    setSectionId(value)
+  }
+  const handleDateChange = (value: string) => {
+    exitSnapshot()
+    setDate(value)
   }
 
   // Filter records by search
@@ -315,6 +379,40 @@ export function ViewAttendancePage() {
 
   return (
     <div className="space-y-3 pb-20 sm:pb-0">
+      {/* ── Snapshot Banner ───────────────────────────────────────────── */}
+      {effectiveSnapshot && snapshotMeta && (
+        <Card className="border-amber-300 bg-amber-50/70 dark:border-amber-700 dark:bg-amber-950/30 shadow-sm">
+          <CardContent className="p-3">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-start gap-2.5">
+                <Camera className="size-4 text-amber-700 dark:text-amber-300 mt-0.5 shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-amber-900 dark:text-amber-100">
+                    Viewing historical snapshot
+                  </p>
+                  <p className="text-xs text-amber-800 dark:text-amber-200 break-words">
+                    Attendance as it was at{' '}
+                    <span className="font-medium">{formatSubmittedDateTime(snapshotMeta.capturedAt)}</span>
+                    {' '}({snapshotMeta.action})
+                    {snapshotMeta.capturedByName ? ` by ${snapshotMeta.capturedByName}` : ''}
+                    {snapshotMeta.reason ? ` · "${snapshotMeta.reason}"` : ''}
+                  </p>
+                </div>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 gap-1.5 shrink-0 border-amber-400 bg-white text-amber-900 hover:bg-amber-100 dark:bg-amber-900/40 dark:text-amber-100 dark:border-amber-700"
+                onClick={exitSnapshot}
+              >
+                <RefreshCw className="size-3.5" />
+                View Latest
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* ── Page Header ──────────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div className="flex items-center gap-3">
@@ -330,7 +428,7 @@ export function ViewAttendancePage() {
             <CalendarDays className="size-3.5" />
             {formatDate(date)}
           </Badge>
-          {canMark && (
+          {canMark && !effectiveSnapshot && (
             <Button size="sm" onClick={() => router.push('/attendance/mark')} className="h-9 w-full gap-1.5 sm:h-8 sm:w-auto">
               <ClipboardCheck className="size-4" />
               Mark Attendance
@@ -345,20 +443,20 @@ export function ViewAttendancePage() {
           <div className="grid gap-3 xl:grid-cols-[auto_auto_auto_minmax(220px,1fr)] xl:items-center">
             {/* Date navigation */}
             <div className="grid grid-cols-[36px_minmax(0,1fr)_36px] gap-2 sm:grid-cols-[28px_220px_28px_auto] sm:items-center">
-              <Button variant="outline" size="icon" className="size-9 shrink-0 sm:size-7" onClick={() => setDate(navigateDate(date, -1))}>
+              <Button variant="outline" size="icon" className="size-9 shrink-0 sm:size-7" onClick={() => handleDateChange(navigateDate(date, -1))}>
                 <ChevronLeft className="size-3" />
               </Button>
               <DatePicker
                 value={date}
-                onChange={setDate}
+                onChange={handleDateChange}
                 disableFuture
                 triggerClassName="h-9 w-full min-w-0 justify-start px-2.5 text-sm sm:h-7 sm:w-[220px] sm:text-xs"
               />
-              <Button variant="outline" size="icon" className="size-9 shrink-0 sm:size-7" onClick={() => setDate(navigateDate(date, 1))} disabled={isToday}>
+              <Button variant="outline" size="icon" className="size-9 shrink-0 sm:size-7" onClick={() => handleDateChange(navigateDate(date, 1))} disabled={isToday}>
                 <ChevronRight className="size-3" />
               </Button>
               {!isToday && (
-                <Button variant="ghost" size="sm" className="col-span-3 h-8 px-2 text-xs sm:col-span-1 sm:h-7 sm:text-[11px]" onClick={() => setDate(getTodayString())}>
+                <Button variant="ghost" size="sm" className="col-span-3 h-8 px-2 text-xs sm:col-span-1 sm:h-7 sm:text-[11px]" onClick={() => handleDateChange(getTodayString())}>
                   Today
                 </Button>
               )}
@@ -385,7 +483,7 @@ export function ViewAttendancePage() {
               {classHasNoSections ? (
                 <Badge variant="secondary" className="flex h-9 w-full items-center px-3 text-sm sm:h-7 sm:w-auto sm:text-xs">No Sections</Badge>
               ) : (
-                <Select value={sectionId} onValueChange={setSectionId} disabled={!classId}>
+                <Select value={sectionId} onValueChange={handleSectionChangeWithSnapshot} disabled={!classId}>
                   <SelectTrigger className="h-9 w-full text-sm sm:h-7 sm:w-[150px] sm:text-xs">
                     <SelectValue placeholder="Select Section" />
                   </SelectTrigger>

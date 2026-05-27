@@ -13,6 +13,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { DatePicker } from '@/components/date-picker'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import {
   History,
   Lock,
@@ -20,11 +21,14 @@ import {
   Download,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   Filter,
   User,
+  ArrowRight,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { usePermissions, PERMISSIONS } from '@/hooks/use-permissions'
+import { STATUS_CONFIG, type AttendanceStatus } from '@/features/attendance/lib/status-config'
 
 interface AuditRecord {
   id: string
@@ -39,6 +43,26 @@ interface AuditRecord {
   performedByName: string | null
   performedByEmail: string | null
   createdAt: string
+  changeCount: number | null
+}
+
+interface ChangeRow {
+  id: string
+  studentId: string
+  studentName: string
+  rollNumber: string | null
+  oldStatus: string
+  newStatus: string
+  oldRemarks: string | null
+  newRemarks: string | null
+  changedByName: string | null
+  changedAt: string
+}
+
+interface ChangesState {
+  loading: boolean
+  data: ChangeRow[] | null
+  error: boolean
 }
 
 interface Performer {
@@ -118,6 +142,8 @@ export function AttendanceAuditLogPage() {
 
   const [records, setRecords] = useState<AuditRecord[]>([])
   const [performers, setPerformers] = useState<Performer[]>([])
+  // Lazy-loaded per-audit changes cache. Keyed by auditId. Fetched on first expand.
+  const [changesByAuditId, setChangesByAuditId] = useState<Record<string, ChangesState>>({})
   const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 1 })
   const [page, setPage] = useState(1)
 
@@ -188,6 +214,22 @@ export function AttendanceAuditLogPage() {
     setPage(1)
   }, [dateFrom, dateTo, actionFilter, classId, sectionId, performedBy])
 
+  // Whenever a fresh page of records arrives, drop the stale changes cache so
+  // expanding a row triggers a fresh fetch (e.g., after switching filters).
+  useEffect(() => {
+    setChangesByAuditId({})
+  }, [records])
+
+  const fetchChangesFor = useCallback(async (auditId: string) => {
+    setChangesByAuditId((prev) => ({ ...prev, [auditId]: { loading: true, data: prev[auditId]?.data ?? null, error: false } }))
+    try {
+      const res = await api.get<{ changes: ChangeRow[] }>(`/api/school/attendance/audit-log/${auditId}/changes`)
+      setChangesByAuditId((prev) => ({ ...prev, [auditId]: { loading: false, data: res.changes || [], error: false } }))
+    } catch {
+      setChangesByAuditId((prev) => ({ ...prev, [auditId]: { loading: false, data: null, error: true } }))
+    }
+  }, [])
+
   const handleClassChange = (value: string) => {
     setClassId(value === ALL ? '' : value)
     setSectionId('')
@@ -225,7 +267,14 @@ export function AttendanceAuditLogPage() {
   }
 
   const handleRowClick = (record: AuditRecord) => {
-    const params = new URLSearchParams({ date: record.date, classId: record.classId })
+    // Always carry the audit id as ?snapshot=… so View Attendance reconstructs
+    // the historical state at that moment. The page itself has a "View Latest"
+    // button to drop snapshot mode and see current data.
+    const params = new URLSearchParams({
+      date: record.date,
+      classId: record.classId,
+      snapshot: record.id,
+    })
     if (record.sectionId) params.set('sectionId', record.sectionId)
     router.push(`/attendance/view?${params.toString()}`)
   }
@@ -375,54 +424,133 @@ export function AttendanceAuditLogPage() {
               <ul className="divide-y">
                 {records.map((r) => {
                   const isReopen = r.action === 'reopen'
+                  const hasChanges = isReopen && (r.changeCount ?? 0) > 0
+                  const changeState = changesByAuditId[r.id]
                   return (
                     <li key={r.id}>
-                      <button
-                        type="button"
-                        onClick={() => handleRowClick(r)}
-                        className="w-full text-left px-3 py-3 hover:bg-muted/50 transition-colors flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3"
+                      <Collapsible
+                        onOpenChange={(open) => {
+                          if (open && !changeState) fetchChangesFor(r.id)
+                        }}
                       >
-                        <div className="flex items-center gap-2 sm:w-[110px] shrink-0">
-                          <Badge
-                            variant="secondary"
-                            className={cn(
-                              'gap-1 text-[11px] font-semibold uppercase',
-                              isReopen
-                                ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200'
-                                : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200'
-                            )}
+                        <div className="flex items-stretch hover:bg-muted/50 transition-colors">
+                          <button
+                            type="button"
+                            onClick={() => handleRowClick(r)}
+                            className="flex-1 min-w-0 text-left px-3 py-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3"
                           >
-                            {isReopen ? <Unlock className="size-3" /> : <Lock className="size-3" />}
-                            {r.action}
-                          </Badge>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                            <span className="text-sm font-medium">
-                              {r.className || r.classId}
-                              {r.sectionName ? ` — ${r.sectionName}` : ''}
-                            </span>
-                            <span className="text-xs text-muted-foreground">
-                              on {formatDate(r.date)}
-                            </span>
-                          </div>
-                          {r.reason && (
-                            <p className="text-xs text-muted-foreground mt-0.5 break-words">
-                              &ldquo;{r.reason}&rdquo;
-                            </p>
+                            <div className="flex items-center gap-2 sm:w-[110px] shrink-0">
+                              <Badge
+                                variant="secondary"
+                                className={cn(
+                                  'gap-1 text-[11px] font-semibold uppercase',
+                                  isReopen
+                                    ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200'
+                                    : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200'
+                                )}
+                              >
+                                {isReopen ? <Unlock className="size-3" /> : <Lock className="size-3" />}
+                                {r.action}
+                              </Badge>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                                <span className="text-sm font-medium">
+                                  {r.className || r.classId}
+                                  {r.sectionName ? ` — ${r.sectionName}` : ''}
+                                </span>
+                                <span className="text-xs text-muted-foreground">
+                                  on {formatDate(r.date)}
+                                </span>
+                              </div>
+                              {r.reason && (
+                                <p className="text-xs text-muted-foreground mt-0.5 break-words">
+                                  &ldquo;{r.reason}&rdquo;
+                                </p>
+                              )}
+                              <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-1 text-[11px] text-muted-foreground">
+                                <span className="inline-flex items-center gap-1">
+                                  <User className="size-3" />
+                                  {r.performedByName || r.performedByEmail || r.performedBy}
+                                </span>
+                                <span>·</span>
+                                <span title={formatFullDateTime(r.createdAt)}>
+                                  {formatRelative(r.createdAt)}
+                                </span>
+                              </div>
+                            </div>
+                          </button>
+                          {hasChanges && (
+                            <CollapsibleTrigger asChild>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="h-auto px-3 self-stretch shrink-0 gap-1.5 text-xs text-muted-foreground hover:text-foreground data-[state=open]:bg-muted/70 [&[data-state=open]>svg]:rotate-180"
+                              >
+                                <span>{r.changeCount} {r.changeCount === 1 ? 'change' : 'changes'}</span>
+                                <ChevronDown className="size-3.5 transition-transform" />
+                              </Button>
+                            </CollapsibleTrigger>
                           )}
-                          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-1 text-[11px] text-muted-foreground">
-                            <span className="inline-flex items-center gap-1">
-                              <User className="size-3" />
-                              {r.performedByName || r.performedByEmail || r.performedBy}
-                            </span>
-                            <span>·</span>
-                            <span title={formatFullDateTime(r.createdAt)}>
-                              {formatRelative(r.createdAt)}
-                            </span>
-                          </div>
                         </div>
-                      </button>
+                        {hasChanges && (
+                          <CollapsibleContent className="bg-muted/30">
+                            <div className="px-3 py-3 border-t">
+                              {changeState?.loading && (
+                                <p className="text-xs text-muted-foreground">Loading changes…</p>
+                              )}
+                              {changeState?.error && (
+                                <p className="text-xs text-destructive">Failed to load changes. Try again later.</p>
+                              )}
+                              {changeState?.data && changeState.data.length === 0 && (
+                                <p className="text-xs text-muted-foreground">No per-student changes recorded.</p>
+                              )}
+                              {changeState?.data && changeState.data.length > 0 && (
+                                <ul className="space-y-2">
+                                  {changeState.data.map((ch) => {
+                                    const oldCfg = STATUS_CONFIG[ch.oldStatus as AttendanceStatus]
+                                    const newCfg = STATUS_CONFIG[ch.newStatus as AttendanceStatus]
+                                    const remarksChanged = (ch.oldRemarks ?? '') !== (ch.newRemarks ?? '')
+                                    return (
+                                      <li key={ch.id} className="text-xs flex flex-wrap items-center gap-x-2 gap-y-1">
+                                        <span className="font-mono text-muted-foreground w-10 shrink-0">
+                                          {ch.rollNumber || '—'}
+                                        </span>
+                                        <span className="font-medium min-w-[120px]">{ch.studentName}</span>
+                                        <Badge
+                                          variant="secondary"
+                                          className={cn('gap-1', oldCfg?.bgColor, oldCfg?.textColor)}
+                                        >
+                                          {oldCfg?.label ?? ch.oldStatus}
+                                        </Badge>
+                                        <ArrowRight className="size-3 text-muted-foreground" />
+                                        <Badge
+                                          variant="secondary"
+                                          className={cn('gap-1', newCfg?.bgColor, newCfg?.textColor)}
+                                        >
+                                          {newCfg?.label ?? ch.newStatus}
+                                        </Badge>
+                                        <span className="text-muted-foreground">
+                                          by {ch.changedByName || '—'}
+                                        </span>
+                                        <span className="text-muted-foreground" title={formatFullDateTime(ch.changedAt)}>
+                                          · {formatRelative(ch.changedAt)}
+                                        </span>
+                                        {remarksChanged && (
+                                          <span className="basis-full pl-12 text-[11px] text-muted-foreground italic">
+                                            Remarks: &ldquo;{ch.oldRemarks || ''}&rdquo; → &ldquo;{ch.newRemarks || ''}&rdquo;
+                                          </span>
+                                        )}
+                                      </li>
+                                    )
+                                  })}
+                                </ul>
+                              )}
+                            </div>
+                          </CollapsibleContent>
+                        )}
+                      </Collapsible>
                     </li>
                   )
                 })}

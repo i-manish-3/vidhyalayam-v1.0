@@ -22,6 +22,20 @@ function getImageMimeType(source: string) {
   return match?.[1] || undefined
 }
 
+function getSourceMimeType(source: string) {
+  const dataMimeType = getImageMimeType(source)
+  if (dataMimeType) return dataMimeType
+
+  const path = source.split('?', 1)[0].toLowerCase()
+  if (path.endsWith('.ico')) return 'image/x-icon'
+  if (path.endsWith('.svg')) return 'image/svg+xml'
+  if (path.endsWith('.png')) return 'image/png'
+  if (path.endsWith('.jpg') || path.endsWith('.jpeg')) return 'image/jpeg'
+  if (path.endsWith('.webp')) return 'image/webp'
+  if (path.endsWith('.gif')) return 'image/gif'
+  return undefined
+}
+
 function getFreshIconHref(source: string) {
   if (managedIconUrl) {
     URL.revokeObjectURL(managedIconUrl)
@@ -48,6 +62,21 @@ function getFreshIconHref(source: string) {
   }
 }
 
+function syncIconLink(icon: HTMLLinkElement, source: string, href: string) {
+  const type = getSourceMimeType(source)
+  if (type) icon.type = type
+  else icon.removeAttribute('type')
+  icon.sizes = 'any'
+  icon.setAttribute('data-school-icon-source', source)
+  icon.href = href
+}
+
+function syncExistingIconLinks(source: string, href: string) {
+  document.querySelectorAll<HTMLLinkElement>(ICON_SELECTOR).forEach((icon) => {
+    syncIconLink(icon, source, href)
+  })
+}
+
 function upsertIconLink(rel: string, source: string, href: string) {
   let icon = document.querySelector<HTMLLinkElement>(`link[data-school-branding='favicon'][rel='${rel}']`)
   if (!icon) {
@@ -57,12 +86,7 @@ function upsertIconLink(rel: string, source: string, href: string) {
     document.head.appendChild(icon)
   }
 
-  const type = getImageMimeType(source)
-  if (type) icon.type = type
-  else icon.removeAttribute('type')
-  icon.sizes = 'any'
-  icon.setAttribute('data-school-icon-source', source)
-  icon.href = href
+  syncIconLink(icon, source, href)
 }
 
 export function cacheSchoolBranding(school?: SchoolBranding | null) {
@@ -97,7 +121,9 @@ export function applySchoolBranding(school?: SchoolBranding | null) {
   // upserting our managed link below is enough to win.
   const iconSource = getSchoolBrowserIcon(school)
   const iconHref = getFreshIconHref(iconSource)
+  syncExistingIconLinks(iconSource, iconHref)
   upsertIconLink('icon', iconSource, iconHref)
   upsertIconLink('shortcut icon', iconSource, iconHref)
+  upsertIconLink('apple-touch-icon', iconSource, iconHref)
   cacheSchoolBranding(school)
 }

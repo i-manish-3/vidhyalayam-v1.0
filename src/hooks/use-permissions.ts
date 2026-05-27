@@ -6,44 +6,55 @@ import { api } from '@/lib/api'
 
 /**
  * Hook to check if the current user has specific permissions.
- * Fetches permissions on mount and provides a `hasPermission` checker.
+ *
+ * Fetches the user's current permissions from /api/auth/permissions on mount
+ * and SYNCS them into the global store. This is the single source of truth —
+ * the sidebar (which reads store.permissions) and any component using this
+ * hook both see the same data, so changes made via the admin Roles &
+ * Permissions UI become visible without forcing the user to log out and
+ * back in. Permissions in the store are also mirrored to localStorage so a
+ * page reload doesn't require another network round-trip.
  */
 export function usePermissions() {
-  const { user, isAuthenticated } = useAppStore()
-  const [permissions, setPermissions] = useState<string[]>([])
+  const user = useAppStore((s) => s.user)
+  const isAuthenticated = useAppStore((s) => s.isAuthenticated)
+  const permissions = useAppStore((s) => s.permissions)
+  const setStorePermissions = useAppStore((s) => s.setPermissions)
   const [loading, setLoading] = useState(false)
   const fetchedForUserId = useRef<string | null>(null)
 
   useEffect(() => {
     if (!isAuthenticated || !user) {
       if (permissions.length > 0) {
-        queueMicrotask(() => setPermissions([]))
+        setStorePermissions([])
       }
+      fetchedForUserId.current = null
       return
     }
 
-    // Avoid re-fetching if we already have permissions for this user
+    // Avoid re-fetching if we already fetched for this user in this session.
     if (fetchedForUserId.current === user.id) return
     fetchedForUserId.current = user.id
 
     // SUPER_ADMIN always has all permissions
     if (user.role === 'SUPER_ADMIN') {
-      queueMicrotask(() => setPermissions(['*']))
+      setStorePermissions(['*'])
       return
     }
 
     queueMicrotask(() => setLoading(true))
     api.get<{ permissions: string[]; role: string }>('/api/auth/permissions')
       .then((data) => {
-        queueMicrotask(() => setPermissions(data.permissions || []))
+        setStorePermissions(data.permissions || [])
       })
       .catch(() => {
-        queueMicrotask(() => setPermissions([]))
+        // Keep any previously cached permissions on error — clearing them
+        // would log the user out of features they had access to a moment ago.
       })
       .finally(() => {
         queueMicrotask(() => setLoading(false))
       })
-  }, [isAuthenticated, user?.id, user?.role])
+  }, [isAuthenticated, user?.id, user?.role, setStorePermissions, permissions.length])
 
   const hasPermission = useCallback(
     (permissionCode: string): boolean => {
@@ -146,6 +157,7 @@ export const PERMISSIONS = {
   ATTENDANCE_REOPEN: 'attendance:reopen',
   ATTENDANCE_EXPORT: 'attendance:export',
   ATTENDANCE_AUDIT_VIEW: 'attendance:audit:view',
+  ATTENDANCE_REPORT_VIEW: 'attendance:report:view',
 
   // Fees
   FEES_READ: 'fees:read',

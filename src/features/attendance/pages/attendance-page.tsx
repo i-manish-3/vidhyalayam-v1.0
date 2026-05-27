@@ -376,14 +376,29 @@ export function AttendancePage() {
     if (!classHasNoSections && !sectionId) return
     setFinalizing(true)
     try {
+      // Save current UI state to DB first. Otherwise edits the user made
+      // after a reopen would be lost silently — Finalize only flips a flag,
+      // it doesn't persist `attendanceMap`/`remarksMap`. Re-marking the same
+      // values is a no-op at the DB level (the change log skips no-ops too).
+      if (students.length > 0) {
+        const records: AttendanceRecord[] = students.map((s) => ({
+          studentId: s.id,
+          date,
+          status: attendanceMap.get(s.id) || 'present',
+          remarks: remarksMap.get(s.id) || undefined,
+        }))
+        await api.post('/api/school/attendance', { date, academicYear, records })
+      }
+
       const payload: Record<string, string> = { date, classId, academicYear, action: 'finalize' }
       if (effectiveSectionId) payload.sectionId = effectiveSectionId
       await api.patch('/api/school/attendance', payload)
       toast({
         title: 'Attendance Finalized',
-        description: 'Attendance has been locked. No further edits are allowed.',
+        description: 'Latest attendance saved and locked. No further edits are allowed.',
       })
       setIsFinalized(true)
+      fetchAttendanceData()
     } catch (err) {
       toast({
         title: 'Finalize Failed',

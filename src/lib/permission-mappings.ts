@@ -39,6 +39,7 @@ const MODULE_PERMISSION_MAP: Record<string, string[]> = {
   'mark-attendance': ['attendance:mark'],
   'view-attendance': ['attendance:read'],
   'attendance-audit-log': ['attendance:audit:view'],
+  'attendance-reports': ['attendance:report:view'],
   'timetable': ['timetable:read', 'timetable:create'],
   'exams': ['exam:read', 'exam:create'],
   'exam-results': ['exam:read', 'exam:results'],

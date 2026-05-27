@@ -2,10 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { requirePermission, requireRole } from '@/lib/api-auth'
 import { unauthorizedError, internalError, apiError } from '@/lib/api-errors'
+import { getEnrolledStudents, type EnrolledStudent } from '@/lib/attendance-report-utils'
 
 const ACADEMIC_YEAR_PATTERN = /^\d{4}-\d{4}$/
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
-const CSV_MAX_ROWS = 5000
+const CSV_AUDIT_CAP = 2000
+const CSV_TOTAL_ROW_CAP = 30000
 
 async function resolveAcademicYear(schoolId: string, value: string | null) {
   const school = await db.school.findUnique({
@@ -95,7 +97,7 @@ export async function GET(request: NextRequest) {
       const records = await db.attendanceAuditLog.findMany({
         where,
         orderBy: { createdAt: 'desc' },
-        take: CSV_MAX_ROWS,
+        take: CSV_AUDIT_CAP,
         include: {
           actor: { select: { id: true, name: true, email: true } },
         },
@@ -115,10 +117,89 @@ export async function GET(request: NextRequest) {
       const classMap = new Map<string, string>(classes.map((c) => [c.id, c.name]))
       const sectionMap = new Map<string, string>(sections.map((s) => [s.id, s.name]))
 
-      const header = ['Date', 'Class', 'Section', 'Action', 'Reason', 'Performed By', 'Performed By Email', 'Performed At']
+      // For every reopen row, look up its per-student changes inside its
+      // window (until the next subsequent audit event for the same key, or
+      // now). Done in parallel; the enrolled-students lookup is cached per
+      // (academicYear|classId|sectionId) so multiple reopens of the same
+      // class on the same day share a single query.
+      const enrolledCache = new Map<string, EnrolledStudent[]>()
+      const cachedEnrolled = async (
+        academicYear: string, classId: string, sectionId: string | null,
+      ): Promise<EnrolledStudent[]> => {
+        const key = `${academicYear}|${classId}|${sectionId ?? ''}`
+        const cached = enrolledCache.get(key)
+        if (cached) return cached
+        const fresh = await getEnrolledStudents(user.schoolId!, academicYear, classId, sectionId)
+        enrolledCache.set(key, fresh)
+        return fresh
+      }
+
+      type ChangeRow = {
+        oldStatus: string
+        newStatus: string
+        oldRemarks: string | null
+        newRemarks: string | null
+        changedAt: Date
+        student: { firstName: string; lastName: string; rollNumber: string | null }
+        changer: { name: string } | null
+      }
+      const changesByAudit = await Promise.all(
+        records.map(async (r): Promise<ChangeRow[] | null> => {
+          if (r.action !== 'reopen') return null
+          const nextEvent = await db.attendanceAuditLog.findFirst({
+            where: {
+              schoolId: r.schoolId,
+              date: r.date,
+              classId: r.classId,
+              sectionId: r.sectionId,
+              createdAt: { gt: r.createdAt },
+            },
+            orderBy: { createdAt: 'asc' },
+            select: { createdAt: true },
+          })
+          const enrolled = await cachedEnrolled(r.academicYear, r.classId, r.sectionId)
+          if (enrolled.length === 0) return []
+          const studentIds = enrolled.map((s) => s.id)
+          const changes = await db.attendanceChangeLog.findMany({
+            where: {
+              schoolId: r.schoolId,
+              studentId: { in: studentIds },
+              date: r.date,
+              changedAt: {
+                gt: r.createdAt,
+                ...(nextEvent ? { lt: nextEvent.createdAt } : {}),
+              },
+            },
+            orderBy: { changedAt: 'asc' },
+            include: {
+              student: { select: { firstName: true, lastName: true, rollNumber: true } },
+              changer: { select: { name: true } },
+            },
+          })
+          return changes
+        }),
+      )
+
+      // Flat layout: every CSV row carries the audit-event columns plus
+      // (when applicable) the change-specific columns. A reopen with N
+      // changes produces N rows, all sharing the same audit-event columns.
+      // A reopen with 0 changes / a finalize produces 1 row with empty
+      // change columns. Truncated at CSV_TOTAL_ROW_CAP to bound memory.
+      const header = [
+        'Audit Date', 'Class', 'Section', 'Action', 'Reason',
+        'Performed By', 'Performed By Email', 'Performed At',
+        'Student Roll', 'Student Name',
+        'Old Status', 'New Status',
+        'Old Remarks', 'New Remarks',
+        'Changed By', 'Changed At',
+      ]
       const lines = [header.join(',')]
-      for (const r of records) {
-        lines.push([
+      let totalRows = 1
+      let truncated = false
+
+      outer: for (let i = 0; i < records.length; i++) {
+        const r = records[i]
+        const auditCols = [
           csvEscape(formatIsoDate(r.date)),
           csvEscape(classMap.get(r.classId) ?? r.classId),
           csvEscape(r.sectionId ? sectionMap.get(r.sectionId) ?? r.sectionId : ''),
@@ -127,8 +208,35 @@ export async function GET(request: NextRequest) {
           csvEscape(r.actor?.name ?? ''),
           csvEscape(r.actor?.email ?? ''),
           csvEscape(r.createdAt.toISOString()),
-        ].join(','))
+        ]
+        const emptyChangeCols = ['', '', '', '', '', '', '', '']
+        const changes = changesByAudit[i]
+        if (!changes || changes.length === 0) {
+          lines.push([...auditCols, ...emptyChangeCols].join(','))
+          totalRows++
+          if (totalRows >= CSV_TOTAL_ROW_CAP) { truncated = true; break outer }
+          continue
+        }
+        for (const c of changes) {
+          lines.push([
+            ...auditCols,
+            csvEscape(c.student.rollNumber ?? ''),
+            csvEscape(`${c.student.firstName} ${c.student.lastName}`.trim()),
+            csvEscape(c.oldStatus),
+            csvEscape(c.newStatus),
+            csvEscape(c.oldRemarks),
+            csvEscape(c.newRemarks),
+            csvEscape(c.changer?.name ?? ''),
+            csvEscape(c.changedAt.toISOString()),
+          ].join(','))
+          totalRows++
+          if (totalRows >= CSV_TOTAL_ROW_CAP) { truncated = true; break outer }
+        }
       }
+      if (truncated) {
+        lines.push(`# Truncated at ${CSV_TOTAL_ROW_CAP} rows. Refine filters for the full export.`)
+      }
+
       const csv = lines.join('\n')
       const fromTag = dateFromStr || 'all'
       const toTag = dateToStr || 'all'
@@ -186,8 +294,60 @@ export async function GET(request: NextRequest) {
       .filter((p) => p.actor)
       .map((p) => ({ id: p.actor!.id, name: p.actor!.name, email: p.actor!.email }))
 
+    // For reopen rows, count the per-student changes that happened inside the
+    // reopen window (between this audit event and the next one for the same
+    // date/class/section). Finalize rows get changeCount=null.
+    const changeCounts = await Promise.all(
+      records.map(async (r) => {
+        if (r.action !== 'reopen') return null
+        const nextEvent = await db.attendanceAuditLog.findFirst({
+          where: {
+            schoolId: r.schoolId,
+            date: r.date,
+            classId: r.classId,
+            sectionId: r.sectionId,
+            createdAt: { gt: r.createdAt },
+          },
+          orderBy: { createdAt: 'asc' },
+          select: { createdAt: true },
+        })
+        const count = await db.attendanceChangeLog.count({
+          where: {
+            schoolId: r.schoolId,
+            date: r.date,
+            changedAt: {
+              gt: r.createdAt,
+              ...(nextEvent ? { lt: nextEvent.createdAt } : {}),
+            },
+            student: {
+              OR: [
+                {
+                  academicEnrollments: {
+                    some: {
+                      academicYear: r.academicYear,
+                      classId: r.classId,
+                      ...(r.sectionId ? { sectionId: r.sectionId } : {}),
+                      deletedAt: null,
+                    },
+                  },
+                },
+                {
+                  admission: {
+                    academicYear: r.academicYear,
+                    classId: r.classId,
+                    ...(r.sectionId ? { sectionId: r.sectionId } : {}),
+                  },
+                },
+              ],
+            },
+          },
+        })
+        return count
+      }),
+    )
+
     return NextResponse.json({
-      records: records.map((r) => ({
+      records: records.map((r, i) => ({
         id: r.id,
         date: formatIsoDate(r.date),
         classId: r.classId,
@@ -200,6 +360,7 @@ export async function GET(request: NextRequest) {
         performedByName: r.actor?.name ?? null,
         performedByEmail: r.actor?.email ?? null,
         createdAt: r.createdAt.toISOString(),
+        changeCount: changeCounts[i],
       })),
       performers,
       pagination: {

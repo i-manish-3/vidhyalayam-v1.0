@@ -138,6 +138,7 @@ export const MENUS: Record<string, MenuItem[]> = {
           children: [
             { label: 'Mark Attendance', page: 'mark-attendance', icon: ClipboardCheck },
             { label: 'View Attendance', page: 'view-attendance', icon: ClipboardList },
+            { label: 'Reports', page: 'attendance-reports', icon: BarChart3 },
           ],
         },
       ],
@@ -237,6 +238,7 @@ export const MENUS: Record<string, MenuItem[]> = {
       children: [
         { label: 'Mark Attendance', page: 'mark-attendance', icon: ClipboardCheck },
         { label: 'View Attendance', page: 'view-attendance', icon: ClipboardList },
+        { label: 'Reports', page: 'attendance-reports', icon: BarChart3 },
       ],
     },
     { label: 'Timetable', page: 'timetable', icon: Calendar },

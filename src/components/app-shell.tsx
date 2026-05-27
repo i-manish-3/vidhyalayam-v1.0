@@ -67,6 +67,7 @@ const SEARCH_ITEMS: { label: string; page: PageName; keywords: string[] }[] = [
   { label: 'Mark Attendance', page: 'mark-attendance', keywords: ['present', 'absent', 'daily', 'mark attendance'] },
   { label: 'View Attendance', page: 'view-attendance', keywords: ['attendance report', 'view attendance', 'attendance records'] },
   { label: 'Attendance Audit Log', page: 'attendance-audit-log', keywords: ['audit', 'finalize', 'reopen', 'log', 'history', 'attendance audit'] },
+  { label: 'Attendance Reports', page: 'attendance-reports', keywords: ['report', 'monthly', 'summary', 'calendar', 'defaulters', 'analytics', 'percentage'] },
   { label: 'Fee Heads', page: 'fees-heads', keywords: ['fee type', 'tuition', 'charge'] },
   { label: 'Fee Groups', page: 'fees-groups', keywords: ['fee category', 'group fees'] },
   { label: 'Fee Structures', page: 'fees-structures', keywords: ['fee plan', 'class fees', 'amount'] },
@@ -136,8 +137,10 @@ function UniversalSearch() {
   const role = user?.role || 'SCHOOL_ADMIN'
   const [query, setQuery] = useState('')
   const [isOpen, setIsOpen] = useState(false)
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false)
   const [selectedIndex, setSelectedIndex] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
+  const mobileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -153,10 +156,15 @@ function UniversalSearch() {
 
   const allowedPages = useMemo(() => getAllowedPagesForRole(role), [role])
 
+  const visibleSearchItems = useMemo(
+    () => SEARCH_ITEMS.filter(item =>
+      allowedPages.has(item.page) && isPageVisible(item.page, permissions, role, permissionsLoaded)
+    ),
+    [allowedPages, permissions, permissionsLoaded, role]
+  )
+
   const results = query.trim()
-    ? SEARCH_ITEMS.filter(item => {
-        if (!allowedPages.has(item.page)) return false
-        if (!isPageVisible(item.page, permissions, role, permissionsLoaded)) return false
+    ? visibleSearchItems.filter(item => {
         const q = query.toLowerCase()
         return (
           item.label.toLowerCase().includes(q) ||
@@ -165,6 +173,7 @@ function UniversalSearch() {
         )
       })
     : []
+  const mobileItems = query.trim() ? results : visibleSearchItems.slice(0, 8)
 
   const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({})
 
@@ -196,10 +205,18 @@ function UniversalSearch() {
   const handleSelect = (page: PageName) => {
     setQuery('')
     setIsOpen(false)
+    setMobileSearchOpen(false)
     setSelectedIndex(0)
     inputRef.current?.blur()
+    mobileInputRef.current?.blur()
     const url = resolveMigratedUrl(page)
     if (url) router.push(url)
+  }
+
+  const openMobileSearch = () => {
+    setMobileSearchOpen(true)
+    setIsOpen(false)
+    window.requestAnimationFrame(() => mobileInputRef.current?.focus())
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -219,8 +236,20 @@ function UniversalSearch() {
   }
 
   return (
-    <div className="relative min-w-0 flex-1 max-w-64 lg:max-w-72">
-      <div className="relative flex items-center">
+    <>
+    <div className="relative shrink-0 sm:min-w-0 sm:flex-1 sm:max-w-64 lg:max-w-72">
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className="size-9 rounded-lg border border-primary-foreground/20 bg-primary-foreground/10 text-primary-foreground hover:bg-primary-foreground/15 hover:text-primary-foreground sm:hidden dark:border-sidebar-border dark:bg-sidebar-accent/60 dark:text-sidebar-foreground dark:hover:bg-sidebar-accent"
+        onClick={openMobileSearch}
+        aria-label="Search"
+      >
+        <Search className="size-[18px]" />
+      </Button>
+
+      <div className="relative hidden items-center sm:flex">
         <Search className="absolute left-2.5 size-3.5 text-primary-foreground/75 pointer-events-none dark:text-sidebar-foreground/60" />
         <input
           ref={inputRef}
@@ -287,6 +316,70 @@ function UniversalSearch() {
         document.body
       )}
     </div>
+
+    <Dialog open={mobileSearchOpen} onOpenChange={(open) => {
+      setMobileSearchOpen(open)
+      if (!open) {
+        setQuery('')
+        setSelectedIndex(0)
+      }
+    }}>
+      <DialogContent className="top-4 max-h-[calc(100svh-2rem)] translate-y-0 gap-0 overflow-hidden rounded-2xl border-slate-200 bg-background/95 p-0 shadow-2xl backdrop-blur sm:hidden">
+        <DialogHeader className="border-b px-4 py-4 pr-12 text-left">
+          <DialogTitle className="flex items-center gap-2 text-base">
+            <Search className="size-4" />
+            Search
+          </DialogTitle>
+          <DialogDescription>Find pages and modules quickly.</DialogDescription>
+        </DialogHeader>
+
+        <div className="border-b px-4 py-3">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              ref={mobileInputRef}
+              value={query}
+              onChange={(event) => {
+                setQuery(event.target.value)
+                setSelectedIndex(0)
+              }}
+              placeholder="Search pages, modules..."
+              className="h-11 rounded-xl pl-9"
+            />
+          </div>
+        </div>
+
+        <div className="max-h-[58svh] overflow-y-auto overscroll-contain px-2 py-2 [scrollbar-color:theme(colors.emerald.400)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-emerald-400/70 [&::-webkit-scrollbar-thumb:hover]:bg-emerald-500 [&::-webkit-scrollbar-track]:bg-transparent">
+          {!query.trim() && (
+            <p className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Quick links</p>
+          )}
+          {query.trim() && results.length === 0 ? (
+            <div className="px-4 py-8 text-center">
+              <p className="text-sm font-medium">No results for &ldquo;{query}&rdquo;</p>
+              <p className="mt-1 text-xs text-muted-foreground">Try a page or module name.</p>
+            </div>
+          ) : (
+            mobileItems.map((item) => (
+              <button
+                key={item.page}
+                type="button"
+                onClick={() => handleSelect(item.page)}
+                className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm transition-colors hover:bg-accent"
+              >
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <ArrowRight className="size-4" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-medium">{item.label}</span>
+                  <span className="block truncate text-xs text-muted-foreground">{item.page}</span>
+                </span>
+              </button>
+            ))
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+    </>
   )
 }
 
@@ -680,8 +773,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           setConfirmPassword('')
         }
       }}>
-        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
+        <DialogContent className="flex max-h-[90svh] flex-col overflow-hidden p-0 sm:max-w-lg">
+          <DialogHeader className="shrink-0 border-b px-6 py-5 pr-12">
             <DialogTitle className="flex items-center gap-2">
               <User className="size-4" />
               My Profile
@@ -691,7 +784,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-6 py-2">
+          <div className="min-h-0 flex-1 space-y-6 overflow-y-auto overscroll-contain px-6 py-5 pr-7 [scrollbar-color:theme(colors.emerald.400)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-emerald-400/70 [&::-webkit-scrollbar-thumb:hover]:bg-emerald-500 [&::-webkit-scrollbar-track]:bg-transparent">
             <section className="space-y-3">
               <h3 className="text-sm font-semibold">Profile Photo</h3>
               <input
@@ -789,7 +882,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </section>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="shrink-0 border-t px-6 py-4">
             <Button variant="outline" onClick={() => setShowProfileDialog(false)}>
               Close
             </Button>

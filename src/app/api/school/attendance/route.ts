@@ -252,12 +252,15 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Create/update attendance records
+    // Create/update attendance records. Each student's write is wrapped in
+    // its own small transaction so that the read-of-existing → upsert → optional
+    // change-log entry stay atomic. Per-student tx keeps total tx duration tiny
+    // even for large classes (vs. one big tx that could exceed default timeout).
     const results: Awaited<ReturnType<typeof db.attendance.upsert>>[] = []
     for (const record of records) {
       const { studentId, status, remarks } = record
 
-      // Verify student belongs to this school
+      // Verify student belongs to this school + the active session (read; outside tx is fine)
       const student = await db.student.findFirst({
         where: {
           id: studentId,
@@ -268,31 +271,66 @@ export async function POST(request: NextRequest) {
             { admission: { academicYear } },
           ],
         },
+        select: { id: true },
       })
       if (!student) continue
 
-      const attendance = await db.attendance.upsert({
-        where: {
-          schoolId_studentId_date: {
-            schoolId: user.schoolId,
-            studentId,
-            date: attendanceDate,
+      const attendance = await db.$transaction(async (tx) => {
+        const existing = await tx.attendance.findUnique({
+          where: {
+            schoolId_studentId_date: {
+              schoolId: user.schoolId!,
+              studentId,
+              date: attendanceDate,
+            },
           },
-        },
-        create: {
-          schoolId: user.schoolId,
-          studentId,
-          academicYear,
-          date: attendanceDate,
-          status,
-          remarks,
-          markedBy: user.userId,
-        },
-        update: {
-          status,
-          remarks,
-          markedBy: user.userId,
-        },
+          select: { status: true, remarks: true },
+        })
+
+        const upserted = await tx.attendance.upsert({
+          where: {
+            schoolId_studentId_date: {
+              schoolId: user.schoolId!,
+              studentId,
+              date: attendanceDate,
+            },
+          },
+          create: {
+            schoolId: user.schoolId!,
+            studentId,
+            academicYear,
+            date: attendanceDate,
+            status,
+            remarks,
+            markedBy: user.userId,
+          },
+          update: {
+            status,
+            remarks,
+            markedBy: user.userId,
+          },
+        })
+
+        // Only log MUTATIONS — first marks are covered by Attendance.createdAt + markedBy.
+        const oldRemarks = existing?.remarks ?? null
+        const newRemarks = remarks ?? null
+        if (existing && (existing.status !== status || oldRemarks !== newRemarks)) {
+          await tx.attendanceChangeLog.create({
+            data: {
+              schoolId: user.schoolId!,
+              academicYear,
+              studentId,
+              date: attendanceDate,
+              oldStatus: existing.status,
+              newStatus: status,
+              oldRemarks,
+              newRemarks,
+              changedBy: user.userId,
+            },
+          })
+        }
+
+        return upserted
       })
       results.push(attendance)
     }

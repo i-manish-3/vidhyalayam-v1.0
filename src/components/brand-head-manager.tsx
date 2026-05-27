@@ -1,12 +1,14 @@
 'use client'
 
 import { useEffect, useLayoutEffect } from 'react'
+import { usePathname } from 'next/navigation'
 import { applySchoolBranding } from '@/lib/branding'
 import { api } from '@/lib/api'
 import { useAppStore } from '@/lib/store'
 import type { School } from '@/lib/store'
 
 export function BrandHeadManager() {
+  const pathname = usePathname()
   const currentSchool = useAppStore((state) => state.currentSchool)
   const isAuthenticated = useAppStore((state) => state.isAuthenticated)
   const role = useAppStore((state) => state.user?.role)
@@ -16,6 +18,19 @@ export function BrandHeadManager() {
   useLayoutEffect(() => {
     applySchoolBranding(currentSchool)
   }, [currentSchool?.favicon, currentSchool?.logo, currentSchool?.name])
+
+  useEffect(() => {
+    if (isAuthenticated && role !== 'SUPER_ADMIN' && !currentSchool?.name) return
+
+    applySchoolBranding(currentSchool)
+    const frame = window.requestAnimationFrame(() => applySchoolBranding(currentSchool))
+    const timer = window.setTimeout(() => applySchoolBranding(currentSchool), 50)
+
+    return () => {
+      window.cancelAnimationFrame(frame)
+      window.clearTimeout(timer)
+    }
+  }, [currentSchool, isAuthenticated, pathname, role])
 
   useEffect(() => {
     if (!isAuthenticated) return

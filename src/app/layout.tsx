@@ -53,13 +53,27 @@ const schoolBrandingScript = `
     icon.href = source.includes('?') ? source + '&v=' + Date.now() : source + '?v=' + Date.now();
   };
 
+  const syncExistingIcons = (source) => {
+    const href = source.includes('?') ? source + '&v=' + Date.now() : source + '?v=' + Date.now();
+    document.querySelectorAll("link[rel~='icon'], link[rel='shortcut icon'], link[rel='apple-touch-icon']").forEach((icon) => {
+      const type = mimeType(source);
+      if (type) icon.type = type;
+      else icon.removeAttribute('type');
+      icon.sizes = 'any';
+      icon.setAttribute('data-school-icon-source', source);
+      icon.href = href;
+    });
+  };
+
   try {
     const school = readJson(brandingKey) || readJson('erp_currentSchool');
     if (!school?.name) return;
     document.title = school.name + ' Dashboard';
     const iconSource = school.favicon || school.logo || defaultIcon;
+    syncExistingIcons(iconSource);
     upsertIcon('icon', iconSource);
     upsertIcon('shortcut icon', iconSource);
+    upsertIcon('apple-touch-icon', iconSource);
   } catch {}
 })();
 `;

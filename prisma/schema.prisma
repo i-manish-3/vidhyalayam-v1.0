@@ -39,6 +39,7 @@ model User {
   userPermissions  UserPermission[]
   markedAttendance Attendance[]     @relation("markedByUser")
   attendanceAuditLogs AttendanceAuditLog[] @relation("attendanceAuditActor")
+  attendanceChanges AttendanceChangeLog[] @relation("attendanceChanger")
   loginEvents      LoginEvent[]
   accountLockout   AccountLockout?
 
@@ -101,6 +102,7 @@ model School {
   feeAuditLogs                FeeAuditLog[]
   attendance                  Attendance[]
   attendanceAuditLogs         AttendanceAuditLog[]
+  attendanceChanges           AttendanceChangeLog[]
   timetables                  Timetable[]
   periodConfigs               PeriodConfig[]
   exams                       Exam[]
@@ -302,6 +304,7 @@ model Student {
   section              Section?                     @relation(fields: [sectionId], references: [id])
   parentLinks          StudentParent[]
   attendance           Attendance[]
+  attendanceChanges    AttendanceChangeLog[]
   feeCollections       FeeCollection[]
   feeAssignments       StudentFeeAssignment[]
   academicEnrollments  StudentAcademicEnrollment[]
@@ -1223,6 +1226,37 @@ model AttendanceAuditLog {
   @@index([academicYear])
   @@index([schoolId, date, classId, sectionId])
   @@index([performedBy])
+}
+
+// Per-student attendance change log. Only mutations are recorded (when an
+// existing Attendance row's status or remarks change). First-time marks are
+// covered by Attendance.createdAt + markedBy, so they are intentionally NOT
+// logged here. Use this for accountability when someone reopens a finalized
+// attendance and edits a student's status.
+model AttendanceChangeLog {
+  id           String   @id @default(cuid())
+  schoolId     String
+  academicYear String
+  studentId    String
+  date         DateTime
+  oldStatus    String
+  newStatus    String
+  oldRemarks   String?
+  newRemarks   String?
+  changedBy    String
+  changedAt    DateTime @default(now())
+
+  school  School  @relation(fields: [schoolId], references: [id])
+  student Student @relation(fields: [studentId], references: [id])
+  changer User    @relation("attendanceChanger", fields: [changedBy], references: [id])
+
+  @@index([schoolId])
+  @@index([studentId])
+  @@index([date])
+  @@index([schoolId, date])
+  @@index([schoolId, studentId, date])
+  @@index([changedBy])
+  @@index([changedAt])
 }
 
 // ============================================
