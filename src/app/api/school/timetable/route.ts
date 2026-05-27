@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { requireRole } from '@/lib/api-auth'
+import { requireRole, requirePermission } from '@/lib/api-auth'
 import { unauthorizedError, internalError, apiError } from '@/lib/api-errors'
 
 const ACADEMIC_YEAR_PATTERN = /^\d{4}-\d{4}$/
@@ -71,20 +71,42 @@ export async function GET(request: NextRequest) {
 // POST /api/school/timetable - Create a single timetable entry with conflict detection
 export async function POST(request: NextRequest) {
   try {
-    const user = requireRole(request, ['SUPER_ADMIN', 'SCHOOL_ADMIN'])
-    if (!user || !user.schoolId) {
-      return unauthorizedError()
-    }
-
     const body = await request.json()
     const { classId, sectionId, subjectId, teacherId, day, period } = body
-    const academicYear = await resolveAcademicYear(user.schoolId, body.academicYear || null, true)
 
+    // Cheap field check first so we don't run two permission queries for a request that's missing data anyway.
     if (!sectionId || !subjectId || !teacherId || !day || !period) {
+      const fallbackUser = requireRole(request, ['SUPER_ADMIN', 'SCHOOL_ADMIN', 'STAFF'])
+      if (!fallbackUser || !fallbackUser.schoolId) return unauthorizedError()
       return apiError(400, 'Please fill in all required fields: section, subject, teacher, day, and period.')
     }
+
+    // Permission depends on whether this is a create or an update. Look up by the
+    // unique key (school + year + section + day + period) to decide.
+    const preUser = requireRole(request, ['SUPER_ADMIN', 'SCHOOL_ADMIN', 'STAFF', 'TEACHER'])
+    if (!preUser || !preUser.schoolId) return unauthorizedError()
+
+    const academicYear = await resolveAcademicYear(preUser.schoolId, body.academicYear || null, true)
     if (!academicYear) {
       return apiError(400, 'Please choose an active academic year.')
+    }
+
+    const existing = await db.timetable.findFirst({
+      where: {
+        schoolId: preUser.schoolId,
+        academicYear,
+        sectionId,
+        day,
+        period: Number(period),
+        deletedAt: null,
+      },
+      select: { id: true },
+    })
+
+    const requiredPermission = existing ? 'timetable:update' : 'timetable:create'
+    const user = await requirePermission(request, requiredPermission)
+    if (!user || !user.schoolId) {
+      return apiError(403, `You don't have permission to ${existing ? 'update' : 'create'} timetable entries.`)
     }
 
     // Verify section belongs to this school
@@ -102,6 +124,18 @@ export async function POST(request: NextRequest) {
     })
     if (!subject) {
       return apiError(400, "The selected subject doesn't exist in your school.")
+    }
+
+    // Verify subject is assigned to this class — prevents adding a subject to a
+    // timetable that the class doesn't actually offer.
+    const classSubject = await db.classSubject.findUnique({
+      where: { classId_subjectId: { classId: section.classId, subjectId } },
+    })
+    if (!classSubject) {
+      return apiError(
+        400,
+        `${subject.name} is not assigned to ${section.class.name || 'this class'}. Please assign it to the class first via Edit Class.`
+      )
     }
 
     // Verify teacher
@@ -178,9 +212,9 @@ export async function POST(request: NextRequest) {
 // DELETE /api/school/timetable - Delete a timetable entry
 export async function DELETE(request: NextRequest) {
   try {
-    const user = requireRole(request, ['SUPER_ADMIN', 'SCHOOL_ADMIN'])
+    const user = await requirePermission(request, 'timetable:delete')
     if (!user || !user.schoolId) {
-      return unauthorizedError()
+      return apiError(403, "You don't have permission to delete timetable entries.")
     }
 
     const { searchParams } = new URL(request.url)

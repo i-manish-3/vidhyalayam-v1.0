@@ -6,6 +6,7 @@ import { api } from '@/lib/api'
 import { useAppStore } from '@/lib/store'
 import { getCurrentAcademicYear } from '@/lib/academic-years'
 import { useToast } from '@/hooks/use-toast'
+import { usePermissions, PERMISSIONS } from '@/hooks/use-permissions'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -64,7 +65,7 @@ interface TimetableEntry {
   section?: { id: string; name: string; class?: { id: string; name: string } }
 }
 
-interface ClassOption { id: string; name: string }
+interface ClassOption { id: string; name: string; subjects?: SubjectOption[] }
 interface SectionOption { id: string; name: string; classId: string }
 interface SubjectOption { id: string; name: string; code?: string }
 interface TeacherOption { id: string; firstName: string; lastName: string }
@@ -105,6 +106,11 @@ export function TimetablePage() {
   const currentSchoolAcademicYear = useAppStore((s) => s.currentSchool?.academicYear)
   const viewingAcademicYear = useAppStore((s) => s.viewingAcademicYear)
   const academicYear = viewingAcademicYear || currentSchoolAcademicYear || getCurrentAcademicYear()
+  const { hasPermission } = usePermissions()
+  const canCreate = hasPermission(PERMISSIONS.TIMETABLE_CREATE)
+  const canUpdate = hasPermission(PERMISSIONS.TIMETABLE_UPDATE)
+  const canDelete = hasPermission(PERMISSIONS.TIMETABLE_DELETE)
+  const canEdit = canCreate || canUpdate || canDelete
 
   // Data
   const [entries, setEntries] = useState<TimetableEntry[]>([])
@@ -188,6 +194,12 @@ export function TimetablePage() {
     form.classId ? sections.filter(s => s.classId === form.classId) : [],
     [form.classId, sections]
   )
+
+  const availableFormSubjects = useMemo<SubjectOption[]>(() => {
+    if (!form.classId) return []
+    const cls = classes.find(c => c.id === form.classId)
+    return cls?.subjects ?? []
+  }, [form.classId, classes])
 
   // ── Active periods (non-break) ──
   const activePeriods = useMemo(() =>
@@ -353,14 +365,18 @@ export function TimetablePage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={openPeriodSettings} className="gap-2">
-            <Settings2 className="size-4" />
-            Period Settings
-          </Button>
-          <Button size="sm" onClick={() => { resetForm(); setEditEntry(null); setShowAdd(true) }} className="gap-2">
-            <PlusCircle className="size-4" />
-            Add Entry
-          </Button>
+          {canUpdate && (
+            <Button variant="outline" size="sm" onClick={openPeriodSettings} className="gap-2">
+              <Settings2 className="size-4" />
+              Period Settings
+            </Button>
+          )}
+          {canCreate && (
+            <Button size="sm" onClick={() => { resetForm(); setEditEntry(null); setShowAdd(true) }} className="gap-2">
+              <PlusCircle className="size-4" />
+              Add Entry
+            </Button>
+          )}
         </div>
       </div>
 
@@ -475,13 +491,15 @@ export function TimetablePage() {
               <div>
                 <h3 className="text-sm font-semibold">No Timetable Entries</h3>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Click on any cell in the grid or use the Add Entry button to start building the schedule
+                  {canCreate ? 'Click on any cell in the grid or use the Add Entry button to start building the schedule' : 'No timetable has been set up yet.'}
                 </p>
               </div>
-              <Button size="sm" variant="outline" onClick={() => { resetForm(); setEditEntry(null); setShowAdd(true) }} className="gap-2 mt-2">
-                <PlusCircle className="size-4" />
-                Add First Entry
-              </Button>
+              {canCreate && (
+                <Button size="sm" variant="outline" onClick={() => { resetForm(); setEditEntry(null); setShowAdd(true) }} className="gap-2 mt-2">
+                  <PlusCircle className="size-4" />
+                  Add First Entry
+                </Button>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -505,7 +523,30 @@ export function TimetablePage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {activePeriods.map((pc) => (
+                    {[...periodConfigs].sort((a, b) => a.period - b.period).map((pc) => {
+                      if (pc.isBreak) {
+                        const isLunch = pc.label.toLowerCase().includes('lunch')
+                        return (
+                          <tr key={pc.period}>
+                            <td className="bg-muted/40 px-2 py-1.5 border-b border-r text-center">
+                              <div className="text-xs font-semibold">{pc.label}</div>
+                              <div className="text-[10px] text-muted-foreground">{pc.startTime} - {pc.endTime}</div>
+                            </td>
+                            <td
+                              colSpan={DAYS.length}
+                              className={cn(
+                                'border-b px-4 py-2 text-center text-xs font-medium',
+                                isLunch
+                                  ? 'bg-orange-50 text-orange-700 dark:bg-orange-950/20 dark:text-orange-300'
+                                  : 'bg-amber-50 text-amber-700 dark:bg-amber-950/20 dark:text-amber-300'
+                              )}
+                            >
+                              {pc.label} · {pc.startTime} – {pc.endTime}
+                            </td>
+                          </tr>
+                        )
+                      }
+                      return (
                       <tr key={pc.period}>
                         <td className="bg-muted/40 px-2 py-1.5 border-b border-r text-center">
                           <div className="text-xs font-semibold">{pc.label}</div>
@@ -521,10 +562,13 @@ export function TimetablePage() {
                             <td
                               key={`${day}-${pc.period}`}
                               className={cn(
-                                'border-b border-r last:border-r-0 p-1 min-h-[64px] align-top cursor-pointer transition-colors hover:bg-primary/5',
+                                'border-b border-r last:border-r-0 p-1 min-h-[64px] align-top transition-colors',
+                                ((cell && canUpdate) || (!cell && canCreate)) ? 'cursor-pointer hover:bg-primary/5' : 'cursor-default',
                                 cell ? '' : 'bg-background'
                               )}
-                              onClick={() => openAddForCell(day, pc.period)}
+                              onClick={() => {
+                                if (cell ? canUpdate : canCreate) openAddForCell(day, pc.period)
+                              }}
                             >
                               {cell ? (
                                 <div className={cn('rounded-md px-2 py-1.5 border text-xs', colorClass)}>
@@ -540,6 +584,7 @@ export function TimetablePage() {
                                         </p>
                                       )}
                                     </div>
+                                    {(canUpdate || canDelete) && (
                                     <DropdownMenu>
                                       <DropdownMenuTrigger asChild onClick={e => e.stopPropagation()}>
                                         <button className="size-5 rounded hover:bg-black/10 dark:hover:bg-white/10 flex items-center justify-center shrink-0">
@@ -547,19 +592,24 @@ export function TimetablePage() {
                                         </button>
                                       </DropdownMenuTrigger>
                                       <DropdownMenuContent align="end" className="min-w-[120px]">
-                                        <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openEdit(cell) }}>
-                                          <Pencil className="size-3.5 mr-2" />
-                                          Edit
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem
-                                          className="text-destructive focus:text-destructive"
-                                          onClick={(e) => { e.stopPropagation(); handleDelete(cell.id) }}
-                                        >
-                                          <Trash2 className="size-3.5 mr-2" />
-                                          Delete
-                                        </DropdownMenuItem>
+                                        {canUpdate && (
+                                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openEdit(cell) }}>
+                                            <Pencil className="size-3.5 mr-2" />
+                                            Edit
+                                          </DropdownMenuItem>
+                                        )}
+                                        {canDelete && (
+                                          <DropdownMenuItem
+                                            className="text-destructive focus:text-destructive"
+                                            onClick={(e) => { e.stopPropagation(); handleDelete(cell.id) }}
+                                          >
+                                            <Trash2 className="size-3.5 mr-2" />
+                                            Delete
+                                          </DropdownMenuItem>
+                                        )}
                                       </DropdownMenuContent>
                                     </DropdownMenu>
+                                    )}
                                   </div>
                                 </div>
                               ) : (
@@ -571,7 +621,8 @@ export function TimetablePage() {
                           )
                         })}
                       </tr>
-                    ))}
+                      )
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -609,7 +660,7 @@ export function TimetablePage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label className="text-xs font-medium">Class <span className="text-destructive">*</span></Label>
-                <Select value={form.classId} onValueChange={v => setForm(f => ({ ...f, classId: v, sectionId: '' }))}>
+                <Select value={form.classId} onValueChange={v => setForm(f => ({ ...f, classId: v, sectionId: '', subjectId: '' }))}>
                   <SelectTrigger><SelectValue placeholder="Select class" /></SelectTrigger>
                   <SelectContent>{classes.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
                 </Select>
@@ -625,10 +676,21 @@ export function TimetablePage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label className="text-xs font-medium">Subject <span className="text-destructive">*</span></Label>
-                <Select value={form.subjectId} onValueChange={v => setForm(f => ({ ...f, subjectId: v }))}>
-                  <SelectTrigger><SelectValue placeholder="Select subject" /></SelectTrigger>
-                  <SelectContent>{subjects.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
+                <Select
+                  value={form.subjectId}
+                  onValueChange={v => setForm(f => ({ ...f, subjectId: v }))}
+                  disabled={!form.classId || availableFormSubjects.length === 0}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={!form.classId ? 'Select class first' : availableFormSubjects.length === 0 ? 'No subjects in this class' : 'Select subject'} />
+                  </SelectTrigger>
+                  <SelectContent>{availableFormSubjects.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
                 </Select>
+                {form.classId && availableFormSubjects.length === 0 && (
+                  <p className="text-[11px] text-amber-600 dark:text-amber-400">
+                    Is class me koi subject assigned nahi hai. Pehle Edit Class jaakar subjects assign karein.
+                  </p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label className="text-xs font-medium">Teacher <span className="text-destructive">*</span></Label>
@@ -665,7 +727,7 @@ export function TimetablePage() {
             <Button variant="outline" onClick={() => { setShowAdd(false); setEditEntry(null); resetForm() }}>
               Cancel
             </Button>
-            {editEntry && (
+            {editEntry && canDelete && (
               <Button variant="destructive" onClick={async () => { await handleDelete(editEntry.id); setShowAdd(false); setEditEntry(null); resetForm() }}>
                 <Trash2 className="size-4 mr-1" />
                 Delete
@@ -684,22 +746,22 @@ export function TimetablePage() {
 
       {/* Period Settings Dialog */}
       <Dialog open={showSettings} onOpenChange={setShowSettings}>
-        <DialogContent className="max-w-2xl max-h-[80vh]">
-          <DialogHeader>
+        <DialogContent className="flex max-h-[88svh] flex-col overflow-hidden p-0 sm:max-w-4xl">
+          <DialogHeader className="shrink-0 border-b px-5 py-4 pr-12">
             <DialogTitle>Period Configuration</DialogTitle>
             <DialogDescription>
               Define the time slots and break periods for your school day.
             </DialogDescription>
           </DialogHeader>
-          <ScrollArea className="max-h-[50vh] pr-4">
-            <div className="space-y-3 py-4">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4 pr-6 [scrollbar-color:theme(colors.emerald.400)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-emerald-400/70 [&::-webkit-scrollbar-thumb:hover]:bg-emerald-500 [&::-webkit-scrollbar-track]:bg-transparent">
+            <div className="space-y-3">
               {periodForm.sort((a, b) => a.period - b.period).map((p, idx) => (
                 <div key={idx} className={cn(
-                  'flex items-center gap-3 p-3 rounded-lg border',
+                  'flex flex-col gap-3 p-3 rounded-lg border sm:flex-row sm:items-center',
                   p.isBreak ? 'bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800' : 'bg-background'
                 )}>
-                  <span className="text-xs font-bold text-muted-foreground w-6 text-center">{idx + 1}</span>
-                  <div className="flex-1 grid grid-cols-4 gap-3">
+                  <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-muted text-xs font-bold text-muted-foreground">{idx + 1}</span>
+                  <div className="grid flex-1 gap-3 sm:grid-cols-2 lg:grid-cols-[1.2fr_1fr_1fr_0.9fr]">
                     <div className="space-y-1">
                       <Label className="text-[10px] text-muted-foreground">Label</Label>
                       <Input
@@ -729,8 +791,12 @@ export function TimetablePage() {
                     <div className="space-y-1">
                       <Label className="text-[10px] text-muted-foreground">Type</Label>
                       <Select
-                        value={p.isBreak ? 'break' : 'period'}
-                        onValueChange={v => setPeriodForm(prev => prev.map((pp, i) => i === idx ? { ...pp, isBreak: v === 'break' } : pp))}
+                        value={!p.isBreak ? 'period' : p.label.toLowerCase().includes('lunch') ? 'lunch' : 'break'}
+                        onValueChange={v => setPeriodForm(prev => prev.map((pp, i) => i === idx ? {
+                          ...pp,
+                          isBreak: v !== 'period',
+                          label: v === 'lunch' ? 'Lunch Break' : v === 'break' ? 'Break' : pp.label,
+                        } : pp))}
                       >
                         <SelectTrigger className="h-8 text-xs">
                           <SelectValue />
@@ -738,6 +804,7 @@ export function TimetablePage() {
                         <SelectContent>
                           <SelectItem value="period">Period</SelectItem>
                           <SelectItem value="break">Break</SelectItem>
+                          <SelectItem value="lunch">Lunch Break</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -745,7 +812,7 @@ export function TimetablePage() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="size-8 shrink-0 text-muted-foreground hover:text-destructive"
+                    className="size-8 shrink-0 self-end text-muted-foreground hover:text-destructive sm:self-auto"
                     onClick={() => setPeriodForm(prev => prev.filter((_, i) => i !== idx))}
                   >
                     <X className="size-3.5" />
@@ -772,8 +839,8 @@ export function TimetablePage() {
                 Add Period
               </Button>
             </div>
-          </ScrollArea>
-          <DialogFooter>
+          </div>
+          <DialogFooter className="shrink-0 border-t px-5 py-4">
             <Button variant="outline" onClick={() => setShowSettings(false)}>Cancel</Button>
             <Button onClick={handleSavePeriods} disabled={savingPeriods}>
               {savingPeriods ? (

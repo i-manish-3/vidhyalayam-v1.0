@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { requireRole } from '@/lib/api-auth'
+import { requireRole, requirePermission } from '@/lib/api-auth'
 import { unauthorizedError, internalError, apiError } from '@/lib/api-errors'
 
 // GET /api/school/period-config - Get period configuration for the school
@@ -50,9 +50,9 @@ export async function GET(request: NextRequest) {
 // PUT /api/school/period-config - Update period configuration
 export async function PUT(request: NextRequest) {
   try {
-    const user = requireRole(request, ['SUPER_ADMIN', 'SCHOOL_ADMIN'])
+    const user = await requirePermission(request, 'timetable:update')
     if (!user || !user.schoolId) {
-      return unauthorizedError()
+      return apiError(403, "You don't have permission to update period configuration.")
     }
 
     const body = await request.json()
