@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { requireRole } from '@/lib/api-auth'
+import { requireRole, requirePermission } from '@/lib/api-auth'
 import { unauthorizedError, notFoundError, internalError, apiError } from '@/lib/api-errors'
 
 // PUT /api/school/classes/[id] - Update class (name, status, subjects)
@@ -9,9 +9,9 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const user = requireRole(request, ['SUPER_ADMIN', 'SCHOOL_ADMIN'])
+    const user = await requirePermission(request, 'class:update')
     if (!user || !user.schoolId) {
-      return unauthorizedError()
+      return apiError(403, "You don't have permission to update classes.")
     }
 
     const { id } = await params
@@ -140,9 +140,9 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const user = requireRole(request, ['SUPER_ADMIN', 'SCHOOL_ADMIN'])
+    const user = await requirePermission(request, 'class:delete')
     if (!user || !user.schoolId) {
-      return unauthorizedError()
+      return apiError(403, "You don't have permission to delete classes.")
     }
 
     const { id } = await params

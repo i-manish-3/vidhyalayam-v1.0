@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { requireRole } from '@/lib/api-auth'
+import { requireRole, requirePermission } from '@/lib/api-auth'
 import { hashPassword } from '@/lib/auth'
 import { apiError, internalError, unauthorizedError } from '@/lib/api-errors'
 import { uploadIfDataUrl, IMAGE_MIME_TYPES } from '@/lib/storage'
@@ -86,9 +86,9 @@ export async function GET(request: NextRequest) {
 // POST /api/school/staff - Create Staff profile + linked User login + role assignment.
 export async function POST(request: NextRequest) {
   try {
-    const authUser = requireRole(request, ['SUPER_ADMIN', 'SCHOOL_ADMIN'])
+    const authUser = await requirePermission(request, 'role:create')
     if (!authUser || !authUser.schoolId) {
-      return unauthorizedError()
+      return apiError(403, "You don't have permission to create staff accounts.")
     }
 
     const body = await request.json()

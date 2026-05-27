@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { requireRole } from '@/lib/api-auth'
+import { requireRole, requirePermission } from '@/lib/api-auth'
 import { unauthorizedError, notFoundError, internalError, apiError } from '@/lib/api-errors'
 
 // GET /api/school/salary/advance - List advance requests
 export async function GET(request: NextRequest) {
   try {
-    const user = requireRole(request, ['SCHOOL_ADMIN', 'STAFF'])
+    const user = await requirePermission(request, 'salary:read')
     if (!user || !user.schoolId) {
-      return unauthorizedError()
+      return apiError(403, "You don't have permission to view salary advances.")
     }
 
     const { searchParams } = new URL(request.url)
@@ -57,9 +57,9 @@ export async function GET(request: NextRequest) {
 // POST /api/school/salary/advance - Create advance request
 export async function POST(request: NextRequest) {
   try {
-    const user = requireRole(request, ['SCHOOL_ADMIN', 'TEACHER', 'STAFF'])
+    const user = await requirePermission(request, 'salary:advance')
     if (!user || !user.schoolId) {
-      return unauthorizedError()
+      return apiError(403, "You don't have permission to request salary advances.")
     }
 
     const body = await request.json()

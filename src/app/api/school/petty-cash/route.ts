@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { requireRole } from '@/lib/api-auth'
+import { requireRole, requirePermission } from '@/lib/api-auth'
 import { unauthorizedError, internalError, apiError } from '@/lib/api-errors'
 
 // GET /api/school/petty-cash - List entries
@@ -69,9 +69,9 @@ export async function GET(request: NextRequest) {
 // POST /api/school/petty-cash - Create entry (auto-approve if admin, pending if teacher)
 export async function POST(request: NextRequest) {
   try {
-    const user = requireRole(request, ['SCHOOL_ADMIN', 'TEACHER', 'STAFF'])
+    const user = await requirePermission(request, 'petty_cash:create')
     if (!user || !user.schoolId) {
-      return unauthorizedError()
+      return apiError(403, "You don't have permission to create petty cash entries.")
     }
 
     const body = await request.json()

@@ -472,7 +472,7 @@ export function ClassesPage() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 pr-5 [scrollbar-color:theme(colors.emerald.400)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-emerald-400/70 [&::-webkit-scrollbar-thumb:hover]:bg-emerald-500 [&::-webkit-scrollbar-track]:bg-transparent">
+          <div className="themed-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 pr-5">
             {!timetableClass?.sections?.length ? (
               <div className="rounded-md border border-dashed px-3 py-8 text-center">
                 <CalendarDays className="mx-auto mb-2 size-8 text-muted-foreground/40" />

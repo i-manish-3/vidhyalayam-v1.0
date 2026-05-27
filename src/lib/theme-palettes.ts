@@ -247,6 +247,8 @@ export const SCHOOL_THEME_VARIABLE_NAMES = [
   '--button-primary',
   '--button-primary-foreground',
   '--button-primary-hover',
+  '--scrollbar-thumb',
+  '--scrollbar-thumb-hover',
 ] as const
 
 export function findSchoolThemePalette(primaryColor?: string | null) {
@@ -290,6 +292,8 @@ function paletteToCssVars(palette: ThemePalette): CSSProperties {
     '--button-primary': buttonPrimary,
     '--button-primary-foreground': buttonPrimaryForeground,
     '--button-primary-hover': buttonPrimaryHover,
+    '--scrollbar-thumb': buttonPrimary,
+    '--scrollbar-thumb-hover': buttonPrimaryHover,
   } as CSSProperties
 }
 

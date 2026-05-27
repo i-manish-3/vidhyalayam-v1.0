@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Prisma } from '@prisma/client'
 import { db } from '@/lib/db'
-import { requireRole } from '@/lib/api-auth'
+import { requireRole, requirePermission } from '@/lib/api-auth'
 import { unauthorizedError, internalError, apiError } from '@/lib/api-errors'
 import {
   createFeeDebitLedgerEntry,
@@ -378,9 +378,9 @@ export async function GET(request: NextRequest) {
 // POST /api/school/fees/collections - Record fee payment against ledger dues.
 export async function POST(request: NextRequest) {
   try {
-    const user = requireRole(request, ['SCHOOL_ADMIN'])
+    const user = await requirePermission(request, 'fees:collect')
     if (!user || !user.schoolId) {
-      return unauthorizedError()
+      return apiError(403, "You don't have permission to record fee payments.")
     }
 
     const body = await request.json()

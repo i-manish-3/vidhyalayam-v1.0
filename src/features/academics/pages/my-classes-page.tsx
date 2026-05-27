@@ -473,8 +473,8 @@ export function MyClassesPage() {
           }
         }}
       >
-        <DialogContent className="max-h-[88vh] overflow-y-auto p-4 sm:max-w-5xl">
-          <DialogHeader className="gap-1">
+        <DialogContent className="flex max-h-[88svh] flex-col overflow-hidden p-0 sm:max-w-5xl">
+          <DialogHeader className="shrink-0 border-b px-4 py-4 pr-12">
             <DialogTitle className="flex items-center gap-2 text-base">
               <CalendarDays className="size-4 text-muted-foreground" />
               {timetableClass?.name || 'Class'} Timetable
@@ -484,57 +484,59 @@ export function MyClassesPage() {
             </DialogDescription>
           </DialogHeader>
 
-          {!timetableClass?.sections.length ? (
-            <div className="rounded-md border border-dashed px-3 py-8 text-center">
-              <CalendarDays className="mx-auto mb-2 size-8 text-muted-foreground/40" />
-              <p className="text-sm font-medium">No sections to show</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium">Section {selectedTimetableSection?.name || '-'}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {timetableEntries.length} scheduled period{timetableEntries.length !== 1 ? 's' : ''}
-                  </p>
-                </div>
-                <Select value={selectedTimetableSectionId} onValueChange={setSelectedTimetableSectionId}>
-                  <SelectTrigger className="h-9 w-full sm:w-48">
-                    <SelectValue placeholder="Select section" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {timetableClass.sections.map((section) => (
-                      <SelectItem key={section.id} value={section.id}>
-                        Section {section.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+          <div className="themed-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 pr-5">
+            {!timetableClass?.sections.length ? (
+              <div className="rounded-md border border-dashed px-3 py-8 text-center">
+                <CalendarDays className="mx-auto mb-2 size-8 text-muted-foreground/40" />
+                <p className="text-sm font-medium">No sections to show</p>
               </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium">Section {selectedTimetableSection?.name || '-'}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {timetableEntries.length} scheduled period{timetableEntries.length !== 1 ? 's' : ''}
+                    </p>
+                  </div>
+                  <Select value={selectedTimetableSectionId} onValueChange={setSelectedTimetableSectionId}>
+                    <SelectTrigger className="h-9 w-full sm:w-48">
+                      <SelectValue placeholder="Select section" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {timetableClass.sections.map((section) => (
+                        <SelectItem key={section.id} value={section.id}>
+                          Section {section.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-              {loadingTimetable ? (
-                <div className="flex items-center justify-center gap-2 rounded-md border py-10 text-sm text-muted-foreground">
-                  <Loader2 className="size-4 animate-spin" />
-                  Loading timetable...
-                </div>
-              ) : timetablePeriods.length === 0 ? (
-                <div className="rounded-md border border-dashed px-3 py-8 text-center">
-                  <CalendarDays className="mx-auto mb-2 size-8 text-muted-foreground/40" />
-                  <p className="text-sm font-medium">No timetable found</p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    No entries are scheduled for this section yet.
-                  </p>
-                </div>
-              ) : (
-                <TimetableGrid
-                  entries={timetableEntries}
-                  periods={timetablePeriods}
-                  periodConfigs={periodConfigs}
-                  currentTeacherId={teacherId}
-                />
-              )}
-            </div>
-          )}
+                {loadingTimetable ? (
+                  <div className="flex items-center justify-center gap-2 rounded-md border py-10 text-sm text-muted-foreground">
+                    <Loader2 className="size-4 animate-spin" />
+                    Loading timetable...
+                  </div>
+                ) : timetablePeriods.length === 0 ? (
+                  <div className="rounded-md border border-dashed px-3 py-8 text-center">
+                    <CalendarDays className="mx-auto mb-2 size-8 text-muted-foreground/40" />
+                    <p className="text-sm font-medium">No timetable found</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      No entries are scheduled for this section yet.
+                    </p>
+                  </div>
+                ) : (
+                  <TimetableGrid
+                    entries={timetableEntries}
+                    periods={timetablePeriods}
+                    periodConfigs={periodConfigs}
+                    currentTeacherId={teacherId}
+                  />
+                )}
+              </div>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </div>

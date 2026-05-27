@@ -1211,7 +1211,7 @@ export function AnnualTransportSetupPage() {
           </DialogHeader>
 
           {previewDiff && (
-            <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain pr-1 [scrollbar-color:theme(colors.emerald.400)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-emerald-400/70 [&::-webkit-scrollbar-thumb:hover]:bg-emerald-500 [&::-webkit-scrollbar-track]:bg-transparent">
+            <div className="themed-scrollbar flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain pr-1">
               <div className="grid grid-cols-3 gap-2 text-sm">
                 <div className="rounded-md border p-3">
                   <div className="text-xs uppercase text-muted-foreground">Routes</div>

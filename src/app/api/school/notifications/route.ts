@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { requireRole } from '@/lib/api-auth'
+import { requireRole, requirePermission } from '@/lib/api-auth'
 import { unauthorizedError, internalError, apiError } from '@/lib/api-errors'
 
 // GET /api/school/notifications - List notifications
@@ -115,9 +115,9 @@ export async function GET(request: NextRequest) {
 // POST /api/school/notifications - Create notification
 export async function POST(request: NextRequest) {
   try {
-    const user = requireRole(request, ['SUPER_ADMIN', 'SCHOOL_ADMIN'])
+    const user = await requirePermission(request, 'notification:create')
     if (!user) {
-      return unauthorizedError()
+      return apiError(403, "You don't have permission to create notifications.")
     }
 
     const body = await request.json()

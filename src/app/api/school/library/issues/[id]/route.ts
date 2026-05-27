@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { requireRole } from '@/lib/api-auth'
+import { requireRole, requirePermission } from '@/lib/api-auth'
 import { unauthorizedError, notFoundError, internalError, apiError } from '@/lib/api-errors'
 
 // PATCH /api/school/library/issues/[id] - Return book
@@ -9,9 +9,9 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const user = requireRole(request, ['SCHOOL_ADMIN'])
+    const user = await requirePermission(request, 'library:issue')
     if (!user || !user.schoolId) {
-      return unauthorizedError()
+      return apiError(403, "You don't have permission to manage book returns.")
     }
 
     const { id } = await params

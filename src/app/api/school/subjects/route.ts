@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { requireRole } from '@/lib/api-auth'
+import { requireRole, requirePermission } from '@/lib/api-auth'
 import { unauthorizedError, internalError, apiError } from '@/lib/api-errors'
 
 const VALID_TYPES = ['primary', 'optional', 'extra', 'special']
@@ -75,9 +75,9 @@ export async function GET(request: NextRequest) {
 // POST /api/school/subjects - Create subject
 export async function POST(request: NextRequest) {
   try {
-    const user = requireRole(request, ['SCHOOL_ADMIN'])
+    const user = await requirePermission(request, 'subject:create')
     if (!user || !user.schoolId) {
-      return unauthorizedError()
+      return apiError(403, "You don't have permission to create subjects.")
     }
 
     const body = await request.json()

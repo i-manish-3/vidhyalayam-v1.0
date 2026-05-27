@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { requireRole } from '@/lib/api-auth'
+import { requireRole, requirePermission } from '@/lib/api-auth'
 import { unauthorizedError, notFoundError, internalError, apiError } from '@/lib/api-errors'
 
 // GET /api/school/exams/results - Get exam results
@@ -57,9 +57,9 @@ export async function GET(request: NextRequest) {
 // POST /api/school/exams/results - Submit exam result
 export async function POST(request: NextRequest) {
   try {
-    const user = requireRole(request, ['SCHOOL_ADMIN', 'TEACHER', 'STAFF'])
+    const user = await requirePermission(request, 'exam:update')
     if (!user || !user.schoolId) {
-      return unauthorizedError()
+      return apiError(403, "You don't have permission to submit exam results.")
     }
 
     const body = await request.json()

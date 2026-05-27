@@ -45,6 +45,8 @@ import { api } from '@/lib/api'
 import { useRouter } from 'next/navigation'
 import { useAppStore, type PageName } from '@/lib/store'
 import { resolveMigratedUrl } from '@/lib/migrated-routes'
+import { usePermissions } from '@/hooks/use-permissions'
+import { isPageVisible } from '@/lib/permission-mappings'
 import { cn } from '@/lib/utils'
 
 const feeTrendData = [
@@ -124,6 +126,17 @@ export function SchoolAdminDashboard() {
   const [now, setNow] = useState(() => new Date())
   const router = useRouter()
   const { currentSchool } = useAppStore()
+  const { hasPermission, permissions } = usePermissions()
+  const role = useAppStore((s) => s.user?.role || '')
+  const permissionsLoaded = useAppStore((s) => s.permissionsLoaded)
+
+  // Widget-level access. SCHOOL_ADMIN with full permissions sees everything;
+  // custom STAFF roles only see widgets they have permissions for.
+  const canSeeStudents = hasPermission('student:read')
+  const canSeeTeachers = hasPermission('teacher:read')
+  const canSeeFees = hasPermission('fees:read')
+  const canSeeAttendance = hasPermission('attendance:read')
+  const canSeeClasses = hasPermission('class:read')
 
   const navigatePage = (page: PageName) => {
     const url = resolveMigratedUrl(page)
@@ -216,7 +229,7 @@ export function SchoolAdminDashboard() {
   ]
 
   const metrics: MetricItem[] = [
-    {
+    canSeeStudents && {
       label: 'Students',
       value: dashboard.totalStudents,
       note: `${dashboard.totalClasses} classes, ${dashboard.totalSections} sections`,
@@ -224,7 +237,7 @@ export function SchoolAdminDashboard() {
       tone: 'bg-primary/10 text-primary',
       progress: Math.min(100, dashboard.totalStudents > 0 ? 82 : 0),
     },
-    {
+    canSeeTeachers && {
       label: 'Teachers',
       value: dashboard.totalTeachers,
       note: 'Active teaching staff',
@@ -232,7 +245,7 @@ export function SchoolAdminDashboard() {
       tone: 'bg-sky-500/10 text-sky-600 dark:text-sky-300',
       progress: Math.min(100, dashboard.totalTeachers > 0 ? 76 : 0),
     },
-    {
+    canSeeFees && {
       label: 'Collected Fees',
       value: formatMoney(dashboard.feeStats.totalCollected),
       note: `${collectionRate}% collection rate`,
@@ -240,7 +253,7 @@ export function SchoolAdminDashboard() {
       tone: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-300',
       progress: collectionRate,
     },
-    {
+    canSeeFees && {
       label: 'Pending Fees',
       value: formatMoney(dashboard.feeStats.totalPending),
       note: `${formatMoney(dashboard.feeStats.overdueFees)} overdue`,
@@ -248,14 +261,14 @@ export function SchoolAdminDashboard() {
       tone: 'bg-amber-500/10 text-amber-600 dark:text-amber-300',
       progress: Math.min(100, pendingRate),
     },
-  ]
+  ].filter(Boolean) as MetricItem[]
 
   const heroKpis = [
-    { label: 'Attendance', value: `${attendancePercent}%`, icon: CalendarCheck },
-    { label: 'Collection', value: `${collectionRate}%`, icon: IndianRupee },
-  ]
+    canSeeAttendance && { label: 'Attendance', value: `${attendancePercent}%`, icon: CalendarCheck },
+    canSeeFees && { label: 'Collection', value: `${collectionRate}%`, icon: IndianRupee },
+  ].filter(Boolean) as Array<{ label: string; value: string; icon: React.ElementType }>
 
-  const quickActions: Array<{ label: string; page: PageName; icon: React.ElementType; iconClassName: string }> = [
+  const quickActions: Array<{ label: string; page: PageName; icon: React.ElementType; iconClassName: string }> = ([
     { label: 'Students', page: 'students', icon: GraduationCap, iconClassName: 'text-cyan-600 dark:text-cyan-300' },
     { label: 'New Admission', page: 'admission-form', icon: PlusCircle, iconClassName: 'text-emerald-600 dark:text-emerald-300' },
     { label: 'Classes', page: 'classes', icon: Layers, iconClassName: 'text-indigo-600 dark:text-indigo-300' },
@@ -268,7 +281,7 @@ export function SchoolAdminDashboard() {
     { label: 'Announcements', page: 'announcements', icon: Megaphone, iconClassName: 'text-fuchsia-600 dark:text-fuchsia-300' },
     { label: 'Alerts', page: 'notifications', icon: Bell, iconClassName: 'text-orange-500 dark:text-orange-300' },
     { label: 'Settings', page: 'settings', icon: Settings, iconClassName: 'text-slate-600 dark:text-slate-300' },
-  ]
+  ] as const).filter((action) => isPageVisible(action.page, permissions, role, permissionsLoaded))
 
   const recentActivities = useMemo(() => {
     if (dashboard.recentActivities.length > 0) return dashboard.recentActivities
@@ -357,9 +370,11 @@ export function SchoolAdminDashboard() {
         ))}
       </section>
 
-      <TodaysBirthdaysCard people={birthdays} />
+      {(canSeeStudents || canSeeTeachers) && <TodaysBirthdaysCard people={birthdays} />}
 
-      <section className="grid gap-6 xl:grid-cols-[minmax(0,1.6fr)_minmax(320px,0.9fr)]">
+      {(canSeeFees || canSeeAttendance) && (
+      <section className={cn('grid gap-6', canSeeFees && canSeeAttendance ? 'xl:grid-cols-[minmax(0,1.6fr)_minmax(320px,0.9fr)]' : '')}>
+        {canSeeFees && (
         <Card>
           <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -415,7 +430,9 @@ export function SchoolAdminDashboard() {
             </div>
           </CardContent>
         </Card>
+        )}
 
+        {canSeeAttendance && (
         <Card>
           <CardHeader>
             <CardTitle>Today&apos;s Attendance</CardTitle>
@@ -456,20 +473,30 @@ export function SchoolAdminDashboard() {
             </div>
           </CardContent>
         </Card>
+        )}
       </section>
+      )}
 
       <section className="grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
+        {(canSeeFees || canSeeAttendance) && (
         <Card>
           <CardHeader>
             <CardTitle>Operations Snapshot</CardTitle>
             <CardDescription>Quick health check for today</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <SnapshotRow label="Attendance Marking" value={dashboard.attendanceToday.total > 0 ? 'In progress' : 'Not started'} progress={attendancePercent} tone={dashboard.attendanceToday.total > 0 ? 'good' : 'warn'} />
-            <SnapshotRow label="Fee Collection Rate" value={`${collectionRate}%`} progress={collectionRate} tone={collectionRate >= 70 ? 'good' : 'warn'} />
-            <SnapshotRow label="Pending Follow-ups" value={formatMoney(dashboard.feeStats.totalPending)} progress={100 - Math.min(100, pendingRate)} tone={dashboard.feeStats.totalPending > 0 ? 'warn' : 'good'} />
+            {canSeeAttendance && (
+              <SnapshotRow label="Attendance Marking" value={dashboard.attendanceToday.total > 0 ? 'In progress' : 'Not started'} progress={attendancePercent} tone={dashboard.attendanceToday.total > 0 ? 'good' : 'warn'} />
+            )}
+            {canSeeFees && (
+              <SnapshotRow label="Fee Collection Rate" value={`${collectionRate}%`} progress={collectionRate} tone={collectionRate >= 70 ? 'good' : 'warn'} />
+            )}
+            {canSeeFees && (
+              <SnapshotRow label="Pending Follow-ups" value={formatMoney(dashboard.feeStats.totalPending)} progress={100 - Math.min(100, pendingRate)} tone={dashboard.feeStats.totalPending > 0 ? 'warn' : 'good'} />
+            )}
           </CardContent>
         </Card>
+        )}
 
         <Card>
           <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

@@ -1,7 +1,8 @@
 'use client'
 
 import { FeesHeadsPage } from '@/features/fees/pages/fees-heads-page'
+import { PermissionGuard } from '@/components/shared'
 
 export default function FeesHeadsRoute() {
-  return <FeesHeadsPage />
+  return <PermissionGuard page="fees-heads"><FeesHeadsPage /></PermissionGuard>
 }

@@ -349,7 +349,7 @@ function UniversalSearch() {
           </div>
         </div>
 
-        <div className="max-h-[58svh] overflow-y-auto overscroll-contain px-2 py-2 [scrollbar-color:theme(colors.emerald.400)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-emerald-400/70 [&::-webkit-scrollbar-thumb:hover]:bg-emerald-500 [&::-webkit-scrollbar-track]:bg-transparent">
+        <div className="themed-scrollbar max-h-[58svh] overflow-y-auto overscroll-contain px-2 py-2">
           {!query.trim() && (
             <p className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Quick links</p>
           )}
@@ -784,7 +784,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="min-h-0 flex-1 space-y-6 overflow-y-auto overscroll-contain px-6 py-5 pr-7 [scrollbar-color:theme(colors.emerald.400)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-emerald-400/70 [&::-webkit-scrollbar-thumb:hover]:bg-emerald-500 [&::-webkit-scrollbar-track]:bg-transparent">
+          <div className="themed-scrollbar min-h-0 flex-1 space-y-6 overflow-y-auto overscroll-contain px-6 py-5 pr-7">
             <section className="space-y-3">
               <h3 className="text-sm font-semibold">Profile Photo</h3>
               <input

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { requireRole } from '@/lib/api-auth'
+import { requireRole, requirePermission } from '@/lib/api-auth'
 import { unauthorizedError, notFoundError, internalError, apiError } from '@/lib/api-errors'
 
 // GET /api/school/library/issues - List book issues
@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
 // POST /api/school/library/issues - Issue book
 export async function POST(request: NextRequest) {
   try {
-    const user = requireRole(request, ['SCHOOL_ADMIN'])
+    const user = await requirePermission(request, 'library:issue')
     if (!user || !user.schoolId) {
       return unauthorizedError()
     }

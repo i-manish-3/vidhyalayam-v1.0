@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { requireRole } from '@/lib/api-auth'
+import { requireRole, requirePermission } from '@/lib/api-auth'
 import { hashPassword } from '@/lib/auth'
 import { unauthorizedError, internalError, apiError } from '@/lib/api-errors'
 import { uploadIfDataUrl, IMAGE_MIME_TYPES } from '@/lib/storage'
@@ -92,9 +92,9 @@ export async function GET(request: NextRequest) {
 // POST /api/school/teachers - Create teacher
 export async function POST(request: NextRequest) {
   try {
-    const user = requireRole(request, ['SCHOOL_ADMIN'])
+    const user = await requirePermission(request, 'teacher:create')
     if (!user || !user.schoolId) {
-      return unauthorizedError()
+      return apiError(403, "You don't have permission to create teachers.")
     }
 
     const body = await request.json()

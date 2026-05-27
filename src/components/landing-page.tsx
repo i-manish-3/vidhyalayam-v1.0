@@ -1394,7 +1394,7 @@ function LegalModal({
           <p className="text-xs font-medium text-slate-500 dark:text-white/45">Last updated: {document.lastUpdated}</p>
         </DialogHeader>
 
-        <div className="h-[58svh] overflow-y-auto overscroll-contain pr-1 [scrollbar-color:theme(colors.emerald.400)_transparent] [scrollbar-width:thin] sm:h-[60svh] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-emerald-400/70 [&::-webkit-scrollbar-thumb:hover]:bg-emerald-500 [&::-webkit-scrollbar-track]:bg-transparent">
+        <div className="themed-scrollbar h-[58svh] overflow-y-auto overscroll-contain pr-1 sm:h-[60svh]">
           <div className="space-y-7 px-5 py-6 sm:px-7">
             {document.sections.map((section) => (
               <section key={section.title} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.03]">

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { requireRole } from '@/lib/api-auth'
+import { requireRole, getUserPermissions } from '@/lib/api-auth'
 import { unauthorizedError, internalError } from '@/lib/api-errors'
 
 // GET /api/school/dashboard - Dashboard stats (role-aware)
@@ -18,11 +18,15 @@ export async function GET(request: NextRequest) {
     switch (role) {
       case 'SUPER_ADMIN':
       case 'SCHOOL_ADMIN':
-        return await getAdminDashboard(schoolId)
+        return await getAdminDashboard(schoolId, ['*'])
       case 'TEACHER':
         return await getTeacherDashboard(schoolId, user.userId)
-      case 'STAFF':
-        return await getAdminDashboard(schoolId)
+      case 'STAFF': {
+        // STAFF roles inherit permissions from their assigned custom roles.
+        // The admin dashboard only returns sections the user has permission for.
+        const perms = await getUserPermissions(user.userId, role, schoolId)
+        return await getAdminDashboard(schoolId, perms)
+      }
       case 'STUDENT':
         return await getStudentDashboard(schoolId, user.userId)
       case 'PARENT':
@@ -36,47 +40,65 @@ export async function GET(request: NextRequest) {
   }
 }
 
+function hasPerm(perms: string[], code: string) {
+  if (perms.includes('*')) return true
+  if (perms.includes(code)) return true
+  const [mod] = code.split(':')
+  return perms.includes(`${mod}:*`)
+}
+
 // ============================================
 // ADMIN DASHBOARD
 // ============================================
-async function getAdminDashboard(schoolId: string) {
-  // Core stats
-  const [
-    totalStudents,
-    totalTeachers,
-    totalClasses,
-    totalSections,
-  ] = await Promise.all([
-    db.student.count({ where: { schoolId, deletedAt: null, isActive: true } }),
-    db.teacher.count({ where: { schoolId, deletedAt: null, isActive: true } }),
-    db.class.count({ where: { schoolId, deletedAt: null } }),
-    db.section.count({ where: { schoolId, deletedAt: null } }),
+async function getAdminDashboard(schoolId: string, perms: string[]) {
+  const canStudents = hasPerm(perms, 'student:read')
+  const canTeachers = hasPerm(perms, 'teacher:read')
+  const canClasses = hasPerm(perms, 'class:read')
+  const canFees = hasPerm(perms, 'fees:read')
+  const canAttendance = hasPerm(perms, 'attendance:read')
+  const canSalary = hasPerm(perms, 'salary:read')
+  const canAnnouncements = hasPerm(perms, 'announcement:read')
+
+  // Core stats — each guarded by the matching read permission
+  const [totalStudents, totalTeachers, totalClasses, totalSections] = await Promise.all([
+    canStudents ? db.student.count({ where: { schoolId, deletedAt: null, isActive: true } }) : Promise.resolve(0),
+    canTeachers ? db.teacher.count({ where: { schoolId, deletedAt: null, isActive: true } }) : Promise.resolve(0),
+    canClasses ? db.class.count({ where: { schoolId, deletedAt: null } }) : Promise.resolve(0),
+    canClasses ? db.section.count({ where: { schoolId, deletedAt: null } }) : Promise.resolve(0),
   ])
 
   // Fee stats
-  const [totalFees, collectedFees, pendingFees] = await Promise.all([
-    db.feeCollection.aggregate({
-      where: { schoolId, deletedAt: null },
-      _sum: { amount: true },
-    }),
-    db.feeCollection.aggregate({
-      where: { schoolId, deletedAt: null, paymentStatus: { in: ['paid', 'partial'] } },
-      _sum: { paidAmount: true },
-    }),
-    db.feeCollection.aggregate({
-      where: { schoolId, deletedAt: null, paymentStatus: { in: ['unpaid', 'partial'] } },
-      _sum: { amount: true, paidAmount: true },
-    }),
-  ])
+  const [totalFees, collectedFees, pendingFees] = canFees
+    ? await Promise.all([
+        db.feeCollection.aggregate({
+          where: { schoolId, deletedAt: null },
+          _sum: { amount: true },
+        }),
+        db.feeCollection.aggregate({
+          where: { schoolId, deletedAt: null, paymentStatus: { in: ['paid', 'partial'] } },
+          _sum: { paidAmount: true },
+        }),
+        db.feeCollection.aggregate({
+          where: { schoolId, deletedAt: null, paymentStatus: { in: ['unpaid', 'partial'] } },
+          _sum: { amount: true, paidAmount: true },
+        }),
+      ])
+    : [
+        { _sum: { amount: 0 } },
+        { _sum: { paidAmount: 0 } },
+        { _sum: { amount: 0, paidAmount: 0 } },
+      ]
 
   // Attendance today
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 
-  const attendanceToday = await db.attendance.findMany({
-    where: { schoolId, date: today },
-    select: { status: true },
-  })
+  const attendanceToday = canAttendance
+    ? await db.attendance.findMany({
+        where: { schoolId, date: today },
+        select: { status: true },
+      })
+    : []
 
   const attendanceStats = {
     total: attendanceToday.length,
@@ -86,47 +108,57 @@ async function getAdminDashboard(schoolId: string) {
   }
 
   // Overdue fees
-  const overdueFees = await db.feeCollection.aggregate({
-    where: {
-      schoolId,
-      deletedAt: null,
-      paymentStatus: { in: ['unpaid', 'partial'] },
-      dueDate: { lt: new Date() },
-    },
-    _sum: { amount: true, paidAmount: true },
-  })
+  const overdueFees = canFees
+    ? await db.feeCollection.aggregate({
+        where: {
+          schoolId,
+          deletedAt: null,
+          paymentStatus: { in: ['unpaid', 'partial'] },
+          dueDate: { lt: new Date() },
+        },
+        _sum: { amount: true, paidAmount: true },
+      })
+    : { _sum: { amount: 0, paidAmount: 0 } }
 
   // Salary stats
-  const salaryPaymentsThisMonth = await db.salaryPayment.aggregate({
-    where: {
-      schoolId,
-      month: today.getMonth() + 1,
-      year: today.getFullYear(),
-      paymentStatus: 'paid',
-    },
-    _sum: { netPayable: true },
-  })
+  const salaryPaymentsThisMonth = canSalary
+    ? await db.salaryPayment.aggregate({
+        where: {
+          schoolId,
+          month: today.getMonth() + 1,
+          year: today.getFullYear(),
+          paymentStatus: 'paid',
+        },
+        _sum: { netPayable: true },
+      })
+    : { _sum: { netPayable: 0 } }
 
-  // Recent activities
+  // Recent activities — only pull from sources the user can see
   const [recentFeePayments, recentStudents, recentAnnouncements] = await Promise.all([
-    db.feeCollection.findMany({
-      where: { schoolId, paymentStatus: { in: ['paid', 'partial'] }, deletedAt: null },
-      include: { student: { select: { firstName: true, lastName: true } } },
-      orderBy: { paymentDate: 'desc' },
-      take: 5,
-    }),
-    db.student.findMany({
-      where: { schoolId, deletedAt: null },
-      orderBy: { createdAt: 'desc' },
-      take: 5,
-      select: { id: true, firstName: true, lastName: true, createdAt: true },
-    }),
-    db.announcement.findMany({
-      where: { schoolId, isActive: true, deletedAt: null },
-      orderBy: { createdAt: 'desc' },
-      take: 3,
-      select: { id: true, title: true, priority: true, createdAt: true },
-    }),
+    canFees
+      ? db.feeCollection.findMany({
+          where: { schoolId, paymentStatus: { in: ['paid', 'partial'] }, deletedAt: null },
+          include: { student: { select: { firstName: true, lastName: true } } },
+          orderBy: { paymentDate: 'desc' },
+          take: 5,
+        })
+      : Promise.resolve([]),
+    canStudents
+      ? db.student.findMany({
+          where: { schoolId, deletedAt: null },
+          orderBy: { createdAt: 'desc' },
+          take: 5,
+          select: { id: true, firstName: true, lastName: true, createdAt: true },
+        })
+      : Promise.resolve([]),
+    canAnnouncements
+      ? db.announcement.findMany({
+          where: { schoolId, isActive: true, deletedAt: null },
+          orderBy: { createdAt: 'desc' },
+          take: 3,
+          select: { id: true, title: true, priority: true, createdAt: true },
+        })
+      : Promise.resolve([]),
   ])
 
   const totalFeeAmount = totalFees._sum.amount || 0

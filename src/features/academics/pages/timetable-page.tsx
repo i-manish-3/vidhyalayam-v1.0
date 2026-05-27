@@ -68,7 +68,7 @@ interface TimetableEntry {
 interface ClassOption { id: string; name: string; subjects?: SubjectOption[] }
 interface SectionOption { id: string; name: string; classId: string }
 interface SubjectOption { id: string; name: string; code?: string }
-interface TeacherOption { id: string; firstName: string; lastName: string }
+interface TeacherOption { id: string; firstName: string; lastName: string; userId?: string | null }
 
 interface PeriodConfig {
   id: string
@@ -106,6 +106,8 @@ export function TimetablePage() {
   const currentSchoolAcademicYear = useAppStore((s) => s.currentSchool?.academicYear)
   const viewingAcademicYear = useAppStore((s) => s.viewingAcademicYear)
   const academicYear = viewingAcademicYear || currentSchoolAcademicYear || getCurrentAcademicYear()
+  const currentUser = useAppStore((s) => s.user)
+  const isTeacherRole = currentUser?.role === 'TEACHER'
   const { hasPermission } = usePermissions()
   const canCreate = hasPermission(PERMISSIONS.TIMETABLE_CREATE)
   const canUpdate = hasPermission(PERMISSIONS.TIMETABLE_UPDATE)
@@ -151,6 +153,13 @@ export function TimetablePage() {
     return map
   }, [subjects])
 
+  // For TEACHER role: resolve the teacher record linked to the logged-in user.
+  // This is used to lock the "By Teacher" view to the teacher's own timetable.
+  const ownTeacher = useMemo(() => {
+    if (!isTeacherRole || !currentUser?.id) return null
+    return teachers.find(t => t.userId === currentUser.id) ?? null
+  }, [isTeacherRole, currentUser?.id, teachers])
+
   // ── Fetch data ──
   const fetchData = useCallback(async () => {
     try {
@@ -160,7 +169,7 @@ export function TimetablePage() {
         api.get<{ classes: ClassOption[] }>('/api/school/classes').catch(() => ({ classes: [] })),
         api.get<{ sections: SectionOption[] }>('/api/school/sections').catch(() => ({ sections: [] })),
         api.get<{ subjects: SubjectOption[] }>('/api/school/subjects').catch(() => ({ subjects: [] })),
-        api.get<{ teachers: TeacherOption[] }>('/api/school/teachers').catch(() => ({ teachers: [] })),
+        api.get<{ teachers: TeacherOption[] }>('/api/school/teachers', { limit: 500 }).catch(() => ({ teachers: [] })),
         api.get<{ periods: PeriodConfig[] }>('/api/school/period-config').catch(() => ({ periods: [] })),
       ])
       setEntries(ttRes.entries || [])
@@ -183,6 +192,14 @@ export function TimetablePage() {
   useEffect(() => {
     fetchData()
   }, [fetchData])
+
+  // Lock teacher-role users to their own timetable in "By Teacher" view.
+  useEffect(() => {
+    if (!isTeacherRole) return
+    if (ownTeacher && filterTeacher !== ownTeacher.id) {
+      setFilterTeacher(ownTeacher.id)
+    }
+  }, [isTeacherRole, ownTeacher, filterTeacher])
 
   // ── Filtered sections ──
   const availableSections = useMemo(() =>
@@ -434,16 +451,28 @@ export function TimetablePage() {
               </div>
             ) : (
               <div className="flex flex-wrap items-center gap-3">
-                <Select value={filterTeacher} onValueChange={setFilterTeacher}>
-                  <SelectTrigger className="w-[220px] h-9">
-                    <SelectValue placeholder="Select Teacher" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {teachers.map(t => (
-                      <SelectItem key={t.id} value={t.id}>{t.firstName} {t.lastName}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {isTeacherRole ? (
+                  <div className="flex h-9 items-center gap-2 rounded-md border bg-muted/40 px-3 text-xs">
+                    <Users className="size-3.5 text-muted-foreground" />
+                    <span className="font-medium">
+                      {ownTeacher
+                        ? `${ownTeacher.firstName} ${ownTeacher.lastName}`
+                        : currentUser?.name || 'My Timetable'}
+                    </span>
+                    <Badge variant="outline" className="ml-1 text-[10px]">You</Badge>
+                  </div>
+                ) : (
+                  <Select value={filterTeacher} onValueChange={setFilterTeacher}>
+                    <SelectTrigger className="w-[220px] h-9">
+                      <SelectValue placeholder="Select Teacher" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {teachers.map(t => (
+                        <SelectItem key={t.id} value={t.id}>{t.firstName} {t.lastName}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
             )}
           </div>
@@ -753,7 +782,7 @@ export function TimetablePage() {
               Define the time slots and break periods for your school day.
             </DialogDescription>
           </DialogHeader>
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4 pr-6 [scrollbar-color:theme(colors.emerald.400)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-emerald-400/70 [&::-webkit-scrollbar-thumb:hover]:bg-emerald-500 [&::-webkit-scrollbar-track]:bg-transparent">
+          <div className="themed-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4 pr-6">
             <div className="space-y-3">
               {periodForm.sort((a, b) => a.period - b.period).map((p, idx) => (
                 <div key={idx} className={cn(

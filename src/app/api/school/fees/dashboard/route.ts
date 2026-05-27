@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { requireRole } from '@/lib/api-auth'
+import { requireRole, requirePermission } from '@/lib/api-auth'
 import { unauthorizedError, internalError, apiError } from '@/lib/api-errors'
 import { getFeeLedgerSummary, hasFeeLedgerData } from '@/lib/fee-ledger-summary'
 
 // GET /api/school/fees/dashboard - Fee dashboard stats
 export async function GET(request: NextRequest) {
   try {
-    const user = requireRole(request, ['SCHOOL_ADMIN', 'STAFF'])
+    const user = await requirePermission(request, 'fees:read')
     if (!user || !user.schoolId) {
-      return unauthorizedError()
+      return apiError(403, "You don't have permission to view fee dashboard.")
     }
 
     const schoolId = user.schoolId

@@ -241,6 +241,14 @@ export const MENUS: Record<string, MenuItem[]> = {
         { label: 'Reports', page: 'attendance-reports', icon: BarChart3 },
       ],
     },
+    {
+      label: 'Audit Logs',
+      page: 'attendance-audit-log',
+      icon: History,
+      children: [
+        { label: 'Attendance', page: 'attendance-audit-log', icon: ClipboardList },
+      ],
+    },
     { label: 'Timetable', page: 'timetable', icon: Calendar },
     { label: 'Exams', page: 'exams', icon: Award },
     { label: 'Library', page: 'library', icon: Library },

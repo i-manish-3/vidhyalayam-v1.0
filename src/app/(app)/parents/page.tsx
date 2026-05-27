@@ -1,7 +1,8 @@
 'use client'
 
 import { ParentsPage } from '@/features/people/pages/parents-page'
+import { PermissionGuard } from '@/components/shared'
 
 export default function ParentsRoute() {
-  return <ParentsPage />
+  return <PermissionGuard page="parents"><ParentsPage /></PermissionGuard>
 }
