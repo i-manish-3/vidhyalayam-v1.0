@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useTheme } from 'next-themes'
-import { motion, useInView, AnimatePresence, useScroll, useTransform } from 'framer-motion'
+import { motion, useInView, AnimatePresence, useScroll, useTransform, type Variants } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -34,7 +34,7 @@ const scrollToId = (href: string) => {
 }
 
 /* ─── Animation variants ─── */
-const fadeUp = {
+const fadeUp: Variants = {
   hidden: { opacity: 0, y: 40 },
   visible: (i: number = 0) => ({
     opacity: 1, y: 0,
@@ -42,7 +42,7 @@ const fadeUp = {
   }),
 }
 
-const fadeIn = {
+const fadeIn: Variants = {
   hidden: { opacity: 0 },
   visible: (i: number = 0) => ({
     opacity: 1,
@@ -50,7 +50,7 @@ const fadeIn = {
   }),
 }
 
-const scaleIn = {
+const scaleIn: Variants = {
   hidden: { opacity: 0, scale: 0.85 },
   visible: (i: number = 0) => ({
     opacity: 1, scale: 1,
@@ -105,6 +105,8 @@ const NAV_LINKS = [
   { label: 'Team', href: '#team' },
   { label: 'Contact Us', href: '#contact' },
 ]
+
+const BRAND_TAGLINE = 'Empowering tradition with technology'
 
 const STATS = [
   { label: 'Schools', value: 500, suffix: '+' },
@@ -416,7 +418,7 @@ function HeroSection({ onLoginClick }: { onLoginClick: () => void }) {
         <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
           <div className="text-center lg:text-left">
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
-              <Badge variant="secondary" className="mb-6 px-4 py-1.5 text-sm font-medium bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20 shadow-lg shadow-emerald-500/10" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
+              <Badge variant="secondary" className="mb-6 px-4 py-1.5 text-sm font-medium bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20 shadow-lg shadow-emerald-500/10">
                 <Sparkles className="size-3.5 mr-1.5" />
                 #1 School Management Platform
               </Badge>
@@ -439,7 +441,11 @@ function HeroSection({ onLoginClick }: { onLoginClick: () => void }) {
               </motion.span>
             </h1>
 
-            <motion.p className="mt-6 text-lg sm:text-xl text-slate-600 dark:text-white/60 max-w-xl mx-auto lg:mx-0" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, delay: 0.7 }}>
+            <motion.p className="mt-4 text-base font-semibold text-emerald-700 dark:text-emerald-300 max-w-xl mx-auto lg:mx-0" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, delay: 0.65 }}>
+              {BRAND_TAGLINE}
+            </motion.p>
+
+            <motion.p className="mt-4 text-lg sm:text-xl text-slate-600 dark:text-white/60 max-w-xl mx-auto lg:mx-0" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, delay: 0.7 }}>
               The all-in-one school management platform that streamlines admissions, attendance, fees, academics, and communication — so you can focus on what matters most: your students.
             </motion.p>
 
@@ -1252,7 +1258,10 @@ function Footer({ onLoginClick }: { onLoginClick: () => void }) {
               </div>
               <span className="text-lg font-bold">Vidhyalayam</span>
             </div>
-            <p className="text-sm text-slate-400 leading-relaxed">The all-in-one school management platform for modern schools.</p>
+            <p className="text-sm text-slate-400 leading-relaxed">
+              <span className="block font-medium text-emerald-300">{BRAND_TAGLINE}</span>
+              <span className="mt-1 block">The all-in-one school management platform for modern schools.</span>
+            </p>
           </div>
           <div>
             <h4 className="font-semibold mb-4 text-sm uppercase tracking-wider text-slate-300">Product</h4>
