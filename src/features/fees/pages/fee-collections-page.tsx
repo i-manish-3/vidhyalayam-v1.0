@@ -1889,9 +1889,9 @@ export function FeeCollectionsPage() {
             </Card>
           </div>
 
-          {/* ── Tabs: History / Comment / Expected ────────── */}
+          {/* ── Tabs: History / Comment ────────── */}
           <Tabs defaultValue="history" className="w-full">
-            <TabsList className="grid h-auto w-full grid-cols-3 gap-1.5 bg-transparent p-0">
+            <TabsList className="grid h-auto w-full grid-cols-2 gap-1.5 bg-transparent p-0">
               <TabsTrigger
                 value="history"
                 className="h-10 gap-1.5 rounded-lg border bg-background text-xs font-semibold data-[state=active]:border-primary/50 data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm"
@@ -1905,13 +1905,6 @@ export function FeeCollectionsPage() {
               >
                 <MessageCircle className="size-3.5" />
                 Special Comment
-              </TabsTrigger>
-              <TabsTrigger
-                value="expected"
-                className="h-10 gap-1.5 rounded-lg border bg-background text-xs font-semibold data-[state=active]:border-primary/50 data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm"
-              >
-                <CalendarDays className="size-3.5" />
-                Expected Payment
               </TabsTrigger>
             </TabsList>
             <TabsContent value="history" className="mt-2 rounded-lg border bg-card p-0 shadow-sm">
@@ -1985,12 +1978,6 @@ export function FeeCollectionsPage() {
                 placeholder="e.g. Approved by Principal for partial waiver…"
                 className="mt-1.5"
               />
-            </TabsContent>
-            <TabsContent value="expected" className="mt-2 rounded-lg border bg-card px-3 py-2 shadow-sm">
-              <div className="flex items-center justify-between">
-                <span className="text-sm">Expected selected payment</span>
-                <span className="text-base font-bold tabular-nums text-primary">{money(payableTotal)}</span>
-              </div>
             </TabsContent>
           </Tabs>
         </>
