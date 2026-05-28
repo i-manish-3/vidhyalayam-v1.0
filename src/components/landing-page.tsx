@@ -236,10 +236,10 @@ const STATS = [
 ]
 
 const FEATURES = [
-  { icon: Users, title: 'Student Management', desc: 'Complete student lifecycle management from admission to alumni tracking', color: 'from-emerald-500 to-teal-500' },
+  { icon: Users, title: 'Student Management', desc: 'Complete student lifecycle management from admission to alumni tracking', color: 'from-emerald-600 to-teal-600' },
   { icon: ClipboardCheck, title: 'Smart Attendance', desc: 'Real-time attendance tracking with instant notifications to parents', color: 'from-teal-500 to-cyan-500' },
   { icon: CreditCard, title: 'Fees & Payments', desc: 'Automated fee collection, receipts, and financial reporting', color: 'from-cyan-500 to-emerald-500' },
-  { icon: BookOpen, title: 'Academic Excellence', desc: 'Timetable, exams, grades, and comprehensive progress tracking', color: 'from-emerald-500 to-teal-500' },
+  { icon: BookOpen, title: 'Academic Excellence', desc: 'Timetable, exams, grades, and comprehensive progress tracking', color: 'from-emerald-600 to-teal-600' },
   { icon: Bell, title: 'Communication Hub', desc: 'Seamless messaging between teachers, parents, and administration', color: 'from-teal-500 to-cyan-500' },
   { icon: Shield, title: 'Role-Based Access', desc: 'Granular permission controls for every role in your school', color: 'from-cyan-500 to-emerald-500' },
 ]
@@ -400,7 +400,7 @@ function Navbar({ onLoginClick }: { onLoginClick: () => void }) {
     >
       <div className="mx-auto max-w-7xl flex items-center justify-between px-4 sm:px-6 lg:px-8 h-16">
         <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="flex items-center gap-2.5 group" aria-label="Vidhyalayam">
-          <div className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 text-white shadow-lg shadow-emerald-500/25 group-hover:shadow-emerald-500/50 transition-all duration-300 group-hover:scale-105">
+          <div className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-600 to-teal-600 text-white shadow-lg shadow-emerald-500/25 group-hover:shadow-emerald-500/50 transition-all duration-300 group-hover:scale-105">
             <GraduationCap className="size-5" />
           </div>
           <span className="text-lg font-bold leading-tight pb-0.5 bg-gradient-to-br from-slate-900 to-slate-700 dark:from-white dark:to-white/70 bg-clip-text text-transparent">
@@ -425,15 +425,12 @@ function Navbar({ onLoginClick }: { onLoginClick: () => void }) {
           <Button variant="ghost" size="icon" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} className="text-slate-600 dark:text-white/80 hover:text-slate-900 dark:hover:text-white hover:bg-emerald-50 dark:hover:bg-white/5 transition-all duration-300">
             {mounted && (theme === 'dark' ? <Sun className="size-4" /> : <Moon className="size-4" />)}
           </Button>
-          <Button variant="ghost" size="sm" onClick={onLoginClick} className="text-slate-600 dark:text-white/80 hover:text-slate-900 dark:hover:text-white">
-            Login
-          </Button>
           <Button
             size="sm"
-            className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 transition-all duration-300 hover:scale-105"
             onClick={onLoginClick}
+            className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg shadow-emerald-500/20 transition-all duration-300 hover:from-emerald-700 hover:to-teal-700 hover:shadow-emerald-500/35"
           >
-            Get Started <ArrowRight className="size-4 ml-1" />
+            Login
           </Button>
         </div>
 
@@ -447,7 +444,7 @@ function Navbar({ onLoginClick }: { onLoginClick: () => void }) {
             <SheetContent side="right" className="w-72">
               <SheetHeader>
                 <SheetTitle className="flex items-center gap-2.5">
-                  <div className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500 text-white shadow-md shadow-emerald-500/25">
+                  <div className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-600 to-teal-600 text-white shadow-md shadow-emerald-500/25">
                     <GraduationCap className="size-4" />
                   </div>
                   <span className="text-base font-bold">Vidhyalayam</span>
@@ -464,7 +461,6 @@ function Navbar({ onLoginClick }: { onLoginClick: () => void }) {
                     {mounted && (theme === 'dark' ? <><Sun className="size-4" /> Light Mode</> : <><Moon className="size-4" /> Dark Mode</>)}
                   </Button>
                   <Button variant="outline" onClick={() => { setMobileOpen(false); onLoginClick() }}>Login</Button>
-                  <Button className="bg-gradient-to-r from-emerald-500 to-teal-500 text-white" onClick={() => { setMobileOpen(false); onLoginClick() }}>Get Started</Button>
                 </div>
               </div>
             </SheetContent>
@@ -489,13 +485,13 @@ function HeroSection({ onLoginClick }: { onLoginClick: () => void }) {
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <motion.div
           className="absolute w-[500px] h-[500px] rounded-full opacity-20 dark:opacity-10"
-          style={{ background: 'radial-gradient(circle, rgba(16,185,129,0.4), transparent 70%)', top: '-10%', left: '-10%' }}
+          style={{ background: 'radial-gradient(circle, rgba(5,150,105,0.4), transparent 70%)', top: '-10%', left: '-10%' }}
           animate={{ x: [0, 80, -40, 60, 0], y: [0, -60, 40, -20, 0], scale: [1, 1.1, 0.95, 1.05, 1] }}
           transition={{ duration: 18, repeat: Infinity, ease: 'easeInOut' }}
         />
         <motion.div
           className="absolute w-[400px] h-[400px] rounded-full opacity-15 dark:opacity-8"
-          style={{ background: 'radial-gradient(circle, rgba(20,184,166,0.4), transparent 70%)', bottom: '-10%', right: '-10%' }}
+          style={{ background: 'radial-gradient(circle, rgba(13,148,136,0.4), transparent 70%)', bottom: '-10%', right: '-10%' }}
           animate={{ x: [0, -60, 40, -30, 0], y: [0, 50, -30, 60, 0], scale: [1, 0.9, 1.1, 0.95, 1] }}
           transition={{ duration: 22, repeat: Infinity, ease: 'easeInOut', delay: 2 }}
         />
@@ -552,7 +548,7 @@ function HeroSection({ onLoginClick }: { onLoginClick: () => void }) {
                 School Into a
               </motion.span>
               <motion.span
-                className="block pb-1 bg-gradient-to-r from-emerald-600 via-teal-500 to-cyan-500 dark:from-emerald-400 dark:via-teal-400 dark:to-cyan-400 bg-clip-text text-transparent"
+                className="block pb-1 bg-gradient-to-r from-emerald-700 via-teal-600 to-cyan-600 dark:from-emerald-400 dark:via-teal-400 dark:to-cyan-400 bg-clip-text text-transparent"
                 initial={{ opacity: 0, y: 30, scale: 0.95 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 transition={{ duration: 1, delay: 0.5, ease: [0.25, 0.46, 0.45, 0.94] }}
@@ -571,7 +567,7 @@ function HeroSection({ onLoginClick }: { onLoginClick: () => void }) {
 
             <motion.div className="mt-8 flex flex-col sm:flex-row gap-4 justify-center lg:justify-start" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, delay: 0.9 }}>
               <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.98 }} transition={{ type: 'spring', stiffness: 300 }}>
-                <Button size="lg" className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white shadow-lg shadow-emerald-500/30 hover:shadow-emerald-500/50 text-base px-8 h-12 transition-all duration-300" onClick={onLoginClick}>
+                <Button size="lg" className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white shadow-lg shadow-emerald-500/30 hover:shadow-emerald-500/50 text-base px-8 h-12 transition-all duration-300" onClick={onLoginClick}>
                   Get Started Free <ArrowRight className="size-4 ml-2" />
                 </Button>
               </motion.div>
@@ -593,12 +589,12 @@ function HeroSection({ onLoginClick }: { onLoginClick: () => void }) {
             {/* Shadow layer */}
             <div
               className="absolute -bottom-4 left-[5%] right-[5%] h-12 rounded-2xl blur-2xl"
-              style={{ background: 'linear-gradient(90deg, rgba(16,185,129,0.15), rgba(20,184,166,0.1), rgba(6,182,212,0.15))' }}
+              style={{ background: 'linear-gradient(90deg, rgba(5,150,105,0.15), rgba(13,148,136,0.1), rgba(6,182,212,0.15))' }}
             />
             {/* Reflection layer */}
             <div
               className="absolute -bottom-2 left-[10%] right-[10%] h-4 rounded-xl blur-lg opacity-30"
-              style={{ background: 'linear-gradient(90deg, rgba(16,185,129,0.3), rgba(20,184,166,0.2))' }}
+              style={{ background: 'linear-gradient(90deg, rgba(5,150,105,0.3), rgba(13,148,136,0.2))' }}
             />
             <motion.div
               className="rounded-2xl bg-white/90 dark:bg-white/5 backdrop-blur-xl border border-slate-200 dark:border-white/10 p-6 shadow-2xl shadow-emerald-500/5"
@@ -642,7 +638,7 @@ function HeroSection({ onLoginClick }: { onLoginClick: () => void }) {
                       initial={{ height: 0, scaleY: 0 }}
                       animate={{ height: `${h}%`, scaleY: 1 }}
                       transition={{ duration: 0.6, delay: 0.9 + i * 0.06, type: 'spring', stiffness: 120 }}
-                      className="flex-1 rounded-md bg-gradient-to-t from-emerald-500 to-teal-400 min-h-[4px]"
+                      className="flex-1 rounded-md bg-gradient-to-t from-emerald-600 to-teal-500 min-h-[4px]"
                       style={{ transformOrigin: 'bottom' }}
                     />
                   ))}
@@ -682,7 +678,7 @@ function StatItem({ stat }: { stat: (typeof STATS)[number] }) {
   const display = stat.decimals ? (count / 10).toFixed(stat.decimals) : count.toLocaleString()
   return (
     <motion.div className="text-center" whileHover={{ scale: 1.08 }} transition={{ type: 'spring', stiffness: 300 }}>
-      <span ref={ref} className="text-3xl sm:text-4xl font-extrabold bg-gradient-to-r from-emerald-500 to-teal-500 bg-clip-text text-transparent">{display}{stat.suffix}</span>
+      <span ref={ref} className="text-3xl sm:text-4xl font-extrabold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">{display}{stat.suffix}</span>
       <p className="mt-1 text-sm font-medium text-slate-500 dark:text-white/50">{stat.label}</p>
     </motion.div>
   )
@@ -712,14 +708,14 @@ function FeaturesSection() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <motion.div className="text-center max-w-3xl mx-auto" initial="hidden" animate={inView ? 'visible' : 'hidden'} variants={fadeUp}>
           <Badge variant="secondary" className="mb-4 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"><Sparkles className="size-3.5 mr-1.5" />Features</Badge>
-          <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight">Everything You Need to <span className="bg-gradient-to-r from-emerald-500 to-teal-500 bg-clip-text text-transparent">Run Your School</span></h2>
+          <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight">Everything You Need to <span className="bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">Run Your School</span></h2>
           <p className="mt-4 text-lg text-slate-600 dark:text-white/60">Powerful tools designed specifically for modern school management</p>
         </motion.div>
 
         <div className="mt-14 grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {FEATURES.map((f, i) => (
             <motion.div key={f.title} custom={i} initial="hidden" animate={inView ? 'visible' : 'hidden'} variants={scaleIn}>
-              <motion.div whileHover={{ y: -8, boxShadow: '0 20px 40px -12px rgba(16,185,129,0.15)' }} transition={{ duration: 0.3 }} className="h-full">
+              <motion.div whileHover={{ y: -8, boxShadow: '0 20px 40px -12px rgba(5,150,105,0.15)' }} transition={{ duration: 0.3 }} className="h-full">
                 <Card className="h-full bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 hover:border-emerald-500/30 transition-all duration-300 rounded-2xl">
                   <CardHeader>
                     <div className={`size-12 rounded-xl flex items-center justify-center mb-2 bg-gradient-to-br ${f.color} text-white shadow-lg shadow-emerald-500/20`}>
@@ -751,7 +747,7 @@ function ModulesSection() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <motion.div className="text-center max-w-3xl mx-auto" initial="hidden" animate={inView ? 'visible' : 'hidden'} variants={fadeUp}>
           <Badge variant="secondary" className="mb-4 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"><Zap className="size-3.5 mr-1.5" />Modules</Badge>
-          <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight">Powerful Modules for <span className="bg-gradient-to-r from-emerald-500 to-teal-500 bg-clip-text text-transparent">Every Need</span></h2>
+          <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight">Powerful Modules for <span className="bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">Every Need</span></h2>
           <p className="mt-4 text-lg text-slate-600 dark:text-white/60">14+ specialized modules covering every aspect of school operations</p>
         </motion.div>
 
@@ -760,7 +756,7 @@ function ModulesSection() {
             <motion.div key={m.name} custom={i} initial="hidden" animate={inView ? 'visible' : 'hidden'} variants={scaleIn} whileHover={{ y: -6 }} className="group">
               <Card className="h-full bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 hover:border-emerald-500/30 transition-all duration-300 rounded-2xl py-0 overflow-hidden">
                 <CardContent className="flex items-start gap-4 p-5">
-                  <div className="size-10 rounded-lg flex items-center justify-center bg-gradient-to-br from-emerald-500 to-teal-500 text-white shrink-0 shadow-lg shadow-emerald-500/20 group-hover:shadow-emerald-500/40 transition-shadow">
+                  <div className="size-10 rounded-lg flex items-center justify-center bg-gradient-to-br from-emerald-600 to-teal-600 text-white shrink-0 shadow-lg shadow-emerald-500/20 group-hover:shadow-emerald-500/40 transition-shadow">
                     <m.icon className="size-5" />
                   </div>
                   <div className="min-w-0">
@@ -788,7 +784,7 @@ function HowItWorksSection() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <motion.div className="text-center max-w-3xl mx-auto" initial="hidden" animate={inView ? 'visible' : 'hidden'} variants={fadeUp}>
           <Badge variant="secondary" className="mb-4 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"><Rocket className="size-3.5 mr-1.5" />How It Works</Badge>
-          <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight">Up and Running in <span className="bg-gradient-to-r from-emerald-500 to-teal-500 bg-clip-text text-transparent">3 Simple Steps</span></h2>
+          <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight">Up and Running in <span className="bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">3 Simple Steps</span></h2>
           <p className="mt-4 text-lg text-slate-600 dark:text-white/60">Getting started is easier than you think</p>
         </motion.div>
 
@@ -799,7 +795,7 @@ function HowItWorksSection() {
           <div className="grid md:grid-cols-3 gap-12 md:gap-8">
             {STEPS.map((step, i) => (
               <motion.div key={step.num} custom={i} initial="hidden" animate={inView ? 'visible' : 'hidden'} variants={fadeUp} className="relative text-center">
-                <motion.div className="mx-auto size-20 rounded-full bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-500 text-white flex items-center justify-center text-2xl font-bold shadow-lg shadow-emerald-500/30 relative z-10" whileHover={{ scale: 1.1 }} transition={{ type: 'spring', stiffness: 200, damping: 15 }}>
+                <motion.div className="mx-auto size-20 rounded-full bg-gradient-to-br from-emerald-600 via-teal-600 to-cyan-600 text-white flex items-center justify-center text-2xl font-bold shadow-lg shadow-emerald-500/30 relative z-10" whileHover={{ scale: 1.1 }} transition={{ type: 'spring', stiffness: 200, damping: 15 }}>
                   {step.num}
                   <motion.div className="absolute inset-0 rounded-full border-2 border-emerald-400/50" animate={{ scale: [1, 1.3], opacity: [0.5, 0] }} transition={{ duration: 2, repeat: Infinity, delay: i * 0.3 }} />
                 </motion.div>
@@ -881,7 +877,7 @@ function PricingSection({ plans, addons }: { plans: PricingPlanData[]; addons: P
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <motion.div className="text-center max-w-3xl mx-auto" initial="hidden" animate={inView ? 'visible' : 'hidden'} variants={fadeUp}>
           <Badge variant="secondary" className="mb-4 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"><CreditCard className="size-3.5 mr-1.5" />Pricing</Badge>
-          <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight">Simple, <span className="bg-gradient-to-r from-emerald-500 to-teal-500 bg-clip-text text-transparent">Transparent</span> Pricing</h2>
+          <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight">Simple, <span className="bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">Transparent</span> Pricing</h2>
           <p className="mt-4 text-lg text-slate-600 dark:text-white/60">One flat rate per student. Everything included. No hidden fees.</p>
         </motion.div>
 
@@ -916,7 +912,7 @@ function PricingSection({ plans, addons }: { plans: PricingPlanData[]; addons: P
                 <div className="grid grid-cols-2 gap-x-6 gap-y-3">
                   {planFeatures.map((feature, i) => (
                     <motion.div key={feature} initial={{ opacity: 0, x: 10 }} animate={inView ? { opacity: 1, x: 0 } : {}} transition={{ duration: 0.3, delay: 0.3 + i * 0.03 }} className="flex items-center gap-2.5">
-                      <div className="size-5 rounded-full bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center shrink-0"><Check className="size-3 text-white" /></div>
+                      <div className="size-5 rounded-full bg-gradient-to-br from-emerald-600 to-teal-600 flex items-center justify-center shrink-0"><Check className="size-3 text-white" /></div>
                       <span className="text-sm text-slate-700 dark:text-white/80">{feature}</span>
                     </motion.div>
                   ))}
@@ -929,7 +925,7 @@ function PricingSection({ plans, addons }: { plans: PricingPlanData[]; addons: P
         {/* Add-ons */}
         <motion.div className="mt-16" initial={{ opacity: 0, y: 30 }} animate={inView ? { opacity: 1, y: 0 } : {}} transition={{ duration: 0.5, delay: 0.3 }}>
           <div className="text-center mb-10">
-            <h3 className="text-2xl font-extrabold tracking-tight">Premium <span className="bg-gradient-to-r from-emerald-500 to-teal-500 bg-clip-text text-transparent">Add-Ons</span></h3>
+            <h3 className="text-2xl font-extrabold tracking-tight">Premium <span className="bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">Add-Ons</span></h3>
             <p className="mt-2 text-slate-600 dark:text-white/60">Charged extra — pick what your school needs</p>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5 max-w-5xl mx-auto">
@@ -941,13 +937,13 @@ function PricingSection({ plans, addons }: { plans: PricingPlanData[]; addons: P
                   <motion.div className="h-1 bg-gradient-to-r from-emerald-400 via-teal-400 to-cyan-400" initial={{ scaleX: 0 }} animate={inView ? { scaleX: 1 } : {}} transition={{ duration: 0.5, delay: 0.4 + i * 0.08 }} style={{ originX: 0 }} />
                   <CardContent className="p-5 pt-4">
                     <div className="flex flex-col items-center text-center">
-                      <div className="size-12 rounded-xl flex items-center justify-center bg-gradient-to-br from-emerald-500 to-teal-500 text-white mb-3 shadow-lg shadow-emerald-500/20 group-hover:shadow-emerald-500/40 transition-shadow">
+                      <div className="size-12 rounded-xl flex items-center justify-center bg-gradient-to-br from-emerald-600 to-teal-600 text-white mb-3 shadow-lg shadow-emerald-500/20 group-hover:shadow-emerald-500/40 transition-shadow">
                         <AddonIcon className="size-5" />
                       </div>
                       <h4 className="font-bold text-sm">{addon.name}</h4>
                       <p className="text-xs text-slate-500 dark:text-white/50 mt-1.5 leading-relaxed">{addon.desc}</p>
                       <div className="mt-3 pt-3 border-t border-slate-100 dark:border-white/10 w-full">
-                        <span className="text-xl font-extrabold bg-gradient-to-r from-emerald-500 to-teal-500 bg-clip-text text-transparent">{addon.price}</span>
+                        <span className="text-xl font-extrabold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">{addon.price}</span>
                         <span className="block text-xs text-slate-500 dark:text-white/50 mt-0.5">{addon.priceLabel}</span>
                       </div>
                     </div>
@@ -982,7 +978,7 @@ function TestimonialCard({ t }: { t: { name: string; role: string; quote: string
               <img src={t.avatarUrl} alt={t.name} className="size-full object-cover" />
             </div>
           ) : (
-            <div className="size-9 rounded-full bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center text-white font-bold text-xs shadow">{t.name.charAt(0)}</div>
+            <div className="size-9 rounded-full bg-gradient-to-br from-emerald-600 to-teal-600 flex items-center justify-center text-white font-bold text-xs shadow">{t.name.charAt(0)}</div>
           )}
           <div>
             <p className="font-semibold text-sm">{t.name}</p>
@@ -1020,7 +1016,7 @@ function TestimonialsSection() {
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <motion.div className="text-center max-w-3xl mx-auto" initial="hidden" animate={inView ? 'visible' : 'hidden'} variants={fadeUp}>
             <Badge variant="secondary" className="mb-4 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"><Star className="size-3.5 mr-1.5" />Testimonials</Badge>
-            <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight">Loved by Schools <span className="bg-gradient-to-r from-emerald-500 to-teal-500 bg-clip-text text-transparent">Across India</span></h2>
+            <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight">Loved by Schools <span className="bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">Across India</span></h2>
             <p className="mt-4 text-lg text-slate-600 dark:text-white/60">Hear from educators who transformed their schools</p>
           </motion.div>
         </div>
@@ -1050,7 +1046,7 @@ function TestimonialsSection() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <motion.div className="text-center max-w-3xl mx-auto" initial="hidden" animate={inView ? 'visible' : 'hidden'} variants={fadeUp}>
           <Badge variant="secondary" className="mb-4 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"><Star className="size-3.5 mr-1.5" />Testimonials</Badge>
-          <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight">Loved by Schools <span className="bg-gradient-to-r from-emerald-500 to-teal-500 bg-clip-text text-transparent">Across India</span></h2>
+          <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight">Loved by Schools <span className="bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">Across India</span></h2>
           <p className="mt-4 text-lg text-slate-600 dark:text-white/60">Hear from educators who transformed their schools</p>
         </motion.div>
       </div>
@@ -1086,7 +1082,7 @@ function TeamSection({ members }: { members: TeamMemberData[] }) {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <motion.div className="text-center max-w-3xl mx-auto" initial="hidden" animate={inView ? 'visible' : 'hidden'} variants={fadeUp}>
           <Badge variant="secondary" className="mb-4 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"><UsersRound className="size-3.5 mr-1.5" />Our Team</Badge>
-          <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight">Meet the <span className="bg-gradient-to-r from-emerald-500 to-teal-500 bg-clip-text text-transparent">People</span> Behind the Platform</h2>
+          <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight">Meet the <span className="bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">People</span> Behind the Platform</h2>
           <p className="mt-4 text-lg text-slate-600 dark:text-white/60">Passionate minds building the future of school management</p>
         </motion.div>
 
@@ -1098,7 +1094,7 @@ function TeamSection({ members }: { members: TeamMemberData[] }) {
                   <div className="flex flex-col items-center text-center">
                     {/* Avatar with ring */}
                     <div className="relative mb-4">
-                      <div className="size-22 rounded-full p-1 bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-500 shadow-lg shadow-emerald-500/20 group-hover:shadow-emerald-500/40 transition-shadow" style={{ width: '5.5rem', height: '5.5rem' }}>
+                      <div className="size-22 rounded-full p-1 bg-gradient-to-br from-emerald-600 via-teal-600 to-cyan-600 shadow-lg shadow-emerald-500/20 group-hover:shadow-emerald-500/40 transition-shadow" style={{ width: '5.5rem', height: '5.5rem' }}>
                         <div className="size-full rounded-full overflow-hidden bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
                           {member.image ? (
                             <img src={member.image} alt={member.name} className="size-full object-cover" />
@@ -1112,7 +1108,7 @@ function TeamSection({ members }: { members: TeamMemberData[] }) {
                     </div>
 
                     <h3 className="text-lg font-bold">{member.name}</h3>
-                    <p className="text-sm font-semibold bg-gradient-to-r from-emerald-500 to-teal-500 bg-clip-text text-transparent mt-0.5">{member.role}</p>
+                    <p className="text-sm font-semibold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent mt-0.5">{member.role}</p>
                     <p className="text-xs text-slate-600 dark:text-white/60 mt-2 leading-relaxed">{member.bio}</p>
 
                     {/* Phone */}
@@ -1183,7 +1179,7 @@ function FAQSection() {
       <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
         <motion.div className="text-center" initial="hidden" animate={inView ? 'visible' : 'hidden'} variants={fadeUp}>
           <Badge variant="secondary" className="mb-4 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"><MessageSquare className="size-3.5 mr-1.5" />FAQ</Badge>
-          <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight">Frequently Asked <span className="bg-gradient-to-r from-emerald-500 to-teal-500 bg-clip-text text-transparent">Questions</span></h2>
+          <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight">Frequently Asked <span className="bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">Questions</span></h2>
           <p className="mt-4 text-lg text-slate-600 dark:text-white/60">Everything you need to know about Vidhyalayam</p>
         </motion.div>
 
@@ -1243,7 +1239,7 @@ function ContactSection({ onLoginClick, addons }: { onLoginClick: () => void; ad
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <motion.div className="text-center max-w-3xl mx-auto" initial="hidden" animate={inView ? 'visible' : 'hidden'} variants={fadeUp}>
           <Badge variant="secondary" className="mb-4 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"><Mail className="size-3.5 mr-1.5" />Contact Us</Badge>
-          <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight">Get Started <span className="bg-gradient-to-r from-emerald-500 to-teal-500 bg-clip-text text-transparent">Today</span></h2>
+          <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight">Get Started <span className="bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">Today</span></h2>
           <p className="mt-4 text-lg text-slate-600 dark:text-white/60">Fill out the form below and our team will get back to you within 24 hours</p>
         </motion.div>
 
@@ -1251,7 +1247,7 @@ function ContactSection({ onLoginClick, addons }: { onLoginClick: () => void; ad
           <AnimatePresence mode="wait">
             {submitted ? (
               <motion.div key="success" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} className="text-center py-16">
-                <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 200, damping: 15, delay: 0.2 }} className="mx-auto size-20 rounded-full bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center mb-6 shadow-lg shadow-emerald-500/30">
+                <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 200, damping: 15, delay: 0.2 }} className="mx-auto size-20 rounded-full bg-gradient-to-br from-emerald-600 to-teal-600 flex items-center justify-center mb-6 shadow-lg shadow-emerald-500/30">
                   <CheckCircle2 className="size-10 text-white" />
                 </motion.div>
                 <h3 className="text-2xl font-bold mb-2">Thank You!</h3>
@@ -1299,7 +1295,7 @@ function ContactSection({ onLoginClick, addons }: { onLoginClick: () => void; ad
                             }`}
                           >
                             <div className={`size-5 rounded-md flex items-center justify-center shrink-0 transition-colors ${
-                              selected ? 'bg-gradient-to-br from-emerald-500 to-teal-500 text-white' : 'border-2 border-slate-300 dark:border-white/20'
+                              selected ? 'bg-gradient-to-br from-emerald-600 to-teal-600 text-white' : 'border-2 border-slate-300 dark:border-white/20'
                             }`}>
                               {selected && <Check className="size-3" />}
                             </div>
@@ -1315,7 +1311,7 @@ function ContactSection({ onLoginClick, addons }: { onLoginClick: () => void; ad
 
                   <div className="space-y-2"><Label htmlFor="message">Message</Label><Textarea id="message" value={form.message} onChange={(e) => setForm((p) => ({ ...p, message: e.target.value }))} placeholder="Tell us about your school and requirements..." rows={4} /></div>
                   <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}>
-                    <Button type="submit" disabled={submitting} className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white shadow-lg shadow-emerald-500/25 h-12 text-base font-semibold transition-all duration-300">
+                    <Button type="submit" disabled={submitting} className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white shadow-lg shadow-emerald-500/25 h-12 text-base font-semibold transition-all duration-300">
                       {submitting ? 'Submitting...' : 'Submit Inquiry'} <ArrowRight className="size-4 ml-2" />
                     </Button>
                   </motion.div>
@@ -1422,7 +1418,7 @@ function Footer({ onLoginClick }: { onLoginClick: () => void }) {
         <div className="grid md:grid-cols-4 gap-8">
           <div className="md:col-span-1">
             <div className="flex items-center gap-2.5 mb-4">
-              <div className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 text-white shadow-lg">
+              <div className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-600 to-teal-600 text-white shadow-lg">
                 <GraduationCap className="size-5" />
               </div>
               <span className="text-lg font-bold">Vidhyalayam</span>
@@ -1476,7 +1472,7 @@ function Footer({ onLoginClick }: { onLoginClick: () => void }) {
    ═══════════════════════════════════════════════════════════════════ */
 function ScrollProgress() {
   const { scrollYProgress } = useScroll()
-  return <motion.div className="fixed top-0 left-0 right-0 h-[3px] z-[100] origin-left bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500" style={{ scaleX: scrollYProgress }} />
+  return <motion.div className="fixed top-0 left-0 right-0 h-[3px] z-[100] origin-left bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600" style={{ scaleX: scrollYProgress }} />
 }
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -1495,7 +1491,7 @@ function BackToTop() {
         <motion.button
           initial={{ opacity: 0, scale: 0 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0 }}
           onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-          className="fixed bottom-6 right-6 z-50 size-12 rounded-full bg-gradient-to-br from-emerald-500 to-teal-500 text-white shadow-lg shadow-emerald-500/30 flex items-center justify-center hover:shadow-emerald-500/50 transition-shadow"
+          className="fixed bottom-6 right-6 z-50 size-12 rounded-full bg-gradient-to-br from-emerald-600 to-teal-600 text-white shadow-lg shadow-emerald-500/30 flex items-center justify-center hover:shadow-emerald-500/50 transition-shadow"
         >
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M6 12L10 8L14 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
         </motion.button>
