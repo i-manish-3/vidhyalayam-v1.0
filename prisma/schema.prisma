@@ -77,6 +77,7 @@ model School {
   primaryColor   String?
   dashboardFont  String?   @default("system")
   features       String? // JSON string of enabled features
+  workingDays    String    @default("[\"Monday\",\"Tuesday\",\"Wednesday\",\"Thursday\",\"Friday\",\"Saturday\"]") // JSON array of weekday names this school operates on
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
   deletedAt      DateTime?
@@ -125,6 +126,7 @@ model School {
   classTeacherAssignments     ClassTeacherAssignment[]
   schoolPermissions           SchoolPermission[]
   roles                       Role[]
+  holidays                    Holiday[]
 
   @@index([subdomain])
   @@index([status])
@@ -152,6 +154,25 @@ model AcademicYear {
   @@index([schoolId])
   @@index([isCurrent])
   @@index([isActive])
+}
+
+model Holiday {
+  id           String    @id @default(cuid())
+  schoolId     String
+  academicYear String
+  date         DateTime  // start date (inclusive)
+  endDate      DateTime? // end date (inclusive); null = single-day holiday
+  name         String
+  type         String    @default("school") // public | school | vacation
+  description  String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+
+  school School @relation(fields: [schoolId], references: [id])
+
+  @@index([schoolId, academicYear])
+  @@index([date])
 }
 
 model Class {

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { requireRole, requirePermission } from '@/lib/api-auth'
 import { unauthorizedError, internalError, apiError } from '@/lib/api-errors'
+import { getSchoolWorkingDays } from '@/lib/academic-calendar'
 
 const ACADEMIC_YEAR_PATTERN = /^\d{4}-\d{4}$/
 
@@ -89,6 +90,11 @@ export async function POST(request: NextRequest) {
     const academicYear = await resolveAcademicYear(preUser.schoolId, body.academicYear || null, true)
     if (!academicYear) {
       return apiError(400, 'Please choose an active academic year.')
+    }
+
+    const workingDays = await getSchoolWorkingDays(preUser.schoolId)
+    if (!workingDays.includes(day)) {
+      return apiError(400, `${day} is not a working day for your school. Update Working Days in School Settings first.`)
     }
 
     const existing = await db.timetable.findFirst({

@@ -254,6 +254,8 @@ export function ViewAttendancePage() {
   // Reference data
   const [classes, setClasses] = useState<ClassOption[]>([])
   const [sections, setSections] = useState<SectionOption[]>([])
+  const [workingDays, setWorkingDays] = useState<string[]>(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'])
+  const [holidays, setHolidays] = useState<Array<{ id: string; date: string; endDate: string | null; name: string; type: string }>>([])
 
   // Derived: does the selected class have no sections?
   const classHasNoSections = classId ? sections.filter((s) => s.classId === classId).length === 0 : false
@@ -266,12 +268,17 @@ export function ViewAttendancePage() {
   useEffect(() => {
     const init = async () => {
       try {
-        const [clsRes, secRes] = await Promise.all([
+        const [clsRes, secRes, calRes] = await Promise.all([
           api.get<{ classes: ClassOption[] }>('/api/school/classes'),
           api.get<{ sections: SectionOption[] }>('/api/school/sections'),
+          api.get<{ workingDays: string[]; holidays: Array<{ id: string; date: string; endDate: string | null; name: string; type: string }> }>(`/api/school/holidays?academicYear=${academicYear}`).catch(() => null),
         ])
         setClasses(clsRes.classes || [])
         setSections(secRes.sections || [])
+        if (calRes) {
+          if (Array.isArray(calRes.workingDays) && calRes.workingDays.length > 0) setWorkingDays(calRes.workingDays)
+          if (Array.isArray(calRes.holidays)) setHolidays(calRes.holidays)
+        }
       } catch {
         toast({ title: 'Error', description: 'Failed to load classes.', variant: 'destructive' })
       } finally {
@@ -279,7 +286,7 @@ export function ViewAttendancePage() {
       }
     }
     init()
-  }, [toast])
+  }, [academicYear, toast])
 
   const filteredSections = classId ? sections.filter((s) => s.classId === classId) : []
 
@@ -375,6 +382,26 @@ export function ViewAttendancePage() {
 
   const isToday = date === getTodayString()
 
+  // Non-teaching day check (weekly off / declared holiday). Mirrors the
+  // attendance marking page so reviewers know why a date has no records.
+  const nonTeachingInfo = useMemo(() => {
+    if (!date) return null
+    const [y, m, d] = date.split('-').map(Number)
+    const dt = new Date(y, m - 1, d)
+    const weekdayName = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][dt.getDay()]
+    if (!workingDays.includes(weekdayName)) {
+      return { reason: 'non-working-day' as const, weekdayName, name: '' }
+    }
+    for (const h of holidays) {
+      const start = h.date.slice(0, 10)
+      const end = (h.endDate || h.date).slice(0, 10)
+      if (date >= start && date <= end) {
+        return { reason: 'holiday' as const, weekdayName, name: h.name }
+      }
+    }
+    return null
+  }, [date, workingDays, holidays])
+
   if (initialLoad) return <LoadingState />
 
   return (
@@ -411,6 +438,27 @@ export function ViewAttendancePage() {
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* ── Non-Teaching Day Banner ───────────────────────────────────── */}
+      {nonTeachingInfo && !effectiveSnapshot && (
+        <div className="flex items-center gap-3 px-4 py-3 rounded-lg border border-sky-200 bg-sky-50 dark:bg-sky-950/30 dark:border-sky-800">
+          <div className="size-8 rounded-full bg-sky-100 dark:bg-sky-900/50 flex items-center justify-center shrink-0">
+            <CalendarDays className="size-4 text-sky-600 dark:text-sky-400" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-sky-800 dark:text-sky-300">
+              {nonTeachingInfo.reason === 'holiday'
+                ? `Holiday: ${nonTeachingInfo.name}`
+                : `${nonTeachingInfo.weekdayName} — Weekly Off`}
+            </p>
+            <p className="text-xs text-sky-700/70 dark:text-sky-400/70 mt-0.5">
+              {nonTeachingInfo.reason === 'holiday'
+                ? 'This is a declared holiday, so attendance is usually not marked.'
+                : `${nonTeachingInfo.weekdayName} is a weekly holiday, so attendance is usually not marked.`}
+            </p>
+          </div>
+        </div>
       )}
 
       {/* ── Page Header ──────────────────────────────────────────────── */}

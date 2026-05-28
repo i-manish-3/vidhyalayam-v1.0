@@ -240,6 +240,10 @@ export const PERMISSIONS = {
   SETTINGS_READ: 'settings:read',
   SETTINGS_UPDATE: 'settings:update',
 
+  // Academic Calendar (Holidays)
+  HOLIDAY_READ: 'holiday:read',
+  HOLIDAY_MANAGE: 'holiday:manage',
+
   // Roles & Permissions
   ROLE_READ: 'role:read',
   ROLE_CREATE: 'role:create',

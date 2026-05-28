@@ -217,6 +217,10 @@ export function AttendancePage() {
   const [classes, setClasses] = useState<ClassOption[]>([])
   const [sections, setSections] = useState<SectionOption[]>([])
 
+  // Calendar (working days + declared holidays). Loaded once per academic year.
+  const [workingDays, setWorkingDays] = useState<string[]>(['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'])
+  const [holidays, setHolidays] = useState<Array<{ id: string; date: string; endDate: string | null; name: string; type: string }>>([])
+
   // Derived: does the selected class have no sections?
   const classHasNoSections = classId ? sections.filter((s) => s.classId === classId).length === 0 : false
   // The effective sectionId to use — empty string when class has no sections
@@ -237,12 +241,17 @@ export function AttendancePage() {
   useEffect(() => {
     const init = async () => {
       try {
-        const [clsRes, secRes] = await Promise.all([
+        const [clsRes, secRes, calRes] = await Promise.all([
           api.get<{ classes: ClassOption[] }>('/api/school/classes'),
           api.get<{ sections: SectionOption[] }>('/api/school/sections'),
+          api.get<{ workingDays: string[]; holidays: Array<{ id: string; date: string; endDate: string | null; name: string; type: string }> }>(`/api/school/holidays?academicYear=${academicYear}`).catch(() => null),
         ])
         setClasses(clsRes.classes || [])
         setSections(secRes.sections || [])
+        if (calRes) {
+          if (Array.isArray(calRes.workingDays) && calRes.workingDays.length > 0) setWorkingDays(calRes.workingDays)
+          if (Array.isArray(calRes.holidays)) setHolidays(calRes.holidays)
+        }
       } catch {
         toast({ title: 'Error', description: 'Failed to load classes. Please refresh.', variant: 'destructive' })
       } finally {
@@ -250,7 +259,7 @@ export function AttendancePage() {
       }
     }
     init()
-  }, [toast])
+  }, [toast, academicYear])
 
   const filteredSections = classId ? sections.filter((s) => s.classId === classId) : []
 
@@ -478,6 +487,28 @@ export function AttendancePage() {
   const isFutureDate = date > todayStr
   const canReopenFinalizedAttendance = currentUser?.role === 'SCHOOL_ADMIN' || canReopen
 
+  // Non-teaching day check (weekly off / declared holiday). Mirrors backend rule.
+  const nonTeachingInfo = useMemo(() => {
+    if (!date) return null
+    const [y, m, d] = date.split('-').map(Number)
+    const dt = new Date(y, m - 1, d)
+    const weekdayName = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][dt.getDay()]
+    if (!workingDays.includes(weekdayName)) {
+      return { reason: 'non-working-day' as const, weekdayName, label: `${weekdayName} is a weekly holiday. Attendance is not required.` }
+    }
+    for (const h of holidays) {
+      const start = h.date.slice(0, 10)
+      const end = (h.endDate || h.date).slice(0, 10)
+      if (date >= start && date <= end) {
+        return { reason: 'holiday' as const, label: h.name, name: h.name }
+      }
+    }
+    return null
+  }, [date, workingDays, holidays])
+
+  const isNonTeachingDay = nonTeachingInfo !== null
+  const markingBlocked = isFutureDate || isNonTeachingDay
+
   if (initialLoad) return <LoadingState />
 
   return (
@@ -505,7 +536,7 @@ export function AttendancePage() {
               Finalized
             </Badge>
           )}
-          {!isFinalized && !isFutureDate && hasAnyMarked && (
+          {!isFinalized && !markingBlocked && hasAnyMarked && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button variant="outline" size="sm" className="gap-1.5 h-9" onClick={clearAll}>
@@ -516,7 +547,7 @@ export function AttendancePage() {
               <TooltipContent>Reset all attendance marks</TooltipContent>
             </Tooltip>
           )}
-          {!isFinalized && !isFutureDate && (
+          {!isFinalized && !markingBlocked && (
             <Button
               onClick={handleSave}
               disabled={saving || students.length === 0}
@@ -527,7 +558,7 @@ export function AttendancePage() {
               {saving ? 'Saving...' : 'Save Attendance'}
             </Button>
           )}
-          {!isFinalized && !isFutureDate && allMarked && existingAttendance.length > 0 && (
+          {!isFinalized && !markingBlocked && allMarked && existingAttendance.length > 0 && (
             <Button
               onClick={handleFinalize}
               disabled={finalizing}
@@ -583,6 +614,29 @@ export function AttendancePage() {
             <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">Future Date Selected</p>
             <p className="text-xs text-amber-700/70 dark:text-amber-400/70 mt-0.5">
               Attendance cannot be marked for future dates. Please select today or a past date.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* ── Non-Teaching Day Banner ──────────────────────────────────── */}
+      {!isFutureDate && isNonTeachingDay && (
+        <div className="flex items-center gap-3 px-4 py-3 rounded-lg border border-sky-200 bg-sky-50 dark:bg-sky-950/30 dark:border-sky-800">
+          <div className="size-8 rounded-full bg-sky-100 dark:bg-sky-900/50 flex items-center justify-center shrink-0">
+            <CalendarDays className="size-4 text-sky-600 dark:text-sky-400" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-sky-800 dark:text-sky-300">
+              {nonTeachingInfo?.reason === 'holiday'
+                ? `Holiday: ${nonTeachingInfo.name}`
+                : nonTeachingInfo?.weekdayName
+                  ? `${nonTeachingInfo.weekdayName} — Weekly Off`
+                  : 'Weekly Off'}
+            </p>
+            <p className="text-xs text-sky-700/70 dark:text-sky-400/70 mt-0.5">
+              {nonTeachingInfo?.reason === 'holiday'
+                ? 'Attendance cannot be marked on a declared holiday.'
+                : nonTeachingInfo?.label || 'Attendance cannot be marked on a school holiday.'}
             </p>
           </div>
         </div>
@@ -648,7 +702,7 @@ export function AttendancePage() {
             </div>
 
             {/* Quick actions — only when not finalized and not future date */}
-            {!isFinalized && !isFutureDate && (
+            {!isFinalized && !markingBlocked && (
               <>
                 <div className="grid grid-cols-3 gap-2 sm:flex sm:items-center xl:justify-end">
                   <Button
@@ -942,7 +996,7 @@ export function AttendancePage() {
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <button
-                              onClick={() => !isFinalized && !isFutureDate && setExpandedRemark(isRemarkExpanded ? null : student.id)}
+                              onClick={() => !isFinalized && !markingBlocked && setExpandedRemark(isRemarkExpanded ? null : student.id)}
                               disabled={isFinalized || isFutureDate}
                               className={cn(
                                 'inline-flex h-9 w-full items-center justify-center rounded-md transition-colors md:size-8 md:w-8 md:shrink-0',
@@ -967,7 +1021,7 @@ export function AttendancePage() {
                       </div>
 
                       {/* Inline remark input — only when not finalized */}
-                      {isRemarkExpanded && !isFinalized && !isFutureDate && (
+                      {isRemarkExpanded && !isFinalized && !markingBlocked && (
                         <div className="mt-2.5 md:ml-[76px] md:mr-10">
                           <Input
                             placeholder="Add remark (e.g., Sick leave, Family function, Medical appointment...)"
@@ -1018,7 +1072,7 @@ export function AttendancePage() {
               )}
             </div>
             <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
-              {!isFinalized && !isFutureDate ? (
+              {!isFinalized && !markingBlocked ? (
                 <>
                   {hasAnyMarked && (
                     <Button variant="ghost" size="sm" className="h-9 gap-1.5 text-xs text-muted-foreground sm:h-8" onClick={clearAll}>
@@ -1040,6 +1094,11 @@ export function AttendancePage() {
                 <div className="flex items-center gap-1.5 text-xs text-amber-700 dark:text-amber-400 font-medium">
                   <CalendarDays className="size-3.5" />
                   Future dates cannot be marked
+                </div>
+              ) : isNonTeachingDay ? (
+                <div className="flex items-center gap-1.5 text-xs text-sky-700 dark:text-sky-400 font-medium">
+                  <CalendarDays className="size-3.5" />
+                  {nonTeachingInfo?.reason === 'holiday' ? 'Holiday — no attendance' : 'Weekly Off'}
                 </div>
               ) : (
                 <div className="flex items-center gap-1.5 text-xs text-emerald-700 dark:text-emerald-400 font-medium">

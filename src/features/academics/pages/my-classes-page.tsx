@@ -6,6 +6,7 @@ import { PageHeader, EmptyState, LoadingState } from '@/components/shared'
 import { api } from '@/lib/api'
 import { getCurrentAcademicYear } from '@/lib/academic-years'
 import { useAppStore } from '@/lib/store'
+import { parseWorkingDays } from '@/lib/weekdays'
 import { useToast } from '@/hooks/use-toast'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -27,8 +28,6 @@ import {
   ClipboardList,
   Star,
 } from 'lucide-react'
-
-const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
 const SUBJECT_TYPES = [
   { value: 'primary', label: 'Primary', badge: 'border-primary/20 bg-primary/10 text-primary' },
@@ -121,6 +120,7 @@ export function MyClassesPage() {
   const currentSchoolAcademicYear = useAppStore((s) => s.currentSchool?.academicYear)
   const viewingAcademicYear = useAppStore((s) => s.viewingAcademicYear)
   const academicYear = viewingAcademicYear || currentSchoolAcademicYear || getCurrentAcademicYear()
+  const DAYS = useAppStore((s) => parseWorkingDays(s.currentSchool?.workingDays))
   const [classes, setClasses] = useState<MyClassItem[]>([])
   const [teacherId, setTeacherId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -532,6 +532,7 @@ export function MyClassesPage() {
                     periods={timetablePeriods}
                     periodConfigs={periodConfigs}
                     currentTeacherId={teacherId}
+                    days={DAYS}
                   />
                 )}
               </div>
@@ -583,20 +584,23 @@ function TimetableGrid({
   periods,
   periodConfigs,
   currentTeacherId,
+  days,
 }: {
   entries: TimetableEntry[]
   periods: number[]
   periodConfigs: PeriodConfig[]
   currentTeacherId: string | null
+  days: string[]
 }) {
   const periodByNumber = new Map(periodConfigs.map((period) => [period.period, period]))
+  const gridStyle = { gridTemplateColumns: `96px repeat(${days.length}, minmax(104px, 1fr))` }
 
   return (
     <div className="overflow-x-auto rounded-md border">
       <div className="min-w-[760px]">
-        <div className="grid grid-cols-[96px_repeat(6,minmax(104px,1fr))] border-b bg-muted/30">
+        <div className="grid border-b bg-muted/30" style={gridStyle}>
           <div className="border-r px-2 py-2 text-xs font-semibold text-muted-foreground">Period</div>
-          {DAYS.map((day) => (
+          {days.map((day) => (
             <div key={day} className="border-r px-2 py-2 text-xs font-semibold last:border-r-0">
               {day.slice(0, 3)}
             </div>
@@ -605,7 +609,7 @@ function TimetableGrid({
         {periods.map((period) => {
           const config = periodByNumber.get(period)
           return (
-            <div key={period} className="grid grid-cols-[96px_repeat(6,minmax(104px,1fr))] border-b last:border-b-0">
+            <div key={period} className="grid border-b last:border-b-0" style={gridStyle}>
               <div className="border-r bg-muted/10 px-2 py-2">
                 <p className="text-xs font-semibold">P{period}</p>
                 {config && (
@@ -614,7 +618,7 @@ function TimetableGrid({
                   </p>
                 )}
               </div>
-              {DAYS.map((day) => {
+              {days.map((day) => {
                 const entry = entries.find((item) => item.day === day && item.period === period)
                 const isMine = entry?.teacherId === currentTeacherId && currentTeacherId !== null
                 return (

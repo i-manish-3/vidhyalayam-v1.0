@@ -2,6 +2,36 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { requireRole, getUserPermissions } from '@/lib/api-auth'
 import { unauthorizedError, internalError } from '@/lib/api-errors'
+import { getTeachingDays, getAcademicYearStart, startOfDay, isSchoolTeachingDay } from '@/lib/academic-calendar'
+import { computePercent } from '@/lib/attendance-report-utils'
+
+// Returns attendance percentage for a single student over the academic year
+// to today, using teaching days as denominator (missing records = absent).
+async function computeStudentAttendancePercent(
+  schoolId: string,
+  academicYear: string,
+  studentId: string
+): Promise<number> {
+  const start = await getAcademicYearStart(schoolId, academicYear)
+  if (!start) return 0
+  const today = startOfDay(new Date())
+  if (start > today) return 0
+
+  const [present, teachingDays] = await Promise.all([
+    db.attendance.count({
+      where: {
+        schoolId,
+        studentId,
+        academicYear,
+        status: 'present',
+        date: { gte: start, lte: today },
+      },
+    }),
+    getTeachingDays(schoolId, academicYear, start, today),
+  ])
+
+  return Math.round(computePercent(present, teachingDays.length))
+}
 
 // GET /api/school/dashboard - Dashboard stats (role-aware)
 export async function GET(request: NextRequest) {
@@ -93,7 +123,17 @@ async function getAdminDashboard(schoolId: string, perms: string[]) {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 
-  const attendanceToday = canAttendance
+  const schoolForYear = await db.school.findUnique({
+    where: { id: schoolId },
+    select: { academicYear: true },
+  })
+  const adminAcademicYear = schoolForYear?.academicYear || ''
+
+  const teachingInfo = canAttendance && adminAcademicYear
+    ? await isSchoolTeachingDay(schoolId, adminAcademicYear, today)
+    : { teaching: true as const }
+
+  const attendanceToday = canAttendance && teachingInfo.teaching
     ? await db.attendance.findMany({
         where: { schoolId, date: today },
         select: { status: true },
@@ -105,6 +145,9 @@ async function getAdminDashboard(schoolId: string, perms: string[]) {
     present: attendanceToday.filter((a) => a.status === 'present').length,
     absent: attendanceToday.filter((a) => a.status === 'absent').length,
     leave: attendanceToday.filter((a) => a.status === 'leave').length,
+    isTeachingDay: teachingInfo.teaching,
+    nonTeachingReason: !teachingInfo.teaching ? teachingInfo.reason : undefined,
+    holidayName: !teachingInfo.teaching && teachingInfo.reason === 'holiday' ? teachingInfo.holiday?.name : undefined,
   }
 
   // Overdue fees
@@ -289,7 +332,6 @@ async function getTeacherDashboard(schoolId: string, userId: string) {
       class: t.section?.class?.name || 'N/A',
       section: t.section?.name || 'N/A',
       className: t.section?.class?.name && t.section?.name ? `${t.section.class.name}-${t.section.name}` : 'N/A',
-      room: t.roomNo || '',
       startTime: t.startTime || '',
       endTime: t.endTime || '',
     })),
@@ -355,14 +397,17 @@ async function getStudentDashboard(schoolId: string, userId: string) {
     })
   }
 
-  // Attendance stats for this student
-  const attendanceRecords = await db.attendance.findMany({
-    where: { schoolId, studentId: student.id },
-    select: { status: true },
+  // Attendance % for this student over the current academic year to today.
+  // Denominator = teaching days (working days minus holidays); missing
+  // records on teaching days are treated as absent.
+  const school = await db.school.findUnique({
+    where: { id: schoolId },
+    select: { academicYear: true },
   })
-  const totalAtt = attendanceRecords.length
-  const presentAtt = attendanceRecords.filter(a => a.status === 'present').length
-  const attendancePercent = totalAtt > 0 ? Math.round((presentAtt / totalAtt) * 100) : 0
+  const academicYear = school?.academicYear || ''
+  const attendancePercent = academicYear
+    ? await computeStudentAttendancePercent(schoolId, academicYear, student.id)
+    : 0
 
   // Pending fees
   const pendingFees = await db.feeCollection.aggregate({
@@ -456,11 +501,19 @@ async function getParentDashboard(schoolId: string, userId: string) {
   const activeChildren = parent.children.filter(c => c.student.isActive)
   const childIds = activeChildren.map(c => c.studentId)
 
-  // Aggregate attendance for all children
-  const attendanceRecords = await db.attendance.findMany({
-    where: { schoolId, studentId: { in: childIds } },
-    select: { studentId: true, status: true },
+  // School academic year drives teaching-days lookup for attendance %.
+  const school = await db.school.findUnique({
+    where: { id: schoolId },
+    select: { academicYear: true },
   })
+  const academicYear = school?.academicYear || ''
+
+  // Per-child attendance % using teaching-days denominator. Runs in parallel.
+  const childPercents = await Promise.all(
+    activeChildren.map(async (c) =>
+      academicYear ? computeStudentAttendancePercent(schoolId, academicYear, c.studentId) : 0
+    )
+  )
 
   // Aggregate pending fees for all children
   const pendingFees = await db.feeCollection.aggregate({
@@ -477,25 +530,22 @@ async function getParentDashboard(schoolId: string, userId: string) {
     select: { id: true, title: true, priority: true, createdAt: true },
   })
 
-  // Per-child details
-  const childrenDetails = activeChildren.map(c => {
-    const childAttendance = attendanceRecords.filter(a => a.studentId === c.studentId)
-    const total = childAttendance.length
-    const present = childAttendance.filter(a => a.status === 'present').length
-    return {
-      id: c.student.id,
-      studentId: c.studentId,
-      name: `${c.student.firstName} ${c.student.lastName}`,
-      admissionNumber: c.student.admissionNumber,
-      className: c.student.class?.name || null,
-      sectionName: c.student.section?.name || null,
-      isActive: c.student.isActive,
-      attendancePercent: total > 0 ? Math.round((present / total) * 100) : 0,
-    }
-  })
+  const childrenDetails = activeChildren.map((c, idx) => ({
+    id: c.student.id,
+    studentId: c.studentId,
+    name: `${c.student.firstName} ${c.student.lastName}`,
+    admissionNumber: c.student.admissionNumber,
+    className: c.student.class?.name || null,
+    sectionName: c.student.section?.name || null,
+    isActive: c.student.isActive,
+    attendancePercent: childPercents[idx],
+  }))
 
-  const totalAttendance = attendanceRecords.length
-  const totalPresent = attendanceRecords.filter(a => a.status === 'present').length
+  // Overall % = mean of per-child %, so a struggling child isn't masked by
+  // siblings with longer histories.
+  const overallPercent = childPercents.length > 0
+    ? Math.round(childPercents.reduce((a, b) => a + b, 0) / childPercents.length)
+    : 0
 
   return NextResponse.json({
     role: 'PARENT',
@@ -504,7 +554,7 @@ async function getParentDashboard(schoolId: string, userId: string) {
       totalChildren: parent.children.length,
       activeChildren: activeChildren.length,
       totalPendingFees,
-      attendancePercent: totalAttendance > 0 ? Math.round((totalPresent / totalAttendance) * 100) : 0,
+      attendancePercent: overallPercent,
     },
     children: childrenDetails,
     announcements,

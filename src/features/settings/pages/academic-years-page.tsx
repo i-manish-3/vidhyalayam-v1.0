@@ -479,7 +479,7 @@ export function AcademicYearsPage() {
           </Alert>
 
           <div className="overflow-hidden rounded-lg border">
-            <div className="grid grid-cols-[1fr_150px_150px_130px_280px] gap-3 border-b bg-muted/40 px-4 py-3 text-xs font-medium uppercase text-muted-foreground">
+            <div className="hidden gap-3 border-b bg-muted/40 px-4 py-3 text-xs font-medium uppercase text-muted-foreground sm:grid sm:grid-cols-[minmax(140px,1fr)_150px_150px_130px_280px]">
               <span>Year</span>
               <span>Start</span>
               <span>End</span>
@@ -497,31 +497,40 @@ export function AcademicYearsPage() {
               </div>
             ) : (
               academicYears.map((year) => (
-                <div key={year.id} className="grid grid-cols-[1fr_150px_150px_130px_280px] items-center gap-3 border-b px-4 py-3 text-sm last:border-b-0">
-                  <div className="flex min-w-0 items-center gap-2">
-                    <span className="font-medium">{year.name}</span>
+                <div key={year.id} className="grid grid-cols-2 gap-3 border-b px-4 py-4 text-sm last:border-b-0 sm:grid-cols-[minmax(140px,1fr)_150px_150px_130px_280px] sm:items-center sm:py-3">
+                  <div className="col-span-2 flex min-w-0 flex-wrap items-center gap-2 sm:col-span-1">
+                    <span className="whitespace-nowrap font-medium">{year.name}</span>
                     {year.isCurrent && <Badge>Current</Badge>}
                   </div>
-                  <span className="text-muted-foreground">{formatDate(year.startDate)}</span>
-                  <span className="text-muted-foreground">{formatDate(year.endDate)}</span>
-                  <Badge
-                    variant="outline"
-                    className={
-                      year.isActive
-                        ? 'border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-300'
-                        : 'border-red-300 bg-red-50 text-red-700 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-300'
-                    }
-                  >
-                    <span className={`mr-1.5 inline-block size-1.5 rounded-full ${year.isActive ? 'bg-emerald-500' : 'bg-red-500'}`} />
-                    {year.isActive ? 'Active' : 'Inactive'}
-                  </Badge>
-                  <div className="flex justify-end gap-1.5">
+                  <div className="min-w-0">
+                    <span className="mb-1 block text-[11px] font-medium uppercase text-muted-foreground sm:hidden">Start</span>
+                    <span className="whitespace-nowrap text-muted-foreground">{formatDate(year.startDate)}</span>
+                  </div>
+                  <div className="min-w-0">
+                    <span className="mb-1 block text-[11px] font-medium uppercase text-muted-foreground sm:hidden">End</span>
+                    <span className="whitespace-nowrap text-muted-foreground">{formatDate(year.endDate)}</span>
+                  </div>
+                  <div className="col-span-2 sm:col-span-1">
+                    <span className="mb-1 block text-[11px] font-medium uppercase text-muted-foreground sm:hidden">Status</span>
+                    <Badge
+                      variant="outline"
+                      className={
+                        year.isActive
+                          ? 'border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-300'
+                          : 'border-red-300 bg-red-50 text-red-700 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-300'
+                      }
+                    >
+                      <span className={`mr-1.5 inline-block size-1.5 rounded-full ${year.isActive ? 'bg-emerald-500' : 'bg-red-500'}`} />
+                      {year.isActive ? 'Active' : 'Inactive'}
+                    </Badge>
+                  </div>
+                  <div className="col-span-2 flex flex-wrap gap-2 border-t pt-3 sm:col-span-1 sm:justify-end sm:gap-1.5 sm:border-t-0 sm:pt-0">
                     {!year.isCurrent && (
-                      <Button type="button" variant="outline" size="sm" onClick={() => loadPreview(year, setSwitchDialog)}>
+                      <Button type="button" variant="outline" size="sm" className="flex-1 sm:flex-none" onClick={() => loadPreview(year, setSwitchDialog)}>
                         Set Current
                       </Button>
                     )}
-                    <Button type="button" variant="outline" size="sm" disabled={year.isCurrent} onClick={() => openStatusDialog(year, !year.isActive)}>
+                    <Button type="button" variant="outline" size="sm" className="flex-1 sm:flex-none" disabled={year.isCurrent} onClick={() => openStatusDialog(year, !year.isActive)}>
                       {year.isActive ? <PauseCircle className="size-4 text-amber-600" /> : <CheckCircle2 className="size-4 text-emerald-600" />}
                       {year.isActive ? 'Deactivate' : 'Reactivate'}
                     </Button>
@@ -558,7 +567,7 @@ export function AcademicYearsPage() {
                 <p className="text-xs text-muted-foreground">Restore a deleted year to make it available again. Restoring does not make it current.</p>
               </div>
               <div className="overflow-hidden rounded-lg border border-dashed">
-                <div className="grid grid-cols-[1fr_150px_150px_130px_280px] gap-3 border-b bg-muted/30 px-4 py-3 text-xs font-medium uppercase text-muted-foreground">
+                <div className="hidden gap-3 border-b bg-muted/30 px-4 py-3 text-xs font-medium uppercase text-muted-foreground sm:grid sm:grid-cols-[minmax(140px,1fr)_150px_150px_130px_280px]">
                   <span>Year</span>
                   <span>Start</span>
                   <span>End</span>
@@ -566,13 +575,22 @@ export function AcademicYearsPage() {
                   <span className="text-right">Actions</span>
                 </div>
                 {deletedAcademicYears.map((year) => (
-                  <div key={year.id} className="grid grid-cols-[1fr_150px_150px_130px_280px] items-center gap-3 border-b px-4 py-3 text-sm last:border-b-0">
-                    <span className="font-medium">{year.name}</span>
-                    <span className="text-muted-foreground">{formatDate(year.startDate)}</span>
-                    <span className="text-muted-foreground">{formatDate(year.endDate)}</span>
-                    <Badge variant="outline">Deleted</Badge>
-                    <div className="flex justify-end">
-                      <Button type="button" variant="outline" size="sm" onClick={() => loadPreview(year, setRestoreDialog, true)}>
+                  <div key={year.id} className="grid grid-cols-2 gap-3 border-b px-4 py-4 text-sm last:border-b-0 sm:grid-cols-[minmax(140px,1fr)_150px_150px_130px_280px] sm:items-center sm:py-3">
+                    <span className="col-span-2 whitespace-nowrap font-medium sm:col-span-1">{year.name}</span>
+                    <div className="min-w-0">
+                      <span className="mb-1 block text-[11px] font-medium uppercase text-muted-foreground sm:hidden">Start</span>
+                      <span className="whitespace-nowrap text-muted-foreground">{formatDate(year.startDate)}</span>
+                    </div>
+                    <div className="min-w-0">
+                      <span className="mb-1 block text-[11px] font-medium uppercase text-muted-foreground sm:hidden">End</span>
+                      <span className="whitespace-nowrap text-muted-foreground">{formatDate(year.endDate)}</span>
+                    </div>
+                    <div className="col-span-2 sm:col-span-1">
+                      <span className="mb-1 block text-[11px] font-medium uppercase text-muted-foreground sm:hidden">Status</span>
+                      <Badge variant="outline">Deleted</Badge>
+                    </div>
+                    <div className="col-span-2 flex border-t pt-3 sm:col-span-1 sm:justify-end sm:border-t-0 sm:pt-0">
+                      <Button type="button" variant="outline" size="sm" className="flex-1 sm:flex-none" onClick={() => loadPreview(year, setRestoreDialog, true)}>
                         <RotateCcw className="size-4" />
                         Restore
                       </Button>

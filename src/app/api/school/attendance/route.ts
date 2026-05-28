@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { requirePermission, requireRole } from '@/lib/api-auth'
 import { unauthorizedError, internalError, apiError } from '@/lib/api-errors'
+import { isSchoolTeachingDay } from '@/lib/academic-calendar'
 
 const ACADEMIC_YEAR_PATTERN = /^\d{4}-\d{4}$/
 
@@ -210,6 +211,16 @@ export async function POST(request: NextRequest) {
     if (attendanceDate > todayDate) {
       return apiError(400, 'Attendance cannot be marked for future dates.')
     }
+
+    // Block non-teaching days (weekly off + declared holidays)
+    const teaching = await isSchoolTeachingDay(user.schoolId, academicYear, attendanceDate)
+    if (!teaching.teaching) {
+      const msg = teaching.reason === 'holiday'
+        ? `${teaching.holiday?.name || 'Holiday'} — attendance cannot be marked on a declared holiday.`
+        : 'School is closed on this day — attendance cannot be marked.'
+      return apiError(400, msg)
+    }
+
     const currentDay = attendanceDate.getDate()
 
     // Check if any existing attendance is finalized — block edits
@@ -383,6 +394,15 @@ export async function PATCH(request: NextRequest) {
     const todayDate = new Date(now.getFullYear(), now.getMonth(), now.getDate())
     if (attendanceDate > todayDate) {
       return apiError(400, 'Attendance cannot be finalized for future dates.')
+    }
+
+    // Block non-teaching days
+    const teaching = await isSchoolTeachingDay(user.schoolId, academicYear, attendanceDate)
+    if (!teaching.teaching) {
+      const msg = teaching.reason === 'holiday'
+        ? `${teaching.holiday?.name || 'Holiday'} — attendance cannot be finalized on a declared holiday.`
+        : 'School is closed on this day — attendance cannot be finalized.'
+      return apiError(400, msg)
     }
 
     // Check all students have attendance marked

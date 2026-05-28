@@ -40,7 +40,6 @@ interface TeacherDashboardData {
     class: string
     section: string
     className: string
-    room: string
     startTime: string
     endTime: string
   }>
@@ -156,6 +155,14 @@ export function TeacherDashboard() {
     fetchDashboard()
   }, [fetchDashboard])
 
+  // Tick every 30s so "Next Class" rolls over as periods end. Cheap clock state;
+  // dashboard data itself is not re-fetched.
+  const [now, setNow] = useState(() => new Date())
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 30_000)
+    return () => clearInterval(t)
+  }, [])
+
   const today = useMemo(() => new Date(), [])
   const dayName = today.toLocaleDateString('en-IN', { weekday: 'long' })
   const dateStr = today.toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })
@@ -169,8 +176,25 @@ export function TeacherDashboard() {
   const announcements = data?.announcements || []
   const teacherName = data?.teacherName || user?.name || 'Teacher'
   const firstName = teacherName.trim().split(/\s+/)[0] || 'Teacher'
-  const nextClass = schedule[0]
-  const completedPeriods = 0
+
+  // "Next Class" = the next period that hasn't ended yet (covers both ongoing
+  // and upcoming). Falls back to first period if times are missing.
+  const nowMinutes = now.getHours() * 60 + now.getMinutes()
+  const toMinutes = (t: string) => {
+    const [h, m] = t.split(':').map(Number)
+    return Number.isFinite(h) && Number.isFinite(m) ? h * 60 + m : NaN
+  }
+  const nextClass = useMemo(() => {
+    const upcoming = schedule.find((p) => {
+      const end = toMinutes(p.endTime)
+      return Number.isNaN(end) ? false : end > nowMinutes
+    })
+    return upcoming || schedule[0]
+  }, [schedule, nowMinutes])
+  const completedPeriods = useMemo(() => schedule.filter((p) => {
+    const end = toMinutes(p.endTime)
+    return !Number.isNaN(end) && end <= nowMinutes
+  }).length, [schedule, nowMinutes])
   const totalPeriods = schedule.length
   const salaryDeductionPercent = salary?.gross ? Math.min(100, Math.round((salary.deductions / salary.gross) * 100)) : 0
 
@@ -203,34 +227,38 @@ export function TeacherDashboard() {
             </div>
           </div>
 
-          <div className="rounded-2xl border bg-muted/25 p-4">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Next Class</p>
+          <div className="self-center rounded-2xl border bg-muted/25 p-3">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Next Class</p>
+              {nextClass && <Badge className="shrink-0">P{nextClass.period}</Badge>}
+            </div>
             {nextClass ? (
-              <div className="mt-4 space-y-3">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="truncate text-xl font-bold">{nextClass.subject}</p>
-                    <p className="mt-1 text-sm text-muted-foreground">{nextClass.className}</p>
-                  </div>
-                  <Badge>P{nextClass.period}</Badge>
+              <div className="mt-2 flex items-center gap-3">
+                <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                  <BookOpen className="size-5" />
                 </div>
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  <div className="rounded-xl border bg-card p-3">
-                    <p className="text-muted-foreground">Time</p>
-                    <p className="mt-1 font-semibold">
-                      {nextClass.startTime && nextClass.endTime ? `${nextClass.startTime} - ${nextClass.endTime}` : `Period ${nextClass.period}`}
-                    </p>
-                  </div>
-                  <div className="rounded-xl border bg-card p-3">
-                    <p className="text-muted-foreground">Room</p>
-                    <p className="mt-1 font-semibold">{nextClass.room || 'Not set'}</p>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-base font-bold leading-tight">{nextClass.subject}</p>
+                  <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                    <span className="truncate">{nextClass.className}</span>
+                    {nextClass.startTime && nextClass.endTime && (
+                      <>
+                        <span className="text-muted-foreground/40">•</span>
+                        <span className="flex items-center gap-1 shrink-0">
+                          <Clock className="size-3" />
+                          {nextClass.startTime} - {nextClass.endTime}
+                        </span>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
             ) : (
-              <div className="mt-4 rounded-xl border bg-card p-4">
-                <p className="font-semibold">No classes scheduled</p>
-                <p className="mt-1 text-sm text-muted-foreground">Your timetable is clear for today.</p>
+              <div className="mt-2 flex items-center gap-3">
+                <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground">
+                  <Calendar className="size-5" />
+                </div>
+                <p className="text-sm text-muted-foreground">No classes scheduled today.</p>
               </div>
             )}
           </div>
@@ -284,7 +312,6 @@ export function TeacherDashboard() {
                     </div>
                     <div className="flex flex-wrap items-center gap-2 sm:justify-end">
                       <Badge variant="secondary">{item.className}</Badge>
-                      {item.room && <Badge variant="outline">Room {item.room}</Badge>}
                     </div>
                   </div>
                 ))}

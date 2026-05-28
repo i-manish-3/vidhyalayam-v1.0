@@ -33,6 +33,7 @@ export const MIGRATED_PAGES: Partial<Record<PageName, (...args: string[]) => str
   'promote-student': () => '/academics/promote',
   'assign-roll-numbers': () => '/academics/assign-rolls',
   'academic-years': () => '/academics/years',
+  'holidays': () => '/academics/years/holidays',
   'teachers': () => '/teachers',
   'add-teacher': () => '/teachers/new',
   'parents': () => '/parents',

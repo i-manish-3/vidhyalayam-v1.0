@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
 import { useAppStore } from '@/lib/store'
+import { parseWorkingDays } from '@/lib/weekdays'
 import { getCurrentAcademicYear } from '@/lib/academic-years'
 import { useToast } from '@/hooks/use-toast'
 import { usePermissions, PERMISSIONS } from '@/hooks/use-permissions'
@@ -81,8 +82,6 @@ interface PeriodConfig {
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
-const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
-
 const SUBJECT_COLORS = [
   'bg-blue-100 text-blue-800 dark:bg-blue-950/40 dark:text-blue-300 border-blue-200 dark:border-blue-800',
   'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800',
@@ -106,6 +105,7 @@ export function TimetablePage() {
   const currentSchoolAcademicYear = useAppStore((s) => s.currentSchool?.academicYear)
   const viewingAcademicYear = useAppStore((s) => s.viewingAcademicYear)
   const academicYear = viewingAcademicYear || currentSchoolAcademicYear || getCurrentAcademicYear()
+  const DAYS = useAppStore((s) => parseWorkingDays(s.currentSchool?.workingDays))
   const currentUser = useAppStore((s) => s.user)
   const isTeacherRole = currentUser?.role === 'TEACHER'
   const { hasPermission } = usePermissions()

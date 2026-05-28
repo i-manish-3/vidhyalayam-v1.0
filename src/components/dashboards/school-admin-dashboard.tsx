@@ -63,7 +63,15 @@ interface DashboardData {
   totalTeachers: number
   totalClasses: number
   totalSections: number
-  attendanceToday: { present: number; absent: number; leave: number; total: number }
+  attendanceToday: {
+    present: number
+    absent: number
+    leave: number
+    total: number
+    isTeachingDay?: boolean
+    nonTeachingReason?: 'non-working-day' | 'holiday'
+    holidayName?: string
+  }
   feeStats: {
     totalCollected: number
     totalPending: number
@@ -209,9 +217,13 @@ export function SchoolAdminDashboard() {
   }
 
   const dashboard = data || fallbackData
+  const isTeachingDayToday = dashboard.attendanceToday.isTeachingDay !== false
   const attendancePercent = dashboard.attendanceToday.total > 0
     ? Math.round((dashboard.attendanceToday.present / dashboard.attendanceToday.total) * 100)
     : 0
+  const attendanceHeroLabel = !isTeachingDayToday
+    ? (dashboard.attendanceToday.nonTeachingReason === 'holiday' ? 'Holiday' : 'Off Day')
+    : `${attendancePercent}%`
   const today = format(now, 'EEEE, d MMM yyyy')
   const currentTime = format(now, 'hh:mm:ss a')
   const collectionRate = Math.min(100, Math.max(0, dashboard.feeStats.collectionRate))
@@ -264,7 +276,7 @@ export function SchoolAdminDashboard() {
   ].filter(Boolean) as MetricItem[]
 
   const heroKpis = [
-    canSeeAttendance && { label: 'Attendance', value: `${attendancePercent}%`, icon: CalendarCheck },
+    canSeeAttendance && { label: 'Attendance', value: attendanceHeroLabel, icon: CalendarCheck },
     canSeeFees && { label: 'Collection', value: `${collectionRate}%`, icon: IndianRupee },
   ].filter(Boolean) as Array<{ label: string; value: string; icon: React.ElementType }>
 
@@ -436,41 +448,61 @@ export function SchoolAdminDashboard() {
         <Card>
           <CardHeader>
             <CardTitle>Today&apos;s Attendance</CardTitle>
-            <CardDescription>{attendancePercent}% students present today</CardDescription>
+            <CardDescription>
+              {isTeachingDayToday
+                ? `${attendancePercent}% students present today`
+                : dashboard.attendanceToday.nonTeachingReason === 'holiday'
+                  ? `Holiday${dashboard.attendanceToday.holidayName ? ` — ${dashboard.attendanceToday.holidayName}` : ''}`
+                  : 'Weekly Off'}
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="relative h-48">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie data={attendanceData} cx="50%" cy="50%" innerRadius={58} outerRadius={82} paddingAngle={3} dataKey="value">
-                    {attendanceData.map((entry) => (
-                      <Cell key={entry.name} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    contentStyle={{
-                      borderRadius: '8px',
-                      borderColor: 'var(--border)',
-                      background: 'var(--popover)',
-                      color: 'var(--popover-foreground)',
-                    }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-3xl font-semibold text-foreground/85">{attendancePercent}%</span>
-                <span className="text-xs text-muted-foreground">Present</span>
-              </div>
-            </div>
-            <div className="mt-4 grid grid-cols-3 gap-2">
-              {attendanceData.map((entry) => (
-                <div key={entry.name} className="rounded-lg border bg-background p-3 text-center">
-                  <div className="mx-auto mb-2 size-2.5 rounded-full" style={{ backgroundColor: entry.color }} />
-                  <p className="text-lg font-semibold text-foreground/85">{entry.value}</p>
-                  <p className="text-xs text-muted-foreground">{entry.name}</p>
+            {isTeachingDayToday ? (
+              <>
+                <div className="relative h-48">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie data={attendanceData} cx="50%" cy="50%" innerRadius={58} outerRadius={82} paddingAngle={3} dataKey="value">
+                        {attendanceData.map((entry) => (
+                          <Cell key={entry.name} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        contentStyle={{
+                          borderRadius: '8px',
+                          borderColor: 'var(--border)',
+                          background: 'var(--popover)',
+                          color: 'var(--popover-foreground)',
+                        }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+                    <span className="text-3xl font-semibold text-foreground/85">{attendancePercent}%</span>
+                    <span className="text-xs text-muted-foreground">Present</span>
+                  </div>
                 </div>
-              ))}
-            </div>
+                <div className="mt-4 grid grid-cols-3 gap-2">
+                  {attendanceData.map((entry) => (
+                    <div key={entry.name} className="rounded-lg border bg-background p-3 text-center">
+                      <div className="mx-auto mb-2 size-2.5 rounded-full" style={{ backgroundColor: entry.color }} />
+                      <p className="text-lg font-semibold text-foreground/85">{entry.value}</p>
+                      <p className="text-xs text-muted-foreground">{entry.name}</p>
+                    </div>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <div className="flex h-48 flex-col items-center justify-center gap-2 rounded-lg border border-dashed bg-muted/30 text-center">
+                <CalendarCheck className="size-10 text-sky-500" />
+                <p className="text-sm font-medium text-foreground/85">
+                  {dashboard.attendanceToday.nonTeachingReason === 'holiday'
+                    ? (dashboard.attendanceToday.holidayName || 'Holiday today')
+                    : 'Weekly Off'}
+                </p>
+                <p className="text-xs text-muted-foreground">No attendance is recorded today.</p>
+              </div>
+            )}
           </CardContent>
         </Card>
         )}
@@ -486,7 +518,16 @@ export function SchoolAdminDashboard() {
           </CardHeader>
           <CardContent className="space-y-4">
             {canSeeAttendance && (
-              <SnapshotRow label="Attendance Marking" value={dashboard.attendanceToday.total > 0 ? 'In progress' : 'Not started'} progress={attendancePercent} tone={dashboard.attendanceToday.total > 0 ? 'good' : 'warn'} />
+              <SnapshotRow
+                label="Attendance Marking"
+                value={
+                  !isTeachingDayToday
+                    ? (dashboard.attendanceToday.nonTeachingReason === 'holiday' ? 'Holiday' : 'Off day')
+                    : dashboard.attendanceToday.total > 0 ? 'In progress' : 'Not started'
+                }
+                progress={!isTeachingDayToday ? 0 : attendancePercent}
+                tone={!isTeachingDayToday ? 'neutral' : dashboard.attendanceToday.total > 0 ? 'good' : 'warn'}
+              />
             )}
             {canSeeFees && (
               <SnapshotRow label="Fee Collection Rate" value={`${collectionRate}%`} progress={collectionRate} tone={collectionRate >= 70 ? 'good' : 'warn'} />
@@ -553,7 +594,13 @@ function InsightCard({ title, value, description, icon: Icon }: { title: string;
   )
 }
 
-function SnapshotRow({ label, value, progress, tone }: { label: string; value: string; progress: number; tone: 'good' | 'warn' }) {
+function SnapshotRow({ label, value, progress, tone }: { label: string; value: string; progress: number; tone: 'good' | 'warn' | 'neutral' }) {
+  const badgeClass =
+    tone === 'good'
+      ? 'bg-primary/10 text-primary hover:bg-primary/10'
+      : tone === 'warn'
+        ? 'bg-amber-500/10 text-amber-700 hover:bg-amber-500/10 dark:text-amber-300'
+        : 'bg-sky-500/10 text-sky-700 hover:bg-sky-500/10 dark:text-sky-300'
   return (
     <div className="space-y-3 rounded-lg border bg-background p-3">
       <div className="flex items-center justify-between gap-3">
@@ -561,18 +608,16 @@ function SnapshotRow({ label, value, progress, tone }: { label: string; value: s
           <p className="text-sm font-medium">{label}</p>
           <p className="text-xs text-muted-foreground">Current status</p>
         </div>
-        <Badge
-          className={cn(
-            'shrink-0',
-            tone === 'good'
-              ? 'bg-primary/10 text-primary hover:bg-primary/10'
-              : 'bg-amber-500/10 text-amber-700 hover:bg-amber-500/10 dark:text-amber-300'
-          )}
-        >
-          {value}
-        </Badge>
+        <Badge className={cn('shrink-0', badgeClass)}>{value}</Badge>
       </div>
-      <Progress value={Math.min(100, Math.max(0, progress))} className={cn('h-1.5', tone === 'warn' && '[&_[data-slot=progress-indicator]]:bg-amber-500')} />
+      <Progress
+        value={Math.min(100, Math.max(0, progress))}
+        className={cn(
+          'h-1.5',
+          tone === 'warn' && '[&_[data-slot=progress-indicator]]:bg-amber-500',
+          tone === 'neutral' && '[&_[data-slot=progress-indicator]]:bg-sky-500'
+        )}
+      />
     </div>
   )
 }

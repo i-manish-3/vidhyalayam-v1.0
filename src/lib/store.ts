@@ -10,7 +10,7 @@ export type PageName =
   | 'timetable' | 'exams' | 'exam-results'
   | 'transport' | 'add-transport-route' | 'edit-transport-route' | 'transport-annual-setup' | 'drivers' | 'add-driver' | 'library' | 'inventory' | 'petty-cash'
   | 'notifications' | 'announcements'
-  | 'classes' | 'promote-student' | 'assign-roll-numbers' | 'subjects' | 'academic-years' | 'add-subject' | 'add-class' | 'edit-class' | 'edit-subject'
+  | 'classes' | 'promote-student' | 'assign-roll-numbers' | 'subjects' | 'academic-years' | 'holidays' | 'add-subject' | 'add-class' | 'edit-class' | 'edit-subject'
   | 'settings' | 'support'
   | 'school-onboarding' | 'schools' | 'add-school' | 'edit-school' | 'school-detail' | 'analytics'
   | 'my-classes' | 'my-attendance' | 'my-children' | 'fee-details'
@@ -50,6 +50,7 @@ export interface School {
   dashboardFont?: string
   academicYear?: string
   board?: string
+  workingDays?: string
 }
 
 interface AuthState {

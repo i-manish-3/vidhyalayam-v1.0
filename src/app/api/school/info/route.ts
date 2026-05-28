@@ -62,6 +62,14 @@ export async function PATCH(req: NextRequest) {
     const primaryColor = typeof body.primaryColor === 'string' ? body.primaryColor.trim() : undefined
     const dashboardFont = typeof body.dashboardFont === 'string' ? body.dashboardFont.trim() : undefined
 
+    let workingDays: string | undefined
+    if (Array.isArray(body.workingDays)) {
+      const VALID_DAYS = new Set(['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'])
+      const days = body.workingDays.filter((d: unknown) => typeof d === 'string' && VALID_DAYS.has(d))
+      if (days.length === 0) return apiError(400, 'Please select at least one working day.')
+      workingDays = JSON.stringify(days)
+    }
+
     if (name !== undefined && !name) {
       return apiError(400, 'Please enter a school name.')
     }
@@ -71,7 +79,7 @@ export async function PATCH(req: NextRequest) {
     if (dashboardFont !== undefined && !['system', 'segoe', 'arial', 'verdana', 'trebuchet', 'georgia'].includes(dashboardFont)) {
       return apiError(400, 'Please select a valid dashboard font.')
     }
-    if (name === undefined && logo === undefined && favicon === undefined && printHeader === undefined && primaryColor === undefined && dashboardFont === undefined) {
+    if (name === undefined && logo === undefined && favicon === undefined && printHeader === undefined && primaryColor === undefined && dashboardFont === undefined && workingDays === undefined) {
       return apiError(400, 'Please provide at least one branding update.')
     }
 
@@ -115,6 +123,7 @@ export async function PATCH(req: NextRequest) {
         ...(printHeaderUpload.url !== undefined ? { printHeader: printHeaderUpload.url } : {}),
         ...(primaryColor !== undefined ? { primaryColor } : {}),
         ...(dashboardFont !== undefined ? { dashboardFont } : {}),
+        ...(workingDays !== undefined ? { workingDays } : {}),
       },
       select: {
         id: true,

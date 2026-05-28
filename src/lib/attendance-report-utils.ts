@@ -1,4 +1,5 @@
 import { db } from '@/lib/db'
+import { getTeachingDays } from '@/lib/academic-calendar'
 
 const ACADEMIC_YEAR_PATTERN = /^\d{4}-\d{4}$/
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
@@ -152,7 +153,8 @@ export function compareByRoll(a: { rollNumber: string | null; firstName: string;
 }
 
 // Computes per-student StatusTotals for a class/section over a date range.
-// Used by both the Monthly Summary and Defaulters reports.
+// Denominator = teaching days in range (excludes non-working days + holidays).
+// Missing records on teaching days count as implicit absent.
 export async function computeStudentSummaries(
   schoolId: string,
   academicYear: string,
@@ -161,9 +163,14 @@ export async function computeStudentSummaries(
   dateFrom: Date,
   dateTo: Date,
 ): Promise<Array<EnrolledStudent & { totals: StatusTotals }>> {
-  const students = await getEnrolledStudents(schoolId, academicYear, classId, sectionId)
+  const [students, teachingDays] = await Promise.all([
+    getEnrolledStudents(schoolId, academicYear, classId, sectionId),
+    getTeachingDays(schoolId, academicYear, dateFrom, dateTo),
+  ])
   const studentIds = students.map((s) => s.id)
   if (studentIds.length === 0) return []
+
+  const totalTeachingDays = teachingDays.length
 
   const grouped = await db.attendance.groupBy({
     by: ['studentId', 'status'],
@@ -183,7 +190,11 @@ export async function computeStudentSummaries(
     if (totals) addStatus(totals, g.status, g._count._all)
   }
   for (const totals of byStudent.values()) {
-    totals.percent = computePercent(totals.present, totals.total)
+    const markedDays = totals.present + totals.absent + totals.leave + totals.late + totals.half_day
+    const implicitAbsent = Math.max(0, totalTeachingDays - markedDays)
+    totals.absent += implicitAbsent
+    totals.total = totalTeachingDays
+    totals.percent = computePercent(totals.present, totalTeachingDays)
   }
 
   return students

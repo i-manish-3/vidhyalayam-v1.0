@@ -571,6 +571,9 @@ async function seed() {
     // Settings
     { code: 'settings:read', name: 'View Settings', module: 'settings', action: 'read' },
     { code: 'settings:update', name: 'Update Settings', module: 'settings', action: 'update' },
+
+    { code: 'holiday:read', name: 'View Academic Calendar', module: 'holidays', action: 'read' },
+    { code: 'holiday:manage', name: 'Manage Academic Calendar', module: 'holidays', action: 'update' },
     // Roles & Permissions
     { code: 'role:read', name: 'View Roles', module: 'roles', action: 'read' },
     { code: 'role:create', name: 'Create Role', module: 'roles', action: 'create' },
@@ -611,7 +614,7 @@ async function seed() {
         'student:read', 'attendance:read', 'attendance:mark', 'attendance:update',
         'timetable:read', 'exam:read', 'exam:update', 'exam:results',
         'library:read', 'salary:read', 'notification:read',
-        'class:read', 'subject:read',
+        'class:read', 'subject:read', 'holiday:read',
       ],
     },
     {
@@ -621,7 +624,7 @@ async function seed() {
       isSystem: true,
       permissionCodes: [
         'attendance:read', 'fees:read', 'timetable:read',
-        'exam:read', 'library:read', 'notification:read',
+        'exam:read', 'library:read', 'notification:read', 'holiday:read',
       ],
     },
     {
@@ -631,7 +634,7 @@ async function seed() {
       isSystem: true,
       permissionCodes: [
         'student:read', 'attendance:read', 'fees:read',
-        'notification:read', 'exam:read',
+        'notification:read', 'exam:read', 'holiday:read',
       ],
     },
     {

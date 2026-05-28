@@ -55,6 +55,7 @@ import {
   RefreshCw,
   Upload,
   History,
+  CalendarDays,
 } from 'lucide-react'
 
 export interface MenuChild {
@@ -225,7 +226,15 @@ export const MENUS: Record<string, MenuItem[]> = {
         { label: 'Attendance', page: 'attendance-audit-log', icon: ClipboardList },
       ],
     },
-    { label: 'Academic Years', page: 'academic-years', icon: Calendar },
+    {
+      label: 'Academic Settings',
+      page: 'academic-years',
+      icon: Calendar,
+      children: [
+        { label: 'Academic Years', page: 'academic-years', icon: Calendar },
+        { label: 'Academic Calendar', page: 'holidays', icon: CalendarDays },
+      ],
+    },
     { label: 'Settings', page: 'settings', icon: Settings },
   ],
   TEACHER: [

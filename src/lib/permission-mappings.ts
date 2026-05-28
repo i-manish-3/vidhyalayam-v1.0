@@ -31,6 +31,7 @@ const MODULE_PERMISSION_MAP: Record<string, string[]> = {
   'assign-roll-numbers': ['class:read', 'student:update'],
   'subjects': ['subject:read', 'subject:create'],
   'academic-years': ['settings:read', 'settings:update'],
+  'holidays': ['holiday:read', 'holiday:manage', 'settings:read', 'settings:update'],
   'add-subject': ['subject:read', 'subject:create'],
   'edit-subject': ['subject:read', 'subject:update'],
   'add-class': ['class:read', 'class:create'],
