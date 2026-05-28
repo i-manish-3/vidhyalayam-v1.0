@@ -30,6 +30,7 @@ export async function GET(request: NextRequest) {
             state: true,
             country: true,
             currency: true,
+            workingDays: true,
           },
         },
         userRoles: {

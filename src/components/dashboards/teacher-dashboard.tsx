@@ -177,8 +177,9 @@ export function TeacherDashboard() {
   const teacherName = data?.teacherName || user?.name || 'Teacher'
   const firstName = teacherName.trim().split(/\s+/)[0] || 'Teacher'
 
-  // "Next Class" = the next period that hasn't ended yet (covers both ongoing
-  // and upcoming). Falls back to first period if times are missing.
+  // "Next Class" = the next period that hasn't started yet. As soon as a
+  // period's start time hits, it counts as in progress and we roll over to
+  // the one after it. Falls back to first period if times are missing.
   const nowMinutes = now.getHours() * 60 + now.getMinutes()
   const toMinutes = (t: string) => {
     const [h, m] = t.split(':').map(Number)
@@ -186,14 +187,14 @@ export function TeacherDashboard() {
   }
   const nextClass = useMemo(() => {
     const upcoming = schedule.find((p) => {
-      const end = toMinutes(p.endTime)
-      return Number.isNaN(end) ? false : end > nowMinutes
+      const start = toMinutes(p.startTime)
+      return Number.isNaN(start) ? false : start > nowMinutes
     })
     return upcoming || schedule[0]
   }, [schedule, nowMinutes])
   const completedPeriods = useMemo(() => schedule.filter((p) => {
-    const end = toMinutes(p.endTime)
-    return !Number.isNaN(end) && end <= nowMinutes
+    const start = toMinutes(p.startTime)
+    return !Number.isNaN(start) && start <= nowMinutes
   }).length, [schedule, nowMinutes])
   const totalPeriods = schedule.length
   const salaryDeductionPercent = salary?.gross ? Math.min(100, Math.round((salary.deductions / salary.gross) * 100)) : 0

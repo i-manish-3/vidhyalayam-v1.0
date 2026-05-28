@@ -346,9 +346,10 @@ export const MENUS: Record<string, MenuItem[]> = {
   ],
 }
 
-function isPageActiveOnPath(page: PageName, pathname: string): boolean {
+function isPageActiveOnPath(page: PageName, pathname: string, exact = false): boolean {
   const url = resolveMigratedUrl(page)
   if (!url) return false
+  if (exact) return pathname === url
   // Exact match OR pathname is a sub-route of this URL (covers e.g. /students/[id]
   // matching the "Students" menu item, /academics/classes/new matching "Classes").
   return pathname === url || pathname.startsWith(url + '/')
@@ -727,7 +728,9 @@ export function AppSidebar() {
 
           <div className="max-h-[min(520px,calc(100vh-96px))] overflow-y-auto p-2">
             {activeDrill.items.map((item) => {
-              const isActive = isPageActiveOnPath(item.page, pathname) || (item.children && item.children.some((child) => hasActiveDescendant(child, pathname)))
+              const isActive = item.children?.length
+                ? isPageActiveOnPath(item.page, pathname) || item.children.some((child) => hasActiveDescendant(child, pathname))
+                : isPageActiveOnPath(item.page, pathname, true)
 
               if (item.children?.length) {
                 return (
@@ -756,7 +759,7 @@ export function AppSidebar() {
                   onClick={() => handleNavigate(item.page)}
                   className={cn(
                     'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
-                    isPageActiveOnPath(item.page, pathname)
+                    isActive
                       ? 'bg-sidebar-accent text-sidebar-primary'
                       : 'text-sidebar-foreground/75 hover:bg-sidebar-accent hover:text-sidebar-foreground'
                   )}
@@ -797,7 +800,7 @@ export function AppSidebar() {
                         onClick={() => handleNavigate(grandChild.page)}
                         className={cn(
                           'flex w-full items-center gap-2.5 px-3 py-2 text-sm transition-colors',
-                          isPageActiveOnPath(grandChild.page, pathname)
+                          isPageActiveOnPath(grandChild.page, pathname, true)
                             ? 'bg-accent text-accent-foreground font-medium'
                             : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
                         )}
@@ -816,7 +819,7 @@ export function AppSidebar() {
                   onClick={() => handleNavigate(child.page)}
                   className={cn(
                     'flex w-full items-center gap-2.5 px-3 py-2 text-sm transition-colors',
-                    isPageActiveOnPath(child.page, pathname)
+                    isPageActiveOnPath(child.page, pathname, true)
                       ? 'bg-accent text-accent-foreground font-medium'
                       : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
                   )}

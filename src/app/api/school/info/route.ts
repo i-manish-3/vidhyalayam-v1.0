@@ -145,6 +145,7 @@ export async function PATCH(req: NextRequest) {
         contactPhone: true,
         contactEmail: true,
         website: true,
+        workingDays: true,
       },
     })
 

@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { CalendarDays, CalendarRange, Loader2, Pencil, PlusCircle, Trash2 } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { CalendarDays, CalendarRange, ChevronLeft, ChevronRight, LayoutGrid, List, Loader2, Pencil, PlusCircle, Trash2 } from 'lucide-react'
 import { api } from '@/lib/api'
 import { useAppStore } from '@/lib/store'
 import { useToast } from '@/hooks/use-toast'
@@ -12,8 +12,10 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { DatePicker } from '@/components/date-picker'
 import { EmptyState } from '@/components/shared'
+import { cn } from '@/lib/utils'
 
 type Holiday = {
   id: string
@@ -37,13 +39,68 @@ type HolidayForm = {
 const EMPTY_FORM: HolidayForm = { name: '', type: 'school', date: '', endDate: '', description: '', academicYear: '' }
 
 const TYPE_LABELS: Record<string, string> = { public: 'Public Holiday', school: 'School Holiday', vacation: 'Vacation' }
-const TYPE_COLORS: Record<string, 'default' | 'secondary' | 'outline'> = { public: 'default', school: 'secondary', vacation: 'outline' }
+
+// List-view row + badge styling. Same hue family as the calendar cells (rose /
+// sky / violet) so users can scan the list and match each row visually to its
+// month-grid counterpart.
+const TYPE_LIST_ROW_STYLES: Record<string, string> = {
+  public: 'border-rose-200 bg-rose-50/60 dark:border-rose-500/30 dark:bg-rose-500/10',
+  school: 'border-sky-200 bg-sky-50/60 dark:border-sky-500/30 dark:bg-sky-500/10',
+  vacation: 'border-violet-200 bg-violet-50/60 dark:border-violet-500/30 dark:bg-violet-500/10',
+}
+
+const TYPE_LIST_ACCENT_STYLES: Record<string, string> = {
+  public: 'bg-rose-500 dark:bg-rose-400',
+  school: 'bg-sky-500 dark:bg-sky-400',
+  vacation: 'bg-violet-500 dark:bg-violet-400',
+}
+
+const TYPE_BADGE_STYLES: Record<string, string> = {
+  public: 'border-rose-300 bg-rose-100 text-rose-800 dark:border-rose-500/40 dark:bg-rose-500/20 dark:text-rose-100',
+  school: 'border-sky-300 bg-sky-100 text-sky-800 dark:border-sky-500/40 dark:bg-sky-500/20 dark:text-sky-100',
+  vacation: 'border-violet-300 bg-violet-100 text-violet-800 dark:border-violet-500/40 dark:bg-violet-500/20 dark:text-violet-100',
+}
+
+// Calendar cell tinting per holiday type. Each type gets a distinct hue so the
+// month at a glance reads as "this is what's coming up": rose for public
+// (national/regional), sky for school-specific, violet for vacations.
+const TYPE_CALENDAR_STYLES: Record<string, string> = {
+  public: 'bg-rose-50 text-rose-900 ring-1 ring-rose-200 dark:bg-rose-500/15 dark:text-rose-100 dark:ring-rose-500/30',
+  school: 'bg-sky-50 text-sky-900 ring-1 ring-sky-200 dark:bg-sky-500/15 dark:text-sky-100 dark:ring-sky-500/30',
+  vacation: 'bg-violet-50 text-violet-900 ring-1 ring-violet-200 dark:bg-violet-500/15 dark:text-violet-100 dark:ring-violet-500/30',
+}
+
+// Weekly off (Sun by default) uses a soft slate so it reads as "non-school"
+// without competing visually with declared holidays.
+const WEEKLY_OFF_STYLE = 'bg-slate-50 text-slate-500 dark:bg-slate-500/10 dark:text-slate-400'
 
 const ALL_WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 const DEFAULT_SCHOOLING_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+function ymd(d: Date) {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+// Parse academic year string ("2026-2027") into start/end years so we can
+// constrain calendar navigation to that academic session.
+function parseAcademicYearBounds(year: string): { start: Date; end: Date } | null {
+  const m = year.match(/^(\d{4})-(\d{4})$/)
+  if (!m) return null
+  const startYear = Number(m[1])
+  const endYear = Number(m[2])
+  // Indian academic year typically runs Apr–Mar.
+  return {
+    start: new Date(startYear, 3, 1),
+    end: new Date(endYear, 2, 31),
+  }
 }
 
 export function HolidaysPage() {
@@ -58,6 +115,11 @@ export function HolidaysPage() {
   const [form, setForm] = useState<HolidayForm>(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState<string | null>(null)
+  const [view, setView] = useState<'calendar' | 'list'>('calendar')
+  const [cursor, setCursor] = useState(() => {
+    const d = new Date()
+    return new Date(d.getFullYear(), d.getMonth(), 1)
+  })
 
   const [schoolingDialogOpen, setSchoolingDialogOpen] = useState(false)
   const [schoolingDays, setSchoolingDays] = useState<string[]>(() => {
@@ -69,6 +131,18 @@ export function HolidaysPage() {
     }
   })
   const [schoolingSaving, setSchoolingSaving] = useState(false)
+
+  const isAdmin = user?.role === 'SCHOOL_ADMIN'
+
+  // Effective schooling days drives "weekly off" tinting on the calendar.
+  const effectiveSchoolingDays = useMemo<string[]>(() => {
+    try {
+      const parsed = JSON.parse(currentSchool?.workingDays || '[]')
+      return Array.isArray(parsed) && parsed.length > 0 ? parsed : DEFAULT_SCHOOLING_DAYS
+    } catch {
+      return DEFAULT_SCHOOLING_DAYS
+    }
+  }, [currentSchool?.workingDays])
 
   useEffect(() => {
     api.get<{ academicYears: string[] }>('/api/school/academic-years').then((res) => {
@@ -87,9 +161,43 @@ export function HolidaysPage() {
       .finally(() => setLoading(false))
   }, [academicYear, toast])
 
-  function openAdd() {
+  // When user switches academic year, snap calendar cursor to the start of
+  // that academic session so they see a relevant month right away.
+  useEffect(() => {
+    if (!academicYear) return
+    const bounds = parseAcademicYearBounds(academicYear)
+    if (!bounds) return
+    const today = new Date()
+    // If today is inside the academic year, show current month; otherwise
+    // snap to the start of the session.
+    const inRange = today >= bounds.start && today <= bounds.end
+    setCursor(inRange ? new Date(today.getFullYear(), today.getMonth(), 1) : new Date(bounds.start.getFullYear(), bounds.start.getMonth(), 1))
+  }, [academicYear])
+
+  // Map YYYY-MM-DD → list of holidays that cover that day (multi-day ranges
+  // expand to every day in between, inclusive). Computed once per holidays list.
+  const holidaysByDate = useMemo(() => {
+    const map = new Map<string, Holiday[]>()
+    for (const h of holidays) {
+      const start = new Date(h.date)
+      start.setHours(0, 0, 0, 0)
+      const end = h.endDate ? new Date(h.endDate) : start
+      end.setHours(0, 0, 0, 0)
+      const cur = new Date(start)
+      while (cur <= end) {
+        const key = ymd(cur)
+        const arr = map.get(key) || []
+        arr.push(h)
+        map.set(key, arr)
+        cur.setDate(cur.getDate() + 1)
+      }
+    }
+    return map
+  }, [holidays])
+
+  function openAdd(prefillDate?: string) {
     setEditing(null)
-    setForm({ ...EMPTY_FORM, academicYear })
+    setForm({ ...EMPTY_FORM, academicYear, date: prefillDate || '' })
     setDialogOpen(true)
   }
 
@@ -164,14 +272,14 @@ export function HolidaysPage() {
 
   async function saveSchoolingDays() {
     if (schoolingDays.length === 0) {
-      toast({ title: 'Please select at least one school day.', variant: 'destructive' })
+      toast({ title: 'Please select at least one schooling day.', variant: 'destructive' })
       return
     }
     setSchoolingSaving(true)
     try {
       const res = await api.patch<{ school: typeof currentSchool }>('/api/school/info', { workingDays: schoolingDays })
       if (res.school) setCurrentSchool(res.school)
-      toast({ title: 'School days updated' })
+      toast({ title: 'Schooling days updated' })
       setSchoolingDialogOpen(false)
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to save'
@@ -181,7 +289,48 @@ export function HolidaysPage() {
     }
   }
 
-  const isAdmin = user?.role === 'SCHOOL_ADMIN'
+  // ---------- Calendar grid ----------
+  const monthLabel = cursor.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })
+
+  // 6 rows × 7 cols. Start from the Sunday on/before the 1st of the month so
+  // the calendar always has the same shape and weekday columns line up.
+  const calendarCells = useMemo(() => {
+    const first = new Date(cursor.getFullYear(), cursor.getMonth(), 1)
+    const startOffset = first.getDay() // 0 = Sun
+    const gridStart = new Date(first)
+    gridStart.setDate(first.getDate() - startOffset)
+    const cells: Array<{ date: Date; inMonth: boolean; iso: string }> = []
+    for (let i = 0; i < 42; i++) {
+      const d = new Date(gridStart)
+      d.setDate(gridStart.getDate() + i)
+      cells.push({
+        date: d,
+        inMonth: d.getMonth() === cursor.getMonth(),
+        iso: ymd(d),
+      })
+    }
+    return cells
+  }, [cursor])
+
+  const todayIso = ymd(new Date())
+
+  function shiftMonth(delta: number) {
+    setCursor((c) => new Date(c.getFullYear(), c.getMonth() + delta, 1))
+  }
+
+  function goToday() {
+    const d = new Date()
+    setCursor(new Date(d.getFullYear(), d.getMonth(), 1))
+  }
+
+  function handleCellClick(iso: string, dayHolidays: Holiday[]) {
+    if (!isAdmin) return
+    if (dayHolidays.length > 0) {
+      openEdit(dayHolidays[0])
+    } else {
+      openAdd(iso)
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -191,7 +340,7 @@ export function HolidaysPage() {
             <CardTitle>Academic Calendar</CardTitle>
             <CardDescription>Manage holidays and vacation periods for each academic year.</CardDescription>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Select value={academicYear} onValueChange={setAcademicYear}>
               <SelectTrigger className="w-36">
                 <SelectValue placeholder="Year" />
@@ -205,11 +354,11 @@ export function HolidaysPage() {
             {isAdmin && (
               <Button onClick={openSchoolingDialog} size="sm" variant="outline">
                 <CalendarRange className="mr-2 size-4" />
-                School Days
+                Schooling Days
               </Button>
             )}
             {isAdmin && (
-              <Button onClick={openAdd} size="sm">
+              <Button onClick={() => openAdd()} size="sm">
                 <PlusCircle className="mr-2 size-4" />
                 Add Holiday
               </Button>
@@ -219,36 +368,181 @@ export function HolidaysPage() {
         <CardContent>
           {loading ? (
             <div className="flex justify-center py-10"><Loader2 className="size-6 animate-spin text-muted-foreground" /></div>
-          ) : holidays.length === 0 ? (
-            <EmptyState icon={CalendarDays} title="No holidays added" description={`No holidays configured for ${academicYear}.`} />
           ) : (
-            <div className="space-y-2">
-              {holidays.map((h) => (
-                <div key={h.id} className="flex items-center justify-between gap-3 rounded-xl border bg-card p-3">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-semibold">{h.name}</p>
-                      <Badge variant={TYPE_COLORS[h.type] ?? 'outline'}>{TYPE_LABELS[h.type] ?? h.type}</Badge>
-                    </div>
-                    <p className="mt-0.5 text-xs text-muted-foreground">
-                      {formatDate(h.date)}
-                      {h.endDate && h.endDate !== h.date ? ` – ${formatDate(h.endDate)}` : ''}
-                      {h.description ? ` · ${h.description}` : ''}
-                    </p>
+            <Tabs value={view} onValueChange={(v) => setView(v as 'calendar' | 'list')} className="gap-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <TabsList>
+                  <TabsTrigger value="calendar"><LayoutGrid className="size-3.5" />Calendar</TabsTrigger>
+                  <TabsTrigger value="list"><List className="size-3.5" />List</TabsTrigger>
+                </TabsList>
+                {view === 'calendar' && (
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" onClick={() => shiftMonth(-1)} aria-label="Previous month">
+                      <ChevronLeft className="size-4" />
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={goToday}>Today</Button>
+                    <Button variant="outline" size="sm" onClick={() => shiftMonth(1)} aria-label="Next month">
+                      <ChevronRight className="size-4" />
+                    </Button>
                   </div>
-                  {isAdmin && (
-                    <div className="flex shrink-0 gap-1">
-                      <Button variant="ghost" size="icon" className="size-8" onClick={() => openEdit(h)}>
-                        <Pencil className="size-3.5" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="size-8 text-destructive hover:text-destructive" onClick={() => handleDelete(h.id)} disabled={deleting === h.id}>
-                        {deleting === h.id ? <Loader2 className="size-3.5 animate-spin" /> : <Trash2 className="size-3.5" />}
-                      </Button>
-                    </div>
-                  )}
+                )}
+              </div>
+
+              <TabsContent value="calendar" className="space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <h3 className="text-base font-semibold">{monthLabel}</h3>
+                  <div className="flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground">
+                    <span className="flex items-center gap-1.5">
+                      <span className="size-2.5 rounded-sm bg-rose-200 ring-1 ring-rose-300 dark:bg-rose-500/40 dark:ring-rose-500/60" />
+                      Public
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <span className="size-2.5 rounded-sm bg-sky-200 ring-1 ring-sky-300 dark:bg-sky-500/40 dark:ring-sky-500/60" />
+                      School
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <span className="size-2.5 rounded-sm bg-violet-200 ring-1 ring-violet-300 dark:bg-violet-500/40 dark:ring-violet-500/60" />
+                      Vacation
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <span className="size-2.5 rounded-sm bg-slate-200 ring-1 ring-slate-300 dark:bg-slate-500/40 dark:ring-slate-500/60" />
+                      Weekly Off
+                    </span>
+                  </div>
                 </div>
-              ))}
-            </div>
+
+                <div className="overflow-hidden rounded-xl border bg-card">
+                  <div className="grid grid-cols-7 border-b bg-muted/30 text-center text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    {WEEKDAY_LABELS.map((d) => (
+                      <div key={d} className="px-2 py-2">{d}</div>
+                    ))}
+                  </div>
+                  <div className="grid grid-cols-7">
+                    {calendarCells.map((cell, idx) => {
+                      const dayHolidays = holidaysByDate.get(cell.iso) || []
+                      const primaryHoliday = dayHolidays[0]
+                      const weekdayName = ALL_WEEKDAYS[cell.date.getDay()]
+                      const isWeeklyOff = !effectiveSchoolingDays.includes(weekdayName)
+                      const isToday = cell.iso === todayIso
+
+                      const tint = primaryHoliday
+                        ? TYPE_CALENDAR_STYLES[primaryHoliday.type] || TYPE_CALENDAR_STYLES.school
+                        : isWeeklyOff
+                          ? WEEKLY_OFF_STYLE
+                          : ''
+
+                      return (
+                        <button
+                          key={`${cell.iso}-${idx}`}
+                          type="button"
+                          onClick={() => handleCellClick(cell.iso, dayHolidays)}
+                          disabled={!isAdmin && dayHolidays.length === 0}
+                          title={
+                            primaryHoliday
+                              ? `${primaryHoliday.name}${dayHolidays.length > 1 ? ` +${dayHolidays.length - 1} more` : ''}`
+                              : isWeeklyOff
+                                ? `${weekdayName} — Weekly Off`
+                                : isAdmin
+                                  ? 'Click to add holiday'
+                                  : ''
+                          }
+                          className={cn(
+                            'group relative flex min-h-[88px] flex-col items-stretch border-b border-r p-1.5 text-left transition',
+                            // Last column has no right border, last row no bottom border.
+                            (idx + 1) % 7 === 0 && 'border-r-0',
+                            idx >= 35 && 'border-b-0',
+                            !cell.inMonth && 'bg-muted/10',
+                            isAdmin && 'cursor-pointer hover:bg-primary/5',
+                            !isAdmin && dayHolidays.length === 0 && 'cursor-default',
+                            tint,
+                          )}
+                        >
+                          <div className="flex items-center justify-between gap-1">
+                            <span
+                              className={cn(
+                                'inline-flex size-6 items-center justify-center rounded-full text-xs font-semibold',
+                                !cell.inMonth && 'text-muted-foreground/50',
+                                isToday && 'bg-primary text-primary-foreground',
+                              )}
+                            >
+                              {cell.date.getDate()}
+                            </span>
+                            {dayHolidays.length > 1 && (
+                              <Badge variant="outline" className="h-4 px-1 text-[9px]">+{dayHolidays.length - 1}</Badge>
+                            )}
+                          </div>
+                          {primaryHoliday ? (
+                            <p className="mt-1 line-clamp-2 text-[11px] font-medium leading-tight">
+                              {primaryHoliday.name}
+                            </p>
+                          ) : isWeeklyOff && cell.inMonth ? (
+                            <p className="mt-1 text-[10px] uppercase tracking-wide text-muted-foreground/70">Off</p>
+                          ) : null}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                {holidays.length === 0 && (
+                  <p className="text-center text-xs text-muted-foreground">
+                    No holidays configured for {academicYear}. {isAdmin ? 'Click any date to add one.' : ''}
+                  </p>
+                )}
+              </TabsContent>
+
+              <TabsContent value="list">
+                {holidays.length === 0 ? (
+                  <EmptyState icon={CalendarDays} title="No holidays added" description={`No holidays configured for ${academicYear}.`} />
+                ) : (
+                  <div className="space-y-2">
+                    {holidays.map((h) => (
+                      <div
+                        key={h.id}
+                        className={cn(
+                          'flex items-stretch gap-3 overflow-hidden rounded-xl border p-3 transition',
+                          TYPE_LIST_ROW_STYLES[h.type] ?? 'bg-card',
+                        )}
+                      >
+                        <span
+                          aria-hidden
+                          className={cn(
+                            '-my-3 -ml-3 w-1.5 shrink-0',
+                            TYPE_LIST_ACCENT_STYLES[h.type] ?? 'bg-muted-foreground/30',
+                          )}
+                        />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="font-semibold">{h.name}</p>
+                            <Badge
+                              variant="outline"
+                              className={cn('border', TYPE_BADGE_STYLES[h.type] ?? '')}
+                            >
+                              {TYPE_LABELS[h.type] ?? h.type}
+                            </Badge>
+                          </div>
+                          <p className="mt-0.5 text-xs text-muted-foreground">
+                            {formatDate(h.date)}
+                            {h.endDate && h.endDate !== h.date ? ` – ${formatDate(h.endDate)}` : ''}
+                            {h.description ? ` · ${h.description}` : ''}
+                          </p>
+                        </div>
+                        {isAdmin && (
+                          <div className="flex shrink-0 items-center gap-1">
+                            <Button variant="ghost" size="icon" className="size-8" onClick={() => openEdit(h)}>
+                              <Pencil className="size-3.5" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="size-8 text-destructive hover:text-destructive" onClick={() => handleDelete(h.id)} disabled={deleting === h.id}>
+                              {deleting === h.id ? <Loader2 className="size-3.5 animate-spin" /> : <Trash2 className="size-3.5" />}
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
           )}
         </CardContent>
       </Card>
@@ -290,6 +584,17 @@ export function HolidaysPage() {
             </div>
           </div>
           <DialogFooter>
+            {editing && isAdmin && (
+              <Button
+                variant="ghost"
+                className="mr-auto text-destructive hover:text-destructive"
+                onClick={() => { handleDelete(editing.id); setDialogOpen(false) }}
+                disabled={deleting === editing.id}
+              >
+                <Trash2 className="mr-2 size-4" />
+                Delete
+              </Button>
+            )}
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
             <Button onClick={handleSave} disabled={saving}>
               {saving && <Loader2 className="mr-2 size-4 animate-spin" />}
@@ -302,7 +607,7 @@ export function HolidaysPage() {
       <Dialog open={schoolingDialogOpen} onOpenChange={setSchoolingDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>School Days</DialogTitle>
+            <DialogTitle>Schooling Days</DialogTitle>
           </DialogHeader>
           <div className="space-y-3 py-2">
             <p className="text-sm text-muted-foreground">
@@ -326,7 +631,7 @@ export function HolidaysPage() {
             <p className="text-xs text-muted-foreground">
               {schoolingDays.length === 0
                 ? 'No days selected.'
-                : `${schoolingDays.length} school day${schoolingDays.length === 1 ? '' : 's'}: ${schoolingDays.join(', ')}`}
+                : `${schoolingDays.length} schooling day${schoolingDays.length === 1 ? '' : 's'}: ${schoolingDays.join(', ')}`}
             </p>
           </div>
           <DialogFooter>
