@@ -25,6 +25,12 @@ export function requireAuth(request: NextRequest): JWTPayload | null {
 export function requireRole(request: NextRequest, roles: string[]): JWTPayload | null {
   const user = getAuthUser(request)
   if (!user) return null
+  // SUPER_ADMIN sits above the school role hierarchy — they pass any role check.
+  // This is consistent with requirePermission (line 48) which already short-circuits
+  // for SUPER_ADMIN. School-scoped routes still gate on `!user.schoolId` afterward,
+  // so a real SUPER_ADMIN with no impersonation active still gets 401 from
+  // school-scoped routes — only an impersonating SUPER_ADMIN gets through.
+  if (user.role === 'SUPER_ADMIN') return user
   if (!roles.includes(user.role)) return null
   return user
 }
