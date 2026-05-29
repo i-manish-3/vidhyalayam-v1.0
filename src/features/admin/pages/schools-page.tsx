@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
+import { useAppStore, type User } from '@/lib/store'
 import { useToast } from '@/hooks/use-toast'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -50,6 +51,7 @@ import {
   Eye as EyeIcon,
   EyeOff,
   ShieldCheck,
+  LogIn,
   ClipboardList,
   CalendarCheck,
   DollarSign,
@@ -182,6 +184,9 @@ export const STATUS_OPTIONS = [
 export function SchoolsPage() {
   const router = useRouter()
   const { toast } = useToast()
+  const login = useAppStore((s) => s.login)
+  const setCurrentSchool = useAppStore((s) => s.setCurrentSchool)
+  const [impersonatingId, setImpersonatingId] = useState<string | null>(null)
   const [schools, setSchools] = useState<SchoolListItem[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -275,6 +280,46 @@ export function SchoolsPage() {
 
   const viewSchool = (schoolId: string) => {
     router.push(`/admin/schools/${schoolId}`)
+  }
+
+  const handleImpersonate = async (school: SchoolListItem) => {
+    if (school.status !== 'active') {
+      toast({
+        title: "Can't impersonate",
+        description: 'Only active schools can be impersonated.',
+        variant: 'destructive',
+      })
+      return
+    }
+    setImpersonatingId(school.id)
+    try {
+      await api.post('/api/super-admin/impersonate/start', { schoolId: school.id })
+      const me = await api.get<User & { school: Parameters<typeof setCurrentSchool>[0] }>(
+        '/api/auth/me',
+        undefined,
+        { skipLogoutOn401: true },
+      )
+      login({
+        ...me,
+        impersonatingSchoolId: school.id,
+        impersonatingSchoolName: school.name,
+      })
+      if (me.school) setCurrentSchool(me.school)
+      toast({
+        title: 'Impersonating school',
+        description: `You're now acting as ${school.name}.`,
+      })
+      router.push('/dashboard')
+      router.refresh()
+    } catch (err) {
+      toast({
+        title: 'Failed to impersonate',
+        description: err instanceof Error ? err.message : 'Please try again.',
+        variant: 'destructive',
+      })
+    } finally {
+      setImpersonatingId(null)
+    }
   }
 
   const statusBadge = (school: SchoolListItem) => {
@@ -447,6 +492,20 @@ export function SchoolsPage() {
                             <Eye className="mr-2 size-4" />
                             View Details
                           </DropdownMenuItem>
+                          {!isArchived && school.status === 'active' && (
+                            <DropdownMenuItem
+                              onClick={(e) => { e.stopPropagation(); handleImpersonate(school) }}
+                              disabled={impersonatingId === school.id}
+                              className="text-blue-600"
+                            >
+                              {impersonatingId === school.id ? (
+                                <Loader2 className="mr-2 size-4 animate-spin" />
+                              ) : (
+                                <LogIn className="mr-2 size-4" />
+                              )}
+                              Enter as School
+                            </DropdownMenuItem>
+                          )}
                           {isArchived ? (
                             <>
                               <DropdownMenuSeparator />
