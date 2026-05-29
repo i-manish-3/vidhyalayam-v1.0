@@ -16,7 +16,7 @@ const SKIP_PATHS = new Set([
   '/api/auth/logout',
 ])
 
-export async function proxy(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
   if (SKIP_PATHS.has(pathname)) {
     return NextResponse.next()
@@ -50,4 +50,6 @@ export async function proxy(request: NextRequest) {
 // Run on /api/* only. Static assets, pages, and image optimization are untouched.
 export const config = {
   matcher: '/api/:path*',
+  // Prisma is Node-only; the default Edge runtime can't import @/lib/db.
+  runtime: 'nodejs',
 }

@@ -62,8 +62,14 @@ interface MetaWebhookPayload {
 export async function POST(request: NextRequest) {
   const appSecret = process.env.META_APP_SECRET
   if (!appSecret) {
-    // Fail soft so Meta doesn't disable the subscription, but don't process.
-    console.warn('[whatsapp-webhook] META_APP_SECRET missing — skipping')
+    // In production, a missing secret is a misconfig — fail loud so we notice
+    // (and Meta retries). In dev/local we keep the soft 200 so a half-set-up
+    // env doesn't spam errors during onboarding.
+    if (process.env.NODE_ENV === 'production') {
+      console.error('[whatsapp-webhook] META_APP_SECRET missing in production')
+      return new NextResponse('webhook not configured', { status: 503 })
+    }
+    console.warn('[whatsapp-webhook] META_APP_SECRET missing — skipping (non-prod)')
     return NextResponse.json({ ok: true, skipped: true })
   }
 

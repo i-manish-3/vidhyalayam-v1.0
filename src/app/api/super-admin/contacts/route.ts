@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { internalError } from '@/lib/api-errors'
+import { getAuthUser } from '@/lib/api-auth'
+import { internalError, unauthorizedError, forbiddenError } from '@/lib/api-errors'
 
 export async function GET(request: NextRequest) {
   try {
+    const user = getAuthUser(request)
+    if (!user) return unauthorizedError()
+    if (user.role !== 'SUPER_ADMIN') return forbiddenError()
+
     const searchParams = request.nextUrl.searchParams
     const status = searchParams.get('status')
     const search = searchParams.get('search')

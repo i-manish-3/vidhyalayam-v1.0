@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { apiError, internalError } from '@/lib/api-errors'
+import { getAuthUser } from '@/lib/api-auth'
+import { apiError, internalError, unauthorizedError, forbiddenError } from '@/lib/api-errors'
 import { uploadIfDataUrl, IMAGE_MIME_TYPES } from '@/lib/storage'
 
 export async function GET(
@@ -8,6 +9,10 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const user = getAuthUser(request)
+    if (!user) return unauthorizedError()
+    if (user.role !== 'SUPER_ADMIN') return forbiddenError()
+
     const { id } = await params
 
     const testimonial = await db.testimonial.findFirst({
@@ -30,6 +35,10 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const user = getAuthUser(request)
+    if (!user) return unauthorizedError()
+    if (user.role !== 'SUPER_ADMIN') return forbiddenError()
+
     const { id } = await params
     const body = await request.json()
     const { name, role, quote, stars, avatarUrl, isActive, sortOrder } = body
@@ -79,6 +88,10 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const user = getAuthUser(request)
+    if (!user) return unauthorizedError()
+    if (user.role !== 'SUPER_ADMIN') return forbiddenError()
+
     const { id } = await params
 
     const existing = await db.testimonial.findFirst({

@@ -1,12 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { apiError, internalError } from '@/lib/api-errors'
+import { getAuthUser } from '@/lib/api-auth'
+import { apiError, internalError, unauthorizedError, forbiddenError } from '@/lib/api-errors'
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const user = getAuthUser(request)
+    if (!user) return unauthorizedError()
+    if (user.role !== 'SUPER_ADMIN') return forbiddenError()
+
     const { id } = await params
 
     const member = await db.teamMember.findFirst({
@@ -29,6 +34,10 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const user = getAuthUser(request)
+    if (!user) return unauthorizedError()
+    if (user.role !== 'SUPER_ADMIN') return forbiddenError()
+
     const { id } = await params
 
     const existing = await db.teamMember.findFirst({
@@ -75,6 +84,10 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const user = getAuthUser(request)
+    if (!user) return unauthorizedError()
+    if (user.role !== 'SUPER_ADMIN') return forbiddenError()
+
     const { id } = await params
 
     const existing = await db.teamMember.findFirst({

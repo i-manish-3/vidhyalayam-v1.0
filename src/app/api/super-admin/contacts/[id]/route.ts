@@ -1,12 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { internalError } from '@/lib/api-errors'
+import { getAuthUser } from '@/lib/api-auth'
+import { internalError, unauthorizedError, forbiddenError } from '@/lib/api-errors'
 
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const user = getAuthUser(request)
+    if (!user) return unauthorizedError()
+    if (user.role !== 'SUPER_ADMIN') return forbiddenError()
+
     const { id } = await params
     const body = await request.json()
     const { status, notes, contactedBy } = body

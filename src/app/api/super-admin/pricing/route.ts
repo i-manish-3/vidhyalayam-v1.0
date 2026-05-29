@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { apiError, validationError, internalError } from '@/lib/api-errors'
+import { getAuthUser } from '@/lib/api-auth'
+import { apiError, validationError, internalError, unauthorizedError, forbiddenError } from '@/lib/api-errors'
 
 export async function GET(request: NextRequest) {
   try {
+    const user = getAuthUser(request)
+    if (!user) return unauthorizedError()
+    if (user.role !== 'SUPER_ADMIN') return forbiddenError()
+
     const searchParams = request.nextUrl.searchParams
     const type = searchParams.get('type')
     const search = searchParams.get('search')
@@ -49,6 +54,10 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const user = getAuthUser(request)
+    if (!user) return unauthorizedError()
+    if (user.role !== 'SUPER_ADMIN') return forbiddenError()
+
     const searchParams = request.nextUrl.searchParams
     const type = searchParams.get('type')
 
