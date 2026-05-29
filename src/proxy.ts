@@ -48,8 +48,7 @@ export async function proxy(request: NextRequest) {
 }
 
 // Run on /api/* only. Static assets, pages, and image optimization are untouched.
+// Next.js 16 proxy always runs on Node.js — no runtime config needed.
 export const config = {
   matcher: '/api/:path*',
-  // Prisma is Node-only; the default Edge runtime can't import @/lib/db.
-  runtime: 'nodejs',
 }
