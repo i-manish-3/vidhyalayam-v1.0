@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { AlertTriangle, CalendarDays, CheckCircle2, Info, Loader2, PauseCircle, Pencil, PlusCircle, RotateCcw, ShieldCheck, Trash2 } from 'lucide-react'
 import { api } from '@/lib/api'
 import { useAppStore } from '@/lib/store'
+import { useEffectiveRole } from '@/hooks/use-effective-role'
 import { getCurrentAcademicYear, type AcademicYear } from '@/lib/academic-years'
 import { useToast } from '@/hooks/use-toast'
 import { Button } from '@/components/ui/button'
@@ -83,6 +84,7 @@ export function AcademicYearsPage() {
   const router = useRouter()
   const { toast } = useToast()
   const { currentSchool, setCurrentSchool, setViewingAcademicYear, user } = useAppStore()
+  const effectiveRole = useEffectiveRole()
   const [academicYears, setAcademicYears] = useState<AcademicYear[]>([])
   const [deletedAcademicYears, setDeletedAcademicYears] = useState<AcademicYear[]>([])
   const [yearName, setYearName] = useState(getCurrentAcademicYear())
@@ -138,7 +140,7 @@ export function AcademicYearsPage() {
   }
 
   useEffect(() => {
-    if (user?.role === 'SCHOOL_ADMIN') {
+    if (effectiveRole === 'SCHOOL_ADMIN') {
       fetchAcademicYears()
     }
   }, [user?.role])
@@ -393,7 +395,7 @@ export function AcademicYearsPage() {
     }
   }
 
-  if (user?.role !== 'SCHOOL_ADMIN') {
+  if (effectiveRole !== 'SCHOOL_ADMIN') {
     return (
       <Card>
         <CardContent className="flex flex-col items-center justify-center py-16 text-center">

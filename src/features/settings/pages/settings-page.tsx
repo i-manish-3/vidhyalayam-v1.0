@@ -7,6 +7,7 @@ import { Banknote, CalendarCheck, Check, ChevronRight, Hash, ImagePlus, Loader2,
 import { api } from '@/lib/api'
 import { compressImage } from '@/lib/image-compress'
 import { useAppStore, type School as SchoolInfo } from '@/lib/store'
+import { useEffectiveRole } from '@/hooks/use-effective-role'
 import { DASHBOARD_FONT_OPTIONS, SCHOOL_THEME_PALETTES, findDashboardFont, findSchoolThemePalette } from '@/lib/theme-palettes'
 import { cn } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
@@ -57,6 +58,7 @@ export function SettingsPage() {
   const router = useRouter()
   const { toast } = useToast()
   const { currentSchool, setCurrentSchool, user } = useAppStore()
+  const effectiveRole = useEffectiveRole()
   const logoInputRef = useRef<HTMLInputElement>(null)
   const faviconInputRef = useRef<HTMLInputElement>(null)
   const printHeaderInputRef = useRef<HTMLInputElement>(null)
@@ -96,7 +98,7 @@ export function SettingsPage() {
   ])
 
   useEffect(() => {
-    if (user?.role !== 'SCHOOL_ADMIN') return
+    if (effectiveRole !== 'SCHOOL_ADMIN') return
 
     let mounted = true
     const loadSettings = async () => {
@@ -123,7 +125,7 @@ export function SettingsPage() {
     return () => {
       mounted = false
     }
-  }, [user?.role])
+  }, [effectiveRole])
 
   const selectedPalette = useMemo(
     () => findSchoolThemePalette(selectedColor),
@@ -249,7 +251,7 @@ export function SettingsPage() {
     }
   }
 
-  if (user?.role !== 'SCHOOL_ADMIN') {
+  if (effectiveRole !== 'SCHOOL_ADMIN') {
     return (
       <Card>
         <CardContent className="flex flex-col items-center justify-center py-16 text-center">

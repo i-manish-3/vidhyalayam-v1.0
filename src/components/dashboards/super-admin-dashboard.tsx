@@ -14,7 +14,7 @@ import {
   School, CheckCircle2, Clock, Users, Building2, GraduationCap,
   ArrowRight, ArrowUpRight, ArrowDownRight, AlertTriangle, LifeBuoy,
   Mail, ShieldCheck, KeyRound, Plus, TrendingUp,
-  Sparkles, type LucideIcon,
+  Sparkles, Zap, type LucideIcon,
 } from 'lucide-react'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -90,30 +90,26 @@ interface HeroStatProps {
   accent?: string
 }
 
-const TONES: Record<NonNullable<HeroStatProps['tone']>, { bg: string; ring: string; text: string; bar: string }> = {
+const TONES: Record<NonNullable<HeroStatProps['tone']>, { bg: string; ring: string; text: string }> = {
   emerald: {
     bg: 'bg-emerald-500/10',
     ring: 'ring-emerald-500/20',
     text: 'text-emerald-600 dark:text-emerald-400',
-    bar: 'from-emerald-500/60 via-emerald-500 to-emerald-500/40',
   },
   blue: {
     bg: 'bg-sky-500/10',
     ring: 'ring-sky-500/20',
     text: 'text-sky-600 dark:text-sky-400',
-    bar: 'from-sky-500/60 via-sky-500 to-sky-500/40',
   },
   amber: {
     bg: 'bg-amber-500/10',
     ring: 'ring-amber-500/20',
     text: 'text-amber-600 dark:text-amber-400',
-    bar: 'from-amber-500/60 via-amber-500 to-amber-500/40',
   },
   violet: {
     bg: 'bg-violet-500/10',
     ring: 'ring-violet-500/20',
     text: 'text-violet-600 dark:text-violet-400',
-    bar: 'from-violet-500/60 via-violet-500 to-violet-500/40',
   },
 }
 
@@ -121,14 +117,14 @@ function HeroStat({ title, value, icon: Icon, trend, trendLabel, tone = 'emerald
   const t = TONES[tone]
   const trendPositive = (trend ?? 0) >= 0
   return (
-    <Card className="relative overflow-hidden border-border/60">
-      <CardContent className="p-4">
+    <Card className="overflow-hidden py-0">
+      <CardContent className="p-3">
         <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0 space-y-1.5">
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{title}</p>
-            <p className="text-2xl font-bold tracking-tight tabular-nums">{value}</p>
+          <div className="min-w-0">
+            <p className="text-xs text-muted-foreground">{title}</p>
+            <p className="mt-0.5 text-lg font-semibold tracking-tight text-foreground/85 tabular-nums">{value}</p>
             {typeof trend === 'number' && (
-              <div className="flex items-center gap-1.5 text-xs">
+              <div className="mt-1 flex items-center gap-1.5 text-[11px] text-muted-foreground">
                 <span
                   className={cn(
                     'inline-flex items-center gap-0.5 rounded-md px-1.5 py-0.5 font-medium',
@@ -137,19 +133,21 @@ function HeroStat({ title, value, icon: Icon, trend, trendLabel, tone = 'emerald
                       : 'bg-red-500/10 text-red-600 dark:text-red-400'
                   )}
                 >
-                  {trendPositive ? <ArrowUpRight className="size-3" /> : <ArrowDownRight className="size-3" />}
+                  {trendPositive ? <ArrowUpRight className="size-2.5" /> : <ArrowDownRight className="size-2.5" />}
                   {trendPositive ? '+' : ''}{trend}%
                 </span>
                 {trendLabel && <span className="text-muted-foreground">{trendLabel}</span>}
               </div>
             )}
+            {typeof trend !== 'number' && trendLabel && (
+              <p className="mt-1 text-[11px] text-muted-foreground">{trendLabel}</p>
+            )}
           </div>
-          <div className={cn('flex size-9 shrink-0 items-center justify-center rounded-lg ring-1', t.bg, t.ring)}>
-            <Icon className={cn('size-4', t.text)} />
+          <div className={cn('flex size-8 shrink-0 items-center justify-center rounded-lg', t.bg, t.text)}>
+            <Icon className="size-4" />
           </div>
         </div>
       </CardContent>
-      <div className={cn('absolute inset-x-0 bottom-0 h-0.5 bg-gradient-to-r', t.bar)} />
     </Card>
   )
 }
@@ -175,21 +173,21 @@ function ActionTile({ title, count, description, icon: Icon, tone, onClick }: Ac
       type="button"
       onClick={onClick}
       className={cn(
-        'group flex w-full items-center gap-3 rounded-lg border bg-card p-3 text-left transition-all',
+        'group flex w-full items-center gap-2 rounded-lg border bg-card p-2 text-left transition-all',
         toneClasses.wrap
       )}
     >
-      <div className={cn('flex size-8 shrink-0 items-center justify-center rounded-md', toneClasses.dot)}>
-        <Icon className="size-4" />
+      <div className={cn('flex size-6 shrink-0 items-center justify-center rounded-md', toneClasses.dot)}>
+        <Icon className="size-3" />
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-baseline gap-2">
-          <span className="text-lg font-bold tabular-nums">{count}</span>
-          <span className="text-sm font-medium truncate">{title}</span>
+          <span className="text-sm font-bold tabular-nums">{count}</span>
+          <span className="text-[11px] font-medium truncate">{title}</span>
         </div>
-        <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-1">{description}</p>
+        <p className="text-[10px] leading-3 text-muted-foreground line-clamp-1">{description}</p>
       </div>
-      <ArrowRight className="size-4 text-muted-foreground/40 group-hover:translate-x-0.5 group-hover:text-foreground transition-all" />
+      <ArrowRight className="size-3.5 text-muted-foreground/40 group-hover:translate-x-0.5 group-hover:text-foreground transition-all" />
     </button>
   )
 }
@@ -205,12 +203,10 @@ function QuickAction({ label, icon: Icon, onClick }: QuickActionProps) {
     <button
       type="button"
       onClick={onClick}
-      className="flex flex-col items-center justify-center gap-1.5 rounded-lg border bg-card p-3 text-center transition-all hover:border-primary/40 hover:bg-primary/[0.03] hover:shadow-sm"
+      className="inline-flex h-8 shrink-0 items-center gap-2 rounded-md border bg-background px-3 text-sm font-medium text-foreground/85 shadow-xs transition-colors hover:border-primary/40 hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
     >
-      <div className="flex size-8 items-center justify-center rounded-md bg-primary/10 text-primary">
-        <Icon className="size-4" />
-      </div>
-      <span className="text-xs font-medium">{label}</span>
+      <Icon className="size-3.5 text-primary" />
+      <span>{label}</span>
     </button>
   )
 }
@@ -274,32 +270,58 @@ export function SuperAdminDashboard() {
   const statusTotal = statusData.reduce((acc, s) => acc + s.value, 0)
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {/* ── Header ─────────────────────────────────────────────────────── */}
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <div className="flex items-center gap-2">
-            <Sparkles className="size-4 text-primary" />
-            <h1 className="text-xl font-bold tracking-tight">Platform Overview</h1>
+      <section className="overflow-hidden rounded-xl border bg-card shadow-sm">
+        <div className="p-3">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="space-y-2 lg:min-w-0 lg:flex-1">
+              <Badge variant="secondary" className="w-fit gap-2 bg-primary/10 text-primary hover:bg-primary/10">
+                <Sparkles className="size-3.5" />
+                <span>Super Admin</span>
+              </Badge>
+              <h1 className="text-lg font-semibold tracking-tight text-foreground/85 sm:text-xl">
+                Vidhyalayam Platform
+              </h1>
+              <p className="text-xs text-muted-foreground">
+                Real-time pulse across schools, trials, support, and admissions leads.
+              </p>
+            </div>
+            <div className="grid w-full gap-2 sm:grid-cols-2 lg:max-w-md lg:shrink-0">
+              <Button variant="outline" size="sm" className="h-9 justify-start gap-2" onClick={go('schools')}>
+                <Building2 className="size-3.5" />
+                All Schools
+              </Button>
+              <Button size="sm" className="h-9 justify-start gap-2" onClick={go('add-school')}>
+                <Plus className="size-3.5" />
+                Onboard School
+              </Button>
+            </div>
           </div>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Real-time pulse across all schools on Vidhyalayam
-          </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" className="gap-1.5" onClick={go('schools')}>
-            <Building2 className="size-3.5" />
-            All Schools
-          </Button>
-          <Button size="sm" className="gap-1.5" onClick={go('add-school')}>
-            <Plus className="size-3.5" />
-            Onboard School
-          </Button>
+      </section>
+
+      <section className="overflow-hidden rounded-lg border bg-card shadow-sm">
+        <div className="px-3.5 pt-2">
+          <h2 className="flex items-center gap-2 text-sm font-semibold tracking-tight text-foreground/90">
+            <Zap className="size-3.5 text-amber-500 fill-amber-500" />
+            Quick Actions
+          </h2>
         </div>
-      </div>
+        <div className="quick-actions-scrollbar overflow-x-auto px-3.5 pb-2 pt-1.5">
+          <div className="flex min-w-max items-center gap-2.5">
+            <QuickAction label="Onboard School" icon={Plus} onClick={go('add-school')} />
+            <QuickAction label="All Schools" icon={Building2} onClick={go('schools')} />
+            <QuickAction label="Manage Roles" icon={ShieldCheck} onClick={go('super-admin-roles')} />
+            <QuickAction label="Permissions" icon={KeyRound} onClick={go('super-admin-permissions')} />
+            <QuickAction label="Support" icon={LifeBuoy} onClick={go('support')} />
+            <QuickAction label="Leads" icon={Mail} onClick={go('contact-requests')} />
+          </div>
+        </div>
+      </section>
 
       {/* ── Hero KPI grid ──────────────────────────────────────────────── */}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <HeroStat
           title="Total Schools"
           value={formatNumber(totalSchools)}
@@ -330,10 +352,10 @@ export function SuperAdminDashboard() {
           trendLabel="across platform"
           tone="amber"
         />
-      </div>
+      </section>
 
       {/* ── Action items strip ────────────────────────────────────────── */}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <ActionTile
           title="Trials expiring"
           count={trialExpiringSoon}
@@ -358,13 +380,13 @@ export function SuperAdminDashboard() {
           tone="sky"
           onClick={go('contact-requests')}
         />
-      </div>
+      </section>
 
       {/* ── Charts row ────────────────────────────────────────────────── */}
-      <div className="grid gap-3 lg:grid-cols-3">
+      <section className="grid gap-6 lg:grid-cols-3">
         {/* Growth chart */}
         <Card className="lg:col-span-2">
-          <CardHeader className="p-4 pb-2">
+          <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-start justify-between">
               <div>
                 <CardTitle className="text-base flex items-center gap-2">
@@ -381,8 +403,8 @@ export function SuperAdminDashboard() {
               </Badge>
             </div>
           </CardHeader>
-          <CardContent className="px-4 pb-4">
-            <div className="h-52">
+          <CardContent>
+            <div className="h-56">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={growthData} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
                   <defs>
@@ -426,12 +448,12 @@ export function SuperAdminDashboard() {
 
         {/* Status donut */}
         <Card>
-          <CardHeader className="p-4 pb-2">
+          <CardHeader>
             <CardTitle className="text-base">Schools by Status</CardTitle>
             <CardDescription className="text-xs mt-0.5">Distribution across {statusTotal} schools</CardDescription>
           </CardHeader>
-          <CardContent className="px-4 pb-4">
-            <div className="relative h-36">
+          <CardContent>
+            <div className="relative h-44">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
@@ -488,13 +510,13 @@ export function SuperAdminDashboard() {
             </div>
           </CardContent>
         </Card>
-      </div>
+      </section>
 
       {/* ── Trial expiry + Recent schools ─────────────────────────────── */}
-      <div className="grid gap-3 lg:grid-cols-5">
+      <section className="grid gap-6 lg:grid-cols-5">
         {/* Trial expiry */}
         <Card className="lg:col-span-2">
-          <CardHeader className="p-4 pb-2">
+          <CardHeader>
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle className="text-base flex items-center gap-2">
@@ -512,9 +534,9 @@ export function SuperAdminDashboard() {
               )}
             </div>
           </CardHeader>
-          <CardContent className="px-4 pb-4">
+          <CardContent>
             {trialExpiryList.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-5 text-center">
+              <div className="flex flex-col items-center justify-center py-4 text-center">
                 <div className="size-8 rounded-full bg-emerald-500/10 flex items-center justify-center mb-2">
                   <CheckCircle2 className="size-4 text-emerald-600" />
                 </div>
@@ -529,7 +551,7 @@ export function SuperAdminDashboard() {
                   return (
                     <div
                       key={s.id}
-                      className="flex items-center justify-between gap-2 rounded-lg border bg-card p-2"
+                      className="flex items-center justify-between gap-2 rounded-lg border bg-card p-2.5"
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
                         <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-amber-500/10">
@@ -556,7 +578,7 @@ export function SuperAdminDashboard() {
 
         {/* Recent schools */}
         <Card className="lg:col-span-3">
-          <CardHeader className="p-4 pb-2">
+          <CardHeader>
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle className="text-base flex items-center gap-2">
@@ -573,9 +595,9 @@ export function SuperAdminDashboard() {
               </Button>
             </div>
           </CardHeader>
-          <CardContent className="px-4 pb-4">
+          <CardContent>
             {schools.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-5 text-center">
+              <div className="flex flex-col items-center justify-center py-4 text-center">
                 <Building2 className="size-8 text-muted-foreground/30 mb-2" />
                 <p className="text-sm font-medium text-muted-foreground">No schools yet</p>
                 <p className="text-xs text-muted-foreground/60 mt-0.5">Onboard your first school to get started</p>
@@ -585,7 +607,7 @@ export function SuperAdminDashboard() {
                 {schools.slice(0, 5).map((school) => (
                   <div
                     key={school.id}
-                    className="flex items-center justify-between gap-3 rounded-lg border bg-card p-2 transition-colors hover:bg-muted/40"
+                    className="flex items-center justify-between gap-3 rounded-lg border bg-card p-2.5 transition-colors hover:bg-muted/40"
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-primary/10">
@@ -626,25 +648,9 @@ export function SuperAdminDashboard() {
             )}
           </CardContent>
         </Card>
-      </div>
+      </section>
 
       {/* ── Quick actions ─────────────────────────────────────────────── */}
-      <Card>
-        <CardHeader className="p-4 pb-2">
-          <CardTitle className="text-base">Quick Actions</CardTitle>
-          <CardDescription className="text-xs">Jump straight to common platform tasks</CardDescription>
-        </CardHeader>
-        <CardContent className="px-4 pb-4">
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-6">
-            <QuickAction label="Onboard School" icon={Plus} onClick={go('add-school')} />
-            <QuickAction label="All Schools" icon={Building2} onClick={go('schools')} />
-            <QuickAction label="Manage Roles" icon={ShieldCheck} onClick={go('super-admin-roles')} />
-            <QuickAction label="Permissions" icon={KeyRound} onClick={go('super-admin-permissions')} />
-            <QuickAction label="Support" icon={LifeBuoy} onClick={go('support')} />
-            <QuickAction label="Leads" icon={Mail} onClick={go('contact-requests')} />
-          </div>
-        </CardContent>
-      </Card>
     </div>
   )
 }

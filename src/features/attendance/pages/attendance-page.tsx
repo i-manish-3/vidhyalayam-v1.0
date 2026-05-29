@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { EmptyState, LoadingState } from '@/components/shared'
 import { api } from '@/lib/api'
 import { useAppStore } from '@/lib/store'
+import { useEffectiveRole } from '@/hooks/use-effective-role'
 import { getCurrentAcademicYear } from '@/lib/academic-years'
 import { useToast } from '@/hooks/use-toast'
 import { Button } from '@/components/ui/button'
@@ -197,6 +198,7 @@ export function AttendancePage() {
   const canView = hasPermission(PERMISSIONS.ATTENDANCE_READ)
   const canReopen = hasPermission(PERMISSIONS.ATTENDANCE_REOPEN)
   const currentUser = useAppStore((s) => s.user)
+  const effectiveRole = useEffectiveRole()
   const currentSchoolAcademicYear = useAppStore((s) => s.currentSchool?.academicYear)
   const viewingAcademicYear = useAppStore((s) => s.viewingAcademicYear)
   const academicYear = viewingAcademicYear || currentSchoolAcademicYear || getCurrentAcademicYear()
@@ -485,7 +487,7 @@ export function AttendancePage() {
   const isToday = date === getTodayString()
   const todayStr = getTodayString()
   const isFutureDate = date > todayStr
-  const canReopenFinalizedAttendance = currentUser?.role === 'SCHOOL_ADMIN' || canReopen
+  const canReopenFinalizedAttendance = effectiveRole === 'SCHOOL_ADMIN' || canReopen
 
   // Non-teaching day check (weekly off / declared holiday). Mirrors backend rule.
   const nonTeachingInfo = useMemo(() => {

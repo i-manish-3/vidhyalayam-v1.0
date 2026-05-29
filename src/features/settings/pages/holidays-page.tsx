@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { CalendarDays, CalendarRange, ChevronLeft, ChevronRight, LayoutGrid, List, Loader2, Pencil, PlusCircle, Trash2 } from 'lucide-react'
 import { api } from '@/lib/api'
 import { useAppStore } from '@/lib/store'
+import { useEffectiveRole } from '@/hooks/use-effective-role'
 import { useToast } from '@/hooks/use-toast'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -105,6 +106,7 @@ function parseAcademicYearBounds(year: string): { start: Date; end: Date } | nul
 
 export function HolidaysPage() {
   const { user, currentSchool, setCurrentSchool } = useAppStore()
+  const effectiveRole = useEffectiveRole()
   const { toast } = useToast()
   const [holidays, setHolidays] = useState<Holiday[]>([])
   const [loading, setLoading] = useState(true)
@@ -132,7 +134,7 @@ export function HolidaysPage() {
   })
   const [schoolingSaving, setSchoolingSaving] = useState(false)
 
-  const isAdmin = user?.role === 'SCHOOL_ADMIN'
+  const isAdmin = effectiveRole === 'SCHOOL_ADMIN'
 
   // Effective schooling days drives "weekly off" tinting on the calendar.
   const effectiveSchoolingDays = useMemo<string[]>(() => {

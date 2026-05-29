@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { EmptyState, LoadingState } from '@/components/shared'
 import { api } from '@/lib/api'
 import { useAppStore } from '@/lib/store'
+import { useEffectiveRole } from '@/hooks/use-effective-role'
 import { getCurrentAcademicYear } from '@/lib/academic-years'
 import { useToast } from '@/hooks/use-toast'
 import { Button } from '@/components/ui/button'
@@ -124,8 +125,9 @@ export function AttendanceAuditLogPage() {
   const { toast } = useToast()
   const { hasPermission } = usePermissions()
   const user = useAppStore((s) => s.user)
+  const effectiveRole = useEffectiveRole()
   const permissionsLoaded = useAppStore((s) => s.permissionsLoaded)
-  const isAdmin = user?.role === 'SCHOOL_ADMIN'
+  const isAdmin = effectiveRole === 'SCHOOL_ADMIN'
   const canView = isAdmin || hasPermission(PERMISSIONS.ATTENDANCE_AUDIT_VIEW)
 
   const currentSchoolAcademicYear = useAppStore((s) => s.currentSchool?.academicYear)

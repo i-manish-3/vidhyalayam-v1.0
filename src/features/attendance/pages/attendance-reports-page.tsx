@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { api } from '@/lib/api'
 import { useAppStore } from '@/lib/store'
+import { useEffectiveRole } from '@/hooks/use-effective-role'
 import { getCurrentAcademicYear } from '@/lib/academic-years'
 import { useToast } from '@/hooks/use-toast'
 import { Card, CardContent } from '@/components/ui/card'
@@ -39,9 +40,10 @@ export function AttendanceReportsPage() {
   const { toast } = useToast()
   const { hasPermission } = usePermissions()
   const user = useAppStore((s) => s.user)
+  const effectiveRole = useEffectiveRole()
   const permissionsLoaded = useAppStore((s) => s.permissionsLoaded)
   const currentSchool = useAppStore((s) => s.currentSchool)
-  const isAdmin = user?.role === 'SCHOOL_ADMIN'
+  const isAdmin = effectiveRole === 'SCHOOL_ADMIN'
   const canView = isAdmin || hasPermission(PERMISSIONS.ATTENDANCE_REPORT_VIEW)
 
   const viewingAcademicYear = useAppStore((s) => s.viewingAcademicYear)
