@@ -1,17 +1,15 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, type ElementType } from 'react'
 import { api } from '@/lib/api'
-import { useAppStore } from '@/lib/store'
 import { useToast } from '@/hooks/use-toast'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Separator } from '@/components/ui/separator'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import {
   Select,
@@ -49,9 +47,10 @@ import {
   Lock,
   School,
   Users,
-  X,
   Info,
   Pencil,
+  Sparkles,
+  Layers,
 } from 'lucide-react'
 import { Switch } from '@/components/ui/switch'
 
@@ -142,6 +141,37 @@ function DetailSkeleton() {
         {Array.from({ length: 6 }).map((_, i) => (
           <Skeleton key={i} className="h-24 w-full rounded-lg" />
         ))}
+      </div>
+    </div>
+  )
+}
+
+function SummaryTile({
+  label,
+  value,
+  icon: Icon,
+  tone = 'primary',
+}: {
+  label: string
+  value: string | number
+  icon: ElementType
+  tone?: 'primary' | 'emerald' | 'amber' | 'sky'
+}) {
+  const toneClass = {
+    primary: 'bg-primary/10 text-primary',
+    emerald: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-300',
+    amber: 'bg-amber-500/10 text-amber-600 dark:text-amber-300',
+    sky: 'bg-sky-500/10 text-sky-600 dark:text-sky-300',
+  }[tone]
+
+  return (
+    <div className="flex items-center gap-2 rounded-lg border bg-background/70 px-3 py-2">
+      <div className={`flex size-8 shrink-0 items-center justify-center rounded-md ${toneClass}`}>
+        <Icon className="size-4" />
+      </div>
+      <div className="min-w-0">
+        <p className="text-[11px] text-muted-foreground">{label}</p>
+        <p className="text-sm font-semibold text-foreground/85 tabular-nums">{value}</p>
       </div>
     </div>
   )
@@ -449,39 +479,58 @@ export function SuperAdminRolesPage() {
     return Object.values(grouped)
   }, [roles])
 
+  const assignedUsers = useMemo(
+    () => roles.reduce((sum, role) => sum + role.userCount, 0),
+    [roles]
+  )
+
+  const systemRoleCount = useMemo(
+    () => roles.filter((role) => role.isSystem).length,
+    [roles]
+  )
+
   // ── Render ──
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Roles</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Manage roles across all schools — create custom roles and assign or modify permissions for any role
-          </p>
+      <section className="overflow-hidden rounded-xl border bg-card shadow-sm">
+        <div className="p-4">
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+            <div className="space-y-2">
+              <Badge variant="secondary" className="w-fit gap-2 bg-primary/10 text-primary hover:bg-primary/10">
+                <Sparkles className="size-3.5" />
+                Super Admin Control
+              </Badge>
+              <div>
+                <h1 className="text-xl font-semibold tracking-tight text-foreground/90">Roles Studio</h1>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Build school-level roles, tune permission bundles, and audit inherited access.
+                </p>
+              </div>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2 xl:w-[520px]">
+              <SummaryTile label="Roles" value={roles.length} icon={ShieldCheck} />
+              <SummaryTile label="System Roles" value={systemRoleCount} icon={Lock} tone="amber" />
+              <SummaryTile label="Assigned Users" value={assignedUsers} icon={Users} tone="sky" />
+              <SummaryTile label="Permission Types" value={totalPermissions} icon={Layers} tone="emerald" />
+            </div>
+          </div>
         </div>
-        <Button
-          onClick={() => setShowCreateDialog(true)}
-          className="gap-2 shrink-0"
-        >
-          <Plus className="size-4" />
-          Create Role
-        </Button>
-      </div>
-
+      </section>
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3">
+      <section className="rounded-xl border bg-card p-3 shadow-sm">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
         <div className="relative flex-1">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
           <Input
             placeholder="Search roles..."
             value={roleSearch}
             onChange={(e) => setRoleSearch(e.target.value)}
-            className="pl-8 h-9"
+            className="h-9 pl-9"
           />
         </div>
         <Select value={schoolFilter} onValueChange={setSchoolFilter}>
-          <SelectTrigger className="w-full sm:w-[220px] h-9">
+          <SelectTrigger className="h-9 w-full lg:w-[260px]">
             <School className="size-3.5 mr-1.5 shrink-0" />
             <SelectValue placeholder="All Schools" />
           </SelectTrigger>
@@ -494,21 +543,29 @@ export function SuperAdminRolesPage() {
             ))}
           </SelectContent>
         </Select>
-      </div>
+        <Button onClick={() => setShowCreateDialog(true)} className="h-9 gap-2">
+          <Plus className="size-4" />
+          Create Role
+        </Button>
+        </div>
+      </section>
 
       {/* Two-panel layout */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left panel: Role List */}
         <div className="lg:col-span-4 xl:col-span-3">
-          <Card className="h-full">
-            <CardHeader className="pb-3">
+          <Card className="h-full overflow-hidden rounded-xl shadow-sm">
+            <CardHeader className="border-b bg-muted/20 pb-3">
               <CardTitle className="text-sm font-semibold flex items-center gap-2">
                 <Shield className="size-4" />
-                Roles
+                Role Catalog
                 <Badge variant="secondary" className="ml-auto text-[10px]">
                   {roles.length}
                 </Badge>
               </CardTitle>
+              <CardDescription className="text-xs">
+                Grouped by school for faster review.
+              </CardDescription>
             </CardHeader>
             <CardContent className="p-0">
               {loadingRoles ? (
@@ -541,8 +598,8 @@ export function SuperAdminRolesPage() {
                               onClick={() => { setSelectedRoleId(role.id); setActiveTab('permissions') }}
                               className={`w-full text-left rounded-lg border p-2.5 transition-all ${
                                 selectedRoleId === role.id
-                                  ? 'border-primary bg-primary/5 shadow-sm'
-                                  : 'border-transparent hover:bg-muted/50'
+                                  ? 'border-primary/40 bg-primary/10 shadow-sm'
+                                  : 'border-border/50 bg-background hover:border-primary/20 hover:bg-primary/[0.03]'
                               }`}
                             >
                               <div className="flex items-center gap-2">
@@ -653,12 +710,12 @@ export function SuperAdminRolesPage() {
                       )}
                       <Button
                         onClick={handleSave}
-                        disabled={!hasPermChanges || saving}
+                        disabled={!hasChanges || saving}
                         className="gap-2 shrink-0"
                         size="sm"
                       >
                         <Save className="size-4" />
-                        {saving ? 'Saving...' : 'Save Permissions'}
+                        {saving ? 'Saving...' : 'Save Changes'}
                       </Button>
                     </div>
                   </div>

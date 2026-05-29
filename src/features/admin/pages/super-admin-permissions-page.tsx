@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { api } from '@/lib/api'
 import { useAppStore } from '@/lib/store'
 import { useToast } from '@/hooks/use-toast'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -34,6 +34,8 @@ import {
   Settings,
   ClipboardList,
   Clock,
+  Sparkles,
+  Layers,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -205,6 +207,37 @@ function getModuleBarBg(module: string): string {
   return MODULE_BAR_BG[module] || 'bg-gray-100 dark:bg-gray-950/60'
 }
 
+function SummaryTile({
+  label,
+  value,
+  icon: Icon,
+  tone = 'primary',
+}: {
+  label: string
+  value: string | number
+  icon: LucideIcon
+  tone?: 'primary' | 'emerald' | 'amber' | 'sky'
+}) {
+  const toneClass = {
+    primary: 'bg-primary/10 text-primary',
+    emerald: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-300',
+    amber: 'bg-amber-500/10 text-amber-600 dark:text-amber-300',
+    sky: 'bg-sky-500/10 text-sky-600 dark:text-sky-300',
+  }[tone]
+
+  return (
+    <div className="flex items-center gap-2 rounded-lg border bg-background/70 px-3 py-2">
+      <div className={`flex size-8 shrink-0 items-center justify-center rounded-md ${toneClass}`}>
+        <Icon className="size-4" />
+      </div>
+      <div className="min-w-0">
+        <p className="text-[11px] text-muted-foreground">{label}</p>
+        <p className="text-sm font-semibold text-foreground/85 tabular-nums">{value}</p>
+      </div>
+    </div>
+  )
+}
+
 // ─── Loading Skeletons ───────────────────────────────────────────────────────
 
 function SchoolListSkeleton() {
@@ -263,19 +296,20 @@ function SchoolListItem({
   isSelected: boolean
   onClick: () => void
 }) {
-  const statusColor = school.status === 'ACTIVE'
+  const normalizedStatus = school.status.toLowerCase()
+  const statusColor = normalizedStatus === 'active'
     ? 'bg-emerald-500'
-    : school.status === 'PENDING'
+    : normalizedStatus === 'pending' || normalizedStatus === 'trial'
     ? 'bg-amber-500'
     : 'bg-red-500'
 
   return (
     <button
       onClick={onClick}
-      className={`w-full flex items-center gap-3 p-3 rounded-lg text-left transition-all duration-150 ${
+      className={`w-full flex items-center gap-3 p-3 rounded-lg border text-left transition-all duration-150 ${
         isSelected
-          ? 'bg-primary/10 border border-primary/20 shadow-sm'
-          : 'hover:bg-muted/60 border border-transparent'
+          ? 'border-primary/40 bg-primary/10 shadow-sm'
+          : 'border-border/50 bg-background hover:border-primary/20 hover:bg-primary/[0.03]'
       }`}
     >
       <div className={`size-9 rounded-md flex items-center justify-center shrink-0 ${
@@ -289,7 +323,7 @@ function SchoolListItem({
         </p>
         <div className="flex items-center gap-1.5 mt-0.5">
           <span className={`size-1.5 rounded-full ${statusColor}`} />
-          <span className="text-[11px] text-muted-foreground">{school.status}</span>
+          <span className="text-[11px] capitalize text-muted-foreground">{school.status}</span>
           {school.city && (
             <>
               <span className="text-muted-foreground/40">·</span>
@@ -339,8 +373,8 @@ function ModulePermissionsCard({
   }
 
   return (
-    <Card className={`overflow-hidden border-l-4 ${borderColorClass} transition-shadow hover:shadow-md`}>
-      <CardHeader className="pb-2 pt-4 px-4">
+    <Card className={`overflow-hidden border-l-4 ${borderColorClass} bg-card/95 transition-all hover:-translate-y-0.5 hover:shadow-md`}>
+      <CardHeader className="px-4 pb-2 pt-4">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
             <div className={`size-7 rounded-md flex items-center justify-center shrink-0 ${colorClass}`}>
@@ -362,7 +396,7 @@ function ModulePermissionsCard({
             style={{ width: `${progressPercent}%` }}
           />
         </div>
-        <p className="text-[11px] text-muted-foreground mt-1">
+        <p className="mt-1 text-[11px] text-muted-foreground">
           {grantedCount} of {totalCount} granted
         </p>
       </CardHeader>
@@ -374,7 +408,7 @@ function ModulePermissionsCard({
               <div
                 key={perm.id}
                 className={`flex items-center justify-between py-1 px-2 rounded-md transition-colors ${
-                  isGranted ? 'bg-emerald-50/60 dark:bg-emerald-950/20' : 'hover:bg-muted/40'
+                  isGranted ? 'bg-primary/5 text-foreground' : 'hover:bg-muted/40'
                 }`}
               >
                 <div className="flex items-center gap-1.5 min-w-0 flex-1">
@@ -571,24 +605,43 @@ export function SuperAdminPermissionsPage() {
   )
 
   // ── Render ──
+  const grantedPercent = totalPermissionCount > 0
+    ? Math.round((grantedCount / totalPermissionCount) * 100)
+    : 0
+
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">School Permissions</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Manage which modules and actions each school can access
-          </p>
+      <section className="overflow-hidden rounded-xl border bg-card shadow-sm">
+        <div className="p-4">
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+            <div className="space-y-2">
+              <Badge variant="secondary" className="w-fit gap-2 bg-primary/10 text-primary hover:bg-primary/10">
+                <Sparkles className="size-3.5" />
+                Super Admin Control
+              </Badge>
+              <div>
+                <h1 className="text-xl font-semibold tracking-tight text-foreground/90">School Access Matrix</h1>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Decide which platform modules every school can use before roles distribute access inside the school.
+                </p>
+              </div>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2 xl:w-[520px]">
+              <SummaryTile label="Schools" value={schools.length} icon={Building2} />
+              <SummaryTile label="Modules" value={moduleNames.length} icon={Layers} tone="sky" />
+              <SummaryTile label="Permission Types" value={totalPermissionCount} icon={ShieldCheck} tone="emerald" />
+              <SummaryTile label="Selected Grant" value={`${grantedPercent}%`} icon={CheckCircle2} tone="amber" />
+            </div>
+          </div>
         </div>
-      </div>
-
+      </section>
       {/* Two-panel layout */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left panel: School List */}
         <div className="lg:col-span-4 xl:col-span-3">
-          <Card className="h-full">
-            <CardHeader className="pb-3">
+          <Card className="h-full overflow-hidden rounded-xl shadow-sm">
+            <CardHeader className="border-b bg-muted/20 pb-3">
               <CardTitle className="text-sm font-semibold flex items-center gap-2">
                 <Building2 className="size-4" />
                 Schools
@@ -596,6 +649,9 @@ export function SuperAdminPermissionsPage() {
                   {schools.length}
                 </Badge>
               </CardTitle>
+              <CardDescription className="text-xs">
+                Select a school to manage its enabled modules.
+              </CardDescription>
               <div className="relative mt-2">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
                 <Input
@@ -651,16 +707,16 @@ export function SuperAdminPermissionsPage() {
           ) : (
             <div className="space-y-4">
               {/* Summary bar */}
-              <Card>
-                <CardContent className="py-4">
+              <Card className="overflow-hidden rounded-xl shadow-sm">
+                <CardContent className="p-4">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex items-center gap-3">
                       <div className="size-10 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
                         <Building2 className="size-5 text-primary" />
                       </div>
                       <div>
-                        <h2 className="text-base font-semibold">{selectedSchool?.name}</h2>
-                        <p className="text-xs text-muted-foreground mt-0.5">
+                        <h2 className="text-base font-semibold text-foreground/90">{selectedSchool?.name}</h2>
+                        <p className="mt-0.5 text-xs text-muted-foreground">
                           {grantedCount} of {totalPermissionCount} permissions granted
                         </p>
                       </div>
@@ -679,10 +735,7 @@ export function SuperAdminPermissionsPage() {
                           />
                         </div>
                         <span className="text-xs font-medium text-muted-foreground tabular-nums">
-                          {totalPermissionCount
-                            ? Math.round((grantedCount / totalPermissionCount) * 100)
-                            : 0}
-                          %
+                          {grantedPercent}%
                         </span>
                       </div>
                       <Button
