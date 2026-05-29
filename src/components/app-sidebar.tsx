@@ -404,39 +404,36 @@ export function AppSidebar() {
   const [flyoutPos, setFlyoutPos] = useState({ top: 0, left: 0 })
   const flyoutTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const role = user?.role || 'SCHOOL_ADMIN' as const
-  const schoolDisplayName = role === 'SUPER_ADMIN'
+  const isImpersonating = role === 'SUPER_ADMIN' && !!user?.impersonatingSchoolId
+  const effectiveRole = isImpersonating ? 'SCHOOL_ADMIN' : role
+  const schoolDisplayName = role === 'SUPER_ADMIN' && !isImpersonating
     ? 'Vidhyalayam'
     : currentSchool?.name || 'Vidhyalayam'
-  const schoolSubLabel = role === 'SUPER_ADMIN'
+  const schoolSubLabel = role === 'SUPER_ADMIN' && !isImpersonating
     ? 'Platform Admin'
     : currentSchool?.subdomain
     ? `${currentSchool.subdomain} dashboard`
     : 'School Management'
-  const schoolLogo = role === 'SUPER_ADMIN' ? undefined : currentSchool?.logo
+  const schoolLogo = (role === 'SUPER_ADMIN' && !isImpersonating) ? undefined : currentSchool?.logo
 
   const menus = useMemo(() => {
-    const roleMenus = MENUS[role] || MENUS.SCHOOL_ADMIN
-    if (!MENUS[role]) {
-      console.warn(`No menu configuration found for role: ${role}, falling back to SCHOOL_ADMIN`)
+    const roleMenus = MENUS[effectiveRole] || MENUS.SCHOOL_ADMIN
+    if (!MENUS[effectiveRole]) {
+      console.warn(`No menu configuration found for role: ${effectiveRole}, falling back to SCHOOL_ADMIN`)
     }
     return roleMenus.filter(item => {
-      if (role === 'SUPER_ADMIN') return true
+      if (effectiveRole === 'SUPER_ADMIN') return true
       if (item.children && item.children.length > 0) {
-        // The parent group is visible if ANY page it contains is visible —
-        // including the parent's own landing page (which is often duplicated
-        // inside its children list, e.g. Fees → Fee Collections). Earlier
-        // logic stripped item.page out and accidentally hid the whole group
-        // when the only visible permission targeted that landing page.
-        return collectPages(item).some(p => isPageVisible(p, permissions, role, permissionsLoaded))
+        return collectPages(item).some(p => isPageVisible(p, permissions, effectiveRole, permissionsLoaded))
       }
-      return isPageVisible(item.page, permissions, role, permissionsLoaded)
+      return isPageVisible(item.page, permissions, effectiveRole, permissionsLoaded)
     }).map(item => {
       if (item.children) {
-        return { ...item, children: filterChildren(item.children, permissions, role, permissionsLoaded) }
+        return { ...item, children: filterChildren(item.children, permissions, effectiveRole, permissionsLoaded) }
       }
       return item
     })
-  }, [role, permissions, permissionsLoaded])
+  }, [effectiveRole, permissions, permissionsLoaded])
 
   const isCollapsed = sidebarCollapsed
   const activeDrill = menuStack[menuStack.length - 1]

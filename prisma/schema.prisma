@@ -28,11 +28,12 @@ model User {
   mustChangePassword   Boolean   @default(false)
   role                 String // SUPER_ADMIN, SCHOOL_ADMIN, TEACHER, STUDENT, PARENT
   schoolId             String?
-  isActive             Boolean   @default(true)
-  lastLoginAt          DateTime?
-  createdAt            DateTime  @default(now())
-  updatedAt            DateTime  @updatedAt
-  deletedAt            DateTime?
+  isActive                Boolean   @default(true)
+  lastLoginAt             DateTime?
+  impersonatingSchoolId   String?   // SUPER_ADMIN only — active impersonation target
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+  deletedAt               DateTime?
 
   school           School?          @relation(fields: [schoolId], references: [id])
   userRoles        UserRole[]

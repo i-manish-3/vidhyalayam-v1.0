@@ -28,6 +28,8 @@ import { Badge } from '@/components/ui/badge'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Sun, Moon, Bell, LogOut, User, PanelLeftOpen, Search, ArrowRight, Lock, Sunrise, Sunset, MoonStar, ImagePlus, Trash2 } from 'lucide-react'
 import { AcademicYearSwitcher } from '@/components/academic-year-switcher'
+import { SchoolSwitcher } from '@/components/super-admin/school-switcher'
+import { ImpersonationBanner } from '@/components/super-admin/impersonation-banner'
 import { resolveMigratedUrl } from '@/lib/migrated-routes'
 
 function PastYearGlobalBanner() {
@@ -683,6 +685,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <div className="flex-1" />
 
         <div className="flex items-center gap-1.5">
+          <SchoolSwitcher />
           <AcademicYearSwitcher />
 
           <Button variant="ghost" size="icon" className="size-9 relative text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground dark:text-sidebar-foreground dark:hover:bg-sidebar-accent dark:hover:text-sidebar-foreground" onClick={handleBellClick}>
@@ -748,6 +751,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <AppSidebar />
 
         <main className="flex-1 min-w-0 overflow-y-auto flex flex-col">
+          <ImpersonationBanner />
           <PastYearGlobalBanner />
           <div className="flex-1 p-4 lg:p-6">
             {/* Plain wrapper — AnimatePresence+motion around {children} crashed

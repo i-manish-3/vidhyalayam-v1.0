@@ -25,9 +25,9 @@ export interface User {
   phone?: string
   avatar?: string
   mustChangePassword?: boolean
-  // Custom permission role name assigned via Roles & Permissions (e.g. "Accountant").
-  // Used to label STAFF users by their actual job role instead of the generic "Staff".
   assignedRoleName?: string | null
+  impersonatingSchoolId?: string | null
+  impersonatingSchoolName?: string | null
 }
 
 export interface School {

@@ -36,6 +36,7 @@ export async function POST(request: NextRequest) {
         email: true,
         role: true,
         schoolId: true,
+        impersonatingSchoolId: true,
         isActive: true,
         deletedAt: true,
         school: { select: { status: true } },
@@ -58,11 +59,13 @@ export async function POST(request: NextRequest) {
       return res
     }
 
+    const effectiveSchoolId = user.impersonatingSchoolId || user.schoolId || undefined
     const newAccess = generateAccessToken({
       userId: user.id,
       email: user.email,
       role: user.role,
-      schoolId: user.schoolId || undefined,
+      schoolId: effectiveSchoolId,
+      ...(user.impersonatingSchoolId ? { impersonatingSchoolId: user.impersonatingSchoolId } : {}),
     })
     const newRefresh = generateRefreshToken(user.id)
 

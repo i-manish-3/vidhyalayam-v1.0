@@ -17,13 +17,14 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const search = searchParams.get('search') || ''
     const status = searchParams.get('status') || ''
+    const archived = searchParams.get('archived') === 'true'
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '20')
     const skip = (page - 1) * limit
 
-    const where: Record<string, unknown> = {
-      deletedAt: null,
-    }
+    const where: Record<string, unknown> = archived
+      ? { deletedAt: { not: null } }
+      : { deletedAt: null }
 
     if (search) {
       where.OR = [
@@ -34,7 +35,7 @@ export async function GET(request: NextRequest) {
       ]
     }
 
-    if (status) {
+    if (status && !archived) {
       where.status = status
     }
 
@@ -49,7 +50,9 @@ export async function GET(request: NextRequest) {
             },
           },
           users: {
-            where: { role: 'SCHOOL_ADMIN', deletedAt: null },
+            where: archived
+              ? { role: 'SCHOOL_ADMIN' }
+              : { role: 'SCHOOL_ADMIN', deletedAt: null },
             select: { id: true, name: true, email: true },
           },
         },
@@ -79,6 +82,7 @@ export async function GET(request: NextRequest) {
       teacherCount: school._count.teachers,
       admin: school.users[0] || null,
       createdAt: school.createdAt,
+      deletedAt: school.deletedAt,
     }))
 
     return NextResponse.json({

@@ -26,6 +26,7 @@ export interface JWTPayload {
   email: string
   role: string
   schoolId?: string
+  impersonatingSchoolId?: string
 }
 
 // Refresh token carries only the user id — role/schoolId are re-fetched from

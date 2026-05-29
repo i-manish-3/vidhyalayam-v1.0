@@ -123,6 +123,7 @@ export async function PATCH(
     }
 
     const {
+      restore,
       name,
       address,
       city,
@@ -140,6 +141,37 @@ export async function PATCH(
       timezone,
       currency,
     } = body
+
+    if (restore === true) {
+      if (!school.deletedAt) {
+        return apiError(400, 'This school is already active.')
+      }
+
+      const usersToRestoreWhere = {
+        schoolId: id,
+        deletedAt: school.deletedAt,
+      }
+
+      const restoredSchool = await db.$transaction(async (tx) => {
+        await tx.user.updateMany({
+          where: usersToRestoreWhere,
+          data: { deletedAt: null, isActive: true },
+        })
+
+        return tx.school.update({
+          where: { id },
+          data: { deletedAt: null },
+        })
+      })
+
+      return NextResponse.json({
+        id: restoredSchool.id,
+        name: restoredSchool.name,
+        status: restoredSchool.status,
+        restored: true,
+        updatedAt: restoredSchool.updatedAt,
+      })
+    }
 
     // Validate status transitions
     if (status && !['pending', 'active', 'suspended', 'trial'].includes(status)) {
@@ -192,7 +224,7 @@ export async function PATCH(
   }
 }
 
-// DELETE /api/super-admin/schools/[id] - Delete school (soft delete)
+// DELETE /api/super-admin/schools/[id] - Archive school (soft delete)
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -210,24 +242,26 @@ export async function DELETE(
       return apiError(404, 'We couldn\'t find this school. It may have been removed.')
     }
 
-    // Soft delete the school and its users
+    const archivedAt = new Date()
+
+    // Archive the school and disable its users. School records are kept for restore.
     await db.$transaction([
       db.user.updateMany({
-        where: { schoolId: id },
-        data: { deletedAt: new Date(), isActive: false },
+        where: { schoolId: id, deletedAt: null },
+        data: { deletedAt: archivedAt, isActive: false },
       }),
       db.school.update({
         where: { id },
-        data: { deletedAt: new Date(), status: 'suspended' },
+        data: { deletedAt: archivedAt },
       }),
     ])
 
     return NextResponse.json({
-      message: `${school.name} has been deleted successfully.`,
+      message: `${school.name} has been archived successfully.`,
       id,
     })
   } catch (error) {
-    console.error('Delete school error:', error)
-    return internalError('deleting the school')
+    console.error('Archive school error:', error)
+    return internalError('archiving the school')
   }
 }

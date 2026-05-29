@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { ToastAction } from '@/components/ui/toast'
 import {
   Table,
   TableBody,
@@ -34,6 +35,7 @@ import {
   Eye,
   Pencil,
   Trash2,
+  RotateCcw,
   Power,
   PowerOff,
   Loader2,
@@ -89,6 +91,7 @@ interface SchoolListItem {
   teacherCount: number
   admin: SchoolAdmin | null
   createdAt: string
+  deletedAt?: string | null
 }
 
 interface Permission {
@@ -195,6 +198,7 @@ export function SchoolsPage() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [resettingPassword, setResettingPassword] = useState(false)
+  const [restoringSchoolId, setRestoringSchoolId] = useState<string | null>(null)
 
   const fetchData = useCallback(async (page = 1) => {
     try {
@@ -203,7 +207,11 @@ export function SchoolsPage() {
         limit: String(pageSize),
       }
       if (search) params.search = search
-      if (statusFilter && statusFilter !== 'all') params.status = statusFilter
+      if (statusFilter === 'archived') {
+        params.archived = 'true'
+      } else if (statusFilter && statusFilter !== 'all') {
+        params.status = statusFilter
+      }
 
       const res = await api.get<{ schools: SchoolListItem[]; pagination: { total: number; totalPages: number } }>('/api/super-admin/schools', params)
       setSchools(res.schools || [])
@@ -229,17 +237,39 @@ export function SchoolsPage() {
 
   const handleDelete = async () => {
     if (!deletingSchool) return
+    const schoolToArchive = deletingSchool
     setSaving(true)
     try {
-      await api.delete(`/api/super-admin/schools/${deletingSchool.id}`)
-      toast({ title: 'Success', description: `${deletingSchool.name} has been deleted.` })
+      await api.delete(`/api/super-admin/schools/${schoolToArchive.id}`)
+      toast({
+        title: 'School Archived',
+        description: `${schoolToArchive.name} is hidden from active schools. You can restore it from Archived.`,
+        action: (
+          <ToastAction altText="Undo archive" onClick={() => handleRestore(schoolToArchive)}>
+            Undo
+          </ToastAction>
+        ),
+      })
       setShowDeleteDialog(false)
       setDeletingSchool(null)
       fetchData(page)
     } catch (err) {
-      toast({ title: "Couldn't Delete School", description: err instanceof Error ? err.message : "We couldn't delete the school. Please try again.", variant: 'destructive' })
+      toast({ title: "Couldn't Archive School", description: err instanceof Error ? err.message : "We couldn't archive the school. Please try again.", variant: 'destructive' })
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleRestore = async (school: SchoolListItem) => {
+      setRestoringSchoolId(school.id)
+    try {
+      await api.patch(`/api/super-admin/schools/${school.id}`, { restore: true })
+      toast({ title: 'School Restored', description: `${school.name} is visible again and its archived users are restored.` })
+      fetchData(page)
+    } catch (err) {
+      toast({ title: "Couldn't Restore School", description: err instanceof Error ? err.message : "We couldn't restore the school. Please try again.", variant: 'destructive' })
+    } finally {
+      setRestoringSchoolId(null)
     }
   }
 
@@ -247,7 +277,12 @@ export function SchoolsPage() {
     router.push(`/admin/schools/${schoolId}`)
   }
 
-  const statusBadge = (status: string) => {
+  const statusBadge = (school: SchoolListItem) => {
+    if (school.deletedAt) {
+      return <Badge variant="secondary" className="bg-slate-100 text-slate-700 hover:bg-slate-100">Archived</Badge>
+    }
+
+    const status = school.status
     const option = STATUS_OPTIONS.find(o => o.value === status)
     if (!option) return <Badge>{status}</Badge>
     return <Badge className={cn(option.color, 'hover:opacity-90')}>{option.label}</Badge>
@@ -297,6 +332,7 @@ export function SchoolsPage() {
                 <SelectItem value="trial">Trial</SelectItem>
                 <SelectItem value="pending">Pending</SelectItem>
                 <SelectItem value="suspended">Suspended</SelectItem>
+                <SelectItem value="archived">Archived</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -342,10 +378,13 @@ export function SchoolsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {schools.map((school) => (
+                {schools.map((school) => {
+                  const isArchived = !!school.deletedAt
+
+                  return (
                   <TableRow
                     key={school.id}
-                    className="cursor-pointer hover:bg-muted/50"
+                    className={cn('cursor-pointer hover:bg-muted/50', isArchived && 'opacity-75')}
                     onClick={() => viewSchool(school.id)}
                   >
                     <TableCell>
@@ -372,7 +411,7 @@ export function SchoolsPage() {
                     <TableCell>
                       <Badge variant="secondary" className="text-xs">{school.board || '-'}</Badge>
                     </TableCell>
-                    <TableCell>{statusBadge(school.status)}</TableCell>
+                    <TableCell>{statusBadge(school)}</TableCell>
                     <TableCell className="text-center">
                       <div className="flex items-center justify-center gap-1">
                         <Users className="size-3 text-muted-foreground" />
@@ -408,43 +447,64 @@ export function SchoolsPage() {
                             <Eye className="mr-2 size-4" />
                             View Details
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); viewSchool(school.id) }}>
-                            <Pencil className="mr-2 size-4" />
-                            Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          {school.status === 'active' && (
-                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleStatusChange(school, 'suspended') }} className="text-amber-600">
-                              <PowerOff className="mr-2 size-4" />
-                              Suspend
-                            </DropdownMenuItem>
+                          {isArchived ? (
+                            <>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={(e) => { e.stopPropagation(); handleRestore(school) }}
+                                className="text-emerald-600"
+                                disabled={restoringSchoolId === school.id}
+                              >
+                                {restoringSchoolId === school.id ? (
+                                  <Loader2 className="mr-2 size-4 animate-spin" />
+                                ) : (
+                                  <RotateCcw className="mr-2 size-4" />
+                                )}
+                                Restore
+                              </DropdownMenuItem>
+                            </>
+                          ) : (
+                            <>
+                              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); viewSchool(school.id) }}>
+                                <Pencil className="mr-2 size-4" />
+                                Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              {school.status === 'active' && (
+                                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleStatusChange(school, 'suspended') }} className="text-amber-600">
+                                  <PowerOff className="mr-2 size-4" />
+                                  Suspend
+                                </DropdownMenuItem>
+                              )}
+                              {(school.status === 'suspended' || school.status === 'pending' || school.status === 'trial') && (
+                                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleStatusChange(school, 'active') }} className="text-emerald-600">
+                                  <Power className="mr-2 size-4" />
+                                  Activate
+                                </DropdownMenuItem>
+                              )}
+                              <DropdownMenuSeparator />
+                              {school.admin && (
+                                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setResetSchool(school); setNewPassword(''); setConfirmPassword(''); setShowPassword(false); setShowResetDialog(true) }}>
+                                  <KeyRound className="mr-2 size-4" />
+                                  Reset Password
+                                </DropdownMenuItem>
+                              )}
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={(e) => { e.stopPropagation(); setDeletingSchool(school); setShowDeleteDialog(true) }}
+                                className="text-destructive"
+                              >
+                                <Trash2 className="mr-2 size-4" />
+                                Archive
+                              </DropdownMenuItem>
+                            </>
                           )}
-                          {(school.status === 'suspended' || school.status === 'pending' || school.status === 'trial') && (
-                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleStatusChange(school, 'active') }} className="text-emerald-600">
-                              <Power className="mr-2 size-4" />
-                              Activate
-                            </DropdownMenuItem>
-                          )}
-                          <DropdownMenuSeparator />
-                          {school.admin && (
-                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setResetSchool(school); setNewPassword(''); setConfirmPassword(''); setShowPassword(false); setShowResetDialog(true) }}>
-                              <KeyRound className="mr-2 size-4" />
-                              Reset Password
-                            </DropdownMenuItem>
-                          )}
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            onClick={(e) => { e.stopPropagation(); setDeletingSchool(school); setShowDeleteDialog(true) }}
-                            className="text-destructive"
-                          >
-                            <Trash2 className="mr-2 size-4" />
-                            Delete
-                          </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
                   </TableRow>
-                ))}
+                  )
+                })}
               </TableBody>
             </Table>
           </div>
@@ -480,19 +540,19 @@ export function SchoolsPage() {
         </>
       )}
 
-      {/* Delete Confirmation Dialog */}
+      {/* Archive Confirmation Dialog */}
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Delete School</DialogTitle>
+            <DialogTitle>Archive School</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete <strong>{deletingSchool?.name}</strong>? This action cannot be undone. All data associated with this school will be permanently removed.
+              Archive <strong>{deletingSchool?.name}</strong>? It will be hidden from active schools and its users will be disabled. School data stays saved, so you can restore it later.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => { setShowDeleteDialog(false); setDeletingSchool(null) }}>Cancel</Button>
             <Button variant="destructive" onClick={handleDelete} disabled={saving}>
-              {saving ? <><Loader2 className="size-4 animate-spin mr-2" />Deleting...</> : 'Delete School'}
+              {saving ? <><Loader2 className="size-4 animate-spin mr-2" />Archiving...</> : 'Archive School'}
             </Button>
           </DialogFooter>
         </DialogContent>
