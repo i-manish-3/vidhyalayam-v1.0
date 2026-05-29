@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Separator } from '@/components/ui/separator'
 import { type PageName } from '@/lib/store'
 import { resolveMigratedUrl } from '@/lib/migrated-routes'
 import { useToast } from '@/hooks/use-toast'
@@ -123,11 +122,11 @@ function HeroStat({ title, value, icon: Icon, trend, trendLabel, tone = 'emerald
   const trendPositive = (trend ?? 0) >= 0
   return (
     <Card className="relative overflow-hidden border-border/60">
-      <CardContent className="p-5">
+      <CardContent className="p-4">
         <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0 space-y-2">
+          <div className="min-w-0 space-y-1.5">
             <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{title}</p>
-            <p className="text-3xl font-bold tracking-tight tabular-nums">{value}</p>
+            <p className="text-2xl font-bold tracking-tight tabular-nums">{value}</p>
             {typeof trend === 'number' && (
               <div className="flex items-center gap-1.5 text-xs">
                 <span
@@ -145,8 +144,8 @@ function HeroStat({ title, value, icon: Icon, trend, trendLabel, tone = 'emerald
               </div>
             )}
           </div>
-          <div className={cn('flex size-11 shrink-0 items-center justify-center rounded-xl ring-1', t.bg, t.ring)}>
-            <Icon className={cn('size-5', t.text)} />
+          <div className={cn('flex size-9 shrink-0 items-center justify-center rounded-lg ring-1', t.bg, t.ring)}>
+            <Icon className={cn('size-4', t.text)} />
           </div>
         </div>
       </CardContent>
@@ -176,16 +175,16 @@ function ActionTile({ title, count, description, icon: Icon, tone, onClick }: Ac
       type="button"
       onClick={onClick}
       className={cn(
-        'group flex w-full items-center gap-3 rounded-xl border bg-card p-4 text-left transition-all',
+        'group flex w-full items-center gap-3 rounded-lg border bg-card p-3 text-left transition-all',
         toneClasses.wrap
       )}
     >
-      <div className={cn('flex size-10 shrink-0 items-center justify-center rounded-lg', toneClasses.dot)}>
-        <Icon className="size-5" />
+      <div className={cn('flex size-8 shrink-0 items-center justify-center rounded-md', toneClasses.dot)}>
+        <Icon className="size-4" />
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-baseline gap-2">
-          <span className="text-xl font-bold tabular-nums">{count}</span>
+          <span className="text-lg font-bold tabular-nums">{count}</span>
           <span className="text-sm font-medium truncate">{title}</span>
         </div>
         <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-1">{description}</p>
@@ -206,9 +205,9 @@ function QuickAction({ label, icon: Icon, onClick }: QuickActionProps) {
     <button
       type="button"
       onClick={onClick}
-      className="flex flex-col items-center justify-center gap-2 rounded-lg border bg-card p-4 text-center transition-all hover:border-primary/40 hover:bg-primary/[0.03] hover:shadow-sm"
+      className="flex flex-col items-center justify-center gap-1.5 rounded-lg border bg-card p-3 text-center transition-all hover:border-primary/40 hover:bg-primary/[0.03] hover:shadow-sm"
     >
-      <div className="flex size-9 items-center justify-center rounded-md bg-primary/10 text-primary">
+      <div className="flex size-8 items-center justify-center rounded-md bg-primary/10 text-primary">
         <Icon className="size-4" />
       </div>
       <span className="text-xs font-medium">{label}</span>
@@ -275,15 +274,15 @@ export function SuperAdminDashboard() {
   const statusTotal = statusData.reduce((acc, s) => acc + s.value, 0)
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* ── Header ─────────────────────────────────────────────────────── */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <div className="flex items-center gap-2">
-            <Sparkles className="size-5 text-primary" />
-            <h1 className="text-2xl font-bold tracking-tight">Platform Overview</h1>
+            <Sparkles className="size-4 text-primary" />
+            <h1 className="text-xl font-bold tracking-tight">Platform Overview</h1>
           </div>
-          <p className="text-sm text-muted-foreground mt-1">
+          <p className="text-xs text-muted-foreground mt-0.5">
             Real-time pulse across all schools on Vidhyalayam
           </p>
         </div>
@@ -300,7 +299,7 @@ export function SuperAdminDashboard() {
       </div>
 
       {/* ── Hero KPI grid ──────────────────────────────────────────────── */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <HeroStat
           title="Total Schools"
           value={formatNumber(totalSchools)}
@@ -362,10 +361,10 @@ export function SuperAdminDashboard() {
       </div>
 
       {/* ── Charts row ────────────────────────────────────────────────── */}
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid gap-3 lg:grid-cols-3">
         {/* Growth chart */}
         <Card className="lg:col-span-2">
-          <CardHeader className="pb-2">
+          <CardHeader className="p-4 pb-2">
             <div className="flex items-start justify-between">
               <div>
                 <CardTitle className="text-base flex items-center gap-2">
@@ -382,8 +381,8 @@ export function SuperAdminDashboard() {
               </Badge>
             </div>
           </CardHeader>
-          <CardContent>
-            <div className="h-64">
+          <CardContent className="px-4 pb-4">
+            <div className="h-52">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={growthData} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
                   <defs>
@@ -427,12 +426,12 @@ export function SuperAdminDashboard() {
 
         {/* Status donut */}
         <Card>
-          <CardHeader className="pb-2">
+          <CardHeader className="p-4 pb-2">
             <CardTitle className="text-base">Schools by Status</CardTitle>
             <CardDescription className="text-xs mt-0.5">Distribution across {statusTotal} schools</CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="relative h-44">
+          <CardContent className="px-4 pb-4">
+            <div className="relative h-36">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
@@ -467,7 +466,7 @@ export function SuperAdminDashboard() {
                 <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Total</span>
               </div>
             </div>
-            <div className="mt-3 space-y-1.5">
+            <div className="mt-2 space-y-1">
               {(statusData.length ? statusData : []).map((entry) => {
                 const pct = statusTotal > 0 ? Math.round((entry.value / statusTotal) * 100) : 0
                 return (
@@ -492,10 +491,10 @@ export function SuperAdminDashboard() {
       </div>
 
       {/* ── Trial expiry + Recent schools ─────────────────────────────── */}
-      <div className="grid gap-4 lg:grid-cols-5">
+      <div className="grid gap-3 lg:grid-cols-5">
         {/* Trial expiry */}
         <Card className="lg:col-span-2">
-          <CardHeader className="pb-3">
+          <CardHeader className="p-4 pb-2">
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle className="text-base flex items-center gap-2">
@@ -513,11 +512,11 @@ export function SuperAdminDashboard() {
               )}
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-4 pb-4">
             {trialExpiryList.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-8 text-center">
-                <div className="size-10 rounded-full bg-emerald-500/10 flex items-center justify-center mb-2">
-                  <CheckCircle2 className="size-5 text-emerald-600" />
+              <div className="flex flex-col items-center justify-center py-5 text-center">
+                <div className="size-8 rounded-full bg-emerald-500/10 flex items-center justify-center mb-2">
+                  <CheckCircle2 className="size-4 text-emerald-600" />
                 </div>
                 <p className="text-sm font-medium">All clear</p>
                 <p className="text-xs text-muted-foreground mt-0.5">No trials expiring this week</p>
@@ -530,7 +529,7 @@ export function SuperAdminDashboard() {
                   return (
                     <div
                       key={s.id}
-                      className="flex items-center justify-between gap-2 rounded-lg border bg-card p-2.5"
+                      className="flex items-center justify-between gap-2 rounded-lg border bg-card p-2"
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
                         <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-amber-500/10">
@@ -557,7 +556,7 @@ export function SuperAdminDashboard() {
 
         {/* Recent schools */}
         <Card className="lg:col-span-3">
-          <CardHeader className="pb-3">
+          <CardHeader className="p-4 pb-2">
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle className="text-base flex items-center gap-2">
@@ -574,9 +573,9 @@ export function SuperAdminDashboard() {
               </Button>
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-4 pb-4">
             {schools.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-8 text-center">
+              <div className="flex flex-col items-center justify-center py-5 text-center">
                 <Building2 className="size-8 text-muted-foreground/30 mb-2" />
                 <p className="text-sm font-medium text-muted-foreground">No schools yet</p>
                 <p className="text-xs text-muted-foreground/60 mt-0.5">Onboard your first school to get started</p>
@@ -586,7 +585,7 @@ export function SuperAdminDashboard() {
                 {schools.slice(0, 5).map((school) => (
                   <div
                     key={school.id}
-                    className="flex items-center justify-between gap-3 rounded-lg border bg-card p-2.5 transition-colors hover:bg-muted/40"
+                    className="flex items-center justify-between gap-3 rounded-lg border bg-card p-2 transition-colors hover:bg-muted/40"
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-primary/10">
@@ -631,11 +630,11 @@ export function SuperAdminDashboard() {
 
       {/* ── Quick actions ─────────────────────────────────────────────── */}
       <Card>
-        <CardHeader className="pb-3">
+        <CardHeader className="p-4 pb-2">
           <CardTitle className="text-base">Quick Actions</CardTitle>
           <CardDescription className="text-xs">Jump straight to common platform tasks</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-4 pb-4">
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-6">
             <QuickAction label="Onboard School" icon={Plus} onClick={go('add-school')} />
             <QuickAction label="All Schools" icon={Building2} onClick={go('schools')} />
@@ -644,10 +643,6 @@ export function SuperAdminDashboard() {
             <QuickAction label="Support" icon={LifeBuoy} onClick={go('support')} />
             <QuickAction label="Leads" icon={Mail} onClick={go('contact-requests')} />
           </div>
-          <Separator className="my-4" />
-          <p className="text-[11px] text-muted-foreground text-center">
-            Tip: Use the sidebar for full platform management, or the quick actions above for everyday tasks.
-          </p>
         </CardContent>
       </Card>
     </div>

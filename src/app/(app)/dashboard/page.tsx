@@ -9,8 +9,13 @@ import { ParentDashboard } from '@/components/dashboards/parent-dashboard'
 
 export default function DashboardPage() {
   const role = useAppStore((s) => s.user?.role)
+  const isImpersonating = useAppStore((s) => !!s.user?.impersonatingSchoolId)
 
-  switch (role) {
+  // While impersonating, SUPER_ADMIN should see the school admin dashboard
+  // for the school they're acting as, not the platform-wide super admin view.
+  const effectiveRole = (role === 'SUPER_ADMIN' && isImpersonating) ? 'SCHOOL_ADMIN' : role
+
+  switch (effectiveRole) {
     case 'SUPER_ADMIN': return <SuperAdminDashboard />
     case 'SCHOOL_ADMIN': return <SchoolAdminDashboard />
     case 'TEACHER': return <TeacherDashboard />
