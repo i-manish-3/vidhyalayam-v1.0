@@ -83,3 +83,6 @@ upload/
 daemon.sh
 server.pid
 server.sh
+
+# Baileys WhatsApp session keys — per-school, must never be committed
+baileys-sessions/

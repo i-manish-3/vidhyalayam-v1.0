@@ -56,6 +56,7 @@ import {
   Upload,
   History,
   CalendarDays,
+  FileSpreadsheet,
 } from 'lucide-react'
 
 export interface MenuChild {
@@ -153,6 +154,7 @@ export const MENUS: Record<string, MenuItem[]> = {
         { label: 'Fee Groups', page: 'fees-groups', icon: Layers },
         { label: 'Fee Structures', page: 'fees-structures', icon: FileText },
         { label: 'Fee Collections', page: 'fee-collections', icon: DollarSign },
+        { label: 'Demand Slips', page: 'fee-demand-slips', icon: FileSpreadsheet },
         { label: 'Change Fee Group', page: 'fee-change-group', icon: RefreshCw },
       ],
     },
@@ -301,6 +303,7 @@ export const MENUS: Record<string, MenuItem[]> = {
         { label: 'Fee Groups', page: 'fees-groups', icon: Layers },
         { label: 'Fee Structures', page: 'fees-structures', icon: FileText },
         { label: 'Fee Collections', page: 'fee-collections', icon: DollarSign },
+        { label: 'Demand Slips', page: 'fee-demand-slips', icon: FileSpreadsheet },
         { label: 'Change Fee Group', page: 'fee-change-group', icon: RefreshCw },
       ],
     },

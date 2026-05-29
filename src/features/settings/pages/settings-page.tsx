@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { useRouter } from 'next/navigation'
-import { Banknote, CalendarCheck, Check, Hash, ImagePlus, Loader2, Palette, Save, School, Sparkles, Type, Users, X } from 'lucide-react'
+import { Banknote, CalendarCheck, Check, ChevronRight, Hash, ImagePlus, Loader2, Palette, Save, School, Sparkles, Type, Users, X } from 'lucide-react'
 import { api } from '@/lib/api'
 import { compressImage } from '@/lib/image-compress'
 import { useAppStore, type School as SchoolInfo } from '@/lib/store'
@@ -847,6 +847,33 @@ export function SettingsPage() {
               </div>
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card className="gap-3 py-4">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Banknote className="size-5 text-primary" />
+            Fee Demand & Reminders
+          </CardTitle>
+          <CardDescription>
+            Configure when monthly demand slips are due, late fee policy, and WhatsApp delivery for parents.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <button
+            type="button"
+            onClick={() => router.push('/settings/fee-demand-config')}
+            className="group flex w-full items-center justify-between rounded-lg border bg-card p-3 text-left transition-colors hover:border-primary/40 hover:bg-muted/40"
+          >
+            <div className="space-y-0.5">
+              <p className="text-sm font-medium">Open fee demand settings</p>
+              <p className="text-xs text-muted-foreground">
+                Set due day, preview late fine policy, and configure your school's WhatsApp number.
+              </p>
+            </div>
+            <ChevronRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+          </button>
         </CardContent>
       </Card>
     </div>

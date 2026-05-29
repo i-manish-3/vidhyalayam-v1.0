@@ -22,6 +22,8 @@ export const MIGRATED_PAGES: Partial<Record<PageName, (...args: string[]) => str
   'fee-collections': (id?: string) => (id ? `/fees/collections?preselect=${id}` : '/fees/collections'),
   'fee-details': () => '/fees/collections',
   'fee-change-group': () => '/fees/change-group',
+  'fee-demand-config': () => '/settings/fee-demand-config',
+  'fee-demand-slips': () => '/fees/demand-slips',
   'classes': () => '/academics/classes',
   'my-classes': () => '/academics/my-classes',
   'add-class': () => '/academics/classes/new',

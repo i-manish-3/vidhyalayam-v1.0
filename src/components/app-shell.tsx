@@ -72,6 +72,7 @@ const SEARCH_ITEMS: { label: string; page: PageName; keywords: string[] }[] = [
   { label: 'Fee Groups', page: 'fees-groups', keywords: ['fee category', 'group fees'] },
   { label: 'Fee Structures', page: 'fees-structures', keywords: ['fee plan', 'class fees', 'amount'] },
   { label: 'Fee Collections', page: 'fee-collections', keywords: ['payment', 'collect', 'receipt', 'pay'] },
+  { label: 'Fee Demand Slips', page: 'fee-demand-slips', keywords: ['monthly', 'invoice', 'slip', 'demand', 'generate'] },
   { label: 'Change Fee Group', page: 'fee-change-group', keywords: ['switch fee group', 'reassign fees', 'wrong fee group'] },
   { label: 'Salary Structure', page: 'salary-structure', keywords: ['pay scale', 'ctc', 'compensation'] },
   { label: 'Salary Payments', page: 'salary-payments', keywords: ['payroll', 'salary slip', 'month pay'] },

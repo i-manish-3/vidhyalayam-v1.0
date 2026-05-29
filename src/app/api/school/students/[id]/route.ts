@@ -17,6 +17,153 @@ function normDigits(v: unknown, maxLen?: number): string | null {
   return maxLen ? digits.slice(0, maxLen) : digits
 }
 
+function optionalString(v: unknown): string | undefined {
+  return typeof v === 'string' ? v : undefined
+}
+
+function optionalNumber(v: unknown): number | null | undefined {
+  if (v === undefined) return undefined
+  if (v === null || v === '') return null
+  const parsed = Number(v)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+async function syncParentLogin(parentId: string, schoolId: string, phone: string | null, name: string | null) {
+  const cleanPhone = normDigits(phone, 10)
+  if (!cleanPhone) return
+
+  const parent = await db.parent.findUnique({
+    where: { id: parentId },
+    select: { userId: true },
+  })
+  if (!parent) return
+
+  const parentEmail = `${cleanPhone}@parent.local`
+  const existingUser = await db.user.findFirst({
+    where: {
+      OR: [
+        { phone: cleanPhone, schoolId, deletedAt: null },
+        { email: parentEmail, deletedAt: null },
+      ],
+    },
+  })
+
+  if (existingUser && existingUser.role === 'PARENT') {
+    await db.parent.update({
+      where: { id: parentId },
+      data: { userId: existingUser.id },
+    })
+    if (name && existingUser.name !== name) {
+      await db.user.update({
+        where: { id: existingUser.id },
+        data: { name },
+      })
+    }
+    return
+  }
+
+  if (existingUser && existingUser.id !== parent.userId) return
+
+  if (parent.userId) {
+    await db.user.update({
+      where: { id: parent.userId },
+      data: {
+        email: parentEmail,
+        phone: cleanPhone,
+        ...(name ? { name } : {}),
+      },
+    })
+  }
+}
+
+async function syncStudentParentContacts(
+  studentId: string,
+  schoolId: string,
+  admissionData: Record<string, unknown>
+) {
+  const fatherName = normName(admissionData.fatherName)
+  const fatherPhone = normDigits(admissionData.fatherPhone, 10)
+  const motherName = normName(admissionData.motherName)
+  const motherPhone = normDigits(admissionData.motherPhone, 10)
+  const fatherEmail = optionalString(admissionData.fatherEmail)?.trim() || null
+  const motherEmail = optionalString(admissionData.motherEmail)?.trim() || null
+  const address = optionalString(admissionData.address)?.trim() || null
+
+  const syncRelation = async (
+    relation: 'Father' | 'Mother',
+    parentData: {
+      fatherName?: string | null
+      motherName?: string | null
+      phone?: string | null
+      alternatePhone?: string | null
+      email?: string | null
+      occupation?: string | null
+      address?: string | null
+      annualIncome?: number | null
+    },
+    shouldCreate = Object.values(parentData).some((value) => value !== undefined && value !== null && value !== '')
+  ) => {
+    const link = await db.studentParent.findFirst({
+      where: { studentId, relation },
+      include: { parent: { select: { id: true } } },
+    })
+
+    if (link) {
+      await db.parent.update({
+        where: { id: link.parent.id },
+        data: parentData,
+      })
+      return link.parent.id
+    }
+
+    if (!shouldCreate) return null
+
+    const parent = await db.parent.create({
+      data: {
+        schoolId,
+        ...parentData,
+      },
+    })
+    await db.studentParent.create({
+      data: {
+        studentId,
+        parentId: parent.id,
+        relation,
+        isPrimary: relation === 'Father',
+      },
+    })
+    return parent.id
+  }
+
+  const fatherParentId = await syncRelation('Father', {
+    fatherName,
+    motherName: null,
+    phone: fatherPhone,
+    alternatePhone: motherPhone,
+    email: fatherEmail || motherEmail,
+    occupation: optionalString(admissionData.fatherOccupation)?.trim() || null,
+    address,
+    annualIncome: optionalNumber(admissionData.fatherIncome) ?? null,
+  })
+
+  const motherParentId = await syncRelation('Mother', {
+    fatherName: null,
+    motherName,
+    phone: motherPhone || fatherPhone,
+    alternatePhone: null,
+    email: motherEmail || fatherEmail,
+    occupation: optionalString(admissionData.motherOccupation)?.trim() || null,
+    address,
+    annualIncome: optionalNumber(admissionData.motherIncome) ?? null,
+  }, !!(motherName || motherPhone || motherEmail || optionalString(admissionData.motherOccupation)?.trim() || optionalNumber(admissionData.motherIncome)))
+
+  if (fatherParentId && fatherPhone) {
+    await syncParentLogin(fatherParentId, schoolId, fatherPhone, fatherName || motherName || null)
+  } else if (motherParentId && motherPhone) {
+    await syncParentLogin(motherParentId, schoolId, motherPhone, motherName || fatherName || null)
+  }
+}
+
 // GET /api/school/students/[id] - Get full student details
 export async function GET(
   request: NextRequest,
@@ -546,6 +693,7 @@ export async function PATCH(
           where: { studentId: id, schoolId: user.schoolId, deletedAt: null },
           data: adm,
         })
+        await syncStudentParentContacts(id, user.schoolId, admissionData as Record<string, unknown>)
       }
 
       // Handle documents if provided

@@ -127,6 +127,9 @@ model School {
   schoolPermissions           SchoolPermission[]
   roles                       Role[]
   holidays                    Holiday[]
+  feeDemandConfig             FeeDemandConfig?
+  feeDemandRuns               FeeDemandRun[]
+  feeNotifications            FeeNotification[]
 
   @@index([subdomain])
   @@index([status])
@@ -1007,41 +1010,58 @@ model StudentFeeAssignmentItem {
 }
 
 model StudentFeeInvoice {
-  id            String    @id @default(cuid())
-  schoolId      String
-  studentId     String
-  assignmentId  String?
-  invoiceNumber String
-  invoiceDate   DateTime  @default(now())
-  dueDate       DateTime?
-  subtotal      Float     @default(0)
-  discount      Float     @default(0)
-  concession    Float     @default(0)
-  scholarship   Float     @default(0)
-  fine          Float     @default(0)
-  totalAmount   Float     @default(0)
-  paidAmount    Float     @default(0)
-  status        String    @default("unpaid") // unpaid, partial, paid, cancelled
-  lockedAt      DateTime?
-  lockedBy      String?
-  notes         String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  deletedAt     DateTime?
+  id              String    @id @default(cuid())
+  schoolId        String
+  studentId       String
+  assignmentId    String?
+  invoiceNumber   String
+  invoiceDate     DateTime  @default(now())
+  dueDate         DateTime?
+  subtotal        Float     @default(0)
+  discount        Float     @default(0)
+  concession      Float     @default(0)
+  scholarship     Float     @default(0)
+  fine            Float     @default(0)
+  totalAmount     Float     @default(0)
+  paidAmount      Float     @default(0)
+  status          String    @default("unpaid") // unpaid, partial, paid, cancelled
+  lockedAt        DateTime?
+  lockedBy        String?
+  notes           String?
+  // Monthly demand slip fields (Phase 1 — populated by Phase 2 generator).
+  // For legacy / opening invoices these stay null and isMonthlyDemand=false.
+  billingMonth    Int?      // 1-12
+  billingYear     Int?      // e.g. 2026
+  isMonthlyDemand Boolean   @default(false)
+  previousBalance Float     @default(0) // carried-over dues at slip generation time
+  generatedBy     String?   // userId who triggered (null = system/seed)
+  demandRunId     String?
+  // Phase 5 — public share link for parent WhatsApp delivery
+  publicAccessToken    String?   @unique
+  publicTokenExpiresAt DateTime?
+  sharedAt             DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
 
   school        School                  @relation(fields: [schoolId], references: [id])
   student       Student                 @relation(fields: [studentId], references: [id])
   assignment    StudentFeeAssignment?   @relation(fields: [assignmentId], references: [id])
+  demandRun     FeeDemandRun?           @relation(fields: [demandRunId], references: [id])
   lines         StudentFeeInvoiceLine[]
   payments      StudentFeePayment[]
   collections   FeeCollection[]
   ledgerEntries StudentFeeLedgerEntry[]
+  notifications FeeNotification[]
 
   @@unique([schoolId, invoiceNumber])
+  @@unique([schoolId, studentId, billingMonth, billingYear, isMonthlyDemand], name: "monthly_demand_unique")
   @@index([schoolId])
   @@index([studentId])
   @@index([assignmentId])
   @@index([status])
+  @@index([demandRunId])
+  @@index([schoolId, billingYear, billingMonth])
 }
 
 model StudentFeeInvoiceLine {
@@ -1195,6 +1215,103 @@ model FeeAuditLog {
 
   @@index([schoolId])
   @@index([entityType, entityId])
+}
+
+// Per-school singleton config for monthly fee demand slip generation
+// + WhatsApp notification preferences. Mirrors AdmissionSetting pattern.
+model FeeDemandConfig {
+  id       String @id @default(cuid())
+  schoolId String @unique
+
+  // General — when monthly slips are due (1-28 to avoid month-end edge cases)
+  dueDay Int @default(10)
+
+  // Late fine — schema ready, code skips Phase 1
+  lateFeeEnabled   Boolean @default(false)
+  lateFeeType      String  @default("FLAT") // FLAT | PER_DAY
+  lateFeeAmount    Float   @default(0)
+  lateFeeGraceDays Int     @default(0)
+
+  // WhatsApp delivery (activated Phase 5)
+  whatsappEnabled  Boolean @default(false)
+  whatsappProvider String? // BAILEYS | META_CLOUD | null
+
+  // Meta Cloud API credentials (encrypted with TOKEN_ENCRYPTION_KEY)
+  metaPhoneNumberId String?
+  metaAccessToken   String? // 🔒 AES-256-GCM ciphertext
+  metaBusinessId    String?
+  metaTemplateName  String?
+
+  // Baileys (whatsapp-web.js) connection status
+  baileysConnected    Boolean   @default(false)
+  baileysPhoneNumber  String?
+  baileysLastActiveAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  school School @relation(fields: [schoolId], references: [id])
+
+  @@index([schoolId])
+}
+
+// Audit row for each bulk demand-slip generation run.
+// One row per (school, billingMonth, billingYear, trigger) — gives the
+// admin "what happened on May 1st" visibility plus retry/error logs.
+model FeeDemandRun {
+  id            String  @id @default(cuid())
+  schoolId      String
+  billingMonth  Int // 1-12
+  billingYear   Int
+  triggerType   String  @default("MANUAL") // MANUAL | CRON
+  triggeredBy   String? // userId
+  status        String  @default("running") // running | completed | failed | partial
+  totalStudents Int     @default(0)
+  successCount  Int     @default(0)
+  skippedCount  Int     @default(0)
+  failedCount   Int     @default(0)
+  totalAmount   Float   @default(0)
+  filters       String? // JSON: { classId, sectionId, studentIds[] }
+  errorLog      String? // JSON array of {studentId, error}
+
+  startedAt   DateTime  @default(now())
+  completedAt DateTime?
+
+  school   School              @relation(fields: [schoolId], references: [id])
+  invoices StudentFeeInvoice[]
+
+  @@index([schoolId])
+  @@index([schoolId, billingYear, billingMonth])
+  @@index([status])
+}
+
+// Tracks WhatsApp / SMS / email delivery attempts for a fee invoice.
+// Phase 5 will populate this; Phase 1 just creates the table.
+model FeeNotification {
+  id            String    @id @default(cuid())
+  schoolId      String
+  studentId     String
+  invoiceId     String
+  channel       String // WHATSAPP | SMS | EMAIL
+  provider      String? // BAILEYS | META_CLOUD | ...
+  recipient     String // phone number or email
+  status        String    @default("pending") // pending | sent | delivered | read | failed
+  providerMsgId String?
+  errorMessage  String?
+  sentAt        DateTime?
+  deliveredAt   DateTime?
+  readAt        DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  school  School            @relation(fields: [schoolId], references: [id])
+  invoice StudentFeeInvoice @relation(fields: [invoiceId], references: [id])
+
+  @@index([schoolId])
+  @@index([invoiceId])
+  @@index([studentId])
+  @@index([status])
+  @@index([providerMsgId])
 }
 
 // ============================================
