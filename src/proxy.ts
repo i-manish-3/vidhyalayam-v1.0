@@ -16,7 +16,7 @@ const SKIP_PATHS = new Set([
   '/api/auth/logout',
 ])
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
   if (SKIP_PATHS.has(pathname)) {
     return NextResponse.next()
