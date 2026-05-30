@@ -1080,7 +1080,7 @@ export function StudentDetailPage({ studentId }: { studentId: string }) {
         description: result.message || 'New session enrollment has been created.',
       })
       setPromoteOpen(false)
-      await fetchStudent(studentId)
+      await fetchStudent(studentId, viewYear || undefined)
     } catch (err) {
       toast({
         title: "Couldn't Promote Student",
@@ -1661,7 +1661,7 @@ export function StudentDetailPage({ studentId }: { studentId: string }) {
         studentName={fullName}
         onSuccess={() => {
           setBillingRefreshKey((k) => k + 1)
-          fetchStudent(studentId)
+          fetchStudent(studentId, viewYear || undefined)
         }}
       />
       <AddTransportDialog
@@ -1672,7 +1672,7 @@ export function StudentDetailPage({ studentId }: { studentId: string }) {
         academicYear={viewingYear || ''}
         onSuccess={() => {
           setBillingRefreshKey((k) => k + 1)
-          fetchStudent(studentId)
+          fetchStudent(studentId, viewYear || undefined)
         }}
       />
       <DiscontinueTransportDialog
@@ -1682,7 +1682,7 @@ export function StudentDetailPage({ studentId }: { studentId: string }) {
         studentName={fullName}
         onSuccess={() => {
           setBillingRefreshKey((k) => k + 1)
-          fetchStudent(studentId)
+          fetchStudent(studentId, viewYear || undefined)
         }}
       />
       <ReverseWithdrawalDialog
@@ -1692,7 +1692,7 @@ export function StudentDetailPage({ studentId }: { studentId: string }) {
         studentName={fullName}
         onSuccess={() => {
           setBillingRefreshKey((k) => k + 1)
-          fetchStudent(studentId)
+          fetchStudent(studentId, viewYear || undefined)
         }}
       />
       {refundDialog && (
