@@ -130,6 +130,8 @@ export const PERMISSIONS = {
   STUDENT_UPDATE: 'student:update',
   STUDENT_DELETE: 'student:delete',
   STUDENT_ENABLE_DISABLE: 'student:enable_disable',
+  STUDENT_WITHDRAW: 'student:withdraw',
+  STUDENT_WITHDRAW_REVERSE: 'student:withdraw:reverse',
 
   // Admissions
   ADMISSION_READ: 'admission:read',
@@ -192,6 +194,7 @@ export const PERMISSIONS = {
   TRANSPORT_READ: 'transport:read',
   TRANSPORT_CREATE: 'transport:create',
   TRANSPORT_UPDATE: 'transport:update',
+  TRANSPORT_ALLOCATION_UPDATE: 'transport:allocation:update',
   TRANSPORT_DELETE: 'transport:delete',
 
   // Library

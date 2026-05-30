@@ -19,6 +19,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
 import { DatePicker } from '@/components/date-picker'
+import { ResetUserPasswordDialog } from '@/components/shared'
+import {
+  WithdrawStudentDialog,
+  AddTransportDialog,
+  DiscontinueTransportDialog,
+  ReverseWithdrawalDialog,
+  WithdrawalStatusBanner,
+  TransportHistorySection,
+} from '@/features/students/components/billing-window-dialogs'
+import {
+  IssueRefundDialog,
+  RefundHistorySection,
+} from '@/features/students/components/refund-dialog'
 import { SchoolPrintHeader } from '@/lib/print-header'
 import {
   User,
@@ -51,6 +64,7 @@ import {
   Clock3,
   XCircle,
   BookOpenCheck,
+  KeyRound,
   Loader2,
 } from 'lucide-react'
 
@@ -234,6 +248,18 @@ interface StudentData {
       effectiveTo: string | null
     } | null
   }
+  parentLinks?: Array<{
+    id: string
+    relation: string
+    isPrimary: boolean
+    parent: {
+      id: string
+      userId: string | null
+      fatherName: string | null
+      motherName: string | null
+      phone: string | null
+    }
+  }>
 }
 
 interface ClassOption { id: string; name: string }
@@ -286,14 +312,17 @@ function InfoRow({ label, value, icon: Icon }: { label: string; value: string | 
   )
 }
 
-function SectionCard({ title, icon: Icon, children, className = '' }: { title: string; icon: React.ComponentType<{ className?: string }>; children: React.ReactNode; className?: string }) {
+function SectionCard({ title, icon: Icon, children, className = '', headerAction }: { title: string; icon: React.ComponentType<{ className?: string }>; children: React.ReactNode; className?: string; headerAction?: React.ReactNode }) {
   return (
     <Card className={cn('overflow-hidden border-border/70 shadow-sm gap-0 py-0', className)}>
       <CardHeader className="bg-muted/30 px-3 py-2">
-        <CardTitle className="flex items-center gap-2 text-[13px] font-semibold">
-          <Icon className="size-4 text-primary" />
-          {title}
-        </CardTitle>
+        <div className="flex items-center justify-between gap-2">
+          <CardTitle className="flex items-center gap-2 text-[13px] font-semibold">
+            <Icon className="size-4 text-primary" />
+            {title}
+          </CardTitle>
+          {headerAction}
+        </div>
       </CardHeader>
       <CardContent className="p-3">{children}</CardContent>
     </Card>
@@ -873,12 +902,19 @@ export function StudentDetailPage({ studentId }: { studentId: string }) {
   const canEdit = hasPermission(PERMISSIONS.STUDENT_UPDATE)
   const canPromote = hasPermission(PERMISSIONS.ADMISSION_UPDATE)
   const canCollectFees = hasPermission(PERMISSIONS.FEES_COLLECT)
+  // Mid-year billing actions are gated behind dedicated permissions so they
+  // can be granted/revoked independently from generic student/transport edits.
+  const canIssueTC = hasPermission(PERMISSIONS.STUDENT_WITHDRAW)
+  const canReverseTC = hasPermission(PERMISSIONS.STUDENT_WITHDRAW_REVERSE)
+  const canIssueRefund = hasPermission(PERMISSIONS.FEES_REFUND)
+  const canManageTransport = hasPermission(PERMISSIONS.TRANSPORT_ALLOCATION_UPDATE)
   const currentSchool = useAppStore((s) => s.currentSchool)
 
   const currentSchoolAcademicYear = currentSchool?.academicYear
 
   const [student, setStudent] = useState<StudentData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [resetParentTarget, setResetParentTarget] = useState<{ userId: string; name: string; relation: string } | null>(null)
   const viewYear = useAppStore((s) => s.viewingAcademicYear) || currentSchoolAcademicYear || ''
   const [classes, setClasses] = useState<ClassOption[]>([])
   const [sections, setSections] = useState<SectionOption[]>([])
@@ -886,6 +922,14 @@ export function StudentDetailPage({ studentId }: { studentId: string }) {
   const [academicYears, setAcademicYears] = useState<string[]>([])
   const [promoteOpen, setPromoteOpen] = useState(false)
   const [promoting, setPromoting] = useState(false)
+  // Billing-window dialog state. `billingRefreshKey` bumps after any
+  // commit so the banner + history sections refetch.
+  const [withdrawOpen, setWithdrawOpen] = useState(false)
+  const [addTransportOpen, setAddTransportOpen] = useState(false)
+  const [discontinueTransportOpen, setDiscontinueTransportOpen] = useState(false)
+  const [reverseWithdrawOpen, setReverseWithdrawOpen] = useState(false)
+  const [refundDialog, setRefundDialog] = useState<{ withdrawalId: string } | null>(null)
+  const [billingRefreshKey, setBillingRefreshKey] = useState(0)
   const [promotionForm, setPromotionForm] = useState<PromotionForm>({
     academicYear: currentSchoolAcademicYear || '',
     classId: '',
@@ -1060,6 +1104,8 @@ export function StudentDetailPage({ studentId }: { studentId: string }) {
 
   const a = student.admission
   const fullName = `${student.firstName} ${student.lastName}`
+  const fatherParentLink = student.parentLinks?.find((link) => link.relation === 'Father') ?? null
+  const motherParentLink = student.parentLinks?.find((link) => link.relation === 'Mother') ?? null
   const yearScoped = student.academicYearContext?.yearScoped || null
   const effectiveClassName = yearScoped?.className ?? student.class?.name ?? null
   const effectiveSectionName = yearScoped?.sectionName ?? student.section?.name ?? null
@@ -1212,6 +1258,27 @@ export function StudentDetailPage({ studentId }: { studentId: string }) {
                   <Banknote className="size-3.5" /> Collect Fees
                 </Button>
               )}
+              {canManageTransport && (
+                hasTransport ? (
+                  <Button variant="outline" size="sm" onClick={() => setDiscontinueTransportOpen(true)} className="h-8 gap-1.5">
+                    <Bus className="size-3.5" /> Discontinue Transport
+                  </Button>
+                ) : (
+                  <Button variant="outline" size="sm" onClick={() => setAddTransportOpen(true)} className="h-8 gap-1.5">
+                    <Bus className="size-3.5" /> Add Transport
+                  </Button>
+                )
+              )}
+              {canIssueTC && student.admissionStatus !== 'withdrawn' && student.admissionStatus !== 'transferred' && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setWithdrawOpen(true)}
+                  className="h-8 gap-1.5 text-destructive hover:bg-destructive/10"
+                >
+                  <FileText className="size-3.5" /> Issue TC
+                </Button>
+              )}
               <Button variant="outline" size="sm" onClick={() => window.print()} className="h-8 gap-1.5">
                 <Printer className="size-3.5" /> Admission Form
               </Button>
@@ -1219,6 +1286,26 @@ export function StudentDetailPage({ studentId }: { studentId: string }) {
           </div>
         </CardContent>
       </Card>
+
+      {/* Withdrawal banner (renders only if student has an active withdrawal). */}
+      <WithdrawalStatusBanner
+        studentId={studentId}
+        refreshKey={billingRefreshKey}
+        onReverseClick={canReverseTC ? () => setReverseWithdrawOpen(true) : undefined}
+        onIssueRefundClick={
+          canIssueRefund
+            ? ({ withdrawalId }) => setRefundDialog({ withdrawalId })
+            : undefined
+        }
+      />
+
+      {/* Refund history (renders only if there's at least one refund record). */}
+      <RefundHistorySection
+        studentId={studentId}
+        refreshKey={billingRefreshKey}
+        canVoid={canIssueRefund}
+        onChanged={() => setBillingRefreshKey((n) => n + 1)}
+      />
 
       <Tabs defaultValue="personal" className="min-w-0 gap-2">
         <div className="sticky top-0 z-10 -mx-1 flex justify-center overflow-x-auto bg-background/95 px-1 py-1 backdrop-blur supports-[backdrop-filter]:bg-background/80">
@@ -1380,12 +1467,37 @@ export function StudentDetailPage({ studentId }: { studentId: string }) {
                 </div>
               </SectionCard>
             )}
+            <TransportHistorySection
+              studentId={studentId}
+              academicYear={viewingYear || undefined}
+              refreshKey={billingRefreshKey}
+            />
           </div>
         </TabsContent>
 
         <TabsContent value="contact" className="mt-0">
           <div className="grid gap-3 lg:grid-cols-2">
-            <SectionCard title="Father's Details" icon={CircleUser}>
+            <SectionCard
+              title="Father's Details"
+              icon={CircleUser}
+              headerAction={canEdit && fatherParentLink?.parent.userId ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 gap-1 text-[11px]"
+                  onClick={() =>
+                    setResetParentTarget({
+                      userId: fatherParentLink.parent.userId!,
+                      name: a?.fatherName || 'Father',
+                      relation: 'Father',
+                    })
+                  }
+                >
+                  <KeyRound className="size-3.5" />
+                  Reset Password
+                </Button>
+              ) : undefined}
+            >
               <div className="grid grid-cols-1 gap-x-3 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
                 <InfoRow label="Name" value={a?.fatherName} />
                 <InfoRow label="Phone" value={a?.fatherPhone} icon={Phone} />
@@ -1397,7 +1509,27 @@ export function StudentDetailPage({ studentId }: { studentId: string }) {
               </div>
             </SectionCard>
 
-            <SectionCard title="Mother's Details" icon={CircleUserRound}>
+            <SectionCard
+              title="Mother's Details"
+              icon={CircleUserRound}
+              headerAction={canEdit && motherParentLink?.parent.userId ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 gap-1 text-[11px]"
+                  onClick={() =>
+                    setResetParentTarget({
+                      userId: motherParentLink.parent.userId!,
+                      name: a?.motherName || 'Mother',
+                      relation: 'Mother',
+                    })
+                  }
+                >
+                  <KeyRound className="size-3.5" />
+                  Reset Password
+                </Button>
+              ) : undefined}
+            >
               <div className="grid grid-cols-1 gap-x-3 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
                 <InfoRow label="Name" value={a?.motherName} />
                 <InfoRow label="Phone" value={a?.motherPhone} icon={Phone} />
@@ -1520,6 +1652,64 @@ export function StudentDetailPage({ studentId }: { studentId: string }) {
           </TabsContent>
         )}
       </Tabs>
+
+      {/* Billing-window dialogs (TC, transport add/discontinue, TC reversal). */}
+      <WithdrawStudentDialog
+        open={withdrawOpen}
+        onOpenChange={setWithdrawOpen}
+        studentId={studentId}
+        studentName={fullName}
+        onSuccess={() => {
+          setBillingRefreshKey((k) => k + 1)
+          fetchStudent(studentId)
+        }}
+      />
+      <AddTransportDialog
+        open={addTransportOpen}
+        onOpenChange={setAddTransportOpen}
+        studentId={studentId}
+        studentName={fullName}
+        academicYear={viewingYear || ''}
+        onSuccess={() => {
+          setBillingRefreshKey((k) => k + 1)
+          fetchStudent(studentId)
+        }}
+      />
+      <DiscontinueTransportDialog
+        open={discontinueTransportOpen}
+        onOpenChange={setDiscontinueTransportOpen}
+        studentId={studentId}
+        studentName={fullName}
+        onSuccess={() => {
+          setBillingRefreshKey((k) => k + 1)
+          fetchStudent(studentId)
+        }}
+      />
+      <ReverseWithdrawalDialog
+        open={reverseWithdrawOpen}
+        onOpenChange={setReverseWithdrawOpen}
+        studentId={studentId}
+        studentName={fullName}
+        onSuccess={() => {
+          setBillingRefreshKey((k) => k + 1)
+          fetchStudent(studentId)
+        }}
+      />
+      {refundDialog && (
+        <IssueRefundDialog
+          open={!!refundDialog}
+          onOpenChange={(v) => {
+            if (!v) setRefundDialog(null)
+          }}
+          studentId={studentId}
+          studentName={fullName}
+          withdrawalId={refundDialog.withdrawalId}
+          onSuccess={() => {
+            setBillingRefreshKey((k) => k + 1)
+            setRefundDialog(null)
+          }}
+        />
+      )}
 
       <Dialog open={promoteOpen} onOpenChange={setPromoteOpen}>
         <DialogContent className="sm:max-w-lg">
@@ -1646,6 +1836,16 @@ export function StudentDetailPage({ studentId }: { studentId: string }) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ResetUserPasswordDialog
+        open={!!resetParentTarget}
+        onOpenChange={(open) => {
+          if (!open) setResetParentTarget(null)
+        }}
+        userId={resetParentTarget?.userId ?? null}
+        userName={resetParentTarget?.name ?? ''}
+        roleLabel={resetParentTarget ? `parent (${resetParentTarget.relation.toLowerCase()} of ${fullName})` : 'parent'}
+      />
     </div>
   )
 }
