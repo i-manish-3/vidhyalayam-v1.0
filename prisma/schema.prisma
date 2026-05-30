@@ -16,33 +16,37 @@ datasource db {
 // ============================================
 
 model User {
-  id                   String    @id @default(cuid())
-  employeeId           String?
-  email                String    @unique
-  password             String
-  name                 String
-  phone                String?
-  avatar               String?
-  dob                  DateTime?
-  drivingLicenseNumber String?
-  mustChangePassword   Boolean   @default(false)
-  role                 String // SUPER_ADMIN, SCHOOL_ADMIN, TEACHER, STUDENT, PARENT
-  schoolId             String?
-  isActive                Boolean   @default(true)
-  lastLoginAt             DateTime?
-  impersonatingSchoolId   String?   // SUPER_ADMIN only — active impersonation target
-  createdAt               DateTime  @default(now())
-  updatedAt               DateTime  @updatedAt
-  deletedAt               DateTime?
+  id                    String    @id @default(cuid())
+  employeeId            String?
+  email                 String    @unique
+  password              String
+  name                  String
+  phone                 String?
+  avatar                String?
+  dob                   DateTime?
+  drivingLicenseNumber  String?
+  mustChangePassword    Boolean   @default(false)
+  role                  String // SUPER_ADMIN, SCHOOL_ADMIN, TEACHER, STUDENT, PARENT
+  schoolId              String?
+  isActive              Boolean   @default(true)
+  lastLoginAt           DateTime?
+  impersonatingSchoolId String? // SUPER_ADMIN only — active impersonation target
+  // Bumped on password change to invalidate every outstanding session. JWTs
+  // carry `tv` in their payload; refresh re-reads this and rejects mismatches.
+  tokenVersion          Int       @default(0)
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  deletedAt             DateTime?
 
-  school           School?          @relation(fields: [schoolId], references: [id])
-  userRoles        UserRole[]
-  userPermissions  UserPermission[]
-  markedAttendance Attendance[]     @relation("markedByUser")
-  attendanceAuditLogs AttendanceAuditLog[] @relation("attendanceAuditActor")
-  attendanceChanges AttendanceChangeLog[] @relation("attendanceChanger")
-  loginEvents      LoginEvent[]
-  accountLockout   AccountLockout?
+  school              School?               @relation(fields: [schoolId], references: [id])
+  userRoles           UserRole[]
+  userPermissions     UserPermission[]
+  markedAttendance    Attendance[]          @relation("markedByUser")
+  attendanceAuditLogs AttendanceAuditLog[]  @relation("attendanceAuditActor")
+  attendanceChanges   AttendanceChangeLog[] @relation("attendanceChanger")
+  loginEvents         LoginEvent[]
+  accountLockout      AccountLockout?
+  passwordResetTokens PasswordResetToken[]
 
   @@index([schoolId])
   @@index([schoolId, employeeId])
@@ -102,6 +106,9 @@ model School {
   studentFeeLedgerEntries     StudentFeeLedgerEntry[]
   studentFeeLedgerAllocations StudentFeeLedgerAllocation[]
   feeAuditLogs                FeeAuditLog[]
+  studentWithdrawals          StudentWithdrawal[]
+  studentFeeRefunds           StudentFeeRefund[]
+  transportEvents             TransportEvent[]
   attendance                  Attendance[]
   attendanceAuditLogs         AttendanceAuditLog[]
   attendanceChanges           AttendanceChangeLog[]
@@ -164,7 +171,7 @@ model Holiday {
   id           String    @id @default(cuid())
   schoolId     String
   academicYear String
-  date         DateTime  // start date (inclusive)
+  date         DateTime // start date (inclusive)
   endDate      DateTime? // end date (inclusive); null = single-day holiday
   name         String
   type         String    @default("school") // public | school | vacation
@@ -339,6 +346,8 @@ model Student {
   feeLedgerAllocations StudentFeeLedgerAllocation[]
   examResults          ExamResult[]
   admission            Admission?
+  withdrawals          StudentWithdrawal[]
+  feeRefunds           StudentFeeRefund[]
 
   @@index([schoolId])
   @@index([classId])
@@ -1011,39 +1020,39 @@ model StudentFeeAssignmentItem {
 }
 
 model StudentFeeInvoice {
-  id              String    @id @default(cuid())
-  schoolId        String
-  studentId       String
-  assignmentId    String?
-  invoiceNumber   String
-  invoiceDate     DateTime  @default(now())
-  dueDate         DateTime?
-  subtotal        Float     @default(0)
-  discount        Float     @default(0)
-  concession      Float     @default(0)
-  scholarship     Float     @default(0)
-  fine            Float     @default(0)
-  totalAmount     Float     @default(0)
-  paidAmount      Float     @default(0)
-  status          String    @default("unpaid") // unpaid, partial, paid, cancelled
-  lockedAt        DateTime?
-  lockedBy        String?
-  notes           String?
+  id                   String    @id @default(cuid())
+  schoolId             String
+  studentId            String
+  assignmentId         String?
+  invoiceNumber        String
+  invoiceDate          DateTime  @default(now())
+  dueDate              DateTime?
+  subtotal             Float     @default(0)
+  discount             Float     @default(0)
+  concession           Float     @default(0)
+  scholarship          Float     @default(0)
+  fine                 Float     @default(0)
+  totalAmount          Float     @default(0)
+  paidAmount           Float     @default(0)
+  status               String    @default("unpaid") // unpaid, partial, paid, cancelled
+  lockedAt             DateTime?
+  lockedBy             String?
+  notes                String?
   // Monthly demand slip fields (Phase 1 — populated by Phase 2 generator).
   // For legacy / opening invoices these stay null and isMonthlyDemand=false.
-  billingMonth    Int?      // 1-12
-  billingYear     Int?      // e.g. 2026
-  isMonthlyDemand Boolean   @default(false)
-  previousBalance Float     @default(0) // carried-over dues at slip generation time
-  generatedBy     String?   // userId who triggered (null = system/seed)
-  demandRunId     String?
+  billingMonth         Int? // 1-12
+  billingYear          Int? // e.g. 2026
+  isMonthlyDemand      Boolean   @default(false)
+  previousBalance      Float     @default(0) // carried-over dues at slip generation time
+  generatedBy          String? // userId who triggered (null = system/seed)
+  demandRunId          String?
   // Phase 5 — public share link for parent WhatsApp delivery
   publicAccessToken    String?   @unique
   publicTokenExpiresAt DateTime?
   sharedAt             DateTime?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  deletedAt       DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  deletedAt            DateTime?
 
   school        School                  @relation(fields: [schoolId], references: [id])
   student       Student                 @relation(fields: [studentId], references: [id])
@@ -1641,25 +1650,163 @@ model TransportStopFare {
 }
 
 model TransportAllocation {
-  id           String   @id @default(cuid())
-  schoolId     String
-  studentId    String
-  routeId      String
-  academicYear String   @default("2025-2026")
-  pickupPoint  String?
-  dropPoint    String?
-  stopName     String?
-  fareAmount   Float    @default(0)
-  feeMonths    String   @default("[]")
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id                    String    @id @default(cuid())
+  schoolId              String
+  studentId             String
+  routeId               String
+  academicYear          String    @default("2025-2026")
+  pickupPoint           String?
+  dropPoint             String?
+  stopName              String?
+  fareAmount            Float     @default(0)
+  feeMonths             String    @default("[]")
+  isActive              Boolean   @default(true)
+  // Window fields. Application sets effectiveFrom on creation and
+  // effectiveTo+isActive=false together on closure. isActive is kept for
+  // fast filtering; the canonical truth is effectiveTo (null OR future).
+  effectiveFrom         DateTime?
+  effectiveTo           DateTime?
+  changeReason          String? // INITIAL | CHANGED | WITHDRAWN | REJOIN |
+  // FARE_REVISION | YEAR_ROLLOVER | STUDENT_WITHDRAWN
+  previousAllocationId  String? // chains successive allocations within an AY
+  withdrawnBy           String? // userId who closed it
+  withdrawalNotes       String?
+  cascadeFromWithdrawal Boolean   @default(false) // true if closed because student TC'd
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
 
   route TransportRoute @relation(fields: [routeId], references: [id])
 
   @@index([schoolId])
   @@index([studentId])
   @@index([academicYear])
+  @@index([effectiveTo])
+  @@index([previousAllocationId])
+  // Speeds up "is there an active allocation for this (student, AY)?" check.
+  // Race-safety for concurrent adds is enforced application-side: the POST
+  // /students/[id]/transport endpoint takes a SELECT … FOR UPDATE on the
+  // Student row inside its $transaction before re-checking + inserting.
+  // In production, also create a partial unique index:
+  //   CREATE UNIQUE INDEX CONCURRENTLY transport_alloc_active_uniq
+  //     ON "TransportAllocation" ("studentId", "academicYear")
+  //     WHERE "isActive" = true;
+  // Prisma's schema language can't express partial unique indexes, so this
+  // line lives here as a TODO for the production migration and the app
+  // already handles the P2002 case if it's added.
+  @@index([studentId, academicYear, isActive])
+}
+
+// Records a student leaving the school mid-year (TC, dropout, transfer).
+// One row per (student, academicYear) — the unique constraint blocks
+// double-issuance. `cancelledItemsJson` and `totalRefundDue` capture the
+// fee snapshot at withdrawal time so an auditor can always reproduce what
+// the helper cancelled vs. what required manual refund. The `reversedAt`
+// pair handles erroneous-TC reversal within a configurable window.
+model StudentWithdrawal {
+  id                 String    @id @default(cuid())
+  schoolId           String
+  studentId          String
+  academicYear       String
+  effectiveDate      DateTime
+  reason             String // TC | DROPOUT | TRANSFER | COMPLETED | OTHER
+  reasonNotes        String?
+  refundEligible     Boolean   @default(false)
+  cancelledItemsJson String?
+  cancelledAmount    Float     @default(0)
+  totalRefundDue     Float     @default(0)
+  performedBy        String?
+  reversedAt         DateTime?
+  reversedBy         String?
+  reversalNotes      String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  deletedAt          DateTime?
+
+  school  School  @relation(fields: [schoolId], references: [id])
+  student Student @relation(fields: [studentId], references: [id])
+  refunds StudentFeeRefund[]
+
+  @@unique([studentId, academicYear])
+  @@index([schoolId])
+  @@index([studentId])
+  @@index([effectiveDate])
+}
+
+// Records a single cash payout to a parent against a withdrawal's
+// totalRefundDue. A withdrawal may have many partial refunds; the
+// outstanding obligation is `withdrawal.totalRefundDue - sum(active refunds.amount)`.
+//
+// Issuing a refund writes a paired StudentFeeLedgerEntry (entryType='REFUND',
+// debit=amount, credit=0, sourceType='refund') so the student ledger reflects
+// the payout. Voiding a refund writes the inverse counter-entry and links it
+// via voidLedgerEntryId — the original ledgerEntryId stays in place for audit.
+//
+// Receipt numbers are sequential per-school with an 'RFD-' prefix to keep
+// them visually distinct from collection receipts (which are bare integers).
+model StudentFeeRefund {
+  id              String    @id @default(cuid())
+  schoolId        String
+  studentId       String
+  withdrawalId    String
+  scope           String // 'academic' | 'transport' | 'combined' — copied from the withdrawal context for filtering
+  academicYear    String
+  amount          Float
+  paymentMethod   String    @default("cash") // cash | bank | adjustment — schema is forward-compatible; only 'cash' is wired today
+  receiptNumber   String
+  issuedDate      DateTime  @default(now())
+  issuedBy        String?
+  notes           String?
+  ledgerEntryId   String?   // REFUND row written when the refund was issued
+  voidedAt        DateTime?
+  voidedBy        String?
+  voidReason      String?
+  voidLedgerEntryId String? // counter-entry ledger row written on void
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+
+  school     School            @relation(fields: [schoolId], references: [id])
+  student    Student           @relation(fields: [studentId], references: [id])
+  withdrawal StudentWithdrawal @relation(fields: [withdrawalId], references: [id])
+
+  @@unique([schoolId, receiptNumber])
+  @@index([schoolId])
+  @@index([studentId])
+  @@index([withdrawalId])
+  @@index([issuedDate])
+}
+
+// Append-only history of every transport state change for a student in an
+// academic year. Each row links the (optional) from/to allocations so the
+// timeline is reconstructible by `student + AY` ordered by createdAt.
+// `cascadeFromWithdrawal=true` distinguishes auto-closures (student TC'd)
+// from explicit transport-only withdrawals.
+model TransportEvent {
+  id                    String   @id @default(cuid())
+  schoolId              String
+  studentId             String
+  academicYear          String
+  eventType             String // CREATED | CHANGED | WITHDRAWN | REJOINED | FARE_REVISED
+  fromAllocationId      String?
+  toAllocationId        String?
+  fromRouteId           String?
+  toRouteId             String?
+  fromStop              String?
+  toStop                String?
+  effectiveDate         DateTime
+  cancelledMonths       String? // JSON: ["Oct","Nov","Dec"]
+  cancelledAmount       Float    @default(0)
+  reason                String?
+  performedBy           String?
+  cascadeFromWithdrawal Boolean  @default(false)
+  createdAt             DateTime @default(now())
+
+  school School @relation(fields: [schoolId], references: [id])
+
+  @@index([schoolId])
+  @@index([studentId, academicYear])
+  @@index([eventType])
+  @@index([createdAt])
 }
 
 // ============================================
@@ -1977,6 +2124,29 @@ model AccountLockout {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([lockedUntil])
+}
+
+// One-time password-reset tokens. The raw token is emailed to the user; only
+// its SHA-256 hash is persisted, so a DB compromise reveals nothing usable.
+// Single-use (usedAt) + short TTL (30 min). On a successful reset, all other
+// unused tokens for the user are marked used in the same transaction.
+model PasswordResetToken {
+  id           String    @id @default(cuid())
+  userId       String
+  tokenHash    String    @unique
+  channel      String    @default("EMAIL") // EMAIL | WHATSAPP
+  attemptCount Int       @default(0) // OTP verification attempts; capped at 5
+  expiresAt    DateTime
+  usedAt       DateTime?
+  requestedIp  String
+  requestedUa  String?
+  createdAt    DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([userId, channel, usedAt])
+  @@index([expiresAt])
 }
 
 // ============================================

@@ -2,8 +2,13 @@ import { db } from '../../src/lib/db'
 import { hashPassword } from '../../src/lib/auth'
 
 async function seed() {
-  const existingSuperAdmin = await db.user.findUnique({
-    where: { email: 'superadmin@schoolerp.com' },
+  // Idempotency guard: if any SUPER_ADMIN already exists, the demo data has
+  // been seeded before. We don't pin to a specific email here because the
+  // platform owner may have changed the super admin email (e.g. to wire up a
+  // real inbox for the /forgot-password flow), and matching by email would
+  // miss that case and create a duplicate.
+  const existingSuperAdmin = await db.user.findFirst({
+    where: { role: 'SUPER_ADMIN', deletedAt: null },
   })
 
   if (existingSuperAdmin) {
@@ -15,7 +20,7 @@ async function seed() {
 
   // Create super admin
   const superAdmin = await db.user.create({
-    data: { email: 'superadmin@schoolerp.com', password: await hashPassword('admin123'), name: 'Super Admin', phone: '+91-9999999999', role: 'SUPER_ADMIN', isActive: true },
+    data: { email: 'sahyog.vidhyalayam@gmail.com', password: await hashPassword('admin123'), name: 'Super Admin', phone: '+91-9999999999', role: 'SUPER_ADMIN', isActive: true },
   })
   console.log('✅ Created super admin')
 
@@ -24,21 +29,21 @@ async function seed() {
     data: {
       name: 'Delhi Public School', address: 'Mathura Road, New Delhi', city: 'New Delhi', state: 'Delhi', pincode: '110003', country: 'India',
       contactPhone: '+91-11-24362489', contactEmail: 'info@dpsdelhi.in', website: 'https://dpsdelhi.in',
-      academicYear: '2025-2026', board: 'CBSE', timezone: 'Asia/Kolkata', currency: 'INR',
+      academicYear: '2026-2027', board: 'CBSE', timezone: 'Asia/Kolkata', currency: 'INR',
       subdomain: 'dps-delhi', status: 'active', onboardingDate: new Date('2024-04-01'), primaryColor: '#8c8f97',
     },
   })
   const school2 = await db.school.create({
     data: {
       name: "St. Mary's Convent School", address: 'MG Road, Bangalore', city: 'Bangalore', state: 'Karnataka', pincode: '560001', country: 'India',
-      contactPhone: '+91-80-25581234', contactEmail: 'info@stmarysblr.in', academicYear: '2025-2026', board: 'ICSE', timezone: 'Asia/Kolkata', currency: 'INR',
-      subdomain: 'st-marys-blr', status: 'trial', trialEndsAt: new Date('2025-08-01'), onboardingDate: new Date('2025-06-01'),
+      contactPhone: '+91-80-25581234', contactEmail: 'info@stmarysblr.in', academicYear: '2026-2027', board: 'ICSE', timezone: 'Asia/Kolkata', currency: 'INR',
+      subdomain: 'st-marys-blr', status: 'trial', trialEndsAt: new Date('2026-08-01'), onboardingDate: new Date('2026-06-01'),
     },
   })
   const school3 = await db.school.create({
     data: {
       name: 'Kendriya Vidyalaya', address: 'JNU Campus, New Delhi', city: 'New Delhi', state: 'Delhi', pincode: '110067', country: 'India',
-      contactPhone: '+91-11-26741234', contactEmail: 'info@kvdelhi.in', academicYear: '2025-2026', board: 'CBSE', timezone: 'Asia/Kolkata', currency: 'INR',
+      contactPhone: '+91-11-26741234', contactEmail: 'info@kvdelhi.in', academicYear: '2026-2027', board: 'CBSE', timezone: 'Asia/Kolkata', currency: 'INR',
       subdomain: 'kv-delhi', status: 'active', onboardingDate: new Date('2024-07-01'),
     },
   })
@@ -50,15 +55,15 @@ async function seed() {
     await db.academicYear.create({
       data: {
         schoolId: sch.id,
-        name: '2025-2026',
-        startDate: new Date('2025-04-01'),
-        endDate: new Date('2026-03-31'),
+        name: '2026-2027',
+        startDate: new Date('2026-04-01'),
+        endDate: new Date('2027-03-31'),
         isCurrent: true,
         isActive: true,
       },
     })
   }
-  console.log('✅ Created academic year 2025-2026 (current) for all schools')
+  console.log('✅ Created academic year 2026-2027 (current) for all schools')
 
   // School admin
   const schoolAdmin = await db.user.create({
@@ -70,7 +75,7 @@ async function seed() {
     await db.admissionSetting.create({
       data: {
         schoolId: sch.id,
-        academicYear: '2025-2026',
+        academicYear: '2026-2027',
         admissionNumberPrefix: 'STD',
         admissionNumberFormat: '{PREFIX}-{YEAR}-{SEQ}',
         sequenceStart: 1,
@@ -210,7 +215,7 @@ async function seed() {
     const hra = basic * 0.2; const da = basic * 0.1; const ta = 3000; const medical = 2000; const special = 5000
     const gross = basic + hra + da + ta + medical + special
     const pf = basic * 0.12; const esi = basic * 0.0175; const net = gross - pf - esi
-    await db.salaryStructure.create({ data: { schoolId: school.id, teacherId: teacher.id, basicSalary: basic, hra, da, ta, medicalAllowance: medical, specialAllowance: special, pf, esi, grossSalary: gross, netSalary: net, effectiveFrom: new Date('2025-04-01') } })
+    await db.salaryStructure.create({ data: { schoolId: school.id, teacherId: teacher.id, basicSalary: basic, hra, da, ta, medicalAllowance: medical, specialAllowance: special, pf, esi, grossSalary: gross, netSalary: net, effectiveFrom: new Date('2026-04-01') } })
   }
   console.log(`✅ Created ${teachers.length} teachers with salary structures`)
 
@@ -254,7 +259,7 @@ async function seed() {
   }
 
   // Fee Structure per (class × group) — sectionId=null so it applies to every section of that class.
-  // Indian academic year: Apr 2025 → Mar 2026 monthly tuition; lump-sum admission & annual; quarterly exam fee.
+  // Indian academic year: Apr 2026 → Mar 2027 monthly tuition; lump-sum admission & annual; quarterly exam fee.
   const monthsByCalendarIdx = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
   function monthlyTuitionForClass(classNumber: number) {
     if (classNumber <= 5) return 1500
@@ -279,27 +284,27 @@ async function seed() {
           feesGroupId: grp.id,
           classId: cls.id,
           sectionId: null,
-          academicYear: '2025-2026',
+          academicYear: '2026-2027',
           name: `${cls.name} • ${def.name}`,
           status: 'active',
-          effectiveFrom: new Date('2025-04-01'),
+          effectiveFrom: new Date('2026-04-01'),
           isActive: true,
         },
       })
-      // Monthly tuition only (Apr 2025 → Mar 2026). Transport is allocated per-student
+      // Monthly tuition only (Apr 2026 → Mar 2027). Transport is allocated per-student
       // via TransportAllocation; it auto-generates its own FeeCollection rows.
       for (let m = 0; m < 12; m++) {
         const calMonthIdx = (3 + m) % 12
-        const year = calMonthIdx >= 3 ? 2025 : 2026
+        const year = calMonthIdx >= 3 ? 2026 : 2027
         await db.feesStructureItem.create({ data: { feeStructureId: fs.id, feeHeadId: tuitionFee.id, installmentName: monthsByCalendarIdx[calMonthIdx], amount: tuition, dueDate: new Date(year, calMonthIdx, 10), lateFee: tuition > 0 ? 100 : 0, frequency: 'MONTHLY' } })
       }
-      await db.feesStructureItem.create({ data: { feeStructureId: fs.id, feeHeadId: admissionFee.id, installmentName: 'Admission', amount: admissionAmt, dueDate: new Date(2025, 3, 15), lateFee: 0, frequency: 'ONE_TIME' } })
-      await db.feesStructureItem.create({ data: { feeStructureId: fs.id, feeHeadId: annualFee.id, installmentName: 'Annual', amount: annualAmt, dueDate: new Date(2025, 3, 15), lateFee: annualAmt > 0 ? 500 : 0, frequency: 'YEARLY' } })
+      await db.feesStructureItem.create({ data: { feeStructureId: fs.id, feeHeadId: admissionFee.id, installmentName: 'Admission', amount: admissionAmt, dueDate: new Date(2026, 3, 15), lateFee: 0, frequency: 'ONE_TIME' } })
+      await db.feesStructureItem.create({ data: { feeStructureId: fs.id, feeHeadId: annualFee.id, installmentName: 'Annual', amount: annualAmt, dueDate: new Date(2026, 3, 15), lateFee: annualAmt > 0 ? 500 : 0, frequency: 'YEARLY' } })
       const quarterly: Array<[string, number, number]> = [
-        ['Q1 (Apr-Jun)', 3, 2025],
-        ['Q2 (Jul-Sep)', 6, 2025],
-        ['Q3 (Oct-Dec)', 9, 2025],
-        ['Q4 (Jan-Mar)', 0, 2026],
+        ['Q1 (Apr-Jun)', 3, 2026],
+        ['Q2 (Jul-Sep)', 6, 2026],
+        ['Q3 (Oct-Dec)', 9, 2026],
+        ['Q4 (Jan-Mar)', 0, 2027],
       ]
       for (const [name, monthIdx, year] of quarterly) {
         await db.feesStructureItem.create({ data: { feeStructureId: fs.id, feeHeadId: examFee.id, installmentName: name, amount: 500, dueDate: new Date(year, monthIdx, 15), lateFee: 0, frequency: 'QUARTERLY' } })
@@ -314,7 +319,7 @@ async function seed() {
   // (see VALID_FEE_MONTHS in routes API); the schema default is "[]" which
   // would leave routes with no billable months — hence we set it explicitly.
   const TRANSPORT_FEE_MONTHS = ['Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar']
-  const TRANSPORT_ACADEMIC_YEAR = '2025-2026'
+  const TRANSPORT_ACADEMIC_YEAR = '2026-2027'
   const SCHOOL_GATE = 'School Gate, Mathura Road'
   const transportRouteDefs = [
     {
@@ -405,9 +410,9 @@ async function seed() {
 
   // Announcements
   const announcements = [
-    { title: 'Welcome to Academic Year 2025-2026', content: 'Wishing all students, parents and staff a successful new session. Classes begin from 1st April 2025.', audience: 'all', priority: 'normal' },
-    { title: 'Mid-term Examinations Schedule', content: 'Mid-term exams will be conducted from 1st-10th September 2025. Detailed timetable will be shared with class teachers.', audience: 'students', priority: 'high' },
-    { title: 'Annual Day on 15th February 2026', content: 'Annual Day celebrations will be held on 15th February 2026 at the school auditorium. All families are invited.', audience: 'all', priority: 'normal' },
+    { title: 'Welcome to Academic Year 2026-2027', content: 'Wishing all students, parents and staff a successful new session. Classes begin from 1st April 2026.', audience: 'all', priority: 'normal' },
+    { title: 'Mid-term Examinations Schedule', content: 'Mid-term exams will be conducted from 1st-10th September 2026. Detailed timetable will be shared with class teachers.', audience: 'students', priority: 'high' },
+    { title: 'Annual Day on 15th February 2027', content: 'Annual Day celebrations will be held on 15th February 2027 at the school auditorium. All families are invited.', audience: 'all', priority: 'normal' },
   ]
   for (const a of announcements) {
     await db.announcement.create({ data: { schoolId: school.id, title: a.title, content: a.content, audience: a.audience, priority: a.priority, isActive: true } })
@@ -477,6 +482,8 @@ async function seed() {
     { code: 'student:update', name: 'Update Student', module: 'students', action: 'update' },
     { code: 'student:delete', name: 'Delete Student', module: 'students', action: 'delete' },
     { code: 'student:enable_disable', name: 'Enable/Disable Student', module: 'students', action: 'update' },
+    { code: 'student:withdraw', name: 'Issue TC / Withdraw Student', module: 'students', action: 'update' },
+    { code: 'student:withdraw:reverse', name: 'Reverse Student Withdrawal', module: 'students', action: 'update' },
     // Admissions
     { code: 'admission:read', name: 'View Admissions', module: 'admissions', action: 'read' },
     { code: 'admission:create', name: 'Create Admission', module: 'admissions', action: 'create' },
@@ -531,6 +538,7 @@ async function seed() {
     { code: 'transport:read', name: 'View Transport', module: 'transport', action: 'read' },
     { code: 'transport:create', name: 'Create Transport', module: 'transport', action: 'create' },
     { code: 'transport:update', name: 'Update Transport', module: 'transport', action: 'update' },
+    { code: 'transport:allocation:update', name: 'Modify Student Transport Allocation', module: 'transport', action: 'update' },
     { code: 'transport:delete', name: 'Delete Transport', module: 'transport', action: 'delete' },
     { code: 'transport:annual-setup', name: 'Annual Transport Setup', module: 'transport', action: 'update' },
     // Library
@@ -644,7 +652,7 @@ async function seed() {
       isSystem: true,
       permissionCodes: [
         'student:read', 'attendance:read', 'attendance:mark',
-        'fees:read', 'fees:collect', 'salary:read',
+        'fees:read', 'fees:collect', 'fees:refund', 'salary:read',
         'transport:read', 'library:read', 'inventory:read',
         'petty_cash:read', 'notification:read', 'announcement:read',
       ],
@@ -751,7 +759,7 @@ async function seed() {
 
   console.log('\n🎉 Seeding complete!')
   console.log('\n📋 Login Credentials:')
-  console.log('  Super Admin:  superadmin@schoolerp.com / admin123')
+  console.log('  Super Admin:  sahyog.vidhyalayam@gmail.com / admin123')
   console.log('  School Admin: admin@dpsdelhi.in / admin123')
   console.log('  Teacher:      anita.sharma@dpsdelhi.in / teacher123')
   console.log('  Student:      student@example.com / student123')

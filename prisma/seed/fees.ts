@@ -1,7 +1,7 @@
 import { db } from '../../src/lib/db'
 import { assignStudentFeesFromStructure, recordStudentLedgerPayment } from '../../src/lib/fees'
 
-const ACADEMIC_YEAR = '2025-2026'
+const ACADEMIC_YEAR = '2026-2027'
 
 async function main() {
   console.log('🌱 Seeding student fee assignments and sample payments...')
@@ -23,8 +23,8 @@ async function main() {
       schoolId: school.id,
       deletedAt: null,
       OR: [
-        { admissionNumber: { startsWith: 'ADM-SEED-2025-' } },
-        { admissionNumber: { startsWith: 'STD-2025-' } },
+        { admissionNumber: { startsWith: 'ADM-SEED-2026-' } },
+        { admissionNumber: { startsWith: 'STD-2026-' } },
       ],
     },
     include: { admission: { select: { feesGroupId: true } } },
@@ -66,7 +66,7 @@ async function main() {
         academicYear: ACADEMIC_YEAR,
         assignedBy: schoolAdmin.id,
         source: 'admission',
-        effectiveFrom: new Date('2025-04-01'),
+        effectiveFrom: new Date('2026-04-01'),
       })
     })
 
@@ -109,7 +109,7 @@ async function main() {
         studentId: student.id,
         amount: payAmount,
         paymentMethod: 'CASH',
-        paymentDate: new Date('2025-04-10'),
+        paymentDate: new Date('2026-04-10'),
         notes: 'Seed: April installment payment',
         receivedBy: schoolAdmin.id,
         academicYear: ACADEMIC_YEAR,

@@ -78,7 +78,7 @@ const families: FamilySeed[] = [
     },
     children: [
       {
-        admissionNumber: 'ADM-SEED-2025-001',
+        admissionNumber: 'ADM-SEED-2026-001',
         firstName: 'Ira',
         lastName: 'Verma',
         gender: 'Female',
@@ -92,7 +92,7 @@ const families: FamilySeed[] = [
         previousClass: 'Class 1',
       },
       {
-        admissionNumber: 'ADM-SEED-2025-002',
+        admissionNumber: 'ADM-SEED-2026-002',
         firstName: 'Kabir',
         lastName: 'Verma',
         gender: 'Male',
@@ -138,7 +138,7 @@ const families: FamilySeed[] = [
     },
     children: [
       {
-        admissionNumber: 'ADM-SEED-2025-003',
+        admissionNumber: 'ADM-SEED-2026-003',
         firstName: 'Ayaan',
         lastName: 'Khan',
         gender: 'Male',
@@ -152,7 +152,7 @@ const families: FamilySeed[] = [
         previousClass: 'Class 2',
       },
       {
-        admissionNumber: 'ADM-SEED-2025-004',
+        admissionNumber: 'ADM-SEED-2026-004',
         firstName: 'Zoya',
         lastName: 'Khan',
         gender: 'Female',
@@ -198,7 +198,7 @@ const families: FamilySeed[] = [
     },
     children: [
       {
-        admissionNumber: 'ADM-SEED-2025-005',
+        admissionNumber: 'ADM-SEED-2026-005',
         firstName: 'Anika',
         lastName: 'Iyer',
         gender: 'Female',
@@ -360,7 +360,7 @@ async function ensureAdmissionForChild(args: {
     // Backfill enrollment for partial-seed scenarios
     if (classId) {
       const enrollment = await db.studentAcademicEnrollment.findFirst({
-        where: { studentId: existingStudent.id, academicYear: '2025-2026' },
+        where: { studentId: existingStudent.id, academicYear: '2026-2027' },
       })
       if (!enrollment) {
         const rollSuffix = child.admissionNumber.match(/(\d+)$/)?.[1] || '01'
@@ -368,13 +368,13 @@ async function ensureAdmissionForChild(args: {
           data: {
             schoolId,
             studentId: existingStudent.id,
-            academicYear: '2025-2026',
+            academicYear: '2026-2027',
             classId,
             sectionId,
             rollNumber: rollSuffix,
             status: 'active',
             source: 'admission',
-            effectiveFrom: new Date('2025-04-01'),
+            effectiveFrom: new Date('2026-04-01'),
             createdBy,
           },
         })
@@ -388,13 +388,13 @@ async function ensureAdmissionForChild(args: {
       data: {
         schoolId,
         admissionNumber: child.admissionNumber,
-        academicYear: '2025-2026',
+        academicYear: '2026-2027',
         admissionType: 'new',
         status: 'admitted',
         firstName: child.firstName,
         lastName: child.lastName,
         dateOfBirth: child.dateOfBirth,
-        dateOfAdmission: new Date('2025-04-01'),
+        dateOfAdmission: new Date('2026-04-01'),
         gender: child.gender,
         nationality: 'Indian',
         religion: child.religion,
@@ -434,7 +434,7 @@ async function ensureAdmissionForChild(args: {
         motherIncome: family.mother.income,
         classId,
         sectionId,
-        admissionSession: '2025-2026',
+        admissionSession: '2026-2027',
         mediumOfInstruction: 'English',
         previousSchool: child.previousSchool || null,
         previousClass: child.previousClass || null,
@@ -444,9 +444,9 @@ async function ensureAdmissionForChild(args: {
         annualIncome: family.father.income + family.mother.income,
         sourceOfInfo: 'seed_data',
         formNumber: `${child.admissionNumber}-FORM`,
-        appliedDate: new Date('2025-03-20'),
+        appliedDate: new Date('2026-03-20'),
         admittedBy: createdBy,
-        admittedAt: new Date('2025-04-01'),
+        admittedAt: new Date('2026-04-01'),
         remarks: 'Seeded direct admission with parent and sibling data.',
         createdBy,
       },
@@ -472,7 +472,7 @@ async function ensureAdmissionForChild(args: {
         state: family.address.state,
         pincode: family.address.pincode,
         country: 'India',
-        admissionDate: new Date('2025-04-01'),
+        admissionDate: new Date('2026-04-01'),
         previousSchool: child.previousSchool || null,
         previousClass: child.previousClass || null,
         previousResult: child.previousSchool ? 'Promoted' : null,
@@ -493,13 +493,13 @@ async function ensureAdmissionForChild(args: {
         data: {
           schoolId,
           studentId: student.id,
-          academicYear: '2025-2026',
+          academicYear: '2026-2027',
           classId,
           sectionId,
           rollNumber: rollSuffix,
           status: 'active',
           source: 'admission',
-          effectiveFrom: new Date('2025-04-01'),
+          effectiveFrom: new Date('2026-04-01'),
           createdBy: createdBy,
         },
       })
@@ -508,7 +508,7 @@ async function ensureAdmissionForChild(args: {
     await tx.admissionNote.create({
       data: {
         admissionId: admission.id,
-        note: `${child.firstName} admitted to ${child.previousClass ? 'continuing' : 'new'} academic session 2025-2026. Parent contact and sibling links verified.`,
+        note: `${child.firstName} admitted to ${child.previousClass ? 'continuing' : 'new'} academic session 2026-2027. Parent contact and sibling links verified.`,
         noteType: 'general',
         createdBy,
       },
@@ -523,7 +523,7 @@ async function ensureAdmissionForChild(args: {
           fileUrl: `/seed-documents/${child.admissionNumber}/birth-certificate.pdf`,
           fileType: 'application/pdf',
           fileSize: 240,
-          uploadedAt: new Date('2025-03-21'),
+          uploadedAt: new Date('2026-03-21'),
           verificationStatus: 'verified',
           isRequired: true,
         },
@@ -534,7 +534,7 @@ async function ensureAdmissionForChild(args: {
           fileUrl: `/seed-documents/${child.admissionNumber}/aadhaar.pdf`,
           fileType: 'application/pdf',
           fileSize: 180,
-          uploadedAt: new Date('2025-03-21'),
+          uploadedAt: new Date('2026-03-21'),
           verificationStatus: 'pending',
           isRequired: true,
         },

@@ -2,7 +2,7 @@ import { db } from '../../src/lib/db'
 import { hashPassword } from '../../src/lib/auth'
 import { createFeeDebitLedgerEntry } from '../../src/lib/fees'
 
-const ACADEMIC_YEAR = '2025-2026'
+const ACADEMIC_YEAR = '2026-2027'
 const STUDENTS_PER_SECTION = 10
 
 // Transport: 35% of seeded students get an allocation. Route picked by area for
@@ -23,11 +23,11 @@ const AREA_TO_ROUTE: Record<string, string> = {
 
 function monthDueDate(month: string): Date {
   const map: Record<string, [number, number]> = {
-    Apr: [2025, 3], May: [2025, 4], Jun: [2025, 5], Jul: [2025, 6],
-    Aug: [2025, 7], Sep: [2025, 8], Oct: [2025, 9], Nov: [2025, 10],
-    Dec: [2025, 11], Jan: [2026, 0], Feb: [2026, 1], Mar: [2026, 2],
+    Apr: [2026, 3], May: [2026, 4], Jun: [2026, 5], Jul: [2026, 6],
+    Aug: [2026, 7], Sep: [2026, 8], Oct: [2026, 9], Nov: [2026, 10],
+    Dec: [2026, 11], Jan: [2027, 0], Feb: [2027, 1], Mar: [2027, 2],
   }
-  const [y, m] = map[month] ?? [2025, 3]
+  const [y, m] = map[month] ?? [2026, 3]
   return new Date(y, m, 10)
 }
 
@@ -72,7 +72,7 @@ function pad(n: number, width: number) {
 function dobForClass(classNumber: number, idx: number): Date {
   // Children aged ~ (5 + classNumber) years. Spread DoB across 2018, 2017, etc.
   const targetAge = 5 + classNumber
-  const birthYear = 2025 - targetAge
+  const birthYear = 2026 - targetAge
   // spread within year using idx
   const month = (idx * 5) % 12
   const day = ((idx * 7) % 27) + 1
@@ -126,11 +126,11 @@ async function main() {
   }
 
   // Backfill: ensure any pre-existing bulk student has a matching enrollment row
-  // for 2025-2026. Earlier runs of this seed (before the enrollment block was
+  // for 2026-2027. Earlier runs of this seed (before the enrollment block was
   // added) left some students without one — the student detail page then shows
-  // "wasn't enrolled in 2025-2026" even though the student is in the active session.
+  // "wasn't enrolled in 2026-2027" even though the student is in the active session.
   const existingBulkStudents = await db.student.findMany({
-    where: { schoolId: school.id, admissionNumber: { startsWith: 'STD-2025-' } },
+    where: { schoolId: school.id, admissionNumber: { startsWith: 'STD-2026-' } },
     select: { id: true, classId: true, sectionId: true, rollNumber: true, admissionDate: true },
   })
   let backfilled = 0
@@ -151,14 +151,14 @@ async function main() {
         rollNumber: stu.rollNumber,
         status: 'active',
         source: 'admission',
-        effectiveFrom: stu.admissionDate || new Date('2025-04-01'),
+        effectiveFrom: stu.admissionDate || new Date('2026-04-01'),
         createdBy: schoolAdmin.id,
       },
     })
     backfilled++
   }
   if (backfilled > 0) {
-    console.log(`✅ Backfilled ${backfilled} missing 2025-2026 enrollments for existing bulk students`)
+    console.log(`✅ Backfilled ${backfilled} missing 2026-2027 enrollments for existing bulk students`)
   }
 
   // Idempotency: skip new creation if bulk students already present.
@@ -195,7 +195,7 @@ async function main() {
         const groupName = pick(GROUP_ROTATION, s)
         const feesGroup = feeGroupByName.get(groupName) || feeGroupByName.get('New Admission')
 
-        const admissionNumber = `STD-2025-${pad(nextSeq, 3)}`
+        const admissionNumber = `STD-2026-${pad(nextSeq, 3)}`
         const fatherPhone = phoneFromIdx(idx * 2, 98)
         const motherPhone = phoneFromIdx(idx * 2 + 1, 97)
         const fatherIncome = 400000 + (idx % 12) * 75000
@@ -253,7 +253,7 @@ async function main() {
         })
 
         const dob = dobForClass(classNumber, idx)
-        const familyId = `FAM-2025-${pad(nextSeq, 3)}`
+        const familyId = `FAM-2026-${pad(nextSeq, 3)}`
 
         await db.$transaction(async (tx) => {
           const admission = await tx.admission.create({
@@ -266,14 +266,14 @@ async function main() {
               firstName,
               lastName,
               dateOfBirth: dob,
-              dateOfAdmission: new Date('2025-04-01'),
+              dateOfAdmission: new Date('2026-04-01'),
               gender: isMale ? 'Male' : 'Female',
               nationality: 'Indian',
               religion,
               category,
               motherTongue: 'Hindi',
               bloodGroup,
-              registrationNumber: `REG-2025-${pad(nextSeq, 3)}`,
+              registrationNumber: `REG-2026-${pad(nextSeq, 3)}`,
               address: `H-${idx}, ${area.area}, New Delhi`,
               village: area.area,
               postOffice: area.postOffice,
@@ -304,9 +304,9 @@ async function main() {
               familyId,
               annualIncome: fatherIncome + motherIncome,
               sourceOfInfo: 'walk_in',
-              appliedDate: new Date('2025-03-20'),
+              appliedDate: new Date('2026-03-20'),
               admittedBy: schoolAdmin.id,
-              admittedAt: new Date('2025-04-01'),
+              admittedAt: new Date('2026-04-01'),
               createdBy: schoolAdmin.id,
             },
           })
@@ -332,7 +332,7 @@ async function main() {
               state: 'Delhi',
               pincode: area.pincode,
               country: 'India',
-              admissionDate: new Date('2025-04-01'),
+              admissionDate: new Date('2026-04-01'),
               familyId,
               admissionStatus: 'admitted',
               isActive: true,
@@ -351,7 +351,7 @@ async function main() {
               rollNumber: pad(s + 1, 2),
               status: 'active',
               source: 'admission',
-              effectiveFrom: new Date('2025-04-01'),
+              effectiveFrom: new Date('2026-04-01'),
               createdBy: schoolAdmin.id,
             },
           })

@@ -14,7 +14,7 @@ async function main() {
   // ============================================
   const books = await db.libraryBook.findMany({ where: { schoolId: school.id, deletedAt: null }, orderBy: { title: 'asc' } })
   const demoStudents = await db.student.findMany({
-    where: { schoolId: school.id, admissionNumber: { startsWith: 'ADM-SEED-2025-' }, deletedAt: null },
+    where: { schoolId: school.id, admissionNumber: { startsWith: 'ADM-SEED-2026-' }, deletedAt: null },
     orderBy: { admissionNumber: 'asc' },
     take: 2,
   })
@@ -31,9 +31,9 @@ async function main() {
           schoolId: school.id,
           bookId: books[0].id,
           studentId: demoStudents[0].id,
-          issueDate: new Date('2025-05-05'),
-          dueDate: new Date('2025-05-19'),
-          returnDate: new Date('2025-05-17'),
+          issueDate: new Date('2026-05-05'),
+          dueDate: new Date('2026-05-19'),
+          returnDate: new Date('2026-05-17'),
           fine: 0,
           status: 'returned',
         },
@@ -51,8 +51,8 @@ async function main() {
           schoolId: school.id,
           bookId: books[1].id,
           studentId: demoStudents[1].id,
-          issueDate: new Date('2025-06-02'),
-          dueDate: new Date('2025-06-16'),
+          issueDate: new Date('2026-06-02'),
+          dueDate: new Date('2026-06-16'),
           fine: 0,
           status: 'issued',
         },
@@ -63,7 +63,7 @@ async function main() {
   console.log(`✅ Created ${issuesCreated} book issues`)
 
   // ============================================
-  // SALARY PAYMENTS — Apr 2025 + May 2025 paid for every teacher with a structure
+  // SALARY PAYMENTS — Apr 2026 + May 2026 paid for every teacher with a structure
   // ============================================
   const structures = await db.salaryStructure.findMany({
     where: { schoolId: school.id, isActive: true },
@@ -71,8 +71,8 @@ async function main() {
   })
 
   const payMonths: Array<{ month: number; year: number; date: Date }> = [
-    { month: 4, year: 2025, date: new Date('2025-05-01') },
-    { month: 5, year: 2025, date: new Date('2025-06-01') },
+    { month: 4, year: 2026, date: new Date('2026-05-01') },
+    { month: 5, year: 2026, date: new Date('2026-06-01') },
   ]
 
   let salaryPaymentsCreated = 0
@@ -130,12 +130,12 @@ async function main() {
         teacherId: struct.teacherId,
         amount: 10000,
         reason: 'Medical emergency — family treatment',
-        requestDate: new Date('2025-05-15'),
+        requestDate: new Date('2026-05-15'),
         approvalStatus: 'approved',
         approvedBy: schoolAdmin.id,
-        approvedAt: new Date('2025-05-16'),
+        approvedAt: new Date('2026-05-16'),
         deductionMonth: 7,
-        deductionYear: 2025,
+        deductionYear: 2026,
       },
     })
     advancesCreated++

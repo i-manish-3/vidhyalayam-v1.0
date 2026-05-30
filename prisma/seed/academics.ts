@@ -1,7 +1,7 @@
 import { db } from '../../src/lib/db'
 
-const ACADEMIC_YEAR = '2025-2026'
-const ACADEMIC_YEAR_START = new Date('2025-04-01')
+const ACADEMIC_YEAR = '2026-2027'
+const ACADEMIC_YEAR_START = new Date('2026-04-01')
 
 type TimetableSlot = { day: string; period: number; subjectCode: string; teacherSpec: string; startTime: string; endTime: string; roomNo: string }
 
@@ -184,9 +184,9 @@ async function main() {
   // EXAMS — 3 exam sessions × Class 1–5 × main subjects
   // ============================================
   const examSessions: Array<{ name: string; date: Date; totalMarks: number; passingMarks: number; duration: number }> = [
-    { name: 'Unit Test 1', date: new Date('2025-07-15'), totalMarks: 50, passingMarks: 18, duration: 60 },
-    { name: 'Half Yearly', date: new Date('2025-09-22'), totalMarks: 100, passingMarks: 35, duration: 120 },
-    { name: 'Annual', date: new Date('2026-02-23'), totalMarks: 100, passingMarks: 35, duration: 180 },
+    { name: 'Unit Test 1', date: new Date('2026-07-15'), totalMarks: 50, passingMarks: 18, duration: 60 },
+    { name: 'Half Yearly', date: new Date('2026-09-22'), totalMarks: 100, passingMarks: 35, duration: 120 },
+    { name: 'Annual', date: new Date('2027-02-23'), totalMarks: 100, passingMarks: 35, duration: 180 },
   ]
   const examSubjectCodes = ['MATH', 'ENG', 'HIN', 'SST']
 
@@ -232,7 +232,7 @@ async function main() {
   // EXAM RESULTS — Unit Test 1 marks for demo students
   // ============================================
   const demoStudents = await db.student.findMany({
-    where: { schoolId: school.id, admissionNumber: { startsWith: 'ADM-SEED-2025-' }, deletedAt: null },
+    where: { schoolId: school.id, admissionNumber: { startsWith: 'ADM-SEED-2026-' }, deletedAt: null },
     include: { class: { select: { name: true } } },
   })
 
@@ -280,7 +280,7 @@ async function main() {
   console.log(`✅ Created ${resultsCreated} exam results for demo students`)
 
   // ============================================
-  // ATTENDANCE — 30 weekdays from 2025-04-01 for each demo student
+  // ATTENDANCE — 30 weekdays from 2026-04-01 for each demo student
   // ============================================
   const existingAttendance = await db.attendance.count({ where: { schoolId: school.id, academicYear: ACADEMIC_YEAR } })
   if (existingAttendance > 0) {
