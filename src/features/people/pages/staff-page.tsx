@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
+import { ResetUserPasswordDialog } from '@/components/shared'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -70,6 +71,7 @@ import {
   Phone,
   CalendarDays,
   IdCard,
+  KeyRound,
   MapPin,
   User as UserIcon,
   Loader2,
@@ -82,6 +84,7 @@ import {
 
 interface SchoolUser {
   id: string
+  userId?: string | null
   employeeId?: string | null
   name: string
   email: string
@@ -363,6 +366,7 @@ export function StaffPage() {
 
   // Pending toggle target — opens the confirm dialog when set.
   const [toggleTarget, setToggleTarget] = useState<SchoolUser | null>(null)
+  const [resetTarget, setResetTarget] = useState<SchoolUser | null>(null)
   const [togglingId, setTogglingId] = useState<string | null>(null)
 
   // Detail modal state
@@ -768,6 +772,13 @@ export function StaffPage() {
                                   <Eye className="size-4" />
                                   View profile
                                 </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => setResetTarget(staff)}
+                                  disabled={!staff.userId}
+                                >
+                                  <KeyRound className="size-4" />
+                                  Reset password
+                                </DropdownMenuItem>
                                 {staff.isActive ? (
                                   <DropdownMenuItem
                                     onClick={() => setToggleTarget(staff)}
@@ -862,6 +873,13 @@ export function StaffPage() {
                               <DropdownMenuItem onClick={() => handleViewStaff(staff.id)}>
                                 <Eye className="size-4" />
                                 View profile
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => setResetTarget(staff)}
+                                disabled={!staff.userId}
+                              >
+                                <KeyRound className="size-4" />
+                                Reset password
                               </DropdownMenuItem>
                               {staff.isActive ? (
                                 <DropdownMenuItem
@@ -1050,6 +1068,16 @@ export function StaffPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ResetUserPasswordDialog
+        open={!!resetTarget}
+        onOpenChange={(open) => {
+          if (!open) setResetTarget(null)
+        }}
+        userId={resetTarget?.userId ?? null}
+        userName={resetTarget?.name ?? ''}
+        roleLabel="staff member"
+      />
     </div>
   )
 }

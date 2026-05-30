@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { PageHeader, EmptyState, LoadingState } from '@/components/shared'
+import { PageHeader, EmptyState, LoadingState, ResetUserPasswordDialog } from '@/components/shared'
 import { api } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -25,10 +25,11 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { CalendarDays, Eye, Filter, IdCard, Loader2, Mail, MoreHorizontal, Phone, PlusCircle, Route, Search, User as UserIcon, UserCheck, UserX, X } from 'lucide-react'
+import { CalendarDays, Eye, Filter, IdCard, KeyRound, Loader2, Mail, MoreHorizontal, Phone, PlusCircle, Route, Search, User as UserIcon, UserCheck, UserX, X } from 'lucide-react'
 
 interface Driver {
   id: string
+  userId?: string | null
   employeeId?: string | null
   firstName: string
   lastName: string
@@ -99,6 +100,7 @@ export function DriverDirectoryPage() {
   const [assignmentFilter, setAssignmentFilter] = useState('all')
   const [genderFilter, setGenderFilter] = useState('all')
   const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null)
+  const [resetTarget, setResetTarget] = useState<Driver | null>(null)
   const [loading, setLoading] = useState(true)
   const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null)
 
@@ -423,6 +425,16 @@ export function DriverDirectoryPage() {
                               View Details
                             </DropdownMenuItem>
                             <DropdownMenuItem
+                              disabled={!driver.userId}
+                              onClick={(event) => {
+                                event.stopPropagation()
+                                setResetTarget(driver)
+                              }}
+                            >
+                              <KeyRound className="mr-2 size-4" />
+                              Reset Password
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
                               disabled={isUpdating}
                               onClick={(event) => {
                                 event.stopPropagation()
@@ -526,6 +538,16 @@ export function DriverDirectoryPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ResetUserPasswordDialog
+        open={!!resetTarget}
+        onOpenChange={(open) => {
+          if (!open) setResetTarget(null)
+        }}
+        userId={resetTarget?.userId ?? null}
+        userName={resetTarget?.name ?? ''}
+        roleLabel="driver"
+      />
     </div>
   )
 }

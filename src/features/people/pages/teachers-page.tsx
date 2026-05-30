@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { PageHeader, DataTable, type Column, type ActionItem } from '@/components/shared'
+import { PageHeader, DataTable, ResetUserPasswordDialog, type Column, type ActionItem } from '@/components/shared'
 import { api } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
 import { Badge } from '@/components/ui/badge'
@@ -18,11 +18,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { BookOpen, BriefcaseBusiness, CalendarDays, CheckCircle2, Eye, Filter, GraduationCap, Loader2, Mail, MapPin, Pencil, Phone, Search, User as UserIcon, UserCheck, UserPlus, UserX, Users, X } from 'lucide-react'
+import { BookOpen, BriefcaseBusiness, CalendarDays, CheckCircle2, Eye, Filter, GraduationCap, KeyRound, Loader2, Mail, MapPin, Pencil, Phone, Search, User as UserIcon, UserCheck, UserPlus, UserX, Users, X } from 'lucide-react'
 
 interface Teacher {
   [key: string]: unknown
   id: string
+  userId?: string | null
   firstName: string
   lastName: string
   fullName?: string
@@ -107,6 +108,7 @@ export function TeachersPage() {
   const [subjectFilter, setSubjectFilter] = useState('all')
   const [experienceFilter, setExperienceFilter] = useState('all')
   const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null)
+  const [resetPasswordTeacher, setResetPasswordTeacher] = useState<Teacher | null>(null)
 
   const fetchTeachers = useCallback(async () => {
     try {
@@ -295,6 +297,12 @@ export function TeachersPage() {
         label: 'Edit',
         icon: Pencil,
         onClick: () => router.push(`/teachers/${teacher.id}/edit`),
+      },
+      {
+        label: 'Reset Password',
+        icon: KeyRound,
+        onClick: () => setResetPasswordTeacher(teacher),
+        disabled: !teacher.userId,
       },
       {
         label: isUpdating ? 'Updating...' : teacher.isActive ? 'Disable' : 'Enable',
@@ -535,6 +543,16 @@ export function TeachersPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ResetUserPasswordDialog
+        open={!!resetPasswordTeacher}
+        onOpenChange={(open) => {
+          if (!open) setResetPasswordTeacher(null)
+        }}
+        userId={resetPasswordTeacher?.userId ?? null}
+        userName={resetPasswordTeacher ? getTeacherName(resetPasswordTeacher) : ''}
+        roleLabel="teacher"
+      />
     </div>
   )
 }
