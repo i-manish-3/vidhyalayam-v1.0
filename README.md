@@ -106,7 +106,7 @@ After seeding, you can log in with these accounts:
 
 | Role | Email / Phone | Password |
 |------|--------------|----------|
-| **Super Admin** | `superadmin@schoolerp.com` | `admin123` |
+| **Super Admin** | `sahyog.vidhyalayam@gmail.com` | `admin123` |
 | **School Admin** | `admin@dpsdelhi.in` | `admin123` |
 | **Teacher** | `anita.sharma@dpsdelhi.in` | `teacher123` |
 | **Student** | `student@example.com` | `student123` |

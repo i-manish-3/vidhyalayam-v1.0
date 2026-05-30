@@ -39,6 +39,7 @@ export async function POST(request: NextRequest) {
         impersonatingSchoolId: true,
         isActive: true,
         deletedAt: true,
+        tokenVersion: true,
         school: { select: { status: true } },
       },
     })
@@ -59,15 +60,27 @@ export async function POST(request: NextRequest) {
       return res
     }
 
+    // Token version check: if the user's tokenVersion has been bumped since
+    // this refresh token was issued (e.g. password reset), invalidate the
+    // session. Refresh tokens predating the `tv` field carry undefined, which
+    // we treat as 0 — same as a never-rotated user.
+    const tokenTv = payload.tv ?? 0
+    if (tokenTv !== user.tokenVersion) {
+      const res = apiError(401, 'Your session has been invalidated. Please log in again.')
+      clearAuthCookies(res)
+      return res
+    }
+
     const effectiveSchoolId = user.impersonatingSchoolId || user.schoolId || undefined
     const newAccess = generateAccessToken({
       userId: user.id,
       email: user.email,
       role: user.role,
       schoolId: effectiveSchoolId,
+      tv: user.tokenVersion,
       ...(user.impersonatingSchoolId ? { impersonatingSchoolId: user.impersonatingSchoolId } : {}),
     })
-    const newRefresh = generateRefreshToken(user.id)
+    const newRefresh = generateRefreshToken(user.id, user.tokenVersion)
 
     const response = NextResponse.json({ ok: true })
     setAuthCookies(response, newAccess, newRefresh)

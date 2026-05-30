@@ -27,6 +27,10 @@ export interface JWTPayload {
   role: string
   schoolId?: string
   impersonatingSchoolId?: string
+  // Token version, bumped on password reset to invalidate every outstanding
+  // session. Enforced on refresh (see /api/auth/refresh). May be absent on
+  // tokens issued before the field existed — treat undefined as 0.
+  tv?: number
 }
 
 // Refresh token carries only the user id — role/schoolId are re-fetched from
@@ -35,6 +39,7 @@ export interface JWTPayload {
 export interface RefreshPayload {
   userId: string
   type: 'refresh'
+  tv?: number
 }
 
 export async function hashPassword(password: string): Promise<string> {
@@ -59,8 +64,8 @@ export function generateAccessToken(payload: JWTPayload): string {
 // refresh token replayed against a protected route fails verifyAccessToken,
 // and an access token replayed against the refresh endpoint fails
 // verifyRefreshToken.
-export function generateRefreshToken(userId: string): string {
-  return jwt.sign({ userId, type: 'refresh' }, JWT_SECRET, { expiresIn: '30d' })
+export function generateRefreshToken(userId: string, tokenVersion = 0): string {
+  return jwt.sign({ userId, type: 'refresh', tv: tokenVersion }, JWT_SECRET, { expiresIn: '30d' })
 }
 
 export function verifyAccessToken(token: string): JWTPayload | null {

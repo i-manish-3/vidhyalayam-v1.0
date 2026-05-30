@@ -183,8 +183,9 @@ export async function POST(request: NextRequest) {
       email: user.email,
       role: user.role,
       schoolId: user.schoolId || undefined,
+      tv: user.tokenVersion,
     })
-    const refreshToken = generateRefreshToken(user.id)
+    const refreshToken = generateRefreshToken(user.id, user.tokenVersion)
 
     // Tokens go in HttpOnly cookies, not the JSON body — client JavaScript
     // never sees the raw JWT. Subsequent API calls auto-include the cookie

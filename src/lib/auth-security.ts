@@ -100,6 +100,32 @@ export type LoginFailureReason =
   | 'DELETED'
   | 'LOCKED'
   | 'SCHOOL_SUSPENDED'
+  // Password reset events — the LoginEvent table doubles as the auth audit log.
+  // REQUESTED rows have success=false plus a sub-reason in the email/userId
+  // fields; SUCCESS rows have success=true and a real userId.
+  | 'PASSWORD_RESET_REQUESTED'
+  | 'PASSWORD_RESET_NO_USER'
+  | 'PASSWORD_RESET_WRONG_ROLE'
+  | 'PASSWORD_RESET_INACTIVE'
+  | 'PASSWORD_RESET_RATE_LIMITED'
+  | 'PASSWORD_RESET_SUCCESS'
+  | 'PASSWORD_RESET_INVALID_TOKEN'
+  | 'PASSWORD_RESET_EXPIRED_TOKEN'
+  | 'PASSWORD_RESET_USED_TOKEN'
+  // WhatsApp OTP self-service reset (TEACHER / PARENT roles).
+  | 'PASSWORD_OTP_REQUESTED'
+  | 'PASSWORD_OTP_NO_USER'
+  | 'PASSWORD_OTP_WRONG_ROLE'
+  | 'PASSWORD_OTP_INACTIVE'
+  | 'PASSWORD_OTP_RATE_LIMITED'
+  | 'PASSWORD_OTP_NO_PROVIDER'
+  | 'PASSWORD_OTP_SEND_FAILED'
+  | 'PASSWORD_OTP_INVALID'
+  | 'PASSWORD_OTP_EXPIRED'
+  | 'PASSWORD_OTP_LOCKED'
+  | 'PASSWORD_OTP_SUCCESS'
+  // Admin-initiated reset (school admin resets a non-admin's password from UI).
+  | 'ADMIN_PASSWORD_RESET_SUCCESS'
 
 interface LoginEventInput {
   userId?: string | null

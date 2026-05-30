@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { motion, type Variants } from 'framer-motion'
 import { useAppStore } from '@/lib/store'
 import { api } from '@/lib/api'
@@ -27,7 +28,7 @@ import {
 import { useToast } from '@/hooks/use-toast'
 
 const DEMO_ACCOUNTS = [
-  { label: 'Super Admin', email: 'superadmin@schoolerp.com', password: 'admin123', role: 'SUPER_ADMIN' },
+  { label: 'Super Admin', email: 'sahyog.vidhyalayam@gmail.com', password: 'admin123', role: 'SUPER_ADMIN' },
   { label: 'School Admin', email: 'admin@dpsdelhi.in', password: 'admin123', role: 'SCHOOL_ADMIN' },
   { label: 'Teacher', email: 'anita.sharma@dpsdelhi.in', password: 'teacher123', role: 'TEACHER' },
   { label: 'Student', email: 'student@example.com', password: 'student123', role: 'STUDENT' },
@@ -289,9 +290,17 @@ export function LoginScreen() {
                 </div>
 
                 <div className="mb-3.5">
-                  <Label htmlFor="password" className="text-xs font-medium uppercase text-slate-500 dark:text-white/50">
-                    Password
-                  </Label>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="password" className="text-xs font-medium uppercase text-slate-500 dark:text-white/50">
+                      Password
+                    </Label>
+                    <Link
+                      href="/forgot-password"
+                      className="text-xs font-medium text-emerald-600 hover:text-emerald-700 hover:underline dark:text-emerald-400 dark:hover:text-emerald-300"
+                    >
+                      Forgot password?
+                    </Link>
+                  </div>
                   <div className="relative mt-1.5">
                     <Input
                       id="password"
