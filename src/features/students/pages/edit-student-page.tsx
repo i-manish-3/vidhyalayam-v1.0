@@ -725,8 +725,10 @@ export function EditStudentPage({ studentId }: { studentId: string }) {
           affiliatedTo: form.affiliatedTo || null,
           previousSchoolTC: form.previousSchoolTC || null,
           tcDate: form.tcDate || null,
-          transportRouteId: form.transportRouteId || null,
-          transportStop: form.transportStop || null,
+          // transportRouteId / transportStop deliberately omitted — those are
+          // billing events handled by the dedicated transport dialogs on the
+          // student detail page (POST /api/school/students/[id]/transport).
+          // The PATCH endpoint also rejects them for defense-in-depth.
           hostelName: form.hostelName || null,
           hostelRoomNo: form.hostelRoomNo || null,
           hostelBedNo: form.hostelBedNo || null,
@@ -1335,7 +1337,11 @@ export function EditStudentPage({ studentId }: { studentId: string }) {
 
       <Separator />
 
-      {/* Transport Details */}
+      {/* Transport Details — read-only.
+          Mid-year transport changes (add/withdraw/change route) are billing
+          events that touch fee ledgers. They live in the dedicated transport
+          dialogs on the student detail page, not in this generic edit form.
+          See developer-documentation/mid-year-billing-window-changes.md. */}
       <p className="text-sm font-semibold text-muted-foreground flex items-center gap-1.5">
         <Bus className="size-4" /> Transport Details
         {resolvedYear && (
@@ -1344,51 +1350,28 @@ export function EditStudentPage({ studentId }: { studentId: string }) {
           </Badge>
         )}
       </p>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label>Route</Label>
-          <Select value={form.transportRouteId || '_none'} onValueChange={v => updateForm('transportRouteId', v === '_none' ? '' : v)}>
-            <SelectTrigger><SelectValue placeholder="Select route" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="_none">No Transport</SelectItem>
-              {transportRoutes.map(r => (
-                <SelectItem key={r.id} value={r.id}>
-                  {r.routeName}{r.routeNumber ? ` (${r.routeNumber})` : ''}
-                </SelectItem>
-              ))}
-              {transportRoutes.length === 0 && (
-                <SelectItem value="_no_routes" disabled>
-                  No routes available{resolvedYear ? ` for ${resolvedYear}` : ''}
-                </SelectItem>
-              )}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-2">
-          <Label>Stop</Label>
-          <Select
-            value={form.transportStop || '_none'}
-            onValueChange={v => updateForm('transportStop', v === '_none' ? '' : v)}
-            disabled={!form.transportRouteId}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder={form.transportRouteId ? 'Select stop' : 'Select route first'} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="_none">No Stop</SelectItem>
-              {routeStops.map(s => (
-                <SelectItem key={s.name} value={s.name}>
-                  {s.name}{s.fare > 0 ? ` — ₹${s.fare}` : ''}
-                </SelectItem>
-              ))}
-              {form.transportRouteId && routeStops.length === 0 && (
-                <SelectItem value="_no_stops" disabled>
-                  No stops configured for this route
-                </SelectItem>
-              )}
-            </SelectContent>
-          </Select>
-        </div>
+      <div className="rounded-lg border bg-muted/30 p-4 space-y-2">
+        {form.transportRouteId ? (
+          <>
+            <div className="text-sm">
+              <span className="text-muted-foreground">Route:</span>{' '}
+              <span className="font-medium">
+                {transportRoutes.find(r => r.id === form.transportRouteId)?.routeName || '—'}
+              </span>
+            </div>
+            <div className="text-sm">
+              <span className="text-muted-foreground">Stop:</span>{' '}
+              <span className="font-medium">{form.transportStop || '—'}</span>
+            </div>
+          </>
+        ) : (
+          <p className="text-sm text-muted-foreground">No active transport allocation.</p>
+        )}
+        <p className="text-xs text-muted-foreground pt-1 border-t mt-2">
+          To change transport, use the <strong>Add / Discontinue Transport</strong> actions on
+          the student profile page. Those flows handle pro-rated fees, ledger entries, and the
+          allocation history correctly.
+        </p>
       </div>
 
       <Separator />

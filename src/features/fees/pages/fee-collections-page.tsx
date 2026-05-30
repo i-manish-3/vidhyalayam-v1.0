@@ -118,11 +118,36 @@ interface ReceiptSummary {
   lines: Array<{
     label: string
     months: string[]
-    amount: number
+    paid: number          // paid in this transaction (incl. discount applied to this row)
+    due: number           // remaining balance for this row AFTER this transaction
   }>
   totalPaid: number
-  duesAmount: number
+  duesAmount: number      // running balance across the whole student
   paymentMethod: PaymentMethod
+  splits?: ReceiptSplit[] | null
+  collectedBy?: CollectedBy | null
+}
+
+interface ReceiptHistoryLine {
+  feeHeadName: string
+  installmentName: string | null
+  academicYear: string | null
+  isTransport: boolean
+  dueDate: string | null
+  paidInReceipt: number
+  balanceAfter: number
+}
+
+interface ReceiptSplit {
+  paymentMethod: string
+  amount: number
+  transactionRef?: string | null
+  remarks?: string | null
+}
+
+interface CollectedBy {
+  id: string
+  name: string
 }
 
 interface ReceiptHistoryRow {
@@ -133,13 +158,18 @@ interface ReceiptHistoryRow {
   feeMonth: string
   transportMonth: string
   hostelMonth: string
-  date: string
+  date: string                // business payment date (may be back-dated to 00:00)
+  submittedAt?: string | null // actual record-creation timestamp
   discount: number
   paid: number
   dues: number
   paymentMethod?: PaymentMethod | null
+  notes?: string | null
+  splits?: ReceiptSplit[] | null
+  collectedBy?: CollectedBy | null
   session?: string | null
   receiptId?: string | null
+  lines?: ReceiptHistoryLine[]
 }
 
 const MONTHS = ['Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar']
@@ -242,11 +272,228 @@ function itemIsBeforeToday(item: FeeCollectionItem): boolean {
   return ym.month < today.getMonth()
 }
 
+// Local-time YYYY-MM-DD (NOT toISOString — that returns UTC, which is
+// "yesterday" between 12 AM and 5:30 AM IST and breaks the date picker
+// default for early-morning cashiers).
+function todayLocalIso(): string {
+  const d = new Date()
+  const yyyy = d.getFullYear()
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  return `${yyyy}-${mm}-${dd}`
+}
+
 function itemIsCurrentCalendarMonth(item: FeeCollectionItem): boolean {
   const ym = itemCalendarYearMonth(item)
   if (!ym) return false
   const today = new Date()
   return ym.year === today.getFullYear() && ym.month === today.getMonth()
+}
+
+// Walks ticked items in engine allocation order (term → month → transport
+// before tuition → dueDate tiebreaker) and produces one SlipInputLine per
+// item with paid / due distributed against the supplied payment + discount
+// pool. Used by both the live slip and the POST body so the server can
+// persist exactly what the cashier saw.
+function buildSlipInputsFromItems(
+  collectedItems: FeeCollectionItem[],
+  paymentValue: number,
+  discountValue: number,
+): SlipInputLine[] {
+  const sortedItems = [...collectedItems].sort((a, b) => {
+    const keyA = allocationSortKey(a)
+    const keyB = allocationSortKey(b)
+    for (let i = 0; i < keyA.length; i++) {
+      const va = keyA[i]
+      const vb = keyB[i]
+      if (typeof va === 'number' && typeof vb === 'number') {
+        if (va !== vb) return va - vb
+      } else {
+        const cmp = String(va).localeCompare(String(vb))
+        if (cmp !== 0) return cmp
+      }
+    }
+    return 0
+  })
+
+  let remainingPay = Math.max(0, paymentValue)
+  let remainingDisc = Math.max(0, discountValue)
+  const slipInputs: SlipInputLine[] = []
+  for (const item of sortedItems) {
+    const due = remainingAmount(item)
+    let paidForRow = 0
+    let remainingAfter = 0
+    if (due > 0) {
+      const discountForRow = remainingDisc > 0 ? Math.min(remainingDisc, due) : 0
+      const payableForRow = Math.max(0, due - discountForRow)
+      const paymentForRow = Math.min(payableForRow, Math.max(0, remainingPay))
+      remainingPay -= paymentForRow
+      remainingDisc -= discountForRow
+      // For the receipt, "paid" includes any discount applied to this row —
+      // the parent sees the full amount cleared, even if part of it was a
+      // waiver. Discount is declared separately in the slip footer.
+      paidForRow = paymentForRow + discountForRow
+      remainingAfter = Math.max(0, due - discountForRow - paymentForRow)
+    }
+    slipInputs.push({
+      feeHeadName: item.feeHeadName || 'Fee',
+      installmentName: itemPeriod(item) || null,
+      academicYear: academicYearKey(item.academicYear) || null,
+      isTransport: isTransportItem(item),
+      dueDate: item.dueDate || null,
+      paid: paidForRow,
+      due: remainingAfter,
+    })
+  }
+  return slipInputs
+}
+
+// Same calculation as itemCalendarYearMonth but takes the two fields directly
+// — used by buildSlipLines() which works off a generic input shape, not a
+// FeeCollectionItem.
+function slipLineYearMonth(
+  installmentName: string | null | undefined,
+  academicYear: string | null | undefined,
+): { year: number; month: number } | null {
+  if (!installmentName || !academicYear) return null
+  const monthIdx = MONTHS.findIndex((m) => normalizedPeriod(m) === normalizedPeriod(installmentName))
+  if (monthIdx === -1) return null
+  const [start] = academicYear.split('-').map((n) => Number(n))
+  if (Number.isNaN(start)) return null
+  const calendarMonth = monthIdx <= 8 ? monthIdx + 3 : monthIdx - 9
+  const calendarYear = monthIdx <= 8 ? start : start + 1
+  return { year: calendarYear, month: calendarMonth }
+}
+
+// Shared receipt-slip line builder used by both freshly-collected receipts
+// (createReceiptSummary) and the history-view receipt (openHistoryReceipt).
+// Inputs already carry per-row paid/due; this helper buckets, sorts and
+// labels them so the slip is shaped identically in both code paths.
+type SlipInputLine = {
+  feeHeadName: string
+  installmentName: string | null
+  academicYear: string | null
+  isTransport: boolean
+  dueDate: string | null   // ISO string; used to mark term heads as overdue
+  paid: number
+  due: number
+}
+
+type SlipBucketedLine = {
+  label: string
+  months: string[]
+  paid: number
+  due: number
+}
+
+function buildSlipLines(
+  inputs: SlipInputLine[],
+  currentAcademicYear: string,
+  asOfDate: Date,
+): SlipBucketedLine[] {
+  type Bucket = 'prev_session' | 'prev_month' | 'overdue_term' | 'current_month' | 'future_month' | 'term'
+  const bucketOrder: Record<Bucket, number> = {
+    current_month: 0,
+    prev_month: 1,
+    overdue_term: 2,
+    term: 3,
+    future_month: 4,
+    prev_session: 5,
+  }
+  const bucketLabel: Record<Bucket, string> = {
+    prev_session: 'Previous Session Dues',
+    prev_month: 'Previous Month Dues',
+    overdue_term: 'Previous Dues',
+    current_month: '',
+    future_month: 'Advance',
+    term: '',
+  }
+  const asOfYear = asOfDate.getFullYear()
+  const asOfMonth = asOfDate.getMonth()
+  const asOfStart = new Date(asOfYear, asOfMonth, asOfDate.getDate())
+  const isTermOverdue = (dueDate: string | null) => {
+    if (!dueDate) return false
+    const due = new Date(dueDate)
+    if (Number.isNaN(due.getTime())) return false
+    const dueStart = new Date(due.getFullYear(), due.getMonth(), due.getDate())
+    return dueStart.getTime() < asOfStart.getTime()
+  }
+  const classify = (input: SlipInputLine): Bucket => {
+    const ay = (input.academicYear || '').trim()
+    if (ay && ay < currentAcademicYear) return 'prev_session'
+    const isMonthly = isMonthPeriod(input.installmentName || '')
+    if (!isMonthly && !input.isTransport) {
+      return isTermOverdue(input.dueDate) ? 'overdue_term' : 'term'
+    }
+    const ym = slipLineYearMonth(input.installmentName, input.academicYear)
+    if (!ym) return 'current_month'
+    if (ym.year < asOfYear) return 'prev_month'
+    if (ym.year > asOfYear) return 'future_month'
+    if (ym.month < asOfMonth) return 'prev_month'
+    if (ym.month > asOfMonth) return 'future_month'
+    return 'current_month'
+  }
+
+  const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100
+  const groups = new Map<string, {
+    bucket: Bucket
+    feeHeadName: string
+    academicYear: string
+    isTransport: boolean
+    months: Set<string>
+    paid: number
+    due: number
+  }>()
+  for (const input of inputs) {
+    const head = (input.feeHeadName || 'Fee').trim() || 'Fee'
+    const ay = (input.academicYear || '').trim()
+    const bucket = classify(input)
+    const key = `${bucket}|${head}|${input.isTransport ? 't' : 'f'}|${bucket === 'prev_session' ? ay : ''}`
+    const existing = groups.get(key) || {
+      bucket,
+      feeHeadName: head,
+      academicYear: ay,
+      isTransport: input.isTransport,
+      months: new Set<string>(),
+      paid: 0,
+      due: 0,
+    }
+    if (input.installmentName) existing.months.add(input.installmentName)
+    existing.paid += input.paid
+    existing.due += input.due
+    groups.set(key, existing)
+  }
+
+  return Array.from(groups.values())
+    .sort((a, b) => {
+      const bucketCompare = bucketOrder[a.bucket] - bucketOrder[b.bucket]
+      if (bucketCompare !== 0) return bucketCompare
+      if (a.bucket === 'prev_session' && a.academicYear !== b.academicYear) {
+        return b.academicYear.localeCompare(a.academicYear)
+      }
+      if (a.isTransport !== b.isTransport) return a.isTransport ? -1 : 1
+      return a.feeHeadName.localeCompare(b.feeHeadName)
+    })
+    .map((group) => {
+      const months = sortPeriods(Array.from(group.months))
+      const periodList = months.length > 0 ? months.join(', ') : ''
+      const prefix = bucketLabel[group.bucket]
+      let label: string
+      if (!prefix) {
+        label = periodList ? `${group.feeHeadName} (${periodList})` : group.feeHeadName
+      } else {
+        const monthPart = periodList ? ` (${periodList})` : ''
+        const yearPart =
+          group.bucket === 'prev_session' && group.academicYear ? ` — ${group.academicYear}` : ''
+        label = `${prefix} — ${group.feeHeadName}${monthPart}${yearPart}`
+      }
+      return {
+        label,
+        months,
+        paid: round2(group.paid),
+        due: round2(group.due),
+      }
+    })
 }
 
 function periodSelectionKey(period: string, transport = false, itemAcademicYear?: string | null) {
@@ -291,6 +538,17 @@ function isPreviousDue(item: FeeCollectionItem) {
   currentMonthStart.setDate(1)
   currentMonthStart.setHours(0, 0, 0, 0)
   return dueDate < currentMonthStart
+}
+
+// Date-only comparison so a dueDate of "today" still counts as due, regardless
+// of the time component stored on the row. Items with no dueDate are never
+// considered due — the cashier must tick them explicitly.
+function isDueOnOrBefore(item: FeeCollectionItem, asOfDateStart: Date) {
+  if (!item.dueDate) return false
+  const due = new Date(item.dueDate)
+  if (Number.isNaN(due.getTime())) return false
+  const dueStart = new Date(due.getFullYear(), due.getMonth(), due.getDate())
+  return dueStart.getTime() <= asOfDateStart.getTime()
 }
 
 function periodSortIndex(period: string) {
@@ -386,6 +644,7 @@ function numberToWords(value: number) {
 export function FeeCollectionsPage() {
   const { toast } = useToast()
   const currentSchool = useAppStore((state) => state.currentSchool)
+  const currentUser = useAppStore((state) => state.user)
   const currentSchoolAcademicYear = currentSchool?.academicYear
   const viewingAcademicYear = useAppStore((state) => state.viewingAcademicYear)
   const academicYear = viewingAcademicYear || currentSchoolAcademicYear || getCurrentAcademicYear()
@@ -398,7 +657,7 @@ export function FeeCollectionsPage() {
   const [transportInfo, setTransportInfo] = useState<TransportInfo | null>(null)
   const [selectedCollectionIds, setSelectedCollectionIds] = useState<string[]>([])
   const [search, setSearch] = useState('')
-  const [paymentDate, setPaymentDate] = useState(() => new Date().toISOString().slice(0, 10))
+  const [paymentDate, setPaymentDate] = useState(() => todayLocalIso())
   const [discountAmount, setDiscountAmount] = useState('')
   const [remarks, setRemarks] = useState('')
   const [paymentSplits, setPaymentSplits] = useState<PaymentSplitRow[]>([
@@ -501,11 +760,17 @@ export function FeeCollectionsPage() {
       setReceiptHistory(currentData.receiptHistory || [])
       setTransportInfo(currentData.transportInfo || null)
 
-      // Auto-select previous-AY dues + current-AY monthly fees up to & including the current calendar month.
-      // Skip: current-AY non-monthly (admission/term/exam) and future months. Cashier can adjust manually.
+      // Auto-select rules (cashier can override):
+      //   1. Previous-AY dues (any kind, any status except PAID).
+      //   2. Current-AY monthly items up to & including the current calendar month.
+      //   3. Current-AY non-monthly items (admission / exam / quarterly / term)
+      //      whose dueDate has arrived (dueDate <= today, date-only).
+      // Skipped: PAID items, future-dated items, items with no dueDate on
+      // non-monthly heads.
       const today = new Date()
       const todayMonth = today.getMonth()
       const todayYear = today.getFullYear()
+      const todayStart = new Date(todayYear, todayMonth, today.getDate())
       const monthIsCurrentOrPast = (periodName: string, ay: string) => {
         const monthIdx = MONTHS.findIndex((m) => normalizedPeriod(m) === normalizedPeriod(periodName))
         if (monthIdx === -1) return false
@@ -527,7 +792,12 @@ export function FeeCollectionsPage() {
           autoKeys.add(collectionSelectionKey(item))
           continue
         }
-        if (itemAy === academicYear && isMonthPeriod(itemPeriod(item)) && monthIsCurrentOrPast(itemPeriod(item), itemAy)) {
+        if (itemAy !== academicYear) continue
+        const period = itemPeriod(item)
+        const eligible = isMonthPeriod(period)
+          ? monthIsCurrentOrPast(period, itemAy)
+          : isDueOnOrBefore(item, todayStart)
+        if (eligible) {
           autoIds.push(item.id)
           autoKeys.add(collectionSelectionKey(item))
         }
@@ -569,7 +839,7 @@ export function FeeCollectionsPage() {
     [allStudentCollections]
   )
   const paymentHistory = useMemo(
-    () => [...receiptHistory].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
+    () => [...receiptHistory].sort((a, b) => new Date(b.submittedAt || b.date).getTime() - new Date(a.submittedAt || a.date).getTime()),
     [receiptHistory]
   )
   const academicItems = useMemo(
@@ -662,43 +932,12 @@ export function FeeCollectionsPage() {
     () => studentCollections.filter((item) => selectedCollectionIds.includes(item.id)),
     [selectedCollectionIds, studentCollections]
   )
-  const selectedCurrentMonthIndex = useMemo(() => {
-    const selectedMonthIndexes = selectedItems
-      .filter((item) => item.academicYear === academicYear && isMonthPeriod(itemPeriod(item)))
-      .map((item) => periodSortIndex(itemPeriod(item)))
-      .filter((index) => index !== Number.MAX_SAFE_INTEGER)
-    return selectedMonthIndexes.length > 0 ? Math.max(...selectedMonthIndexes) : -1
-  }, [academicYear, selectedItems])
-  const previousMonthDueItems = useMemo(() => {
-    if (selectedCurrentMonthIndex <= 0) return []
-    const selectedIds = new Set(selectedCollectionIds)
-    return studentCollections
-      .filter((item) =>
-        item.academicYear === academicYear &&
-        isMonthPeriod(itemPeriod(item)) &&
-        periodSortIndex(itemPeriod(item)) < selectedCurrentMonthIndex &&
-        !selectedIds.has(item.id)
-      )
-      .sort((a, b) => {
-        const periodCompare = comparePeriods(itemPeriod(a), itemPeriod(b))
-        if (periodCompare !== 0) return periodCompare
-        return (a.dueDate || '').localeCompare(b.dueDate || '')
-      })
-  }, [academicYear, selectedCollectionIds, selectedCurrentMonthIndex, studentCollections])
-  const collectionItems = useMemo(() => {
-    const map = new Map<string, FeeCollectionItem>()
-    for (const item of [...previousMonthDueItems, ...selectedItems]) {
-      map.set(item.id, item)
-    }
-    return Array.from(map.values())
-  }, [previousMonthDueItems, selectedItems])
-  const visibleCollectionItems = useMemo(() => {
-    const map = new Map<string, FeeCollectionItem>()
-    for (const item of [...previousMonthDueItems, ...visibleStudentCollections]) {
-      map.set(item.id, item)
-    }
-    return Array.from(map.values())
-  }, [previousMonthDueItems, visibleStudentCollections])
+  // collectionItems is exactly what the cashier has ticked. Past-month dues
+  // are pre-ticked at load (see fetchStudentCollections auto-select), so any
+  // remaining un-ticked past-month items are explicitly the cashier's
+  // intent to skip — never silently rolled into the receipt.
+  const collectionItems = selectedItems
+  const visibleCollectionItems = visibleStudentCollections
   const selectedTotal = collectionItems.reduce((sum, item) => sum + remainingAmount(item), 0)
   const discount = Number(discountAmount || 0)
   const payableTotal = Math.max(0, selectedTotal - discount)
@@ -759,26 +998,133 @@ export function FeeCollectionsPage() {
   const father = selectedStudent?.parentLinks?.find((link) => link.parent?.fatherName)?.parent
   const mother = selectedStudent?.parentLinks?.find((link) => link.parent?.motherName)?.parent
   const contact = father?.phone || mother?.phone || ''
-  const previousMonthDueTotal = previousMonthDueItems
-    .reduce((sum, item) => sum + remainingAmount(item), 0)
-  const selectedPreviousSessionDue = selectedItems
-    .filter((item) => item.academicYear !== academicYear)
-    .reduce((sum, item) => sum + remainingAmount(item), 0)
-  const selectedPreviousMonthDueInAY = selectedItems
-    .filter((item) => item.academicYear === academicYear && isMonthPeriod(itemPeriod(item)) && itemIsBeforeToday(item))
-    .reduce((sum, item) => sum + remainingAmount(item), 0)
-  const selectedCurrentMonthFee = selectedItems
-    .filter((item) => item.academicYear === academicYear && isMonthPeriod(itemPeriod(item)) && itemIsCurrentCalendarMonth(item))
-    .reduce((sum, item) => sum + remainingAmount(item), 0)
-  const selectedFutureMonthFee = selectedItems
-    .filter((item) => item.academicYear === academicYear && isMonthPeriod(itemPeriod(item)) && !itemIsBeforeToday(item) && !itemIsCurrentCalendarMonth(item))
-    .reduce((sum, item) => sum + remainingAmount(item), 0)
-  const selectedAdmissionTermFee = selectedItems
-    .filter((item) => item.academicYear === academicYear && !isMonthPeriod(itemPeriod(item)))
-    .reduce((sum, item) => sum + remainingAmount(item), 0)
-  const selectedTransportFare = selectedItems
-    .filter((item) => item.academicYear === academicYear && isTransportItem(item))
-    .reduce((sum, item) => sum + remainingAmount(item), 0)
+
+  // Group selected items into time-aware rows for the Payment Summary:
+  //   - Previous Month Dues  (current AY, monthly OR transport, before current calendar month) — amber
+  //   - Current month        (current AY, monthly OR transport, current calendar month)
+  //   - Future / Advance     (current AY, monthly OR transport, after current calendar month)
+  //   - Term / one-off heads (current AY, non-monthly: Admission, Exam Q1, Annual…)
+  //   - Previous Session Dues (any AY < current) — amber, pinned last
+  // Transport rides the same time buckets so an April transport arrear shows
+  // up under "Previous Month Dues" alongside April tuition. Each row is keyed
+  // by (bucket, feeHeadName) so multiple months for the same head collapse
+  // into one row with the months listed inline.
+  const selectedSummaryGroups = useMemo(() => {
+    type Bucket = 'prev_session' | 'prev_month' | 'overdue_term' | 'current_month' | 'future_month' | 'term'
+    const bucketOrder: Record<Bucket, number> = {
+      current_month: 0,
+      prev_month: 1,
+      overdue_term: 2,
+      term: 3,
+      future_month: 4,
+      prev_session: 5,
+    }
+    const bucketLabel: Record<Bucket, string> = {
+      prev_session: 'Previous Session Dues',
+      prev_month: 'Previous Month Dues',
+      overdue_term: 'Previous Dues',
+      current_month: 'Current Month',
+      future_month: 'Future / Advance',
+      term: '',
+    }
+    const accentFor = (bucket: Bucket, isTransport: boolean): 'amber' | 'emerald' | undefined => {
+      if (bucket === 'prev_session' || bucket === 'prev_month' || bucket === 'overdue_term') return 'amber'
+      if (isTransport && bucket === 'current_month') return 'emerald'
+      return undefined
+    }
+    const today = new Date()
+    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+    const isTermStrictlyOverdue = (item: FeeCollectionItem): boolean => {
+      if (!item.dueDate) return false
+      const due = new Date(item.dueDate)
+      if (Number.isNaN(due.getTime())) return false
+      const dueStart = new Date(due.getFullYear(), due.getMonth(), due.getDate())
+      return dueStart.getTime() < todayStart.getTime()
+    }
+    const classify = (item: FeeCollectionItem): Bucket => {
+      const itemAy = academicYearKey(item.academicYear)
+      if (itemAy && itemAy < academicYear) return 'prev_session'
+      // Non-monthly term heads (admission/exam/annual) get the same
+      // overdue treatment as monthly arrears — if dueDate has strictly
+      // passed (today's dueDate is still "current"), surface them under
+      // "Previous Dues" with amber accent.
+      if (!isMonthPeriod(itemPeriod(item)) && !isTransportItem(item)) {
+        return isTermStrictlyOverdue(item) ? 'overdue_term' : 'term'
+      }
+      if (itemIsBeforeToday(item)) return 'prev_month'
+      if (itemIsCurrentCalendarMonth(item)) return 'current_month'
+      return 'future_month'
+    }
+
+    const groups = new Map<string, {
+      key: string
+      bucket: Bucket
+      feeHeadName: string
+      academicYear: string
+      periods: string[]
+      amount: number
+      isTransport: boolean
+    }>()
+    for (const item of selectedItems) {
+      const head = (item.feeHeadName || 'Fee').trim() || 'Fee'
+      const itemAy = academicYearKey(item.academicYear)
+      const bucket = classify(item)
+      const transport = isTransportItem(item)
+      // Term collapses per head; monthly/prev_session keep AY in the key so
+      // a "Tuition 2024-2025" row never merges with the current AY.
+      const key = `${bucket}|${head}|${transport ? 't' : 'f'}|${bucket === 'prev_session' ? itemAy : ''}`
+      const period = itemPeriod(item)
+      const group = groups.get(key) || {
+        key,
+        bucket,
+        feeHeadName: head,
+        academicYear: itemAy,
+        periods: [],
+        amount: 0,
+        isTransport: transport,
+      }
+      if (period && !group.periods.includes(period)) group.periods.push(period)
+      group.amount += remainingAmount(item)
+      groups.set(key, group)
+    }
+
+    return Array.from(groups.values())
+      .map((group) => ({ ...group, periods: sortPeriods(group.periods) }))
+      .sort((a, b) => {
+        const bucketCompare = bucketOrder[a.bucket] - bucketOrder[b.bucket]
+        if (bucketCompare !== 0) return bucketCompare
+        if (a.bucket === 'prev_session' && a.academicYear !== b.academicYear) {
+          return b.academicYear.localeCompare(a.academicYear)
+        }
+        // Within the same bucket, transport before tuition (matches allocation
+        // order so the cashier's eye scan matches the slip).
+        if (a.isTransport !== b.isTransport) return a.isTransport ? -1 : 1
+        return a.feeHeadName.localeCompare(b.feeHeadName)
+      })
+      .map((group) => {
+        const periodList = group.periods.length > 0 ? group.periods.join(', ') : ''
+        const prefix = bucketLabel[group.bucket]
+        // Term row: just "<head> (<periods>)" — no bucket prefix needed.
+        // Monthly / prev_month / future / current: "<bucket> — <head> (<months>)".
+        // Prev-session: "<bucket> — <head> (<months>) — <AY>".
+        let label: string
+        if (group.bucket === 'term') {
+          label = periodList ? `${group.feeHeadName} (${periodList})` : group.feeHeadName
+        } else {
+          const headPart = group.feeHeadName
+          const monthPart = periodList ? ` (${periodList})` : ''
+          const yearPart =
+            group.bucket === 'prev_session' && group.academicYear ? ` — ${group.academicYear}` : ''
+          label = `${prefix} — ${headPart}${monthPart}${yearPart}`
+        }
+        return {
+          key: group.key,
+          label,
+          amount: group.amount,
+          accent: accentFor(group.bucket, group.isTransport),
+        }
+      })
+  }, [selectedItems, academicYear])
 
   useEffect(() => {
     if (firstSplitEdited) return
@@ -838,24 +1184,15 @@ export function FeeCollectionsPage() {
     paidTotal: number,
     remainingDue: number,
     method: PaymentMethod,
+    paymentValue: number,
+    discountValue: number,
+    splits: ReceiptSplit[] | null,
+    collectedBy: CollectedBy | null,
   ) => {
     if (!selectedStudent) return null
 
-    const previousMonthIds = new Set(previousMonthDueItems.map((item) => item.id))
-    const lineMap = new Map<string, { label: string; months: Set<string>; amount: number }>()
-    for (const item of collectedItems) {
-      const label = previousMonthIds.has(item.id) ? 'Previous Month Dues' : item.feeHeadName || 'Fee'
-      const existing = lineMap.get(label) || { label, months: new Set<string>(), amount: 0 }
-      existing.months.add(receiptPeriodLabel(item, academicYear))
-      existing.amount += remainingAmount(item)
-      lineMap.set(label, existing)
-    }
-
-    const lines = Array.from(lineMap.values()).map((line) => ({
-      label: line.label,
-      months: sortPeriods(Array.from(line.months)),
-      amount: line.amount,
-    }))
+    const slipInputs = buildSlipInputsFromItems(collectedItems, paymentValue, discountValue)
+    const lines = buildSlipLines(slipInputs, academicYear, new Date())
 
     return {
       receiptNumber,
@@ -866,27 +1203,71 @@ export function FeeCollectionsPage() {
       totalPaid: paidTotal,
       duesAmount: remainingDue,
       paymentMethod: method,
+      splits,
+      collectedBy,
     }
   }
 
   const openHistoryReceipt = (row: ReceiptHistoryRow) => {
     if (!selectedStudent) return
 
-    const months = [
-      row.feeMonth,
-      row.transportMonth ? `Transport: ${row.transportMonth}` : '',
-      row.hostelMonth ? `Hostel: ${row.hostelMonth}` : '',
-    ].filter(Boolean)
+    const receiptDate = row.date ? new Date(row.date) : new Date()
+    // The API enriches each receipt row with a per-debit `lines[]` array.
+    // Use it to build a slip in the same format as freshly-collected
+    // receipts (bucketed by Current / Previous / Term / Future / Prev Session,
+    // transport before tuition within a bucket). Fallback to the legacy
+    // single-line summary if the server is older and didn't ship lines.
+    const apiLines = row.lines || []
+    let lines: SlipBucketedLine[]
+    let feeMonths: string[]
+    if (apiLines.length > 0) {
+      const slipInputs: SlipInputLine[] = apiLines.map((line) => ({
+        feeHeadName: line.feeHeadName,
+        installmentName: line.installmentName,
+        academicYear: line.academicYear,
+        isTransport: line.isTransport,
+        dueDate: line.dueDate || null,
+        paid: line.paidInReceipt,
+        due: line.balanceAfter,
+      }))
+      lines = buildSlipLines(slipInputs, academicYear, receiptDate)
+      feeMonths = sortPeriods(
+        Array.from(
+          new Set(
+            apiLines
+              .map((line) => line.installmentName)
+              .filter((p): p is string => !!p)
+          )
+        )
+      )
+    } else {
+      const fallbackMonths = [
+        row.feeMonth,
+        row.transportMonth ? `Transport: ${row.transportMonth}` : '',
+        row.hostelMonth ? `Hostel: ${row.hostelMonth}` : '',
+      ].filter(Boolean)
+      lines = [
+        {
+          label: 'Fee Payment',
+          months: fallbackMonths.length > 0 ? fallbackMonths : ['-'],
+          paid: row.paid,
+          due: 0,
+        },
+      ]
+      feeMonths = fallbackMonths.length > 0 ? fallbackMonths : ['-']
+    }
 
     setReceiptSummary({
       receiptNumber: row.receiptId || row.receiptNumber || 'Receipt',
-      receiptDate: row.date ? new Date(row.date) : new Date(),
+      receiptDate,
       student: selectedStudent,
-      feeMonths: months.length > 0 ? months : ['-'],
-      lines: [{ label: 'Fee Payment', months: months.length > 0 ? months : ['-'], amount: row.paid }],
+      feeMonths: feeMonths.length > 0 ? feeMonths : ['-'],
+      lines,
       totalPaid: row.paid,
       duesAmount: row.dues,
       paymentMethod: row.paymentMethod || 'CASH',
+      splits: row.splits ?? null,
+      collectedBy: row.collectedBy ?? null,
     })
   }
 
@@ -1173,20 +1554,52 @@ export function FeeCollectionsPage() {
         ? 'SPLIT'
         : activePaymentSplits[0]?.paymentMethod || paymentSplits[0]?.paymentMethod || 'CASH'
 
+      // Snapshot the slip as the cashier sees it now. We compute this once
+      // and use it for both the POST body (so the server can reproduce the
+      // exact slip later) and the live receipt below. Captures ticked items
+      // that received zero allocation — those would otherwise be lost when
+      // the history is reconstructed from ledger allocations alone, causing
+      // the slip Dues and history Dues to drift apart.
+      const slipInputsSnapshot = buildSlipInputsFromItems(collectionItems, paymentValue, discount)
+
       const collectionResponse = await api.post<{ receiptNumber?: string; appliedAmount?: number }>('/api/school/fees/collections', {
         studentId: selectedStudent.id,
         payments,
         paymentMethod: selectedPaymentMethod,
         paymentDate,
         notes: [remarks, splitSummary].filter(Boolean).join(' | '),
+        // Structured split breakdown for audit. Server stores it as a JSON
+        // tail on the ledger entry's `notes` field; the legacy free-text
+        // summary above keeps the human-readable form. Both are persisted.
+        splits: activePaymentSplits.map((split) => ({
+          paymentMethod: split.paymentMethod,
+          amount: Number(split.amount || 0),
+          remarks: split.remarks || null,
+        })),
+        // Persist the slip snapshot so the history view can replay it
+        // verbatim — including untouched ticked items that the ledger
+        // doesn't know about.
+        slipLines: slipInputsSnapshot,
       })
 
+      const liveSplits: ReceiptSplit[] = activePaymentSplits.map((split) => ({
+        paymentMethod: split.paymentMethod,
+        amount: Number(split.amount || 0),
+        remarks: split.remarks || null,
+      }))
+      const liveCollectedBy: CollectedBy | null = currentUser
+        ? { id: currentUser.id, name: currentUser.name || currentUser.email || 'Unknown' }
+        : null
       const receipt = createReceiptSummary(
         collectionResponse.receiptNumber || 'Pending',
         collectionItems,
         collectionResponse.appliedAmount ?? appliedPaymentTotal,
         balanceDue,
-        selectedPaymentMethod
+        selectedPaymentMethod,
+        paymentValue,
+        discount,
+        liveSplits.length > 0 ? liveSplits : null,
+        liveCollectedBy,
       )
       setReceiptSummary(receipt)
       toast({ title: 'Success', description: 'Fee payment collected successfully.' })
@@ -1675,8 +2088,7 @@ export function FeeCollectionsPage() {
                   ) : (
                     visibleCollectionItems.map((item) => {
                       const checked = selectedCollectionIds.includes(item.id)
-                      const carriedForward = !checked && previousMonthDueItems.some((due) => due.id === item.id)
-                      const preview = checked || carriedForward ? allocationPreview.get(item.id) : undefined
+                      const preview = checked ? allocationPreview.get(item.id) : undefined
                       const due = preview?.due ?? remainingAmount(item)
                       const paying = preview?.paying ?? 0
                       const previewDiscount = preview?.discount ?? 0
@@ -1691,19 +2103,15 @@ export function FeeCollectionsPage() {
                           className={cn(
                             'grid grid-cols-[24px_1fr_auto] items-center gap-2.5 rounded-md border bg-background p-2.5 transition-colors hover:border-primary/40 hover:bg-primary/5',
                             checked && 'border-primary/50 bg-primary/10',
-                            carriedForward && 'border-amber-200 bg-amber-50 dark:border-amber-500/30 dark:bg-amber-500/10',
                             isFullyPaid && 'border-emerald-300 bg-emerald-50 dark:border-emerald-500/30 dark:bg-emerald-500/10',
                             isPartiallyPaid && 'border-amber-300 bg-amber-50 dark:border-amber-500/30 dark:bg-amber-500/10',
                           )}
                         >
-                          <Checkbox checked={checked || carriedForward} disabled={carriedForward} onCheckedChange={() => toggleCollection(item.id)} />
+                          <Checkbox checked={checked} onCheckedChange={() => toggleCollection(item.id)} />
                           <div className="min-w-0">
                             <div className="truncate text-sm font-medium leading-tight">{item.feeHeadName || 'Fee'}</div>
                             <div className="mt-1 flex flex-wrap items-center gap-1.5">
                               <Badge variant="secondary" className="h-4 px-1.5 text-[10px]">{itemPeriod(item)}</Badge>
-                              {carriedForward && (
-                                <Badge className="h-4 bg-amber-100 px-1.5 text-[10px] text-amber-900 hover:bg-amber-100">Previous Month Due</Badge>
-                              )}
                               {item.academicYear && item.academicYear !== academicYear && (
                                 <Badge className="h-4 bg-amber-100 px-1.5 text-[10px] text-amber-900 hover:bg-amber-100">Past · {item.academicYear}</Badge>
                               )}
@@ -1758,29 +2166,24 @@ export function FeeCollectionsPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-2.5 px-3 py-2.5">
-                {/* Breakdown */}
+                {/* Breakdown — one row per (fee head, time bucket). Past
+                    months auto-tick on load (see fetchStudentCollections).
+                    Sub Total = sum of ticked items only; nothing is silently
+                    rolled in. */}
                 <div className="space-y-1 rounded-md border bg-muted/30 p-2.5 text-xs">
-                  {selectedPreviousSessionDue > 0 && (
-                    <SummaryRow label="Previous Session Dues" value={money(selectedPreviousSessionDue)} accent="amber" />
+                  {selectedSummaryGroups.length === 0 && (
+                    <div className="py-1 text-center text-muted-foreground">
+                      No items selected
+                    </div>
                   )}
-                  {selectedPreviousMonthDueInAY > 0 && (
-                    <SummaryRow label="Previous Month Dues" value={money(selectedPreviousMonthDueInAY)} accent="amber" />
-                  )}
-                  {previousMonthDueTotal > 0 && (
-                    <SummaryRow label="Unselected Past Dues" value={money(previousMonthDueTotal)} accent="amber" />
-                  )}
-                  {selectedCurrentMonthFee > 0 && (
-                    <SummaryRow label="Current Month" value={money(selectedCurrentMonthFee)} />
-                  )}
-                  {selectedFutureMonthFee > 0 && (
-                    <SummaryRow label="Future / Advance Months" value={money(selectedFutureMonthFee)} />
-                  )}
-                  {selectedAdmissionTermFee > 0 && (
-                    <SummaryRow label="Admission / Term Fees" value={money(selectedAdmissionTermFee)} />
-                  )}
-                  {selectedTransportFare > 0 && (
-                    <SummaryRow label="Transport Fare (Total)" value={money(selectedTransportFare)} accent="emerald" />
-                  )}
+                  {selectedSummaryGroups.map((group) => (
+                    <SummaryRow
+                      key={group.key}
+                      label={group.label}
+                      value={money(group.amount)}
+                      accent={group.accent}
+                    />
+                  ))}
                   <SummaryRow label="Sub Total" value={money(selectedTotal)} bold />
                 </div>
 
@@ -1916,7 +2319,7 @@ export function FeeCollectionsPage() {
                 </div>
               ) : (
                 <div className="max-h-[420px] overflow-auto">
-                  <table className="w-full min-w-[920px] border-collapse text-xs">
+                  <table className="w-full min-w-[1080px] border-collapse text-xs">
                     <thead className="sticky top-0 z-10 bg-muted">
                       <tr>
                         <th className="w-10 px-2.5 py-2 text-left font-semibold">#</th>
@@ -1927,6 +2330,8 @@ export function FeeCollectionsPage() {
                         <th className="px-2.5 py-2 text-left font-semibold">Tr. Month</th>
                         <th className="px-2.5 py-2 text-left font-semibold">Hostel</th>
                         <th className="px-2.5 py-2 text-left font-semibold">Date</th>
+                        <th className="px-2.5 py-2 text-left font-semibold">Payment Mode</th>
+                        <th className="px-2.5 py-2 text-left font-semibold">Collected By</th>
                         <th className="px-2.5 py-2 text-right font-semibold">Disc.</th>
                         <th className="px-2.5 py-2 text-right font-semibold">Paid</th>
                         <th className="px-2.5 py-2 text-right font-semibold">Dues</th>
@@ -1935,12 +2340,12 @@ export function FeeCollectionsPage() {
                     </thead>
                     <tbody>
                       <tr className="border-y bg-primary/5">
-                        <td colSpan={12} className="px-2.5 py-1.5 text-center text-[11px] font-bold uppercase tracking-wider text-primary">
+                        <td colSpan={14} className="px-2.5 py-1.5 text-center text-[11px] font-bold uppercase tracking-wider text-primary">
                           Session {academicYear}
                         </td>
                       </tr>
                       {paymentHistory.map((row, index) => (
-                        <tr key={row.id} className="border-b transition-colors hover:bg-muted/40">
+                        <tr key={row.id} className="border-b transition-colors hover:bg-muted/40 align-top">
                           <td className="px-2.5 py-2 text-muted-foreground">{index + 1}</td>
                           <td className="px-2.5 py-2 font-mono text-[11px]">{row.receiptNumber || '-'}</td>
                           <td className="px-2.5 py-2">{row.studentName || studentName(selectedStudent)}</td>
@@ -1948,7 +2353,29 @@ export function FeeCollectionsPage() {
                           <td className="px-2.5 py-2">{row.feeMonth || '-'}</td>
                           <td className="px-2.5 py-2">{row.transportMonth || '-'}</td>
                           <td className="px-2.5 py-2">{row.hostelMonth || '-'}</td>
-                          <td className="px-2.5 py-2 text-[11px]">{formatHistoryDateTime(row.date)}</td>
+                          <td className="px-2.5 py-2 text-[11px]">{formatHistoryDateTime(row.submittedAt || row.date)}</td>
+                          <td className="px-2.5 py-2 text-[11px]">
+                            {row.splits && row.splits.length > 0 ? (
+                              <div className="space-y-0.5">
+                                {row.splits.map((split, splitIdx) => (
+                                  <div
+                                    key={`${row.id}-split-${splitIdx}`}
+                                    className="flex items-center justify-between gap-2 rounded-sm bg-muted/60 px-1.5 py-0.5"
+                                  >
+                                    <span className="font-medium">{PAYMENT_METHOD_LABELS[split.paymentMethod as PaymentMethod] || split.paymentMethod}</span>
+                                    <span className="tabular-nums">{receiptMoney(split.amount)}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : row.paymentMethod ? (
+                              <span>{PAYMENT_METHOD_LABELS[row.paymentMethod] || row.paymentMethod}</span>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </td>
+                          <td className="px-2.5 py-2 text-[11px]">
+                            {row.collectedBy?.name || <span className="text-muted-foreground">-</span>}
+                          </td>
                           <td className="px-2.5 py-2 text-right tabular-nums">{row.discount > 0 ? receiptMoney(row.discount) : '-'}</td>
                           <td className="px-2.5 py-2 text-right font-semibold tabular-nums text-emerald-700">{receiptMoney(row.paid)}</td>
                           <td className="px-2.5 py-2 text-right font-semibold tabular-nums text-red-700">{row.dues > 0 ? receiptMoney(row.dues) : '-'}</td>
@@ -2024,28 +2451,60 @@ export function FeeCollectionsPage() {
                 </div>
 
                 <div>
-                  {receiptSummary.lines.map((line) => (
-                    <div key={line.label} className="fee-receipt-line grid min-h-10 grid-cols-[1fr_70px_100px] border-b-2 border-black">
+                  <div className="fee-receipt-line grid min-h-8 grid-cols-[1fr_60px_70px_70px] border-b-2 border-black bg-black/5 text-[11px] font-bold uppercase">
+                    <div className="p-1.5">Description</div>
+                    <div className="border-l-2 border-black p-1.5 text-center">Period</div>
+                    <div className="border-l-2 border-black p-1.5 text-right">Paid</div>
+                    <div className="border-l-2 border-black p-1.5 text-right">Due</div>
+                  </div>
+                  {receiptSummary.lines.map((line, idx) => (
+                    <div key={`${line.label}-${idx}`} className="fee-receipt-line grid min-h-10 grid-cols-[1fr_60px_70px_70px] border-b-2 border-black">
                       <div className="fee-receipt-line-label p-1.5">{line.label}</div>
                       <div className="fee-receipt-line-detail border-l-2 border-black p-1.5 text-center text-xs">
                         {line.months.join(', ')}
                       </div>
-                      <div className="fee-receipt-line-amount border-l-2 border-black p-1.5 text-base font-bold">{receiptMoney(line.amount)}</div>
+                      <div className="fee-receipt-line-amount border-l-2 border-black p-1.5 text-right font-bold tabular-nums">
+                        {line.paid > 0 ? receiptMoney(line.paid) : '-'}
+                      </div>
+                      <div className="fee-receipt-line-amount border-l-2 border-black p-1.5 text-right tabular-nums">
+                        {line.due > 0 ? receiptMoney(line.due) : '-'}
+                      </div>
                     </div>
                   ))}
+                  {/* Sub Total = gross amount this receipt was billed against
+                      (sum of paid + due per line). Reads naturally on the
+                      slip as: Sub Total → Total Paid → Balance Due. */}
+                  <div className="fee-receipt-summary-row grid grid-cols-[1fr_100px] border-b-2 border-black">
+                    <div className="fee-receipt-total-label p-1.5 font-extrabold">Sub Total</div>
+                    <div className="fee-receipt-total-amount border-l-2 border-black p-1.5 font-bold">
+                      {receiptMoney(
+                        Math.round((receiptSummary.lines.reduce((sum, line) => sum + line.paid + line.due, 0) + Number.EPSILON) * 100) / 100
+                      )}
+                    </div>
+                  </div>
                   <div className="fee-receipt-summary-row grid grid-cols-[1fr_100px] border-b-2 border-black">
                     <div className="fee-receipt-total-label p-1.5 font-extrabold">Total Paid</div>
                     <div className="fee-receipt-total-amount border-l-2 border-black p-1.5 text-base font-extrabold">{receiptMoney(receiptSummary.totalPaid)}</div>
                   </div>
                   <div className="fee-receipt-summary-row grid grid-cols-[1fr_100px] border-b-2 border-black">
-                    <div className="fee-receipt-total-label p-1.5 font-extrabold">Dues Amount</div>
+                    <div className="fee-receipt-total-label p-1.5 font-extrabold">Balance Due</div>
                     <div className="fee-receipt-total-amount border-l-2 border-black p-1.5 font-bold">{receiptMoney(receiptSummary.duesAmount)}</div>
                   </div>
                 </div>
 
                 <div className="fee-receipt-footer p-1.5">
                   <div>Amount in word: <span className="font-bold">({numberToWords(receiptSummary.totalPaid)})</span></div>
-                  <div><span className="font-bold">Mode:</span> {PAYMENT_METHOD_LABELS[receiptSummary.paymentMethod] || receiptSummary.paymentMethod}</div>
+                  <div>
+                    <span className="font-bold">Mode:</span>{' '}
+                    {receiptSummary.splits && receiptSummary.splits.length > 1
+                      ? receiptSummary.splits
+                          .map((split) => `${PAYMENT_METHOD_LABELS[split.paymentMethod as PaymentMethod] || split.paymentMethod} ${receiptMoney(split.amount)}`)
+                          .join(' + ')
+                      : PAYMENT_METHOD_LABELS[receiptSummary.paymentMethod] || receiptSummary.paymentMethod}
+                  </div>
+                  {receiptSummary.collectedBy && (
+                    <div><span className="font-bold">Collected By:</span> {receiptSummary.collectedBy.name}</div>
+                  )}
                 </div>
               </div>
 

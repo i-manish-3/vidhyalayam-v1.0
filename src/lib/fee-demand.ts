@@ -145,6 +145,10 @@ export async function selectDueAssignmentItems(
   excludeInvoiceId?: string | null
 ): Promise<DueItem[]> {
   const { start, end } = monthBounds(month, year)
+  // Year-month index of the slip being generated; used to skip MONTHLY items
+  // that belong to months strictly before the student's effectiveFrom (i.e.
+  // back months they hadn't joined for yet).
+  const slipYM = year * 12 + (month - 1)
 
   const assignments = await tx.studentFeeAssignment.findMany({
     where: {
@@ -156,6 +160,8 @@ export async function selectDueAssignmentItems(
     select: {
       id: true,
       academicYear: true,
+      effectiveFrom: true,
+      effectiveTo: true,
       items: {
         where: { status: 'active' },
         select: {
@@ -175,9 +181,28 @@ export async function selectDueAssignmentItems(
 
   const candidates: DueItem[] = []
   for (const assignment of assignments) {
+    const eff = assignment.effectiveFrom
+    const effYM = eff ? eff.getUTCFullYear() * 12 + eff.getUTCMonth() : null
+    const effTo = assignment.effectiveTo
+    const effToYM = effTo ? effTo.getUTCFullYear() * 12 + effTo.getUTCMonth() : null
     for (const item of assignment.items) {
       const isMonthly = item.billingBehavior === 'MONTHLY'
       const dueInMonth = item.dueDate && item.dueDate >= start && item.dueDate < end
+      // Pro-rate by join date: MONTHLY items whose billing month is strictly
+      // before the assignment's effectiveFrom month are skipped. Term heads
+      // (matched via dueInMonth) are unaffected — they're charged in full.
+      if (isMonthly && effYM !== null && slipYM < effYM) continue
+      // Pro-rate by leave date: MONTHLY items whose billing month is strictly
+      // AFTER effectiveTo's month are also skipped. Same rule applied to
+      // term heads via dueInMonth check below — if they fall after effectiveTo
+      // they won't be in the slip's month window anyway, so the OR-bound
+      // here is enough.
+      if (isMonthly && effToYM !== null && slipYM > effToYM) continue
+      // For non-MONTHLY items, hard-stop them once the assignment's window
+      // has closed before the slip's month even if their dueDate happens
+      // to fall in the slip month — a withdrawn student shouldn't be
+      // billed for a term head that nominally falls after they left.
+      if (!isMonthly && effToYM !== null && slipYM > effToYM) continue
       if (isMonthly || dueInMonth) {
         candidates.push({
           ...item,

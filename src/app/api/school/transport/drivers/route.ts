@@ -45,6 +45,7 @@ export async function GET(request: NextRequest) {
         const linked = d.userId ? userById.get(d.userId) : null
         return {
           id: d.id,
+          userId: d.userId ?? null,
           employeeId: d.employeeId,
           firstName: d.firstName,
           lastName: d.lastName,

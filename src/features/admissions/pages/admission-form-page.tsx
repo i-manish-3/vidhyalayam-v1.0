@@ -105,6 +105,30 @@ const REQUIRED_DOCUMENTS = [
   { type: 'medical_cert', name: 'Medical Certificate' },
 ]
 
+const DOC_MAX_BYTES = 200 * 1024 // matches backend cap
+const DOC_ACCEPT_ATTR = 'image/jpeg,image/png,image/webp,image/gif,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+const DOC_ALLOWED_MIME = new Set([
+  'image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif',
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+])
+
+function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result))
+    reader.onerror = () => reject(reader.error || new Error('read failed'))
+    reader.readAsDataURL(file)
+  })
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`
+}
+
 // ============================================
 // Form Interface
 // ============================================
@@ -363,8 +387,16 @@ export function AdmissionFormPage() {
   // Form state
   const [form, setForm] = useState<WizardForm>({ ...DEFAULT_FORM })
 
-  // Document uploads
-  const [documentUploads, setDocumentUploads] = useState<Record<string, { uploaded: boolean; verificationStatus: string }>>({})
+  // Document uploads — files held in browser memory as data URLs until submit.
+  // Backend cap is 200 KB per file; we enforce the same on the client.
+  const [documentUploads, setDocumentUploads] = useState<Record<string, {
+    uploaded: boolean
+    verificationStatus: string
+    fileDataUrl?: string
+    fileName?: string
+    fileSize?: number // bytes
+    fileType?: string
+  }>>({})
   const [customDocName, setCustomDocName] = useState('')
   const [customDocs, setCustomDocs] = useState<{ type: string; name: string }[]>([])
 
@@ -1052,8 +1084,17 @@ export function AdmissionFormPage() {
     siblingId: form.siblingId || null,
     annualIncome: form.fatherIncome ? parseFloat(form.fatherIncome) : null,
     documents: Object.entries(documentUploads)
-      .filter(([, v]) => v.uploaded)
-      .map(([type]) => ({ documentType: type, documentName: REQUIRED_DOCUMENTS.find(d => d.type === type)?.name || customDocs.find(d => d.type === type)?.name || type })),
+      .filter(([, v]) => v.uploaded && v.fileDataUrl)
+      .map(([type, v]) => ({
+        documentType: type,
+        documentName: REQUIRED_DOCUMENTS.find(d => d.type === type)?.name
+          || customDocs.find(d => d.type === type)?.name
+          || type,
+        fileUrl: v.fileDataUrl,
+        fileSize: v.fileSize ? Math.round(v.fileSize / 1024) : null, // schema stores KB
+        fileType: v.fileType || null,
+        isRequired: !type.startsWith('custom_'),
+      })),
   })
 
   const handleSubmit = async () => {
@@ -1092,19 +1133,73 @@ export function AdmissionFormPage() {
     }
   }
 
-  const handleDocumentUpload = (docType: string) => {
-    setDocumentUploads(prev => ({
-      ...prev,
-      [docType]: { uploaded: true, verificationStatus: 'pending' },
-    }))
-    toast({ title: 'Uploaded', description: 'Document uploaded successfully (simulated)' })
+  const handleDocumentFile = async (docType: string, file: File) => {
+    if (!DOC_ALLOWED_MIME.has(file.type)) {
+      toast({
+        title: 'Unsupported File Type',
+        description: 'Please upload a JPG, PNG, WebP, GIF, PDF, or Word document.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    try {
+      let dataUrl: string
+      let finalBytes: number
+      let finalType = file.type
+
+      if (file.type.startsWith('image/')) {
+        // Compress images down toward the cap when possible.
+        const compressed = await compressImage(file)
+        dataUrl = compressed.dataUrl
+        finalBytes = compressed.finalBytes
+      } else {
+        dataUrl = await readFileAsDataUrl(file)
+        finalBytes = file.size
+      }
+
+      if (finalBytes > DOC_MAX_BYTES) {
+        toast({
+          title: 'File Too Large',
+          description: `Max size is 200 KB. This file is ${formatFileSize(finalBytes)}.`,
+          variant: 'destructive',
+        })
+        return
+      }
+
+      setDocumentUploads(prev => ({
+        ...prev,
+        [docType]: {
+          uploaded: true,
+          verificationStatus: 'pending',
+          fileDataUrl: dataUrl,
+          fileName: file.name,
+          fileSize: finalBytes,
+          fileType: finalType,
+        },
+      }))
+      toast({ title: 'Attached', description: `${file.name} ready for submission.` })
+    } catch {
+      toast({
+        title: 'Could Not Read File',
+        description: 'Please try a different file.',
+        variant: 'destructive',
+      })
+    }
+  }
+
+  const removeDocument = (docType: string) => {
+    setDocumentUploads(prev => {
+      const next = { ...prev }
+      delete next[docType]
+      return next
+    })
   }
 
   const addCustomDocument = () => {
     if (!customDocName.trim()) return
     const customType = `custom_${customDocName.toLowerCase().replace(/\s+/g, '_')}`
     setCustomDocs(prev => [...prev, { type: customType, name: customDocName }])
-    setDocumentUploads(prev => ({ ...prev, [customType]: { uploaded: false, verificationStatus: 'pending' } }))
     setCustomDocName('')
   }
 
@@ -1927,12 +2022,15 @@ export function AdmissionFormPage() {
     <div className="space-y-6">
       <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 p-3">
         <Info className="size-4 text-amber-600 mt-0.5 shrink-0" />
-        <p className="text-sm text-amber-800 dark:text-amber-300">Upload required documents for the admission application. All documents will be verified by the school administration.</p>
+        <p className="text-sm text-amber-800 dark:text-amber-300">
+          Upload required documents for the admission application. Max 200&nbsp;KB per file. Supported: JPG, PNG, WebP, GIF, PDF, DOC, DOCX. All documents will be verified by the school administration.
+        </p>
       </div>
 
       <div className="space-y-2">
         {REQUIRED_DOCUMENTS.map(doc => {
           const uploadState = documentUploads[doc.type]
+          const inputId = `doc-input-${doc.type}`
           return (
             <div key={doc.type} className="flex items-center justify-between rounded-lg border p-3 gap-3">
               <div className="flex items-center gap-3 min-w-0">
@@ -1946,24 +2044,45 @@ export function AdmissionFormPage() {
                 <div className="min-w-0">
                   <p className="text-sm font-medium truncate">{doc.name}</p>
                   {uploadState?.uploaded ? (
-                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300">
-                      Pending Verification
-                    </Badge>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300">
+                        Pending Verification
+                      </Badge>
+                      <span className="text-xs text-muted-foreground truncate">
+                        {uploadState.fileName} · {uploadState.fileSize ? formatFileSize(uploadState.fileSize) : ''}
+                      </span>
+                    </div>
                   ) : (
                     <span className="text-xs text-muted-foreground">Not uploaded</span>
                   )}
                 </div>
               </div>
-              <div className="shrink-0">
+              <div className="shrink-0 flex items-center gap-1">
+                <input
+                  id={inputId}
+                  type="file"
+                  accept={DOC_ACCEPT_ATTR}
+                  className="hidden"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0]
+                    e.target.value = '' // allow re-selecting the same file
+                    if (file) await handleDocumentFile(doc.type, file)
+                  }}
+                />
                 {!uploadState?.uploaded && (
-                  <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => handleDocumentUpload(doc.type)}>
+                  <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => (document.getElementById(inputId) as HTMLInputElement)?.click()}>
                     <Upload className="size-3" /> Upload
                   </Button>
                 )}
                 {uploadState?.uploaded && (
-                  <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={() => handleDocumentUpload(doc.type)}>
-                    <Check className="size-3 text-emerald-600" /> Re-upload
-                  </Button>
+                  <>
+                    <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={() => (document.getElementById(inputId) as HTMLInputElement)?.click()}>
+                      <Check className="size-3 text-emerald-600" /> Re-upload
+                    </Button>
+                    <Button variant="ghost" size="sm" className="h-7 text-xs text-destructive" onClick={() => removeDocument(doc.type)}>
+                      <X className="size-3" />
+                    </Button>
+                  </>
                 )}
               </div>
             </div>
@@ -1974,6 +2093,7 @@ export function AdmissionFormPage() {
       {/* Custom Documents */}
       {customDocs.map(doc => {
         const uploadState = documentUploads[doc.type]
+        const inputId = `doc-input-${doc.type}`
         return (
           <div key={doc.type} className="flex items-center justify-between rounded-lg border p-3 gap-3">
             <div className="flex items-center gap-3 min-w-0">
@@ -1983,21 +2103,42 @@ export function AdmissionFormPage() {
               <div className="min-w-0">
                 <p className="text-sm font-medium truncate">{doc.name}</p>
                 {uploadState?.uploaded ? (
-                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 bg-amber-100 text-amber-700">Pending</Badge>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 bg-amber-100 text-amber-700">Pending</Badge>
+                    <span className="text-xs text-muted-foreground truncate">
+                      {uploadState.fileName} · {uploadState.fileSize ? formatFileSize(uploadState.fileSize) : ''}
+                    </span>
+                  </div>
                 ) : (
                   <span className="text-xs text-muted-foreground">Not uploaded</span>
                 )}
               </div>
             </div>
-            <div className="shrink-0">
+            <div className="shrink-0 flex items-center gap-1">
+              <input
+                id={inputId}
+                type="file"
+                accept={DOC_ACCEPT_ATTR}
+                className="hidden"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0]
+                  e.target.value = ''
+                  if (file) await handleDocumentFile(doc.type, file)
+                }}
+              />
               {!uploadState?.uploaded ? (
-                <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => handleDocumentUpload(doc.type)}>
+                <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => (document.getElementById(inputId) as HTMLInputElement)?.click()}>
                   <Upload className="size-3" /> Upload
                 </Button>
               ) : (
-                <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={() => handleDocumentUpload(doc.type)}>
-                  <Check className="size-3 text-emerald-600" /> Re-upload
-                </Button>
+                <>
+                  <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={() => (document.getElementById(inputId) as HTMLInputElement)?.click()}>
+                    <Check className="size-3 text-emerald-600" /> Re-upload
+                  </Button>
+                  <Button variant="ghost" size="sm" className="h-7 text-xs text-destructive" onClick={() => removeDocument(doc.type)}>
+                    <X className="size-3" />
+                  </Button>
+                </>
               )}
             </div>
           </div>
@@ -2204,12 +2345,15 @@ export function AdmissionFormPage() {
           <CardContent className="text-sm">
             {Object.keys(documentUploads).filter(k => documentUploads[k].uploaded).length > 0 ? (
               <div className="flex flex-wrap gap-2">
-                {Object.entries(documentUploads).filter(([, v]) => v.uploaded).map(([type]) => (
-                  <Badge key={type} variant="secondary" className="bg-emerald-50 text-emerald-700">
-                    <Check className="size-3 mr-1" />
-                    {REQUIRED_DOCUMENTS.find(d => d.type === type)?.name || customDocs.find(d => d.type === type)?.name || type}
-                  </Badge>
-                ))}
+                {Object.entries(documentUploads).filter(([, v]) => v.uploaded).map(([type, v]) => {
+                  const label = REQUIRED_DOCUMENTS.find(d => d.type === type)?.name || customDocs.find(d => d.type === type)?.name || type
+                  return (
+                    <Badge key={type} variant="secondary" className="bg-emerald-50 text-emerald-700">
+                      <Check className="size-3 mr-1" />
+                      {label}{v.fileSize ? ` · ${formatFileSize(v.fileSize)}` : ''}
+                    </Badge>
+                  )
+                })}
               </div>
             ) : (
               <p className="text-muted-foreground">No documents uploaded</p>

@@ -41,6 +41,150 @@ function extractAcademicYear(value?: string | null) {
   return value?.match(/\d{4}-\d{4}/)?.[0] || null
 }
 
+// Structured audit payloads are stashed as JSON tails on the ledger entry's
+// `notes` column using distinct delimiters so the human-readable part of
+// notes stays intact. Encoding order is fixed: `<base> ||SLIP=... ||SPLITS=...`
+// so the decoder can strip them right-to-left without ambiguity. Older rows
+// simply have no tail and parse with all fields null.
+const SLIP_DELIMITER = '||SLIP='
+const SPLITS_DELIMITER = '||SPLITS='
+
+interface RecordedPaymentSplit {
+  paymentMethod: string
+  amount: number
+  transactionRef?: string | null
+  remarks?: string | null
+}
+
+// Snapshot of one slip line at collection time — what was billed, paid, and
+// left due on this specific receipt. Persisting this lets the history view
+// reproduce the exact slip the cashier saw, including ticked items that
+// received zero allocation because the payment didn't cover them.
+interface PersistedSlipLine {
+  feeHeadName: string
+  installmentName: string | null
+  academicYear: string | null
+  isTransport: boolean
+  dueDate: string | null   // ISO string; used by the history view to flag
+                           // overdue term heads (Admission, Exam, Annual…)
+  paid: number
+  due: number
+}
+
+function encodeNotesTail(
+  baseNotes: string | null | undefined,
+  slipLines: PersistedSlipLine[] | null | undefined,
+  splits: RecordedPaymentSplit[] | null | undefined,
+): string | null {
+  let s = (baseNotes || '').trim()
+  if (slipLines && slipLines.length > 0) {
+    s = `${s}${s ? ' ' : ''}${SLIP_DELIMITER}${JSON.stringify(slipLines)}`
+  }
+  if (splits && splits.length > 0) {
+    s = `${s}${s ? ' ' : ''}${SPLITS_DELIMITER}${JSON.stringify(splits)}`
+  }
+  return s || null
+}
+
+function decodeNotesTail(value: string | null | undefined): {
+  notes: string | null
+  splits: RecordedPaymentSplit[] | null
+  slipLines: PersistedSlipLine[] | null
+} {
+  if (!value) return { notes: null, splits: null, slipLines: null }
+  let remaining = value
+
+  // Right-to-left: splits was appended last, so peel it off first.
+  let splits: RecordedPaymentSplit[] | null = null
+  const splitsIdx = remaining.lastIndexOf(SPLITS_DELIMITER)
+  if (splitsIdx !== -1) {
+    const tail = remaining.slice(splitsIdx + SPLITS_DELIMITER.length).trim()
+    try {
+      const parsed = JSON.parse(tail)
+      if (Array.isArray(parsed)) {
+        splits = parsed
+          .filter((s) => s && typeof s === 'object' && typeof s.paymentMethod === 'string' && Number.isFinite(Number(s.amount)))
+          .map((s) => ({
+            paymentMethod: String(s.paymentMethod),
+            amount: roundMoney(Number(s.amount)),
+            transactionRef: s.transactionRef ? String(s.transactionRef) : null,
+            remarks: s.remarks ? String(s.remarks) : null,
+          }))
+      }
+    } catch {
+      splits = null
+    }
+    remaining = remaining.slice(0, splitsIdx).trim()
+  }
+
+  let slipLines: PersistedSlipLine[] | null = null
+  const slipIdx = remaining.lastIndexOf(SLIP_DELIMITER)
+  if (slipIdx !== -1) {
+    const tail = remaining.slice(slipIdx + SLIP_DELIMITER.length).trim()
+    try {
+      const parsed = JSON.parse(tail)
+      if (Array.isArray(parsed)) {
+        slipLines = parsed
+          .filter((l) => l && typeof l === 'object' && typeof l.feeHeadName === 'string')
+          .map((l) => ({
+            feeHeadName: String(l.feeHeadName),
+            installmentName: l.installmentName ? String(l.installmentName) : null,
+            academicYear: l.academicYear ? String(l.academicYear) : null,
+            isTransport: !!l.isTransport,
+            dueDate: l.dueDate ? String(l.dueDate) : null,
+            paid: roundMoney(Number(l.paid) || 0),
+            due: roundMoney(Number(l.due) || 0),
+          }))
+      }
+    } catch {
+      slipLines = null
+    }
+    remaining = remaining.slice(0, slipIdx).trim()
+  }
+
+  return { notes: remaining || null, splits, slipLines }
+}
+
+function sanitizeIncomingSplits(value: unknown): RecordedPaymentSplit[] | null {
+  if (!Array.isArray(value)) return null
+  const cleaned: RecordedPaymentSplit[] = []
+  for (const raw of value) {
+    if (!raw || typeof raw !== 'object') continue
+    const obj = raw as Record<string, unknown>
+    const method = typeof obj.paymentMethod === 'string' ? obj.paymentMethod.trim() : ''
+    const amount = Number(obj.amount)
+    if (!method || !Number.isFinite(amount) || amount <= 0) continue
+    cleaned.push({
+      paymentMethod: method,
+      amount: roundMoney(amount),
+      transactionRef: typeof obj.transactionRef === 'string' && obj.transactionRef.trim() ? obj.transactionRef.trim() : null,
+      remarks: typeof obj.remarks === 'string' && obj.remarks.trim() ? obj.remarks.trim() : null,
+    })
+  }
+  return cleaned.length > 0 ? cleaned : null
+}
+
+function sanitizeIncomingSlipLines(value: unknown): PersistedSlipLine[] | null {
+  if (!Array.isArray(value)) return null
+  const cleaned: PersistedSlipLine[] = []
+  for (const raw of value) {
+    if (!raw || typeof raw !== 'object') continue
+    const obj = raw as Record<string, unknown>
+    const headName = typeof obj.feeHeadName === 'string' ? obj.feeHeadName.trim() : ''
+    if (!headName) continue
+    cleaned.push({
+      feeHeadName: headName,
+      installmentName: typeof obj.installmentName === 'string' && obj.installmentName.trim() ? obj.installmentName.trim() : null,
+      academicYear: typeof obj.academicYear === 'string' && obj.academicYear.trim() ? obj.academicYear.trim() : null,
+      isTransport: !!obj.isTransport,
+      dueDate: typeof obj.dueDate === 'string' && obj.dueDate.trim() ? obj.dueDate.trim() : null,
+      paid: roundMoney(Number(obj.paid) || 0),
+      due: roundMoney(Number(obj.due) || 0),
+    })
+  }
+  return cleaned.length > 0 ? cleaned : null
+}
+
 async function ensureLedgerForExistingCollections(
   schoolId: string,
   studentId?: string,
@@ -290,6 +434,28 @@ export async function GET(request: NextRequest) {
       }
     })
 
+    // Resolve cashier display names in a single batched query — the credits
+    // table only stores the userId. Restricting to this school keeps tenant
+    // boundaries clean even if a stale `createdBy` somehow points at a user
+    // from another school.
+    const collectorIds = Array.from(
+      new Set(
+        credits
+          .map((credit) => credit.createdBy)
+          .filter((id): id is string => !!id)
+      )
+    )
+    const collectorMap = new Map<string, { id: string; name: string }>()
+    if (collectorIds.length > 0) {
+      const collectorRows = await db.user.findMany({
+        where: { id: { in: collectorIds }, schoolId: user.schoolId },
+        select: { id: true, name: true, email: true },
+      })
+      for (const row of collectorRows) {
+        collectorMap.set(row.id, { id: row.id, name: row.name || row.email || 'Unknown' })
+      }
+    }
+
     const receiptHistory = credits.map((credit) => {
       const feePeriods = new Set<string>()
       const transportPeriods = new Set<string>()
@@ -297,6 +463,20 @@ export async function GET(request: NextRequest) {
       const sessions = new Set<string>()
       let discount = 0
       let dues = 0
+
+      // Per-allocation breakdown for the "View" slip in the history table.
+      // One entry per debit that this credit touched — paid amount in this
+      // receipt + the debit's balance *after* this receipt (current balance
+      // plus any allocations from later credits added back).
+      const lines: Array<{
+        feeHeadName: string
+        installmentName: string | null
+        academicYear: string | null
+        isTransport: boolean
+        dueDate: Date | null
+        paidInReceipt: number
+        balanceAfter: number
+      }> = []
 
       for (const allocation of credit.creditAllocations) {
         const debit = allocation.debitEntry
@@ -322,8 +502,44 @@ export async function GET(request: NextRequest) {
             return other.createdAt > allocation.createdAt
           })
           .reduce((sum, other) => sum + other.amount, 0)
+        const balanceAfter = roundMoney(debit.balanceAmount + laterAllocated)
         dues += debit.balanceAmount + laterAllocated
+
+        lines.push({
+          feeHeadName: debit.feeHeadName || debit.feeCollection?.feeHeadName || 'Fee',
+          installmentName: debit.installmentName || debit.feeCollection?.installmentName || null,
+          academicYear: debit.academicYear || null,
+          isTransport: headName.includes('transport'),
+          dueDate: debit.dueDate || debit.feeCollection?.dueDate || null,
+          paidInReceipt: roundMoney(allocation.amount),
+          balanceAfter,
+        })
       }
+
+      const { notes: cleanNotes, splits, slipLines: persistedSlipLines } = decodeNotesTail(credit.notes)
+      const collectedBy = credit.createdBy ? (collectorMap.get(credit.createdBy) || null) : null
+
+      // Prefer the persisted slip snapshot when present — it captures the
+      // exact slip the cashier saw, including ticked items that received
+      // zero allocation (so this receipt's Dues stays self-consistent over
+      // time, even when later receipts settle the residue).
+      // Falls back to allocation-derived lines for receipts written before
+      // the snapshot tail was added.
+      const usePersisted = persistedSlipLines && persistedSlipLines.length > 0
+      const responseLines = usePersisted
+        ? persistedSlipLines!.map((l) => ({
+            feeHeadName: l.feeHeadName,
+            installmentName: l.installmentName,
+            academicYear: l.academicYear,
+            isTransport: l.isTransport,
+            dueDate: l.dueDate ? new Date(l.dueDate) : null,
+            paidInReceipt: l.paid,
+            balanceAfter: l.due,
+          }))
+        : lines
+      const responseDues = usePersisted
+        ? roundMoney(persistedSlipLines!.reduce((sum, l) => sum + (l.due || 0), 0))
+        : roundMoney(dues)
 
       return {
         id: credit.id,
@@ -333,13 +549,22 @@ export async function GET(request: NextRequest) {
         feeMonth: sortPeriods(Array.from(feePeriods)).join(', '),
         transportMonth: sortPeriods(Array.from(transportPeriods)).join(', '),
         hostelMonth: sortPeriods(Array.from(hostelPeriods)).join(', '),
+        // `date` = business payment date the cashier picked (used for the
+        //   printed receipt header and for receipt-relative slip bucketing).
+        // `submittedAt` = wall-clock moment the record was actually written
+        //   to the DB — what the cashier wants to see in the history table.
         date: credit.transactionDate,
+        submittedAt: credit.createdAt,
         discount: roundMoney(discount),
         paid: credit.credit,
-        dues: roundMoney(dues),
+        dues: responseDues,
         paymentMethod: credit.paymentMethod,
+        notes: cleanNotes,
+        splits,
+        collectedBy,
         session: Array.from(sessions).sort().join(', ') || academicYear || null,
         receiptId: credit.receiptNumber,
+        lines: responseLines,
       }
     })
 
@@ -399,7 +624,13 @@ export async function POST(request: NextRequest) {
       paymentDate,
       receiptNumber,
       notes,
+      splits: rawSplits,
+      slipLines: rawSlipLines,
     } = body
+
+    const sanitizedSplits = sanitizeIncomingSplits(rawSplits)
+    const sanitizedSlipLines = sanitizeIncomingSlipLines(rawSlipLines)
+    const notesWithSplits = encodeNotesTail(notes, sanitizedSlipLines, sanitizedSplits)
 
     if (!studentId) {
       return apiError(400, 'Please select a student.')
@@ -455,7 +686,7 @@ export async function POST(request: NextRequest) {
               transactionRef,
               receiptNumber: generatedReceipt,
               paymentDate: paymentDateValue,
-              notes,
+              notes: notesWithSplits,
               receivedBy: user.userId,
               targets,
             })
@@ -470,7 +701,7 @@ export async function POST(request: NextRequest) {
             sourceType: 'discount',
             receiptNumber: generatedReceipt,
             paymentDate: paymentDateValue,
-            notes,
+            notes: notesWithSplits,
             createdBy: user.userId,
             targets: discountTargets,
           })
@@ -490,6 +721,8 @@ export async function POST(request: NextRequest) {
               totalPaid,
               totalDiscount,
               rowCount: payments.length,
+              splits: sanitizedSplits,
+              slipLineCount: sanitizedSlipLines?.length || 0,
             }),
           },
         })
@@ -573,6 +806,7 @@ export async function POST(request: NextRequest) {
             adjustmentAmount,
             paymentMethod,
             receiptNumber: generatedReceipt,
+            splits: sanitizedSplits,
           }),
         },
       })

@@ -7,7 +7,7 @@ import { unauthorizedError, internalError, apiError, forbiddenError } from '@/li
 import { hashPassword } from '@/lib/auth'
 import { assignStudentFeesFromStructure, createFeeDebitLedgerEntry } from '@/lib/fees'
 import { allocateSchoolNumber } from '@/lib/admission-numbering'
-import { uploadIfDataUrl, deleteFile, IMAGE_MIME_TYPES } from '@/lib/storage'
+import { uploadIfDataUrl, deleteFile, IMAGE_MIME_TYPES, DOCUMENT_MIME_TYPES } from '@/lib/storage'
 
 function normName(v: unknown): string | null {
   if (typeof v !== 'string') return null
@@ -338,6 +338,7 @@ export async function POST(request: NextRequest) {
   // if the transaction below fails (block-scoped `let` inside try wouldn't be
   // visible in catch).
   let photoToCleanupOnFailure: string | null = null
+  const uploadedDocUrlsToCleanupOnFailure: string[] = []
 
   try {
     const user = requireRole(request, ['SUPER_ADMIN', 'SCHOOL_ADMIN', 'STAFF'])
@@ -616,6 +617,55 @@ export async function POST(request: NextRequest) {
     const profileImageUrl = photoUpload.url ?? null
     photoToCleanupOnFailure = photoUpload.uploaded ? profileImageUrl : null
 
+    // Upload supporting documents before the transaction so a failed upload
+    // doesn't leave a half-created admission. URLs are queued for cleanup if
+    // the transaction below fails.
+    type PreparedDoc = {
+      documentType: string
+      documentName: string
+      fileUrl: string | null
+      fileSize: number | null
+      fileType: string | null
+      isRequired: boolean
+    }
+    const preparedDocs: PreparedDoc[] = []
+    if (Array.isArray(body.documents)) {
+      const seenTypes = new Set<string>()
+      for (const raw of body.documents) {
+        if (!raw || typeof raw !== 'object') continue
+        const documentType = typeof raw.documentType === 'string' ? raw.documentType.trim() : ''
+        const documentName = typeof raw.documentName === 'string' ? raw.documentName.trim() : ''
+        if (!documentType || !documentName) {
+          return apiError(400, 'Each document needs a type and a name.')
+        }
+        if (seenTypes.has(documentType)) {
+          return apiError(400, `Duplicate document type "${documentType}". Each document type can only be uploaded once.`)
+        }
+        seenTypes.add(documentType)
+
+        const docUpload = await uploadIfDataUrl(raw.fileUrl, {
+          folder: `schools/${user.schoolId}/admissions/documents`,
+          maxBytes: 200 * 1024, // 200 KB cap, matches client UI
+          allowedMimeTypes: DOCUMENT_MIME_TYPES,
+        })
+        if (docUpload.error) {
+          return apiError(400, `Document "${documentName}": ${docUpload.error}`)
+        }
+        if (docUpload.uploaded && docUpload.url) {
+          uploadedDocUrlsToCleanupOnFailure.push(docUpload.url)
+        }
+
+        preparedDocs.push({
+          documentType,
+          documentName,
+          fileUrl: docUpload.url ?? null,
+          fileSize: typeof raw.fileSize === 'number' && raw.fileSize >= 0 ? Math.round(raw.fileSize) : null,
+          fileType: typeof raw.fileType === 'string' && raw.fileType ? raw.fileType : null,
+          isRequired: raw.isRequired !== false,
+        })
+      }
+    }
+
     let admissionNumber = ''
     let registrationNumber: string | null = null
 
@@ -853,6 +903,27 @@ export async function POST(request: NextRequest) {
 
       if (body.transportRouteId && body.transportStop) {
         const feeMonths = parseFeeMonths(requestedTransportFare?.feeMonths)
+        // Pro-rate transport by admission date: drop months that fall
+        // strictly before the student's join month. Same rule as tuition in
+        // assignStudentFeesFromStructure.
+        const admissionDate = adm.dateOfAdmission || new Date()
+        const effYM = admissionDate.getUTCFullYear() * 12 + admissionDate.getUTCMonth()
+        const [startYearStr] = (requestedAcademicYear || '').split('-')
+        const startYear = Number(startYearStr)
+        const AY_MONTHS = ['Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec','Jan','Feb','Mar']
+        const monthLabelToYM = (label: string): number | null => {
+          if (!Number.isFinite(startYear)) return null
+          const idx = AY_MONTHS.findIndex((m) => m.toLowerCase() === label.toLowerCase())
+          if (idx === -1) return null
+          const calMonth = idx <= 8 ? idx + 3 : idx - 9
+          const calYear = idx <= 8 ? startYear : startYear + 1
+          return calYear * 12 + calMonth
+        }
+        const billableFeeMonths = feeMonths.filter((label) => {
+          const monthYM = monthLabelToYM(label)
+          return monthYM === null || monthYM >= effYM
+        })
+
         await tx.transportAllocation.create({
           data: {
             schoolId: user.schoolId!,
@@ -863,13 +934,16 @@ export async function POST(request: NextRequest) {
             dropPoint: null,
             stopName: body.transportStop,
             fareAmount: requestedTransportFare?.fare || 0,
-            feeMonths: JSON.stringify(feeMonths),
+            // Persist only billable months so the allocation reflects the
+            // student's actual liability window. Pre-join months never
+            // appear in the demand-slip generator either.
+            feeMonths: JSON.stringify(billableFeeMonths),
             isActive: true,
           },
         })
 
-        if (requestedTransportFare && requestedTransportFare.fare > 0 && feeMonths.length > 0) {
-          for (const month of feeMonths) {
+        if (requestedTransportFare && requestedTransportFare.fare > 0 && billableFeeMonths.length > 0) {
+          for (const month of billableFeeMonths) {
             const transportCollection = await tx.feeCollection.create({
               data: {
                 schoolId: user.schoolId!,
@@ -1100,19 +1174,53 @@ export async function POST(request: NextRequest) {
         ],
       })
 
+      // 7. Persist supporting documents uploaded before the transaction.
+      if (preparedDocs.length > 0) {
+        await tx.admissionDocument.createMany({
+          data: preparedDocs.map((doc) => ({
+            admissionId: adm.id,
+            documentType: doc.documentType,
+            documentName: doc.documentName,
+            fileUrl: doc.fileUrl,
+            fileSize: doc.fileSize,
+            fileType: doc.fileType,
+            uploadedAt: doc.fileUrl ? new Date() : null,
+            verificationStatus: 'pending',
+            isRequired: doc.isRequired,
+          })),
+        })
+
+        await tx.admissionActivity.createMany({
+          data: preparedDocs.map((doc) => ({
+            admissionId: adm.id,
+            action: 'document_uploaded',
+            toValue: doc.documentType,
+            performedBy: user.userId!,
+            description: `Document uploaded: ${doc.documentName}`,
+          })),
+        })
+      }
+
       return adm
     })
 
     return NextResponse.json(admission, { status: 201 })
   } catch (error) {
     // Transaction (or anything after the upload) failed — clean up the orphan
-    // profile photo we uploaded before the transaction, so storage doesn't
-    // accumulate dead files.
+    // profile photo and any supporting document files we uploaded before the
+    // transaction, so storage doesn't accumulate dead files.
     if (photoToCleanupOnFailure) {
       try {
         await deleteFile(photoToCleanupOnFailure)
       } catch (cleanupErr) {
         console.warn('Profile photo cleanup failed:', cleanupErr)
+      }
+    }
+    for (const url of uploadedDocUrlsToCleanupOnFailure) {
+      try {
+        await deleteFile(url)
+      } catch (cleanupErr) {
+        console.warn('Admission document cleanup failed:', cleanupErr)
       }
     }
 

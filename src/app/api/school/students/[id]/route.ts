@@ -525,6 +525,50 @@ export async function PATCH(
       return apiError(404, 'We couldn\'t find this student\'s record. It may have been removed or the link may be incorrect.')
     }
 
+    // Reject transport mutations on this endpoint. Transport changes are
+    // billing events that must go through the dedicated endpoints
+    // (POST /transport, POST /transport/withdraw) so fee ledgers,
+    // TransportAllocation history, and TransportEvent timeline stay
+    // consistent. Editing transport via this PATCH would silently update
+    // the Admission snapshot only — fees and allocation history would
+    // diverge from the live billing state.
+    //
+    // We allow no-op writes (same value as currently stored) so a generic
+    // re-save of a student that happens to include unchanged transport
+    // fields doesn't fail.
+    if (
+      body &&
+      typeof body === 'object' &&
+      body.admission &&
+      typeof body.admission === 'object'
+    ) {
+      const incoming = body.admission as Record<string, unknown>
+      const touchesTransport =
+        'transportRouteId' in incoming || 'transportStop' in incoming
+      if (touchesTransport) {
+        const currentAdm = await db.admission.findFirst({
+          where: { studentId: id, schoolId: user.schoolId },
+          select: { transportRouteId: true, transportStop: true },
+        })
+        const currentRoute = currentAdm?.transportRouteId ?? null
+        const currentStop = currentAdm?.transportStop ?? null
+        const proposedRoute =
+          'transportRouteId' in incoming
+            ? (incoming.transportRouteId as string | null) || null
+            : currentRoute
+        const proposedStop =
+          'transportStop' in incoming
+            ? (incoming.transportStop as string | null) || null
+            : currentStop
+        if (proposedRoute !== currentRoute || proposedStop !== currentStop) {
+          return apiError(
+            400,
+            'Transport changes are not allowed on this endpoint. Use the Add Transport / Discontinue Transport actions on the student profile so fee ledgers and allocation history stay consistent.',
+          )
+        }
+      }
+    }
+
     const {
       firstName,
       lastName,
@@ -674,9 +718,11 @@ export async function PATCH(
       if (admissionData.affiliatedTo !== undefined) adm.affiliatedTo = admissionData.affiliatedTo || null
       if (admissionData.previousSchoolTC !== undefined) adm.previousSchoolTC = admissionData.previousSchoolTC || null
       if (admissionData.tcDate !== undefined) adm.tcDate = admissionData.tcDate ? new Date(admissionData.tcDate) : null
-      // Transport & Hostel
-      if (admissionData.transportRouteId !== undefined) adm.transportRouteId = admissionData.transportRouteId || null
-      if (admissionData.transportStop !== undefined) adm.transportStop = admissionData.transportStop || null
+      // Transport (transportRouteId / transportStop) deliberately NOT handled
+      // here. Mutations to those fields are rejected at the top of the PATCH
+      // handler — they must go through POST /students/[id]/transport or
+      // POST /students/[id]/transport/withdraw.
+      // Hostel
       if (admissionData.hostelName !== undefined) adm.hostelName = admissionData.hostelName || null
       if (admissionData.hostelRoomNo !== undefined) adm.hostelRoomNo = admissionData.hostelRoomNo || null
       if (admissionData.hostelBedNo !== undefined) adm.hostelBedNo = admissionData.hostelBedNo || null

@@ -698,6 +698,20 @@ export async function assignStudentFeesFromStructure(input: AssignStudentFeesInp
   })
   if (existing) return existing
 
+  // Pro-rate by join date: MONTHLY items whose calendar month falls strictly
+  // BEFORE the assignment's effective-from month are skipped. Term heads
+  // (admission, exam, annual…) are always created in full regardless of when
+  // the student joined. UTC math matches fee-demand.ts's monthBounds.
+  const effectiveFromDate = effectiveFrom || new Date()
+  const effectiveFromYM = effectiveFromDate.getUTCFullYear() * 12 + effectiveFromDate.getUTCMonth()
+  const eligibleStructureItems = feeStructure.items.filter((item) => {
+    if (item.frequency !== 'MONTHLY') return true
+    if (!item.dueDate) return true
+    const itemYM = item.dueDate.getUTCFullYear() * 12 + item.dueDate.getUTCMonth()
+    return itemYM >= effectiveFromYM
+  })
+  if (eligibleStructureItems.length === 0) return null
+
   const assignment = await tx.studentFeeAssignment.create({
     data: {
       schoolId,
@@ -709,7 +723,7 @@ export async function assignStudentFeesFromStructure(input: AssignStudentFeesInp
       academicYear,
       name: feeStructure.name,
       source,
-      effectiveFrom: effectiveFrom || new Date(),
+      effectiveFrom: effectiveFromDate,
       assignedBy: assignedBy || null,
       snapshotJson: serialize({
         feeStructure: {
@@ -721,14 +735,20 @@ export async function assignStudentFeesFromStructure(input: AssignStudentFeesInp
           sectionName: feeStructure.section?.name,
           groupName: feeStructure.feesGroup?.name,
         },
-        items: feeStructure.items.map((item) => ({
+        effectiveFrom: effectiveFromDate.toISOString(),
+        skippedItemCount: feeStructure.items.length - eligibleStructureItems.length,
+        items: eligibleStructureItems.map((item) => ({
           feeStructureItemId: item.id,
           feeHeadId: item.feeHeadId,
           feeHeadName: item.feeHead?.name,
           billingBehavior: item.frequency,
           installmentName: item.installmentName,
           amount: item.amount,
-          dueDate: item.dueDate,
+          // Clamp every item's dueDate to be no earlier than the student's
+          // effectiveFrom — so a school-template "1-Apr" admission-fee due
+          // date doesn't render as overdue on a July admit's day-zero slip.
+          dueDate: item.dueDate && item.dueDate < effectiveFromDate ? effectiveFromDate : item.dueDate,
+          structureDueDate: item.dueDate,
           lateFee: item.lateFee,
           headType: item.feeHead?.headType,
           isOptional: item.feeHead?.isOptional,
@@ -750,7 +770,11 @@ export async function assignStudentFeesFromStructure(input: AssignStudentFeesInp
     invoiceLineId?: string
     feeCollectionId?: string
   }> = []
-  for (const item of feeStructure.items) {
+  for (const item of eligibleStructureItems) {
+    // Clamp dueDate to >= effectiveFrom. Flows downstream to the invoice
+    // line, FeeCollection, and ledger debit via item.snapshot.dueDate.
+    const effectiveDueDate =
+      item.dueDate && item.dueDate < effectiveFromDate ? effectiveFromDate : item.dueDate
     const assignmentItem = await tx.studentFeeAssignmentItem.create({
       data: {
         assignmentId: assignment.id,
@@ -760,7 +784,7 @@ export async function assignStudentFeesFromStructure(input: AssignStudentFeesInp
         billingBehavior: item.frequency,
         installmentName: item.installmentName,
         amount: item.amount,
-        dueDate: item.dueDate,
+        dueDate: effectiveDueDate,
         lateFee: item.lateFee,
         headType: item.feeHead?.headType || 'STANDARD',
         isOptional: item.feeHead?.isOptional || false,
