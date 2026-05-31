@@ -15,6 +15,11 @@ interface AssignStudentFeesInput {
   assignedBy?: string | null
   source?: string
   effectiveFrom?: Date | null
+  // When true, the student is billed the structure's full year regardless of
+  // join month: pre-join MONTHLY items are NOT skipped and dueDates are NOT
+  // clamped forward. Used for mid-session admits where the school treats the
+  // seat as reserved for the whole year.
+  chargeFullYear?: boolean
 }
 
 interface FeeDebitInput {
@@ -646,6 +651,7 @@ export async function assignStudentFeesFromStructure(input: AssignStudentFeesInp
     assignedBy,
     source = 'manual',
     effectiveFrom,
+    chargeFullYear = false,
   } = input
 
   if (!classId || !feesGroupId) return null
@@ -702,14 +708,18 @@ export async function assignStudentFeesFromStructure(input: AssignStudentFeesInp
   // BEFORE the assignment's effective-from month are skipped. Term heads
   // (admission, exam, annual…) are always created in full regardless of when
   // the student joined. UTC math matches fee-demand.ts's monthBounds.
+  // When chargeFullYear=true, this pro-rating is bypassed entirely — every
+  // structure item is billed regardless of join month.
   const effectiveFromDate = effectiveFrom || new Date()
   const effectiveFromYM = effectiveFromDate.getUTCFullYear() * 12 + effectiveFromDate.getUTCMonth()
-  const eligibleStructureItems = feeStructure.items.filter((item) => {
-    if (item.frequency !== 'MONTHLY') return true
-    if (!item.dueDate) return true
-    const itemYM = item.dueDate.getUTCFullYear() * 12 + item.dueDate.getUTCMonth()
-    return itemYM >= effectiveFromYM
-  })
+  const eligibleStructureItems = chargeFullYear
+    ? feeStructure.items
+    : feeStructure.items.filter((item) => {
+        if (item.frequency !== 'MONTHLY') return true
+        if (!item.dueDate) return true
+        const itemYM = item.dueDate.getUTCFullYear() * 12 + item.dueDate.getUTCMonth()
+        return itemYM >= effectiveFromYM
+      })
   if (eligibleStructureItems.length === 0) return null
 
   const assignment = await tx.studentFeeAssignment.create({
@@ -736,6 +746,7 @@ export async function assignStudentFeesFromStructure(input: AssignStudentFeesInp
           groupName: feeStructure.feesGroup?.name,
         },
         effectiveFrom: effectiveFromDate.toISOString(),
+        billingMode: chargeFullYear ? 'full_year' : 'pro_rated',
         skippedItemCount: feeStructure.items.length - eligibleStructureItems.length,
         items: eligibleStructureItems.map((item) => ({
           feeStructureItemId: item.id,
@@ -747,7 +758,9 @@ export async function assignStudentFeesFromStructure(input: AssignStudentFeesInp
           // Clamp every item's dueDate to be no earlier than the student's
           // effectiveFrom — so a school-template "1-Apr" admission-fee due
           // date doesn't render as overdue on a July admit's day-zero slip.
-          dueDate: item.dueDate && item.dueDate < effectiveFromDate ? effectiveFromDate : item.dueDate,
+          // Skipped when chargeFullYear=true: those April fees are
+          // legitimately overdue for a full-year mid-session admit.
+          dueDate: !chargeFullYear && item.dueDate && item.dueDate < effectiveFromDate ? effectiveFromDate : item.dueDate,
           structureDueDate: item.dueDate,
           lateFee: item.lateFee,
           headType: item.feeHead?.headType,
@@ -773,8 +786,10 @@ export async function assignStudentFeesFromStructure(input: AssignStudentFeesInp
   for (const item of eligibleStructureItems) {
     // Clamp dueDate to >= effectiveFrom. Flows downstream to the invoice
     // line, FeeCollection, and ledger debit via item.snapshot.dueDate.
+    // chargeFullYear=true skips the clamp so structure due dates are honored
+    // verbatim (pre-join months land as overdue, intentionally).
     const effectiveDueDate =
-      item.dueDate && item.dueDate < effectiveFromDate ? effectiveFromDate : item.dueDate
+      !chargeFullYear && item.dueDate && item.dueDate < effectiveFromDate ? effectiveFromDate : item.dueDate
     const assignmentItem = await tx.studentFeeAssignmentItem.create({
       data: {
         assignmentId: assignment.id,

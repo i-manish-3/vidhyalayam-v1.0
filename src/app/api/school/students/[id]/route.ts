@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { requireRole, requirePermission } from '@/lib/api-auth'
 import { unauthorizedError, internalError, apiError, forbiddenError } from '@/lib/api-errors'
-import { uploadIfDataUrl, IMAGE_MIME_TYPES } from '@/lib/storage'
+import { uploadIfDataUrl, deleteFile, IMAGE_MIME_TYPES, DOCUMENT_MIME_TYPES } from '@/lib/storage'
 
 function normName(v: unknown): string | null {
   if (typeof v !== 'string') return null
@@ -317,6 +317,9 @@ export async function GET(
                 uploadedAt: true,
                 verificationStatus: true,
                 isRequired: true,
+                verifiedAt: true,
+                verifiedBy: true,
+                rejectionReason: true,
               },
               orderBy: { createdAt: 'asc' },
             },
@@ -742,7 +745,11 @@ export async function PATCH(
         await syncStudentParentContacts(id, user.schoolId, admissionData as Record<string, unknown>)
       }
 
-      // Handle documents if provided
+      // Handle documents if provided. Each doc may carry a fileUrl as a data URL
+      // (new upload), an https URL (already-uploaded — leave file as-is), or no
+      // file (metadata-only update). 200 KB per file matches the wizard / detail
+      // page UI, and we delete the previous file when a new one is uploaded so
+      // storage doesn't accumulate orphans.
       if (admissionData.documents && Array.isArray(admissionData.documents)) {
         const admissionRecord = await db.admission.findFirst({
           where: { studentId: id, schoolId: user.schoolId, deletedAt: null },
@@ -750,32 +757,104 @@ export async function PATCH(
         })
 
         if (admissionRecord) {
-          for (const doc of admissionData.documents) {
-            if (!doc.documentType || !doc.documentName) continue
+          const newlyUploadedUrls: string[] = []
+          try {
+            for (const doc of admissionData.documents) {
+              if (!doc.documentType || !doc.documentName) continue
 
-            const existing = await db.admissionDocument.findFirst({
-              where: { admissionId: admissionRecord.id, documentType: doc.documentType },
-            })
+              const existing = await db.admissionDocument.findFirst({
+                where: { admissionId: admissionRecord.id, documentType: doc.documentType },
+              })
 
-            if (existing) {
-              await db.admissionDocument.update({
-                where: { id: existing.id },
-                data: {
-                  documentName: doc.documentName,
-                  uploadedAt: existing.uploadedAt || new Date(),
-                },
-              })
-            } else {
-              await db.admissionDocument.create({
-                data: {
-                  admissionId: admissionRecord.id,
-                  documentType: doc.documentType,
-                  documentName: doc.documentName,
-                  isRequired: true,
-                  verificationStatus: 'pending',
-                },
-              })
+              const incomingFileUrl = typeof doc.fileUrl === 'string' ? doc.fileUrl : null
+              const isDataUrl = incomingFileUrl?.startsWith('data:') ?? false
+              const upload = isDataUrl
+                ? await uploadIfDataUrl(incomingFileUrl, {
+                    folder: `schools/${user.schoolId}/admissions/${admissionRecord.id}/documents`,
+                    maxBytes: 200 * 1024,
+                    allowedMimeTypes: DOCUMENT_MIME_TYPES,
+                    previousUrl: existing?.fileUrl ?? undefined,
+                  })
+                : { url: undefined, uploaded: false, error: undefined as string | undefined }
+
+              if (upload.error) {
+                return apiError(400, `Document "${doc.documentName}": ${upload.error}`)
+              }
+              if (upload.uploaded && upload.url) {
+                newlyUploadedUrls.push(upload.url)
+              }
+
+              const fileSize = typeof doc.fileSize === 'number' && doc.fileSize >= 0 ? Math.round(doc.fileSize) : null
+              const fileType = typeof doc.fileType === 'string' && doc.fileType ? doc.fileType : null
+
+              if (existing) {
+                await db.admissionDocument.update({
+                  where: { id: existing.id },
+                  data: {
+                    documentName: doc.documentName,
+                    ...(upload.uploaded
+                      ? {
+                          fileUrl: upload.url ?? null,
+                          fileSize: fileSize ?? existing.fileSize,
+                          fileType: fileType ?? existing.fileType,
+                          uploadedAt: new Date(),
+                          // Re-upload resets verification — admin must re-verify the new file.
+                          verificationStatus: 'pending',
+                          verifiedBy: null,
+                          verifiedAt: null,
+                          rejectionReason: null,
+                        }
+                      : {
+                          uploadedAt: existing.uploadedAt || new Date(),
+                        }),
+                  },
+                })
+                if (upload.uploaded) {
+                  await db.admissionActivity.create({
+                    data: {
+                      admissionId: admissionRecord.id,
+                      action: 'document_uploaded',
+                      fromValue: existing.verificationStatus,
+                      toValue: 'pending',
+                      performedBy: user.userId!,
+                      description: `Document re-uploaded: ${doc.documentName}`,
+                    },
+                  })
+                }
+              } else {
+                const created = await db.admissionDocument.create({
+                  data: {
+                    admissionId: admissionRecord.id,
+                    documentType: doc.documentType,
+                    documentName: doc.documentName,
+                    fileUrl: upload.url ?? null,
+                    fileSize,
+                    fileType,
+                    uploadedAt: upload.uploaded ? new Date() : null,
+                    isRequired: doc.isRequired !== false,
+                    verificationStatus: 'pending',
+                  },
+                })
+                await db.admissionActivity.create({
+                  data: {
+                    admissionId: admissionRecord.id,
+                    action: 'document_uploaded',
+                    toValue: 'pending',
+                    performedBy: user.userId!,
+                    description: `Document uploaded: ${created.documentName}`,
+                  },
+                })
+              }
             }
+          } catch (docErr) {
+            // A document write failed mid-loop. Clean up any files we uploaded
+            // in this request so storage doesn't accumulate orphans.
+            for (const url of newlyUploadedUrls) {
+              try { await deleteFile(url) } catch (cleanupErr) {
+                console.warn('Document cleanup failed:', cleanupErr)
+              }
+            }
+            throw docErr
           }
         }
       }

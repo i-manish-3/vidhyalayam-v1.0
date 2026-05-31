@@ -18,6 +18,7 @@ export interface GenerateSlipArgs {
   generatedBy?: string | null
   demandRunId?: string | null
   force?: boolean
+  upToMonth?: number | null
 }
 
 export type SlipResult =
@@ -33,6 +34,7 @@ export interface BulkArgs {
   generatedBy?: string | null
   force?: boolean
   dryRun?: boolean
+  upToMonth?: number | null
 }
 
 export interface BulkResult {
@@ -142,13 +144,18 @@ export async function selectDueAssignmentItems(
   // When the caller is previewing a force-regenerate, the existing invoice
   // hasn't actually been soft-deleted yet — pass its id here so its lines
   // are excluded from the "already billed" filter.
-  excludeInvoiceId?: string | null
+  excludeInvoiceId?: string | null,
+  // When set, only include MONTHLY items up to and including this month.
+  // Catch-up behavior: if generating July slip, include all unbilled months
+  // from the earliest unbilled month up to July.
+  // Term items (ADMISSION, EXAM, etc.) are unaffected — they're included
+  // based on their dueDate falling in the slip's billing month window.
+  upToMonth?: number | null
 ): Promise<DueItem[]> {
   const { start, end } = monthBounds(month, year)
-  // Year-month index of the slip being generated; used to skip MONTHLY items
-  // that belong to months strictly before the student's effectiveFrom (i.e.
-  // back months they hadn't joined for yet).
+  // Year-month index of the slip being generated
   const slipYM = year * 12 + (month - 1)
+  const upToYM = upToMonth ? year * 12 + (upToMonth - 1) : slipYM
 
   const assignments = await tx.studentFeeAssignment.findMany({
     where: {
@@ -188,22 +195,37 @@ export async function selectDueAssignmentItems(
     for (const item of assignment.items) {
       const isMonthly = item.billingBehavior === 'MONTHLY'
       const dueInMonth = item.dueDate && item.dueDate >= start && item.dueDate < end
+
+      // For term fees: include if dueDate is on or before the end of selected month (catch-up)
+      const termFeeDue = !isMonthly && item.dueDate && item.dueDate < end
+
+      // Compute the item's billing month for MONTHLY items
+      let itemYM: number | null = null
+      if (isMonthly && item.dueDate) {
+        itemYM = item.dueDate.getUTCFullYear() * 12 + item.dueDate.getUTCMonth()
+      }
+
       // Pro-rate by join date: MONTHLY items whose billing month is strictly
       // before the assignment's effectiveFrom month are skipped. Term heads
       // (matched via dueInMonth) are unaffected — they're charged in full.
-      if (isMonthly && effYM !== null && slipYM < effYM) continue
+      if (isMonthly && effYM !== null && itemYM !== null && itemYM < effYM) continue
       // Pro-rate by leave date: MONTHLY items whose billing month is strictly
       // AFTER effectiveTo's month are also skipped. Same rule applied to
       // term heads via dueInMonth check below — if they fall after effectiveTo
       // they won't be in the slip's month window anyway, so the OR-bound
       // here is enough.
-      if (isMonthly && effToYM !== null && slipYM > effToYM) continue
+      if (isMonthly && effToYM !== null && itemYM !== null && itemYM > effToYM) continue
+      // For MONTHLY items: include all months up to and including upToYM (or slipYM if upToMonth not set)
+      // Skip future months beyond the selected month
+      if (isMonthly && itemYM !== null && itemYM > upToYM) continue
       // For non-MONTHLY items, hard-stop them once the assignment's window
       // has closed before the slip's month even if their dueDate happens
       // to fall in the slip month — a withdrawn student shouldn't be
       // billed for a term head that nominally falls after they left.
       if (!isMonthly && effToYM !== null && slipYM > effToYM) continue
-      if (isMonthly || dueInMonth) {
+
+      // Include if: MONTHLY fee OR term fee with dueDate <= end of selected month
+      if (isMonthly || termFeeDue) {
         candidates.push({
           ...item,
           assignmentAcademicYear: assignment.academicYear,
@@ -214,6 +236,9 @@ export async function selectDueAssignmentItems(
 
   if (candidates.length === 0) return []
 
+  // Filter out items that have already been billed in ANY demand slip (not just this month).
+  // This allows catch-up behavior: if June was never billed, it will be included when
+  // generating July slip. But if June was already billed (even if unpaid), skip it.
   const alreadyBilled = await tx.studentFeeInvoiceLine.findMany({
     where: {
       assignmentItemId: { in: candidates.map((c) => c.id) },
@@ -221,8 +246,6 @@ export async function selectDueAssignmentItems(
         schoolId,
         studentId,
         isMonthlyDemand: true,
-        billingMonth: month,
-        billingYear: year,
         deletedAt: null,
         ...(excludeInvoiceId ? { id: { not: excludeInvoiceId } } : {}),
       },
@@ -234,11 +257,90 @@ export async function selectDueAssignmentItems(
   return candidates.filter((c) => !billedSet.has(c.id))
 }
 
+// Fetch unpaid transport fees for all months up to the selected month.
+// Transport fees are stored as FeeCollection rows (not assignment items) with
+// sourceType='transport' in the ledger.
+//
+// Unlike tuition fees (which use catch-up behavior where old months go to "Previous Dues"),
+// transport fees include ALL unpaid months in the main slip because transport is allocated
+// monthly and we want to show all pending transport dues together.
+export async function selectDueTransportFees(
+  tx: FeeTx,
+  schoolId: string,
+  studentId: string,
+  month: number,
+  year: number,
+  upToMonth?: number | null
+): Promise<Array<{
+  id: string
+  feeHeadName: string
+  installmentName: string
+  amount: number
+  dueDate: Date | null
+  academicYear: string | null
+}>> {
+  const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+  // Include all months up to and including the selected month
+  const targetMonth = upToMonth || month
+  const targetMonths: string[] = []
+
+  // Academic year runs Apr-Mar, so include months from Apr of current academic year
+  // up to the target month. If target is Jan/Feb/Mar, also include those.
+  const academicYearStart = 4 // April = month 4
+
+  if (targetMonth >= academicYearStart) {
+    // Target is Apr-Dec: include Apr to target
+    for (let m = academicYearStart; m <= targetMonth; m++) {
+      targetMonths.push(MONTH_NAMES[m - 1])
+    }
+  } else {
+    // Target is Jan-Mar: include Apr-Dec from previous year + Jan to target
+    for (let m = academicYearStart; m <= 12; m++) {
+      targetMonths.push(MONTH_NAMES[m - 1])
+    }
+    for (let m = 1; m <= targetMonth; m++) {
+      targetMonths.push(MONTH_NAMES[m - 1])
+    }
+  }
+
+  // Find unpaid transport debits with matching installment name
+  const debits = await tx.studentFeeLedgerEntry.findMany({
+    where: {
+      schoolId,
+      studentId,
+      entryType: 'DEBIT',
+      sourceType: 'transport',
+      deletedAt: null,
+      status: { in: ['open', 'partial'] },
+      balanceAmount: { gt: 0 },
+      installmentName: { in: targetMonths },
+    },
+    select: {
+      id: true,
+      feeHeadName: true,
+      installmentName: true,
+      balanceAmount: true,
+      dueDate: true,
+      academicYear: true,
+    },
+  })
+
+  return debits.map((d) => ({
+    id: d.id,
+    feeHeadName: d.feeHeadName || 'Transport Fee',
+    installmentName: d.installmentName || '',
+    amount: d.balanceAmount,
+    dueDate: d.dueDate,
+    academicYear: d.academicYear,
+  }))
+}
+
 export async function generateMonthlyDemandSlip(
   tx: FeeTx,
   args: GenerateSlipArgs
 ): Promise<SlipResult> {
-  const { schoolId, studentId, month, year, generatedBy, demandRunId, force } = args
+  const { schoolId, studentId, month, year, generatedBy, demandRunId, force, upToMonth } = args
 
   const existing = await tx.studentFeeInvoice.findFirst({
     where: {
@@ -309,8 +411,19 @@ export async function generateMonthlyDemandSlip(
     })
   }
 
-  const dueItems = await selectDueAssignmentItems(tx, schoolId, studentId, month, year)
-  if (dueItems.length === 0) {
+  const dueItems = await selectDueAssignmentItems(tx, schoolId, studentId, month, year, null, upToMonth)
+  const transportFees = await selectDueTransportFees(tx, schoolId, studentId, month, year, upToMonth)
+
+  if (dueItems.length === 0 && transportFees.length === 0) {
+    return { status: 'skipped', reason: 'no-items' }
+  }
+
+  // Calculate subtotal - skip if total amount is 0
+  const assignmentSubtotal = roundMoney(dueItems.reduce((s, i) => s + i.amount, 0))
+  const transportSubtotal = roundMoney(transportFees.reduce((s, i) => s + i.amount, 0))
+  const subtotal = roundMoney(assignmentSubtotal + transportSubtotal)
+
+  if (subtotal === 0) {
     return { status: 'skipped', reason: 'no-items' }
   }
 
@@ -323,8 +436,34 @@ export async function generateMonthlyDemandSlip(
   const dueDay = Math.min(Math.max(config?.dueDay ?? 10, 1), 28)
   const dueDate = new Date(Date.UTC(year, month - 1, dueDay, 0, 0, 0, 0))
 
-  const previousBalance = await computePreviousBalance(tx, schoolId, studentId, firstDayOfMonth)
-  const subtotal = roundMoney(dueItems.reduce((s, i) => s + i.amount, 0))
+  // Calculate previous balance cutoff: find the earliest month being included in this slip.
+  // If we're including catch-up months (e.g., June + July), previous dues should be before June.
+  let earliestMonthYM = year * 12 + (month - 1) // Default to slip month
+
+  // Check assignment items for the earliest month
+  for (const item of dueItems) {
+    if (item.billingBehavior === 'MONTHLY' && item.dueDate) {
+      const itemYM = item.dueDate.getUTCFullYear() * 12 + item.dueDate.getUTCMonth()
+      if (itemYM < earliestMonthYM) earliestMonthYM = itemYM
+    }
+  }
+
+  // Check transport fees for the earliest month
+  const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+  for (const tf of transportFees) {
+    const monthName = tf.installmentName
+    const monthIndex = MONTH_NAMES.indexOf(monthName)
+    if (monthIndex >= 0) {
+      const tfYM = year * 12 + monthIndex
+      if (tfYM < earliestMonthYM) earliestMonthYM = tfYM
+    }
+  }
+
+  const earliestYear = Math.floor(earliestMonthYM / 12)
+  const earliestMonth = (earliestMonthYM % 12) + 1
+  const firstOfEarliestMonth = new Date(Date.UTC(earliestYear, earliestMonth - 1, 1, 0, 0, 0, 0))
+
+  const previousBalance = await computePreviousBalance(tx, schoolId, studentId, firstOfEarliestMonth)
   const totalAmount = roundMoney(subtotal + previousBalance)
 
   const invoiceNumber = await nextSequentialDemandSlipNumber(tx, schoolId, month, year)
@@ -394,6 +533,34 @@ export async function generateMonthlyDemandSlip(
     }
   }
 
+  // Add transport fees to the invoice
+  for (const transportFee of transportFees) {
+    const line = await tx.studentFeeInvoiceLine.create({
+      data: {
+        invoiceId: invoice.id,
+        assignmentItemId: null, // Transport fees don't have assignment items
+        feeHeadName: transportFee.feeHeadName,
+        installmentName: transportFee.installmentName,
+        amount: transportFee.amount,
+        totalAmount: transportFee.amount,
+        dueDate,
+      },
+    })
+
+    // Link the existing transport debit to this invoice
+    await tx.studentFeeLedgerEntry.updateMany({
+      where: {
+        id: transportFee.id,
+        schoolId,
+        studentId,
+      },
+      data: {
+        invoiceId: invoice.id,
+        invoiceLineId: line.id,
+      },
+    })
+  }
+
   await tx.feeAuditLog.create({
     data: {
       schoolId,
@@ -405,7 +572,9 @@ export async function generateMonthlyDemandSlip(
         studentId,
         month,
         year,
-        itemCount: dueItems.length,
+        itemCount: dueItems.length + transportFees.length,
+        assignmentItemCount: dueItems.length,
+        transportItemCount: transportFees.length,
         subtotal,
         previousBalance,
         totalAmount,
@@ -422,7 +591,7 @@ export async function generateMonthlyDemandSlip(
     totalAmount,
     subtotal,
     previousBalance,
-    itemCount: dueItems.length,
+    itemCount: dueItems.length + transportFees.length,
   }
 }
 
@@ -443,7 +612,7 @@ async function resolveStudentIds(schoolId: string, filters?: BulkArgs['filters']
 }
 
 export async function generateBulkDemandSlips(args: BulkArgs): Promise<BulkResult> {
-  const { schoolId, month, year, filters, generatedBy, force, dryRun } = args
+  const { schoolId, month, year, filters, generatedBy, force, dryRun, upToMonth } = args
   const studentIds = await resolveStudentIds(schoolId, filters)
 
   if (dryRun) {
@@ -468,18 +637,45 @@ export async function generateBulkDemandSlips(args: BulkArgs): Promise<BulkResul
         }
         const items = await selectDueAssignmentItems(
           tx, schoolId, studentId, month, year,
-          existing && force ? existing.id : null
+          existing && force ? existing.id : null,
+          upToMonth
         )
-        if (items.length === 0) {
+        const transportFees = await selectDueTransportFees(tx, schoolId, studentId, month, year, upToMonth)
+        if (items.length === 0 && transportFees.length === 0) {
           preview.push({ studentId, itemCount: 0, subtotal: 0, previousBalance: 0, totalAmount: 0, skipReason: 'no-items' })
           skipped += 1
           continue
         }
-        const { start } = monthBounds(month, year)
-        const previousBalance = await computePreviousBalance(tx, schoolId, studentId, start)
-        const subtotal = roundMoney(items.reduce((s, i) => s + i.amount, 0))
+
+        // Calculate previous balance cutoff based on earliest month in the slip
+        let earliestMonthYM = year * 12 + (month - 1)
+        const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+        for (const item of items) {
+          if (item.billingBehavior === 'MONTHLY' && item.dueDate) {
+            const itemYM = item.dueDate.getUTCFullYear() * 12 + item.dueDate.getUTCMonth()
+            if (itemYM < earliestMonthYM) earliestMonthYM = itemYM
+          }
+        }
+
+        for (const tf of transportFees) {
+          const monthIndex = MONTH_NAMES.indexOf(tf.installmentName)
+          if (monthIndex >= 0) {
+            const tfYM = year * 12 + monthIndex
+            if (tfYM < earliestMonthYM) earliestMonthYM = tfYM
+          }
+        }
+
+        const earliestYear = Math.floor(earliestMonthYM / 12)
+        const earliestMonth = (earliestMonthYM % 12) + 1
+        const firstOfEarliestMonth = new Date(Date.UTC(earliestYear, earliestMonth - 1, 1, 0, 0, 0, 0))
+
+        const previousBalance = await computePreviousBalance(tx, schoolId, studentId, firstOfEarliestMonth)
+        const assignmentSubtotal = roundMoney(items.reduce((s, i) => s + i.amount, 0))
+        const transportSubtotal = roundMoney(transportFees.reduce((s, i) => s + i.amount, 0))
+        const subtotal = roundMoney(assignmentSubtotal + transportSubtotal)
         const totalAmount = roundMoney(subtotal + previousBalance)
-        preview.push({ studentId, itemCount: items.length, subtotal, previousBalance, totalAmount })
+        preview.push({ studentId, itemCount: items.length + transportFees.length, subtotal, previousBalance, totalAmount })
         total = roundMoney(total + totalAmount)
         success += 1
       }
@@ -538,6 +734,7 @@ export async function generateBulkDemandSlips(args: BulkArgs): Promise<BulkResul
                   generatedBy: generatedBy || null,
                   demandRunId: run.id,
                   force,
+                  upToMonth,
                 })
               )
               break

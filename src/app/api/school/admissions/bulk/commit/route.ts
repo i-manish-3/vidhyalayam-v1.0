@@ -45,6 +45,9 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json().catch(() => null)
     const rows: RawRow[] = Array.isArray(body?.rows) ? body.rows : []
+    // Global toggle for the whole batch — when true, every row's fee
+    // assignment is created without join-month pro-rating.
+    const chargeFullYearFees: boolean = body?.chargeFullYearFees === true
 
     if (rows.length === 0) return apiError(400, 'No rows received.')
     if (rows.length > MAX_ROWS_PER_REQUEST) {
@@ -229,6 +232,7 @@ export async function POST(request: NextRequest) {
               assignedBy: userId,
               source: 'admission',
               effectiveFrom: now,
+              chargeFullYear: chargeFullYearFees,
             })
             feesAssigned = true
           }

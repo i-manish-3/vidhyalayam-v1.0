@@ -17,7 +17,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { Check, CheckCheck, CheckCircle2, ChevronDown, ChevronRight, Eye, History, Layers, MessageCircle, Printer, Receipt, Search, Send, Sparkles, User as UserIcon, X, XCircle } from 'lucide-react'
 import { useAppStore, type School } from '@/lib/store'
-import { buildPrintHeaderHtml } from '@/lib/print-header'
+import { buildSlipHtml, buildSlipLines, sortPeriods, type SlipInputLine } from '@/lib/fee-slip-template'
 
 // ── Types ─────────────────────────────────────────────────────────────
 
@@ -45,8 +45,21 @@ interface SlipRow {
   }
 }
 
-interface SlipDetail extends Omit<SlipRow, 'lineCount'> {
+// Detail response extends SlipRow with the per-line and previous-due info
+// the GET endpoint now surfaces (see src/app/api/school/fees/demand-slips/[id]/route.ts).
+// Used by both the detail dialog table and printSlip → shared template.
+interface SlipDetail extends Omit<SlipRow, 'lineCount' | 'student'> {
   notes: string | null
+  student: SlipRow['student'] & {
+    rollNumber?: string | null
+    parentLinks?: Array<{
+      parent?: {
+        fatherName?: string | null
+        motherName?: string | null
+        phone?: string | null
+      } | null
+    }>
+  }
   lines: Array<{
     id: string
     feeHeadName: string
@@ -55,6 +68,17 @@ interface SlipDetail extends Omit<SlipRow, 'lineCount'> {
     totalAmount: number
     dueDate: string | null
     status: string
+    lineAcademicYear: string | null
+    isTransport: boolean
+  }>
+  previousDues: Array<{
+    id: string
+    feeHeadName: string
+    installmentName: string | null
+    academicYear: string | null
+    isTransport: boolean
+    dueDate: string | null
+    balanceAmount: number
   }>
 }
 
@@ -626,6 +650,7 @@ function GeneratorDialog({ open, onOpenChange, month, year, classes, sections, o
   const [bulkClassId, setBulkClassId] = useState<string>('')
   const [bulkSectionId, setBulkSectionId] = useState<string>('')
   const [bulkForce, setBulkForce] = useState(false)
+  const [bulkUpToMonth, setBulkUpToMonth] = useState<number>(month)
   const [bulkPreview, setBulkPreview] = useState<BulkResultPayload | null>(null)
 
   // Single mode
@@ -633,6 +658,7 @@ function GeneratorDialog({ open, onOpenChange, month, year, classes, sections, o
   const [studentResults, setStudentResults] = useState<StudentOption[]>([])
   const [selectedStudent, setSelectedStudent] = useState<StudentOption | null>(null)
   const [singleForce, setSingleForce] = useState(false)
+  const [singleUpToMonth, setSingleUpToMonth] = useState<number>(month)
   const [singlePreview, setSinglePreview] = useState<SinglePreview | null>(null)
   const [searchState, setSearchState] = useState<'idle' | 'searching' | 'done' | 'error'>('idle')
   const [searchError, setSearchError] = useState<string | null>(null)
@@ -643,12 +669,16 @@ function GeneratorDialog({ open, onOpenChange, month, year, classes, sections, o
   useEffect(() => {
     if (!open) {
       setTab('bulk')
-      setBulkClassId(''); setBulkSectionId(''); setBulkForce(false); setBulkPreview(null)
-      setSearch(''); setStudentResults([]); setSelectedStudent(null); setSingleForce(false); setSinglePreview(null)
+      setBulkClassId(''); setBulkSectionId(''); setBulkForce(false); setBulkUpToMonth(month); setBulkPreview(null)
+      setSearch(''); setStudentResults([]); setSelectedStudent(null); setSingleForce(false); setSingleUpToMonth(month); setSinglePreview(null)
       setSearchState('idle'); setSearchError(null)
       setBusy(false)
+    } else {
+      // When opening, sync upToMonth with the current month filter
+      setBulkUpToMonth(month)
+      setSingleUpToMonth(month)
     }
-  }, [open])
+  }, [open, month])
 
   // Student debounce
   useEffect(() => {
@@ -696,7 +726,7 @@ function GeneratorDialog({ open, onOpenChange, month, year, classes, sections, o
         if (bulkClassId) filters.classId = bulkClassId
         if (bulkSectionId) filters.sectionId = bulkSectionId
         const res = await api.post<{ result: BulkResultPayload }>('/api/school/fees/demand-slips', {
-          scope: 'bulk', month, year, filters, dryRun, force: bulkForce,
+          scope: 'bulk', month, year, filters, dryRun, force: bulkForce, upToMonth: bulkUpToMonth,
         })
         if (dryRun) {
           setBulkPreview(res.result)
@@ -711,7 +741,7 @@ function GeneratorDialog({ open, onOpenChange, month, year, classes, sections, o
         if (!selectedStudent) return
         const res = await api.post<SinglePreview & { result?: { status: string; reason?: string; invoiceNumber?: string } }>(
           '/api/school/fees/demand-slips',
-          { scope: 'single', month, year, studentId: selectedStudent.id, dryRun, force: singleForce }
+          { scope: 'single', month, year, studentId: selectedStudent.id, dryRun, force: singleForce, upToMonth: singleUpToMonth }
         )
         if (dryRun) {
           setSinglePreview({
@@ -780,6 +810,18 @@ function GeneratorDialog({ open, onOpenChange, month, year, classes, sections, o
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Generate for month</Label>
+              <Select value={String(bulkUpToMonth)} onValueChange={(v) => { setBulkUpToMonth(Number(v)); setBulkPreview(null) }}>
+                <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {MONTHS.map((m) => <SelectItem key={m.value} value={String(m.value)}>{m.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Generate fees for this specific month only. Previous unpaid dues will appear automatically.
+              </p>
             </div>
             <div className="flex items-start gap-2 rounded-md border bg-muted/30 px-3 py-2">
               <Checkbox id="bulk-force" checked={bulkForce} onCheckedChange={(v) => { setBulkForce(!!v); setBulkPreview(null) }} />
@@ -862,6 +904,18 @@ function GeneratorDialog({ open, onOpenChange, month, year, classes, sections, o
                 )}
               </div>
             )}
+            <div className="space-y-1.5">
+              <Label className="text-xs">Generate for month</Label>
+              <Select value={String(singleUpToMonth)} onValueChange={(v) => { setSingleUpToMonth(Number(v)); setSinglePreview(null) }}>
+                <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {MONTHS.map((m) => <SelectItem key={m.value} value={String(m.value)}>{m.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Generate fees for this specific month only. Previous unpaid dues will appear automatically.
+              </p>
+            </div>
             <div className="flex items-start gap-2 rounded-md border bg-muted/30 px-3 py-2">
               <Checkbox id="single-force" checked={singleForce} onCheckedChange={(v) => { setSingleForce(!!v); setSinglePreview(null) }} />
               <div>
@@ -927,22 +981,33 @@ function GeneratorDialog({ open, onOpenChange, month, year, classes, sections, o
 
 // ── Print helper ──────────────────────────────────────────────────────
 
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
-}
-
-function fmtINR(value: number): string {
-  return `₹${(value || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-}
-
-function fmtPrintDate(value: string | null | undefined): string {
-  if (!value) return '-'
-  try { return new Date(value).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) } catch { return '-' }
+// Per-line inputs the shared template's buildSlipLines() consumes. On a demand
+// slip nothing is paid yet, so `paid = 0` and `due = totalAmount`. Previous
+// dues are appended as extra rows so the same bucketing engine produces
+// "Previous Month Dues" / "Previous Session Dues" labels exactly the way the
+// post-collection receipt does.
+function slipInputsFromDetail(slip: SlipDetail): SlipInputLine[] {
+  const inputs: SlipInputLine[] = slip.lines.map((line) => ({
+    feeHeadName: line.feeHeadName || 'Fee',
+    installmentName: line.installmentName || null,
+    academicYear: line.lineAcademicYear || null,
+    isTransport: line.isTransport,
+    dueDate: line.dueDate,
+    paid: 0,
+    due: line.totalAmount,
+  }))
+  for (const prev of slip.previousDues || []) {
+    inputs.push({
+      feeHeadName: prev.feeHeadName || 'Fee',
+      installmentName: prev.installmentName,
+      academicYear: prev.academicYear,
+      isTransport: prev.isTransport,
+      dueDate: prev.dueDate,
+      paid: 0,
+      due: prev.balanceAmount,
+    })
+  }
+  return inputs
 }
 
 function printSlip(slip: SlipDetail, school: School | null) {
@@ -952,102 +1017,80 @@ function printSlip(slip: SlipDetail, school: School | null) {
     return
   }
 
-  const headerHtml = buildPrintHeaderHtml(school, { fallbackToAutoHeader: true })
-  const studentName = `${slip.student.firstName} ${slip.student.lastName}`
-  const classLabel = [slip.student.class?.name, slip.student.section?.name].filter(Boolean).join(' / ') || '-'
-  const monthLabel = MONTHS[slip.billingMonth - 1]?.label || ''
+  // Bucket against the slip's invoice date so "previous" means
+  // strictly-before-this-slip-month, matching the data layer.
+  const invoiceDate = new Date(slip.invoiceDate)
+  const slipMonthYear = `${slip.billingYear}-${String(slip.billingMonth).padStart(2, '0')}`
+  // We bucket by "is this row's academic year < current?" — for the demand
+  // slip's perspective, "current" is the assignment's own academic year. Use
+  // the first on-slip line's year as the reference; fall back to '' (which
+  // means buildSlipLines treats every line as current-session for that comparison).
+  const currentAY = slip.lines.find((l) => l.lineAcademicYear)?.lineAcademicYear || ''
+
+  const inputs = slipInputsFromDetail(slip)
+  const lines = buildSlipLines(inputs, currentAY, invoiceDate)
+
+  // Header label — only month-only installments from the current billing month onwards.
+  // Filter out past months so the header shows "May, Jun, Jul" not "Apr, May, Jun, Jul"
+  // when generating a May slip.
+  const SLIP_MONTHS = ['Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar']
+
+  // Convert billing month (1-12) to SLIP_MONTHS index (0-11)
+  // Jan=1 → index 9, Feb=2 → index 10, Mar=3 → index 11
+  // Apr=4 → index 0, May=5 → index 1, ..., Dec=12 → index 8
+  const billingMonthIndex = slip.billingMonth >= 4
+    ? slip.billingMonth - 4  // Apr=4 → 0, May=5 → 1, ..., Dec=12 → 8
+    : slip.billingMonth + 8  // Jan=1 → 9, Feb=2 → 10, Mar=3 → 11
+
+  const allMonths = Array.from(
+    new Set(
+      slip.lines
+        .map((l) => l.installmentName)
+        .filter((s): s is string => !!s)
+    )
+  )
+
+  // Filter to only include months >= billing month
+  const futureMonths = allMonths.filter((month) => {
+    const monthIndex = SLIP_MONTHS.findIndex((m) => m.toLowerCase() === month.toLowerCase())
+    if (monthIndex === -1) return false // Not a month name, exclude
+    return monthIndex >= billingMonthIndex
+  })
+
+  const feeMonths = sortPeriods(futureMonths)
+
+  // father / phone come from parentLinks on the student detail; both demand
+  // slip and receipt now use the same student card so this stays consistent.
+  const father = slip.student.parentLinks?.find((p) => p.parent?.fatherName)?.parent || null
+  const mother = slip.student.parentLinks?.find((p) => p.parent?.motherName)?.parent || null
+  const fatherName = father?.fatherName || null
+  const phone = father?.phone || mother?.phone || null
+
   const amountDue = (slip.totalAmount || 0) - (slip.paidAmount || 0)
+  // Inject month-year-tagged slip period into the header. Reuse academicYear
+  // when known; otherwise show calendar period only.
+  const academicYear = currentAY || slipMonthYear
 
-  const linesHtml = slip.lines.map((line) => `
-    <tr>
-      <td>${escapeHtml(line.feeHeadName)}</td>
-      <td>${escapeHtml(line.installmentName)}</td>
-      <td class="due">${fmtPrintDate(line.dueDate)}</td>
-      <td class="amt">${fmtINR(line.totalAmount)}</td>
-    </tr>
-  `).join('')
-
-  const notesHtml = slip.notes ? `<div class="notes"><strong>Notes:</strong> ${escapeHtml(slip.notes)}</div>` : ''
-
-  const html = `<!doctype html>
-<html>
-<head>
-<meta charset="utf-8" />
-<title>Demand Slip ${escapeHtml(slip.invoiceNumber)}</title>
-<style>
-  * { box-sizing: border-box; }
-  body { margin: 0; padding: 12mm; background: #fff; color: #000; font-family: Arial, Helvetica, sans-serif; font-size: 12px; }
-  .slip-root { width: 100%; max-width: 186mm; margin: 0 auto; }
-  .slip-header { margin-bottom: 8px; }
-  .slip-title {
-    text-align: center; font-size: 14px; font-weight: 700; letter-spacing: 1.5px;
-    text-transform: uppercase; padding: 6px 0; margin: 8px 0 0;
-    border-top: 2px solid #000; border-bottom: 2px solid #000;
-  }
-  .meta { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 16px; padding: 8px 0; border-bottom: 1px dashed #000; }
-  .meta div { display: flex; gap: 6px; }
-  .meta .lbl { color: #444; min-width: 70px; }
-  .meta .val { font-weight: 600; }
-  .student-row { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 16px; padding: 8px 0; border-bottom: 1px dashed #000; }
-  table.lines { width: 100%; border-collapse: collapse; margin-top: 8px; }
-  table.lines th, table.lines td { border: 1px solid #000; padding: 6px 8px; text-align: left; font-size: 12px; }
-  table.lines th { background: #eee; font-weight: 700; text-transform: uppercase; font-size: 11px; }
-  table.lines td.due { white-space: nowrap; font-size: 11px; color: #444; }
-  table.lines td.amt, table.lines th.amt { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
-  .totals { margin-top: 0; }
-  .totals table { width: 100%; border-collapse: collapse; }
-  .totals td { padding: 4px 8px; font-size: 12px; }
-  .totals td.lbl { text-align: right; color: #444; }
-  .totals td.amt { text-align: right; width: 130px; font-weight: 600; font-variant-numeric: tabular-nums; }
-  .totals tr.grand td { border-top: 2px solid #000; border-bottom: 2px solid #000; font-size: 13px; font-weight: 800; padding: 6px 8px; }
-  .totals tr.due-row td { font-size: 13px; font-weight: 700; }
-  .notes { margin-top: 12px; padding: 8px; border: 1px dashed #000; font-size: 11px; }
-  .footer { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 36px; }
-  .footer .stamp { font-size: 11px; color: #555; }
-  .footer .signature { text-align: center; min-width: 200px; }
-  .footer .signature .line { border-top: 1px solid #000; padding-top: 4px; font-size: 11px; font-weight: 600; }
-  @media print { @page { size: A4 portrait; margin: 10mm; } body { padding: 0; } }
-</style>
-</head>
-<body>
-  <div class="slip-root">
-    ${headerHtml ? `<div class="slip-header">${headerHtml}</div>` : ''}
-    <div class="slip-title">Monthly Fee Demand Slip</div>
-    <div class="meta">
-      <div><span class="lbl">Slip #:</span><span class="val">${escapeHtml(slip.invoiceNumber)}</span></div>
-      <div><span class="lbl">Period:</span><span class="val">${escapeHtml(monthLabel)} ${slip.billingYear}</span></div>
-      <div><span class="lbl">Issued:</span><span class="val">${fmtPrintDate(slip.invoiceDate)}</span></div>
-      <div><span class="lbl">Due by:</span><span class="val">${fmtPrintDate(slip.dueDate)}</span></div>
-    </div>
-    <div class="student-row">
-      <div><span class="lbl">Student:</span> <strong>${escapeHtml(studentName)}</strong></div>
-      <div><span class="lbl">Adm. No.:</span> <strong>${escapeHtml(slip.student.admissionNumber || '-')}</strong></div>
-      <div><span class="lbl">Class:</span> <strong>${escapeHtml(classLabel)}</strong></div>
-      <div><span class="lbl">Status:</span> <strong style="text-transform:capitalize">${escapeHtml(slip.status)}</strong></div>
-    </div>
-    <table class="lines">
-      <thead>
-        <tr><th>Fee Head</th><th>Installment</th><th>Due Date</th><th class="amt">Amount</th></tr>
-      </thead>
-      <tbody>${linesHtml}</tbody>
-    </table>
-    <div class="totals">
-      <table>
-        <tr><td class="lbl">Subtotal</td><td class="amt">${fmtINR(slip.subtotal)}</td></tr>
-        <tr><td class="lbl">Previous Balance</td><td class="amt">${fmtINR(slip.previousBalance)}</td></tr>
-        <tr class="grand"><td class="lbl">TOTAL DEMANDED</td><td class="amt">${fmtINR(slip.totalAmount)}</td></tr>
-        <tr><td class="lbl">Paid So Far</td><td class="amt">${fmtINR(slip.paidAmount)}</td></tr>
-        <tr class="due-row"><td class="lbl">AMOUNT DUE</td><td class="amt">${fmtINR(amountDue)}</td></tr>
-      </table>
-    </div>
-    ${notesHtml}
-    <div class="footer">
-      <div class="stamp">This is a computer-generated demand slip.</div>
-      <div class="signature"><div class="line">Authorised Signatory</div></div>
-    </div>
-  </div>
-</body>
-</html>`
+  const html = buildSlipHtml({
+    variant: 'demand',
+    mode: 'single',
+    school,
+    student: slip.student,
+    fatherName,
+    phone,
+    academicYear,
+    feeMonths,
+    slipNumber: slip.invoiceNumber,
+    slipDate: new Date(), // Use current date for "Issued:" field
+    lines,
+    subtotal: slip.subtotal,
+    previousBalance: slip.previousBalance,
+    totalDemanded: slip.totalAmount,
+    paidSoFar: slip.paidAmount,
+    amountDue,
+    dueDate: slip.dueDate ? new Date(slip.dueDate) : null,
+    notes: slip.notes,
+  })
 
   printWindow.document.open()
   printWindow.document.write(html)

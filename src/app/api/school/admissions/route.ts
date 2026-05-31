@@ -898,6 +898,7 @@ export async function POST(request: NextRequest) {
           assignedBy: user.userId,
           source: 'admission',
           effectiveFrom: adm.dateOfAdmission || new Date(),
+          chargeFullYear: body.chargeFullYearFees === true,
         })
       }
 
@@ -905,7 +906,10 @@ export async function POST(request: NextRequest) {
         const feeMonths = parseFeeMonths(requestedTransportFare?.feeMonths)
         // Pro-rate transport by admission date: drop months that fall
         // strictly before the student's join month. Same rule as tuition in
-        // assignStudentFeesFromStructure.
+        // assignStudentFeesFromStructure. Skipped when chargeFullYearFees is
+        // true — the seat is treated as reserved for the full academic year
+        // so every month is billed regardless of join date.
+        const chargeFullYear = body.chargeFullYearFees === true
         const admissionDate = adm.dateOfAdmission || new Date()
         const effYM = admissionDate.getUTCFullYear() * 12 + admissionDate.getUTCMonth()
         const [startYearStr] = (requestedAcademicYear || '').split('-')
@@ -919,10 +923,12 @@ export async function POST(request: NextRequest) {
           const calYear = idx <= 8 ? startYear : startYear + 1
           return calYear * 12 + calMonth
         }
-        const billableFeeMonths = feeMonths.filter((label) => {
-          const monthYM = monthLabelToYM(label)
-          return monthYM === null || monthYM >= effYM
-        })
+        const billableFeeMonths = chargeFullYear
+          ? feeMonths
+          : feeMonths.filter((label) => {
+              const monthYM = monthLabelToYM(label)
+              return monthYM === null || monthYM >= effYM
+            })
 
         await tx.transportAllocation.create({
           data: {

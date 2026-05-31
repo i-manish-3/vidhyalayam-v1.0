@@ -12,6 +12,7 @@ import {
   generateMonthlyDemandSlip,
   generateBulkDemandSlips,
   selectDueAssignmentItems,
+  selectDueTransportFees,
   computePreviousBalance,
 } from '@/lib/fee-demand'
 
@@ -23,6 +24,7 @@ interface PostBody {
   filters?: unknown
   dryRun?: unknown
   force?: unknown
+  upToMonth?: unknown
 }
 
 function cleanInt(value: unknown, min: number, max: number): number | null {
@@ -45,6 +47,8 @@ export async function POST(request: NextRequest) {
     const month = cleanInt(body.month, 1, 12)
     const year = cleanInt(body.year, 2020, 2100)
     if (!month || !year) return validationError('Valid month (1-12) and year (2020-2100) are required.')
+
+    const upToMonth = body.upToMonth ? cleanInt(body.upToMonth, 1, 12) : null
 
     const scope = body.scope === 'single' || body.scope === 'bulk' ? body.scope : null
     if (!scope) return validationError("scope must be 'single' or 'bulk'.")
@@ -78,13 +82,40 @@ export async function POST(request: NextRequest) {
           })
           const items = await selectDueAssignmentItems(
             tx, user.schoolId!, studentId, month, year,
-            existing && force ? existing.id : null
+            existing && force ? existing.id : null,
+            upToMonth
           )
-          const firstDay = new Date(Date.UTC(year, month - 1, 1))
-          const previousBalance = await computePreviousBalance(tx, user.schoolId!, studentId, firstDay)
-          const subtotal = items.reduce((s, i) => s + i.amount, 0)
+          const transportFees = await selectDueTransportFees(tx, user.schoolId!, studentId, month, year, upToMonth)
+
+          // Calculate previous balance cutoff based on earliest month in the slip
+          let earliestMonthYM = year * 12 + (month - 1)
+          const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+          for (const item of items) {
+            if (item.billingBehavior === 'MONTHLY' && item.dueDate) {
+              const itemYM = item.dueDate.getUTCFullYear() * 12 + item.dueDate.getUTCMonth()
+              if (itemYM < earliestMonthYM) earliestMonthYM = itemYM
+            }
+          }
+
+          for (const tf of transportFees) {
+            const monthIndex = MONTH_NAMES.indexOf(tf.installmentName)
+            if (monthIndex >= 0) {
+              const tfYM = year * 12 + monthIndex
+              if (tfYM < earliestMonthYM) earliestMonthYM = tfYM
+            }
+          }
+
+          const earliestYear = Math.floor(earliestMonthYM / 12)
+          const earliestMonth = (earliestMonthYM % 12) + 1
+          const firstOfEarliestMonth = new Date(Date.UTC(earliestYear, earliestMonth - 1, 1, 0, 0, 0, 0))
+
+          const previousBalance = await computePreviousBalance(tx, user.schoolId!, studentId, firstOfEarliestMonth)
+          const assignmentSubtotal = items.reduce((s, i) => s + i.amount, 0)
+          const transportSubtotal = transportFees.reduce((s, i) => s + i.amount, 0)
+          const subtotal = assignmentSubtotal + transportSubtotal
           return {
-            itemCount: items.length,
+            itemCount: items.length + transportFees.length,
             subtotal,
             previousBalance,
             totalAmount: subtotal + previousBalance,
@@ -108,6 +139,7 @@ export async function POST(request: NextRequest) {
           year,
           generatedBy,
           force,
+          upToMonth,
         })
       )
 
@@ -123,6 +155,66 @@ export async function POST(request: NextRequest) {
       filters.studentIds = filtersInput.studentIds.filter((id): id is string => typeof id === 'string')
     }
 
+    // Check if queue is enabled (Redis available)
+    const useQueue = process.env.REDIS_HOST || process.env.USE_QUEUE === 'true'
+
+    if (useQueue && !dryRun) {
+      // Use job queue for background processing
+      const { enqueueDemandSlipGeneration } = await import('@/lib/queue')
+
+      // Resolve student IDs
+      const where: any = {
+        schoolId: user.schoolId,
+        isActive: true,
+        deletedAt: null,
+      }
+      if (filters.studentIds && filters.studentIds.length > 0) {
+        where.id = { in: filters.studentIds }
+      } else {
+        if (filters.classId) where.classId = filters.classId
+        if (filters.sectionId) where.sectionId = filters.sectionId
+      }
+      const students = await db.student.findMany({ where, select: { id: true } })
+      const studentIds = students.map((s) => s.id)
+
+      // Create run record
+      const run = await db.feeDemandRun.create({
+        data: {
+          schoolId: user.schoolId,
+          billingMonth: month,
+          billingYear: year,
+          triggerType: 'MANUAL',
+          triggeredBy: generatedBy || null,
+          status: 'queued',
+          totalStudents: studentIds.length,
+          filters: filters ? JSON.stringify(filters) : null,
+        },
+      })
+
+      // Enqueue job
+      await enqueueDemandSlipGeneration({
+        runId: run.id,
+        schoolId: user.schoolId,
+        month,
+        year,
+        studentIds,
+        generatedBy,
+        force,
+        upToMonth,
+      })
+
+      return NextResponse.json({
+        scope: 'bulk',
+        month,
+        year,
+        useQueue: true,
+        runId: run.id,
+        totalStudents: studentIds.length,
+        message: 'Job queued for background processing. Use /runs/:runId to check status.',
+      })
+    }
+
+    // Fallback to synchronous processing (no queue or dry-run)
     const result = await generateBulkDemandSlips({
       schoolId: user.schoolId,
       month,
@@ -131,9 +223,10 @@ export async function POST(request: NextRequest) {
       generatedBy,
       force,
       dryRun,
+      upToMonth,
     })
 
-    return NextResponse.json({ scope: 'bulk', month, year, dryRun, result })
+    return NextResponse.json({ scope: 'bulk', month, year, dryRun, useQueue: false, result })
   } catch (error) {
     console.error('Generate demand slip error:', error)
     return internalError('generating demand slips')

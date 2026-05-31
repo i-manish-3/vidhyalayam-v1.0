@@ -219,6 +219,10 @@ interface WizardForm {
   bankAccountNumber: string
   ifscCode: string
   feesGroupId: string
+  // When true, skip pro-rating in the fee assignment — student is billed
+  // the structure's full year regardless of admission date. Same flag also
+  // skips transport-month pro-rating server-side.
+  chargeFullYearFees: boolean
   // Step 6
   remarks: string
   termsAccepted: boolean
@@ -299,6 +303,7 @@ const DEFAULT_FORM: WizardForm = {
   bankAccountNumber: '',
   ifscCode: '',
   feesGroupId: '',
+  chargeFullYearFees: false,
   remarks: '',
   termsAccepted: false,
 }
@@ -2014,6 +2019,28 @@ export function AdmissionFormPage() {
           )}
         </div>
       </div>
+      <div className="rounded-md border border-border/70 bg-muted/30 p-3">
+        <div className="flex items-start gap-2">
+          <Checkbox
+            id="chargeFullYearFees"
+            checked={form.chargeFullYearFees}
+            onCheckedChange={v => updateForm('chargeFullYearFees', v === true)}
+            disabled={!form.feesGroupId}
+            className="mt-0.5"
+          />
+          <div className="space-y-1">
+            <Label htmlFor="chargeFullYearFees" className="text-sm font-medium leading-snug cursor-pointer">
+              Charge full academic-year fees
+            </Label>
+            <p className="text-[11.5px] text-muted-foreground leading-snug">
+              By default, a student admitted mid-session pays only from their admission month
+              onwards (monthly fees and transport are pro-rated). Tick this if the school wants
+              this student billed for the full academic year regardless of admission date — pre-join
+              months will be created as overdue immediately.
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
     )
   }
@@ -2330,6 +2357,7 @@ export function AdmissionFormPage() {
               <div><span className="text-muted-foreground">Bank Account:</span> {form.bankAccountNumber || '--'}</div>
               <div><span className="text-muted-foreground">IFSC:</span> {form.ifscCode || '--'}</div>
               <div><span className="text-muted-foreground">Fee Group:</span> {selectedGroup?.name || '--'}</div>
+              <div><span className="text-muted-foreground">Billing:</span> {form.chargeFullYearFees ? 'Full academic year (no pro-rating)' : 'Pro-rated from admission month'}</div>
             </div>
           </CardContent>
         </Card>

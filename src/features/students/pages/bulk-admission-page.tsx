@@ -10,6 +10,8 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Label } from '@/components/ui/label'
 import {
   Download,
   Upload,
@@ -129,6 +131,9 @@ export function BulkAdmissionPage() {
 
   const [commitProgress, setCommitProgress] = useState({ done: 0, total: 0 })
   const [commitResult, setCommitResult] = useState<CommitResponse>({ created: [], failed: [] })
+  // Global toggle applied to every row in the batch — when true, server skips
+  // join-month pro-rating in the fee assignment for all imported students.
+  const [chargeFullYearFees, setChargeFullYearFees] = useState(false)
 
   // ─── Template download ────────────────────────────────────────────────────
   const downloadTemplate = (variant: 'quick' | 'advanced') => {
@@ -260,6 +265,7 @@ export function BulkAdmissionPage() {
       try {
         const res = await api.post<CommitResponse>('/api/school/admissions/bulk/commit', {
           rows: chunk.map((c) => c.raw),
+          chargeFullYearFees,
         })
         // The server returns indexes relative to the chunk (0..chunk.length-1).
         // Re-map to original CSV indexes for the summary.
@@ -474,6 +480,8 @@ export function BulkAdmissionPage() {
           fileName={fileName}
           onReset={resetUpload}
           onCommit={startCommit}
+          chargeFullYearFees={chargeFullYearFees}
+          setChargeFullYearFees={setChargeFullYearFees}
         />
       )}
 
@@ -577,6 +585,8 @@ function PreviewSection({
   fileName,
   onReset,
   onCommit,
+  chargeFullYearFees,
+  setChargeFullYearFees,
 }: {
   validation: ValidateResponse
   filter: 'all' | 'valid' | 'warning' | 'invalid'
@@ -587,6 +597,8 @@ function PreviewSection({
   fileName: string | null
   onReset: () => void
   onCommit: () => void
+  chargeFullYearFees: boolean
+  setChargeFullYearFees: (v: boolean) => void
 }) {
   const importable = validation.counts.valid + validation.counts.warning
   return (
@@ -609,6 +621,27 @@ function PreviewSection({
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
+        <div className="rounded-md border border-border/70 bg-muted/30 p-3">
+          <div className="flex items-start gap-2">
+            <Checkbox
+              id="bulkChargeFullYearFees"
+              checked={chargeFullYearFees}
+              onCheckedChange={(v) => setChargeFullYearFees(v === true)}
+              className="mt-0.5"
+            />
+            <div className="space-y-1">
+              <Label htmlFor="bulkChargeFullYearFees" className="text-sm font-medium leading-snug cursor-pointer">
+                Charge full academic-year fees for every imported student
+              </Label>
+              <p className="text-[11.5px] text-muted-foreground leading-snug">
+                By default, each student is billed only from their admission month onwards
+                (monthly fees pro-rated). Tick this if every student in this batch should be
+                billed for the full academic year regardless of admission date — pre-join months
+                will be created as overdue. Applies to all rows in the import.
+              </p>
+            </div>
+          </div>
+        </div>
         <div className="flex flex-wrap items-center gap-2">
           <FilterChip
             label={`All (${validation.diagnostics.length})`}

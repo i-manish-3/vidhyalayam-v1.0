@@ -32,7 +32,24 @@ import {
   UserRound,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { buildPrintHeaderHtml } from '@/lib/print-header'
+import {
+  SLIP_MONTHS as MONTHS,
+  PAYMENT_METHOD_LABELS,
+  receiptMoney,
+  receiptPlainAmount,
+  formatReceiptDate,
+  formatReceiptTime,
+  normalizedPeriod,
+  isMonthPeriod,
+  periodSortIndex,
+  sortPeriods,
+  slipLineYearMonth,
+  numberToWords,
+  buildSlipLines,
+  buildSlipHtml,
+  type SlipInputLine,
+  type SlipBucketedLine,
+} from '@/lib/fee-slip-template'
 
 type PaymentStatus = 'PAID' | 'PARTIAL' | 'UNPAID'
 type PaymentMethod = 'CASH' | 'ONLINE' | 'CHEQUE' | 'UPI' | 'SPLIT'
@@ -122,6 +139,7 @@ interface ReceiptSummary {
     due: number           // remaining balance for this row AFTER this transaction
   }>
   totalPaid: number
+  discountAmount?: number
   duesAmount: number      // running balance across the whole student
   paymentMethod: PaymentMethod
   splits?: ReceiptSplit[] | null
@@ -172,36 +190,10 @@ interface ReceiptHistoryRow {
   lines?: ReceiptHistoryLine[]
 }
 
-const MONTHS = ['Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar']
-
-const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
-  CASH: 'Cash',
-  ONLINE: 'Online',
-  CHEQUE: 'Cheque',
-  UPI: 'UPI',
-  SPLIT: 'Split',
-}
-
 const SELECTABLE_PAYMENT_METHODS: Exclude<PaymentMethod, 'SPLIT'>[] = ['CASH', 'ONLINE', 'CHEQUE', 'UPI']
 
 function money(value: number | string | null | undefined) {
   return `Rs ${Number(value || 0).toLocaleString()}`
-}
-
-function receiptPlainAmount(value: number | string | null | undefined) {
-  return Number(value || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })
-}
-
-function receiptMoney(value: number | string | null | undefined) {
-  return `\u20b9 ${receiptPlainAmount(value)}`
-}
-
-function formatReceiptDate(value: Date) {
-  return value.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
-}
-
-function formatReceiptTime(value: Date) {
-  return value.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })
 }
 
 function formatHistoryDateTime(value?: string | null) {
@@ -234,20 +226,12 @@ function isTransportItem(item: FeeCollectionItem) {
   return item.source === 'transport' || (item.feeHeadName || '').toLowerCase().includes('transport')
 }
 
-function normalizedPeriod(period: string) {
-  return period.trim().toLowerCase()
-}
-
 function academicYearKey(value?: string | null) {
   return value || 'unassigned'
 }
 
 function matchesPeriod(item: FeeCollectionItem, period: string) {
   return normalizedPeriod(itemPeriod(item)) === normalizedPeriod(period)
-}
-
-function isMonthPeriod(period: string) {
-  return MONTHS.some((month) => normalizedPeriod(month) === normalizedPeriod(period))
 }
 
 function itemCalendarYearMonth(item: FeeCollectionItem): { year: number; month: number } | null {
@@ -292,9 +276,9 @@ function itemIsCurrentCalendarMonth(item: FeeCollectionItem): boolean {
 
 // Walks ticked items in engine allocation order (term → month → transport
 // before tuition → dueDate tiebreaker) and produces one SlipInputLine per
-// item with paid / due distributed against the supplied payment + discount
-// pool. Used by both the live slip and the POST body so the server can
-// persist exactly what the cashier saw.
+// item. For backend processing, discount is distributed across items in
+// allocation order. For display on the slip, each line shows its full amount
+// and discount is shown separately in the totals section.
 function buildSlipInputsFromItems(
   collectedItems: FeeCollectionItem[],
   paymentValue: number,
@@ -322,16 +306,17 @@ function buildSlipInputsFromItems(
   for (const item of sortedItems) {
     const due = remainingAmount(item)
     let paidForRow = 0
+    let discountForRow = 0
     let remainingAfter = 0
     if (due > 0) {
-      const discountForRow = remainingDisc > 0 ? Math.min(remainingDisc, due) : 0
+      discountForRow = remainingDisc > 0 ? Math.min(remainingDisc, due) : 0
       const payableForRow = Math.max(0, due - discountForRow)
       const paymentForRow = Math.min(payableForRow, Math.max(0, remainingPay))
       remainingPay -= paymentForRow
       remainingDisc -= discountForRow
-      // For the receipt, "paid" includes any discount applied to this row —
-      // the parent sees the full amount cleared, even if part of it was a
-      // waiver. Discount is declared separately in the slip footer.
+      // For the slip display: show full amount paid (payment + discount)
+      // so each line appears fully settled. Discount is shown separately
+      // in the totals section, not distributed per-line on the slip.
       paidForRow = paymentForRow + discountForRow
       remainingAfter = Math.max(0, due - discountForRow - paymentForRow)
     }
@@ -342,158 +327,11 @@ function buildSlipInputsFromItems(
       isTransport: isTransportItem(item),
       dueDate: item.dueDate || null,
       paid: paidForRow,
+      discount: 0, // Don't show per-line discount on slip
       due: remainingAfter,
     })
   }
   return slipInputs
-}
-
-// Same calculation as itemCalendarYearMonth but takes the two fields directly
-// — used by buildSlipLines() which works off a generic input shape, not a
-// FeeCollectionItem.
-function slipLineYearMonth(
-  installmentName: string | null | undefined,
-  academicYear: string | null | undefined,
-): { year: number; month: number } | null {
-  if (!installmentName || !academicYear) return null
-  const monthIdx = MONTHS.findIndex((m) => normalizedPeriod(m) === normalizedPeriod(installmentName))
-  if (monthIdx === -1) return null
-  const [start] = academicYear.split('-').map((n) => Number(n))
-  if (Number.isNaN(start)) return null
-  const calendarMonth = monthIdx <= 8 ? monthIdx + 3 : monthIdx - 9
-  const calendarYear = monthIdx <= 8 ? start : start + 1
-  return { year: calendarYear, month: calendarMonth }
-}
-
-// Shared receipt-slip line builder used by both freshly-collected receipts
-// (createReceiptSummary) and the history-view receipt (openHistoryReceipt).
-// Inputs already carry per-row paid/due; this helper buckets, sorts and
-// labels them so the slip is shaped identically in both code paths.
-type SlipInputLine = {
-  feeHeadName: string
-  installmentName: string | null
-  academicYear: string | null
-  isTransport: boolean
-  dueDate: string | null   // ISO string; used to mark term heads as overdue
-  paid: number
-  due: number
-}
-
-type SlipBucketedLine = {
-  label: string
-  months: string[]
-  paid: number
-  due: number
-}
-
-function buildSlipLines(
-  inputs: SlipInputLine[],
-  currentAcademicYear: string,
-  asOfDate: Date,
-): SlipBucketedLine[] {
-  type Bucket = 'prev_session' | 'prev_month' | 'overdue_term' | 'current_month' | 'future_month' | 'term'
-  const bucketOrder: Record<Bucket, number> = {
-    current_month: 0,
-    prev_month: 1,
-    overdue_term: 2,
-    term: 3,
-    future_month: 4,
-    prev_session: 5,
-  }
-  const bucketLabel: Record<Bucket, string> = {
-    prev_session: 'Previous Session Dues',
-    prev_month: 'Previous Month Dues',
-    overdue_term: 'Previous Dues',
-    current_month: '',
-    future_month: 'Advance',
-    term: '',
-  }
-  const asOfYear = asOfDate.getFullYear()
-  const asOfMonth = asOfDate.getMonth()
-  const asOfStart = new Date(asOfYear, asOfMonth, asOfDate.getDate())
-  const isTermOverdue = (dueDate: string | null) => {
-    if (!dueDate) return false
-    const due = new Date(dueDate)
-    if (Number.isNaN(due.getTime())) return false
-    const dueStart = new Date(due.getFullYear(), due.getMonth(), due.getDate())
-    return dueStart.getTime() < asOfStart.getTime()
-  }
-  const classify = (input: SlipInputLine): Bucket => {
-    const ay = (input.academicYear || '').trim()
-    if (ay && ay < currentAcademicYear) return 'prev_session'
-    const isMonthly = isMonthPeriod(input.installmentName || '')
-    if (!isMonthly && !input.isTransport) {
-      return isTermOverdue(input.dueDate) ? 'overdue_term' : 'term'
-    }
-    const ym = slipLineYearMonth(input.installmentName, input.academicYear)
-    if (!ym) return 'current_month'
-    if (ym.year < asOfYear) return 'prev_month'
-    if (ym.year > asOfYear) return 'future_month'
-    if (ym.month < asOfMonth) return 'prev_month'
-    if (ym.month > asOfMonth) return 'future_month'
-    return 'current_month'
-  }
-
-  const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100
-  const groups = new Map<string, {
-    bucket: Bucket
-    feeHeadName: string
-    academicYear: string
-    isTransport: boolean
-    months: Set<string>
-    paid: number
-    due: number
-  }>()
-  for (const input of inputs) {
-    const head = (input.feeHeadName || 'Fee').trim() || 'Fee'
-    const ay = (input.academicYear || '').trim()
-    const bucket = classify(input)
-    const key = `${bucket}|${head}|${input.isTransport ? 't' : 'f'}|${bucket === 'prev_session' ? ay : ''}`
-    const existing = groups.get(key) || {
-      bucket,
-      feeHeadName: head,
-      academicYear: ay,
-      isTransport: input.isTransport,
-      months: new Set<string>(),
-      paid: 0,
-      due: 0,
-    }
-    if (input.installmentName) existing.months.add(input.installmentName)
-    existing.paid += input.paid
-    existing.due += input.due
-    groups.set(key, existing)
-  }
-
-  return Array.from(groups.values())
-    .sort((a, b) => {
-      const bucketCompare = bucketOrder[a.bucket] - bucketOrder[b.bucket]
-      if (bucketCompare !== 0) return bucketCompare
-      if (a.bucket === 'prev_session' && a.academicYear !== b.academicYear) {
-        return b.academicYear.localeCompare(a.academicYear)
-      }
-      if (a.isTransport !== b.isTransport) return a.isTransport ? -1 : 1
-      return a.feeHeadName.localeCompare(b.feeHeadName)
-    })
-    .map((group) => {
-      const months = sortPeriods(Array.from(group.months))
-      const periodList = months.length > 0 ? months.join(', ') : ''
-      const prefix = bucketLabel[group.bucket]
-      let label: string
-      if (!prefix) {
-        label = periodList ? `${group.feeHeadName} (${periodList})` : group.feeHeadName
-      } else {
-        const monthPart = periodList ? ` (${periodList})` : ''
-        const yearPart =
-          group.bucket === 'prev_session' && group.academicYear ? ` — ${group.academicYear}` : ''
-        label = `${prefix} — ${group.feeHeadName}${monthPart}${yearPart}`
-      }
-      return {
-        label,
-        months,
-        paid: round2(group.paid),
-        due: round2(group.due),
-      }
-    })
 }
 
 function periodSelectionKey(period: string, transport = false, itemAcademicYear?: string | null) {
@@ -551,11 +389,6 @@ function isDueOnOrBefore(item: FeeCollectionItem, asOfDateStart: Date) {
   return dueStart.getTime() <= asOfDateStart.getTime()
 }
 
-function periodSortIndex(period: string) {
-  const index = MONTHS.findIndex((month) => normalizedPeriod(month) === normalizedPeriod(period))
-  return index === -1 ? Number.MAX_SAFE_INTEGER : index
-}
-
 // Allocation order when a partial payment is split across selected items:
 //   1. Non-monthly heads first (Admission, Exam, Term, Registration, …) — they
 //      carry no month context, so they front-load before any month is touched.
@@ -571,13 +404,6 @@ function allocationSortKey(item: FeeCollectionItem): [number, number, number, st
   // Within a month: transport (0) before monthly tuition (1).
   const withinMonth = item.source === 'transport' ? 0 : 1
   return [tier, monthIndex, withinMonth, item.dueDate || '']
-}
-
-function sortPeriods(periods: string[]) {
-  return [...periods].sort((a, b) => {
-    const indexCompare = periodSortIndex(a) - periodSortIndex(b)
-    return indexCompare || a.localeCompare(b)
-  })
 }
 
 function comparePeriods(a: string, b: string) {
@@ -607,39 +433,17 @@ function periodStateLabel(state: ReturnType<typeof periodPaymentState>) {
   return ''
 }
 
-function numberToWords(value: number) {
-  const amount = Math.round(Number(value || 0))
-  if (amount === 0) return 'Zero Rupees only'
+// numberToWords now lives in @/lib/fee-slip-template
 
-  const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen']
-  const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety']
 
-  const underHundred = (num: number) => {
-    if (num < 20) return ones[num]
-    return [tens[Math.floor(num / 10)], ones[num % 10]].filter(Boolean).join(' ')
-  }
+// numberToWords now lives in @/lib/fee-slip-template
 
-  const underThousand = (num: number) => {
-    const hundred = Math.floor(num / 100)
-    const rest = num % 100
-    return [
-      hundred ? `${ones[hundred]} Hundred` : '',
-      rest ? underHundred(rest) : '',
-    ].filter(Boolean).join(' ')
-  }
 
-  const parts = [
-    { value: Math.floor(amount / 10000000), label: 'Crore' },
-    { value: Math.floor((amount % 10000000) / 100000), label: 'Lakh' },
-    { value: Math.floor((amount % 100000) / 1000), label: 'Thousand' },
-    { value: amount % 1000, label: '' },
-  ]
+// numberToWords now lives in @/lib/fee-slip-template
 
-  return `${parts
-    .filter((part) => part.value > 0)
-    .map((part) => `${underThousand(part.value)} ${part.label}`.trim())
-    .join(' ')} Rupees only`
-}
+
+// numberToWords now lives in @/lib/fee-slip-template
+
 
 export function FeeCollectionsPage() {
   const { toast } = useToast()
@@ -670,7 +474,7 @@ export function FeeCollectionsPage() {
   const [selectedPeriods, setSelectedPeriods] = useState<string[]>([])
   const [receiptSummary, setReceiptSummary] = useState<ReceiptSummary | null>(null)
   const [saving, setSaving] = useState(false)
-  const receiptRef = useRef<HTMLDivElement>(null)
+  const previewIframeRef = useRef<HTMLIFrameElement>(null)
 
   const fetchInitialData = useCallback(async () => {
     try {
@@ -1012,12 +816,12 @@ export function FeeCollectionsPage() {
   const selectedSummaryGroups = useMemo(() => {
     type Bucket = 'prev_session' | 'prev_month' | 'overdue_term' | 'current_month' | 'future_month' | 'term'
     const bucketOrder: Record<Bucket, number> = {
-      current_month: 0,
+      prev_session: 0,
       prev_month: 1,
       overdue_term: 2,
-      term: 3,
-      future_month: 4,
-      prev_session: 5,
+      current_month: 3,
+      term: 4,
+      future_month: 5,
     }
     const bucketLabel: Record<Bucket, string> = {
       prev_session: 'Previous Session Dues',
@@ -1099,18 +903,31 @@ export function FeeCollectionsPage() {
         // Within the same bucket, transport before tuition (matches allocation
         // order so the cashier's eye scan matches the slip).
         if (a.isTransport !== b.isTransport) return a.isTransport ? -1 : 1
+        const aTuition = /tuition/i.test(a.feeHeadName)
+        const bTuition = /tuition/i.test(b.feeHeadName)
+        if (aTuition !== bTuition) return aTuition ? -1 : 1
         return a.feeHeadName.localeCompare(b.feeHeadName)
       })
       .map((group) => {
         const periodList = group.periods.length > 0 ? group.periods.join(', ') : ''
         const prefix = bucketLabel[group.bucket]
-        // Term row: just "<head> (<periods>)" — no bucket prefix needed.
-        // Monthly / prev_month / future / current: "<bucket> — <head> (<months>)".
-        // Prev-session: "<bucket> — <head> (<months>) — <AY>".
+
+        // Only show "Previous Dues" labels for Transport and Tuition fees
+        const isTuition = /tuition/i.test(group.feeHeadName)
+        const shouldShowPreviousLabel = group.isTransport || isTuition
+
         let label: string
-        if (group.bucket === 'term') {
+        if (!prefix) {
+          // No prefix for current_month and term buckets
+          label = periodList ? `${group.feeHeadName} (${periodList})` : group.feeHeadName
+        } else if (group.bucket === 'overdue_term') {
+          // Never show "Previous Dues" prefix for term fees, even if overdue
+          label = periodList ? `${group.feeHeadName} (${periodList})` : group.feeHeadName
+        } else if (!shouldShowPreviousLabel && (group.bucket === 'prev_month' || group.bucket === 'prev_session')) {
+          // For non-transport/non-tuition fees in prev_month/prev_session, show without prefix
           label = periodList ? `${group.feeHeadName} (${periodList})` : group.feeHeadName
         } else {
+          // Show prefix for transport/tuition in prev_month/prev_session buckets
           const headPart = group.feeHeadName
           const monthPart = periodList ? ` (${periodList})` : ''
           const yearPart =
@@ -1121,6 +938,7 @@ export function FeeCollectionsPage() {
           key: group.key,
           label,
           amount: group.amount,
+          periodCount: group.periods.length,
           accent: accentFor(group.bucket, group.isTransport),
         }
       })
@@ -1201,6 +1019,7 @@ export function FeeCollectionsPage() {
       feeMonths: sortPeriods(Array.from(new Set(collectedItems.map((item) => receiptPeriodLabel(item, academicYear))))),
       lines,
       totalPaid: paidTotal,
+      discountAmount: discountValue,
       duesAmount: remainingDue,
       paymentMethod: method,
       splits,
@@ -1228,6 +1047,7 @@ export function FeeCollectionsPage() {
         isTransport: line.isTransport,
         dueDate: line.dueDate || null,
         paid: line.paidInReceipt,
+        discount: 0, // History lines don't track per-line discount
         due: line.balanceAfter,
       }))
       lines = buildSlipLines(slipInputs, academicYear, receiptDate)
@@ -1251,6 +1071,7 @@ export function FeeCollectionsPage() {
           label: 'Fee Payment',
           months: fallbackMonths.length > 0 ? fallbackMonths : ['-'],
           paid: row.paid,
+          discount: row.discount || 0,
           due: 0,
         },
       ]
@@ -1264,6 +1085,7 @@ export function FeeCollectionsPage() {
       feeMonths: feeMonths.length > 0 ? feeMonths : ['-'],
       lines,
       totalPaid: row.paid,
+      discountAmount: row.discount || 0,
       duesAmount: row.dues,
       paymentMethod: row.paymentMethod || 'CASH',
       splits: row.splits ?? null,
@@ -1271,188 +1093,55 @@ export function FeeCollectionsPage() {
     })
   }
 
+  const buildReceiptHtml = (mode: 'single' | 'office' | 'parent' | 'both' = 'single'): string | null => {
+    if (!receiptSummary) return null
+    return buildSlipHtml({
+      variant: 'receipt',
+      mode,
+      school: currentSchool,
+      student: receiptSummary.student,
+      fatherName: father?.fatherName || null,
+      phone: contact || null,
+      academicYear,
+      feeMonths: receiptSummary.feeMonths,
+      slipNumber: receiptSummary.receiptNumber,
+      slipDate: receiptSummary.receiptDate,
+      lines: receiptSummary.lines,
+      paymentMethod: receiptSummary.paymentMethod,
+      splits: receiptSummary.splits ?? null,
+      collectedByName: receiptSummary.collectedBy?.name ?? null,
+      totalPaid: receiptSummary.totalPaid,
+      discountAmount: receiptSummary.discountAmount,
+      duesAmount: receiptSummary.duesAmount,
+    })
+  }
+
   const printReceipt = (mode: 'single' | 'office' | 'parent' | 'both' = 'single') => {
-    if (!receiptRef.current) return
-    const printWindow = window.open('', '_blank', 'width=430,height=650')
+    const html = buildReceiptHtml(mode)
+    if (!html) return
+    const printWindow = window.open('', '_blank', 'width=900,height=1100')
     if (!printWindow) {
       window.print()
       return
     }
-
-    const headerHtml = buildPrintHeaderHtml(currentSchool, { fallbackToAutoHeader: true })
-    const receiptHtml = receiptRef.current.outerHTML
-
-    const renderCopy = (label: string | null) => `
-      <section class="receipt-copy">
-        ${label ? `<div class="copy-label">${label}</div>` : ''}
-        ${headerHtml ? `<div class="receipt-print-header">${headerHtml}</div>` : ''}
-        <div class="receipt-print-root">${receiptHtml}</div>
-      </section>
-    `
-
-    let body = ''
-    if (mode === 'single') {
-      body = renderCopy(null)
-    } else if (mode === 'office') {
-      body = renderCopy('OFFICE COPY')
-    } else if (mode === 'parent') {
-      body = renderCopy('PARENT COPY')
-    } else {
-      body = `${renderCopy('OFFICE COPY')}<div class="cut-line"><span>✂ &nbsp; cut here &nbsp; ✂</span></div>${renderCopy('PARENT COPY')}`
-    }
-
-    printWindow.document.write(`
-      <!doctype html>
-      <html>
-        <head>
-          <title>Fee Receipt</title>
-          <style>
-            * { box-sizing: border-box; }
-            body {
-              margin: 0;
-              padding: 12px;
-              background: #fff;
-              color: #000;
-              font-family: Arial, Helvetica, sans-serif;
-            }
-            .receipt-copy { width: 380px; max-width: 100%; margin: 0 auto; }
-            .copy-label {
-              text-align: center;
-              font-size: 11px;
-              font-weight: 700;
-              letter-spacing: 2px;
-              padding: 4px 0;
-              margin-bottom: 6px;
-              border: 1.5px dashed #000;
-              text-transform: uppercase;
-            }
-            .cut-line {
-              width: 380px;
-              max-width: 100%;
-              margin: 12px auto;
-              border-top: 1.5px dashed #000;
-              position: relative;
-              text-align: center;
-              font-size: 10px;
-              color: #555;
-            }
-            .cut-line span {
-              position: relative;
-              top: -8px;
-              background: #fff;
-              padding: 0 6px;
-              letter-spacing: 1px;
-            }
-            .receipt-print-root { width: 375px; max-width: 100%; }
-            .receipt-print-header { width: 375px; max-width: 100%; margin-bottom: 10px; }
-            .receipt-print-header img { display: block; width: 100%; }
-            .fee-receipt-slip {
-              width: 380px;
-              max-width: 100%;
-              border: 2px solid #000;
-              background: #fff;
-              color: #000;
-              font-size: 13px;
-              line-height: 1.15;
-            }
-            .fee-receipt-header {
-              display: grid;
-              grid-template-columns: 95px 1fr 96px;
-              border-bottom: 2px solid #000;
-              padding: 8px;
-            }
-            .fee-receipt-header-left,
-            .fee-receipt-header-center,
-            .fee-receipt-header-right,
-            .fee-receipt-info-label,
-            .fee-receipt-month-row,
-            .fee-receipt-total-label,
-            .fee-receipt-total-amount,
-            .fee-receipt-footer strong,
-            .fee-receipt-footer .font-bold,
-            .font-bold,
-            .font-extrabold {
-              font-weight: 700;
-            }
-            .fee-receipt-header-center {
-              text-align: center;
-              font-weight: 800;
-            }
-            .fee-receipt-header-right {
-              text-align: right;
-              font-size: 12px;
-            }
-            .fee-receipt-details {
-              display: grid;
-              grid-template-columns: 1fr 1fr;
-              column-gap: 16px;
-              row-gap: 8px;
-              border-bottom: 2px solid #000;
-              padding: 8px;
-            }
-            .fee-receipt-info {
-              display: grid;
-              grid-template-columns: 80px 1fr;
-              gap: 4px;
-            }
-            .fee-receipt-month-row {
-              grid-column: 1 / -1;
-              display: grid;
-              grid-template-columns: 95px 1fr;
-            }
-            .fee-receipt-line,
-            .fee-receipt-summary-row {
-              display: grid;
-              border-bottom: 2px solid #000;
-            }
-            .fee-receipt-line {
-              min-height: 40px;
-              grid-template-columns: 1fr 70px 100px;
-            }
-            .fee-receipt-summary-row {
-              grid-template-columns: 1fr 100px;
-            }
-            .fee-receipt-line-label,
-            .fee-receipt-line-detail,
-            .fee-receipt-line-amount,
-            .fee-receipt-total-label,
-            .fee-receipt-total-amount,
-            .fee-receipt-footer {
-              padding: 6px;
-            }
-            .fee-receipt-line-detail,
-            .fee-receipt-line-amount,
-            .fee-receipt-total-amount {
-              border-left: 2px solid #000;
-            }
-            .fee-receipt-line-detail {
-              text-align: center;
-              font-size: 12px;
-            }
-            .fee-receipt-line-amount,
-            .fee-receipt-total-amount {
-              font-size: 16px;
-              font-weight: 700;
-            }
-            @media print {
-              @page { margin: 10mm; size: A4 portrait; }
-              body { padding: 0; }
-              .cut-line { page-break-inside: avoid; }
-              .receipt-copy { page-break-inside: avoid; }
-            }
-          </style>
-        </head>
-        <body>
-          ${body}
-        </body>
-      </html>
-    `)
+    printWindow.document.open()
+    printWindow.document.write(html)
     printWindow.document.close()
     printWindow.onafterprint = () => printWindow.close()
-    window.setTimeout(() => {
-      printWindow.focus()
-      printWindow.print()
-    }, 250)
+
+    const triggerPrint = () => {
+      try {
+        printWindow.focus()
+        printWindow.print()
+      } catch {
+        /* noop */
+      }
+    }
+    if (printWindow.document.readyState === 'complete') {
+      window.setTimeout(triggerPrint, 50)
+    } else {
+      printWindow.onload = () => window.setTimeout(triggerPrint, 50)
+    }
   }
 
   useEffect(() => {
@@ -1786,7 +1475,7 @@ export function FeeCollectionsPage() {
                     </span>
                     <div className="flex items-center gap-1.5">
                       <Button variant="outline" size="sm" className="h-7 text-xs" onClick={selectAllDues}>
-                        Select All Pending
+                        Select All
                       </Button>
                       <Button
                         variant="ghost"
@@ -2170,21 +1859,80 @@ export function FeeCollectionsPage() {
                     months auto-tick on load (see fetchStudentCollections).
                     Sub Total = sum of ticked items only; nothing is silently
                     rolled in. */}
-                <div className="space-y-1 rounded-md border bg-muted/30 p-2.5 text-xs">
-                  {selectedSummaryGroups.length === 0 && (
-                    <div className="py-1 text-center text-muted-foreground">
-                      No items selected
-                    </div>
-                  )}
-                  {selectedSummaryGroups.map((group) => (
-                    <SummaryRow
-                      key={group.key}
-                      label={group.label}
-                      value={money(group.amount)}
-                      accent={group.accent}
-                    />
-                  ))}
-                  <SummaryRow label="Sub Total" value={money(selectedTotal)} bold />
+                <div className="overflow-hidden rounded-md border">
+                  <table className="w-full text-xs">
+                    <thead className="bg-muted/50">
+                      <tr>
+                        <th className="px-2.5 py-2 text-left font-semibold">Description</th>
+                        <th className="px-2.5 py-2 text-right font-semibold">Rate</th>
+                        <th className="px-2.5 py-2 text-right font-semibold">Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-background">
+                      {selectedSummaryGroups.length === 0 ? (
+                        <tr>
+                          <td colSpan={3} className="px-2.5 py-4 text-center text-muted-foreground">
+                            No items selected
+                          </td>
+                        </tr>
+                      ) : (
+                        <>
+                          {selectedSummaryGroups.map((group) => {
+                            const periodCount = group.periodCount || 0
+                            const rate = periodCount > 0 ? group.amount / periodCount : group.amount
+                            const rateRounded = Math.round((rate + Number.EPSILON) * 100) / 100
+                            const rateBreakdown =
+                              periodCount > 1 ? `${money(rateRounded)} × ${periodCount}` : ''
+                            return (
+                              <tr key={group.key} className="border-t">
+                                <td
+                                  className={cn(
+                                    'px-2.5 py-2',
+                                    group.accent === 'amber' && 'text-amber-700 dark:text-amber-300',
+                                    group.accent === 'emerald' && 'text-emerald-700 dark:text-emerald-300',
+                                  )}
+                                >
+                                  {group.label}
+                                </td>
+                                <td
+                                  className={cn(
+                                    'px-2.5 py-2 text-right tabular-nums text-[11px] text-muted-foreground',
+                                    group.accent === 'amber' && 'text-amber-600 dark:text-amber-400',
+                                    group.accent === 'emerald' && 'text-emerald-600 dark:text-emerald-400',
+                                  )}
+                                >
+                                  {rateBreakdown}
+                                </td>
+                                <td
+                                  className={cn(
+                                    'px-2.5 py-2 text-right tabular-nums',
+                                    group.accent === 'amber' && 'text-amber-700 dark:text-amber-300',
+                                    group.accent === 'emerald' && 'text-emerald-700 dark:text-emerald-300',
+                                  )}
+                                >
+                                  {money(group.amount)}
+                                </td>
+                              </tr>
+                            )
+                          })}
+                          <tr className="border-t bg-muted/30 font-semibold">
+                            <td className="px-2.5 py-2">Sub Total</td>
+                            <td className="px-2.5 py-2"></td>
+                            <td className="px-2.5 py-2 text-right tabular-nums">{money(selectedTotal)}</td>
+                          </tr>
+                          {discount > 0 && (
+                            <tr className="border-t">
+                              <td className="px-2.5 py-2 text-emerald-700 dark:text-emerald-300">Discount</td>
+                              <td className="px-2.5 py-2"></td>
+                              <td className="px-2.5 py-2 text-right tabular-nums text-emerald-700 dark:text-emerald-300">
+                                - {money(discount)}
+                              </td>
+                            </tr>
+                          )}
+                        </>
+                      )}
+                    </tbody>
+                  </table>
                 </div>
 
                 {/* Discount */}
@@ -2411,7 +2159,7 @@ export function FeeCollectionsPage() {
       )}
 
       <Dialog open={!!receiptSummary} onOpenChange={(open) => { if (!open) setReceiptSummary(null) }}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="flex max-h-[92vh] max-w-[1024px] flex-col overflow-hidden sm:max-w-[1024px]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <ReceiptText className="size-5" />
@@ -2419,96 +2167,24 @@ export function FeeCollectionsPage() {
             </DialogTitle>
           </DialogHeader>
           {receiptSummary && (
-            <div className="space-y-4">
-              <div ref={receiptRef} className="fee-receipt-slip mx-auto w-full max-w-[380px] border-2 border-black bg-white text-[13px] leading-tight text-black">
-                <div className="fee-receipt-header grid grid-cols-[95px_1fr_96px] border-b-2 border-black p-2">
-                  <div className="fee-receipt-header-left font-bold">
-                    <div>RECEIPT</div>
-                    <div>NO: {receiptSummary.receiptNumber.replace(/^RCP-/, '')}</div>
-                  </div>
-                  <div className="fee-receipt-header-center text-center font-extrabold">
-                    <div>FOR THE ACADEMIC</div>
-                    <div>SESSION</div>
-                    <div>{academicYear}</div>
-                  </div>
-                  <div className="fee-receipt-header-right text-right text-xs font-bold">
-                    <div>{formatReceiptDate(receiptSummary.receiptDate)}</div>
-                    <div>{formatReceiptTime(receiptSummary.receiptDate)}</div>
-                  </div>
-                </div>
-
-                <div className="fee-receipt-details grid grid-cols-2 gap-x-4 gap-y-2 border-b-2 border-black p-2">
-                  <ReceiptInfo label="Name:" value={studentName(receiptSummary.student)} />
-                  <ReceiptInfo label="Phone:" value={contact || '-'} />
-                  <ReceiptInfo label="Reg. No. :" value={receiptSummary.student.admission?.registrationNumber || receiptSummary.student.admissionNumber || '-'} />
-                  <ReceiptInfo label="Father Name:" value={father?.fatherName || '-'} />
-                  <ReceiptInfo label="Class:" value={receiptSummary.student.class?.name || '-'} />
-                  <ReceiptInfo label="Roll No:" value={receiptSummary.student.rollNumber || '-'} />
-                  <div className="fee-receipt-month-row col-span-2 grid grid-cols-[95px_1fr]">
-                    <span className="font-bold">Fee Month:</span>
-                    <span className="font-bold">{receiptSummary.feeMonths.join(', ') || '-'}</span>
-                  </div>
-                </div>
-
-                <div>
-                  <div className="fee-receipt-line grid min-h-8 grid-cols-[1fr_60px_70px_70px] border-b-2 border-black bg-black/5 text-[11px] font-bold uppercase">
-                    <div className="p-1.5">Description</div>
-                    <div className="border-l-2 border-black p-1.5 text-center">Period</div>
-                    <div className="border-l-2 border-black p-1.5 text-right">Paid</div>
-                    <div className="border-l-2 border-black p-1.5 text-right">Due</div>
-                  </div>
-                  {receiptSummary.lines.map((line, idx) => (
-                    <div key={`${line.label}-${idx}`} className="fee-receipt-line grid min-h-10 grid-cols-[1fr_60px_70px_70px] border-b-2 border-black">
-                      <div className="fee-receipt-line-label p-1.5">{line.label}</div>
-                      <div className="fee-receipt-line-detail border-l-2 border-black p-1.5 text-center text-xs">
-                        {line.months.join(', ')}
-                      </div>
-                      <div className="fee-receipt-line-amount border-l-2 border-black p-1.5 text-right font-bold tabular-nums">
-                        {line.paid > 0 ? receiptMoney(line.paid) : '-'}
-                      </div>
-                      <div className="fee-receipt-line-amount border-l-2 border-black p-1.5 text-right tabular-nums">
-                        {line.due > 0 ? receiptMoney(line.due) : '-'}
-                      </div>
-                    </div>
-                  ))}
-                  {/* Sub Total = gross amount this receipt was billed against
-                      (sum of paid + due per line). Reads naturally on the
-                      slip as: Sub Total → Total Paid → Balance Due. */}
-                  <div className="fee-receipt-summary-row grid grid-cols-[1fr_100px] border-b-2 border-black">
-                    <div className="fee-receipt-total-label p-1.5 font-extrabold">Sub Total</div>
-                    <div className="fee-receipt-total-amount border-l-2 border-black p-1.5 font-bold">
-                      {receiptMoney(
-                        Math.round((receiptSummary.lines.reduce((sum, line) => sum + line.paid + line.due, 0) + Number.EPSILON) * 100) / 100
-                      )}
-                    </div>
-                  </div>
-                  <div className="fee-receipt-summary-row grid grid-cols-[1fr_100px] border-b-2 border-black">
-                    <div className="fee-receipt-total-label p-1.5 font-extrabold">Total Paid</div>
-                    <div className="fee-receipt-total-amount border-l-2 border-black p-1.5 text-base font-extrabold">{receiptMoney(receiptSummary.totalPaid)}</div>
-                  </div>
-                  <div className="fee-receipt-summary-row grid grid-cols-[1fr_100px] border-b-2 border-black">
-                    <div className="fee-receipt-total-label p-1.5 font-extrabold">Balance Due</div>
-                    <div className="fee-receipt-total-amount border-l-2 border-black p-1.5 font-bold">{receiptMoney(receiptSummary.duesAmount)}</div>
-                  </div>
-                </div>
-
-                <div className="fee-receipt-footer p-1.5">
-                  <div>Amount in word: <span className="font-bold">({numberToWords(receiptSummary.totalPaid)})</span></div>
-                  <div>
-                    <span className="font-bold">Mode:</span>{' '}
-                    {receiptSummary.splits && receiptSummary.splits.length > 1
-                      ? receiptSummary.splits
-                          .map((split) => `${PAYMENT_METHOD_LABELS[split.paymentMethod as PaymentMethod] || split.paymentMethod} ${receiptMoney(split.amount)}`)
-                          .join(' + ')
-                      : PAYMENT_METHOD_LABELS[receiptSummary.paymentMethod] || receiptSummary.paymentMethod}
-                  </div>
-                  {receiptSummary.collectedBy && (
-                    <div><span className="font-bold">Collected By:</span> {receiptSummary.collectedBy.name}</div>
-                  )}
-                </div>
+            <div className="flex flex-1 flex-col gap-4 overflow-hidden">
+              <div className="flex-1 overflow-y-auto rounded border bg-muted/30">
+                <iframe
+                  ref={previewIframeRef}
+                  srcDoc={buildReceiptHtml('single') || ''}
+                  onLoad={() => {
+                    const iframe = previewIframeRef.current
+                    if (!iframe?.contentDocument) return
+                    const h = iframe.contentDocument.documentElement.scrollHeight
+                    iframe.style.height = `${h + 4}px`
+                  }}
+                  className="block w-full bg-white"
+                  style={{ border: 'none', minHeight: 600 }}
+                  title="Fee receipt preview"
+                />
               </div>
 
-              <div className="flex justify-end gap-2">
+              <div className="flex shrink-0 justify-end gap-2">
                 <Button variant="outline" onClick={() => setReceiptSummary(null)}>Close</Button>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -2545,15 +2221,6 @@ export function FeeCollectionsPage() {
   )
 }
 
-function ReceiptInfo({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="fee-receipt-info grid grid-cols-[80px_1fr] gap-1">
-      <span className="fee-receipt-info-label font-bold">{label}</span>
-      <span>{value}</span>
-    </div>
-  )
-}
-
 function DetailRow({ label, value, className }: { label: string; value: string; className?: string }) {
   return (
     <div className={cn('grid grid-cols-[120px_1fr] border-b pb-1', className)}>
@@ -2575,18 +2242,21 @@ function ProfileItem({ label, value }: { label: string; value: string }) {
 function SummaryRow({
   label,
   value,
+  rateBreakdown,
   accent,
   bold,
 }: {
   label: string
   value: string
+  rateBreakdown?: string | null
   accent?: 'amber' | 'emerald'
   bold?: boolean
 }) {
   return (
     <div
       className={cn(
-        'flex items-center justify-between gap-3',
+        'grid items-center gap-2',
+        rateBreakdown ? 'grid-cols-[1fr_auto_auto]' : 'grid-cols-[1fr_auto]',
         bold && 'border-t pt-1.5 font-semibold',
       )}
     >
@@ -2600,9 +2270,20 @@ function SummaryRow({
       >
         {label}
       </span>
+      {rateBreakdown && (
+        <span
+          className={cn(
+            'text-[11px] tabular-nums text-muted-foreground',
+            accent === 'amber' && 'text-amber-600 dark:text-amber-400',
+            accent === 'emerald' && 'text-emerald-600 dark:text-emerald-400',
+          )}
+        >
+          {rateBreakdown}
+        </span>
+      )}
       <span
         className={cn(
-          'tabular-nums',
+          'tabular-nums text-right',
           accent === 'amber' && 'text-amber-700 dark:text-amber-300',
           accent === 'emerald' && 'text-emerald-700 dark:text-emerald-300',
           bold && 'text-foreground',

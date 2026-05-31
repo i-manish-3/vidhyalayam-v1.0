@@ -206,6 +206,30 @@ const REQUIRED_DOCUMENTS = [
   { type: 'medical_cert', name: 'Medical Certificate' },
 ]
 
+const DOC_MAX_BYTES = 200 * 1024 // matches backend cap
+const DOC_ACCEPT_ATTR = 'image/jpeg,image/png,image/webp,image/gif,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+const DOC_ALLOWED_MIME = new Set([
+  'image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif',
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+])
+
+function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result))
+    reader.onerror = () => reject(reader.error || new Error('read failed'))
+    reader.readAsDataURL(file)
+  })
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`
+}
+
 function formatAadhaar(value: string): string {
   const digits = value.replace(/\D/g, '').slice(0, 12)
   return digits.replace(/(\d{4})(?=\d)/g, '$1 ').trim()
@@ -320,9 +344,17 @@ export function EditStudentPage({ studentId }: { studentId: string }) {
   // Form state
   const [form, setForm] = useState<EditForm | null>(null)
 
-  // Document state
+  // Document state — files held in browser memory as data URLs until Save.
+  // Server enforces a 200 KB cap; we mirror it here.
   const [documents, setDocuments] = useState<AdmissionDocument[]>([])
-  const [documentUploads, setDocumentUploads] = useState<Record<string, { uploaded: boolean; verificationStatus: string }>>({})
+  const [documentUploads, setDocumentUploads] = useState<Record<string, {
+    uploaded: boolean
+    verificationStatus: string
+    fileDataUrl?: string
+    fileName?: string
+    fileSize?: number // bytes (the existing AdmissionDocument.fileSize is KB)
+    fileType?: string
+  }>>({})
   const [customDocName, setCustomDocName] = useState('')
   const [customDocs, setCustomDocs] = useState<{ type: string; name: string }[]>([])
 
@@ -615,19 +647,71 @@ export function EditStudentPage({ studentId }: { studentId: string }) {
   }
 
   // Document handlers
-  const handleDocumentUpload = (docType: string) => {
-    setDocumentUploads(prev => ({
-      ...prev,
-      [docType]: { uploaded: true, verificationStatus: 'pending' },
-    }))
-    toast({ title: 'Uploaded', description: 'Document uploaded successfully (simulated)' })
+  const handleDocumentFile = async (docType: string, file: File) => {
+    if (!DOC_ALLOWED_MIME.has(file.type)) {
+      toast({
+        title: 'Unsupported File Type',
+        description: 'Please upload a JPG, PNG, WebP, GIF, PDF, or Word document.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    try {
+      let dataUrl: string
+      let finalBytes: number
+
+      if (file.type.startsWith('image/')) {
+        const compressed = await compressImage(file)
+        dataUrl = compressed.dataUrl
+        finalBytes = compressed.finalBytes
+      } else {
+        dataUrl = await readFileAsDataUrl(file)
+        finalBytes = file.size
+      }
+
+      if (finalBytes > DOC_MAX_BYTES) {
+        toast({
+          title: 'File Too Large',
+          description: `Max size is 200 KB. This file is ${formatBytes(finalBytes)}.`,
+          variant: 'destructive',
+        })
+        return
+      }
+
+      setDocumentUploads(prev => ({
+        ...prev,
+        [docType]: {
+          uploaded: true,
+          verificationStatus: 'pending',
+          fileDataUrl: dataUrl,
+          fileName: file.name,
+          fileSize: finalBytes,
+          fileType: file.type,
+        },
+      }))
+      toast({ title: 'Attached', description: `${file.name} ready — click Save to upload.` })
+    } catch {
+      toast({
+        title: 'Could Not Read File',
+        description: 'Please try a different file.',
+        variant: 'destructive',
+      })
+    }
+  }
+
+  const removeDocumentDraft = (docType: string) => {
+    setDocumentUploads(prev => {
+      const next = { ...prev }
+      delete next[docType]
+      return next
+    })
   }
 
   const addCustomDocument = () => {
     if (!customDocName.trim()) return
     const customType = `custom_${customDocName.toLowerCase().replace(/\s+/g, '_')}`
     setCustomDocs(prev => [...prev, { type: customType, name: customDocName }])
-    setDocumentUploads(prev => ({ ...prev, [customType]: { uploaded: false, verificationStatus: 'pending' } }))
     setCustomDocName('')
   }
 
@@ -738,10 +822,16 @@ export function EditStudentPage({ studentId }: { studentId: string }) {
           siblingId: form.siblingId || null,
           remarks: form.remarks || null,
           documents: Object.entries(documentUploads)
-            .filter(([, v]) => v.uploaded)
-            .map(([type]) => ({
+            .filter(([, v]) => v.uploaded && v.fileDataUrl)
+            .map(([type, v]) => ({
               documentType: type,
-              documentName: REQUIRED_DOCUMENTS.find(d => d.type === type)?.name || customDocs.find(d => d.type === type)?.name || type,
+              documentName: REQUIRED_DOCUMENTS.find(d => d.type === type)?.name
+                || customDocs.find(d => d.type === type)?.name
+                || type,
+              fileUrl: v.fileDataUrl,
+              fileSize: v.fileSize ? Math.round(v.fileSize / 1024) : null, // KB for schema
+              fileType: v.fileType || null,
+              isRequired: !type.startsWith('custom_'),
             })),
         },
       }
@@ -1515,10 +1605,15 @@ export function EditStudentPage({ studentId }: { studentId: string }) {
                     <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300">
                       Rejected
                     </Badge>
-                  ) : uploadState?.uploaded ? (
-                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300">
-                      Pending Verification
-                    </Badge>
+                  ) : uploadState?.fileDataUrl ? (
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300">
+                        Ready to Save
+                      </Badge>
+                      <span className="text-xs text-muted-foreground truncate">
+                        {uploadState.fileName} · {uploadState.fileSize ? formatBytes(uploadState.fileSize) : ''}
+                      </span>
+                    </div>
                   ) : existingDoc?.uploadedAt ? (
                     <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300">
                       Pending Verification
@@ -1528,16 +1623,34 @@ export function EditStudentPage({ studentId }: { studentId: string }) {
                   )}
                 </div>
               </div>
-              <div className="shrink-0">
-                {!uploadState?.uploaded && !existingDoc?.fileUrl && (
-                  <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => handleDocumentUpload(doc.type)}>
+              <div className="shrink-0 flex items-center gap-1">
+                <input
+                  id={`edit-doc-input-${doc.type}`}
+                  type="file"
+                  accept={DOC_ACCEPT_ATTR}
+                  className="hidden"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0]
+                    e.target.value = ''
+                    if (file) await handleDocumentFile(doc.type, file)
+                  }}
+                />
+                {!uploadState?.fileDataUrl && !existingDoc?.fileUrl && (
+                  <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => (document.getElementById(`edit-doc-input-${doc.type}`) as HTMLInputElement)?.click()}>
                     <Upload className="size-3" /> Upload
                   </Button>
                 )}
-                {(uploadState?.uploaded || existingDoc?.fileUrl) && (
-                  <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={() => handleDocumentUpload(doc.type)}>
-                    <Upload className="size-3" /> Re-upload
-                  </Button>
+                {(uploadState?.fileDataUrl || existingDoc?.fileUrl) && (
+                  <>
+                    <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={() => (document.getElementById(`edit-doc-input-${doc.type}`) as HTMLInputElement)?.click()}>
+                      <Upload className="size-3" /> Re-upload
+                    </Button>
+                    {uploadState?.fileDataUrl && (
+                      <Button variant="ghost" size="sm" className="h-7 text-xs text-destructive" onClick={() => removeDocumentDraft(doc.type)} title="Discard new file">
+                        <X className="size-3" />
+                      </Button>
+                    )}
+                  </>
                 )}
               </div>
             </div>
@@ -1575,20 +1688,36 @@ export function EditStudentPage({ studentId }: { studentId: string }) {
                   <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300">
                     Rejected
                   </Badge>
-                ) : uploadState?.uploaded ? (
-                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 bg-amber-100 text-amber-700">Pending</Badge>
+                ) : uploadState?.fileDataUrl ? (
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 bg-amber-100 text-amber-700">Ready to Save</Badge>
+                    <span className="text-xs text-muted-foreground truncate">
+                      {uploadState.fileName} · {uploadState.fileSize ? formatBytes(uploadState.fileSize) : ''}
+                    </span>
+                  </div>
                 ) : (
                   <span className="text-xs text-muted-foreground">Not uploaded</span>
                 )}
               </div>
             </div>
             <div className="shrink-0 flex items-center gap-1">
-              {!uploadState?.uploaded && !existingDoc?.fileUrl ? (
-                <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => handleDocumentUpload(doc.type)}>
+              <input
+                id={`edit-doc-input-${doc.type}`}
+                type="file"
+                accept={DOC_ACCEPT_ATTR}
+                className="hidden"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0]
+                  e.target.value = ''
+                  if (file) await handleDocumentFile(doc.type, file)
+                }}
+              />
+              {!uploadState?.fileDataUrl && !existingDoc?.fileUrl ? (
+                <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => (document.getElementById(`edit-doc-input-${doc.type}`) as HTMLInputElement)?.click()}>
                   <Upload className="size-3" /> Upload
                 </Button>
               ) : (
-                <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={() => handleDocumentUpload(doc.type)}>
+                <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={() => (document.getElementById(`edit-doc-input-${doc.type}`) as HTMLInputElement)?.click()}>
                   <Upload className="size-3" /> Re-upload
                 </Button>
               )}

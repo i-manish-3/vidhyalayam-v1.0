@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Separator } from '@/components/ui/separator'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -66,6 +67,11 @@ import {
   BookOpenCheck,
   KeyRound,
   Loader2,
+  Upload,
+  Trash2,
+  ShieldCheck,
+  ShieldX,
+  X,
 } from 'lucide-react'
 
 // ============================================
@@ -90,6 +96,9 @@ interface AdmissionDocumentData {
   uploadedAt: string | null
   verificationStatus: string
   isRequired: boolean
+  verifiedAt?: string | null
+  verifiedBy?: string | null
+  rejectionReason?: string | null
 }
 
 interface AdmissionData {
@@ -301,24 +310,39 @@ function formatFileSize(sizeKb: number | null | undefined): string {
 }
 
 function InfoRow({ label, value, icon: Icon }: { label: string; value: string | null | undefined; icon?: React.ComponentType<{ className?: string }> }) {
+  const isEmpty = value == null || value === ''
   return (
-    <div className="min-w-0 space-y-0.5">
-      <p className="flex items-center gap-1 text-[10.5px] font-medium uppercase tracking-wide text-muted-foreground">
-        {Icon && <Icon className="size-3 text-primary/70" />}
-        {label}
+    <div
+      className={cn(
+        'group min-w-0 space-y-1 rounded-lg border border-border/60 bg-card px-2.5 py-2 shadow-[0_1px_0_rgba(0,0,0,0.02)] transition-colors',
+        'hover:border-primary/40 hover:bg-primary/[0.03]',
+        isEmpty && 'bg-muted/20 hover:border-border/60 hover:bg-muted/20',
+      )}
+    >
+      <div className="flex items-center gap-1.5">
+        {Icon && (
+          <span className="flex size-4 shrink-0 items-center justify-center rounded bg-primary/10 text-primary">
+            <Icon className="size-2.5" />
+          </span>
+        )}
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
+      </div>
+      <p className={cn('break-words text-sm font-semibold leading-snug text-foreground', isEmpty && 'text-muted-foreground/50 font-normal italic')}>
+        {isEmpty ? 'Not provided' : value}
       </p>
-      <p className="break-words text-sm font-medium text-foreground">{value || <span className="text-muted-foreground/60">--</span>}</p>
     </div>
   )
 }
 
 function SectionCard({ title, icon: Icon, children, className = '', headerAction }: { title: string; icon: React.ComponentType<{ className?: string }>; children: React.ReactNode; className?: string; headerAction?: React.ReactNode }) {
   return (
-    <Card className={cn('overflow-hidden border-border/70 shadow-sm gap-0 py-0', className)}>
-      <CardHeader className="bg-muted/30 px-3 py-2">
+    <Card className={cn('overflow-hidden border-border/60 bg-muted/30 shadow-sm gap-0 py-0', className)}>
+      <CardHeader className="border-b border-border/60 bg-background/60 px-3 py-2">
         <div className="flex items-center justify-between gap-2">
           <CardTitle className="flex items-center gap-2 text-[13px] font-semibold">
-            <Icon className="size-4 text-primary" />
+            <span className="flex size-6 items-center justify-center rounded-md bg-primary/15 text-primary">
+              <Icon className="size-3.5" />
+            </span>
             {title}
           </CardTitle>
           {headerAction}
@@ -329,14 +353,22 @@ function SectionCard({ title, icon: Icon, children, className = '', headerAction
   )
 }
 
-function DetailPill({ label, value, icon: Icon }: { label: string; value: string | null | undefined; icon: React.ComponentType<{ className?: string }> }) {
+function KeyFact({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: React.ComponentType<{ className?: string }>
+  label: string
+  value: string | null | undefined
+}) {
   return (
-    <div className="flex min-w-0 items-center gap-1.5 rounded-md bg-muted/40 px-2 py-1">
-      <Icon className="size-3.5 shrink-0 text-primary" />
-      <div className="min-w-0 leading-tight">
-        <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{label}: </span>
-        <span className="truncate text-xs font-semibold">{value || '--'}</span>
-      </div>
+    <div className="flex min-w-0 items-center gap-2 py-0.5">
+      <Icon className="size-3.5 shrink-0 text-primary/70" />
+      <span className="shrink-0 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{label}</span>
+      <span className="ml-auto min-w-0 truncate text-right text-xs font-semibold text-foreground">
+        {value || <span className="text-muted-foreground/60">--</span>}
+      </span>
     </div>
   )
 }
@@ -908,6 +940,8 @@ export function StudentDetailPage({ studentId }: { studentId: string }) {
   const canReverseTC = hasPermission(PERMISSIONS.STUDENT_WITHDRAW_REVERSE)
   const canIssueRefund = hasPermission(PERMISSIONS.FEES_REFUND)
   const canManageTransport = hasPermission(PERMISSIONS.TRANSPORT_ALLOCATION_UPDATE)
+  const canVerifyDocs = hasPermission(PERMISSIONS.ADMISSION_APPROVE)
+  const canManageDocs = hasPermission(PERMISSIONS.ADMISSION_UPDATE)
   const currentSchool = useAppStore((s) => s.currentSchool)
 
   const currentSchoolAcademicYear = currentSchool?.academicYear
@@ -930,6 +964,14 @@ export function StudentDetailPage({ studentId }: { studentId: string }) {
   const [reverseWithdrawOpen, setReverseWithdrawOpen] = useState(false)
   const [refundDialog, setRefundDialog] = useState<{ withdrawalId: string } | null>(null)
   const [billingRefreshKey, setBillingRefreshKey] = useState(0)
+
+  // Document verify/reject/delete/re-upload state
+  const [docActionId, setDocActionId] = useState<string | null>(null) // disables all action buttons for the row being acted on
+  const [rejectDialog, setRejectDialog] = useState<{ docId: string; documentName: string } | null>(null)
+  const [rejectReason, setRejectReason] = useState('')
+  const [rejecting, setRejecting] = useState(false)
+  const [deleteDocDialog, setDeleteDocDialog] = useState<{ admissionId: string; doc: AdmissionDocumentData } | null>(null)
+  const [deletingDoc, setDeletingDoc] = useState(false)
   const [promotionForm, setPromotionForm] = useState<PromotionForm>({
     academicYear: currentSchoolAcademicYear || '',
     classId: '',
@@ -980,6 +1022,117 @@ export function StudentDetailPage({ studentId }: { studentId: string }) {
     fetchStudent(studentId, viewYear || undefined)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [studentId, toast])
+
+  // ---- Document actions ----------------------------------------------------
+  const DOC_ACCEPT_ATTR = 'image/jpeg,image/png,image/webp,image/gif,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+  const DOC_ALLOWED_MIME = new Set([
+    'image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif',
+    'application/pdf', 'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  ])
+  const DOC_MAX_BYTES = 200 * 1024
+
+  const refreshDocs = async () => {
+    await fetchStudent(studentId, viewYear || undefined)
+  }
+
+  const handleVerifyDoc = async (admissionId: string, doc: AdmissionDocumentData) => {
+    setDocActionId(doc.id)
+    try {
+      await api.patch(`/api/school/admissions/${admissionId}/documents/${doc.id}`, { action: 'verify' })
+      toast({ title: 'Verified', description: `${doc.documentName} marked as verified.` })
+      await refreshDocs()
+    } catch (err) {
+      toast({ title: "Couldn't Verify", description: err instanceof Error ? err.message : 'Please try again.', variant: 'destructive' })
+    } finally {
+      setDocActionId(null)
+    }
+  }
+
+  const submitReject = async (admissionId: string) => {
+    if (!rejectDialog) return
+    const reason = rejectReason.trim()
+    if (!reason) {
+      toast({ title: 'Reason Required', description: 'Please give a reason for rejection.', variant: 'destructive' })
+      return
+    }
+    setRejecting(true)
+    try {
+      await api.patch(`/api/school/admissions/${admissionId}/documents/${rejectDialog.docId}`, { action: 'reject', reason })
+      toast({ title: 'Rejected', description: `${rejectDialog.documentName} marked as rejected.` })
+      setRejectDialog(null)
+      setRejectReason('')
+      await refreshDocs()
+    } catch (err) {
+      toast({ title: "Couldn't Reject", description: err instanceof Error ? err.message : 'Please try again.', variant: 'destructive' })
+    } finally {
+      setRejecting(false)
+    }
+  }
+
+  const confirmDeleteDoc = async () => {
+    if (!deleteDocDialog) return
+    const { admissionId, doc } = deleteDocDialog
+    setDeletingDoc(true)
+    setDocActionId(doc.id)
+    try {
+      await api.delete(`/api/school/admissions/${admissionId}/documents/${doc.id}`)
+      toast({ title: 'Deleted', description: `${doc.documentName} has been removed.` })
+      setDeleteDocDialog(null)
+      await refreshDocs()
+    } catch (err) {
+      toast({ title: "Couldn't Delete", description: err instanceof Error ? err.message : 'Please try again.', variant: 'destructive' })
+    } finally {
+      setDeletingDoc(false)
+      setDocActionId(null)
+    }
+  }
+
+  const handleReUploadDoc = async (admissionId: string, doc: AdmissionDocumentData, file: File) => {
+    if (!DOC_ALLOWED_MIME.has(file.type)) {
+      toast({ title: 'Unsupported File Type', description: 'JPG, PNG, WebP, GIF, PDF, or Word only.', variant: 'destructive' })
+      return
+    }
+    setDocActionId(doc.id)
+    try {
+      // Image compression for image types — lazy-load so the page bundle stays
+      // small for the common case where no re-upload happens.
+      let dataUrl: string
+      let finalBytes: number
+      if (file.type.startsWith('image/')) {
+        const { compressImage } = await import('@/lib/image-compress')
+        const c = await compressImage(file)
+        dataUrl = c.dataUrl
+        finalBytes = c.finalBytes
+      } else {
+        dataUrl = await new Promise<string>((resolve, reject) => {
+          const r = new FileReader()
+          r.onload = () => resolve(String(r.result))
+          r.onerror = () => reject(r.error || new Error('read failed'))
+          r.readAsDataURL(file)
+        })
+        finalBytes = file.size
+      }
+
+      if (finalBytes > DOC_MAX_BYTES) {
+        toast({ title: 'File Too Large', description: `Max 200 KB. This file is ${Math.round(finalBytes / 1024)} KB.`, variant: 'destructive' })
+        return
+      }
+
+      await api.put(`/api/school/admissions/${admissionId}/documents/${doc.id}`, {
+        fileUrl: dataUrl,
+        fileSize: Math.round(finalBytes / 1024),
+        fileType: file.type,
+      })
+      toast({ title: 'Uploaded', description: `${file.name} uploaded. Pending re-verification.` })
+      await refreshDocs()
+    } catch (err) {
+      toast({ title: "Couldn't Upload", description: err instanceof Error ? err.message : 'Please try again.', variant: 'destructive' })
+    } finally {
+      setDocActionId(null)
+    }
+  }
+  // ---- end Document actions ------------------------------------------------
 
   // Re-fetch when the admin picks a different academic year from the selector.
   useEffect(() => {
@@ -1113,7 +1266,6 @@ export function StudentDetailPage({ studentId }: { studentId: string }) {
   const effectiveEnrollmentStatus = yearScoped?.status ?? student.admissionStatus ?? null
   const classLabel = [effectiveClassName, effectiveSectionName ? `Section ${effectiveSectionName}` : null].filter(Boolean).join(' - ')
   const admissionLabel = student.admissionNumber || a?.admissionNumber
-  const primaryContact = a?.fatherPhone || a?.motherPhone
   const documents = a?.documents || []
   const availableYears = student.academicYearContext?.availableYears || []
   const resolvedAcademicYear = student.academicYearContext?.resolvedAcademicYear || null
@@ -1205,107 +1357,159 @@ export function StudentDetailPage({ studentId }: { studentId: string }) {
         </div>
       )}
 
-      {/* Hero strip — replaces left sidebar. Photo + name + quick stats + actions. */}
-      <Card className="overflow-hidden border-border/70 shadow-sm py-0">
-        <CardContent className="p-3 sm:p-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
-            <div className="flex items-start gap-3 sm:gap-4">
-              <div className="flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-md border border-primary/20 bg-primary/10 shadow-sm sm:size-24">
-                {(student.profileImage || a?.profileImage) ? (
-                  <img src={(student.profileImage || a?.profileImage) as string} alt={fullName} className="size-full object-cover" />
+      {/* Layout: sticky sidebar (identity + key facts + actions) + main panel. */}
+      <div className="grid gap-3 lg:grid-cols-[260px_minmax(0,1fr)] xl:grid-cols-[280px_minmax(0,1fr)]">
+        {/* ───────── Sidebar ───────── */}
+        <aside className="lg:sticky lg:top-2 lg:self-start lg:max-h-[calc(100vh-1rem)] lg:overflow-y-auto">
+          <Card className="overflow-hidden border-border/70 py-0 shadow-sm">
+            {/* Identity surface — gradient backing pulls the photo + name out
+                of the dense field grid that follows. */}
+            <div className="relative bg-gradient-to-br from-primary/15 via-primary/5 to-transparent px-4 pb-4 pt-5">
+              <div className="mx-auto flex size-32 items-center justify-center overflow-hidden rounded-xl border border-primary/25 bg-background shadow-sm sm:size-36">
+                {studentPhoto ? (
+                  <img src={studentPhoto} alt={fullName} className="size-full object-cover" />
                 ) : (
-                  <User className="size-8 text-primary sm:size-10" />
+                  <User className="size-12 text-primary/60" />
                 )}
               </div>
-
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h1 className="break-words text-lg font-bold tracking-tight text-foreground sm:text-xl">{fullName}</h1>
-                  <Badge variant="outline" className={cn('rounded-md font-semibold gap-1 h-5 px-1.5 text-[10.5px]', statusClass(effectiveEnrollmentStatus))}>
-                    <BadgeCheck className="size-3" />
-                    {effectiveEnrollmentStatus || 'Admitted'}
-                  </Badge>
-                </div>
+              <div className="mt-3 text-center">
+                <h1 className="break-words text-base font-bold leading-tight tracking-tight text-foreground sm:text-lg">
+                  {fullName}
+                </h1>
                 {classLabel && (
-                  <p className="mt-0.5 text-xs font-medium text-muted-foreground">{classLabel}</p>
+                  <p className="mt-0.5 text-[11px] font-medium text-muted-foreground">{classLabel}</p>
                 )}
-
-                <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                  <DetailPill label="Adm No" value={admissionLabel} icon={Hash} />
-                  {effectiveRollNumber && <DetailPill label="Roll" value={String(effectiveRollNumber)} icon={IdCard} />}
-                  <DetailPill label="DOB" value={formatDate(student.dateOfBirth)} icon={CalendarDays} />
-                  {student.gender && <DetailPill label="Gender" value={student.gender} icon={student.gender === 'Male' ? CircleUser : CircleUserRound} />}
-                  {primaryContact && <DetailPill label="Contact" value={primaryContact} icon={Phone} />}
-                  {(resolvedAcademicYear || currentSchoolAcademicYear || a?.academicYear) && (
-                    <DetailPill
-                      label="Session"
-                      value={resolvedAcademicYear || currentSchoolAcademicYear || a?.academicYear}
-                      icon={CalendarDays}
-                    />
+                <Badge
+                  variant="outline"
+                  className={cn(
+                    'mt-2 inline-flex h-5 items-center gap-1 rounded-md px-1.5 text-[10.5px] font-semibold',
+                    statusClass(effectiveEnrollmentStatus),
                   )}
-                </div>
+                >
+                  <BadgeCheck className="size-3" />
+                  {effectiveEnrollmentStatus || 'Admitted'}
+                </Badge>
               </div>
             </div>
 
-            <div className="flex shrink-0 flex-wrap gap-1.5 sm:ml-auto">
-              {canEdit && (
-                <Button variant="outline" size="sm" onClick={() => router.push(`/students/${studentId}/edit`)} className="h-8 gap-1.5">
-                  <Edit className="size-3.5" /> Edit
-                </Button>
-              )}
-              {canCollectFees && (
-                <Button variant="default" size="sm" onClick={() => router.push(`/fees/collections?preselect=${student.id}`)} className="h-8 gap-1.5">
-                  <Banknote className="size-3.5" /> Collect Fees
-                </Button>
-              )}
-              {canManageTransport && (
-                hasTransport ? (
-                  <Button variant="outline" size="sm" onClick={() => setDiscontinueTransportOpen(true)} className="h-8 gap-1.5">
-                    <Bus className="size-3.5" /> Discontinue Transport
+            <div className="px-3 pb-3">
+              {/* Key facts — a compact identity card built into the sidebar so
+                  the student's anchor info is always on screen. */}
+              <div className="rounded-md border border-border/70 bg-muted/20 px-2.5 py-2">
+                <KeyFact icon={Hash} label="Adm No" value={admissionLabel} />
+                {effectiveRollNumber && (
+                  <KeyFact icon={IdCard} label="Roll" value={String(effectiveRollNumber)} />
+                )}
+                <KeyFact icon={CalendarDays} label="DOB" value={formatDate(student.dateOfBirth)} />
+                {student.gender && (
+                  <KeyFact
+                    icon={student.gender === 'Male' ? CircleUser : CircleUserRound}
+                    label="Gender"
+                    value={student.gender}
+                  />
+                )}
+                {(resolvedAcademicYear || currentSchoolAcademicYear || a?.academicYear) && (
+                  <KeyFact
+                    icon={CalendarDays}
+                    label="Session"
+                    value={resolvedAcademicYear || currentSchoolAcademicYear || a?.academicYear}
+                  />
+                )}
+              </div>
+
+              <Separator className="my-3" />
+
+              {/* Action stack — primary action gets full-width emphasis;
+                  destructive (TC) sits last with hairline separation. */}
+              <div className="flex flex-col gap-1.5">
+                {canCollectFees && (
+                  <Button
+                    size="sm"
+                    onClick={() => router.push(`/fees/collections?preselect=${student.id}`)}
+                    className="h-9 w-full justify-start gap-2 font-semibold"
+                  >
+                    <Banknote className="size-4" /> Collect Fees
                   </Button>
-                ) : (
-                  <Button variant="outline" size="sm" onClick={() => setAddTransportOpen(true)} className="h-8 gap-1.5">
-                    <Bus className="size-3.5" /> Add Transport
+                )}
+                {canEdit && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => router.push(`/students/${studentId}/edit`)}
+                    className="h-8 w-full justify-start gap-2"
+                  >
+                    <Edit className="size-3.5" /> Edit Profile
                   </Button>
-                )
-              )}
-              {canIssueTC && student.admissionStatus !== 'withdrawn' && student.admissionStatus !== 'transferred' && (
+                )}
+                {canManageTransport && (
+                  hasTransport ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setDiscontinueTransportOpen(true)}
+                      className="h-8 w-full justify-start gap-2"
+                    >
+                      <Bus className="size-3.5" /> Discontinue Transport
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setAddTransportOpen(true)}
+                      className="h-8 w-full justify-start gap-2"
+                    >
+                      <Bus className="size-3.5" /> Add Transport
+                    </Button>
+                  )
+                )}
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setWithdrawOpen(true)}
-                  className="h-8 gap-1.5 text-destructive hover:bg-destructive/10"
+                  onClick={() => window.print()}
+                  className="h-8 w-full justify-start gap-2"
                 >
-                  <FileText className="size-3.5" /> Issue TC
+                  <Printer className="size-3.5" /> Print Admission Form
                 </Button>
-              )}
-              <Button variant="outline" size="sm" onClick={() => window.print()} className="h-8 gap-1.5">
-                <Printer className="size-3.5" /> Admission Form
-              </Button>
+                {canIssueTC && student.admissionStatus !== 'withdrawn' && student.admissionStatus !== 'transferred' && (
+                  <>
+                    <Separator className="my-1" />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setWithdrawOpen(true)}
+                      className="h-8 w-full justify-start gap-2 border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                    >
+                      <FileText className="size-3.5" /> Issue TC
+                    </Button>
+                  </>
+                )}
+              </div>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+          </Card>
+        </aside>
 
-      {/* Withdrawal banner (renders only if student has an active withdrawal). */}
-      <WithdrawalStatusBanner
-        studentId={studentId}
-        refreshKey={billingRefreshKey}
-        onReverseClick={canReverseTC ? () => setReverseWithdrawOpen(true) : undefined}
-        onIssueRefundClick={
-          canIssueRefund
-            ? ({ withdrawalId }) => setRefundDialog({ withdrawalId })
-            : undefined
-        }
-      />
+        {/* ───────── Main panel ───────── */}
+        <div className="min-w-0 space-y-3">
+          {/* Withdrawal banner (renders only if student has an active withdrawal). */}
+          <WithdrawalStatusBanner
+            studentId={studentId}
+            refreshKey={billingRefreshKey}
+            onReverseClick={canReverseTC ? () => setReverseWithdrawOpen(true) : undefined}
+            onIssueRefundClick={
+              canIssueRefund
+                ? ({ withdrawalId }) => setRefundDialog({ withdrawalId })
+                : undefined
+            }
+          />
 
-      {/* Refund history (renders only if there's at least one refund record). */}
-      <RefundHistorySection
-        studentId={studentId}
-        refreshKey={billingRefreshKey}
-        canVoid={canIssueRefund}
-        onChanged={() => setBillingRefreshKey((n) => n + 1)}
-      />
+          {/* Refund history (renders only if there's at least one refund record). */}
+          <RefundHistorySection
+            studentId={studentId}
+            refreshKey={billingRefreshKey}
+            canVoid={canIssueRefund}
+            onChanged={() => setBillingRefreshKey((n) => n + 1)}
+          />
+
 
       <Tabs defaultValue="personal" className="min-w-0 gap-2">
         <div className="sticky top-0 z-10 -mx-1 flex justify-center overflow-x-auto bg-background/95 px-1 py-1 backdrop-blur supports-[backdrop-filter]:bg-background/80">
@@ -1340,9 +1544,9 @@ export function StudentDetailPage({ studentId }: { studentId: string }) {
         </div>
 
         <TabsContent value="personal" className="mt-0">
-          <div className="grid gap-3 lg:grid-cols-2">
+          <div className="grid gap-3 xl:grid-cols-2">
             <SectionCard title="Personal Information" icon={User}>
-              <div className="grid grid-cols-1 gap-x-3 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 <InfoRow label="Date of Birth" value={formatDate(student.dateOfBirth)} icon={CalendarDays} />
                 <InfoRow label="Gender" value={student.gender} />
                 <InfoRow label="Blood Group" value={student.bloodGroup || a?.bloodGroup} icon={Stethoscope} />
@@ -1351,12 +1555,6 @@ export function StudentDetailPage({ studentId }: { studentId: string }) {
                 <InfoRow label="Nationality" value={a?.nationality} />
                 <InfoRow label="Religion" value={a?.religion} />
                 <InfoRow label="Mother Tongue" value={a?.motherTongue} />
-                <InfoRow label="Aadhaar" value={student.aadhaarNumber || a?.aadhaarNumber} icon={IdCard} />
-                <InfoRow label="Registration No" value={a?.registrationNumber} />
-                <InfoRow label="PEN Number" value={a?.penNumber} />
-                <InfoRow label="Samagra ID" value={a?.samagraId} />
-                <InfoRow label="APAAR ID" value={a?.apaarId} />
-                <InfoRow label="UDISE ID" value={a?.udiseId} />
                 <InfoRow label="Height" value={a?.heightCm ? `${a.heightCm} cm` : undefined} icon={Ruler} />
                 <InfoRow label="Weight" value={a?.weightKg ? `${a.weightKg} kg` : undefined} icon={Weight} />
               </div>
@@ -1377,13 +1575,24 @@ export function StudentDetailPage({ studentId }: { studentId: string }) {
                 </div>
               )}
             </SectionCard>
+
+            <SectionCard title="Identity Numbers" icon={IdCard}>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <InfoRow label="Aadhaar" value={student.aadhaarNumber || a?.aadhaarNumber} icon={IdCard} />
+                <InfoRow label="Registration No" value={a?.registrationNumber} icon={Hash} />
+                <InfoRow label="PEN Number" value={a?.penNumber} icon={Hash} />
+                <InfoRow label="Samagra ID" value={a?.samagraId} icon={Hash} />
+                <InfoRow label="APAAR ID" value={a?.apaarId} icon={Hash} />
+                <InfoRow label="UDISE ID" value={a?.udiseId} icon={Hash} />
+              </div>
+            </SectionCard>
           </div>
         </TabsContent>
 
         <TabsContent value="general" className="mt-0">
-          <div className="grid gap-3 lg:grid-cols-2">
+          <div className="grid gap-3 xl:grid-cols-2">
             <SectionCard title="Academic Information" icon={GraduationCap}>
-              <div className="grid grid-cols-1 gap-x-3 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 <InfoRow label="Admission No" value={student.admissionNumber || a?.admissionNumber} icon={IdCard} />
                 <InfoRow label="Roll Number" value={effectiveRollNumber} />
                 <InfoRow label="Class" value={effectiveClassName} />
@@ -1415,7 +1624,7 @@ export function StudentDetailPage({ studentId }: { studentId: string }) {
                 <div className="mt-4 space-y-3">
                   <Separator />
                   <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Previous School</p>
-                  <div className="grid grid-cols-1 gap-x-3 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                     <InfoRow label="School Name" value={a.previousSchool} icon={Building} />
                     <InfoRow label="Address" value={a.previousSchoolAddress} icon={MapPin} />
                     <InfoRow label="Previous Class" value={a.previousClass} />
@@ -1434,7 +1643,7 @@ export function StudentDetailPage({ studentId }: { studentId: string }) {
                   {hasTransport && (
                     <div>
                       <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Transport</p>
-                      <div className="grid grid-cols-1 gap-x-3 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
+                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                         <InfoRow label="Route" value={transportAlloc?.route?.routeName} icon={Bus} />
                         <InfoRow label="Route No" value={transportAlloc?.route?.routeNumber} icon={Hash} />
                         <InfoRow label="Stop" value={transportAlloc?.stopName || a?.transportStop} icon={MapPin} />
@@ -1457,7 +1666,7 @@ export function StudentDetailPage({ studentId }: { studentId: string }) {
                   {a?.hostelName && (
                     <div>
                       <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Hostel</p>
-                      <div className="grid grid-cols-1 gap-x-3 gap-y-2 sm:grid-cols-3">
+                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                         <InfoRow label="Hostel" value={a.hostelName} icon={Home} />
                         <InfoRow label="Room No" value={a.hostelRoomNo} />
                         <InfoRow label="Bed No" value={a.hostelBedNo} />
@@ -1476,7 +1685,7 @@ export function StudentDetailPage({ studentId }: { studentId: string }) {
         </TabsContent>
 
         <TabsContent value="contact" className="mt-0">
-          <div className="grid gap-3 lg:grid-cols-2">
+          <div className="grid gap-3 xl:grid-cols-2">
             <SectionCard
               title="Father's Details"
               icon={CircleUser}
@@ -1498,7 +1707,7 @@ export function StudentDetailPage({ studentId }: { studentId: string }) {
                 </Button>
               ) : undefined}
             >
-              <div className="grid grid-cols-1 gap-x-3 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 <InfoRow label="Name" value={a?.fatherName} />
                 <InfoRow label="Phone" value={a?.fatherPhone} icon={Phone} />
                 <InfoRow label="Email" value={a?.fatherEmail} icon={Mail} />
@@ -1530,7 +1739,7 @@ export function StudentDetailPage({ studentId }: { studentId: string }) {
                 </Button>
               ) : undefined}
             >
-              <div className="grid grid-cols-1 gap-x-3 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 <InfoRow label="Name" value={a?.motherName} />
                 <InfoRow label="Phone" value={a?.motherPhone} icon={Phone} />
                 <InfoRow label="Email" value={a?.motherEmail} icon={Mail} />
@@ -1551,7 +1760,7 @@ export function StudentDetailPage({ studentId }: { studentId: string }) {
                         {[a?.address || student.address, a?.city || student.city, a?.state || student.state, a?.pincode || student.pincode, a?.country || student.country].filter(Boolean).join(', ')}
                       </p>
                     </div>
-                    <div className="grid grid-cols-1 gap-x-3 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                       <InfoRow label="Village" value={a?.village} />
                       <InfoRow label="Post Office" value={a?.postOffice} />
                       <InfoRow label="Police Station" value={a?.policeStation} />
@@ -1580,13 +1789,27 @@ export function StudentDetailPage({ studentId }: { studentId: string }) {
         </TabsContent>
 
         <TabsContent value="accounts" className="mt-0">
-          <div className="grid gap-3 lg:grid-cols-2">
+          <div className="grid gap-3 xl:grid-cols-2">
             <SectionCard title="Bank Details" icon={CreditCard}>
-              <div className="grid grid-cols-1 gap-x-3 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 <InfoRow label="Account Number" value={a?.bankAccountNumber} icon={Banknote} />
-                <InfoRow label="IFSC Code" value={a?.ifscCode} />
-                <InfoRow label="Fees Group" value={a?.feesGroup?.name} />
+                <InfoRow label="IFSC Code" value={a?.ifscCode} icon={CreditCard} />
               </div>
+            </SectionCard>
+            <SectionCard title="Fees Group" icon={BookOpenCheck}>
+              {a?.feesGroup?.name ? (
+                <div className="flex items-center gap-3 rounded-md border border-border/70 bg-muted/20 p-3">
+                  <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-primary/15 text-primary">
+                    <BookOpenCheck className="size-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[10.5px] font-medium uppercase tracking-wide text-muted-foreground">Assigned Group</p>
+                    <p className="truncate text-sm font-semibold text-foreground">{a.feesGroup.name}</p>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">No fees group assigned.</p>
+              )}
             </SectionCard>
           </div>
         </TabsContent>
@@ -1594,33 +1817,90 @@ export function StudentDetailPage({ studentId }: { studentId: string }) {
         <TabsContent value="documents" className="mt-0">
           <SectionCard title="Admission Documents" icon={FileText}>
             {documents.length > 0 ? (
-              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                {documents.map((doc) => (
-                  <div key={doc.id} className="min-w-0 rounded-md border border-border/70 bg-muted/20 p-2.5">
-                    <div className="flex min-w-0 items-start gap-2">
-                      <FileText className="mt-0.5 size-4 shrink-0 text-primary" />
-                      <div className="min-w-0 flex-1">
-                        <p className="break-words text-xs font-semibold leading-tight">{doc.documentName}</p>
-                        <p className="mt-0.5 capitalize text-[10.5px] text-muted-foreground">{doc.documentType.replace(/_/g, ' ')}</p>
+              <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                {documents.map((doc) => {
+                  const busy = docActionId === doc.id
+                  const isVerified = doc.verificationStatus === 'verified'
+                  const isRejected = doc.verificationStatus === 'rejected'
+                  const showVerify = canVerifyDocs && !isVerified && !!doc.fileUrl
+                  const showReject = canVerifyDocs && !isRejected && !!doc.fileUrl
+                  return (
+                    <div key={doc.id} className="min-w-0 rounded-md border border-border/70 bg-muted/20 p-2.5">
+                      <div className="flex min-w-0 items-start gap-2">
+                        <FileText className="mt-0.5 size-4 shrink-0 text-primary" />
+                        <div className="min-w-0 flex-1">
+                          <p className="break-words text-xs font-semibold leading-tight">{doc.documentName}</p>
+                          <p className="mt-0.5 capitalize text-[10.5px] text-muted-foreground">{doc.documentType.replace(/_/g, ' ')}</p>
+                        </div>
+                        <Badge variant="outline" className={cn('shrink-0 rounded gap-0.5 h-5 px-1.5 text-[10px]', documentStatusClass(doc.verificationStatus))}>
+                          <DocumentStatusIcon status={doc.verificationStatus} />
+                          {doc.verificationStatus}
+                        </Badge>
                       </div>
-                      <Badge variant="outline" className={cn('shrink-0 rounded gap-0.5 h-5 px-1.5 text-[10px]', documentStatusClass(doc.verificationStatus))}>
-                        <DocumentStatusIcon status={doc.verificationStatus} />
-                        {doc.verificationStatus}
-                      </Badge>
-                    </div>
-                    <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10.5px] text-muted-foreground">
-                      <span>{formatFileSize(doc.fileSize)}</span>
-                      <span>·</span>
-                      <span>{formatDate(doc.uploadedAt)}</span>
-                      {doc.isRequired && <><span>·</span><span className="text-amber-600">Required</span></>}
-                      {doc.fileUrl && (
-                        <a href={doc.fileUrl} target="_blank" rel="noreferrer" className="ml-auto font-semibold text-primary hover:underline">
-                          View
-                        </a>
+                      <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10.5px] text-muted-foreground">
+                        <span>{formatFileSize(doc.fileSize)}</span>
+                        <span>·</span>
+                        <span>{formatDate(doc.uploadedAt)}</span>
+                        {doc.isRequired && <><span>·</span><span className="text-amber-600">Required</span></>}
+                        {doc.fileUrl && (
+                          <a href={doc.fileUrl} target="_blank" rel="noreferrer" className="ml-auto font-semibold text-primary hover:underline">
+                            View
+                          </a>
+                        )}
+                      </div>
+                      {isRejected && doc.rejectionReason && (
+                        <p className="mt-1.5 rounded border border-red-200 bg-red-50 px-1.5 py-1 text-[10.5px] text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
+                          <span className="font-semibold">Reason: </span>{doc.rejectionReason}
+                        </p>
+                      )}
+                      {isVerified && doc.verifiedAt && (
+                        <p className="mt-1.5 text-[10.5px] text-emerald-700 dark:text-emerald-400">
+                          Verified {formatDate(doc.verifiedAt)}
+                        </p>
+                      )}
+                      {a?.id && (canVerifyDocs || canManageDocs) && (
+                        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                          {showVerify && (
+                            <Button size="sm" variant="outline" disabled={busy} className="h-6 gap-1 px-2 text-[10.5px]"
+                              onClick={() => handleVerifyDoc(a.id, doc)}>
+                              <ShieldCheck className="size-3" /> Verify
+                            </Button>
+                          )}
+                          {showReject && (
+                            <Button size="sm" variant="outline" disabled={busy} className="h-6 gap-1 px-2 text-[10.5px] text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40"
+                              onClick={() => { setRejectDialog({ docId: doc.id, documentName: doc.documentName }); setRejectReason('') }}>
+                              <ShieldX className="size-3" /> Reject
+                            </Button>
+                          )}
+                          {canManageDocs && (
+                            <>
+                              <input
+                                id={`profile-doc-input-${doc.id}`}
+                                type="file"
+                                accept={DOC_ACCEPT_ATTR}
+                                className="hidden"
+                                onChange={async (e) => {
+                                  const file = e.target.files?.[0]
+                                  e.target.value = ''
+                                  if (file) await handleReUploadDoc(a.id, doc, file)
+                                }}
+                              />
+                              <Button size="sm" variant="ghost" disabled={busy} className="h-6 gap-1 px-2 text-[10.5px]"
+                                onClick={() => (document.getElementById(`profile-doc-input-${doc.id}`) as HTMLInputElement)?.click()}>
+                                <Upload className="size-3" /> {doc.fileUrl ? 'Re-upload' : 'Upload'}
+                              </Button>
+                              <Button size="sm" variant="ghost" disabled={busy} className="h-6 gap-1 px-2 text-[10.5px] text-destructive"
+                                onClick={() => setDeleteDocDialog({ admissionId: a.id, doc })}>
+                                <Trash2 className="size-3" /> Delete
+                              </Button>
+                            </>
+                          )}
+                          {busy && <Loader2 className="size-3 animate-spin text-muted-foreground" />}
+                        </div>
                       )}
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             ) : (
               <p className="text-sm text-muted-foreground">No documents uploaded for this admission.</p>
@@ -1631,7 +1911,7 @@ export function StudentDetailPage({ studentId }: { studentId: string }) {
         {(student.siblings?.length || 0) > 0 && (
           <TabsContent value="sibling" className="mt-0">
             <SectionCard title={student.siblings!.length === 1 ? 'Sibling' : 'Siblings'} icon={Heart}>
-              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
                 {student.siblings!.map(sib => (
                   <div key={sib.id} className="flex items-center gap-2 rounded-md border border-primary/20 bg-primary/5 px-2.5 py-2">
                     <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary/15 text-primary">
@@ -1652,6 +1932,8 @@ export function StudentDetailPage({ studentId }: { studentId: string }) {
           </TabsContent>
         )}
       </Tabs>
+        </div>
+      </div>
 
       {/* Billing-window dialogs (TC, transport add/discontinue, TC reversal). */}
       <WithdrawStudentDialog
@@ -1846,6 +2128,62 @@ export function StudentDetailPage({ studentId }: { studentId: string }) {
         userName={resetParentTarget?.name ?? ''}
         roleLabel={resetParentTarget ? `parent (${resetParentTarget.relation.toLowerCase()} of ${fullName})` : 'parent'}
       />
+
+      <Dialog open={!!rejectDialog} onOpenChange={(open) => { if (!open) { setRejectDialog(null); setRejectReason('') } }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Reject Document</DialogTitle>
+            <DialogDescription>
+              Please give a reason for rejecting <span className="font-medium">{rejectDialog?.documentName}</span>. The reason is shown to whoever re-uploads the document.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="reject-reason">Reason</Label>
+            <Textarea
+              id="reject-reason"
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              placeholder="e.g. Image is blurred — please upload a clearer scan."
+              rows={3}
+              maxLength={500}
+            />
+            <p className="text-[10.5px] text-muted-foreground">{rejectReason.length}/500</p>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => { setRejectDialog(null); setRejectReason('') }} disabled={rejecting}>Cancel</Button>
+            <Button
+              variant="destructive"
+              disabled={rejecting || !rejectReason.trim() || !a?.id}
+              onClick={() => a?.id && submitReject(a.id)}
+            >
+              {rejecting && <Loader2 className="mr-1.5 size-3.5 animate-spin" />}
+              Reject Document
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={!!deleteDocDialog} onOpenChange={(open) => { if (!open && !deletingDoc) setDeleteDocDialog(null) }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Document</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete <strong>&ldquo;{deleteDocDialog?.doc.documentName}&rdquo;</strong>? The file will be removed from storage. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deletingDoc}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeleteDoc}
+              disabled={deletingDoc}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deletingDoc && <Loader2 className="mr-2 size-4 animate-spin" />}
+              {deletingDoc ? 'Deleting...' : 'Yes, Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
