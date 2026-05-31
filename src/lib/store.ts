@@ -5,7 +5,7 @@ export type PageName =
   | 'dashboard'
   | 'students' | 'teachers' | 'add-teacher' | 'parents' | 'admission-form' | 'student-detail' | 'bulk-admission'
   | 'attendance' | 'mark-attendance' | 'view-attendance' | 'attendance-audit-log' | 'attendance-reports'
-  | 'fees-heads' | 'fees-groups' | 'fees-structures' | 'fee-collections' | 'fee-change-group' | 'fee-demand-config' | 'fee-demand-slips'
+  | 'fees-heads' | 'fees-groups' | 'fees-structures' | 'fee-collections' | 'fee-change-group' | 'fee-demand-config' | 'fee-demand-slips' | 'fee-audit-log'
   | 'salary' | 'salary-structure' | 'salary-payments' | 'salary-advance'
   | 'timetable' | 'exams' | 'exam-results'
   | 'transport' | 'add-transport-route' | 'edit-transport-route' | 'transport-annual-setup' | 'drivers' | 'add-driver' | 'library' | 'inventory' | 'petty-cash'

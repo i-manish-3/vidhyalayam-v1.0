@@ -156,6 +156,7 @@ export const MENUS: Record<string, MenuItem[]> = {
         { label: 'Fee Collections', page: 'fee-collections', icon: DollarSign },
         { label: 'Demand Slips', page: 'fee-demand-slips', icon: FileSpreadsheet },
         { label: 'Change Fee Group', page: 'fee-change-group', icon: RefreshCw },
+        { label: 'Audit Trail', page: 'fee-audit-log', icon: History },
       ],
     },
     {
@@ -226,6 +227,7 @@ export const MENUS: Record<string, MenuItem[]> = {
       icon: History,
       children: [
         { label: 'Attendance', page: 'attendance-audit-log', icon: ClipboardList },
+        { label: 'Fees', page: 'fee-audit-log', icon: Receipt },
       ],
     },
     {
@@ -305,6 +307,7 @@ export const MENUS: Record<string, MenuItem[]> = {
         { label: 'Fee Collections', page: 'fee-collections', icon: DollarSign },
         { label: 'Demand Slips', page: 'fee-demand-slips', icon: FileSpreadsheet },
         { label: 'Change Fee Group', page: 'fee-change-group', icon: RefreshCw },
+        { label: 'Audit Trail', page: 'fee-audit-log', icon: History },
       ],
     },
     {

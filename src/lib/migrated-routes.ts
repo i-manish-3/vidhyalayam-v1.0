@@ -24,6 +24,7 @@ export const MIGRATED_PAGES: Partial<Record<PageName, (...args: string[]) => str
   'fee-change-group': () => '/fees/change-group',
   'fee-demand-config': () => '/settings/fee-demand-config',
   'fee-demand-slips': () => '/fees/demand-slips',
+  'fee-audit-log': () => '/audit-logs/fees',
   'classes': () => '/academics/classes',
   'my-classes': () => '/academics/my-classes',
   'add-class': () => '/academics/classes/new',

@@ -516,6 +516,7 @@ async function seed() {
     { code: 'fees:refund', name: 'Refund Fees', module: 'fees', action: 'update' },
     { code: 'fees:delete', name: 'Delete Fee', module: 'fees', action: 'delete' },
     { code: 'fees:change-group', name: 'Change Fee Group', module: 'fees', action: 'update' },
+    { code: 'fees:audit', name: 'View Fee Audit Trail', module: 'fees', action: 'read' },
     // Salary
     { code: 'salary:read', name: 'View Salary', module: 'salary', action: 'read' },
     { code: 'salary:create', name: 'Create Salary', module: 'salary', action: 'create' },

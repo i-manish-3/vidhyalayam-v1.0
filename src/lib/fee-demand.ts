@@ -2,6 +2,7 @@ import { Prisma } from '@prisma/client'
 import pLimit from 'p-limit'
 import { db } from '@/lib/db'
 import { createFeeDebitLedgerEntry } from '@/lib/fees'
+import { logFeeTransaction } from '@/lib/audit'
 
 const BULK_GENERATE_CONCURRENCY = Number(process.env.FEE_DEMAND_GENERATE_CONCURRENCY) || 5
 const SLIP_NUMBER_RETRIES = 3
@@ -586,14 +587,18 @@ export async function generateMonthlyDemandSlip(
     })
   }
 
-  await tx.feeAuditLog.create({
-    data: {
-      schoolId,
-      entityType: 'StudentFeeInvoice',
-      entityId: invoice.id,
-      action: 'monthly_demand_generated',
-      changedBy: generatedBy || null,
-      newValue: JSON.stringify({
+  // Enhanced audit logging with snapshots
+  await logFeeTransaction(
+    tx,
+    schoolId,
+    'StudentFeeInvoice',
+    invoice.id,
+    'monthly_demand_generated',
+    null, // No old value for new invoice
+    invoice,
+    {
+      userId: generatedBy || undefined,
+      metadata: {
         studentId,
         month,
         year,
@@ -605,9 +610,9 @@ export async function generateMonthlyDemandSlip(
         totalAmount,
         demandRunId: demandRunId || null,
         force: !!force,
-      }),
-    },
-  })
+      },
+    }
+  )
 
   return {
     status: 'created',

@@ -8,6 +8,7 @@ import {
   unauthorizedError,
 } from '@/lib/api-errors'
 import { decryptToken, encryptToken, maskToken } from '@/lib/encryption'
+import { logConfigChange, extractAuditContext } from '@/lib/audit'
 
 // Sentinel string the UI sends back when a sensitive field is unchanged.
 // We never send the raw token down to the browser (only the mask), so the
@@ -155,17 +156,39 @@ export async function PATCH(request: NextRequest) {
       metaTemplateName,
     }
 
-    const config = await db.feeDemandConfig.upsert({
+    // Fetch old config for audit trail
+    const oldConfig = await db.feeDemandConfig.findUnique({
       where: { schoolId: user.schoolId },
-      create: {
-        schoolId: user.schoolId,
-        ...baseData,
-        metaAccessToken: metaTokenUpdate?.set ?? null,
-      },
-      update: {
-        ...baseData,
-        ...(metaTokenUpdate ? { metaAccessToken: metaTokenUpdate.set } : {}),
-      },
+    })
+
+    const config = await db.$transaction(async (tx) => {
+      const updated = await tx.feeDemandConfig.upsert({
+        where: { schoolId: user.schoolId },
+        create: {
+          schoolId: user.schoolId,
+          ...baseData,
+          metaAccessToken: metaTokenUpdate?.set ?? null,
+        },
+        update: {
+          ...baseData,
+          ...(metaTokenUpdate ? { metaAccessToken: metaTokenUpdate.set } : {}),
+        },
+      })
+
+      // Log configuration change
+      const auditContext = extractAuditContext(request, user.userId)
+      await logConfigChange(
+        tx,
+        user.schoolId,
+        'FeeDemandConfig',
+        updated.id,
+        oldConfig ? 'updated' : 'created',
+        oldConfig,
+        updated,
+        auditContext
+      )
+
+      return updated
     })
 
     return NextResponse.json({ config: serializeConfig(config) })

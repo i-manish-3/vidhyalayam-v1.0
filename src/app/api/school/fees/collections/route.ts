@@ -9,6 +9,7 @@ import {
   recordStudentLedgerPayment,
   recordStudentLedgerWaiver,
 } from '@/lib/fees'
+import { logFeeTransaction, extractAuditContext } from '@/lib/audit'
 
 // Retry configuration for concurrent payment scenarios
 const PAYMENT_RETRY_ATTEMPTS = 3
@@ -731,25 +732,34 @@ export async function POST(request: NextRequest) {
               })
             }
 
-            await tx.feeAuditLog.create({
-              data: {
-                schoolId: user.schoolId!,
-                entityType: 'StudentFeeLedgerEntry',
-                entityId: generatedReceipt,
-                action: 'ledger_payment_recorded',
-                changedBy: user.userId,
-                newValue: JSON.stringify({
-                  studentId,
-                  receiptNumber: generatedReceipt,
-                  paymentMethod,
+            // Enhanced audit logging with snapshots
+            const auditContext = extractAuditContext(request, user.userId)
+            await logFeeTransaction(
+              tx,
+              user.schoolId!,
+              'StudentFeePayment',
+              generatedReceipt,
+              'payment_recorded',
+              null, // No old value for new payment
+              {
+                studentId,
+                receiptNumber: generatedReceipt,
+                amount: totalPaid,
+                paymentMethod,
+                paymentDate: paymentDateValue,
+                receivedBy: user.userId,
+              },
+              {
+                ...auditContext,
+                metadata: {
                   totalPaid,
                   totalDiscount,
                   rowCount: payments.length,
                   splits: sanitizedSplits,
                   slipLineCount: sanitizedSlipLines?.length || 0,
-                }),
-              },
-            })
+                },
+              }
+            )
 
             return {
               receiptNumber: generatedReceipt,
@@ -841,23 +851,34 @@ export async function POST(request: NextRequest) {
             })
           }
 
-          await tx.feeAuditLog.create({
-            data: {
-              schoolId: user.schoolId!,
-              entityType: 'StudentFeeLedgerEntry',
-              entityId: generatedReceipt,
-              action: 'ledger_payment_recorded',
-              changedBy: user.userId,
-              newValue: JSON.stringify({
-                studentId,
+          // Enhanced audit logging with snapshots
+          const auditContext = extractAuditContext(request, user.userId)
+          await logFeeTransaction(
+            tx,
+            user.schoolId!,
+            'StudentFeePayment',
+            generatedReceipt,
+            'payment_recorded',
+            null, // No old value for new payment
+            {
+              studentId,
+              receiptNumber: generatedReceipt,
+              amount: paymentAmount,
+              paymentMethod,
+              paymentDate: paymentDateValue,
+              receivedBy: user.userId,
+            },
+            {
+              ...auditContext,
+              metadata: {
                 paymentAmount,
                 adjustmentAmount,
-                paymentMethod,
-                receiptNumber: generatedReceipt,
-                splits: sanitizedSplits,
-              }),
-            },
-          })
+                discountAmount,
+                concessionAmount,
+                scholarshipAmount,
+              },
+            }
+          )
 
           return {
             receiptNumber: generatedReceipt,

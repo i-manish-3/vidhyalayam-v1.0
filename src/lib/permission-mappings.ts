@@ -54,6 +54,7 @@ const MODULE_PERMISSION_MAP: Record<string, string[]> = {
   'fee-change-group': ['fees:change-group'],
   'fee-demand-config': ['fees:read'],
   'fee-demand-slips': ['fees:read'],
+  'fee-audit-log': ['fees:read', 'fees:audit'],
 
   // Salary
   'salary': ['salary:read'],
