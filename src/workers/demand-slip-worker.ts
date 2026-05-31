@@ -24,6 +24,7 @@ export const demandSlipWorker = new Worker<DemandSlipJobData, void>(
     let skippedCount = 0
     let failedCount = 0
     const errors: Array<{ studentId: string; error: string }> = []
+    const skipped: Array<{ studentId: string; reason: string }> = []
 
     // Update run status to 'running'
     await db.feeDemandRun.update({
@@ -89,11 +90,15 @@ export const demandSlipWorker = new Worker<DemandSlipJobData, void>(
           successCount++
         } else if (result.status === 'skipped') {
           skippedCount++
+          skipped.push({
+            studentId,
+            reason: result.reason || 'unknown',
+          })
         } else {
           failedCount++
           errors.push({
             studentId,
-            error: result.status === 'failed' ? result.error : `Skipped: ${result.reason}`,
+            error: result.status === 'failed' ? result.error : `Unknown status: ${result.status}`,
           })
         }
       } catch (error: unknown) {
@@ -113,7 +118,10 @@ export const demandSlipWorker = new Worker<DemandSlipJobData, void>(
         skippedCount,
         failedCount,
         completedAt: new Date(),
-        errorLog: errors.length > 0 ? JSON.stringify(errors) : null,
+        errorLog: JSON.stringify({
+          errors: errors.length > 0 ? errors : [],
+          skipped: skipped.length > 0 ? skipped : [],
+        }),
       },
     })
 

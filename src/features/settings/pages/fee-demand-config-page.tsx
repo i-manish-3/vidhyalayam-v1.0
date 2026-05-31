@@ -17,6 +17,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 
 type ConfigState = {
   dueDay: number
+  slipNumberFormat: string
   lateFeeEnabled: boolean
   lateFeeType: 'FLAT' | 'PER_DAY'
   lateFeeAmount: number
@@ -37,6 +38,7 @@ const UNCHANGED_TOKEN = '__UNCHANGED__'
 
 const DEFAULTS: ConfigState = {
   dueDay: 10,
+  slipNumberFormat: 'DS/{academicYear}/{subdomain}/{month}/{sequence}',
   lateFeeEnabled: false,
   lateFeeType: 'FLAT',
   lateFeeAmount: 0,
@@ -94,6 +96,7 @@ export function FeeDemandConfigPage() {
 
   const hasChanges =
     config.dueDay !== original.dueDay ||
+    config.slipNumberFormat !== original.slipNumberFormat ||
     config.lateFeeEnabled !== original.lateFeeEnabled ||
     config.lateFeeType !== original.lateFeeType ||
     config.lateFeeAmount !== original.lateFeeAmount ||
@@ -126,6 +129,7 @@ export function FeeDemandConfigPage() {
     try {
       const payload: Record<string, unknown> = {
         dueDay: config.dueDay,
+        slipNumberFormat: config.slipNumberFormat,
         lateFeeEnabled: config.lateFeeEnabled,
         lateFeeType: config.lateFeeType,
         lateFeeAmount: config.lateFeeAmount,
@@ -271,6 +275,30 @@ function GeneralTab({
               <li>• <strong>{config.dueDay}{getDaySuffix(config.dueDay)}</strong> — payment due date</li>
               <li>• After due date — late fine kicks in (when enabled)</li>
             </ul>
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="slip-format">Slip Number Format</Label>
+          <Input
+            id="slip-format"
+            value={config.slipNumberFormat}
+            onChange={(e) => setConfig({ ...config, slipNumberFormat: e.target.value })}
+            placeholder="DS/{academicYear}/{subdomain}/{month}/{sequence}"
+          />
+          <p className="text-xs text-muted-foreground">
+            Available variables: <code className="rounded bg-muted px-1 py-0.5">{'{academicYear}'}</code>, <code className="rounded bg-muted px-1 py-0.5">{'{subdomain}'}</code>, <code className="rounded bg-muted px-1 py-0.5">{'{month}'}</code>, <code className="rounded bg-muted px-1 py-0.5">{'{year}'}</code>, <code className="rounded bg-muted px-1 py-0.5">{'{sequence}'}</code>
+          </p>
+          <div className="rounded-md border bg-muted/20 p-2 text-xs">
+            <span className="text-muted-foreground">Preview: </span>
+            <span className="font-mono">
+              {config.slipNumberFormat
+                .replace('{academicYear}', '2026-2027')
+                .replace('{subdomain}', 'SCHOOL')
+                .replace('{month}', 'MAY')
+                .replace('{year}', '2026')
+                .replace('{sequence}', '00001')}
+            </span>
           </div>
         </div>
       </CardContent>

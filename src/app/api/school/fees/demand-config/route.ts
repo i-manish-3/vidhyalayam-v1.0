@@ -57,6 +57,7 @@ function serializeConfig(c: Awaited<ReturnType<typeof db.feeDemandConfig.upsert>
 
   return {
     dueDay: c.dueDay,
+    slipNumberFormat: c.slipNumberFormat,
     lateFeeEnabled: c.lateFeeEnabled,
     lateFeeType: c.lateFeeType,
     lateFeeAmount: c.lateFeeAmount,
@@ -106,6 +107,10 @@ export async function PATCH(request: NextRequest) {
     const body = await request.json()
 
     const dueDay = cleanInt(body.dueDay, 10, 1, 28)
+    const slipNumberFormat = typeof body.slipNumberFormat === 'string' && body.slipNumberFormat.trim()
+      ? body.slipNumberFormat.trim()
+      : 'DS/{academicYear}/{subdomain}/{month}/{sequence}'
+
     const lateFeeEnabled = cleanBool(body.lateFeeEnabled, false)
     const lateFeeType = (typeof body.lateFeeType === 'string' && VALID_FEE_TYPES.has(body.lateFeeType))
       ? body.lateFeeType
@@ -138,6 +143,7 @@ export async function PATCH(request: NextRequest) {
 
     const baseData = {
       dueDay,
+      slipNumberFormat,
       lateFeeEnabled,
       lateFeeType,
       lateFeeAmount,

@@ -503,7 +503,7 @@ export function buildSlipHtml(input: SlipHtmlInput): string {
           <thead>
             <tr>
               <th>Description</th>
-              ${isReceipt ? '<th class="amt">Amount</th><th class="amt">Paid</th><th class="amt">Due</th>' : '<th class="amt">Rate</th><th class="amt">Amount</th>'}
+              ${isReceipt ? '<th class="amt">Amount</th><th class="amt">Paid</th><th class="amt">Due</th>' : '<th class="amt"></th><th class="amt">Amount</th>'}
             </tr>
           </thead>
           <tbody>${linesHtml}</tbody>

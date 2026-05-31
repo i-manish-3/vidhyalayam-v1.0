@@ -100,6 +100,13 @@ interface RunRow {
   completedAt: string | null
 }
 
+interface RunDetail {
+  run: RunRow
+  errors: Array<{ studentId: string; error: string }>
+  skipped: Array<{ studentId: string; reason: string }>
+  progress: number
+}
+
 interface ClassOption { id: string; name: string }
 interface SectionOption { id: string; name: string; classId?: string }
 
@@ -200,6 +207,8 @@ export function FeeDemandSlipsPage() {
   const [classId, setClassId] = useState<string>('')
   const [sectionId, setSectionId] = useState<string>('')
   const [runFilter, setRunFilter] = useState<string>('')
+  const [limit, setLimit] = useState<number>(50)
+  const [page, setPage] = useState<number>(1)
 
   // Data
   const [slips, setSlips] = useState<SlipRow[]>([])
@@ -220,6 +229,9 @@ export function FeeDemandSlipsPage() {
 
   // Detail dialog
   const [viewingId, setViewingId] = useState<string | null>(null)
+
+  // Run detail dialog
+  const [viewingRunId, setViewingRunId] = useState<string | null>(null)
 
   // Year options: AY ±2 years around current
   const yearOptions = useMemo(() => {
@@ -257,18 +269,23 @@ export function FeeDemandSlipsPage() {
   const fetchSlips = useCallback(async () => {
     setLoading(true)
     try {
-      const params: Record<string, string> = { month: String(month), year: String(year), limit: '200' }
+      const params: Record<string, string> = {
+        month: String(month),
+        year: String(year),
+        limit: limit === -1 ? '1000' : String(limit),
+        offset: limit === -1 ? '0' : String((page - 1) * limit)
+      }
       if (classId) params.classId = classId
       if (sectionId) params.sectionId = sectionId
       if (runFilter) params.runId = runFilter
-      const res = await api.get<{ slips: SlipRow[] }>('/api/school/fees/demand-slips', params)
+      const res = await api.get<{ slips: SlipRow[]; total?: number }>('/api/school/fees/demand-slips', params)
       setSlips(res.slips || [])
     } catch {
       toast({ title: "Couldn't load demand slips", description: 'Please try again.', variant: 'destructive' })
     } finally {
       setLoading(false)
     }
-  }, [month, year, classId, sectionId, runFilter, toast])
+  }, [month, year, classId, sectionId, runFilter, limit, page, toast])
 
   const fetchRuns = useCallback(async () => {
     try {
@@ -282,10 +299,16 @@ export function FeeDemandSlipsPage() {
   useEffect(() => { fetchSlips() }, [fetchSlips])
   useEffect(() => { fetchRuns() }, [fetchRuns])
 
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setPage(1)
+  }, [month, year, classId, sectionId, runFilter])
+
   const onGenerated = useCallback(() => {
     setGeneratorOpen(false)
     fetchSlips()
     fetchRuns()
+    setHistoryOpen(true) // Auto-open history after generation
   }, [fetchSlips, fetchRuns])
 
   // Poll notifications while a bulk send is active so the progress banner ticks.
@@ -438,50 +461,98 @@ export function FeeDemandSlipsPage() {
           action={{ label: 'Generate Slips', onClick: () => setGeneratorOpen(true) }}
         />
       ) : (
-        <div className="overflow-hidden rounded-lg border bg-background shadow-sm">
-          <Table>
-            <TableHeader className="bg-muted/50">
-              <TableRow className="hover:bg-transparent">
-                <TableHead className="h-11 px-4 text-xs font-semibold uppercase text-muted-foreground">Slip No</TableHead>
-                <TableHead className="h-11 px-4 text-xs font-semibold uppercase text-muted-foreground">Student</TableHead>
-                <TableHead className="h-11 px-4 text-xs font-semibold uppercase text-muted-foreground">Class</TableHead>
-                <TableHead className="h-11 px-4 text-right text-xs font-semibold uppercase text-muted-foreground">Items</TableHead>
-                <TableHead className="h-11 px-4 text-right text-xs font-semibold uppercase text-muted-foreground">Prev Bal</TableHead>
-                <TableHead className="h-11 px-4 text-right text-xs font-semibold uppercase text-muted-foreground">Total</TableHead>
-                <TableHead className="h-11 px-4 text-xs font-semibold uppercase text-muted-foreground">Status</TableHead>
-                <TableHead className="h-11 w-24 px-4 text-right text-xs font-semibold uppercase text-muted-foreground">Action</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {slips.map((slip) => (
-                <TableRow key={slip.id} className="group">
-                  <TableCell className="px-4 py-3 font-mono text-xs">{slip.invoiceNumber}</TableCell>
-                  <TableCell className="px-4 py-3">
-                    <div className="flex flex-col">
-                      <span className="font-medium">{slip.student.firstName} {slip.student.lastName}</span>
-                      <span className="text-xs text-muted-foreground">{slip.student.admissionNumber || '-'}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell className="px-4 py-3 text-sm text-muted-foreground">
-                    {slip.student.class?.name || '-'}{slip.student.section ? ` / ${slip.student.section.name}` : ''}
-                  </TableCell>
-                  <TableCell className="px-4 py-3 text-right text-sm">{slip.lineCount}</TableCell>
-                  <TableCell className="px-4 py-3 text-right text-sm">{formatCurrency(slip.previousBalance)}</TableCell>
-                  <TableCell className="px-4 py-3 text-right text-sm font-semibold">{formatCurrency(slip.totalAmount)}</TableCell>
-                  <TableCell className="px-4 py-3">
-                    <Badge variant={statusVariant(slip.status)} className="capitalize">{slip.status}</Badge>
-                  </TableCell>
-                  <TableCell className="px-4 py-3">
-                    <div className="flex justify-end">
-                      <Button size="sm" variant="outline" className="h-8 gap-1.5 px-3" onClick={() => setViewingId(slip.id)}>
-                        <Eye className="size-4" /> View
-                      </Button>
-                    </div>
-                  </TableCell>
+        <div className="space-y-4">
+          <div className="overflow-hidden rounded-lg border bg-background shadow-sm">
+            <Table>
+              <TableHeader className="bg-muted/50">
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="h-11 px-4 text-xs font-semibold uppercase text-muted-foreground">Slip No</TableHead>
+                  <TableHead className="h-11 px-4 text-xs font-semibold uppercase text-muted-foreground">Student</TableHead>
+                  <TableHead className="h-11 px-4 text-xs font-semibold uppercase text-muted-foreground">Class</TableHead>
+                  <TableHead className="h-11 px-4 text-right text-xs font-semibold uppercase text-muted-foreground">Items</TableHead>
+                  <TableHead className="h-11 px-4 text-right text-xs font-semibold uppercase text-muted-foreground">Prev Bal</TableHead>
+                  <TableHead className="h-11 px-4 text-right text-xs font-semibold uppercase text-muted-foreground">Total</TableHead>
+                  <TableHead className="h-11 px-4 text-xs font-semibold uppercase text-muted-foreground">Status</TableHead>
+                  <TableHead className="h-11 w-24 px-4 text-right text-xs font-semibold uppercase text-muted-foreground">Action</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {slips.map((slip) => (
+                  <TableRow key={slip.id} className="group">
+                    <TableCell className="px-4 py-3 font-mono text-xs">{slip.invoiceNumber}</TableCell>
+                    <TableCell className="px-4 py-3">
+                      <div className="flex flex-col">
+                        <span className="font-medium">{slip.student.firstName} {slip.student.lastName}</span>
+                        <span className="text-xs text-muted-foreground">{slip.student.admissionNumber || '-'}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="px-4 py-3 text-sm text-muted-foreground">
+                      {slip.student.class?.name || '-'}{slip.student.section ? ` / ${slip.student.section.name}` : ''}
+                    </TableCell>
+                    <TableCell className="px-4 py-3 text-right text-sm">{slip.lineCount}</TableCell>
+                    <TableCell className="px-4 py-3 text-right text-sm">{formatCurrency(slip.previousBalance)}</TableCell>
+                    <TableCell className="px-4 py-3 text-right text-sm font-semibold">{formatCurrency(slip.totalAmount)}</TableCell>
+                    <TableCell className="px-4 py-3">
+                      <Badge variant={statusVariant(slip.status)} className="capitalize">{slip.status}</Badge>
+                    </TableCell>
+                    <TableCell className="px-4 py-3">
+                      <div className="flex justify-end">
+                        <Button size="sm" variant="outline" className="h-8 gap-1.5 px-3" onClick={() => setViewingId(slip.id)}>
+                          <Eye className="size-4" /> View
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+
+          {/* Pagination Controls */}
+          <div className="flex items-center justify-between rounded-lg border bg-background p-3 shadow-sm">
+            <div className="flex items-center gap-2">
+              <Label className="text-xs text-muted-foreground">Show:</Label>
+              <Select value={String(limit)} onValueChange={(v) => { setLimit(Number(v)); setPage(1) }}>
+                <SelectTrigger className="h-8 w-24">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="25">25</SelectItem>
+                  <SelectItem value="50">50</SelectItem>
+                  <SelectItem value="100">100</SelectItem>
+                  <SelectItem value="200">200</SelectItem>
+                  <SelectItem value="-1">All</SelectItem>
+                </SelectContent>
+              </Select>
+              <span className="text-xs text-muted-foreground">
+                {limit === -1 ? `Showing all ${slips.length}` : `Showing ${Math.min((page - 1) * limit + 1, slips.length)}-${Math.min(page * limit, slips.length)}`}
+              </span>
+            </div>
+
+            {limit !== -1 && (
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 px-3"
+                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                >
+                  Previous
+                </Button>
+                <span className="text-xs text-muted-foreground">Page {page}</span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 px-3"
+                  onClick={() => setPage(p => p + 1)}
+                  disabled={slips.length < limit}
+                >
+                  Next
+                </Button>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -535,18 +606,28 @@ export function FeeDemandSlipsPage() {
                         <Badge variant={runStatusVariant(run.status)} className="capitalize">{run.status}</Badge>
                       </TableCell>
                       <TableCell className="px-4 py-2 text-right">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-7 px-2 text-xs"
-                          onClick={() => {
-                            setMonth(run.billingMonth)
-                            setYear(run.billingYear)
-                            setRunFilter(run.id)
-                          }}
-                        >
-                          View slips
-                        </Button>
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 px-2 text-xs"
+                            onClick={() => setViewingRunId(run.id)}
+                          >
+                            Details
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 px-2 text-xs"
+                            onClick={() => {
+                              setMonth(run.billingMonth)
+                              setYear(run.billingYear)
+                              setRunFilter(run.id)
+                            }}
+                          >
+                            View slips
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -574,6 +655,12 @@ export function FeeDemandSlipsPage() {
         onClose={() => setViewingId(null)}
         whatsappEnabled={!!(waConfig?.whatsappEnabled && (waConfig?.whatsappProvider === 'META_CLOUD' || waConfig?.whatsappProvider === 'BAILEYS'))}
         onAfterSend={() => fetchSlips()}
+      />
+
+      {/* Run detail dialog */}
+      <RunDetailDialog
+        runId={viewingRunId}
+        onClose={() => setViewingRunId(null)}
       />
 
       {/* Bulk send confirmation */}
@@ -725,16 +812,31 @@ function GeneratorDialog({ open, onOpenChange, month, year, classes, sections, o
         const filters: Record<string, string> = {}
         if (bulkClassId) filters.classId = bulkClassId
         if (bulkSectionId) filters.sectionId = bulkSectionId
-        const res = await api.post<{ result: BulkResultPayload }>('/api/school/fees/demand-slips', {
+        const res = await api.post<{ result?: BulkResultPayload; useQueue?: boolean; totalStudents?: number; message?: string }>('/api/school/fees/demand-slips', {
           scope: 'bulk', month, year, filters, dryRun, force: bulkForce, upToMonth: bulkUpToMonth,
         })
         if (dryRun) {
+          // Dry run always returns result
+          if (!res.result) {
+            throw new Error('Preview data not available')
+          }
           setBulkPreview(res.result)
         } else {
-          toast({
-            title: 'Demand slips generated',
-            description: `${res.result.successCount} created · ${res.result.skippedCount} skipped · ${res.result.failedCount} failed`,
-          })
+          // Check if using queue (background processing)
+          if (res.useQueue) {
+            toast({
+              title: 'Generation started',
+              description: `Processing ${res.totalStudents || 0} students in background. Results will appear below shortly.`,
+            })
+          } else if (res.result) {
+            // Synchronous processing
+            toast({
+              title: 'Demand slips generated',
+              description: `${res.result.successCount} created · ${res.result.skippedCount} skipped · ${res.result.failedCount} failed`,
+            })
+          } else {
+            throw new Error('Unexpected response format')
+          }
           onGenerated()
         }
       } else {
@@ -773,7 +875,7 @@ function GeneratorDialog({ open, onOpenChange, month, year, classes, sections, o
     }
   }
 
-  const canPreviewBulk = !!bulkClassId
+  const canPreviewBulk = true // Always allow preview - can generate for all classes or specific class
   const canPreviewSingle = !!selectedStudent
 
   return (
@@ -793,9 +895,10 @@ function GeneratorDialog({ open, onOpenChange, month, year, classes, sections, o
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label className="text-xs">Class</Label>
-                <Select value={bulkClassId} onValueChange={(v) => { setBulkClassId(v); setBulkSectionId(''); setBulkPreview(null) }}>
+                <Select value={bulkClassId || 'all'} onValueChange={(v) => { setBulkClassId(v === 'all' ? '' : v); setBulkSectionId(''); setBulkPreview(null) }}>
                   <SelectTrigger className="h-9"><SelectValue placeholder="Select a class" /></SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="all">All Classes</SelectItem>
                     {classes.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
@@ -835,13 +938,13 @@ function GeneratorDialog({ open, onOpenChange, month, year, classes, sections, o
                 <div className="text-sm font-medium">Preview</div>
                 <div className="mt-2 grid grid-cols-2 gap-y-1 text-sm sm:grid-cols-4">
                   <div className="text-muted-foreground">Students</div>
-                  <div>{bulkPreview.totalStudents}</div>
+                  <div>{bulkPreview.totalStudents || 0}</div>
                   <div className="text-muted-foreground">Will create</div>
-                  <div className="font-medium text-foreground">{bulkPreview.successCount}</div>
+                  <div className="font-medium text-foreground">{bulkPreview.successCount || 0}</div>
                   <div className="text-muted-foreground">Will skip</div>
-                  <div>{bulkPreview.skippedCount}</div>
+                  <div>{bulkPreview.skippedCount || 0}</div>
                   <div className="text-muted-foreground">Total demand</div>
-                  <div className="font-semibold">{formatCurrency(bulkPreview.totalAmount)}</div>
+                  <div className="font-semibold">{formatCurrency(bulkPreview.totalAmount || 0)}</div>
                 </div>
               </div>
             )}
@@ -956,7 +1059,7 @@ function GeneratorDialog({ open, onOpenChange, month, year, classes, sections, o
             <>
               <Button variant="outline" onClick={() => setBulkPreview(null)} disabled={busy}>Back</Button>
               <Button onClick={() => submit(false)} disabled={busy}>
-                {busy ? 'Generating…' : `Confirm & Generate (${bulkPreview.successCount})`}
+                {busy ? 'Generating…' : `Confirm & Generate (${bulkPreview.successCount || 0})`}
               </Button>
             </>
           )}
@@ -994,6 +1097,7 @@ function slipInputsFromDetail(slip: SlipDetail): SlipInputLine[] {
     isTransport: line.isTransport,
     dueDate: line.dueDate,
     paid: 0,
+    discount: 0,
     due: line.totalAmount,
   }))
   for (const prev of slip.previousDues || []) {
@@ -1004,6 +1108,7 @@ function slipInputsFromDetail(slip: SlipDetail): SlipInputLine[] {
       isTransport: prev.isTransport,
       dueDate: prev.dueDate,
       paid: 0,
+      discount: 0,
       due: prev.balanceAmount,
     })
   }
@@ -1092,6 +1197,24 @@ function printSlip(slip: SlipDetail, school: School | null) {
     notes: slip.notes,
   })
 
+  // Debug: Check if HTML was generated
+  if (!html || html.length < 100) {
+    printWindow.document.open()
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head><title>Error</title></head>
+      <body>
+        <h1>Error: HTML generation failed!</h1>
+        <p>HTML length: ${html?.length || 0}</p>
+        <pre>${html || 'null'}</pre>
+      </body>
+      </html>
+    `)
+    printWindow.document.close()
+    return
+  }
+
   printWindow.document.open()
   printWindow.document.write(html)
   printWindow.document.close()
@@ -1131,15 +1254,18 @@ function SlipDetailDialog({ slipId, onClose, whatsappEnabled, onAfterSend }: Sli
     ;(async () => {
       setLoading(true)
       try {
+        console.log('Fetching slip detail for:', slipId)
         const [slipRes, notifRes] = await Promise.all([
           api.get<{ slip: SlipDetail }>(`/api/school/fees/demand-slips/${slipId}`),
           api.get<{ notifications: NotificationRow[] }>('/api/school/fees/demand-slips/notifications', { invoiceId: slipId }).catch(() => ({ notifications: [] as NotificationRow[] })),
         ])
         if (!cancelled) {
+          console.log('Slip data received:', slipRes.slip)
           setSlip(slipRes.slip)
           setLastNotification(notifRes.notifications[0] || null)
         }
-      } catch {
+      } catch (err) {
+        console.error('Failed to load slip:', err)
         if (!cancelled) {
           toast({ title: "Couldn't load slip", description: 'Please try again.', variant: 'destructive' })
           onClose()
@@ -1296,6 +1422,189 @@ function SlipDetailDialog({ slipId, onClose, whatsappEnabled, onAfterSend }: Sli
               {sending ? 'Sending…' : lastNotification?.status === 'sent' ? 'Resend' : 'Send via WhatsApp'}
             </Button>
           )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// ── Run detail dialog ─────────────────────────────────────────────────
+
+interface RunDetailDialogProps {
+  runId: string | null
+  onClose: () => void
+}
+
+function RunDetailDialog({ runId, onClose }: RunDetailDialogProps) {
+  const { toast } = useToast()
+  const [detail, setDetail] = useState<RunDetail | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [studentsMap, setStudentsMap] = useState<Record<string, { firstName: string; lastName: string; admissionNumber: string | null }>>({})
+
+  useEffect(() => {
+    if (!runId) {
+      setDetail(null)
+      setStudentsMap({})
+      return
+    }
+    let cancelled = false
+    ;(async () => {
+      setLoading(true)
+      try {
+        const res = await api.get<RunDetail>(`/api/school/fees/demand-slips/runs/${runId}`)
+        if (!cancelled) {
+          setDetail(res)
+
+          const studentIds = [...new Set([
+            ...res.skipped.map(s => s.studentId),
+            ...res.errors.map(e => e.studentId),
+          ])]
+
+          if (studentIds.length > 0) {
+            try {
+              const studentsRes = await api.get<{ students: Array<{ id: string; firstName: string; lastName: string; admissionNumber: string | null }> }>(
+                '/api/school/students',
+                { ids: studentIds.join(','), limit: '100' }
+              )
+              const map: Record<string, { firstName: string; lastName: string; admissionNumber: string | null }> = {}
+              studentsRes.students.forEach(s => {
+                map[s.id] = { firstName: s.firstName, lastName: s.lastName, admissionNumber: s.admissionNumber }
+              })
+              setStudentsMap(map)
+            } catch {
+              // Student names are optional
+            }
+          }
+        }
+      } catch {
+        if (!cancelled) {
+          toast({ title: "Couldn't load run details", description: 'Please try again.', variant: 'destructive' })
+          onClose()
+        }
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [runId, toast, onClose])
+
+  const formatReason = (reason: string) => {
+    if (reason === 'exists') return 'Slip already exists for this month'
+    if (reason === 'no-items') return 'No fee items due for this month'
+    if (reason === 'no-active-assignment') return 'No active fee assignment'
+    return reason
+  }
+
+  return (
+    <Dialog open={!!runId} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Run Details</DialogTitle>
+        </DialogHeader>
+        {loading || !detail ? (
+          <div className="py-12 text-center text-sm text-muted-foreground">Loading…</div>
+        ) : (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div className="rounded-md border bg-muted/30 p-3">
+                <div className="text-xs uppercase text-muted-foreground">Period</div>
+                <div className="mt-1 font-medium">{MONTHS[detail.run.billingMonth - 1]?.label} {detail.run.billingYear}</div>
+              </div>
+              <div className="rounded-md border bg-green-50 p-3">
+                <div className="text-xs uppercase text-muted-foreground">Created</div>
+                <div className="mt-1 text-2xl font-bold text-green-700">{detail.run.successCount}</div>
+              </div>
+              <div className="rounded-md border bg-yellow-50 p-3">
+                <div className="text-xs uppercase text-muted-foreground">Skipped</div>
+                <div className="mt-1 text-2xl font-bold text-yellow-700">{detail.run.skippedCount}</div>
+              </div>
+              <div className="rounded-md border bg-red-50 p-3">
+                <div className="text-xs uppercase text-muted-foreground">Failed</div>
+                <div className="mt-1 text-2xl font-bold text-red-700">{detail.run.failedCount}</div>
+              </div>
+            </div>
+
+            {detail.skipped.length > 0 && (
+              <div className="space-y-2">
+                <h3 className="text-sm font-semibold">Skipped Students ({detail.skipped.length})</h3>
+                <div className="overflow-hidden rounded-md border">
+                  <Table>
+                    <TableHeader className="bg-muted/40">
+                      <TableRow>
+                        <TableHead className="h-9 px-3 text-xs">Student</TableHead>
+                        <TableHead className="h-9 px-3 text-xs">Reason</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {detail.skipped.map((item, idx) => {
+                        const student = studentsMap[item.studentId]
+                        return (
+                          <TableRow key={idx}>
+                            <TableCell className="px-3 py-2 text-sm">
+                              {student ? (
+                                <div>
+                                  <div className="font-medium">{student.firstName} {student.lastName}</div>
+                                  <div className="text-xs text-muted-foreground">{student.admissionNumber || '-'}</div>
+                                </div>
+                              ) : (
+                                <span className="font-mono text-xs text-muted-foreground">{item.studentId}</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="px-3 py-2 text-sm text-muted-foreground">{formatReason(item.reason)}</TableCell>
+                          </TableRow>
+                        )
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            )}
+
+            {detail.errors.length > 0 && (
+              <div className="space-y-2">
+                <h3 className="text-sm font-semibold text-destructive">Failed Students ({detail.errors.length})</h3>
+                <div className="overflow-hidden rounded-md border border-destructive/20">
+                  <Table>
+                    <TableHeader className="bg-destructive/5">
+                      <TableRow>
+                        <TableHead className="h-9 px-3 text-xs">Student</TableHead>
+                        <TableHead className="h-9 px-3 text-xs">Error</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {detail.errors.map((item, idx) => {
+                        const student = studentsMap[item.studentId]
+                        return (
+                          <TableRow key={idx}>
+                            <TableCell className="px-3 py-2 text-sm">
+                              {student ? (
+                                <div>
+                                  <div className="font-medium">{student.firstName} {student.lastName}</div>
+                                  <div className="text-xs text-muted-foreground">{student.admissionNumber || '-'}</div>
+                                </div>
+                              ) : (
+                                <span className="font-mono text-xs text-muted-foreground">{item.studentId}</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="px-3 py-2 text-sm text-destructive">{item.error}</TableCell>
+                          </TableRow>
+                        )
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            )}
+
+            {detail.skipped.length === 0 && detail.errors.length === 0 && (
+              <div className="rounded-md border bg-muted/20 p-6 text-center text-sm text-muted-foreground">
+                All students processed successfully!
+              </div>
+            )}
+          </div>
+        )}
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Close</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

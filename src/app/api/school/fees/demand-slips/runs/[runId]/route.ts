@@ -38,6 +38,29 @@ export async function GET(
 
     if (!run) return notFoundError('Demand run not found')
 
+    // Parse errorLog to extract errors and skipped details
+    let errors: Array<{ studentId: string; error: string }> = []
+    let skipped: Array<{ studentId: string; reason: string }> = []
+
+    if (run.errorLog) {
+      try {
+        const parsed = JSON.parse(run.errorLog)
+        // New format: { errors: [...], skipped: [...] }
+        if (parsed.errors && Array.isArray(parsed.errors)) {
+          errors = parsed.errors
+        }
+        if (parsed.skipped && Array.isArray(parsed.skipped)) {
+          skipped = parsed.skipped
+        }
+        // Old format: just an array of errors
+        if (Array.isArray(parsed) && parsed.length > 0 && !parsed.errors) {
+          errors = parsed
+        }
+      } catch {
+        // Invalid JSON, ignore
+      }
+    }
+
     // Get job status from queue (if still in queue)
     let jobStatus = null
     try {
@@ -51,6 +74,8 @@ export async function GET(
     const response = {
       run,
       job: jobStatus,
+      errors,
+      skipped,
       // Calculate progress percentage
       progress: run.totalStudents > 0
         ? Math.round(((run.successCount + run.skippedCount + run.failedCount) / run.totalStudents) * 100)

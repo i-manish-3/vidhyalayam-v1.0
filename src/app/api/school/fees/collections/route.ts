@@ -10,6 +10,26 @@ import {
   recordStudentLedgerWaiver,
 } from '@/lib/fees'
 
+// Retry configuration for concurrent payment scenarios
+const PAYMENT_RETRY_ATTEMPTS = 3
+const PAYMENT_RETRY_DELAY_MS = 100
+
+function isRetryableError(error: unknown): boolean {
+  if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    // P2002 = Unique constraint violation (e.g., duplicate receipt number)
+    if (error.code === 'P2002') return true
+  }
+  if (error instanceof Error) {
+    // Concurrent modification error from optimistic locking
+    if (error.message.includes('Concurrent modification detected')) return true
+  }
+  return false
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
 function roundMoney(value: number) {
   return Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100
 }
@@ -652,89 +672,113 @@ export async function POST(request: NextRequest) {
         return apiError(400, 'Please select at least one fee particular.')
       }
 
-      const result = await db.$transaction(async (tx) => {
-        const generatedReceipt = receiptNumber || (await nextSequentialReceiptNumber(tx, user.schoolId!))
-        const targets = payments
-          .map((payment: { ledgerEntryId?: string; collectionId?: string; id?: string; amount?: number; paidAmount?: number }) => ({
-            debitEntryId: payment.ledgerEntryId || null,
-            feeCollectionId: payment.collectionId || payment.id || null,
-            amount: Number(payment.paidAmount ?? payment.amount ?? 0),
-          }))
-          .filter((target: { amount: number; debitEntryId: string | null; feeCollectionId: string | null }) =>
-            target.amount > 0 && (target.debitEntryId || target.feeCollectionId)
-          )
+      // Retry wrapper for concurrent payment scenarios
+      let lastError: unknown = null
+      for (let attempt = 0; attempt < PAYMENT_RETRY_ATTEMPTS; attempt++) {
+        try {
+          const result = await db.$transaction(async (tx) => {
+            const generatedReceipt = receiptNumber || (await nextSequentialReceiptNumber(tx, user.schoolId!))
+            const targets = payments
+              .map((payment: { ledgerEntryId?: string; collectionId?: string; id?: string; amount?: number; paidAmount?: number }) => ({
+                debitEntryId: payment.ledgerEntryId || null,
+                feeCollectionId: payment.collectionId || payment.id || null,
+                amount: Number(payment.paidAmount ?? payment.amount ?? 0),
+              }))
+              .filter((target: { amount: number; debitEntryId: string | null; feeCollectionId: string | null }) =>
+                target.amount > 0 && (target.debitEntryId || target.feeCollectionId)
+              )
 
-        const totalPaid = roundMoney(targets.reduce((sum: number, target: { amount: number }) => sum + target.amount, 0))
-        const totalDiscount = roundMoney(payments.reduce((sum: number, payment: { discount?: number }) => sum + Number(payment.discount || 0), 0))
-        const discountTargets = payments
-          .map((payment: { ledgerEntryId?: string; collectionId?: string; id?: string; discount?: number }) => ({
-            debitEntryId: payment.ledgerEntryId || null,
-            feeCollectionId: payment.collectionId || payment.id || null,
-            amount: Number(payment.discount || 0),
-          }))
-          .filter((target: { amount: number; debitEntryId: string | null; feeCollectionId: string | null }) =>
-            target.amount > 0 && (target.debitEntryId || target.feeCollectionId)
-          )
+            const totalPaid = roundMoney(targets.reduce((sum: number, target: { amount: number }) => sum + target.amount, 0))
+            const totalDiscount = roundMoney(payments.reduce((sum: number, payment: { discount?: number }) => sum + Number(payment.discount || 0), 0))
+            const discountTargets = payments
+              .map((payment: { ledgerEntryId?: string; collectionId?: string; id?: string; discount?: number }) => ({
+                debitEntryId: payment.ledgerEntryId || null,
+                feeCollectionId: payment.collectionId || payment.id || null,
+                amount: Number(payment.discount || 0),
+              }))
+              .filter((target: { amount: number; debitEntryId: string | null; feeCollectionId: string | null }) =>
+                target.amount > 0 && (target.debitEntryId || target.feeCollectionId)
+              )
 
-        const paymentResult = totalPaid > 0
-          ? await recordStudentLedgerPayment({
-              tx,
-              schoolId: user.schoolId!,
-              studentId,
-              amount: totalPaid,
-              paymentMethod: paymentMethod || 'CASH',
-              transactionRef,
-              receiptNumber: generatedReceipt,
-              paymentDate: paymentDateValue,
-              notes: notesWithSplits,
-              receivedBy: user.userId,
-              targets,
+            const paymentResult = totalPaid > 0
+              ? await recordStudentLedgerPayment({
+                  tx,
+                  schoolId: user.schoolId!,
+                  studentId,
+                  amount: totalPaid,
+                  paymentMethod: paymentMethod || 'CASH',
+                  transactionRef,
+                  receiptNumber: generatedReceipt,
+                  paymentDate: paymentDateValue,
+                  notes: notesWithSplits,
+                  receivedBy: user.userId,
+                  targets,
+                })
+              : null
+
+            if (totalDiscount > 0) {
+              await recordStudentLedgerWaiver({
+                tx,
+                schoolId: user.schoolId!,
+                studentId,
+                amount: totalDiscount,
+                sourceType: 'discount',
+                receiptNumber: generatedReceipt,
+                paymentDate: paymentDateValue,
+                notes: notesWithSplits,
+                createdBy: user.userId,
+                targets: discountTargets,
+              })
+            }
+
+            await tx.feeAuditLog.create({
+              data: {
+                schoolId: user.schoolId!,
+                entityType: 'StudentFeeLedgerEntry',
+                entityId: generatedReceipt,
+                action: 'ledger_payment_recorded',
+                changedBy: user.userId,
+                newValue: JSON.stringify({
+                  studentId,
+                  receiptNumber: generatedReceipt,
+                  paymentMethod,
+                  totalPaid,
+                  totalDiscount,
+                  rowCount: payments.length,
+                  splits: sanitizedSplits,
+                  slipLineCount: sanitizedSlipLines?.length || 0,
+                }),
+              },
             })
-          : null
 
-        if (totalDiscount > 0) {
-          await recordStudentLedgerWaiver({
-            tx,
-            schoolId: user.schoolId!,
-            studentId,
-            amount: totalDiscount,
-            sourceType: 'discount',
-            receiptNumber: generatedReceipt,
-            paymentDate: paymentDateValue,
-            notes: notesWithSplits,
-            createdBy: user.userId,
-            targets: discountTargets,
-          })
-        }
-
-        await tx.feeAuditLog.create({
-          data: {
-            schoolId: user.schoolId!,
-            entityType: 'StudentFeeLedgerEntry',
-            entityId: generatedReceipt,
-            action: 'ledger_payment_recorded',
-            changedBy: user.userId,
-            newValue: JSON.stringify({
-              studentId,
+            return {
               receiptNumber: generatedReceipt,
-              paymentMethod,
-              totalPaid,
-              totalDiscount,
-              rowCount: payments.length,
-              splits: sanitizedSplits,
-              slipLineCount: sanitizedSlipLines?.length || 0,
-            }),
-          },
-        })
+              payment: paymentResult?.payment || null,
+              appliedAmount: paymentResult?.appliedAmount || 0,
+            }
+          })
 
-        return {
-          receiptNumber: generatedReceipt,
-          payment: paymentResult?.payment || null,
-          appliedAmount: paymentResult?.appliedAmount || 0,
+          return NextResponse.json(result, { status: 201 })
+        } catch (error) {
+          lastError = error
+
+          if (!isRetryableError(error)) {
+            // Non-retryable error, throw immediately
+            throw error
+          }
+
+          // Last attempt failed, throw the error
+          if (attempt === PAYMENT_RETRY_ATTEMPTS - 1) {
+            throw error
+          }
+
+          // Wait before retrying with exponential backoff
+          const delay = PAYMENT_RETRY_DELAY_MS * Math.pow(2, attempt)
+          await sleep(delay)
         }
-      })
+      }
 
-      return NextResponse.json(result, { status: 201 })
+      throw lastError instanceof Error ? lastError : new Error('Payment recording failed after retries')
     }
 
     const paymentAmount = roundMoney(Number(paidAmount ?? amount ?? 0))
@@ -753,72 +797,96 @@ export async function POST(request: NextRequest) {
       amount: paymentAmount,
     }
 
-    const result = await db.$transaction(async (tx) => {
-      const generatedReceipt = receiptNumber || (await nextSequentialReceiptNumber(tx, user.schoolId!))
-      const paymentResult = paymentAmount > 0
-        ? await recordStudentLedgerPayment({
-            tx,
-            schoolId: user.schoolId!,
-            studentId,
-            amount: paymentAmount,
-            paymentMethod: paymentMethod || 'CASH',
-            transactionRef,
-            receiptNumber: generatedReceipt,
-            paymentDate: paymentDateValue,
-            notes,
-            receivedBy: user.userId,
-            targets: target.debitEntryId || target.feeCollectionId ? [target] : undefined,
+    // Retry wrapper for concurrent payment scenarios
+    let lastError: unknown = null
+    for (let attempt = 0; attempt < PAYMENT_RETRY_ATTEMPTS; attempt++) {
+      try {
+        const result = await db.$transaction(async (tx) => {
+          const generatedReceipt = receiptNumber || (await nextSequentialReceiptNumber(tx, user.schoolId!))
+          const paymentResult = paymentAmount > 0
+            ? await recordStudentLedgerPayment({
+                tx,
+                schoolId: user.schoolId!,
+                studentId,
+                amount: paymentAmount,
+                paymentMethod: paymentMethod || 'CASH',
+                transactionRef,
+                receiptNumber: generatedReceipt,
+                paymentDate: paymentDateValue,
+                notes,
+                receivedBy: user.userId,
+                targets: target.debitEntryId || target.feeCollectionId ? [target] : undefined,
+              })
+            : null
+
+          for (const waiver of [
+            { amount: discountAmount, sourceType: 'discount' as const },
+            { amount: concessionAmount, sourceType: 'concession' as const },
+            { amount: scholarshipAmount, sourceType: 'scholarship' as const },
+          ]) {
+            if (waiver.amount <= 0) continue
+            await recordStudentLedgerWaiver({
+              tx,
+              schoolId: user.schoolId!,
+              studentId,
+              amount: waiver.amount,
+              sourceType: waiver.sourceType,
+              receiptNumber: generatedReceipt,
+              paymentDate: paymentDateValue,
+              notes,
+              createdBy: user.userId,
+              targets: target.debitEntryId || target.feeCollectionId
+                ? [{ ...target, amount: waiver.amount }]
+                : undefined,
+            })
+          }
+
+          await tx.feeAuditLog.create({
+            data: {
+              schoolId: user.schoolId!,
+              entityType: 'StudentFeeLedgerEntry',
+              entityId: generatedReceipt,
+              action: 'ledger_payment_recorded',
+              changedBy: user.userId,
+              newValue: JSON.stringify({
+                studentId,
+                paymentAmount,
+                adjustmentAmount,
+                paymentMethod,
+                receiptNumber: generatedReceipt,
+                splits: sanitizedSplits,
+              }),
+            },
           })
-        : null
 
-      for (const waiver of [
-        { amount: discountAmount, sourceType: 'discount' as const },
-        { amount: concessionAmount, sourceType: 'concession' as const },
-        { amount: scholarshipAmount, sourceType: 'scholarship' as const },
-      ]) {
-        if (waiver.amount <= 0) continue
-        await recordStudentLedgerWaiver({
-          tx,
-          schoolId: user.schoolId!,
-          studentId,
-          amount: waiver.amount,
-          sourceType: waiver.sourceType,
-          receiptNumber: generatedReceipt,
-          paymentDate: paymentDateValue,
-          notes,
-          createdBy: user.userId,
-          targets: target.debitEntryId || target.feeCollectionId
-            ? [{ ...target, amount: waiver.amount }]
-            : undefined,
-        })
-      }
-
-      await tx.feeAuditLog.create({
-        data: {
-          schoolId: user.schoolId!,
-          entityType: 'StudentFeeLedgerEntry',
-          entityId: generatedReceipt,
-          action: 'ledger_payment_recorded',
-          changedBy: user.userId,
-          newValue: JSON.stringify({
-            studentId,
-            paymentAmount,
-            adjustmentAmount,
-            paymentMethod,
+          return {
             receiptNumber: generatedReceipt,
-            splits: sanitizedSplits,
-          }),
-        },
-      })
+            payment: paymentResult?.payment || null,
+            appliedAmount: paymentResult?.appliedAmount || 0,
+          }
+        })
 
-      return {
-        receiptNumber: generatedReceipt,
-        payment: paymentResult?.payment || null,
-        appliedAmount: paymentResult?.appliedAmount || 0,
+        return NextResponse.json(result, { status: 201 })
+      } catch (error) {
+        lastError = error
+
+        if (!isRetryableError(error)) {
+          // Non-retryable error, throw immediately
+          throw error
+        }
+
+        // Last attempt failed, throw the error
+        if (attempt === PAYMENT_RETRY_ATTEMPTS - 1) {
+          throw error
+        }
+
+        // Wait before retrying with exponential backoff
+        const delay = PAYMENT_RETRY_DELAY_MS * Math.pow(2, attempt)
+        await sleep(delay)
       }
-    })
+    }
 
-    return NextResponse.json(result, { status: 201 })
+    throw lastError instanceof Error ? lastError : new Error('Payment recording failed after retries')
   } catch (error) {
     console.error('Record fee payment error:', error)
     return internalError('recording the fee payment')

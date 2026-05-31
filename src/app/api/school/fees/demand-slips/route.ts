@@ -250,7 +250,8 @@ export async function GET(request: NextRequest) {
     const sectionId = searchParams.get('sectionId') || undefined
     const studentId = searchParams.get('studentId') || undefined
     const runId = searchParams.get('runId') || undefined
-    const limit = cleanInt(searchParams.get('limit'), 1, 500) || 100
+    const limit = cleanInt(searchParams.get('limit'), 1, 1000) || 100
+    const offset = cleanInt(searchParams.get('offset'), 0, 100000) || 0
 
     const studentWhere: Record<string, unknown> = {}
     if (classId) studentWhere.classId = classId
@@ -293,6 +294,7 @@ export async function GET(request: NextRequest) {
         _count: { select: { lines: true } },
       },
       orderBy: [{ createdAt: 'desc' }],
+      skip: offset,
       take: limit,
     })
 

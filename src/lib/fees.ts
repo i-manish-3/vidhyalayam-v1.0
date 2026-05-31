@@ -4,6 +4,10 @@ type FeeTx = Prisma.TransactionClient
 type LedgerCreditType = 'CREDIT' | 'WAIVER'
 type WaiverSourceType = 'discount' | 'concession' | 'scholarship'
 
+// Retry configuration for concurrent payment scenarios
+const PAYMENT_RETRY_ATTEMPTS = 3
+const PAYMENT_RETRY_DELAY_MS = 100
+
 interface AssignStudentFeesInput {
   tx: FeeTx
   schoolId: string
@@ -147,6 +151,24 @@ function debitStatus(balance: number, debit: number) {
   if (balance <= 0) return 'settled'
   if (balance < debit) return 'partial'
   return 'open'
+}
+
+// Helper to determine if an error is retryable (unique constraint or concurrent modification)
+function isRetryableError(error: unknown): boolean {
+  if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    // P2002 = Unique constraint violation (e.g., duplicate receipt number)
+    if (error.code === 'P2002') return true
+  }
+  if (error instanceof Error) {
+    // Our custom concurrent modification error
+    if (error.message.includes('Concurrent modification detected')) return true
+  }
+  return false
+}
+
+// Sleep helper for retry delays
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
 function collectionStatus(balance: number, billed: number) {
@@ -506,12 +528,27 @@ async function applyLedgerCredit(input: LedgerCreditInput) {
     })
 
     const nextBalance = roundMoney(item.debit.balanceAmount - applied)
-    const updatedDebit = await tx.studentFeeLedgerEntry.update({
-      where: { id: item.debit.id },
+
+    // Optimistic locking: only update if version matches (prevents concurrent modification)
+    const updateResult = await tx.studentFeeLedgerEntry.updateMany({
+      where: {
+        id: item.debit.id,
+        version: item.debit.version,
+      },
       data: {
         balanceAmount: nextBalance,
         status: debitStatus(nextBalance, item.debit.debit),
+        version: { increment: 1 },
       },
+    })
+
+    if (updateResult.count === 0) {
+      throw new Error(`Concurrent modification detected on ledger entry ${item.debit.id}. Please retry the payment.`)
+    }
+
+    // Re-fetch to get the updated version for subsequent operations
+    const updatedDebit = await tx.studentFeeLedgerEntry.findUniqueOrThrow({
+      where: { id: item.debit.id },
     })
 
     await syncLegacyCollectionFromDebit(tx, updatedDebit, applied, {
@@ -637,6 +674,43 @@ export async function recordStudentLedgerWaiver(input: RecordLedgerWaiverInput) 
     createdBy,
     targets,
   })
+}
+
+// Retry wrapper for payment operations that may encounter concurrent modifications
+// or unique constraint violations (duplicate receipt numbers). Automatically retries
+// up to PAYMENT_RETRY_ATTEMPTS times with exponential backoff.
+export async function recordStudentLedgerPaymentWithRetry(
+  input: Omit<RecordLedgerPaymentInput, 'tx'> & { db: any }
+) {
+  const { db, ...paymentInput } = input
+  let lastError: unknown = null
+
+  for (let attempt = 0; attempt < PAYMENT_RETRY_ATTEMPTS; attempt++) {
+    try {
+      const result = await db.$transaction((tx: FeeTx) =>
+        recordStudentLedgerPayment({ ...paymentInput, tx })
+      )
+      return result
+    } catch (error) {
+      lastError = error
+
+      if (!isRetryableError(error)) {
+        // Non-retryable error, throw immediately
+        throw error
+      }
+
+      // Last attempt failed, throw the error
+      if (attempt === PAYMENT_RETRY_ATTEMPTS - 1) {
+        throw error
+      }
+
+      // Wait before retrying with exponential backoff
+      const delay = PAYMENT_RETRY_DELAY_MS * Math.pow(2, attempt)
+      await sleep(delay)
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error('Payment recording failed after retries')
 }
 
 export async function assignStudentFeesFromStructure(input: AssignStudentFeesInput) {

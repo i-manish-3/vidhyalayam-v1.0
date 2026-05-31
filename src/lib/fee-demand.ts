@@ -77,10 +77,27 @@ export async function nextSequentialDemandSlipNumber(
     where: { id: schoolId },
     select: { subdomain: true, academicYear: true },
   })
+
+  // Get custom format from config
+  const config = await tx.feeDemandConfig.findUnique({
+    where: { schoolId },
+    select: { slipNumberFormat: true },
+  })
+
   const subdomain = (school?.subdomain || 'school').toUpperCase()
   const academicYear = school?.academicYear || `${year}-${year + 1}`
   const monthAbbr = MONTH_ABBR[month - 1] || 'XXX'
-  const prefix = `DS/${academicYear}/${subdomain}/${monthAbbr}/`
+
+  // Use custom format or default
+  const format = config?.slipNumberFormat || 'DS/{academicYear}/{subdomain}/{month}/{sequence}'
+
+  // Replace template variables (except {sequence})
+  const prefix = format
+    .replace('{academicYear}', academicYear)
+    .replace('{subdomain}', subdomain)
+    .replace('{month}', monthAbbr)
+    .replace('{year}', String(year))
+    .replace('/{sequence}', '/') // Remove sequence placeholder temporarily
 
   const existing = await tx.studentFeeInvoice.findMany({
     where: {
@@ -99,7 +116,15 @@ export async function nextSequentialDemandSlipNumber(
     })
     .reduce((m, n) => (n > m ? n : m), 0)
 
-  return `${prefix}${String(maxSeq + 1).padStart(5, '0')}`
+  const sequence = String(maxSeq + 1).padStart(5, '0')
+
+  // Replace {sequence} in the original format
+  return format
+    .replace('{academicYear}', academicYear)
+    .replace('{subdomain}', subdomain)
+    .replace('{month}', monthAbbr)
+    .replace('{year}', String(year))
+    .replace('{sequence}', sequence)
 }
 
 export async function computePreviousBalance(
