@@ -388,14 +388,19 @@ export function BulkCardAssignPage() {
         {/* ── Filters + progress summary ───────────────────────────────── */}
         <Card className="overflow-hidden">
           <CardContent className="space-y-3 p-3">
-            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+            {/*
+              Mobile-first grid:
+                - base: 2-col, so Class + Section sit side-by-side from the start
+                - lg:   4-col, Search expands to fill the remaining 2 cols
+            */}
+            <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
               <div className="space-y-1">
                 <Label className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
                   Class
                 </Label>
                 <Select value={classId} onValueChange={setClassId} disabled={loadingInit}>
-                  <SelectTrigger className="h-9">
-                    <SelectValue placeholder={loadingInit ? 'Loading…' : 'Select class'} />
+                  <SelectTrigger className="h-9 w-full">
+                    <SelectValue placeholder={loadingInit ? 'Loading…' : 'Select'} />
                   </SelectTrigger>
                   <SelectContent>
                     {classes.map((c) => (
@@ -415,14 +420,14 @@ export function BulkCardAssignPage() {
                   onValueChange={setSectionId}
                   disabled={!classId || classHasNoSections}
                 >
-                  <SelectTrigger className="h-9">
+                  <SelectTrigger className="h-9 w-full">
                     <SelectValue
                       placeholder={
                         !classId
-                          ? 'Pick class first'
+                          ? 'Pick class'
                           : classHasNoSections
                             ? 'No sections'
-                            : 'Select section'
+                            : 'Select'
                       }
                     />
                   </SelectTrigger>
@@ -435,7 +440,7 @@ export function BulkCardAssignPage() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-1 sm:col-span-2">
+              <div className="col-span-2 space-y-1 lg:col-span-2">
                 <Label className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
                   Search
                 </Label>
@@ -444,7 +449,7 @@ export function BulkCardAssignPage() {
                   <Input
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Name, roll number, or admission number"
+                    placeholder="Name, roll, or admission no."
                     className="h-9 pl-8 text-sm"
                     disabled={!rosterReady}
                   />
@@ -472,8 +477,8 @@ export function BulkCardAssignPage() {
                   </span>
                 </div>
                 <Progress value={stats.percent} className="h-1.5" />
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                <div className="flex flex-wrap items-center gap-1.5 overflow-x-auto">
+                  <span className="flex shrink-0 items-center gap-1 text-[10px] text-muted-foreground">
                     <Filter className="size-3" />
                     Show:
                   </span>
@@ -546,8 +551,8 @@ export function BulkCardAssignPage() {
           </Card>
         ) : (
           <div className="space-y-2.5">
-            {/* Roster context line */}
-            <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+            {/* Roster context line — wraps cleanly on narrow screens */}
+            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
               <span className="font-medium uppercase tracking-wider">
                 {className}
                 {sectionName ? ` · ${sectionName}` : ''}
@@ -654,15 +659,20 @@ export function BulkCardAssignPage() {
                 />
               </div>
             </div>
-            <DialogFooter>
+            <DialogFooter className="flex-col gap-2 sm:flex-row">
               <Button
                 variant="outline"
                 onClick={() => setAssignTarget(null)}
                 disabled={assigning}
+                className="w-full sm:w-auto"
               >
                 Cancel
               </Button>
-              <Button onClick={handleAssign} disabled={!assignUid || assigning} className="gap-1.5">
+              <Button
+                onClick={handleAssign}
+                disabled={!assignUid || assigning}
+                className="w-full gap-1.5 sm:w-auto"
+              >
                 <CheckCircle2 className="size-4" />
                 {assigning ? 'Assigning…' : 'Assign card'}
               </Button>
@@ -717,11 +727,12 @@ export function BulkCardAssignPage() {
                 </div>
               </div>
             )}
-            <DialogFooter>
+            <DialogFooter className="flex-col gap-2 sm:flex-row">
               <Button
                 variant="outline"
                 onClick={() => setRevokeTarget(null)}
                 disabled={revoking}
+                className="w-full sm:w-auto"
               >
                 Cancel
               </Button>
@@ -729,7 +740,7 @@ export function BulkCardAssignPage() {
                 variant="destructive"
                 onClick={handleRevoke}
                 disabled={revoking || revokeReason.trim().length < 3}
-                className="gap-1.5"
+                className="w-full gap-1.5 sm:w-auto"
               >
                 <ShieldOff className="size-4" />
                 {revoking ? 'Revoking…' : 'Revoke card'}
