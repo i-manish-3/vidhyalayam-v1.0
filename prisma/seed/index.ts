@@ -508,6 +508,11 @@ async function seed() {
     { code: 'attendance:export', name: 'Export Attendance', module: 'attendance', action: 'read' },
     { code: 'attendance:audit:view', name: 'View Attendance Audit Log', module: 'attendance', action: 'read' },
     { code: 'attendance:report:view', name: 'View Attendance Reports', module: 'attendance', action: 'read' },
+    // RFID / NFC card attendance
+    { code: 'rfid:cards:manage', name: 'Manage Student RFID Cards', module: 'attendance', action: 'update' },
+    { code: 'rfid:cards:read', name: 'View Student RFID Cards', module: 'attendance', action: 'read' },
+    { code: 'rfid:devices:manage', name: 'Manage RFID Reader Devices', module: 'attendance', action: 'update' },
+    { code: 'rfid:taps:view', name: 'View RFID Tap Logs', module: 'attendance', action: 'read' },
     // Fees
     { code: 'fees:read', name: 'View Fees', module: 'fees', action: 'read' },
     { code: 'fees:create', name: 'Create Fee', module: 'fees', action: 'create' },

@@ -115,6 +115,12 @@ export async function GET(request: NextRequest) {
               name: true,
             },
           },
+          finalizedByUser: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
         },
         orderBy: { student: { rollNumber: 'asc' } },
         skip,
@@ -295,8 +301,26 @@ export async function POST(request: NextRequest) {
               date: attendanceDate,
             },
           },
-          select: { status: true, remarks: true },
+          select: { id: true, status: true, remarks: true, markedSource: true, markedBy: true },
         })
+
+        const oldRemarks = existing?.remarks ?? null
+        const newRemarks = remarks ?? null
+        const isNoOp =
+          existing &&
+          existing.status === status &&
+          oldRemarks === newRemarks
+
+        // No-op save guard: when the teacher clicks Save without actually
+        // changing this student's status/remarks, we skip the upsert. This
+        // preserves the existing markedBy + markedSource — critical when an
+        // earlier RFID tap or auto-default sourced this row, because the
+        // bulk-save loop re-sends every student loaded from the DB, not just
+        // the ones the teacher touched. Without this guard, every Save would
+        // silently overwrite 'rfid_kiosk' / 'auto_default' → 'manual'.
+        if (isNoOp) {
+          return existing
+        }
 
         const upserted = await tx.attendance.upsert({
           where: {
@@ -314,18 +338,19 @@ export async function POST(request: NextRequest) {
             status,
             remarks,
             markedBy: user.userId,
+            markedSource: 'manual',
           },
           update: {
             status,
             remarks,
             markedBy: user.userId,
+            markedSource: 'manual',
           },
         })
 
-        // Only log MUTATIONS — first marks are covered by Attendance.createdAt + markedBy.
-        const oldRemarks = existing?.remarks ?? null
-        const newRemarks = remarks ?? null
-        if (existing && (existing.status !== status || oldRemarks !== newRemarks)) {
+        // Log every MUTATION — by definition, we only get here when something
+        // actually changed (the no-op guard above returned early otherwise).
+        if (existing) {
           await tx.attendanceChangeLog.create({
             data: {
               schoolId: user.schoolId!,

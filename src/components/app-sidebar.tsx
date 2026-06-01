@@ -57,6 +57,8 @@ import {
   History,
   CalendarDays,
   FileSpreadsheet,
+  ScanLine,
+  RadioTower,
 } from 'lucide-react'
 
 export interface MenuChild {
@@ -140,6 +142,9 @@ export const MENUS: Record<string, MenuItem[]> = {
           children: [
             { label: 'Mark Attendance', page: 'mark-attendance', icon: ClipboardCheck },
             { label: 'View Attendance', page: 'view-attendance', icon: ClipboardList },
+            { label: 'RFID Kiosk', page: 'attendance-kiosk', icon: ScanLine },
+            { label: 'Assign Cards', page: 'rfid-card-assign', icon: CreditCard },
+            { label: 'Reader Devices', page: 'rfid-devices', icon: RadioTower },
             { label: 'Reports', page: 'attendance-reports', icon: BarChart3 },
           ],
         },
@@ -156,7 +161,7 @@ export const MENUS: Record<string, MenuItem[]> = {
         { label: 'Fee Collections', page: 'fee-collections', icon: DollarSign },
         { label: 'Demand Slips', page: 'fee-demand-slips', icon: FileSpreadsheet },
         { label: 'Change Fee Group', page: 'fee-change-group', icon: RefreshCw },
-        { label: 'Audit Trail', page: 'fee-audit-log', icon: History },
+        { label: 'Reports', page: 'fee-reports', icon: BarChart3 },
       ],
     },
     {
@@ -227,6 +232,7 @@ export const MENUS: Record<string, MenuItem[]> = {
       icon: History,
       children: [
         { label: 'Attendance', page: 'attendance-audit-log', icon: ClipboardList },
+        { label: 'RFID', page: 'rfid-audit', icon: ScanLine },
         { label: 'Fees', page: 'fee-audit-log', icon: Receipt },
       ],
     },
@@ -251,6 +257,7 @@ export const MENUS: Record<string, MenuItem[]> = {
       children: [
         { label: 'Mark Attendance', page: 'mark-attendance', icon: ClipboardCheck },
         { label: 'View Attendance', page: 'view-attendance', icon: ClipboardList },
+        { label: 'RFID Kiosk', page: 'attendance-kiosk', icon: ScanLine },
         { label: 'Reports', page: 'attendance-reports', icon: BarChart3 },
       ],
     },
@@ -307,7 +314,7 @@ export const MENUS: Record<string, MenuItem[]> = {
         { label: 'Fee Collections', page: 'fee-collections', icon: DollarSign },
         { label: 'Demand Slips', page: 'fee-demand-slips', icon: FileSpreadsheet },
         { label: 'Change Fee Group', page: 'fee-change-group', icon: RefreshCw },
-        { label: 'Audit Trail', page: 'fee-audit-log', icon: History },
+        { label: 'Reports', page: 'fee-reports', icon: BarChart3 },
       ],
     },
     {

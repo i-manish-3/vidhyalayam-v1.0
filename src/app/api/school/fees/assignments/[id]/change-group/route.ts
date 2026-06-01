@@ -194,6 +194,7 @@ export async function PATCH(
             entityType: 'StudentFeeAssignment',
             entityId: assignment.id,
             action: 'cancelled_for_group_change',
+            studentId: assignment.studentId,
             oldValue: JSON.stringify({
               feesGroupId: assignment.feesGroupId,
               feesGroupName: assignment.feesGroup?.name || null,
@@ -204,7 +205,7 @@ export async function PATCH(
               targetFeesGroupName: targetGroup.name,
               reason: reason || null,
             }),
-            changedBy: user.userId,
+            userId: user.userId,
           },
         })
 
@@ -231,12 +232,13 @@ export async function PATCH(
             entityType: 'StudentFeeAssignment',
             entityId: newAssignment.id,
             action: 'created_via_group_change',
+            studentId: assignment.studentId,
             oldValue: JSON.stringify({ previousAssignmentId: assignment.id }),
             newValue: JSON.stringify({
               feesGroupId: newFeesGroupId,
               feesGroupName: targetGroup.name,
             }),
-            changedBy: user.userId,
+            userId: user.userId,
           },
         })
 

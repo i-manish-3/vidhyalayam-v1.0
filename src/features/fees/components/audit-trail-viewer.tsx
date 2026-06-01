@@ -9,6 +9,7 @@
 
 import React, { useState } from 'react'
 import { DiffViewer } from './diff-viewer'
+import { FieldList } from './audit-field-list'
 
 interface AuditLog {
   id: string
@@ -192,11 +193,7 @@ export function AuditTrailViewer({
                             <h4 className="text-sm font-medium text-gray-700 mb-2">
                               Additional Information
                             </h4>
-                            <div className="rounded-md bg-gray-50 p-3 border border-gray-200">
-                              <pre className="text-xs text-gray-700 whitespace-pre-wrap overflow-x-auto">
-                                {JSON.stringify(log.metadata, null, 2)}
-                              </pre>
-                            </div>
+                            <FieldList data={log.metadata} />
                           </div>
                         )}
                       </div>

@@ -117,13 +117,14 @@ export async function POST(
           entityType: 'StudentWithdrawal',
           entityId: withdrawal.id,
           action: 'reverse',
+          studentId,
           newValue: JSON.stringify({
             studentId,
             academicYear: withdrawal.academicYear,
             reversalNotes,
             reopenedAssignments: reopened.count,
           }),
-          changedBy: user.userId,
+          userId: user.userId,
         },
       })
 

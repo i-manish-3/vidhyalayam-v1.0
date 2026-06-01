@@ -1,181 +1,162 @@
 /**
  * DiffViewer Component
  *
- * Displays before/after comparison of audit log changes.
- * Shows side-by-side or unified diff view.
+ * Displays before/after comparison of audit log changes in a human-readable
+ * key-value format. Raw JSON is available behind a "Show technical details"
+ * disclosure for power users.
  */
 
-import React from 'react'
+'use client'
+
+import React, { useState } from 'react'
+import { FieldList, formatFieldLabel, renderFieldValue } from './audit-field-list'
 
 interface DiffViewerProps {
   oldValue: any
   newValue: any
-  mode?: 'side-by-side' | 'unified'
 }
 
-export function DiffViewer({ oldValue, newValue, mode = 'unified' }: DiffViewerProps) {
-  if (!oldValue && !newValue) {
-    return <div className="text-sm text-gray-500">No changes to display</div>
-  }
-
-  // If only new value exists, it's a creation
-  if (!oldValue && newValue) {
-    return (
-      <div className="space-y-2">
-        <div className="text-sm font-medium text-gray-700">Created</div>
-        <div className="rounded-md bg-green-50 p-3 border border-green-200">
-          <pre className="text-xs text-green-900 whitespace-pre-wrap overflow-x-auto">
-            {JSON.stringify(newValue, null, 2)}
-          </pre>
-        </div>
-      </div>
-    )
-  }
-
-  // If only old value exists, it's a deletion
-  if (oldValue && !newValue) {
-    return (
-      <div className="space-y-2">
-        <div className="text-sm font-medium text-gray-700">Deleted</div>
-        <div className="rounded-md bg-red-50 p-3 border border-red-200">
-          <pre className="text-xs text-red-900 whitespace-pre-wrap overflow-x-auto">
-            {JSON.stringify(oldValue, null, 2)}
-          </pre>
-        </div>
-      </div>
-    )
-  }
-
-  // Both exist - show diff
-  const changes = calculateChanges(oldValue, newValue)
-
-  if (mode === 'side-by-side') {
-    return (
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <div className="text-sm font-medium text-gray-700">Before</div>
-          <div className="rounded-md bg-red-50 p-3 border border-red-200">
-            <pre className="text-xs text-red-900 whitespace-pre-wrap overflow-x-auto">
-              {JSON.stringify(oldValue, null, 2)}
-            </pre>
-          </div>
-        </div>
-        <div className="space-y-2">
-          <div className="text-sm font-medium text-gray-700">After</div>
-          <div className="rounded-md bg-green-50 p-3 border border-green-200">
-            <pre className="text-xs text-green-900 whitespace-pre-wrap overflow-x-auto">
-              {JSON.stringify(newValue, null, 2)}
-            </pre>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  // Unified view - show only changed fields
-  return (
-    <div className="space-y-3">
-      {changes.length === 0 ? (
-        <div className="text-sm text-gray-500">No changes detected</div>
-      ) : (
-        changes.map((change, index) => (
-          <div key={index} className="space-y-1">
-            <div className="text-sm font-medium text-gray-700">{change.field}</div>
-            <div className="grid grid-cols-2 gap-2">
-              <div className="rounded-md bg-red-50 p-2 border border-red-200">
-                <div className="text-xs text-red-600 font-medium mb-1">Before</div>
-                <div className="text-xs text-red-900">
-                  {formatValue(change.oldValue)}
-                </div>
-              </div>
-              <div className="rounded-md bg-green-50 p-2 border border-green-200">
-                <div className="text-xs text-green-600 font-medium mb-1">After</div>
-                <div className="text-xs text-green-900">
-                  {formatValue(change.newValue)}
-                </div>
-              </div>
-            </div>
-          </div>
-        ))
-      )}
-    </div>
-  )
-}
-
-interface Change {
+interface FieldChange {
   field: string
   oldValue: any
   newValue: any
 }
 
-function calculateChanges(oldValue: any, newValue: any): Change[] {
-  const changes: Change[] = []
+export function DiffViewer({ oldValue, newValue }: DiffViewerProps) {
+  const [showRaw, setShowRaw] = useState(false)
 
+  if (!oldValue && !newValue) {
+    return <div className="text-sm text-gray-500 italic">No details available</div>
+  }
+
+  // CREATE — only new value exists
+  if (!oldValue && newValue) {
+    return (
+      <div className="space-y-2">
+        <FieldList data={newValue} tone="positive" />
+        <RawJsonDisclosure
+          show={showRaw}
+          onToggle={() => setShowRaw(v => !v)}
+          newValue={newValue}
+          oldValue={null}
+        />
+      </div>
+    )
+  }
+
+  // DELETE — only old value exists
+  if (oldValue && !newValue) {
+    return (
+      <div className="space-y-2">
+        <FieldList data={oldValue} tone="negative" />
+        <RawJsonDisclosure
+          show={showRaw}
+          onToggle={() => setShowRaw(v => !v)}
+          newValue={null}
+          oldValue={oldValue}
+        />
+      </div>
+    )
+  }
+
+  // UPDATE — show changed fields only
+  const changes = calculateChanges(oldValue, newValue)
+
+  if (changes.length === 0) {
+    return <div className="text-sm text-gray-500 italic">No field changes detected</div>
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="rounded-md border border-gray-200 divide-y divide-gray-200 overflow-hidden">
+        {/* Header row */}
+        <div className="grid grid-cols-[10rem_1fr_1fr] gap-3 px-3 py-2 bg-gray-50 text-xs font-medium text-gray-500 uppercase tracking-wide">
+          <div>Field</div>
+          <div>Before</div>
+          <div>After</div>
+        </div>
+        {changes.map(change => (
+          <div key={change.field} className="grid grid-cols-[10rem_1fr_1fr] gap-3 px-3 py-2 items-start text-sm">
+            <div className="text-xs font-medium text-gray-600 pt-0.5">
+              {formatFieldLabel(change.field)}
+            </div>
+            <div className="text-red-700 line-through decoration-red-300 break-words min-w-0">
+              {renderFieldValue(change.field, change.oldValue)}
+            </div>
+            <div className="text-green-700 font-medium break-words min-w-0">
+              {renderFieldValue(change.field, change.newValue)}
+            </div>
+          </div>
+        ))}
+      </div>
+      <RawJsonDisclosure
+        show={showRaw}
+        onToggle={() => setShowRaw(v => !v)}
+        newValue={newValue}
+        oldValue={oldValue}
+      />
+    </div>
+  )
+}
+
+interface RawJsonDisclosureProps {
+  show: boolean
+  onToggle: () => void
+  oldValue: any
+  newValue: any
+}
+
+function RawJsonDisclosure({ show, onToggle, oldValue, newValue }: RawJsonDisclosureProps) {
+  return (
+    <div className="pt-1">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="text-xs text-gray-500 hover:text-gray-700 underline-offset-2 hover:underline"
+      >
+        {show ? 'Hide technical details' : 'Show technical details'}
+      </button>
+      {show && (
+        <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2">
+          {oldValue && (
+            <div>
+              <div className="text-xs font-medium text-gray-500 mb-1">Before (raw)</div>
+              <pre className="text-[11px] bg-gray-900 text-gray-100 p-2 rounded overflow-x-auto max-h-64">
+                {JSON.stringify(oldValue, null, 2)}
+              </pre>
+            </div>
+          )}
+          {newValue && (
+            <div>
+              <div className="text-xs font-medium text-gray-500 mb-1">After (raw)</div>
+              <pre className="text-[11px] bg-gray-900 text-gray-100 p-2 rounded overflow-x-auto max-h-64">
+                {JSON.stringify(newValue, null, 2)}
+              </pre>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function calculateChanges(oldValue: any, newValue: any): FieldChange[] {
+  const changes: FieldChange[] = []
   if (!oldValue || !newValue) return changes
 
-  const allKeys = new Set([
-    ...Object.keys(oldValue),
-    ...Object.keys(newValue),
-  ])
+  const allKeys = new Set([...Object.keys(oldValue), ...Object.keys(newValue)])
 
   allKeys.forEach(key => {
-    // Skip metadata fields
-    if (key === 'id' || key === 'createdAt' || key === 'updatedAt') {
-      return
-    }
+    // Skip noise fields
+    if (['id', 'createdAt', 'updatedAt', 'schoolId', 'version'].includes(key)) return
 
     const oldVal = oldValue[key]
     const newVal = newValue[key]
 
-    // Deep comparison
     if (JSON.stringify(oldVal) !== JSON.stringify(newVal)) {
-      changes.push({
-        field: formatFieldName(key),
-        oldValue: oldVal,
-        newValue: newVal,
-      })
+      changes.push({ field: key, oldValue: oldVal, newValue: newVal })
     }
   })
 
   return changes
-}
-
-function formatFieldName(field: string): string {
-  // Convert camelCase to Title Case
-  return field
-    .replace(/([A-Z])/g, ' $1')
-    .replace(/^./, str => str.toUpperCase())
-    .trim()
-}
-
-function formatValue(value: any): string {
-  if (value === null || value === undefined) {
-    return 'null'
-  }
-
-  if (typeof value === 'boolean') {
-    return value ? 'true' : 'false'
-  }
-
-  if (typeof value === 'number') {
-    return value.toString()
-  }
-
-  if (typeof value === 'string') {
-    // Truncate long strings
-    if (value.length > 100) {
-      return `${value.substring(0, 97)}...`
-    }
-    return value
-  }
-
-  if (Array.isArray(value)) {
-    return `[${value.length} items]`
-  }
-
-  if (typeof value === 'object') {
-    return JSON.stringify(value, null, 2)
-  }
-
-  return String(value)
 }

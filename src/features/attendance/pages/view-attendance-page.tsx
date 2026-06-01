@@ -33,6 +33,7 @@ import {
   UserCheck,
   Camera,
   RefreshCw,
+  Lock,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { usePermissions, PERMISSIONS } from '@/hooks/use-permissions'
@@ -59,6 +60,13 @@ interface AttendanceRecord {
     section: { name: string } | null
   }
   markedByUser: {
+    id: string
+    name: string
+  } | null
+  markedSource?: string | null // 'manual' | 'rfid_kiosk' | 'rfid_webhook'
+  finalized?: boolean
+  finalizedAt?: string | null
+  finalizedByUser?: {
     id: string
     name: string
   } | null
@@ -791,30 +799,105 @@ export function ViewAttendancePage() {
                             {statusConfig.label}
                           </div>
 
-                          {record.markedByUser && (
-                            <div className="inline-flex h-9 min-w-0 items-center justify-center gap-1.5 rounded-md bg-slate-50 px-2 text-[11px] text-slate-600 dark:bg-slate-800/50 dark:text-slate-400 md:hidden">
-                              <UserCheck className="size-3 shrink-0" />
-                              <span className="truncate">
-                                {record.markedByUser.name}{submittedTime ? `, ${submittedTime}` : ''}
-                              </span>
+                          {(record.markedByUser || record.markedSource === 'rfid_webhook' || record.markedSource === 'auto_default' || record.finalized) && (
+                            <div className="flex min-w-0 flex-col gap-0.5 md:hidden">
+                              {(record.markedByUser || record.markedSource === 'rfid_webhook' || record.markedSource === 'auto_default') && (
+                                <div className="inline-flex h-7 min-w-0 items-center justify-center gap-1.5 rounded-md bg-slate-50 px-2 text-[11px] text-slate-600 dark:bg-slate-800/50 dark:text-slate-400">
+                                  <UserCheck className="size-3 shrink-0" />
+                                  <span className="truncate">
+                                    {record.markedByUser?.name ?? (record.markedSource === 'auto_default' ? 'System default' : 'Gate reader')}
+                                  </span>
+                                  {record.markedSource && record.markedSource !== 'manual' && (
+                                    <span
+                                      className={
+                                        'ml-1 inline-flex shrink-0 items-center rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider ' +
+                                        (record.markedSource === 'auto_default'
+                                          ? 'bg-zinc-500/10 text-zinc-600 dark:text-zinc-400'
+                                          : 'bg-blue-500/10 text-blue-700 dark:text-blue-300')
+                                      }
+                                    >
+                                      {record.markedSource === 'rfid_webhook'
+                                        ? 'RFID·Gate'
+                                        : record.markedSource === 'auto_default'
+                                          ? 'Auto'
+                                          : 'RFID'}
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                              {record.finalized && record.finalizedByUser && (
+                                <div className="inline-flex h-7 min-w-0 items-center justify-center gap-1.5 rounded-md bg-amber-500/10 px-2 text-[11px] text-amber-800 dark:text-amber-200">
+                                  <Lock className="size-3 shrink-0" />
+                                  <span className="truncate">Finalized · {record.finalizedByUser.name}</span>
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>
 
                         {/* Submitted by */}
-                        <div className="hidden w-40 shrink-0 items-center justify-center md:flex">
-                          {record.markedByUser ? (
+                        <div className="hidden w-44 shrink-0 items-center justify-center md:flex">
+                          {(record.markedByUser || record.markedSource === 'rfid_webhook' || record.markedSource === 'auto_default' || record.finalized) ? (
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <div className="inline-flex max-w-full items-center gap-1.5 rounded-md bg-slate-50 px-2 py-0.5 text-[11px] text-slate-600 dark:bg-slate-800/50 dark:text-slate-400">
-                                  <UserCheck className="size-3 shrink-0" />
-                                  <span className="truncate">
-                                    {record.markedByUser.name}{submittedTime ? `, ${submittedTime}` : ''}
-                                  </span>
+                                <div className="flex max-w-full flex-col items-stretch gap-0.5">
+                                  {(record.markedByUser || record.markedSource === 'rfid_webhook' || record.markedSource === 'auto_default') && (
+                                    <div className="inline-flex max-w-full items-center gap-1.5 rounded-md bg-slate-50 px-2 py-0.5 text-[11px] text-slate-600 dark:bg-slate-800/50 dark:text-slate-400">
+                                      <UserCheck className="size-3 shrink-0" />
+                                      <span className="truncate">
+                                        {record.markedByUser?.name ?? (record.markedSource === 'auto_default' ? 'System default' : 'Gate reader')}
+                                      </span>
+                                      {record.markedSource && record.markedSource !== 'manual' && (
+                                        <span
+                                          className={
+                                            'ml-auto inline-flex shrink-0 items-center rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider ' +
+                                            (record.markedSource === 'auto_default'
+                                              ? 'bg-zinc-500/10 text-zinc-600 dark:text-zinc-400'
+                                              : 'bg-blue-500/10 text-blue-700 dark:text-blue-300')
+                                          }
+                                        >
+                                          {record.markedSource === 'rfid_webhook'
+                                            ? 'GATE'
+                                            : record.markedSource === 'auto_default'
+                                              ? 'AUTO'
+                                              : 'RFID'}
+                                        </span>
+                                      )}
+                                    </div>
+                                  )}
+                                  {record.finalized && record.finalizedByUser && (
+                                    <div className="inline-flex max-w-full items-center gap-1.5 rounded-md bg-amber-500/10 px-2 py-0.5 text-[11px] text-amber-800 dark:text-amber-200">
+                                      <Lock className="size-3 shrink-0" />
+                                      <span className="truncate">{record.finalizedByUser.name}</span>
+                                    </div>
+                                  )}
                                 </div>
                               </TooltipTrigger>
-                              <TooltipContent>
-                                Marked by {record.markedByUser.name}{submittedDateTime ? ` at ${submittedDateTime}` : ''}
+                              <TooltipContent className="max-w-xs">
+                                <div className="space-y-1.5">
+                                  <div>
+                                    <strong className="text-xs">Marked: </strong>
+                                    <span className="text-xs">
+                                      {record.markedSource === 'rfid_kiosk'
+                                        ? `Tapped on RFID kiosk by ${record.markedByUser?.name ?? 'unknown'}`
+                                        : record.markedSource === 'rfid_webhook'
+                                          ? 'Tapped on a networked RFID gate reader'
+                                          : record.markedSource === 'auto_default'
+                                            ? 'Auto-defaulted to absent (no RFID tap, no manual mark)'
+                                            : `${record.markedByUser?.name ?? 'unknown'} (manual)`}
+                                      {submittedDateTime ? ` at ${submittedDateTime}` : ''}
+                                    </span>
+                                  </div>
+                                  {record.finalized && record.finalizedByUser && (
+                                    <div>
+                                      <strong className="text-xs">Finalized: </strong>
+                                      <span className="text-xs">
+                                        {record.finalizedByUser.name}
+                                        {record.finalizedAt ? ` at ${new Date(record.finalizedAt).toLocaleString()}` : ''}
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
                               </TooltipContent>
                             </Tooltip>
                           ) : (

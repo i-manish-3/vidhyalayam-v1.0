@@ -963,7 +963,8 @@ export async function assignStudentFeesFromStructure(input: AssignStudentFeesInp
       entityType: 'StudentFeeAssignment',
       entityId: assignment.id,
       action: 'created',
-      changedBy: assignedBy || null,
+      studentId,
+      userId: assignedBy || null,
       newValue: serialize({
         studentId,
         feeStructureId: feeStructure.id,

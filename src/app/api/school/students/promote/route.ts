@@ -398,7 +398,8 @@ export async function POST(request: NextRequest) {
             entityType: 'StudentAcademicEnrollment',
             entityId: enrollment.id,
             action: 'created',
-            changedBy: user.userId,
+            studentId: student.id,
+            userId: user.userId,
             newValue: JSON.stringify({
               studentId: student.id,
               fromAcademicYear,

@@ -297,10 +297,36 @@ export function AttendancePage() {
       ])
 
       const studentList = [...(studentsRes.students || [])].sort(compareStudentsByRollNumber)
-      const existing = attendanceRes.records || []
+      let existing = attendanceRes.records || []
+      const finalized = attendanceRes.finalized || false
+
+      // Auto-default-absent: if any enrolled student has no row, materialize
+      // absent rows for them server-side, then re-fetch. Idempotent — runs once
+      // per day per class (subsequent loads find no gap and skip the call).
+      // Skip for future dates, finalized days, and non-teaching days (the
+      // initialize endpoint rejects these anyway, but avoid the round trip).
+      const todayStr = getTodayString()
+      const isPastOrToday = date <= todayStr
+      const hasGap = studentList.length > existing.length
+      if (hasGap && !finalized && isPastOrToday) {
+        try {
+          const initParams: Record<string, string> = { date, classId, academicYear }
+          if (effectiveSectionId) initParams.sectionId = effectiveSectionId
+          await api.post('/api/school/attendance/initialize', initParams)
+          const refreshed = await api.get<{ records: ExistingAttendance[]; finalized?: boolean }>(
+            '/api/school/attendance',
+            attendanceParams,
+          )
+          existing = refreshed.records || []
+        } catch {
+          // Non-teaching day or future date — initialize endpoint returned 400.
+          // Silently fall back to whatever rows already exist; UI still works.
+        }
+      }
+
       setStudents(studentList)
       setExistingAttendance(existing)
-      setIsFinalized(attendanceRes.finalized || false)
+      setIsFinalized(finalized)
 
       const statusMap = new Map<string, AttendanceStatus>()
       const remMap = new Map<string, string>()
@@ -357,22 +383,40 @@ export function AttendancePage() {
 
   const handleSave = async () => {
     if (students.length === 0 || isFinalized) return
-    setSaving(true)
-    const records: AttendanceRecord[] = students.map((s) => ({
-      studentId: s.id,
-      date,
-      status: attendanceMap.get(s.id) || 'present',
-      remarks: remarksMap.get(s.id) || undefined,
-    }))
+    // Only send students with an EXPLICIT status. Untouched students used to
+    // fall back to 'present' here, which silently marked absentees present
+    // when a teacher hit Save without reviewing every row — actively dangerous
+    // once RFID started populating rows for some students but not others.
+    // Teachers who want bulk-present must use the "Mark all present" button
+    // explicitly (which populates attendanceMap for every student).
+    const recordsToSend: AttendanceRecord[] = students
+      .filter((s) => attendanceMap.has(s.id))
+      .map((s) => ({
+        studentId: s.id,
+        date,
+        status: attendanceMap.get(s.id)!,
+        remarks: remarksMap.get(s.id) || undefined,
+      }))
 
+    if (recordsToSend.length === 0) {
+      toast({
+        title: 'Nothing to save',
+        description: 'Mark at least one student first (use "Mark all present" or toggle individually).',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    setSaving(true)
     try {
-      await api.post('/api/school/attendance', { date, academicYear, records })
-      const allStudentsMarked = records.every((r) => attendanceMap.has(r.studentId))
+      await api.post('/api/school/attendance', { date, academicYear, records: recordsToSend })
+      const unmarked = students.length - recordsToSend.length
       toast({
         title: 'Attendance Saved',
-        description: allStudentsMarked
-          ? `Saved for ${records.length} students. Finalize attendance to lock it.`
-          : `Saved for ${records.length} students.`,
+        description:
+          unmarked === 0
+            ? `Saved for ${recordsToSend.length} students. Finalize attendance to lock it.`
+            : `Saved for ${recordsToSend.length} students. ${unmarked} still unmarked — mark them before finalizing.`,
       })
       fetchAttendanceData()
     } catch (err) {
@@ -391,14 +435,20 @@ export function AttendancePage() {
       // after a reopen would be lost silently — Finalize only flips a flag,
       // it doesn't persist `attendanceMap`/`remarksMap`. Re-marking the same
       // values is a no-op at the DB level (the change log skips no-ops too).
+      // Filter to ONLY students with an explicit status; the finalize PATCH
+      // below will refuse if any enrolled student still has no row.
       if (students.length > 0) {
-        const records: AttendanceRecord[] = students.map((s) => ({
-          studentId: s.id,
-          date,
-          status: attendanceMap.get(s.id) || 'present',
-          remarks: remarksMap.get(s.id) || undefined,
-        }))
-        await api.post('/api/school/attendance', { date, academicYear, records })
+        const recordsToSend: AttendanceRecord[] = students
+          .filter((s) => attendanceMap.has(s.id))
+          .map((s) => ({
+            studentId: s.id,
+            date,
+            status: attendanceMap.get(s.id)!,
+            remarks: remarksMap.get(s.id) || undefined,
+          }))
+        if (recordsToSend.length > 0) {
+          await api.post('/api/school/attendance', { date, academicYear, records: recordsToSend })
+        }
       }
 
       const payload: Record<string, string> = { date, classId, academicYear, action: 'finalize' }

@@ -236,6 +236,7 @@ async function applyAcademicWindow(
           entityType: 'StudentFeeAssignment',
           entityId: assignment.id,
           action: 'window_close',
+          studentId,
           newValue: JSON.stringify({
             effectiveTo: effectiveTo.toISOString(),
             reason,
@@ -244,7 +245,7 @@ async function applyAcademicWindow(
             academicYear: assignment.academicYear,
             cascadeFromWithdrawal: !!args.cascadeFromWithdrawal,
           }),
-          changedBy: args.performedBy || null,
+          userId: args.performedBy || null,
         },
       })
     },
@@ -370,6 +371,7 @@ async function applyTransportWindow(
           entityType: 'TransportAllocation',
           entityId: allocation.id,
           action: 'window_close',
+          studentId,
           newValue: JSON.stringify({
             effectiveTo: effectiveTo.toISOString(),
             reason,
@@ -378,7 +380,7 @@ async function applyTransportWindow(
             academicYear: allocation.academicYear,
             cascadeFromWithdrawal: !!args.cascadeFromWithdrawal,
           }),
-          changedBy: args.performedBy || null,
+          userId: args.performedBy || null,
         },
       })
     },

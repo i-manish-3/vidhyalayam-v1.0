@@ -42,6 +42,7 @@ model User {
   userRoles           UserRole[]
   userPermissions     UserPermission[]
   markedAttendance    Attendance[]          @relation("markedByUser")
+  finalizedAttendance Attendance[]          @relation("finalizedByUser")
   attendanceAuditLogs AttendanceAuditLog[]  @relation("attendanceAuditActor")
   attendanceChanges   AttendanceChangeLog[] @relation("attendanceChanger")
   loginEvents         LoginEvent[]
@@ -49,6 +50,8 @@ model User {
   passwordResetTokens PasswordResetToken[]
   feeAuditLogs        FeeAuditLog[]
   feeConfigAuditLogs  FeeConfigAuditLog[]
+  rfidCardsAssigned   StudentCard[]         @relation("rfidCardsAssigned")
+  rfidCardsRevoked    StudentCard[]         @relation("rfidCardsRevoked")
 
   @@index([schoolId])
   @@index([schoolId, employeeId])
@@ -115,6 +118,9 @@ model School {
   attendance                  Attendance[]
   attendanceAuditLogs         AttendanceAuditLog[]
   attendanceChanges           AttendanceChangeLog[]
+  studentCards                StudentCard[]
+  rfidDevices                 RfidDevice[]
+  rfidTapLogs                 RfidTapLog[]
   timetables                  Timetable[]
   periodConfigs               PeriodConfig[]
   exams                       Exam[]
@@ -340,6 +346,8 @@ model Student {
   parentLinks          StudentParent[]
   attendance           Attendance[]
   attendanceChanges    AttendanceChangeLog[]
+  rfidCards            StudentCard[]
+  rfidTapLogs          RfidTapLog[]                 @relation("rfidTapLogs")
   feeCollections       FeeCollection[]
   feeAssignments       StudentFeeAssignment[]
   academicEnrollments  StudentAcademicEnrollment[]
@@ -1216,27 +1224,27 @@ model StudentFeeLedgerAllocation {
 }
 
 model FeeAuditLog {
-  id         String   @id @default(cuid())
+  id         String @id @default(cuid())
   schoolId   String
-  entityType String   // StudentFeePayment, StudentFeeInvoice, StudentFeeLedgerEntry, StudentFeeRefund, etc.
+  entityType String // StudentFeePayment, StudentFeeInvoice, StudentFeeLedgerEntry, StudentFeeRefund, etc.
   entityId   String
-  action     String   // created, updated, deleted, payment_recorded, refund_issued, etc.
+  action     String // created, updated, deleted, payment_recorded, refund_issued, etc.
 
   // Enhanced fields
-  studentId  String?  // Denormalized for fast student-scoped queries
-  userId     String?  // Who performed the action
-  ipAddress  String?  // Request IP for security audits
-  userAgent  String?  // Browser/client info
+  studentId String? // Denormalized for fast student-scoped queries
+  userId    String? // Who performed the action
+  ipAddress String? // Request IP for security audits
+  userAgent String? // Browser/client info
 
   // Snapshots
-  oldValue   String?  // JSON snapshot before change
-  newValue   String?  // JSON snapshot after change
+  oldValue    String? // JSON snapshot before change
+  newValue    String? // JSON snapshot after change
   diffSummary String? // Human-readable summary: "Changed amount from 1000 to 1200"
 
   // Metadata
-  metadata   String?  // JSON: additional context (invoice number, receipt number, etc.)
+  metadata String? // JSON: additional context (invoice number, receipt number, etc.)
 
-  createdAt  DateTime @default(now())
+  createdAt DateTime @default(now())
 
   school  School   @relation(fields: [schoolId], references: [id])
   student Student? @relation(fields: [studentId], references: [id])
@@ -1252,23 +1260,23 @@ model FeeAuditLog {
 }
 
 model FeeConfigAuditLog {
-  id          String   @id @default(cuid())
-  schoolId    String
-  configType  String   // FeeDemandConfig, FeesStructure, FeesHead, FeesGroup, BillingWindow
-  configId    String
-  action      String   // created, updated, deleted, activated, deactivated, locked
+  id         String @id @default(cuid())
+  schoolId   String
+  configType String // FeeDemandConfig, FeesStructure, FeesHead, FeesGroup, BillingWindow
+  configId   String
+  action     String // created, updated, deleted, activated, deactivated, locked
 
-  userId      String?
-  ipAddress   String?
-  userAgent   String?
+  userId    String?
+  ipAddress String?
+  userAgent String?
 
-  oldValue    String?  // JSON snapshot before
-  newValue    String?  // JSON snapshot after
-  diffSummary String?  // "Changed dueDay from 5 to 10"
+  oldValue    String? // JSON snapshot before
+  newValue    String? // JSON snapshot after
+  diffSummary String? // "Changed dueDay from 5 to 10"
 
-  metadata    String?  // JSON: affected students count, academic year, etc.
+  metadata String? // JSON: affected students count, academic year, etc.
 
-  createdAt   DateTime @default(now())
+  createdAt DateTime @default(now())
 
   school School @relation(fields: [schoolId], references: [id])
   user   User?  @relation(fields: [userId], references: [id])
@@ -1393,15 +1401,19 @@ model Attendance {
   status       String // present, absent, leave, late, half_day
   remarks      String?
   markedBy     String?
+  // Channel that produced the mark. Drives UI badges (RFID vs manual) and
+  // lets reports split attendance by source. Existing rows backfill to 'manual'.
+  markedSource String    @default("manual") // manual | rfid_kiosk | rfid_webhook
   finalized    Boolean   @default(false)
   finalizedAt  DateTime?
   finalizedBy  String?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
-  school       School  @relation(fields: [schoolId], references: [id])
-  student      Student @relation(fields: [studentId], references: [id])
-  markedByUser User?   @relation("markedByUser", fields: [markedBy], references: [id])
+  school          School @relation(fields: [schoolId], references: [id])
+  student         Student @relation(fields: [studentId], references: [id])
+  markedByUser    User?   @relation("markedByUser", fields: [markedBy], references: [id])
+  finalizedByUser User?   @relation("finalizedByUser", fields: [finalizedBy], references: [id])
 
   @@unique([schoolId, studentId, date])
   @@index([schoolId])
@@ -1461,6 +1473,99 @@ model AttendanceChangeLog {
   @@index([schoolId, studentId, date])
   @@index([changedBy])
   @@index([changedAt])
+}
+
+// ============================================
+// RFID / NFC CARD ATTENDANCE
+// ============================================
+
+// Year-scoped card-to-student mapping. A student gets a new StudentCard row
+// each academic year (matches the school's "new printed card on promotion"
+// practice). Previous-year rows stay for audit; tap-time lookup filters by
+// current AY so old cards naturally stop working on AY rollover with no
+// manual revocation needed.
+//
+// UID-only model: we never write to the card. The factory-burned UID is the
+// only identifier; lost-card replacement = revoke + create new row with the
+// next physical card's UID.
+model StudentCard {
+  id           String    @id @default(cuid())
+  schoolId     String
+  studentId    String
+  academicYear String // year this card is valid for
+  uid          String // normalized: uppercase hex, no separators
+  isActive     Boolean   @default(true)
+  assignedAt   DateTime  @default(now())
+  assignedBy   String? // userId
+  revokedAt    DateTime?
+  revokedBy    String? // userId
+  revokeReason String?
+  printNotes   String? // free text e.g. "yellow border, batch 2026-A"
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  school   School  @relation(fields: [schoolId], references: [id])
+  student  Student @relation(fields: [studentId], references: [id])
+  assigner User?   @relation("rfidCardsAssigned", fields: [assignedBy], references: [id])
+  revoker  User?   @relation("rfidCardsRevoked", fields: [revokedBy], references: [id])
+
+  // A UID maps to at most one student within a (school, year). Across years
+  // the same UID may legitimately re-appear (same physical card reissued, or
+  // a previously-revoked card reused for a different student next year).
+  @@unique([schoolId, academicYear, uid])
+  @@index([schoolId, uid, academicYear, isActive]) // tap-time lookup
+  @@index([schoolId, studentId, academicYear]) // student's card history
+  @@index([schoolId, academicYear, isActive]) // admin: list active cards in current AY
+}
+
+// Networked RFID reader (ESP32, commercial gate reader, etc.) that posts
+// taps to /api/rfid/webhook. Authenticates with a plaintext API key sent in
+// the `x-device-key` header; only the bcrypt-hashed form is persisted.
+// Cookie/JWT auth is not used because these devices have no browser session.
+model RfidDevice {
+  id         String    @id @default(cuid())
+  schoolId   String
+  name       String // "Main Gate", "Hostel Block A"
+  location   String?
+  apiKeyHash String    @unique // bcrypt hash of the plaintext device key
+  isActive   Boolean   @default(true)
+  lastSeenAt DateTime?
+  lastSeenIp String?
+  createdBy  String? // userId
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  deletedAt  DateTime?
+
+  school  School       @relation(fields: [schoolId], references: [id])
+  tapLogs RfidTapLog[]
+
+  @@index([schoolId, isActive])
+  @@index([schoolId, deletedAt])
+}
+
+// Append-only log of every tap that hits the system — including unmatched
+// UIDs, duplicates, and rejected taps (finalized day, non-teaching, etc.).
+// Used for device debugging, "suspect taps" admin review, and rate metering.
+model RfidTapLog {
+  id           String   @id @default(cuid())
+  schoolId     String
+  uid          String // normalized
+  studentId    String? // null when UID didn't match any active card
+  deviceId     String? // null for kiosk taps (cookie-authenticated)
+  source       String // 'kiosk' | 'webhook'
+  tappedAt     DateTime @default(now())
+  result       String // 'marked' | 'duplicate' | 'unknown_card' | 'finalized' | 'non_teaching' | 'enrollment_missing' | 'card_revoked'
+  academicYear String? // active AY at tap time (null only if pre-lookup failure)
+  errorDetail  String?
+
+  school  School      @relation(fields: [schoolId], references: [id])
+  device  RfidDevice? @relation(fields: [deviceId], references: [id])
+  student Student?    @relation("rfidTapLogs", fields: [studentId], references: [id])
+
+  @@index([schoolId, tappedAt])
+  @@index([schoolId, studentId, tappedAt])
+  @@index([schoolId, result, tappedAt])
+  @@index([deviceId, tappedAt])
 }
 
 // ============================================
@@ -1778,8 +1883,8 @@ model StudentWithdrawal {
   updatedAt          DateTime  @updatedAt
   deletedAt          DateTime?
 
-  school  School  @relation(fields: [schoolId], references: [id])
-  student Student @relation(fields: [studentId], references: [id])
+  school  School             @relation(fields: [schoolId], references: [id])
+  student Student            @relation(fields: [studentId], references: [id])
   refunds StudentFeeRefund[]
 
   @@unique([studentId, academicYear])
@@ -1800,26 +1905,26 @@ model StudentWithdrawal {
 // Receipt numbers are sequential per-school with an 'RFD-' prefix to keep
 // them visually distinct from collection receipts (which are bare integers).
 model StudentFeeRefund {
-  id              String    @id @default(cuid())
-  schoolId        String
-  studentId       String
-  withdrawalId    String
-  scope           String // 'academic' | 'transport' | 'combined' — copied from the withdrawal context for filtering
-  academicYear    String
-  amount          Float
-  paymentMethod   String    @default("cash") // cash | bank | adjustment — schema is forward-compatible; only 'cash' is wired today
-  receiptNumber   String
-  issuedDate      DateTime  @default(now())
-  issuedBy        String?
-  notes           String?
-  ledgerEntryId   String?   // REFUND row written when the refund was issued
-  voidedAt        DateTime?
-  voidedBy        String?
-  voidReason      String?
+  id                String    @id @default(cuid())
+  schoolId          String
+  studentId         String
+  withdrawalId      String
+  scope             String // 'academic' | 'transport' | 'combined' — copied from the withdrawal context for filtering
+  academicYear      String
+  amount            Float
+  paymentMethod     String    @default("cash") // cash | bank | adjustment — schema is forward-compatible; only 'cash' is wired today
+  receiptNumber     String
+  issuedDate        DateTime  @default(now())
+  issuedBy          String?
+  notes             String?
+  ledgerEntryId     String? // REFUND row written when the refund was issued
+  voidedAt          DateTime?
+  voidedBy          String?
+  voidReason        String?
   voidLedgerEntryId String? // counter-entry ledger row written on void
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  deletedAt       DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  deletedAt         DateTime?
 
   school     School            @relation(fields: [schoolId], references: [id])
   student    Student           @relation(fields: [studentId], references: [id])

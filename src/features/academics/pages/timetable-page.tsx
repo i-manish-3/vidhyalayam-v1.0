@@ -105,7 +105,11 @@ export function TimetablePage() {
   const currentSchoolAcademicYear = useAppStore((s) => s.currentSchool?.academicYear)
   const viewingAcademicYear = useAppStore((s) => s.viewingAcademicYear)
   const academicYear = viewingAcademicYear || currentSchoolAcademicYear || getCurrentAcademicYear()
-  const DAYS = useAppStore((s) => parseWorkingDays(s.currentSchool?.workingDays))
+  // Select the raw string (stable) and parse in useMemo. Selecting the parsed
+  // array directly returns a new reference every render, which makes Zustand
+  // report a state change on every notify and causes an infinite render loop.
+  const workingDaysRaw = useAppStore((s) => s.currentSchool?.workingDays)
+  const DAYS = useMemo(() => parseWorkingDays(workingDaysRaw), [workingDaysRaw])
   const currentUser = useAppStore((s) => s.user)
   const isTeacherRole = currentUser?.role === 'TEACHER'
   const { hasPermission } = usePermissions()

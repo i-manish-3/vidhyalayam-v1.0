@@ -41,6 +41,11 @@ const MODULE_PERMISSION_MAP: Record<string, string[]> = {
   'view-attendance': ['attendance:read'],
   'attendance-audit-log': ['attendance:audit:view'],
   'attendance-reports': ['attendance:report:view'],
+  'attendance-kiosk': ['attendance:mark'],
+  'rfid-devices': ['rfid:devices:manage'],
+  'student-rfid-cards': ['rfid:cards:read', 'rfid:cards:manage'],
+  'rfid-card-assign': ['rfid:cards:manage'],
+  'rfid-audit': ['rfid:taps:view', 'attendance:audit:view'],
   'timetable': ['timetable:read', 'timetable:create'],
   'exams': ['exam:read', 'exam:create'],
   'exam-results': ['exam:read', 'exam:results'],
@@ -55,6 +60,7 @@ const MODULE_PERMISSION_MAP: Record<string, string[]> = {
   'fee-demand-config': ['fees:read'],
   'fee-demand-slips': ['fees:read'],
   'fee-audit-log': ['fees:read', 'fees:audit'],
+  'fee-reports': ['fees:read'],
 
   // Salary
   'salary': ['salary:read'],
