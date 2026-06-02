@@ -82,6 +82,12 @@ const MODULE_PERMISSION_MAP: Record<string, string[]> = {
   'notifications': ['notification:read'],
   'announcements': ['announcement:read', 'announcement:create'],
 
+  // Student ID Cards
+  'id-cards': ['idcard:read', 'idcard:generate', 'idcard:print'],
+  'id-card-templates': ['idcard:read', 'idcard:template:create', 'idcard:template:update'],
+  'id-card-template-edit': ['idcard:template:create', 'idcard:template:update'],
+  'id-card-generate': ['idcard:generate'],
+
   // Admin
   'settings': ['settings:read', 'settings:update'],
   'school-roles': ['role:read', 'role:create'],
@@ -96,6 +102,14 @@ const MODULE_PERMISSION_MAP: Record<string, string[]> = {
   'my-attendance': ['attendance:read'],
   'my-children': ['student:read'],
 
+  // ID Cards
+  'id-cards': ['idcard:read', 'idcard:generate', 'idcard:print', 'idcard:template:create'],
+  'id-card-templates': ['idcard:read', 'idcard:template:create', 'idcard:template:update'],
+  'id-card-template-new': ['idcard:template:create'],
+  'id-card-template-edit': ['idcard:template:update'],
+  'id-card-generate': ['idcard:generate', 'idcard:print'],
+  'id-card-showcase': ['idcard:read', 'idcard:template:create'],
+
   // Super-admin only (no permission gating needed)
   'contact-requests': [],
 }
@@ -109,6 +123,7 @@ const PARENT_MENU_MODULES: Record<string, string> = {
   'Salary': 'salary-structure',
   'Roles & Permissions': 'school-roles',
   'Audit Logs': 'attendance-audit-log',
+  'ID Cards': 'id-cards',
 }
 
 /**

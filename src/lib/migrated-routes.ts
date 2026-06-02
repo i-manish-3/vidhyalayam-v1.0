@@ -82,6 +82,12 @@ export const MIGRATED_PAGES: Partial<Record<PageName, (...args: string[]) => str
   'testimonials': () => '/marketing/testimonials',
   'pricing-plans': () => '/marketing/pricing-plans',
   'team-members': () => '/marketing/team-members',
+  'id-cards': () => '/id-cards',
+  'id-card-templates': () => '/id-cards/templates',
+  'id-card-template-new': () => '/id-cards/templates/new',
+  'id-card-template-edit': (id?: string) => (id ? `/id-cards/templates/${id}` : '/id-cards/templates'),
+  'id-card-generate': () => '/id-cards/generate',
+  'id-card-showcase': () => '/id-cards/showcase',
 }
 
 export function resolveMigratedUrl(page: PageName, id?: string): string | null {

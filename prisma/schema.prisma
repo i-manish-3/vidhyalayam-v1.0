@@ -147,6 +147,8 @@ model School {
   feeDemandConfig             FeeDemandConfig?
   feeDemandRuns               FeeDemandRun[]
   feeNotifications            FeeNotification[]
+  idCardTemplates             IdCardTemplate[]
+  idCardGenerationLogs        IdCardGenerationLog[]
 
   @@index([subdomain])
   @@index([status])
@@ -1410,7 +1412,7 @@ model Attendance {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
-  school          School @relation(fields: [schoolId], references: [id])
+  school          School  @relation(fields: [schoolId], references: [id])
   student         Student @relation(fields: [studentId], references: [id])
   markedByUser    User?   @relation("markedByUser", fields: [markedBy], references: [id])
   finalizedByUser User?   @relation("finalizedByUser", fields: [finalizedBy], references: [id])
@@ -2422,4 +2424,68 @@ model TeamMember {
 
   @@index([isActive])
   @@index([sortOrder])
+}
+
+// ============================================
+// STUDENT ID CARD MODULE
+// ============================================
+// Per-school templates that admins design via the in-app editor. The visual
+// layout is stored as JSON (front + optional back) so the same template can
+// be re-rendered on screen, printed, and saved to PDF without ever drifting
+// from the source of truth. Tenant-scoped via schoolId; soft-delete via
+// deletedAt to keep prior generation logs auditable.
+model IdCardTemplate {
+  id              String    @id @default(cuid())
+  schoolId        String
+  name            String
+  description     String?
+  // "html"  → frontHtml/frontCss authoring (modern path, post 2026-06-02)
+  // "element" → legacy click-to-add element list stored in frontLayout/backLayout
+  templateMode    String    @default("html")
+  orientation     String    @default("portrait") // portrait | landscape
+  widthMm         Float     @default(86)
+  heightMm        Float     @default(54)
+  backgroundColor String    @default("#ffffff")
+  frontBackground String?
+  backBackground  String?
+  frontLayout     String    @default("[]") // legacy element JSON
+  backLayout      String?
+  frontHtml       String?
+  backHtml        String?
+  frontCss        String?
+  backCss         String?
+  hasBackSide     Boolean   @default(false)
+  isDefault       Boolean   @default(false)
+  isActive        Boolean   @default(true)
+  createdBy       String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+
+  school         School                @relation(fields: [schoolId], references: [id])
+  generationLogs IdCardGenerationLog[]
+
+  @@index([schoolId])
+  @@index([schoolId, isActive])
+  @@index([schoolId, isDefault])
+}
+
+// Audit row written every time a batch of cards is previewed/printed/downloaded.
+model IdCardGenerationLog {
+  id           String   @id @default(cuid())
+  schoolId     String
+  templateId   String
+  generatedBy  String?
+  studentCount Int
+  studentIds   String // JSON array of student IDs included in this run
+  academicYear String?
+  action       String   @default("preview") // preview | print | download
+  createdAt    DateTime @default(now())
+
+  school   School         @relation(fields: [schoolId], references: [id])
+  template IdCardTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@index([schoolId])
+  @@index([templateId])
+  @@index([createdAt])
 }

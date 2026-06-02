@@ -15,6 +15,7 @@ export type PageName =
   | 'school-onboarding' | 'schools' | 'add-school' | 'edit-school' | 'school-detail' | 'analytics'
   | 'my-classes' | 'my-attendance' | 'my-children' | 'fee-details'
   | 'super-admin-permissions' | 'super-admin-roles' | 'school-roles' | 'school-permissions' | 'school-users' | 'staff' | 'staff-create' | 'staff-detail' | 'contact-requests' | 'testimonials' | 'pricing-plans' | 'team-members' | 'edit-student'
+  | 'id-cards' | 'id-card-templates' | 'id-card-template-new' | 'id-card-template-edit' | 'id-card-generate' | 'id-card-showcase'
 
 export interface User {
   id: string

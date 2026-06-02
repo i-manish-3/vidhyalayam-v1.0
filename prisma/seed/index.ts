@@ -588,6 +588,13 @@ async function seed() {
 
     { code: 'holiday:read', name: 'View Academic Calendar', module: 'holidays', action: 'read' },
     { code: 'holiday:manage', name: 'Manage Academic Calendar', module: 'holidays', action: 'update' },
+    // Student ID Cards
+    { code: 'idcard:read', name: 'View ID Card Module', module: 'idcards', action: 'read' },
+    { code: 'idcard:template:create', name: 'Create ID Card Template', module: 'idcards', action: 'create' },
+    { code: 'idcard:template:update', name: 'Edit ID Card Template', module: 'idcards', action: 'update' },
+    { code: 'idcard:template:delete', name: 'Delete ID Card Template', module: 'idcards', action: 'delete' },
+    { code: 'idcard:generate', name: 'Generate Student ID Cards', module: 'idcards', action: 'create' },
+    { code: 'idcard:print', name: 'Print / Download ID Cards', module: 'idcards', action: 'read' },
     // Roles & Permissions
     { code: 'role:read', name: 'View Roles', module: 'roles', action: 'read' },
     { code: 'role:create', name: 'Create Role', module: 'roles', action: 'create' },

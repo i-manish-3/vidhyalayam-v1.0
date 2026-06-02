@@ -52,6 +52,8 @@ import {
   CreditCard,
   UsersRound,
   LayoutTemplate,
+  IdCard,
+  Printer,
   RefreshCw,
   Upload,
   History,
@@ -214,6 +216,16 @@ export const MENUS: Record<string, MenuItem[]> = {
     { label: 'Library', page: 'library', icon: Library },
     { label: 'Inventory', page: 'inventory', icon: Package },
     { label: 'Petty Cash', page: 'petty-cash', icon: Wallet },
+    {
+      label: 'ID Cards',
+      page: 'id-cards',
+      icon: IdCard,
+      children: [
+        { label: 'Overview', page: 'id-cards', icon: LayoutDashboard },
+        { label: 'Templates', page: 'id-card-templates', icon: LayoutTemplate },
+        { label: 'Generate Cards', page: 'id-card-generate', icon: Printer },
+      ],
+    },
     { label: 'Notifications', page: 'notifications', icon: Bell },
     { label: 'Announcements', page: 'announcements', icon: Megaphone },
     {
