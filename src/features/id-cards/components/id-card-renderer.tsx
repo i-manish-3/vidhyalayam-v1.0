@@ -329,11 +329,18 @@ export const DEMO_CARD: CardRenderData = {
     'student.motherName': 'Anita Sharma',
     'student.parentPhone': '+91 98765 43210',
     'student.academicYear': '2026-2027',
+    'student.registrationNumber': 'REG-2026-001',
+    'student.udiseId': '10040803103',
     'school.name': 'Greenfield Public School',
     'school.address': 'Sector 12, New Delhi, 110001',
     'school.phone': '+91 11 2345 6789',
     'school.email': 'info@greenfield.edu',
     'school.website': 'www.greenfield.edu',
+    'school.registrationNumber': '206106320211021142545',
+    'school.udiseNumber': '10040803103',
+    'school.affiliationNumber': 'CBSE/AFF/2026',
+    'school.establishedYear': '2021',
+    'school.principalSignature': '',
   },
 }
 

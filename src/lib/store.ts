@@ -8,6 +8,12 @@ export type PageName =
   | 'fees-heads' | 'fees-groups' | 'fees-structures' | 'fee-collections' | 'fee-change-group' | 'fee-demand-config' | 'fee-demand-slips' | 'fee-audit-log' | 'fee-reports'
   | 'salary' | 'salary-structure' | 'salary-payments' | 'salary-advance'
   | 'timetable' | 'exams' | 'exam-results'
+  | 'exam-dashboard' | 'exam-paradigms' | 'exam-paradigm-edit' | 'exam-groups'
+  | 'exam-list' | 'exam-create' | 'exam-edit' | 'exam-configure' | 'exam-schedule'
+  | 'exam-marks-entry' | 'exam-grade-scales' | 'exam-grade-scale-edit'
+  | 'exam-result-preview' | 'exam-published-results'
+  | 'exam-report-card-templates' | 'exam-report-card-template-edit'
+  | 'exam-audit-log' | 'teacher-subject-assignments' | 'student-subject-mappings'
   | 'transport' | 'add-transport-route' | 'edit-transport-route' | 'transport-annual-setup' | 'drivers' | 'add-driver' | 'library' | 'inventory' | 'petty-cash'
   | 'notifications' | 'announcements'
   | 'classes' | 'promote-student' | 'assign-roll-numbers' | 'subjects' | 'academic-years' | 'holidays' | 'add-subject' | 'add-class' | 'edit-class' | 'edit-subject'
@@ -37,6 +43,11 @@ export interface School {
   logo?: string
   favicon?: string
   printHeader?: string
+  registrationNumber?: string
+  udiseNumber?: string
+  affiliationNumber?: string
+  establishedYear?: string
+  principalSignature?: string
   address?: string
   city?: string
   state?: string

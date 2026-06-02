@@ -21,6 +21,11 @@ export async function GET(req: NextRequest) {
       logo: true,
       favicon: true,
       printHeader: true,
+      registrationNumber: true,
+      udiseNumber: true,
+      affiliationNumber: true,
+      establishedYear: true,
+      principalSignature: true,
       subdomain: true,
       status: true,
       primaryColor: true,
@@ -59,6 +64,11 @@ export async function PATCH(req: NextRequest) {
     const logo = typeof body.logo === 'string' ? body.logo.trim() : body.logo === null ? null : undefined
     const favicon = typeof body.favicon === 'string' ? body.favicon.trim() : body.favicon === null ? null : undefined
     const printHeader = typeof body.printHeader === 'string' ? body.printHeader.trim() : body.printHeader === null ? null : undefined
+    const registrationNumber = typeof body.registrationNumber === 'string' ? body.registrationNumber.trim() : body.registrationNumber === null ? null : undefined
+    const udiseNumber = typeof body.udiseNumber === 'string' ? body.udiseNumber.trim() : body.udiseNumber === null ? null : undefined
+    const affiliationNumber = typeof body.affiliationNumber === 'string' ? body.affiliationNumber.trim() : body.affiliationNumber === null ? null : undefined
+    const establishedYear = typeof body.establishedYear === 'string' ? body.establishedYear.trim() : body.establishedYear === null ? null : undefined
+    const principalSignature = typeof body.principalSignature === 'string' ? body.principalSignature.trim() : body.principalSignature === null ? null : undefined
     const primaryColor = typeof body.primaryColor === 'string' ? body.primaryColor.trim() : undefined
     const dashboardFont = typeof body.dashboardFont === 'string' ? body.dashboardFont.trim() : undefined
 
@@ -79,7 +89,7 @@ export async function PATCH(req: NextRequest) {
     if (dashboardFont !== undefined && !['system', 'segoe', 'arial', 'verdana', 'trebuchet', 'georgia'].includes(dashboardFont)) {
       return apiError(400, 'Please select a valid dashboard font.')
     }
-    if (name === undefined && logo === undefined && favicon === undefined && printHeader === undefined && primaryColor === undefined && dashboardFont === undefined && workingDays === undefined) {
+    if (name === undefined && logo === undefined && favicon === undefined && printHeader === undefined && registrationNumber === undefined && udiseNumber === undefined && affiliationNumber === undefined && establishedYear === undefined && principalSignature === undefined && primaryColor === undefined && dashboardFont === undefined && workingDays === undefined) {
       return apiError(400, 'Please provide at least one branding update.')
     }
 
@@ -87,7 +97,7 @@ export async function PATCH(req: NextRequest) {
     // is uploaded (avoids dangling orphans piling up in R2 / public/uploads).
     const existing = await db.school.findUnique({
       where: { id: user.schoolId },
-      select: { logo: true, favicon: true, printHeader: true },
+      select: { logo: true, favicon: true, printHeader: true, principalSignature: true },
     })
 
     const logoUpload = await uploadIfDataUrl(logo, {
@@ -114,6 +124,14 @@ export async function PATCH(req: NextRequest) {
     })
     if (printHeaderUpload.error) return apiError(400, `Print header: ${printHeaderUpload.error}`)
 
+    const principalSignatureUpload = await uploadIfDataUrl(principalSignature, {
+      folder: `schools/${user.schoolId}/principal-signature`,
+      maxBytes: 1024 * 1024,
+      allowedMimeTypes: IMAGE_MIME_TYPES,
+      previousUrl: existing?.principalSignature,
+    })
+    if (principalSignatureUpload.error) return apiError(400, `Principal signature: ${principalSignatureUpload.error}`)
+
     const school = await db.school.update({
       where: { id: user.schoolId },
       data: {
@@ -121,6 +139,11 @@ export async function PATCH(req: NextRequest) {
         ...(logoUpload.url !== undefined ? { logo: logoUpload.url } : {}),
         ...(faviconUpload.url !== undefined ? { favicon: faviconUpload.url } : {}),
         ...(printHeaderUpload.url !== undefined ? { printHeader: printHeaderUpload.url } : {}),
+        ...(registrationNumber !== undefined ? { registrationNumber } : {}),
+        ...(udiseNumber !== undefined ? { udiseNumber } : {}),
+        ...(affiliationNumber !== undefined ? { affiliationNumber } : {}),
+        ...(establishedYear !== undefined ? { establishedYear } : {}),
+        ...(principalSignatureUpload.url !== undefined ? { principalSignature: principalSignatureUpload.url } : {}),
         ...(primaryColor !== undefined ? { primaryColor } : {}),
         ...(dashboardFont !== undefined ? { dashboardFont } : {}),
         ...(workingDays !== undefined ? { workingDays } : {}),
@@ -131,6 +154,11 @@ export async function PATCH(req: NextRequest) {
         logo: true,
         favicon: true,
         printHeader: true,
+        registrationNumber: true,
+        udiseNumber: true,
+        affiliationNumber: true,
+        establishedYear: true,
+        principalSignature: true,
         subdomain: true,
         status: true,
         primaryColor: true,

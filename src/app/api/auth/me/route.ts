@@ -5,6 +5,8 @@ import { unauthorizedError, notFoundError, internalError, apiError } from '@/lib
 
 const SCHOOL_SELECT = {
   id: true, name: true, logo: true, favicon: true, printHeader: true,
+  registrationNumber: true, udiseNumber: true, affiliationNumber: true,
+  establishedYear: true, principalSignature: true,
   status: true, subdomain: true, primaryColor: true, dashboardFont: true,
   academicYear: true, board: true, city: true, state: true, country: true,
   currency: true, workingDays: true,

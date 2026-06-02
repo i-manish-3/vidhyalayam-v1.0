@@ -151,6 +151,148 @@ async function seed() {
   }
   console.log('✅ Mapped subjects to classes')
 
+  // ────────────────────────────────────────────────────────────────
+  // Exam Module — default paradigm + grade scale + report card template
+  // per school. Picked CBSE term pattern as the default because most demo
+  // schools are CBSE; school admins can edit or create new paradigms.
+  // ────────────────────────────────────────────────────────────────
+  for (const sch of allSchoolsForYear) {
+    const paradigm = await db.examParadigm.create({
+      data: {
+        schoolId: sch.id,
+        academicYear: '2026-2027',
+        name: 'CBSE Term Pattern 2026-2027',
+        description: 'Default CBSE-style two-term framework with weighted aggregation.',
+        // Term 1 + Term 2, equal weight.
+        aggregationRule: JSON.stringify({
+          type: 'weighted',
+          components: [
+            { groupShortCode: 'T1', weight: 50 },
+            { groupShortCode: 'T2', weight: 50 },
+          ],
+        }),
+        passingRule: JSON.stringify({
+          perSubject: 33,
+          overall: 33,
+          allowGrace: true,
+          graceMax: 5,
+        }),
+        isActive: true,
+        isDefault: true,
+      },
+    })
+
+    // Two terms; each will hold its own exams once Phase 2 ships.
+    await db.examGroup.createMany({
+      data: [
+        {
+          schoolId: sch.id, paradigmId: paradigm.id,
+          name: 'Term 1', shortCode: 'T1', sequence: 1, weight: 50,
+          aggregationRule: JSON.stringify({ type: 'sum_all' }),
+        },
+        {
+          schoolId: sch.id, paradigmId: paradigm.id,
+          name: 'Term 2', shortCode: 'T2', sequence: 2, weight: 50,
+          aggregationRule: JSON.stringify({ type: 'sum_all' }),
+        },
+      ],
+    })
+
+    // CBSE 9-point grading scale (percentage-based).
+    const gradeScale = await db.gradeScale.create({
+      data: {
+        schoolId: sch.id,
+        name: 'CBSE 9-point',
+        scaleType: 'percentage',
+        isActive: true,
+        isDefault: true,
+      },
+    })
+    const bands: ReadonlyArray<{ code: string; minValue: number; maxValue: number; gradePoint: number; remark: string }> = [
+      { code: 'A1', minValue: 91, maxValue: 100, gradePoint: 10, remark: 'Outstanding' },
+      { code: 'A2', minValue: 81, maxValue: 90.99, gradePoint: 9, remark: 'Excellent' },
+      { code: 'B1', minValue: 71, maxValue: 80.99, gradePoint: 8, remark: 'Very Good' },
+      { code: 'B2', minValue: 61, maxValue: 70.99, gradePoint: 7, remark: 'Good' },
+      { code: 'C1', minValue: 51, maxValue: 60.99, gradePoint: 6, remark: 'Fair' },
+      { code: 'C2', minValue: 41, maxValue: 50.99, gradePoint: 5, remark: 'Average' },
+      { code: 'D', minValue: 33, maxValue: 40.99, gradePoint: 4, remark: 'Pass' },
+      { code: 'E1', minValue: 21, maxValue: 32.99, gradePoint: 0, remark: 'Needs Improvement' },
+      { code: 'E2', minValue: 0, maxValue: 20.99, gradePoint: 0, remark: 'Unsatisfactory' },
+    ]
+    await db.gradeBand.createMany({
+      data: bands.map((b, i) => ({ ...b, gradeScaleId: gradeScale.id, sequence: i })),
+    })
+
+    // Phase 5: three default report card templates so schools always have a
+    // safe layout to clone. CBSE is the default; Simple is a minimal layout
+    // for state boards; Coaching highlights rank and best-of-N totals.
+    await db.reportCardTemplate.createMany({
+      data: [
+        {
+          schoolId: sch.id,
+          name: 'CBSE Standard Report Card',
+          description: 'Term-wise marks + components + grades + co-scholastic + signatures.',
+          format: 'cbse',
+          appliesToParadigmId: paradigm.id,
+          layoutJson: JSON.stringify({
+            header: { showLogo: true, showAddress: true, showAffiliation: true, title: 'Academic Report Card' },
+            studentBlock: ['name', 'admissionNumber', 'rollNumber', 'class', 'section', 'fatherName', 'motherName'],
+            subjectTable: { showComponents: true, showGrade: true, showRank: true, showMaxMarks: true, showPercentage: true },
+            footer: { showAttendance: true, showRemarks: true, signatures: ['Class Teacher', 'Principal'] },
+          }),
+          includeAttendance: true,
+          includeRank: true,
+          includeCoScholastic: true,
+          showPrincipalRemarks: true,
+          showTeacherRemarks: true,
+          isDefault: true,
+          isActive: true,
+        },
+        {
+          schoolId: sch.id,
+          name: 'Simple Report Card',
+          description: 'Minimal layout: subject, max, obtained, grade. No components, no co-scholastic.',
+          format: 'simple',
+          appliesToParadigmId: null,
+          layoutJson: JSON.stringify({
+            header: { showLogo: true, showAddress: true, showAffiliation: false, title: 'Report Card' },
+            studentBlock: ['name', 'rollNumber', 'class', 'section', 'fatherName'],
+            subjectTable: { showComponents: false, showGrade: true, showRank: false, showMaxMarks: true, showPercentage: true },
+            footer: { showAttendance: false, showRemarks: false, signatures: ['Principal'] },
+          }),
+          includeAttendance: false,
+          includeRank: false,
+          includeCoScholastic: false,
+          showPrincipalRemarks: false,
+          showTeacherRemarks: false,
+          isDefault: false,
+          isActive: true,
+        },
+        {
+          schoolId: sch.id,
+          name: 'Coaching Performance Card',
+          description: 'Highlights rank, percentile, and best-of-N performance. No attendance/remarks.',
+          format: 'coaching',
+          appliesToParadigmId: null,
+          layoutJson: JSON.stringify({
+            header: { showLogo: true, showAddress: false, showAffiliation: false, title: 'Performance Report' },
+            studentBlock: ['name', 'admissionNumber', 'class', 'fatherName', 'parentPhone'],
+            subjectTable: { showComponents: false, showGrade: true, showRank: true, showMaxMarks: true, showPercentage: true },
+            footer: { showAttendance: false, showRemarks: true, signatures: ['Center Head'] },
+          }),
+          includeAttendance: false,
+          includeRank: true,
+          includeCoScholastic: false,
+          showPrincipalRemarks: true,
+          showTeacherRemarks: false,
+          isDefault: false,
+          isActive: true,
+        },
+      ],
+    })
+  }
+  console.log('✅ Created default exam paradigm + grade scale + 3 report card templates per school')
+
   // Period config — 8 periods covering 08:00-13:00 with one short break
   const periods = [
     { period: 1, startTime: '08:00', endTime: '08:40', label: 'Period 1', isBreak: false },
@@ -539,7 +681,21 @@ async function seed() {
     { code: 'exam:create', name: 'Create Exam', module: 'exams', action: 'create' },
     { code: 'exam:update', name: 'Update Exam', module: 'exams', action: 'update' },
     { code: 'exam:delete', name: 'Delete Exam', module: 'exams', action: 'delete' },
-    { code: 'exam:results', name: 'Manage Exam Results', module: 'exams', action: 'update' },
+    { code: 'exam:configure', name: 'Configure Exam Pattern', module: 'exams', action: 'update' },
+    { code: 'exam:schedule', name: 'Manage Exam Schedule', module: 'exams', action: 'update' },
+    { code: 'exam:marks:enter', name: 'Enter Marks', module: 'exams', action: 'create' },
+    { code: 'exam:marks:submit', name: 'Submit Marks', module: 'exams', action: 'update' },
+    { code: 'exam:marks:lock', name: 'Lock Marks', module: 'exams', action: 'update' },
+    { code: 'exam:marks:unlock', name: 'Unlock Marks', module: 'exams', action: 'update' },
+    { code: 'exam:result:compute', name: 'Compute Exam Results', module: 'exams', action: 'create' },
+    { code: 'exam:result:publish', name: 'Publish Exam Results', module: 'exams', action: 'update' },
+    { code: 'exam:result:view', name: 'View Exam Results', module: 'exams', action: 'read' },
+    { code: 'exam:gradescale:manage', name: 'Manage Grade Scales', module: 'exams', action: 'update' },
+    { code: 'exam:reportcard:manage', name: 'Manage Report Card Templates', module: 'exams', action: 'update' },
+    { code: 'exam:reportcard:download', name: 'Download Report Cards', module: 'exams', action: 'read' },
+    { code: 'exam:audit:view', name: 'View Exam Audit Log', module: 'exams', action: 'read' },
+    // Legacy alias kept for back-compat with existing role templates / sidebar entries.
+    { code: 'exam:results', name: 'Manage Exam Results (legacy)', module: 'exams', action: 'update' },
     // Transport
     { code: 'transport:read', name: 'View Transport', module: 'transport', action: 'read' },
     { code: 'transport:create', name: 'Create Transport', module: 'transport', action: 'create' },
@@ -633,7 +789,9 @@ async function seed() {
       isSystem: true,
       permissionCodes: [
         'student:read', 'attendance:read', 'attendance:mark', 'attendance:update',
-        'timetable:read', 'exam:read', 'exam:update', 'exam:results',
+        'timetable:read',
+        'exam:read', 'exam:update', 'exam:results',
+        'exam:marks:enter', 'exam:marks:submit', 'exam:result:view',
         'library:read', 'salary:read', 'notification:read',
         'class:read', 'subject:read', 'holiday:read',
       ],
@@ -645,7 +803,7 @@ async function seed() {
       isSystem: true,
       permissionCodes: [
         'attendance:read', 'fees:read', 'timetable:read',
-        'exam:read', 'library:read', 'notification:read', 'holiday:read',
+        'exam:read', 'exam:result:view', 'library:read', 'notification:read', 'holiday:read',
       ],
     },
     {
@@ -655,7 +813,7 @@ async function seed() {
       isSystem: true,
       permissionCodes: [
         'student:read', 'attendance:read', 'fees:read',
-        'notification:read', 'exam:read', 'holiday:read',
+        'notification:read', 'exam:read', 'exam:result:view', 'holiday:read',
       ],
     },
     {

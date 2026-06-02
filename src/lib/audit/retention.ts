@@ -89,9 +89,21 @@ export async function cleanupOldAuditLogs(
     },
   })
 
-  const totalDeleted = feeAuditResult.count + feeConfigAuditResult.count
+  // Delete old exam audit logs (Phase 6: same retention rules as fee logs).
+  const examAuditResult = await db.examAuditLog.deleteMany({
+    where: {
+      schoolId,
+      createdAt: {
+        lt: cutoffDate,
+      },
+    },
+  })
 
-  console.log(`[Audit Cleanup] Deleted ${totalDeleted} logs (${feeAuditResult.count} fee, ${feeConfigAuditResult.count} config)`)
+  const totalDeleted = feeAuditResult.count + feeConfigAuditResult.count + examAuditResult.count
+
+  console.log(
+    `[Audit Cleanup] Deleted ${totalDeleted} logs (${feeAuditResult.count} fee, ${feeConfigAuditResult.count} fee-config, ${examAuditResult.count} exam)`,
+  )
 
   return {
     deletedCount: totalDeleted,
@@ -151,7 +163,7 @@ async function archiveAuditLogs(
   archivePath: string
 ): Promise<number> {
   // Fetch logs to archive
-  const [feeAuditLogs, feeConfigAuditLogs] = await Promise.all([
+  const [feeAuditLogs, feeConfigAuditLogs, examAuditLogs] = await Promise.all([
     db.feeAuditLog.findMany({
       where: {
         schoolId,
@@ -194,9 +206,17 @@ async function archiveAuditLogs(
         },
       },
     }),
+    db.examAuditLog.findMany({
+      where: {
+        schoolId,
+        createdAt: {
+          lt: beforeDate,
+        },
+      },
+    }),
   ])
 
-  const totalLogs = feeAuditLogs.length + feeConfigAuditLogs.length
+  const totalLogs = feeAuditLogs.length + feeConfigAuditLogs.length + examAuditLogs.length
 
   if (totalLogs === 0) {
     return 0
@@ -209,6 +229,7 @@ async function archiveAuditLogs(
     beforeDate: beforeDate.toISOString(),
     feeAuditLogs,
     feeConfigAuditLogs,
+    examAuditLogs,
   }
 
   // Archive based on path type
@@ -270,13 +291,23 @@ async function archiveToFileSystem(
 export async function getAuditLogStats(schoolId: string): Promise<{
   feeAuditCount: number
   feeConfigAuditCount: number
+  examAuditCount: number
   oldestFeeAudit: Date | null
   oldestFeeConfigAudit: Date | null
+  oldestExamAudit: Date | null
   estimatedSizeMB: number
 }> {
-  const [feeAuditCount, feeConfigAuditCount, oldestFeeAudit, oldestFeeConfigAudit] = await Promise.all([
+  const [
+    feeAuditCount,
+    feeConfigAuditCount,
+    examAuditCount,
+    oldestFeeAudit,
+    oldestFeeConfigAudit,
+    oldestExamAudit,
+  ] = await Promise.all([
     db.feeAuditLog.count({ where: { schoolId } }),
     db.feeConfigAuditLog.count({ where: { schoolId } }),
+    db.examAuditLog.count({ where: { schoolId } }),
     db.feeAuditLog.findFirst({
       where: { schoolId },
       orderBy: { createdAt: 'asc' },
@@ -287,16 +318,23 @@ export async function getAuditLogStats(schoolId: string): Promise<{
       orderBy: { createdAt: 'asc' },
       select: { createdAt: true },
     }),
+    db.examAuditLog.findFirst({
+      where: { schoolId },
+      orderBy: { createdAt: 'asc' },
+      select: { createdAt: true },
+    }),
   ])
 
   // Rough estimate: 2KB per audit log on average
-  const estimatedSizeMB = ((feeAuditCount + feeConfigAuditCount) * 2) / 1024
+  const estimatedSizeMB = ((feeAuditCount + feeConfigAuditCount + examAuditCount) * 2) / 1024
 
   return {
     feeAuditCount,
     feeConfigAuditCount,
+    examAuditCount,
     oldestFeeAudit: oldestFeeAudit?.createdAt || null,
     oldestFeeConfigAudit: oldestFeeConfigAudit?.createdAt || null,
+    oldestExamAudit: oldestExamAudit?.createdAt || null,
     estimatedSizeMB,
   }
 }

@@ -181,107 +181,22 @@ async function main() {
   )
 
   // ============================================
-  // EXAMS — 3 exam sessions × Class 1–5 × main subjects
+  // EXAMS — seeded by the main seed (prisma/seed/index.ts) which now creates
+  // an ExamParadigm + Term 1/Term 2 ExamGroup + GradeScale + ReportCardTemplate
+  // per school. Concrete Exam rows + ExamSubjectConfig + MarksEntry seeding
+  // ships with Phase 2 of the exam module. The legacy single-row Exam/ExamResult
+  // model was removed when the new dynamic schema landed (2026-06-02).
   // ============================================
-  const examSessions: Array<{ name: string; date: Date; totalMarks: number; passingMarks: number; duration: number }> = [
-    { name: 'Unit Test 1', date: new Date('2026-07-15'), totalMarks: 50, passingMarks: 18, duration: 60 },
-    { name: 'Half Yearly', date: new Date('2026-09-22'), totalMarks: 100, passingMarks: 35, duration: 120 },
-    { name: 'Annual', date: new Date('2027-02-23'), totalMarks: 100, passingMarks: 35, duration: 180 },
-  ]
-  const examSubjectCodes = ['MATH', 'ENG', 'HIN', 'SST']
-
-  let examsCreated = 0
-  const examIndex = new Map<string, string>() // `${className}|${session}|${code}` → examId
-  for (let cn = 1; cn <= 5; cn++) {
-    const cls = classes.find(c => c.name === `Class ${cn}`)
-    if (!cls) continue
-    for (const session of examSessions) {
-      for (const code of examSubjectCodes) {
-        const subject = subjectByCode.get(code)
-        if (!subject) continue
-        const key = `${cls.name}|${session.name}|${code}`
-        const existing = await db.exam.findFirst({
-          where: { schoolId: school.id, classId: cls.id, subjectId: subject.id, name: session.name, academicYear: ACADEMIC_YEAR },
-        })
-        if (existing) {
-          examIndex.set(key, existing.id)
-          continue
-        }
-        const exam = await db.exam.create({
-          data: {
-            schoolId: school.id,
-            name: session.name,
-            subjectId: subject.id,
-            classId: cls.id,
-            sectionId: null,
-            examDate: session.date,
-            totalMarks: session.totalMarks,
-            passingMarks: session.passingMarks,
-            duration: session.duration,
-            academicYear: ACADEMIC_YEAR,
-          },
-        })
-        examIndex.set(key, exam.id)
-        examsCreated++
-      }
-    }
-  }
-  console.log(`✅ Created ${examsCreated} exams across 5 classes × 3 sessions × ${examSubjectCodes.length} subjects`)
-
-  // ============================================
-  // EXAM RESULTS — Unit Test 1 marks for demo students
-  // ============================================
-  const demoStudents = await db.student.findMany({
-    where: { schoolId: school.id, admissionNumber: { startsWith: 'ADM-SEED-2026-' }, deletedAt: null },
-    include: { class: { select: { name: true } } },
-  })
-
-  function gradeFor(percent: number): string {
-    if (percent >= 90) return 'A+'
-    if (percent >= 80) return 'A'
-    if (percent >= 70) return 'B+'
-    if (percent >= 60) return 'B'
-    if (percent >= 50) return 'C'
-    if (percent >= 40) return 'D'
-    return 'F'
-  }
-
-  // Deterministic per-student marks (seed-stable, no Math.random)
-  function marksFor(admissionNumber: string, subjectCode: string, totalMarks: number): number {
-    const seed = (admissionNumber + subjectCode).split('').reduce((acc, ch) => acc + ch.charCodeAt(0), 0)
-    const ratio = 0.55 + ((seed % 35) / 100) // 55%–89%
-    return Math.round(totalMarks * ratio)
-  }
-
-  let resultsCreated = 0
-  for (const student of demoStudents) {
-    if (!student.class || !student.admissionNumber) continue
-    const session = examSessions[0] // Unit Test 1
-    for (const code of examSubjectCodes.slice(0, 3)) {
-      const key = `${student.class.name}|${session.name}|${code}`
-      const examId = examIndex.get(key)
-      if (!examId) continue
-      const existing = await db.examResult.findFirst({ where: { examId, studentId: student.id } })
-      if (existing) continue
-      const obtained = marksFor(student.admissionNumber, code, session.totalMarks)
-      await db.examResult.create({
-        data: {
-          schoolId: school.id,
-          examId,
-          studentId: student.id,
-          marksObtained: obtained,
-          grade: gradeFor((obtained / session.totalMarks) * 100),
-          remarks: 'Seed result',
-        },
-      })
-      resultsCreated++
-    }
-  }
-  console.log(`✅ Created ${resultsCreated} exam results for demo students`)
+  console.log('ℹ️  Skipping legacy exam/result seeding — new exam module uses paradigm → group → exam → component (Phase 2).')
 
   // ============================================
   // ATTENDANCE — 30 weekdays from 2026-04-01 for each demo student
   // ============================================
+  const demoStudents = await db.student.findMany({
+    where: { schoolId: school.id, admissionNumber: { startsWith: 'ADM-SEED-2026-' }, deletedAt: null },
+    select: { id: true },
+  })
+
   const existingAttendance = await db.attendance.count({ where: { schoolId: school.id, academicYear: ACADEMIC_YEAR } })
   if (existingAttendance > 0) {
     console.log(`↺ Attendance already seeded (${existingAttendance} rows). Skipping.`)

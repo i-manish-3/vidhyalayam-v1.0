@@ -416,9 +416,15 @@ async function getStudentDashboard(schoolId: string, userId: string) {
   })
   const pendingFeeAmount = (pendingFees._sum.amount || 0) - (pendingFees._sum.paidAmount || 0)
 
-  // Upcoming exams
+  // Upcoming exams (Phase 1 — new exam schema; examClasses link replaced flat classId)
   const upcomingExams = await db.exam.count({
-    where: { schoolId, classId: student.classId || undefined, examDate: { gte: today }, deletedAt: null },
+    where: {
+      schoolId,
+      startDate: { gte: today },
+      status: { in: ['scheduled', 'ongoing'] },
+      deletedAt: null,
+      examClasses: student.classId ? { some: { classId: student.classId } } : {},
+    },
   })
 
   // Today's schedule

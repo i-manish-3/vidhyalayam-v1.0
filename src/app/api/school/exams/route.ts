@@ -2,39 +2,98 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { requireRole, requirePermission } from '@/lib/api-auth'
 import { unauthorizedError, internalError, apiError } from '@/lib/api-errors'
+import { logExamChange, extractExamAuditContext } from '@/lib/audit/exam-audit'
+
+const VALID_EXAM_TYPES = [
+  'written',
+  'practical',
+  'oral',
+  'project',
+  'internal',
+  'activity',
+  'attendance',
+  'reexam',
+]
+const VALID_STATUSES = ['draft', 'scheduled', 'ongoing', 'completed', 'result_published']
+
+function parseDateOrNull(value: unknown, field: string): { ok: true; date: Date | null } | { ok: false; error: string } {
+  if (value === undefined || value === null || value === '') return { ok: true, date: null }
+  const d = new Date(String(value))
+  if (Number.isNaN(d.getTime())) return { ok: false, error: `${field} isn't a valid date.` }
+  return { ok: true, date: d }
+}
+
+interface ExamClassInput {
+  classId: string
+  sectionIds?: string[] | null
+}
+
+function validateExamClasses(value: unknown): { ok: true; rows: ExamClassInput[] } | { ok: false; error: string } {
+  if (value === undefined || value === null) return { ok: true, rows: [] }
+  if (!Array.isArray(value)) return { ok: false, error: 'Classes must be an array.' }
+  const seen = new Set<string>()
+  const rows: ExamClassInput[] = []
+  for (const item of value) {
+    if (!item || typeof item !== 'object') return { ok: false, error: 'Each class entry must be an object.' }
+    const classId = (item as Record<string, unknown>).classId
+    if (typeof classId !== 'string' || !classId) return { ok: false, error: 'Each class entry needs a classId.' }
+    if (seen.has(classId)) return { ok: false, error: 'Duplicate classId in the classes list.' }
+    seen.add(classId)
+    const sectionIds = (item as Record<string, unknown>).sectionIds
+    if (sectionIds === undefined || sectionIds === null) {
+      rows.push({ classId, sectionIds: null })
+    } else if (Array.isArray(sectionIds) && sectionIds.every((s) => typeof s === 'string')) {
+      rows.push({ classId, sectionIds: sectionIds as string[] })
+    } else {
+      return { ok: false, error: 'sectionIds must be an array of strings or omitted.' }
+    }
+  }
+  return { ok: true, rows }
+}
 
 // GET /api/school/exams - List exams
+// Supports filters: academicYear, examGroupId, paradigmId, status, classId
 export async function GET(request: NextRequest) {
   try {
     const user = requireRole(request, ['SCHOOL_ADMIN', 'TEACHER', 'STAFF'])
-    if (!user || !user.schoolId) {
-      return unauthorizedError()
-    }
+    if (!user || !user.schoolId) return unauthorizedError()
 
     const { searchParams } = new URL(request.url)
-    const classId = searchParams.get('classId') || ''
-    const subjectId = searchParams.get('subjectId') || ''
-
-    const where: Record<string, unknown> = {
-      schoolId: user.schoolId,
-      deletedAt: null,
-    }
-    if (classId) where.classId = classId
-    if (subjectId) where.subjectId = subjectId
+    const academicYear = searchParams.get('academicYear') ?? undefined
+    const examGroupId = searchParams.get('examGroupId') ?? undefined
+    const paradigmId = searchParams.get('paradigmId') ?? undefined
+    const status = searchParams.get('status') ?? undefined
+    const classId = searchParams.get('classId') ?? undefined
 
     const exams = await db.exam.findMany({
-      where,
-      include: {
-        subject: { select: { id: true, name: true, code: true } },
-        _count: { select: { results: true } },
+      where: {
+        schoolId: user.schoolId,
+        deletedAt: null,
+        ...(academicYear ? { academicYear } : {}),
+        ...(examGroupId ? { examGroupId } : {}),
+        ...(status ? { status } : {}),
+        ...(paradigmId ? { group: { paradigmId } } : {}),
+        ...(classId ? { examClasses: { some: { classId } } } : {}),
       },
-      orderBy: { examDate: 'desc' },
+      include: {
+        group: {
+          select: {
+            id: true,
+            name: true,
+            paradigmId: true,
+            paradigm: { select: { id: true, name: true } },
+          },
+        },
+        examClasses: { select: { classId: true, sectionIds: true } },
+        _count: { select: { subjectConfigs: true, schedules: true } },
+      },
+      orderBy: [{ academicYear: 'desc' }, { startDate: 'desc' }, { name: 'asc' }],
     })
 
     return NextResponse.json({ exams })
   } catch (error) {
     console.error('List exams error:', error)
-    return internalError('listing exams')
+    return internalError('loading exams')
   }
 }
 
@@ -48,57 +107,130 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json()
     const {
-      name,
-      subjectId,
-      classId,
-      sectionId,
-      examDate,
-      totalMarks,
-      passingMarks,
-      duration,
       academicYear,
+      examGroupId,
+      name,
+      shortCode,
+      examType,
+      startDate,
+      endDate,
+      includeInResult,
+      classes,
+      parentExamId,
     } = body
 
-    if (!name || !subjectId || !classId) {
-      return apiError(400, 'Please enter the exam name, subject, and class.')
+    if (!academicYear || typeof academicYear !== 'string') {
+      return apiError(400, 'Please choose an academic year for this exam.')
+    }
+    if (!examGroupId || typeof examGroupId !== 'string') {
+      return apiError(400, 'Please choose the group this exam belongs to.')
+    }
+    if (!name || typeof name !== 'string' || !name.trim()) {
+      return apiError(400, 'Please enter a name for the exam.')
+    }
+    const trimmedName = name.trim()
+
+    const resolvedExamType = examType ?? 'written'
+    if (!VALID_EXAM_TYPES.includes(resolvedExamType)) {
+      return apiError(400, `Exam type must be one of: ${VALID_EXAM_TYPES.join(', ')}.`)
     }
 
-    // Verify subject and class belong to this school
-    const [subject, classRecord] = await Promise.all([
-      db.subject.findFirst({
-        where: { id: subjectId, schoolId: user.schoolId, deletedAt: null },
-      }),
-      db.class.findFirst({
-        where: { id: classId, schoolId: user.schoolId, deletedAt: null },
-      }),
-    ])
-
-    if (!subject) {
-      return apiError(400, "The subject you selected doesn't exist anymore. It may have been removed. Please refresh and try again.")
-    }
-    if (!classRecord) {
-      return apiError(400, "The class you selected doesn't exist anymore. It may have been removed. Please refresh and try again.")
+    const start = parseDateOrNull(startDate, 'Start date')
+    if (!start.ok) return apiError(400, start.error)
+    const end = parseDateOrNull(endDate, 'End date')
+    if (!end.ok) return apiError(400, end.error)
+    if (start.date && end.date && end.date < start.date) {
+      return apiError(400, 'End date must be on or after the start date.')
     }
 
-    const exam = await db.exam.create({
-      data: {
+    const classRows = validateExamClasses(classes)
+    if (!classRows.ok) return apiError(400, classRows.error)
+
+    const group = await db.examGroup.findFirst({
+      where: { id: examGroupId, schoolId: user.schoolId, deletedAt: null },
+      include: { paradigm: true },
+    })
+    if (!group) return apiError(404, "We couldn't find that exam group.")
+    if (group.paradigm.academicYear !== academicYear) {
+      return apiError(400, 'Academic year must match the paradigm.')
+    }
+
+    if (parentExamId) {
+      const parent = await db.exam.findFirst({
+        where: { id: String(parentExamId), schoolId: user.schoolId, deletedAt: null },
+      })
+      if (!parent) return apiError(400, "We couldn't find the parent exam.")
+    }
+
+    // Validate class IDs belong to this school.
+    if (classRows.rows.length > 0) {
+      const classIds = classRows.rows.map((r) => r.classId)
+      const found = await db.class.findMany({
+        where: { id: { in: classIds }, schoolId: user.schoolId, deletedAt: null },
+        select: { id: true },
+      })
+      if (found.length !== classIds.length) {
+        return apiError(400, 'One or more of the selected classes could not be found.')
+      }
+    }
+
+    const dup = await db.exam.findFirst({
+      where: {
         schoolId: user.schoolId,
-        name,
-        subjectId,
-        classId,
-        sectionId: sectionId || null,
-        examDate: examDate ? new Date(examDate) : null,
-        totalMarks: totalMarks || 100,
-        passingMarks: passingMarks || 35,
-        duration,
         academicYear,
-      },
-      include: {
-        subject: { select: { name: true, code: true } },
+        examGroupId,
+        name: trimmedName,
+        deletedAt: null,
       },
     })
+    if (dup) {
+      return apiError(409, `An exam named "${trimmedName}" already exists in this group.`)
+    }
 
-    return NextResponse.json(exam, { status: 201 })
+    const schoolId = user.schoolId
+    const auditCtx = extractExamAuditContext(request, user.userId)
+
+    const exam = await db.$transaction(async (tx) => {
+      const created = await tx.exam.create({
+        data: {
+          schoolId,
+          academicYear,
+          examGroupId,
+          name: trimmedName,
+          shortCode: shortCode ? String(shortCode).trim() : null,
+          examType: resolvedExamType,
+          startDate: start.date,
+          endDate: end.date,
+          includeInResult: includeInResult === undefined ? true : Boolean(includeInResult),
+          parentExamId: parentExamId ? String(parentExamId) : null,
+          createdBy: user.userId,
+          examClasses: classRows.rows.length
+            ? {
+                create: classRows.rows.map((row) => ({
+                  classId: row.classId,
+                  sectionIds: row.sectionIds && row.sectionIds.length ? JSON.stringify(row.sectionIds) : null,
+                })),
+              }
+            : undefined,
+        },
+        include: { examClasses: true },
+      })
+
+      await logExamChange(
+        tx,
+        schoolId,
+        'Exam',
+        created.id,
+        'created',
+        null,
+        created,
+        { ...auditCtx, examId: created.id },
+      )
+
+      return created
+    })
+
+    return NextResponse.json({ exam }, { status: 201 })
   } catch (error) {
     console.error('Create exam error:', error)
     return internalError('creating the exam')

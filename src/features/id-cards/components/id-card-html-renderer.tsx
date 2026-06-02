@@ -1,7 +1,6 @@
 'use client'
 
-import { useEffect, useId, useMemo, useState } from 'react'
-import QRCode from 'qrcode'
+import { useId, useMemo } from 'react'
 import { scopeCss } from '@/lib/id-card-sanitize'
 
 const MM_TO_PX = 3.78 // 1mm ≈ 3.78px at 96 DPI screen baseline
@@ -52,17 +51,36 @@ const QR_PLACEHOLDER =
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><rect width="40" height="40" fill="#f1f5f9"/><text x="20" y="24" text-anchor="middle" font-family="monospace" font-size="6" fill="#64748b">QR</text></svg>`,
   )
 
+const SIGNATURE_PLACEHOLDER =
+  'data:image/svg+xml;utf8,' +
+  encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 60"><rect width="160" height="60" fill="transparent"/></svg>`,
+  )
+
+function applyOptionalFields(html: string, fields: Record<string, string>): string {
+  if (typeof document === 'undefined') return html
+  const template = document.createElement('template')
+  template.innerHTML = html
+  template.content.querySelectorAll<HTMLElement>('[data-show-if]').forEach((el) => {
+    const field = el.getAttribute('data-show-if')?.trim()
+    if (!field || !fields[field]?.trim()) el.remove()
+  })
+  return template.innerHTML
+}
+
 function substitutePlaceholders(
   html: string,
   fields: Record<string, string>,
   photo: string,
   logo: string,
   qr: string,
+  signature: string,
 ): string {
   return html.replace(/\{\{\s*([\w.]+)\s*\}\}/g, (_, key) => {
     if (key === 'photo') return photo
     if (key === 'logo') return logo
     if (key === 'qr') return qr
+    if (key === 'signature') return signature
     const value = fields[key]
     if (value === undefined || value === null) return ''
     return escapeHtml(value)
@@ -92,26 +110,6 @@ function IdCardHtmlSide({ template, card, schoolLogo, side, scale }: IdCardHtmlS
   const baseWidthPx = template.widthMm * MM_TO_PX
   const baseHeightPx = template.heightMm * MM_TO_PX
 
-  const [qrDataUrl, setQrDataUrl] = useState<string>(QR_PLACEHOLDER)
-
-  useEffect(() => {
-    let cancelled = false
-    if (!card?.qrPayload) {
-      setQrDataUrl(QR_PLACEHOLDER)
-      return
-    }
-    QRCode.toDataURL(card.qrPayload, { width: 256, margin: 0, errorCorrectionLevel: 'M' })
-      .then((url) => {
-        if (!cancelled) setQrDataUrl(url)
-      })
-      .catch(() => {
-        if (!cancelled) setQrDataUrl(QR_PLACEHOLDER)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [card?.qrPayload])
-
   const rawHtml = side === 'back' ? template.backHtml || '' : template.frontHtml
   const rawCss = side === 'back' ? template.backCss || '' : template.frontCss
 
@@ -119,10 +117,12 @@ function IdCardHtmlSide({ template, card, schoolLogo, side, scale }: IdCardHtmlS
     const fields = card?.fields || {}
     const photoSrc = card?.photo || PHOTO_PLACEHOLDER
     const logoSrc = schoolLogo || LOGO_PLACEHOLDER
-    const substituted = substitutePlaceholders(rawHtml, fields, photoSrc, logoSrc, qrDataUrl)
+    const signatureSrc = fields['school.principalSignature'] || SIGNATURE_PLACEHOLDER
+    const htmlWithOptionalFields = applyOptionalFields(rawHtml, fields)
+    const substituted = substitutePlaceholders(htmlWithOptionalFields, fields, photoSrc, logoSrc, QR_PLACEHOLDER, signatureSrc)
     const scoped = scopeCss(rawCss, `.${scope}`)
     return { html: substituted, css: scoped }
-  }, [rawHtml, rawCss, card, schoolLogo, qrDataUrl, scope])
+  }, [rawHtml, rawCss, card, schoolLogo, scope])
 
   return (
     <div
@@ -230,10 +230,17 @@ export const DEMO_HTML_CARD: HtmlRenderData = {
     'student.motherName': 'Anita Sharma',
     'student.parentPhone': '+91 98765 43210',
     'student.academicYear': '2026-2027',
+    'student.registrationNumber': 'REG-2026-001',
+    'student.udiseId': '10040803103',
     'school.name': 'Greenfield Public School',
     'school.address': 'Sector 12, New Delhi, 110001',
     'school.phone': '+91 11 2345 6789',
     'school.email': 'info@greenfield.edu',
     'school.website': 'www.greenfield.edu',
+    'school.registrationNumber': '206106320211021142545',
+    'school.udiseNumber': '10040803103',
+    'school.affiliationNumber': 'CBSE/AFF/2026',
+    'school.establishedYear': '2021',
+    'school.principalSignature': '',
   },
 }

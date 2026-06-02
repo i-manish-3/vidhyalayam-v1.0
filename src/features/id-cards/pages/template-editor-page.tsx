@@ -79,7 +79,7 @@ const EMPTY_DRAFT: DraftTemplate = {
     <div><span>Class</span> {{student.classSection}}</div>
     <div><span>Roll</span> {{student.rollNumber}}</div>
   </div>
-  <img src="{{qr}}" alt="" class="qr" />
+  <div class="sig"><img src="{{signature}}" alt="" />Principal</div>
 </div>`,
   frontCss: `.card { width: 100%; height: 100%; padding: 3mm; box-sizing: border-box; font-family: system-ui, sans-serif; color: #0f172a; background: #ffffff; }
 .header { display: flex; gap: 2mm; align-items: center; }
@@ -89,7 +89,8 @@ const EMPTY_DRAFT: DraftTemplate = {
 .name { font-size: 11px; font-weight: 800; }
 .meta { font-size: 6.5px; line-height: 1.4; }
 .meta span { color: #64748b; }
-.qr { position: absolute; right: 3mm; bottom: 3mm; width: 12mm; height: 12mm; }`,
+.sig { position: absolute; right: 3mm; bottom: 3mm; width: 18mm; text-align: center; font-size: 5px; font-weight: 700; }
+.sig img { display: block; width: 100%; height: 7mm; object-fit: contain; }`,
   backHtml: '',
   backCss: '',
 }
@@ -111,6 +112,8 @@ const TOKEN_REFERENCE = [
     { token: '{{student.motherName}}', desc: 'Mother' },
     { token: '{{student.parentPhone}}', desc: 'Parent phone' },
     { token: '{{student.academicYear}}', desc: 'Academic year' },
+    { token: '{{student.registrationNumber}}', desc: 'Student registration no.' },
+    { token: '{{student.udiseId}}', desc: 'Student UDISE ID' },
   ] },
   { group: 'School', tokens: [
     { token: '{{school.name}}', desc: 'School name' },
@@ -118,11 +121,15 @@ const TOKEN_REFERENCE = [
     { token: '{{school.phone}}', desc: 'Contact phone' },
     { token: '{{school.email}}', desc: 'Contact email' },
     { token: '{{school.website}}', desc: 'Website' },
+    { token: '{{school.registrationNumber}}', desc: 'School registration no.' },
+    { token: '{{school.udiseNumber}}', desc: 'School UDISE' },
+    { token: '{{school.affiliationNumber}}', desc: 'Affiliation no.' },
+    { token: '{{school.establishedYear}}', desc: 'ESTD' },
   ] },
   { group: 'Media', tokens: [
     { token: '{{photo}}', desc: 'Student photo (use in <img src>)' },
     { token: '{{logo}}', desc: 'School logo' },
-    { token: '{{qr}}', desc: 'Signed QR code' },
+    { token: '{{signature}}', desc: 'Principal signature' },
   ] },
 ]
 

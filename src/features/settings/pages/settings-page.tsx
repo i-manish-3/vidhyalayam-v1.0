@@ -62,6 +62,7 @@ export function SettingsPage() {
   const logoInputRef = useRef<HTMLInputElement>(null)
   const faviconInputRef = useRef<HTMLInputElement>(null)
   const printHeaderInputRef = useRef<HTMLInputElement>(null)
+  const principalSignatureInputRef = useRef<HTMLInputElement>(null)
   const currentPalette = useMemo(
     () => findSchoolThemePalette(currentSchool?.primaryColor),
     [currentSchool?.primaryColor]
@@ -70,6 +71,11 @@ export function SettingsPage() {
   const [schoolLogo, setSchoolLogo] = useState(currentSchool?.logo || '')
   const [schoolFavicon, setSchoolFavicon] = useState(currentSchool?.favicon || '')
   const [schoolPrintHeader, setSchoolPrintHeader] = useState(currentSchool?.printHeader || '')
+  const [registrationNumber, setRegistrationNumber] = useState(currentSchool?.registrationNumber || '')
+  const [udiseNumber, setUdiseNumber] = useState(currentSchool?.udiseNumber || '')
+  const [affiliationNumber, setAffiliationNumber] = useState(currentSchool?.affiliationNumber || '')
+  const [establishedYear, setEstablishedYear] = useState(currentSchool?.establishedYear || '')
+  const [principalSignature, setPrincipalSignature] = useState(currentSchool?.principalSignature || '')
   const [selectedColor, setSelectedColor] = useState(currentPalette.primary)
   const [selectedFont, setSelectedFont] = useState(findDashboardFont(currentSchool?.dashboardFont).id)
   const [saving, setSaving] = useState(false)
@@ -85,16 +91,26 @@ export function SettingsPage() {
     setSchoolLogo(currentSchool.logo || '')
     setSchoolFavicon(currentSchool.favicon || '')
     setSchoolPrintHeader(currentSchool.printHeader || '')
+    setRegistrationNumber(currentSchool.registrationNumber || '')
+    setUdiseNumber(currentSchool.udiseNumber || '')
+    setAffiliationNumber(currentSchool.affiliationNumber || '')
+    setEstablishedYear(currentSchool.establishedYear || '')
+    setPrincipalSignature(currentSchool.principalSignature || '')
     setSelectedColor(findSchoolThemePalette(currentSchool.primaryColor).primary)
     setSelectedFont(findDashboardFont(currentSchool.dashboardFont).id)
   }, [
     currentSchool?.dashboardFont,
     currentSchool?.favicon,
+    currentSchool?.affiliationNumber,
+    currentSchool?.establishedYear,
     currentSchool?.logo,
+    currentSchool?.principalSignature,
     currentSchool?.printHeader,
     currentSchool?.name,
     currentSchool?.primaryColor,
+    currentSchool?.registrationNumber,
     saving,
+    currentSchool?.udiseNumber,
   ])
 
   useEffect(() => {
@@ -140,6 +156,11 @@ export function SettingsPage() {
     schoolLogo !== (currentSchool?.logo || '') ||
     schoolFavicon !== (currentSchool?.favicon || '') ||
     schoolPrintHeader !== (currentSchool?.printHeader || '') ||
+    registrationNumber !== (currentSchool?.registrationNumber || '') ||
+    udiseNumber !== (currentSchool?.udiseNumber || '') ||
+    affiliationNumber !== (currentSchool?.affiliationNumber || '') ||
+    establishedYear !== (currentSchool?.establishedYear || '') ||
+    principalSignature !== (currentSchool?.principalSignature || '') ||
     selectedColor.toLowerCase() !== (currentSchool?.primaryColor || currentPalette.primary).toLowerCase() ||
     selectedFont !== findDashboardFont(currentSchool?.dashboardFont).id
 
@@ -209,6 +230,11 @@ export function SettingsPage() {
         logo: schoolLogo,
         favicon: schoolFavicon,
         printHeader: schoolPrintHeader,
+        registrationNumber,
+        udiseNumber,
+        affiliationNumber,
+        establishedYear,
+        principalSignature,
         primaryColor: selectedColor,
         dashboardFont: selectedFont,
       })
@@ -217,6 +243,11 @@ export function SettingsPage() {
       setSchoolLogo(res.school.logo || '')
       setSchoolFavicon(res.school.favicon || '')
       setSchoolPrintHeader(res.school.printHeader || '')
+      setRegistrationNumber(res.school.registrationNumber || '')
+      setUdiseNumber(res.school.udiseNumber || '')
+      setAffiliationNumber(res.school.affiliationNumber || '')
+      setEstablishedYear(res.school.establishedYear || '')
+      setPrincipalSignature(res.school.principalSignature || '')
       toast({ title: 'Branding Updated', description: 'School name, logo, favicon, print header, and dashboard theme have been applied.' })
     } catch (err) {
       toast({
@@ -292,6 +323,45 @@ export function SettingsPage() {
           <div className="space-y-2">
             <Label htmlFor="school-name">School Name</Label>
             <Input id="school-name" value={schoolName} onChange={(event) => setSchoolName(event.target.value)} placeholder="Enter school name" />
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="space-y-2">
+              <Label htmlFor="school-registration-number">Registration No.</Label>
+              <Input
+                id="school-registration-number"
+                value={registrationNumber}
+                onChange={(event) => setRegistrationNumber(event.target.value)}
+                placeholder="REG NO"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="school-udise-number">UDISE</Label>
+              <Input
+                id="school-udise-number"
+                value={udiseNumber}
+                onChange={(event) => setUdiseNumber(event.target.value)}
+                placeholder="UDISE code"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="school-affiliation-number">Affiliation No.</Label>
+              <Input
+                id="school-affiliation-number"
+                value={affiliationNumber}
+                onChange={(event) => setAffiliationNumber(event.target.value)}
+                placeholder="Affiliation number"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="school-established-year">ESTD</Label>
+              <Input
+                id="school-established-year"
+                value={establishedYear}
+                onChange={(event) => setEstablishedYear(event.target.value)}
+                placeholder="2021"
+              />
+            </div>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
@@ -442,6 +512,61 @@ export function SettingsPage() {
               Used as the header on printed admission forms, fee receipts, and other school documents.
               Recommended size: <strong>1200 × 280 px</strong> horizontal banner. JPG, PNG, WebP, or GIF.
             </p>
+          </div>
+
+          <div className="rounded-lg border bg-card p-3">
+            <div className="mb-2 flex items-center justify-between">
+              <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Principal Signature</Label>
+              <Badge variant="outline" className="text-[10px]">Max 200 KB</Badge>
+            </div>
+            <input
+              ref={principalSignatureInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              className="hidden"
+              onChange={(event) => readImageFile(event.target.files?.[0], {
+                title: 'Principal Signature',
+                onLoad: setPrincipalSignature,
+              })}
+            />
+            <div className="grid gap-3 sm:grid-cols-[180px_1fr]">
+              <div className="flex h-24 items-center justify-center overflow-hidden rounded-lg border bg-muted">
+                {principalSignature ? (
+                  <img src={principalSignature} alt="Principal signature preview" className="h-full w-full object-contain" />
+                ) : (
+                  <div className="flex flex-col items-center gap-1 text-muted-foreground">
+                    <ImagePlus className="size-6" />
+                    <span className="text-[11px]">No signature</span>
+                  </div>
+                )}
+              </div>
+              <div className="flex min-w-0 flex-col justify-center gap-2">
+                <div className="flex flex-wrap gap-2">
+                  <Button type="button" variant="outline" size="sm" className="h-8" onClick={() => principalSignatureInputRef.current?.click()}>
+                    <ImagePlus className="size-3.5" />
+                    {principalSignature ? 'Change Signature' : 'Upload Signature'}
+                  </Button>
+                  {principalSignature && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 text-destructive hover:text-destructive"
+                      onClick={() => {
+                        setPrincipalSignature('')
+                        if (principalSignatureInputRef.current) principalSignatureInputRef.current.value = ''
+                      }}
+                    >
+                      <X className="size-3.5" />
+                      Remove
+                    </Button>
+                  )}
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  Used by ID card templates through the principal signature token.
+                </p>
+              </div>
+            </div>
           </div>
 
           <div className="space-y-3">

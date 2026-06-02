@@ -32,3 +32,12 @@ export {
   highlightChangedFields,
   generateDetailedDescription,
 } from './diff-helpers';
+
+export {
+  logExamChange,
+  extractExamAuditContext,
+  logExamChangesBatch,
+  type ExamAuditContext,
+  type ExamAuditEntityType,
+  type ExamAuditAction,
+} from './exam-audit';

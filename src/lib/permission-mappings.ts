@@ -48,7 +48,28 @@ const MODULE_PERMISSION_MAP: Record<string, string[]> = {
   'rfid-audit': ['rfid:taps:view', 'attendance:audit:view'],
   'timetable': ['timetable:read', 'timetable:create'],
   'exams': ['exam:read', 'exam:create'],
-  'exam-results': ['exam:read', 'exam:results'],
+  'exam-results': ['exam:read', 'exam:results', 'exam:result:view'],
+
+  // Exam Module (Phase 1+)
+  'exam-dashboard': ['exam:read'],
+  'exam-paradigms': ['exam:read', 'exam:configure'],
+  'exam-paradigm-edit': ['exam:configure'],
+  'exam-groups': ['exam:read', 'exam:configure'],
+  'exam-list': ['exam:read'],
+  'exam-create': ['exam:create'],
+  'exam-edit': ['exam:update'],
+  'exam-configure': ['exam:configure'],
+  'exam-schedule': ['exam:schedule'],
+  'exam-marks-entry': ['exam:marks:enter', 'exam:marks:submit', 'exam:marks:lock'],
+  'exam-grade-scales': ['exam:gradescale:manage', 'exam:read'],
+  'exam-grade-scale-edit': ['exam:gradescale:manage'],
+  'exam-result-preview': ['exam:result:view', 'exam:result:compute'],
+  'exam-published-results': ['exam:result:view'],
+  'exam-report-card-templates': ['exam:reportcard:manage'],
+  'exam-report-card-template-edit': ['exam:reportcard:manage'],
+  'exam-audit-log': ['exam:audit:view'],
+  'teacher-subject-assignments': ['exam:configure', 'role:read'],
+  'student-subject-mappings': ['exam:configure', 'student:read'],
 
   // Fees
   'fees-heads': ['fees:read'],
@@ -102,12 +123,8 @@ const MODULE_PERMISSION_MAP: Record<string, string[]> = {
   'my-attendance': ['attendance:read'],
   'my-children': ['student:read'],
 
-  // ID Cards
-  'id-cards': ['idcard:read', 'idcard:generate', 'idcard:print', 'idcard:template:create'],
-  'id-card-templates': ['idcard:read', 'idcard:template:create', 'idcard:template:update'],
+  // ID Card subpages not declared earlier in the map
   'id-card-template-new': ['idcard:template:create'],
-  'id-card-template-edit': ['idcard:template:update'],
-  'id-card-generate': ['idcard:generate', 'idcard:print'],
   'id-card-showcase': ['idcard:read', 'idcard:template:create'],
 
   // Super-admin only (no permission gating needed)
@@ -124,6 +141,7 @@ const PARENT_MENU_MODULES: Record<string, string> = {
   'Roles & Permissions': 'school-roles',
   'Audit Logs': 'attendance-audit-log',
   'ID Cards': 'id-cards',
+  'Exams': 'exam-dashboard',
 }
 
 /**

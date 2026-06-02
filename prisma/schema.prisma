@@ -84,6 +84,11 @@ model School {
   onboardingDate DateTime?
   favicon        String?
   printHeader    String? // Base64 banner image used as header on all printables (admission form, fee receipt, etc.)
+  registrationNumber String?
+  udiseNumber     String?
+  affiliationNumber String?
+  establishedYear String?
+  principalSignature String?
   primaryColor   String?
   dashboardFont  String?   @default("system")
   features       String? // JSON string of enabled features
@@ -125,6 +130,10 @@ model School {
   periodConfigs               PeriodConfig[]
   exams                       Exam[]
   examResults                 ExamResult[]
+  examParadigms               ExamParadigm[]
+  gradeScales                 GradeScale[]
+  reportCardTemplates         ReportCardTemplate[]
+  examAuditLogs               ExamAuditLog[]
   transportRoutes             TransportRoute[]
   libraryBooks                LibraryBook[]
   bookIssues                  BookIssue[]
@@ -279,7 +288,6 @@ model Subject {
 
   school        School         @relation(fields: [schoolId], references: [id])
   timetables    Timetable[]
-  exams         Exam[]
   classSubjects ClassSubject[]
 
   @@unique([schoolId, code])
@@ -358,6 +366,7 @@ model Student {
   feeLedgerEntries     StudentFeeLedgerEntry[]
   feeLedgerAllocations StudentFeeLedgerAllocation[]
   examResults          ExamResult[]
+  marksEntries         MarksEntry[]
   admission            Admission?
   withdrawals          StudentWithdrawal[]
   feeRefunds           StudentFeeRefund[]
@@ -1623,49 +1632,491 @@ model PeriodConfig {
 // ============================================
 // EXAM SYSTEM
 // ============================================
+// Hierarchy:
+//   ExamParadigm (per-school, per-AY framework)
+//     └─ ExamGroup (Term 1, Term 2, Test Series 1)
+//          └─ Exam (Unit Test 1, Half Yearly, Annual)
+//               ├─ ExamClass (which classes this exam runs for)
+//               ├─ ExamSchedule (when each subject is held)
+//               └─ ExamSubjectConfig (per class × subject pattern)
+//                    └─ ExamComponent (Theory 80 / Practical 20 / etc.)
+//                         └─ MarksEntry (per student × component)
+//
+// Result rollup: MarksEntry → ResultSubjectSummary → ExamResult
+//                ExamResult(s) → ExamGroupResult → FinalResult
+//
+// All tables carry schoolId for tenant isolation and deletedAt for soft delete
+// where deletion is supported.
 
+// A school's overall exam framework for an academic year.
+// Examples: "CBSE Term Pattern 2026-27", "Coaching Test Series 2026-27",
+// "State Board Annual 2026-27". Holds the rules that aggregate group-level
+// results into a final/annual outcome.
+model ExamParadigm {
+  id              String    @id @default(cuid())
+  schoolId        String
+  academicYear    String
+  name            String
+  description     String?
+  // JSON shapes:
+  //   { type: "weighted", components: [{ examGroupId, weight }] }
+  //   { type: "best_of_n", n: 2, examGroupIds: [...] }
+  //   { type: "sum_all" }
+  aggregationRule String
+  // JSON: { perSubject: 33, overall: 33, allowGrace: true, graceMax: 5 }
+  passingRule     String
+  isActive        Boolean   @default(true)
+  isDefault       Boolean   @default(false)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+
+  school     School      @relation(fields: [schoolId], references: [id])
+  examGroups ExamGroup[]
+
+  @@unique([schoolId, academicYear, name])
+  @@index([schoolId, academicYear, isActive])
+}
+
+// A grouping of one or more exams that aggregate together as a single block.
+// Examples under CBSE: "Term 1" (Unit Test 1 + Half Yearly), "Term 2" (Unit
+// Test 2 + Annual). Examples under coaching: "Test Series 1" (10 weekly tests,
+// best-of-8 aggregation).
+model ExamGroup {
+  id              String    @id @default(cuid())
+  schoolId        String
+  paradigmId      String
+  name            String
+  shortCode       String?
+  sequence        Int       @default(0)
+  weight          Float     @default(100) // % weight in final paradigm rollup
+  // JSON; null means "sum_all". Same shape as ExamParadigm.aggregationRule.
+  aggregationRule String?
+  isCoScholastic  Boolean   @default(false) // grade-only, no marks summed
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+
+  paradigm ExamParadigm @relation(fields: [paradigmId], references: [id])
+  exams    Exam[]
+
+  @@index([schoolId, paradigmId])
+}
+
+// A concrete exam instance. Lives under exactly one ExamGroup.
 model Exam {
+  id              String    @id @default(cuid())
+  schoolId        String
+  academicYear    String
+  examGroupId     String
+  name            String // "Unit Test 1", "Half Yearly", "Annual"
+  shortCode       String? // "UT1"
+  examType        String    @default("written") // written | practical | oral | project | internal | activity | attendance
+  startDate       DateTime?
+  endDate         DateTime?
+  status          String    @default("draft") // draft | scheduled | ongoing | completed | result_published
+  includeInResult Boolean   @default(true)
+  visibleToParent Boolean   @default(false) // becomes true on publish
+  // Optional pointer to the exam this re-exam/improvement attempt is for.
+  // Phase 6 wires UI; column exists from day 1 for future-proofing.
+  parentExamId    String?
+  createdBy       String?
+  publishedAt     DateTime?
+  publishedBy     String?
+  lockedAt        DateTime?
+  lockedBy        String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+
+  school         School              @relation(fields: [schoolId], references: [id])
+  group          ExamGroup           @relation(fields: [examGroupId], references: [id])
+  examClasses    ExamClass[]
+  schedules      ExamSchedule[]
+  subjectConfigs ExamSubjectConfig[]
+  marks          MarksEntry[]
+  results        ExamResult[]
+
+  @@unique([schoolId, academicYear, examGroupId, name])
+  @@index([schoolId, academicYear, status])
+  @@index([parentExamId])
+}
+
+// Which classes this exam runs for. Section-level narrowing is optional;
+// when null, all sections of the class are in scope.
+model ExamClass {
+  id         String  @id @default(cuid())
+  examId     String
+  classId    String
+  sectionIds String? // JSON array of sectionIds; null = all sections
+
+  exam Exam @relation(fields: [examId], references: [id])
+
+  @@unique([examId, classId])
+  @@index([classId])
+}
+
+// The "exam pattern" row: total/passing marks for a specific (exam, class,
+// section?, subject). Components break down totalMarks into channels.
+model ExamSubjectConfig {
+  id              String    @id @default(cuid())
+  schoolId        String
+  examId          String
+  classId         String
+  sectionId       String? // null = all sections of class
+  subjectId       String
+  isCompulsory    Boolean   @default(true)
+  isOptional      Boolean   @default(false)
+  isAdditional    Boolean   @default(false)
+  gradeOnly       Boolean   @default(false) // co-scholastic: grade only, no marks
+  totalMarks      Float     @default(100)
+  passingMarks    Float     @default(33)
+  graceMarksMax   Float     @default(0)
+  examDate        DateTime?
+  durationMinutes Int?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+
+  exam       Exam            @relation(fields: [examId], references: [id])
+  components ExamComponent[]
+  marks      MarksEntry[]
+
+  @@unique([examId, classId, subjectId, sectionId])
+  @@index([schoolId, examId])
+  @@index([schoolId, subjectId])
+}
+
+// A scoring channel inside an ExamSubjectConfig (Theory, Practical, Internal,
+// Project, Viva, Attendance, etc.). Component maxMarks must sum to the parent
+// ExamSubjectConfig.totalMarks — enforced by the API, not by the DB.
+model ExamComponent {
+  id              String   @id @default(cuid())
+  subjectConfigId String
+  name            String
+  shortCode       String?
+  sequence        Int      @default(0)
+  maxMarks        Float
+  passingMarks    Float    @default(0) // 0 = no per-component passing rule
+  gradeOnly       Boolean  @default(false) // numeric component vs grade-only channel
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  subjectConfig ExamSubjectConfig @relation(fields: [subjectConfigId], references: [id], onDelete: Cascade)
+  marks         MarksEntry[]
+
+  @@index([subjectConfigId])
+}
+
+// Per-student opt-in for an optional/additional subject. Compulsory subjects
+// implicitly apply to every student in the class — no row needed for those.
+// `replacing_compulsory` covers students who drop a compulsory subject for a
+// different one (e.g. Hindi → Sanskrit).
+model StudentSubjectMapping {
+  id                String    @id @default(cuid())
+  schoolId          String
+  studentId         String
+  academicYear      String
+  subjectId         String
+  mappingType       String // optional | additional | replacing_compulsory
+  replacesSubjectId String? // set when mappingType = replacing_compulsory
+  effectiveFrom     DateTime?
+  effectiveTo       DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  deletedAt         DateTime?
+
+  @@unique([studentId, academicYear, subjectId])
+  @@index([schoolId, academicYear])
+  @@index([studentId])
+}
+
+// Datesheet row for an exam. Schedule + invigilation. Soft delete deferred to
+// Phase 6 — we hard delete during the planning phase and the audit log captures
+// history.
+model ExamSchedule {
+  id              String   @id @default(cuid())
+  schoolId        String
+  examId          String
+  classId         String
+  sectionId       String?
+  subjectId       String
+  examDate        DateTime
+  startTime       String // "10:00"
+  endTime         String // "13:00"
+  roomNumber      String?
+  invigilatorId   String?
+  maxMarks        Float
+  durationMinutes Int
+  instructions    String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  exam Exam @relation(fields: [examId], references: [id])
+
+  @@unique([examId, classId, sectionId, subjectId])
+  @@index([schoolId, examDate])
+  @@index([classId, sectionId, examDate])
+}
+
+// One row per (student, subjectConfig, component). For grade-only configs
+// where there are no components, componentId is null and gradeValue carries
+// the assessment. status overrides numericValue when student is absent / ML /
+// not applicable. Optimistic locking via `version`; lockedAt enforces admin
+// freeze on the entry.
+model MarksEntry {
+  id              String    @id @default(cuid())
+  schoolId        String
+  examId          String
+  subjectConfigId String
+  componentId     String? // null for grade-only configs
+  studentId       String
+  numericValue    Float?
+  gradeValue      String? // 'A1', 'B2'… resolved against GradeScale
+  status          String    @default("entered") // entered | absent | medical_leave | not_applicable
+  graceMarks      Float     @default(0)
+  remarks         String?
+  enteredBy       String?
+  enteredAt       DateTime?
+  submittedAt     DateTime? // teacher Submit
+  lockedAt        DateTime? // admin lock — immutable after this
+  lockedBy        String?
+  version         Int       @default(1)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+
+  exam          Exam              @relation(fields: [examId], references: [id])
+  subjectConfig ExamSubjectConfig @relation(fields: [subjectConfigId], references: [id])
+  component     ExamComponent?    @relation(fields: [componentId], references: [id])
+  student       Student           @relation(fields: [studentId], references: [id])
+
+  @@unique([studentId, subjectConfigId, componentId])
+  @@index([schoolId, examId])
+  @@index([studentId])
+  @@index([examId, subjectConfigId])
+}
+
+// A dynamic grading scale. Bands resolve marks/percentage/CGPA to a letter
+// grade. Scope can narrow to a paradigm/group/class; null scopes mean "default
+// for this school".
+model GradeScale {
   id           String    @id @default(cuid())
   schoolId     String
-  name         String // Mid Term, Final, Unit Test
-  subjectId    String
-  classId      String
-  sectionId    String?
-  examDate     DateTime?
-  totalMarks   Float     @default(100)
-  passingMarks Float     @default(35)
-  duration     Int? // in minutes
-  academicYear String?
+  name         String // "CBSE 9-point", "Coaching A-F", "State 5-point"
+  paradigmId   String?
+  examGroupId  String?
+  classId      String?
+  scaleType    String    @default("percentage") // percentage | marks | cgpa
+  isActive     Boolean   @default(true)
+  isDefault    Boolean   @default(false)
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
   deletedAt    DateTime?
 
-  school  School       @relation(fields: [schoolId], references: [id])
-  subject Subject      @relation(fields: [subjectId], references: [id])
-  results ExamResult[]
+  school School      @relation(fields: [schoolId], references: [id])
+  bands  GradeBand[]
 
-  @@index([schoolId])
-  @@index([classId])
+  @@unique([schoolId, name])
+  @@index([schoolId, isActive])
 }
 
-model ExamResult {
-  id            String   @id @default(cuid())
-  schoolId      String
-  examId        String
-  studentId     String
-  marksObtained Float
-  grade         String?
-  remarks       String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+model GradeBand {
+  id           String  @id @default(cuid())
+  gradeScaleId String
+  code         String // "A1", "B+", "Distinction"
+  minValue     Float
+  maxValue     Float
+  gradePoint   Float?
+  remark       String?
+  sequence     Int     @default(0)
 
-  school  School  @relation(fields: [schoolId], references: [id])
-  exam    Exam    @relation(fields: [examId], references: [id])
-  student Student @relation(fields: [studentId], references: [id])
+  scale GradeScale @relation(fields: [gradeScaleId], references: [id], onDelete: Cascade)
+
+  @@unique([gradeScaleId, code])
+  @@index([gradeScaleId])
+}
+
+// Per-(student, exam) outcome. Rebuilt by the calc engine — never hand-edited.
+// `failedSubjects` is a JSON array of {subjectId, subjectName, percentage}.
+model ExamResult {
+  id             String    @id @default(cuid())
+  schoolId       String
+  academicYear   String
+  examId         String
+  studentId      String
+  totalMarks     Float     @default(0)
+  obtainedMarks  Float     @default(0)
+  percentage     Float     @default(0)
+  grade          String?
+  gradePoint     Float?
+  rankInClass    Int?
+  rankInSection  Int?
+  status         String    @default("pass") // pass | fail | absent | partial
+  failedSubjects String? // JSON array
+  remarks        String?
+  computedAt     DateTime?
+  computedBy     String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+
+  school           School                 @relation(fields: [schoolId], references: [id])
+  exam             Exam                   @relation(fields: [examId], references: [id])
+  student          Student                @relation(fields: [studentId], references: [id])
+  subjectSummaries ResultSubjectSummary[]
 
   @@unique([examId, studentId])
-  @@index([schoolId])
-  @@index([studentId])
+  @@index([schoolId, academicYear])
+  @@index([examId, status])
+}
+
+// Per-subject breakdown of an ExamResult. subjectName is denormalized so that
+// historical report cards stay correct even if the Subject row is later
+// renamed/archived.
+model ResultSubjectSummary {
+  id             String  @id @default(cuid())
+  resultId       String
+  subjectId      String
+  subjectName    String
+  totalMarks     Float
+  obtainedMarks  Float
+  percentage     Float
+  grade          String?
+  gradePoint     Float?
+  status         String // pass | fail | absent | not_applicable
+  componentsJson String? // JSON snapshot: { componentName: { obtained, max } }
+
+  result ExamResult @relation(fields: [resultId], references: [id], onDelete: Cascade)
+
+  @@index([resultId])
+}
+
+// Group-level rollup (e.g. "Term 1 result for student X"). Stored rather than
+// computed on the fly so report cards stay fast and historically stable.
+model ExamGroupResult {
+  id            String    @id @default(cuid())
+  schoolId      String
+  academicYear  String
+  examGroupId   String
+  studentId     String
+  totalMarks    Float     @default(0)
+  obtainedMarks Float     @default(0)
+  percentage    Float     @default(0)
+  grade         String?
+  rankInClass   Int?
+  status        String    @default("pass")
+  computedAt    DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@unique([examGroupId, studentId])
+  @@index([schoolId, academicYear])
+}
+
+// Paradigm-level (annual) rollup. Drives the annual report card and promotion
+// decisions.
+model FinalResult {
+  id              String    @id @default(cuid())
+  schoolId        String
+  academicYear    String
+  paradigmId      String
+  studentId       String
+  totalMarks      Float     @default(0)
+  obtainedMarks   Float     @default(0)
+  percentage      Float     @default(0)
+  grade           String?
+  rankInClass     Int?
+  rankInSection   Int?
+  attendancePct   Float?
+  promotionStatus String    @default("pending") // promoted | detained | conditional | withheld | pending
+  remarks         String?
+  computedAt      DateTime?
+  publishedAt     DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+
+  @@unique([paradigmId, studentId])
+  @@index([schoolId, academicYear, promotionStatus])
+}
+
+// Per-school report card template. layoutJson follows the same dual-mode shape
+// as IdCardTemplate (declarative element list OR raw HTML/CSS) — we'll start
+// with the declarative form in Phase 5.
+model ReportCardTemplate {
+  id                   String    @id @default(cuid())
+  schoolId             String
+  name                 String
+  description          String?
+  format               String    @default("cbse") // cbse | simple | term_wise | grade_only | coaching
+  appliesToParadigmId  String?
+  layoutJson           String
+  includeAttendance    Boolean   @default(true)
+  includeRank          Boolean   @default(true)
+  includeCoScholastic  Boolean   @default(true)
+  showPrincipalRemarks Boolean   @default(true)
+  showTeacherRemarks   Boolean   @default(true)
+  isDefault            Boolean   @default(false)
+  isActive             Boolean   @default(true)
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  deletedAt            DateTime?
+
+  school School @relation(fields: [schoolId], references: [id])
+
+  @@unique([schoolId, name])
+  @@index([schoolId, isActive])
+}
+
+// Subject-teacher scoping for marks entry. Class-teacher access is already
+// covered by ClassTeacherAssignment (separate table). A teacher with a row
+// here can edit marks for the exact (class, section?, subject) combo.
+model TeacherSubjectAssignment {
+  id           String    @id @default(cuid())
+  schoolId     String
+  academicYear String
+  teacherId    String
+  classId      String
+  sectionId    String? // null = all sections of class
+  subjectId    String
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+
+  @@unique([schoolId, academicYear, teacherId, classId, sectionId, subjectId])
+  @@index([schoolId, academicYear])
+  @@index([teacherId, academicYear])
+  @@index([schoolId, classId, sectionId, subjectId])
+}
+
+// Audit row for every meaningful exam mutation. Same shape as FeeAuditLog
+// (consistency across modules). Retention worker in src/lib/audit/retention.ts
+// will be extended in Phase 6 to cover this table.
+model ExamAuditLog {
+  id          String   @id @default(cuid())
+  schoolId    String
+  entityType  String // Exam | ExamSubjectConfig | MarksEntry | ExamResult | FinalResult | ReportCardTemplate | GradeScale | ExamParadigm | ExamGroup | ExamSchedule
+  entityId    String
+  action      String // created | updated | deleted | marks_entered | marks_submitted | marks_locked | marks_unlocked | result_calculated | result_published | result_unpublished | report_downloaded | status_changed
+  studentId   String?
+  examId      String?
+  userId      String?
+  ipAddress   String?
+  userAgent   String?
+  oldValue    String? // JSON snapshot before
+  newValue    String? // JSON snapshot after
+  diffSummary String? // "Maths Theory: 65→72"
+  metadata    String? // JSON: additional context
+  createdAt   DateTime @default(now())
+
+  school School @relation(fields: [schoolId], references: [id])
+
+  @@index([schoolId, entityType, createdAt])
+  @@index([schoolId, examId, createdAt])
+  @@index([schoolId, studentId, createdAt])
+  @@index([schoolId, action, createdAt])
+  @@index([createdAt])
 }
 
 // ============================================
