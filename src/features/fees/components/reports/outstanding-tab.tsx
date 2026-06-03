@@ -12,6 +12,7 @@ import { AlertTriangle, Search, ChevronLeft, ChevronRight, FileText, ExternalLin
 import { formatCurrency } from '../audit-field-list'
 import { KpiCard } from './kpi-card'
 import { cn } from '@/lib/utils'
+import { useAppStore } from '@/lib/store'
 
 interface Row {
   studentId: string
@@ -53,19 +54,31 @@ interface OutstandingTabProps {
 }
 
 const ALL = '__all__'
+const OUTSTANDING_REPORT_LIST_STATE_KEY = 'fees:reports:outstanding:list'
+
+interface OutstandingReportListState {
+  classId?: string
+  sectionId?: string
+  bucket?: string
+  searchInput?: string
+  search?: string
+  page?: number
+}
 
 export function OutstandingTab({ academicYear, classes, sections, onOpenStudent }: OutstandingTabProps) {
+  const savedListState = useAppStore((state) => state.pageState[OUTSTANDING_REPORT_LIST_STATE_KEY] as OutstandingReportListState | undefined)
+  const setPageState = useAppStore((state) => state.setPageState)
   const [data, setData] = useState<Response | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   // Filters
-  const [classId, setClassId] = useState<string>('')
-  const [sectionId, setSectionId] = useState<string>('')
-  const [bucket, setBucket] = useState<string>('all')
-  const [search, setSearch] = useState('')
-  const [searchInput, setSearchInput] = useState('')
-  const [page, setPage] = useState(1)
+  const [classId, setClassId] = useState<string>(savedListState?.classId ?? '')
+  const [sectionId, setSectionId] = useState<string>(savedListState?.sectionId ?? '')
+  const [bucket, setBucket] = useState<string>(savedListState?.bucket ?? 'all')
+  const [search, setSearch] = useState(savedListState?.search ?? '')
+  const [searchInput, setSearchInput] = useState(savedListState?.searchInput ?? '')
+  const [page, setPage] = useState(savedListState?.page ?? 1)
 
   const filteredSections = useMemo(
     () => sections.filter(s => !classId || s.classId === classId || !s.classId),
@@ -74,41 +87,100 @@ export function OutstandingTab({ academicYear, classes, sections, onOpenStudent 
 
   // Debounce search
   useEffect(() => {
-    const t = setTimeout(() => setSearch(searchInput.trim()), 300)
+    const t = setTimeout(() => {
+      const nextSearch = searchInput.trim()
+      setSearch(nextSearch)
+      setPageState(OUTSTANDING_REPORT_LIST_STATE_KEY, {
+        classId,
+        sectionId,
+        bucket,
+        searchInput,
+        search: nextSearch,
+        page: 1,
+      })
+    }, 300)
     return () => clearTimeout(t)
-  }, [searchInput])
+  }, [bucket, classId, searchInput, sectionId, setPageState])
 
   useEffect(() => {
     let alive = true
-    setLoading(true)
-    setError(null)
 
-    const params = new URLSearchParams({
-      page: String(page),
-      limit: '50',
-      bucket,
-    })
-    if (academicYear) params.set('academicYear', academicYear)
-    if (classId) params.set('classId', classId)
-    if (sectionId) params.set('sectionId', sectionId)
-    if (search) params.set('search', search)
+    const loadOutstanding = async () => {
+      setLoading(true)
+      setError(null)
 
-    fetch(`/api/school/fees/reports/outstanding?${params}`, { credentials: 'include' })
-      .then(r => {
-        if (!r.ok) throw new Error('Failed to load')
-        return r.json()
+      const params = new URLSearchParams({
+        page: String(page),
+        limit: '50',
+        bucket,
       })
-      .then(d => { if (alive) setData(d) })
-      .catch(e => { if (alive) setError(e.message) })
-      .finally(() => { if (alive) setLoading(false) })
+      if (academicYear) params.set('academicYear', academicYear)
+      if (classId) params.set('classId', classId)
+      if (sectionId) params.set('sectionId', sectionId)
+      if (search) params.set('search', search)
+
+      try {
+        const response = await fetch(`/api/school/fees/reports/outstanding?${params}`, { credentials: 'include' })
+        if (!response.ok) throw new Error('Failed to load')
+        const nextData = await response.json()
+        if (alive) setData(nextData)
+      } catch (error) {
+        if (alive) setError(error instanceof Error ? error.message : 'Failed to load')
+      } finally {
+        if (alive) setLoading(false)
+      }
+    }
+
+    void loadOutstanding()
 
     return () => { alive = false }
   }, [academicYear, classId, sectionId, bucket, search, page])
 
-  // Reset to page 1 when filters change
-  useEffect(() => { setPage(1) }, [classId, sectionId, bucket, search])
-
   const t = data?.totals
+
+  const rememberListState = (patch: Partial<OutstandingReportListState>) => {
+    setPageState(OUTSTANDING_REPORT_LIST_STATE_KEY, {
+      classId,
+      sectionId,
+      bucket,
+      searchInput,
+      search,
+      page,
+      ...patch,
+    })
+  }
+
+  const handleClassChange = (value: string) => {
+    const nextClassId = value === ALL ? '' : value
+    setClassId(nextClassId)
+    setSectionId('')
+    setPage(1)
+    rememberListState({ classId: nextClassId, sectionId: '', page: 1 })
+  }
+
+  const handleSectionChange = (value: string) => {
+    const nextSectionId = value === ALL ? '' : value
+    setSectionId(nextSectionId)
+    setPage(1)
+    rememberListState({ sectionId: nextSectionId, page: 1 })
+  }
+
+  const handleBucketChange = (value: string) => {
+    setBucket(value)
+    setPage(1)
+    rememberListState({ bucket: value, page: 1 })
+  }
+
+  const handleSearchInputChange = (value: string) => {
+    setSearchInput(value)
+    setPage(1)
+    rememberListState({ searchInput: value, page: 1 })
+  }
+
+  const handlePageChange = (value: number) => {
+    setPage(value)
+    rememberListState({ page: value })
+  }
 
   return (
     <div className="space-y-4">
@@ -168,13 +240,13 @@ export function OutstandingTab({ academicYear, classes, sections, onOpenStudent 
               <Search className="absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
               <Input
                 value={searchInput}
-                onChange={e => setSearchInput(e.target.value)}
+                onChange={e => handleSearchInputChange(e.target.value)}
                 placeholder="Search name or admission #"
                 className="pl-8 h-9"
               />
             </div>
 
-            <Select value={classId || ALL} onValueChange={v => setClassId(v === ALL ? '' : v)}>
+            <Select value={classId || ALL} onValueChange={handleClassChange}>
               <SelectTrigger className="h-9 w-[150px]"><SelectValue placeholder="All classes" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value={ALL}>All classes</SelectItem>
@@ -184,7 +256,7 @@ export function OutstandingTab({ academicYear, classes, sections, onOpenStudent 
               </SelectContent>
             </Select>
 
-            <Select value={sectionId || ALL} onValueChange={v => setSectionId(v === ALL ? '' : v)} disabled={!classId}>
+            <Select value={sectionId || ALL} onValueChange={handleSectionChange} disabled={!classId}>
               <SelectTrigger className="h-9 w-[150px]"><SelectValue placeholder="All sections" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value={ALL}>All sections</SelectItem>
@@ -194,7 +266,7 @@ export function OutstandingTab({ academicYear, classes, sections, onOpenStudent 
               </SelectContent>
             </Select>
 
-            <Select value={bucket} onValueChange={setBucket}>
+            <Select value={bucket} onValueChange={handleBucketChange}>
               <SelectTrigger className="h-9 w-[150px]"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Any aging</SelectItem>
@@ -299,7 +371,7 @@ export function OutstandingTab({ academicYear, classes, sections, onOpenStudent 
                   size="sm"
                   variant="outline"
                   className="h-7"
-                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  onClick={() => handlePageChange(Math.max(1, page - 1))}
                   disabled={page === 1 || loading}
                 >
                   <ChevronLeft className="size-3.5" /> Prev
@@ -308,7 +380,7 @@ export function OutstandingTab({ academicYear, classes, sections, onOpenStudent 
                   size="sm"
                   variant="outline"
                   className="h-7"
-                  onClick={() => setPage(p => Math.min(data.pagination.totalPages, p + 1))}
+                  onClick={() => handlePageChange(Math.min(data.pagination.totalPages, page + 1))}
                   disabled={page === data.pagination.totalPages || loading}
                 >
                   Next <ChevronRight className="size-3.5" />

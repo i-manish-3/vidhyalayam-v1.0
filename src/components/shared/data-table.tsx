@@ -1,6 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { usePathname } from 'next/navigation'
+import { useAppStore } from '@/lib/store'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import {
@@ -54,6 +56,12 @@ interface DataTableProps<T> {
   isLoading?: boolean
 }
 
+interface DataTableMemory {
+  search?: string
+  currentPage?: number
+  pageSize?: number
+}
+
 export function DataTable<T extends Record<string, unknown>>({
   columns,
   data,
@@ -66,9 +74,13 @@ export function DataTable<T extends Record<string, unknown>>({
   pageSizeOptions = [10, 25, 50, 100],
   isLoading = false,
 }: DataTableProps<T>) {
-  const [search, setSearch] = useState('')
-  const [currentPage, setCurrentPage] = useState(1)
-  const [pageSize, setPageSize] = useState(initialPageSize)
+  const pathname = usePathname()
+  const memoryKey = `datatable:${pathname}:${searchKey || 'all'}:${searchPlaceholder}`
+  const savedTableState = useAppStore((s) => s.pageState[memoryKey] as DataTableMemory | undefined)
+  const setPageState = useAppStore((s) => s.setPageState)
+  const [search, setSearch] = useState(savedTableState?.search ?? '')
+  const [currentPage, setCurrentPage] = useState(savedTableState?.currentPage ?? 1)
+  const [pageSize, setPageSize] = useState(savedTableState?.pageSize ?? initialPageSize)
 
   const filteredData = searchKey
     ? data.filter((item) =>
@@ -83,18 +95,22 @@ export function DataTable<T extends Record<string, unknown>>({
     : data
 
   const totalPages = Math.max(1, Math.ceil(filteredData.length / pageSize))
+  const safeCurrentPage = Math.min(currentPage, totalPages)
   const paginatedData = filteredData.slice(
-    (currentPage - 1) * pageSize,
-    currentPage * pageSize
+    (safeCurrentPage - 1) * pageSize,
+    safeCurrentPage * pageSize
   )
-  const rangeFrom = filteredData.length === 0 ? 0 : (currentPage - 1) * pageSize + 1
-  const rangeTo = Math.min(currentPage * pageSize, filteredData.length)
+  const rangeFrom = filteredData.length === 0 ? 0 : (safeCurrentPage - 1) * pageSize + 1
+  const rangeTo = Math.min(safeCurrentPage * pageSize, filteredData.length)
 
-  useEffect(() => {
-    if (currentPage > totalPages) {
-      setCurrentPage(totalPages)
-    }
-  }, [currentPage, totalPages])
+  const rememberTableState = (patch: Partial<DataTableMemory>) => {
+    setPageState(memoryKey, {
+      search,
+      currentPage,
+      pageSize,
+      ...patch,
+    })
+  }
 
   return (
     <div className="space-y-4">
@@ -106,8 +122,10 @@ export function DataTable<T extends Record<string, unknown>>({
               placeholder={searchPlaceholder}
               value={search}
               onChange={(e) => {
-                setSearch(e.target.value)
+                const value = e.target.value
+                setSearch(value)
                 setCurrentPage(1)
+                rememberTableState({ search: value, currentPage: 1 })
               }}
               className="pl-9"
             />
@@ -118,7 +136,7 @@ export function DataTable<T extends Record<string, unknown>>({
         </div>
       )}
 
-      <div className="rounded-lg border overflow-hidden">
+      <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
         <Table>
           <TableHeader>
             <TableRow>
@@ -202,8 +220,10 @@ export function DataTable<T extends Record<string, unknown>>({
             <Select
               value={String(pageSize)}
               onValueChange={(value) => {
-                setPageSize(Number(value))
+                const nextSize = Number(value)
+                setPageSize(nextSize)
                 setCurrentPage(1)
+                rememberTableState({ currentPage: 1, pageSize: nextSize })
               }}
             >
               <SelectTrigger className="h-8 w-[70px] text-xs">
@@ -224,21 +244,29 @@ export function DataTable<T extends Record<string, unknown>>({
               variant="outline"
               size="icon"
               className="size-8"
-              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              disabled={currentPage <= 1}
+              onClick={() => {
+                const nextPage = Math.max(1, safeCurrentPage - 1)
+                setCurrentPage(nextPage)
+                rememberTableState({ currentPage: nextPage })
+              }}
+              disabled={safeCurrentPage <= 1}
               aria-label="Previous page"
             >
               <ChevronLeft className="size-4" />
             </Button>
-            <span className="px-2 text-sm">
-              Page {currentPage} of {totalPages}
+            <span className="rounded-md bg-primary/10 px-3 py-1 text-sm font-medium text-primary">
+              Page {safeCurrentPage} of {totalPages}
             </span>
             <Button
               variant="outline"
               size="icon"
               className="size-8"
-              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-              disabled={currentPage >= totalPages}
+              onClick={() => {
+                const nextPage = Math.min(totalPages, safeCurrentPage + 1)
+                setCurrentPage(nextPage)
+                rememberTableState({ currentPage: nextPage })
+              }}
+              disabled={safeCurrentPage >= totalPages}
               aria-label="Next page"
             >
               <ChevronRight className="size-4" />

@@ -284,7 +284,9 @@ export function AddClassPage() {
         <Card className="gap-0 py-0 shadow-sm">
           <CardHeader className="border-b bg-muted/20 px-4 py-3">
             <CardTitle className="text-base flex items-center gap-2">
-              <Layers className="size-4" />
+              <span className="bg-brand-soft flex size-8 shrink-0 items-center justify-center rounded-lg text-white shadow-sm">
+                <Layers className="size-4" />
+              </span>
               Class Details
             </CardTitle>
             <CardDescription className="text-xs">Enter the basic information for the new class</CardDescription>
@@ -322,7 +324,9 @@ export function AddClassPage() {
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle className="text-base flex items-center gap-2">
-                  <Users className="size-4" />
+                  <span className="bg-brand-soft flex size-8 shrink-0 items-center justify-center rounded-lg text-white shadow-sm">
+                    <Users className="size-4" />
+                  </span>
                   Sections
                   {namedSectionCount > 0 && (
                     <Badge variant="secondary" className="ml-1">
@@ -475,7 +479,9 @@ export function AddClassPage() {
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle className="text-base flex items-center gap-2">
-                  <BookOpen className="size-4" />
+                  <span className="bg-brand-soft flex size-8 shrink-0 items-center justify-center rounded-lg text-white shadow-sm">
+                    <BookOpen className="size-4" />
+                  </span>
                   Assign Subjects
                   {selectedSubjectIds.size > 0 && (
                     <Badge variant="secondary" className="ml-1">

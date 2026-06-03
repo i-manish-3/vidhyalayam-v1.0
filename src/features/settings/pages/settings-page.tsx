@@ -297,9 +297,10 @@ export function SettingsPage() {
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex min-w-0 items-start gap-3">
+        <div className="flex min-w-0 items-stretch gap-3">
+          <span aria-hidden className="bg-brand mt-0.5 w-1 shrink-0 self-stretch rounded-full" />
           <div className="min-w-0">
-            <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
+            <h1 className="text-xl font-semibold tracking-tight text-foreground/90">Settings</h1>
             <p className="text-sm text-muted-foreground">Manage school branding and dashboard appearance.</p>
           </div>
         </div>
@@ -312,7 +313,9 @@ export function SettingsPage() {
       <Card className="gap-3 py-4">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <School className="size-5 text-primary" />
+            <span className="bg-brand-soft flex size-8 shrink-0 items-center justify-center rounded-lg text-white shadow-sm">
+              <School className="size-4" />
+            </span>
             School Identity
           </CardTitle>
           <CardDescription>
@@ -589,7 +592,6 @@ export function SettingsPage() {
                   </div>
                   <div className="min-w-0">
                     <p className="truncate text-xs font-bold">{schoolName.trim() || 'School Name'}</p>
-                    <p className="truncate text-[10px] text-sidebar-foreground/60">{currentSchool?.subdomain || 'school'} dashboard</p>
                   </div>
                 </div>
               </div>
@@ -619,7 +621,9 @@ export function SettingsPage() {
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <CardTitle className="flex items-center gap-2">
-                <Hash className="size-5 text-primary" />
+                <span className="bg-brand-soft flex size-8 shrink-0 items-center justify-center rounded-lg text-white shadow-sm">
+                  <Hash className="size-4" />
+                </span>
                 School Numbering
               </CardTitle>
               <CardDescription>
@@ -814,7 +818,9 @@ export function SettingsPage() {
           <div className="flex items-start justify-between gap-4">
             <div>
               <CardTitle className="flex items-center gap-2">
-                <Palette className="size-5 text-primary" />
+                <span className="bg-brand-soft flex size-8 shrink-0 items-center justify-center rounded-lg text-white shadow-sm">
+                  <Palette className="size-4" />
+                </span>
                 School Color Palette
               </CardTitle>
               <CardDescription>
@@ -842,7 +848,7 @@ export function SettingsPage() {
                   <div className="flex items-center gap-2">
                     <span
                       className="size-5 shrink-0 rounded-full border shadow-inner"
-                      style={{ backgroundColor: palette.primary }}
+                      style={{ backgroundImage: `linear-gradient(135deg, ${palette.primary}, ${palette.sidebarAccent})` }}
                     />
                     <span className="truncate text-xs font-medium">{palette.name}</span>
                     {isSelected && (
@@ -956,7 +962,7 @@ export function SettingsPage() {
                   </div>
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold">{currentSchool?.name || 'Current School'}</p>
-                    <p className="truncate text-[11px] text-muted-foreground">{currentSchool?.subdomain || 'school'} dashboard theme</p>
+                    <p className="truncate text-[11px] text-muted-foreground">Dashboard theme</p>
                   </div>
                 </div>
                 <div className="mt-3 space-y-1.5 text-xs">
@@ -980,7 +986,9 @@ export function SettingsPage() {
       <Card className="gap-3 py-4">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Banknote className="size-5 text-primary" />
+            <span className="bg-brand-soft flex size-8 shrink-0 items-center justify-center rounded-lg text-white shadow-sm">
+              <Banknote className="size-4" />
+            </span>
             Fee Demand & Reminders
           </CardTitle>
           <CardDescription>

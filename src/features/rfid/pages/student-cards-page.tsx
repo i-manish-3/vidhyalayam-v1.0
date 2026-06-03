@@ -14,8 +14,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import Link from 'next/link'
-import { AlertTriangle, ArrowLeft, CreditCard, History, ShieldOff, Sparkles, UserCircle2 } from 'lucide-react'
+import { AlertTriangle, CreditCard, History, ShieldOff, Sparkles, UserCircle2 } from 'lucide-react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -246,15 +245,6 @@ export function StudentRfidCardsPage({ studentId }: Props) {
 
   return (
     <div className="mx-auto max-w-4xl space-y-5 p-4 md:p-6">
-      <div className="flex items-center gap-3">
-        <Button asChild variant="ghost" size="sm" className="gap-1.5">
-          <Link href={`/students/${studentId}`}>
-            <ArrowLeft className="size-3.5" />
-            Back to profile
-          </Link>
-        </Button>
-      </div>
-
       {/* Student header */}
       <Card>
         <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">

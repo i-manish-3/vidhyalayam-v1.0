@@ -34,7 +34,6 @@ import {
   validateEmail,
   validatePhone10,
   validatePincode,
-  validateSubdomain,
   validateWebsite,
   validateHexColor,
   validatePassword,
@@ -56,7 +55,6 @@ const FONTS = ['system', 'Inter', 'Roboto', 'Poppins', 'Open Sans']
 
 type FormState = {
   name: string
-  subdomain: string
   board: string
   academicYear: string
   status: string
@@ -79,7 +77,6 @@ type FormState = {
 
 const initialForm: FormState = {
   name: '',
-  subdomain: '',
   board: 'CBSE',
   academicYear: '2025-2026',
   status: 'trial',
@@ -136,7 +133,6 @@ export function AddSchoolPage() {
 
   const errors = {
     name: validateRequired(form.name, 'School name'),
-    subdomain: validateSubdomain(form.subdomain, true),
     academicYear: validateAcademicYear(form.academicYear, true),
     primaryColor: validateHexColor(form.primaryColor, true),
     pincode: validatePincode(form.pincode, false),
@@ -260,30 +256,6 @@ export function AddSchoolPage() {
                   />
                   {showErr(errors.name, form.name) && (
                     <p className="text-xs text-destructive">{errors.name}</p>
-                  )}
-                </div>
-                <div className="space-y-1.5">
-                  <Label>
-                    Subdomain <span className="text-destructive">*</span>
-                  </Label>
-                  <Input
-                    placeholder="e.g., dpsdelhi"
-                    value={form.subdomain}
-                    onChange={(e) =>
-                      setForm((f) => ({
-                        ...f,
-                        subdomain: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''),
-                      }))
-                    }
-                    maxLength={30}
-                    className={cn('h-9', showErr(errors.subdomain, form.subdomain) && 'border-destructive focus-visible:ring-destructive/30')}
-                  />
-                  {showErr(errors.subdomain, form.subdomain) ? (
-                    <p className="text-xs text-destructive">{errors.subdomain}</p>
-                  ) : (
-                    <p className="text-xs text-muted-foreground">
-                      Will be used as: {form.subdomain || 'school'}.vidhyalayam.com
-                    </p>
                   )}
                 </div>
                 <div className="space-y-1.5">

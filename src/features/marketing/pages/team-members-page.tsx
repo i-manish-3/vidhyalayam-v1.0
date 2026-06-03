@@ -163,13 +163,21 @@ function SocialLinkIcon({ platform, url }: { platform: string; url: string | nul
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
+interface TeamMembersListState {
+  search?: string
+}
+
+const TEAM_MEMBERS_LIST_STATE_KEY = 'marketing:team-members:list'
+
 export function TeamMembersPage() {
   const { user } = useAppStore()
+  const savedListState = useAppStore((state) => state.pageState[TEAM_MEMBERS_LIST_STATE_KEY] as TeamMembersListState | undefined)
+  const setPageState = useAppStore((state) => state.setPageState)
   const { toast } = useToast()
   const [members, setMembers] = useState<TeamMember[]>([])
   const [total, setTotal] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
-  const [search, setSearch] = useState('')
+  const [search, setSearch] = useState(savedListState?.search ?? '')
 
   // Dialog states
   const [formOpen, setFormOpen] = useState(false)
@@ -373,7 +381,10 @@ export function TeamMembersPage() {
           placeholder="Search by name..."
           className="pl-9"
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => {
+            setSearch(e.target.value)
+            setPageState(TEAM_MEMBERS_LIST_STATE_KEY, { search: e.target.value })
+          }}
         />
       </div>
 

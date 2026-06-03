@@ -122,13 +122,21 @@ function AvatarInitial({ name, avatarUrl, size = 'sm' }: { name: string; avatarU
   )
 }
 
+interface TestimonialsListState {
+  search?: string
+}
+
+const TESTIMONIALS_LIST_STATE_KEY = 'marketing:testimonials:list'
+
 export function TestimonialsPage() {
   const { user } = useAppStore()
+  const savedListState = useAppStore((state) => state.pageState[TESTIMONIALS_LIST_STATE_KEY] as TestimonialsListState | undefined)
+  const setPageState = useAppStore((state) => state.setPageState)
   const { toast } = useToast()
   const [testimonials, setTestimonials] = useState<Testimonial[]>([])
   const [total, setTotal] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
-  const [search, setSearch] = useState('')
+  const [search, setSearch] = useState(savedListState?.search ?? '')
 
   // Dialog states
   const [formOpen, setFormOpen] = useState(false)
@@ -292,7 +300,10 @@ export function TestimonialsPage() {
           placeholder="Search by name, role, or quote..."
           className="pl-9"
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => {
+            setSearch(e.target.value)
+            setPageState(TESTIMONIALS_LIST_STATE_KEY, { search: e.target.value })
+          }}
         />
       </div>
 

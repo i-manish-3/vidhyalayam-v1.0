@@ -105,16 +105,28 @@ interface PeriodConfig {
   isBreak: boolean
 }
 
+interface ClassesListState {
+  searchQuery: string
+}
+
+const CLASSES_LIST_STATE_KEY = 'academics:classes:list'
+
 export function ClassesPage() {
   const router = useRouter()
   const { toast } = useToast()
   const currentSchoolAcademicYear = useAppStore((s) => s.currentSchool?.academicYear)
   const viewingAcademicYear = useAppStore((s) => s.viewingAcademicYear)
+  const savedListState = useAppStore((s) => s.pageState[CLASSES_LIST_STATE_KEY] as ClassesListState | undefined)
+  const setPageState = useAppStore((s) => s.setPageState)
   const academicYear = viewingAcademicYear || currentSchoolAcademicYear || getCurrentAcademicYear()
-  const DAYS = useAppStore((s) => parseWorkingDays(s.currentSchool?.workingDays))
+  // Select the raw string (stable reference) and parse via useMemo. Selecting
+  // parseWorkingDays(...) directly returns a new array each render, which makes
+  // Zustand's reference-equality check re-render in a loop ("Maximum update depth").
+  const workingDays = useAppStore((s) => s.currentSchool?.workingDays)
+  const DAYS = useMemo(() => parseWorkingDays(workingDays), [workingDays])
   const [classes, setClasses] = useState<ClassItem[]>([])
   const [loading, setLoading] = useState(true)
-  const [searchQuery, setSearchQuery] = useState('')
+  const [searchQuery, setSearchQuery] = useState(savedListState?.searchQuery ?? '')
   const [deleteClass, setDeleteClass] = useState<ClassItem | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [timetableClass, setTimetableClass] = useState<ClassItem | null>(null)
@@ -122,6 +134,11 @@ export function ClassesPage() {
   const [timetableEntries, setTimetableEntries] = useState<TimetableEntry[]>([])
   const [periodConfigs, setPeriodConfigs] = useState<PeriodConfig[]>([])
   const [loadingTimetable, setLoadingTimetable] = useState(false)
+
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value)
+    setPageState(CLASSES_LIST_STATE_KEY, { searchQuery: value })
+  }
 
   const fetchData = useCallback(async () => {
     try {
@@ -261,13 +278,13 @@ export function ClassesPage() {
                 <Input
                   placeholder="Search class, section, or subject"
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onChange={(e) => handleSearchChange(e.target.value)}
                   className="h-9 bg-background pl-9 pr-9"
                 />
                 {searchQuery && (
                   <button
                     type="button"
-                    onClick={() => setSearchQuery('')}
+                    onClick={() => handleSearchChange('')}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
                     aria-label="Clear search"
                   >
@@ -296,7 +313,7 @@ export function ClassesPage() {
             <Search className="mb-3 size-10 text-muted-foreground/40" />
             <p className="text-sm font-medium">No classes found</p>
             <p className="mt-1 text-sm text-muted-foreground">No class matches &ldquo;{searchQuery}&rdquo;.</p>
-            <Button variant="link" size="sm" onClick={() => setSearchQuery('')} className="mt-1">
+            <Button variant="link" size="sm" onClick={() => handleSearchChange('')} className="mt-1">
               Clear search
             </Button>
           </CardContent>
@@ -312,10 +329,10 @@ export function ClassesPage() {
               : cls.classTeacher ? 1 : 0
 
             return (
-              <Card key={cls.id} className="group gap-0 overflow-hidden py-0 shadow-sm transition-all hover:border-primary/30 hover:shadow-md">
+              <Card key={cls.id} className="card-premium group gap-0 overflow-hidden border-0 py-0">
                 <CardContent className="p-0">
                   <div className="flex items-start gap-3 border-b bg-muted/20 p-4">
-                    <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    <div className="bg-brand-soft flex size-10 shrink-0 items-center justify-center rounded-lg text-white shadow-sm">
                       <Layers className="size-5" />
                     </div>
                     <div className="min-w-0 flex-1">
@@ -560,9 +577,9 @@ export function ClassesPage() {
 
 function StatCard({ icon: Icon, label, value, note }: { icon: typeof Layers; label: string; value: number; note: string }) {
   return (
-    <Card className="gap-0 py-0 shadow-sm">
+    <Card className="card-premium gap-0 border-0 py-0">
       <CardContent className="flex items-center gap-3 p-3">
-        <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+        <div className="bg-brand-soft flex size-9 shrink-0 items-center justify-center rounded-lg text-white shadow-sm">
           <Icon className="size-4.5" />
         </div>
         <div className="min-w-0">

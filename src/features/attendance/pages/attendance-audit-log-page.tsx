@@ -75,7 +75,18 @@ interface Performer {
 interface ClassOption { id: string; name: string }
 interface SectionOption { id: string; name: string; classId: string }
 
+interface AttendanceAuditListState {
+  dateFrom?: string
+  dateTo?: string
+  actionFilter?: 'all' | 'finalize' | 'reopen'
+  classId?: string
+  sectionId?: string
+  performedBy?: string
+  page?: number
+}
+
 const ALL = '__all__'
+const ATTENDANCE_AUDIT_LIST_STATE_KEY = 'attendance:audit-log:list'
 
 function toLocalDateString(date: Date): string {
   const y = date.getFullYear()
@@ -127,6 +138,8 @@ export function AttendanceAuditLogPage() {
   const user = useAppStore((s) => s.user)
   const effectiveRole = useEffectiveRole()
   const permissionsLoaded = useAppStore((s) => s.permissionsLoaded)
+  const savedListState = useAppStore((s) => s.pageState[ATTENDANCE_AUDIT_LIST_STATE_KEY] as AttendanceAuditListState | undefined)
+  const setPageState = useAppStore((s) => s.setPageState)
   const isAdmin = effectiveRole === 'SCHOOL_ADMIN'
   const canView = isAdmin || hasPermission(PERMISSIONS.ATTENDANCE_AUDIT_VIEW)
 
@@ -135,19 +148,19 @@ export function AttendanceAuditLogPage() {
   const academicYear = viewingAcademicYear || currentSchoolAcademicYear || getCurrentAcademicYear()
 
   const defaults = useMemo(getDefaultRange, [])
-  const [dateFrom, setDateFrom] = useState(defaults.from)
-  const [dateTo, setDateTo] = useState(defaults.to)
-  const [actionFilter, setActionFilter] = useState<'all' | 'finalize' | 'reopen'>('all')
-  const [classId, setClassId] = useState<string>('')
-  const [sectionId, setSectionId] = useState<string>('')
-  const [performedBy, setPerformedBy] = useState<string>('')
+  const [dateFrom, setDateFrom] = useState(savedListState?.dateFrom ?? defaults.from)
+  const [dateTo, setDateTo] = useState(savedListState?.dateTo ?? defaults.to)
+  const [actionFilter, setActionFilter] = useState<'all' | 'finalize' | 'reopen'>(savedListState?.actionFilter ?? 'all')
+  const [classId, setClassId] = useState<string>(savedListState?.classId ?? '')
+  const [sectionId, setSectionId] = useState<string>(savedListState?.sectionId ?? '')
+  const [performedBy, setPerformedBy] = useState<string>(savedListState?.performedBy ?? '')
 
   const [records, setRecords] = useState<AuditRecord[]>([])
   const [performers, setPerformers] = useState<Performer[]>([])
   // Lazy-loaded per-audit changes cache. Keyed by auditId. Fetched on first expand.
   const [changesByAuditId, setChangesByAuditId] = useState<Record<string, ChangesState>>({})
   const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 1 })
-  const [page, setPage] = useState(1)
+  const [page, setPage] = useState(savedListState?.page ?? 1)
 
   const [classes, setClasses] = useState<ClassOption[]>([])
   const [sections, setSections] = useState<SectionOption[]>([])
@@ -211,11 +224,6 @@ export function AttendanceAuditLogPage() {
     if (!initialLoad && canView) fetchRecords()
   }, [initialLoad, canView, fetchRecords])
 
-  // Reset to page 1 whenever any filter changes — pagination is stale otherwise.
-  useEffect(() => {
-    setPage(1)
-  }, [dateFrom, dateTo, actionFilter, classId, sectionId, performedBy])
-
   // Whenever a fresh page of records arrives, drop the stale changes cache so
   // expanding a row triggers a fresh fetch (e.g., after switching filters).
   useEffect(() => {
@@ -232,15 +240,56 @@ export function AttendanceAuditLogPage() {
     }
   }, [])
 
+  const rememberListState = (patch: Partial<AttendanceAuditListState>) => {
+    setPageState(ATTENDANCE_AUDIT_LIST_STATE_KEY, {
+      dateFrom,
+      dateTo,
+      actionFilter,
+      classId,
+      sectionId,
+      performedBy,
+      page,
+      ...patch,
+    })
+  }
+
+  const handleDateFromChange = (value: string) => {
+    setDateFrom(value)
+    setPage(1)
+    rememberListState({ dateFrom: value, page: 1 })
+  }
+  const handleDateToChange = (value: string) => {
+    setDateTo(value)
+    setPage(1)
+    rememberListState({ dateTo: value, page: 1 })
+  }
+  const handleActionFilterChange = (value: 'all' | 'finalize' | 'reopen') => {
+    setActionFilter(value)
+    setPage(1)
+    rememberListState({ actionFilter: value, page: 1 })
+  }
   const handleClassChange = (value: string) => {
-    setClassId(value === ALL ? '' : value)
+    const nextClassId = value === ALL ? '' : value
+    setClassId(nextClassId)
     setSectionId('')
+    setPage(1)
+    rememberListState({ classId: nextClassId, sectionId: '', page: 1 })
   }
   const handleSectionChange = (value: string) => {
-    setSectionId(value === ALL ? '' : value)
+    const nextSectionId = value === ALL ? '' : value
+    setSectionId(nextSectionId)
+    setPage(1)
+    rememberListState({ sectionId: nextSectionId, page: 1 })
   }
   const handlePerformerChange = (value: string) => {
-    setPerformedBy(value === ALL ? '' : value)
+    const nextPerformedBy = value === ALL ? '' : value
+    setPerformedBy(nextPerformedBy)
+    setPage(1)
+    rememberListState({ performedBy: nextPerformedBy, page: 1 })
+  }
+  const handlePageChange = (value: number) => {
+    setPage(value)
+    rememberListState({ page: value })
   }
 
   const handleExportCsv = async () => {
@@ -335,7 +384,7 @@ export function AttendanceAuditLogPage() {
               <Label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">From</Label>
               <DatePicker
                 value={dateFrom}
-                onChange={setDateFrom}
+                onChange={handleDateFromChange}
                 triggerClassName="h-9 w-full justify-start text-sm sm:h-7 sm:text-xs"
               />
             </div>
@@ -343,13 +392,13 @@ export function AttendanceAuditLogPage() {
               <Label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">To</Label>
               <DatePicker
                 value={dateTo}
-                onChange={setDateTo}
+                onChange={handleDateToChange}
                 triggerClassName="h-9 w-full justify-start text-sm sm:h-7 sm:text-xs"
               />
             </div>
             <div className="grid grid-cols-[72px_minmax(0,1fr)] items-center gap-2">
               <Label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Action</Label>
-              <Select value={actionFilter} onValueChange={(v) => setActionFilter(v as typeof actionFilter)}>
+              <Select value={actionFilter} onValueChange={(v) => handleActionFilterChange(v as typeof actionFilter)}>
                 <SelectTrigger className="h-9 w-full text-sm sm:h-7 sm:text-xs">
                   <SelectValue />
                 </SelectTrigger>
@@ -570,7 +619,7 @@ export function AttendanceAuditLogPage() {
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  onClick={() => handlePageChange(Math.max(1, page - 1))}
                   disabled={page <= 1 || loading}
                   className="h-7 px-2"
                 >
@@ -579,7 +628,7 @@ export function AttendanceAuditLogPage() {
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => setPage((p) => Math.min(pagination.totalPages, p + 1))}
+                  onClick={() => handlePageChange(Math.min(pagination.totalPages, page + 1))}
                   disabled={page >= pagination.totalPages || loading}
                   className="h-7 px-2"
                 >

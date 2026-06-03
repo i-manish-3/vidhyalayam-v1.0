@@ -90,14 +90,16 @@ export function FeeReportsPage() {
     <div className="space-y-4 pb-20 sm:pb-0">
       {/* Header */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-xl font-bold tracking-tight leading-tight flex items-center gap-2">
-            <LayoutDashboard className="size-5 text-blue-600" />
-            Fee Reports
-          </h1>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Daily collection, outstanding dues, student statements, and class-wise breakdowns
-          </p>
+        <div className="flex items-stretch gap-3">
+          <span aria-hidden className="bg-brand mt-0.5 w-1 shrink-0 self-stretch rounded-full" />
+          <div>
+            <h1 className="text-xl font-semibold tracking-tight leading-tight text-foreground/90">
+              Fee Reports
+            </h1>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Daily collection, outstanding dues, student statements, and class-wise breakdowns
+            </p>
+          </div>
         </div>
 
         {/* Filters */}

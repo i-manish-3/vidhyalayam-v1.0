@@ -62,6 +62,7 @@ export type ExamAuditAction =
   | 'result_published'
   | 'result_unpublished'
   | 'report_downloaded'
+  | 'admit_card_downloaded'
 
 // PrismaClient for non-transactional calls, Prisma.TransactionClient (the
 // callback param type from interactive `$transaction(async tx => ...)`) for

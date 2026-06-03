@@ -83,7 +83,6 @@ interface SchoolListItem {
   state?: string
   contactPhone?: string
   contactEmail?: string
-  subdomain: string
   status: string
   trialEndsAt?: string
   onboardingDate?: string
@@ -181,20 +180,30 @@ export const STATUS_OPTIONS = [
   { value: 'suspended', label: 'Suspended', color: 'bg-red-100 text-red-800' },
 ]
 
+interface SchoolsListState {
+  search: string
+  statusFilter: string
+  page: number
+}
+
+const SCHOOLS_LIST_STATE_KEY = 'schools:list'
+
 export function SchoolsPage() {
   const router = useRouter()
   const { toast } = useToast()
   const login = useAppStore((s) => s.login)
   const setCurrentSchool = useAppStore((s) => s.setCurrentSchool)
+  const savedListState = useAppStore((s) => s.pageState[SCHOOLS_LIST_STATE_KEY] as SchoolsListState | undefined)
+  const setPageState = useAppStore((s) => s.setPageState)
   const [impersonatingId, setImpersonatingId] = useState<string | null>(null)
   const [schools, setSchools] = useState<SchoolListItem[]>([])
   const [loading, setLoading] = useState(true)
-  const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState('all')
+  const [search, setSearch] = useState(savedListState?.search ?? '')
+  const [statusFilter, setStatusFilter] = useState(savedListState?.statusFilter ?? 'all')
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [deletingSchool, setDeletingSchool] = useState<SchoolListItem | null>(null)
   const [saving, setSaving] = useState(false)
-  const [page, setPage] = useState(1)
+  const [page, setPage] = useState(savedListState?.page ?? 1)
   const [totalPages, setTotalPages] = useState(1)
   const pageSize = 10
   const [resetSchool, setResetSchool] = useState<SchoolListItem | null>(null)
@@ -204,6 +213,15 @@ export function SchoolsPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [resettingPassword, setResettingPassword] = useState(false)
   const [restoringSchoolId, setRestoringSchoolId] = useState<string | null>(null)
+
+  const rememberListState = useCallback((patch: Partial<SchoolsListState>) => {
+    setPageState(SCHOOLS_LIST_STATE_KEY, {
+      search,
+      statusFilter,
+      page,
+      ...patch,
+    })
+  }, [page, search, setPageState, statusFilter])
 
   const fetchData = useCallback(async (page = 1) => {
     try {
@@ -280,6 +298,23 @@ export function SchoolsPage() {
 
   const viewSchool = (schoolId: string) => {
     router.push(`/admin/schools/${schoolId}`)
+  }
+
+  const handleSearchChange = (value: string) => {
+    setSearch(value)
+    setPage(1)
+    rememberListState({ search: value, page: 1 })
+  }
+
+  const handleStatusFilterChange = (value: string) => {
+    setStatusFilter(value)
+    setPage(1)
+    rememberListState({ statusFilter: value, page: 1 })
+  }
+
+  const handlePageChange = (value: number) => {
+    setPage(value)
+    rememberListState({ page: value })
   }
 
   const handleImpersonate = async (school: SchoolListItem) => {
@@ -363,11 +398,11 @@ export function SchoolsPage() {
               <Input
                 placeholder="Search schools by name, city, or email..."
                 value={search}
-                onChange={(e) => { setSearch(e.target.value); setPage(1) }}
+                onChange={(e) => handleSearchChange(e.target.value)}
                 className="pl-9"
               />
             </div>
-            <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1) }}>
+            <Select value={statusFilter} onValueChange={handleStatusFilterChange}>
               <SelectTrigger className="w-full sm:w-[160px]">
                 <SelectValue placeholder="All Status" />
               </SelectTrigger>
@@ -443,7 +478,9 @@ export function SchoolsPage() {
                         </div>
                         <div className="min-w-0">
                           <p className="font-medium text-sm truncate">{school.name}</p>
-                          <p className="text-xs text-muted-foreground truncate">{school.subdomain}</p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {[school.city, school.state].filter(Boolean).join(', ') || school.contactEmail || school.board || 'School'}
+                          </p>
                         </div>
                       </div>
                     </TableCell>
@@ -578,7 +615,7 @@ export function SchoolsPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  onClick={() => handlePageChange(Math.max(1, page - 1))}
                   disabled={page === 1}
                 >
                   <ChevronLeft className="size-4" />
@@ -587,7 +624,7 @@ export function SchoolsPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  onClick={() => handlePageChange(Math.min(totalPages, page + 1))}
                   disabled={page === totalPages}
                 >
                   Next

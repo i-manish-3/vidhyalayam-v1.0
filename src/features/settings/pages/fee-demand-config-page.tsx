@@ -1,8 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { ArrowLeft, Banknote, Calendar, CheckCircle2, Loader2, Lock, MessageCircle, QrCode, Save, Sparkles, Unplug } from 'lucide-react'
+import { Banknote, Calendar, CheckCircle2, Loader2, Lock, MessageCircle, QrCode, Save, Sparkles, Unplug } from 'lucide-react'
 import { api } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
 import { Button } from '@/components/ui/button'
@@ -38,7 +37,7 @@ const UNCHANGED_TOKEN = '__UNCHANGED__'
 
 const DEFAULTS: ConfigState = {
   dueDay: 10,
-  slipNumberFormat: 'DS/{academicYear}/{subdomain}/{month}/{sequence}',
+  slipNumberFormat: 'DS/{academicYear}/{month}/{sequence}',
   lateFeeEnabled: false,
   lateFeeType: 'FLAT',
   lateFeeAmount: 0,
@@ -56,7 +55,6 @@ const DEFAULTS: ConfigState = {
 }
 
 export function FeeDemandConfigPage() {
-  const router = useRouter()
   const { toast } = useToast()
   const [config, setConfig] = useState<ConfigState>(DEFAULTS)
   const [original, setOriginal] = useState<ConfigState>(DEFAULTS)
@@ -183,13 +181,11 @@ export function FeeDemandConfigPage() {
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-start gap-3">
-          <Button variant="ghost" size="sm" onClick={() => router.push('/settings')} className="h-8 w-8 p-0">
-            <ArrowLeft className="size-4" />
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Fee Demand & Reminders</h1>
-            <p className="text-sm text-muted-foreground">
+        <div className="flex min-w-0 items-stretch gap-3">
+          <span aria-hidden className="bg-brand mt-0.5 w-1 shrink-0 self-stretch rounded-full" />
+          <div className="min-w-0">
+            <h1 className="text-xl font-semibold tracking-tight text-foreground/90">Fee Demand &amp; Reminders</h1>
+            <p className="text-sm text-muted-foreground mt-1">
               Configure when monthly demand slips are due, late fee policy, and WhatsApp delivery for parents.
             </p>
           </div>
@@ -284,17 +280,16 @@ function GeneralTab({
             id="slip-format"
             value={config.slipNumberFormat}
             onChange={(e) => setConfig({ ...config, slipNumberFormat: e.target.value })}
-            placeholder="DS/{academicYear}/{subdomain}/{month}/{sequence}"
+            placeholder="DS/{academicYear}/{month}/{sequence}"
           />
           <p className="text-xs text-muted-foreground">
-            Available variables: <code className="rounded bg-muted px-1 py-0.5">{'{academicYear}'}</code>, <code className="rounded bg-muted px-1 py-0.5">{'{subdomain}'}</code>, <code className="rounded bg-muted px-1 py-0.5">{'{month}'}</code>, <code className="rounded bg-muted px-1 py-0.5">{'{year}'}</code>, <code className="rounded bg-muted px-1 py-0.5">{'{sequence}'}</code>
+            Available variables: <code className="rounded bg-muted px-1 py-0.5">{'{academicYear}'}</code>, <code className="rounded bg-muted px-1 py-0.5">{'{month}'}</code>, <code className="rounded bg-muted px-1 py-0.5">{'{year}'}</code>, <code className="rounded bg-muted px-1 py-0.5">{'{sequence}'}</code>
           </p>
           <div className="rounded-md border bg-muted/20 p-2 text-xs">
             <span className="text-muted-foreground">Preview: </span>
             <span className="font-mono">
               {config.slipNumberFormat
                 .replace('{academicYear}', '2026-2027')
-                .replace('{subdomain}', 'SCHOOL')
                 .replace('{month}', 'MAY')
                 .replace('{year}', '2026')
                 .replace('{sequence}', '00001')}
@@ -723,7 +718,6 @@ function BaileysConnectBlock({
                 <p className="text-sm font-medium">Connected</p>
               </div>
             ) : qrDataUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
               <img src={qrDataUrl} alt="WhatsApp QR" className="rounded-md border bg-white p-2" />
             ) : (
               <div className="flex flex-col items-center gap-2 text-muted-foreground">

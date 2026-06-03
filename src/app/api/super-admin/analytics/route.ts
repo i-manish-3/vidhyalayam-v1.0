@@ -77,7 +77,7 @@ export async function GET(request: NextRequest) {
           status: 'trial',
           trialEndsAt: { gte: now, lte: sevenDaysAhead },
         },
-        select: { id: true, name: true, subdomain: true, trialEndsAt: true },
+        select: { id: true, name: true, trialEndsAt: true },
         orderBy: { trialEndsAt: 'asc' },
         take: 5,
       }),
@@ -139,7 +139,6 @@ export async function GET(request: NextRequest) {
       trialExpiryList: recentTrialExpirySchools.map((s) => ({
         id: s.id,
         name: s.name,
-        subdomain: s.subdomain,
         trialEndsAt: s.trialEndsAt,
       })),
     })

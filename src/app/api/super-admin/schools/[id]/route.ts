@@ -66,7 +66,6 @@ export async function GET(
       board: school.board,
       timezone: school.timezone,
       currency: school.currency,
-      subdomain: school.subdomain,
       status: school.status,
       trialEndsAt: school.trialEndsAt,
       onboardingDate: school.onboardingDate,

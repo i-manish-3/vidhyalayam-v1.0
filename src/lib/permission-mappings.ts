@@ -67,6 +67,7 @@ const MODULE_PERMISSION_MAP: Record<string, string[]> = {
   'exam-published-results': ['exam:result:view'],
   'exam-report-card-templates': ['exam:reportcard:manage'],
   'exam-report-card-template-edit': ['exam:reportcard:manage'],
+  'exam-admit-cards': ['exam:admitcard:download'],
   'exam-audit-log': ['exam:audit:view'],
   'teacher-subject-assignments': ['exam:configure', 'role:read'],
   'student-subject-mappings': ['exam:configure', 'student:read'],

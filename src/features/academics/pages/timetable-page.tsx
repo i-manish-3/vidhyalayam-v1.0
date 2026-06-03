@@ -97,6 +97,15 @@ const SUBJECT_COLORS = [
 
 type ViewMode = 'class' | 'teacher'
 
+interface TimetableListState {
+  viewMode?: ViewMode
+  filterClass?: string
+  filterSection?: string
+  filterTeacher?: string
+}
+
+const TIMETABLE_LIST_STATE_KEY = 'academics:timetable:list'
+
 // ─── Main Component ──────────────────────────────────────────────────────────
 
 export function TimetablePage() {
@@ -111,6 +120,8 @@ export function TimetablePage() {
   const workingDaysRaw = useAppStore((s) => s.currentSchool?.workingDays)
   const DAYS = useMemo(() => parseWorkingDays(workingDaysRaw), [workingDaysRaw])
   const currentUser = useAppStore((s) => s.user)
+  const savedListState = useAppStore((s) => s.pageState[TIMETABLE_LIST_STATE_KEY] as TimetableListState | undefined)
+  const setPageState = useAppStore((s) => s.setPageState)
   const isTeacherRole = currentUser?.role === 'TEACHER'
   const { hasPermission } = usePermissions()
   const canCreate = hasPermission(PERMISSIONS.TIMETABLE_CREATE)
@@ -128,10 +139,10 @@ export function TimetablePage() {
   const [loading, setLoading] = useState(true)
 
   // View
-  const [viewMode, setViewMode] = useState<ViewMode>('class')
-  const [filterClass, setFilterClass] = useState('')
-  const [filterSection, setFilterSection] = useState('')
-  const [filterTeacher, setFilterTeacher] = useState('')
+  const [viewMode, setViewMode] = useState<ViewMode>(savedListState?.viewMode ?? 'class')
+  const [filterClass, setFilterClass] = useState(savedListState?.filterClass ?? '')
+  const [filterSection, setFilterSection] = useState(savedListState?.filterSection ?? '')
+  const [filterTeacher, setFilterTeacher] = useState(savedListState?.filterTeacher ?? '')
 
   // Dialogs
   const [showAdd, setShowAdd] = useState(false)
@@ -202,8 +213,45 @@ export function TimetablePage() {
     if (!isTeacherRole) return
     if (ownTeacher && filterTeacher !== ownTeacher.id) {
       setFilterTeacher(ownTeacher.id)
+      setPageState(TIMETABLE_LIST_STATE_KEY, {
+        viewMode,
+        filterClass,
+        filterSection,
+        filterTeacher: ownTeacher.id,
+      })
     }
-  }, [isTeacherRole, ownTeacher, filterTeacher])
+  }, [filterClass, filterSection, filterTeacher, isTeacherRole, ownTeacher, setPageState, viewMode])
+
+  const rememberListState = (patch: Partial<TimetableListState>) => {
+    setPageState(TIMETABLE_LIST_STATE_KEY, {
+      viewMode,
+      filterClass,
+      filterSection,
+      filterTeacher,
+      ...patch,
+    })
+  }
+
+  const handleViewModeChange = (value: ViewMode) => {
+    setViewMode(value)
+    rememberListState({ viewMode: value })
+  }
+
+  const handleFilterClassChange = (value: string) => {
+    setFilterClass(value)
+    setFilterSection('')
+    rememberListState({ filterClass: value, filterSection: '' })
+  }
+
+  const handleFilterSectionChange = (value: string) => {
+    setFilterSection(value)
+    rememberListState({ filterSection: value })
+  }
+
+  const handleFilterTeacherChange = (value: string) => {
+    setFilterTeacher(value)
+    rememberListState({ filterTeacher: value })
+  }
 
   // ── Filtered sections ──
   const availableSections = useMemo(() =>
@@ -411,7 +459,7 @@ export function TimetablePage() {
                   'px-3 py-1.5 text-xs font-medium rounded-md transition-colors',
                   viewMode === 'class' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground'
                 )}
-                onClick={() => setViewMode('class')}
+                onClick={() => handleViewModeChange('class')}
               >
                 <GraduationCap className="size-3.5 inline mr-1.5" />
                 By Class
@@ -421,7 +469,7 @@ export function TimetablePage() {
                   'px-3 py-1.5 text-xs font-medium rounded-md transition-colors',
                   viewMode === 'teacher' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground'
                 )}
-                onClick={() => setViewMode('teacher')}
+                onClick={() => handleViewModeChange('teacher')}
               >
                 <Users className="size-3.5 inline mr-1.5" />
                 By Teacher
@@ -430,7 +478,7 @@ export function TimetablePage() {
 
             {viewMode === 'class' ? (
               <div className="flex flex-wrap items-center gap-3">
-                <Select value={filterClass} onValueChange={v => { setFilterClass(v); setFilterSection('') }}>
+                <Select value={filterClass} onValueChange={handleFilterClassChange}>
                   <SelectTrigger className="w-[180px] h-9">
                     <SelectValue placeholder="Select Class" />
                   </SelectTrigger>
@@ -441,7 +489,7 @@ export function TimetablePage() {
                   </SelectContent>
                 </Select>
                 {filterClass && (
-                  <Select value={filterSection} onValueChange={setFilterSection}>
+                  <Select value={filterSection} onValueChange={handleFilterSectionChange}>
                     <SelectTrigger className="w-[180px] h-9">
                       <SelectValue placeholder="Select Section" />
                     </SelectTrigger>
@@ -466,7 +514,7 @@ export function TimetablePage() {
                     <Badge variant="outline" className="ml-1 text-[10px]">You</Badge>
                   </div>
                 ) : (
-                  <Select value={filterTeacher} onValueChange={setFilterTeacher}>
+                  <Select value={filterTeacher} onValueChange={handleFilterTeacherChange}>
                     <SelectTrigger className="w-[220px] h-9">
                       <SelectValue placeholder="Select Teacher" />
                     </SelectTrigger>

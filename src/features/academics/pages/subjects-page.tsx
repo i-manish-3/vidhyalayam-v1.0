@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { PageHeader, EmptyState, LoadingState } from '@/components/shared'
 import { api } from '@/lib/api'
+import { useAppStore } from '@/lib/store'
 import { useToast } from '@/hooks/use-toast'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -78,18 +79,37 @@ interface ClassItem {
   name: string | null
 }
 
+interface SubjectsListState {
+  searchQuery: string
+  selectedClassId: string
+  selectedType: string
+}
+
+const SUBJECTS_LIST_STATE_KEY = 'academics:subjects:list'
+
 export function SubjectsPage() {
   const router = useRouter()
   const { toast } = useToast()
+  const savedListState = useAppStore((s) => s.pageState[SUBJECTS_LIST_STATE_KEY] as SubjectsListState | undefined)
+  const setPageState = useAppStore((s) => s.setPageState)
   const [subjects, setSubjects] = useState<Subject[]>([])
   const [classes, setClasses] = useState<ClassItem[]>([])
   const [loading, setLoading] = useState(true)
   const [filtering, setFiltering] = useState(false)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [selectedClassId, setSelectedClassId] = useState<string>('all')
-  const [selectedType, setSelectedType] = useState<string>('all')
+  const [searchQuery, setSearchQuery] = useState(savedListState?.searchQuery ?? '')
+  const [selectedClassId, setSelectedClassId] = useState<string>(savedListState?.selectedClassId ?? 'all')
+  const [selectedType, setSelectedType] = useState<string>(savedListState?.selectedType ?? 'all')
   const [deleteSubject, setDeleteSubject] = useState<Subject | null>(null)
   const [deleting, setDeleting] = useState(false)
+
+  const rememberListState = useCallback((patch: Partial<SubjectsListState>) => {
+    setPageState(SUBJECTS_LIST_STATE_KEY, {
+      searchQuery,
+      selectedClassId,
+      selectedType,
+      ...patch,
+    })
+  }, [searchQuery, selectedClassId, selectedType, setPageState])
 
   const fetchClasses = useCallback(async () => {
     try {
@@ -117,13 +137,37 @@ export function SubjectsPage() {
 
   useEffect(() => {
     fetchClasses()
-    fetchData()
+    fetchData(selectedClassId)
   }, [fetchClasses, fetchData])
 
   const handleClassFilter = (classId: string) => {
     setSelectedClassId(classId)
+    rememberListState({ selectedClassId: classId })
     setFiltering(true)
     fetchData(classId)
+  }
+
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value)
+    rememberListState({ searchQuery: value })
+  }
+
+  const handleTypeChange = (value: string) => {
+    setSelectedType(value)
+    rememberListState({ selectedType: value })
+  }
+
+  const clearSearch = () => {
+    setSearchQuery('')
+    rememberListState({ searchQuery: '' })
+  }
+
+  const clearFilters = () => {
+    setSelectedType('all')
+    setSelectedClassId('all')
+    rememberListState({ selectedType: 'all', selectedClassId: 'all' })
+    setFiltering(true)
+    fetchData('all')
   }
 
   const handleEdit = (subject: Subject) => {
@@ -197,13 +241,13 @@ export function SubjectsPage() {
                 <Input
                   placeholder="Search subject, code, type, or class"
                   value={searchQuery}
-                  onChange={(event) => setSearchQuery(event.target.value)}
+                  onChange={(event) => handleSearchChange(event.target.value)}
                   className="h-9 bg-background pl-9 pr-9"
                 />
                 {searchQuery && (
                   <button
                     type="button"
-                    onClick={() => setSearchQuery('')}
+                    onClick={clearSearch}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
                     aria-label="Clear search"
                   >
@@ -213,7 +257,7 @@ export function SubjectsPage() {
               </div>
 
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                <Select value={selectedType} onValueChange={setSelectedType}>
+                <Select value={selectedType} onValueChange={handleTypeChange}>
                   <SelectTrigger className="h-9 w-full bg-background sm:w-[150px]">
                     <SelectValue placeholder="Subject type" />
                   </SelectTrigger>
@@ -254,10 +298,7 @@ export function SubjectsPage() {
                     variant="outline"
                     size="icon"
                     className="size-9"
-                    onClick={() => {
-                      setSelectedType('all')
-                      handleClassFilter('all')
-                    }}
+                    onClick={clearFilters}
                     aria-label="Clear filters"
                   >
                     <X className="size-3.5" />
@@ -283,7 +324,7 @@ export function SubjectsPage() {
             title="No subjects found"
             description={`No subjects found${selectedClassName ? ` for ${selectedClassName}` : ''}${selectedTypeLabel ? ` of type ${selectedTypeLabel}` : ''}.`}
             actionLabel="Clear filters"
-            onAction={() => { setSelectedType('all'); handleClassFilter('all') }}
+            onAction={clearFilters}
           />
         ) : filteredSubjects.length === 0 ? (
           <EmptySearch
@@ -291,7 +332,7 @@ export function SubjectsPage() {
             title="No subjects found"
             description={`No subject matches "${searchQuery}".`}
             actionLabel="Clear search"
-            onAction={() => setSearchQuery('')}
+            onAction={clearSearch}
           />
         ) : (
           <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 2xl:grid-cols-3">
@@ -301,10 +342,10 @@ export function SubjectsPage() {
             const classCount = subject.classes?.length || 0
 
             return (
-              <Card key={subject.id} className="group gap-0 overflow-hidden py-0 shadow-sm transition-all hover:border-primary/30 hover:shadow-md">
+              <Card key={subject.id} className="card-premium group gap-0 overflow-hidden border-0 py-0">
                 <CardContent className="p-0">
                   <div className="flex items-start gap-3 border-b bg-muted/20 p-4">
-                    <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    <div className="bg-brand-soft flex size-10 shrink-0 items-center justify-center rounded-lg text-white shadow-sm">
                       <IconComponent className="size-5" />
                     </div>
                     <div className="min-w-0 flex-1">
@@ -428,9 +469,9 @@ export function SubjectsPage() {
 
 function StatCard({ icon: Icon, label, value, note }: { icon: typeof BookMarked; label: string; value: number; note: string }) {
   return (
-    <Card className="gap-0 py-0 shadow-sm">
+    <Card className="card-premium gap-0 border-0 py-0">
       <CardContent className="flex items-center gap-3 p-3">
-        <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+        <div className="bg-brand-soft flex size-9 shrink-0 items-center justify-center rounded-lg text-white shadow-sm">
           <Icon className="size-4.5" />
         </div>
         <div className="min-w-0">

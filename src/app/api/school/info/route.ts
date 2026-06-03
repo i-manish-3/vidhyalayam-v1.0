@@ -4,51 +4,6 @@ import { requireRole } from '@/lib/api-auth'
 import { apiError, internalError, unauthorizedError } from '@/lib/api-errors'
 import { uploadIfDataUrl, IMAGE_MIME_TYPES, IMAGE_MIME_TYPES_WITH_ICO } from '@/lib/storage'
 
-// Public endpoint — no auth required
-// Fetches school info by subdomain for the login page
-export async function GET(req: NextRequest) {
-  const subdomain = req.nextUrl.searchParams.get('subdomain')
-
-  if (!subdomain) {
-    return apiError(400, 'Please provide a school subdomain.')
-  }
-
-  const school = await db.school.findUnique({
-    where: { subdomain },
-    select: {
-      id: true,
-      name: true,
-      logo: true,
-      favicon: true,
-      printHeader: true,
-      registrationNumber: true,
-      udiseNumber: true,
-      affiliationNumber: true,
-      establishedYear: true,
-      principalSignature: true,
-      subdomain: true,
-      status: true,
-      primaryColor: true,
-      dashboardFont: true,
-      address: true,
-      city: true,
-      state: true,
-      pincode: true,
-      country: true,
-      board: true,
-      contactPhone: true,
-      contactEmail: true,
-      website: true,
-    },
-  })
-
-  if (!school) {
-    return apiError(404, 'We couldn\'t find a school with this subdomain. Please check the URL and try again.')
-  }
-
-  return NextResponse.json({ school })
-}
-
 export async function PATCH(req: NextRequest) {
   try {
     const user = requireRole(req, ['SCHOOL_ADMIN'])
@@ -159,7 +114,6 @@ export async function PATCH(req: NextRequest) {
         affiliationNumber: true,
         establishedYear: true,
         principalSignature: true,
-        subdomain: true,
         status: true,
         primaryColor: true,
         dashboardFont: true,

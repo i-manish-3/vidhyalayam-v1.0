@@ -13,6 +13,7 @@ export type PageName =
   | 'exam-marks-entry' | 'exam-grade-scales' | 'exam-grade-scale-edit'
   | 'exam-result-preview' | 'exam-published-results'
   | 'exam-report-card-templates' | 'exam-report-card-template-edit'
+  | 'exam-admit-cards'
   | 'exam-audit-log' | 'teacher-subject-assignments' | 'student-subject-mappings'
   | 'transport' | 'add-transport-route' | 'edit-transport-route' | 'transport-annual-setup' | 'drivers' | 'add-driver' | 'library' | 'inventory' | 'petty-cash'
   | 'notifications' | 'announcements'
@@ -56,7 +57,6 @@ export interface School {
   contactPhone?: string
   contactEmail?: string
   website?: string
-  subdomain: string
   status: string
   primaryColor?: string
   dashboardFont?: string
@@ -102,7 +102,13 @@ interface AcademicYearContextState {
   setViewingAcademicYear: (year: string | null) => void
 }
 
-type AppStore = AuthState & NavigationState & SchoolState & AcademicYearContextState
+interface PageMemoryState {
+  pageState: Record<string, unknown>
+  setPageState: <T>(key: string, value: T) => void
+  clearPageState: (key: string) => void
+}
+
+type AppStore = AuthState & NavigationState & SchoolState & AcademicYearContextState & PageMemoryState
 
 // Avatars (and other potentially large base64 blobs) are stripped before
 // persisting to localStorage — a single 2 MB base64 image easily blows past
@@ -157,6 +163,7 @@ export const useAppStore = create<AppStore>((set) => ({
       permissions: [],
       permissionsLoaded: false,
       viewingAcademicYear: null,
+      pageState: {},
     })
   },
   setPermissions: (permissions) => {
@@ -204,6 +211,17 @@ export const useAppStore = create<AppStore>((set) => ({
     }
     set({ viewingAcademicYear: year })
   },
+
+  // Transient page memory. This is intentionally not persisted, so refresh clears it.
+  pageState: {},
+  setPageState: (key, value) => set((state) => ({
+    pageState: { ...state.pageState, [key]: value },
+  })),
+  clearPageState: (key) => set((state) => {
+    const next = { ...state.pageState }
+    delete next[key]
+    return { pageState: next }
+  }),
 }))
 
 // Initialize from localStorage on client.

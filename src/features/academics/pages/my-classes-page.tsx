@@ -114,6 +114,12 @@ function roleBadgeLabel(role: TeacherRole) {
   return 'Subject Teacher'
 }
 
+interface MyClassesListState {
+  searchQuery?: string
+}
+
+const MY_CLASSES_LIST_STATE_KEY = 'academics:my-classes:list'
+
 export function MyClassesPage() {
   const router = useRouter()
   const { toast } = useToast()
@@ -121,10 +127,12 @@ export function MyClassesPage() {
   const viewingAcademicYear = useAppStore((s) => s.viewingAcademicYear)
   const academicYear = viewingAcademicYear || currentSchoolAcademicYear || getCurrentAcademicYear()
   const DAYS = useAppStore((s) => parseWorkingDays(s.currentSchool?.workingDays))
+  const savedListState = useAppStore((s) => s.pageState[MY_CLASSES_LIST_STATE_KEY] as MyClassesListState | undefined)
+  const setPageState = useAppStore((s) => s.setPageState)
   const [classes, setClasses] = useState<MyClassItem[]>([])
   const [teacherId, setTeacherId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
-  const [searchQuery, setSearchQuery] = useState('')
+  const [searchQuery, setSearchQuery] = useState(savedListState?.searchQuery ?? '')
   const [timetableClass, setTimetableClass] = useState<MyClassItem | null>(null)
   const [selectedTimetableSectionId, setSelectedTimetableSectionId] = useState('')
   const [timetableEntries, setTimetableEntries] = useState<TimetableEntry[]>([])
@@ -188,6 +196,11 @@ export function MyClassesPage() {
       }),
     [classes, searchQuery]
   )
+
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value)
+    setPageState(MY_CLASSES_LIST_STATE_KEY, { searchQuery: value })
+  }
 
   const selectedTimetableSection = useMemo(
     () => timetableClass?.sections.find((section) => section.id === selectedTimetableSectionId) || null,
@@ -281,13 +294,13 @@ export function MyClassesPage() {
                 <Input
                   placeholder="Search class, section, or subject"
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onChange={(e) => handleSearchChange(e.target.value)}
                   className="h-9 bg-background pl-9 pr-9"
                 />
                 {searchQuery && (
                   <button
                     type="button"
-                    onClick={() => setSearchQuery('')}
+                    onClick={() => handleSearchChange('')}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
                     aria-label="Clear search"
                   >
@@ -315,7 +328,7 @@ export function MyClassesPage() {
             <Search className="mb-3 size-10 text-muted-foreground/40" />
             <p className="text-sm font-medium">No classes found</p>
             <p className="mt-1 text-sm text-muted-foreground">No class matches &ldquo;{searchQuery}&rdquo;.</p>
-            <Button variant="link" size="sm" onClick={() => setSearchQuery('')} className="mt-1">
+            <Button variant="link" size="sm" onClick={() => handleSearchChange('')} className="mt-1">
               Clear search
             </Button>
           </CardContent>

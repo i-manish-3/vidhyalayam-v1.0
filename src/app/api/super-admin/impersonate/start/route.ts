@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
 
     const school = await db.school.findFirst({
       where: { id: schoolId, deletedAt: null },
-      select: { id: true, name: true, subdomain: true },
+      select: { id: true, name: true },
     })
     if (!school) return apiError(404, 'School not found.')
 

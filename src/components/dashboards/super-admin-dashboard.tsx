@@ -51,14 +51,13 @@ interface Analytics {
   newContactRequests: number
   growthByMonth: { month: string; schools: number }[]
   statusBreakdown: { name: string; value: number }[]
-  trialExpiryList: { id: string; name: string; subdomain: string; trialEndsAt: string | null }[]
+  trialExpiryList: { id: string; name: string; trialEndsAt: string | null }[]
 }
 
 interface SchoolOption {
   id: string
   name: string
   status: string
-  subdomain: string
   studentCount?: number
   teacherCount?: number
   createdAt?: string
@@ -92,9 +91,9 @@ interface HeroStatProps {
 
 const TONES: Record<NonNullable<HeroStatProps['tone']>, { bg: string; ring: string; text: string }> = {
   emerald: {
-    bg: 'bg-emerald-500/10',
-    ring: 'ring-emerald-500/20',
-    text: 'text-emerald-600 dark:text-emerald-400',
+    bg: 'bg-primary/10',
+    ring: 'ring-primary/20',
+    text: 'text-primary',
   },
   blue: {
     bg: 'bg-sky-500/10',
@@ -559,7 +558,7 @@ export function SuperAdminDashboard() {
                         </div>
                         <div className="min-w-0">
                           <p className="text-sm font-medium truncate">{s.name}</p>
-                          <p className="text-[11px] text-muted-foreground truncate">{s.subdomain}.vidhyalayam.com</p>
+                          <p className="text-[11px] text-muted-foreground truncate">Trial school</p>
                         </div>
                       </div>
                       <Badge
@@ -616,7 +615,7 @@ export function SuperAdminDashboard() {
                       <div className="min-w-0">
                         <p className="text-sm font-medium truncate">{school.name}</p>
                         <p className="text-[11px] text-muted-foreground truncate">
-                          {school.subdomain}.vidhyalayam.com
+                          {(school.studentCount ?? 0).toLocaleString()} students | {(school.teacherCount ?? 0).toLocaleString()} teachers
                         </p>
                       </div>
                     </div>

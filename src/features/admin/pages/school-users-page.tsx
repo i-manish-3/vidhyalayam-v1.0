@@ -118,6 +118,12 @@ interface UserWithRoleCount extends SchoolUser {
   roleCount: number
 }
 
+interface SchoolUsersListState {
+  userSearch?: string
+}
+
+const SCHOOL_USERS_LIST_STATE_KEY = 'admin:school-users:list'
+
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const ROLE_BADGE_COLORS: Record<string, string> = {
@@ -484,6 +490,8 @@ function ReadOnlyModuleCard({
 export function SchoolUsersPage() {
   const { toast } = useToast()
   const user = useAppStore((s) => s.user)
+  const savedListState = useAppStore((s) => s.pageState[SCHOOL_USERS_LIST_STATE_KEY] as SchoolUsersListState | undefined)
+  const setPageState = useAppStore((s) => s.setPageState)
 
   // Data state
   const [users, setUsers] = useState<UserWithRoleCount[]>([])
@@ -494,7 +502,7 @@ export function SchoolUsersPage() {
   const [userPermissions, setUserPermissions] = useState<UserPermissionsResponse | null>(null)
 
   // UI state
-  const [userSearch, setUserSearch] = useState('')
+  const [userSearch, setUserSearch] = useState(savedListState?.userSearch ?? '')
   const [loadingUsers, setLoadingUsers] = useState(true)
   const [loadingDetail, setLoadingDetail] = useState(false)
 
@@ -758,6 +766,11 @@ export function SchoolUsersPage() {
     )
   }, [users, userSearch])
 
+  const handleUserSearchChange = (value: string) => {
+    setUserSearch(value)
+    setPageState(SCHOOL_USERS_LIST_STATE_KEY, { userSearch: value })
+  }
+
   const selectedUser = useMemo(
     () => users.find((u) => u.id === selectedUserId) ?? null,
     [users, selectedUserId]
@@ -861,7 +874,7 @@ export function SchoolUsersPage() {
                 <Input
                   placeholder="Search users..."
                   value={userSearch}
-                  onChange={(e) => setUserSearch(e.target.value)}
+                  onChange={(e) => handleUserSearchChange(e.target.value)}
                   className="pl-8 h-8 text-sm"
                 />
               </div>

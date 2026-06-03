@@ -90,7 +90,7 @@ export async function nextSequentialDemandSlipNumber(
   const monthAbbr = MONTH_ABBR[month - 1] || 'XXX'
 
   // Use custom format or default
-  const format = config?.slipNumberFormat || 'DS/{academicYear}/{subdomain}/{month}/{sequence}'
+  const format = config?.slipNumberFormat || 'DS/{academicYear}/{month}/{sequence}'
 
   // Replace template variables (except {sequence})
   const prefix = format

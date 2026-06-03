@@ -55,7 +55,6 @@ interface SchoolInfo {
   name: string
   city?: string
   status: string
-  subdomain?: string
   _count?: { students: number }
 }
 
@@ -73,6 +72,12 @@ interface SchoolPermissionsResponse {
     grantedAt: string
   }>
 }
+
+interface SuperAdminPermissionsListState {
+  schoolSearch?: string
+}
+
+const SUPER_ADMIN_PERMISSIONS_LIST_STATE_KEY = 'admin:super-admin-permissions:list'
 
 // ─── Module icon mapping ─────────────────────────────────────────────────────
 
@@ -461,6 +466,8 @@ function ModulePermissionsCard({
 export function SuperAdminPermissionsPage() {
   const { toast } = useToast()
   const user = useAppStore((s) => s.user)
+  const savedListState = useAppStore((s) => s.pageState[SUPER_ADMIN_PERMISSIONS_LIST_STATE_KEY] as SuperAdminPermissionsListState | undefined)
+  const setPageState = useAppStore((s) => s.setPageState)
 
   // Data state
   const [schools, setSchools] = useState<SchoolInfo[]>([])
@@ -470,7 +477,7 @@ export function SuperAdminPermissionsPage() {
   const [originalGrantedIds, setOriginalGrantedIds] = useState<Set<string>>(new Set())
 
   // UI state
-  const [schoolSearch, setSchoolSearch] = useState('')
+  const [schoolSearch, setSchoolSearch] = useState(savedListState?.schoolSearch ?? '')
   const [loadingSchools, setLoadingSchools] = useState(true)
   const [loadingPermissions, setLoadingPermissions] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -575,10 +582,14 @@ export function SuperAdminPermissionsPage() {
     return schools.filter(
       (s) =>
         s.name.toLowerCase().includes(q) ||
-        s.city?.toLowerCase().includes(q) ||
-        s.subdomain?.toLowerCase().includes(q)
+        s.city?.toLowerCase().includes(q)
     )
   }, [schools, schoolSearch])
+
+  const handleSchoolSearchChange = (value: string) => {
+    setSchoolSearch(value)
+    setPageState(SUPER_ADMIN_PERMISSIONS_LIST_STATE_KEY, { schoolSearch: value })
+  }
 
   const totalPermissionCount = useMemo(
     () => Object.values(allPermissions).reduce((sum, perms) => sum + perms.length, 0),
@@ -616,7 +627,7 @@ export function SuperAdminPermissionsPage() {
         <div className="p-4">
           <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
             <div className="space-y-2">
-              <Badge variant="secondary" className="w-fit gap-2 bg-primary/10 text-primary hover:bg-primary/10">
+              <Badge variant="brand" className="w-fit gap-2">
                 <Sparkles className="size-3.5" />
                 Super Admin Control
               </Badge>
@@ -657,7 +668,7 @@ export function SuperAdminPermissionsPage() {
                 <Input
                   placeholder="Search schools..."
                   value={schoolSearch}
-                  onChange={(e) => setSchoolSearch(e.target.value)}
+                  onChange={(e) => handleSchoolSearchChange(e.target.value)}
                   className="pl-8 h-8 text-sm"
                 />
               </div>

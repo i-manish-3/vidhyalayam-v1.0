@@ -19,12 +19,12 @@ interface StatsCardProps {
 
 export function StatsCard({ title, value, description, icon: Icon, trend, className }: StatsCardProps) {
   return (
-    <Card className={cn('relative overflow-hidden', className)}>
+    <Card className={cn('card-premium relative overflow-hidden border-0 p-0', className)}>
       <CardContent className="p-6">
-        <div className="flex items-center justify-between">
-          <div className="space-y-2">
+        <div className="flex items-center justify-between gap-4">
+          <div className="min-w-0 space-y-2">
             <p className="text-sm font-medium text-muted-foreground">{title}</p>
-            <p className="text-3xl font-bold tracking-tight">{value}</p>
+            <p className="text-3xl font-bold tracking-tight tabular-nums">{value}</p>
             {trend && (
               <div className="flex items-center gap-1 text-xs">
                 {trend.isPositive ? (
@@ -44,12 +44,12 @@ export function StatsCard({ title, value, description, icon: Icon, trend, classN
               <p className="text-xs text-muted-foreground">{description}</p>
             )}
           </div>
-          <div className="flex size-12 items-center justify-center rounded-xl bg-primary/10">
-            <Icon className="size-6 text-primary" />
+          <div className="bg-brand-soft flex size-12 shrink-0 items-center justify-center rounded-xl text-white shadow-sm">
+            <Icon className="size-6" />
           </div>
         </div>
       </CardContent>
-      <div className="absolute bottom-0 left-0 h-1 w-full bg-gradient-to-r from-primary/60 via-primary to-primary/40" />
+      <div className="bg-brand absolute bottom-0 left-0 h-1 w-full opacity-90" />
     </Card>
   )
 }

@@ -144,9 +144,11 @@ export function AddSubjectPage() {
 
       {/* Form */}
       <Card className="gap-0 py-0 shadow-sm">
-        <CardHeader className="border-b bg-muted/20 px-4 py-2.5">
+        <CardHeader className="border-b px-4 py-3">
           <CardTitle className="text-sm flex items-center gap-2">
-            <BookOpen className="size-4" />
+            <span className="bg-brand-soft flex size-8 shrink-0 items-center justify-center rounded-lg text-white shadow-sm">
+              <BookOpen className="size-4" />
+            </span>
             Subject Details
           </CardTitle>
           <CardDescription className="text-xs">
@@ -156,11 +158,11 @@ export function AddSubjectPage() {
         <CardContent className="p-4">
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Subject Information */}
-            <div>
-              <h3 className="text-sm font-semibold mb-2 flex items-center gap-2">
-                <div className="size-1.5 rounded-full bg-primary" />
-                Subject Information
-              </h3>
+            <section className="rounded-xl border bg-muted/20 p-4 space-y-3">
+              <div className="flex items-center gap-2 border-b pb-2.5">
+                <span aria-hidden className="bg-brand h-4 w-1 shrink-0 rounded-full" />
+                <h3 className="text-sm font-semibold tracking-tight">Subject Information</h3>
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {/* Subject Name */}
                 <div className="space-y-1">
@@ -238,15 +240,15 @@ export function AddSubjectPage() {
                   <p className="text-[11px] text-muted-foreground">Category of this subject</p>
                 </div>
               </div>
-            </div>
+            </section>
 
             {/* Class Assignment */}
-            <div>
-              <h3 className="text-sm font-semibold mb-2 flex items-center gap-2">
-                <div className="size-1.5 rounded-full bg-primary" />
-                <GraduationCap className="size-4" />
-                Assign to Classes
-              </h3>
+            <section className="rounded-xl border bg-muted/20 p-4 space-y-3">
+              <div className="flex items-center gap-2 border-b pb-2.5">
+                <span aria-hidden className="bg-brand h-4 w-1 shrink-0 rounded-full" />
+                <GraduationCap className="size-4 text-primary" />
+                <h3 className="text-sm font-semibold tracking-tight">Assign to Classes</h3>
+              </div>
               <div className="space-y-2">
                 <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                   <p className="text-[11px] text-muted-foreground">
@@ -298,7 +300,7 @@ export function AddSubjectPage() {
                   </p>
                 )}
               </div>
-            </div>
+            </section>
 
             {/* Action Buttons */}
             <div className="flex items-center gap-2 border-t pt-3">

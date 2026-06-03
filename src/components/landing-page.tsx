@@ -310,7 +310,7 @@ const DEFAULT_HIGHLIGHTS = ['Data migration included', 'Free setup & onboarding'
 const DEFAULT_ADDONS = [
   { id: 'salary_payroll', icon: Wallet, name: 'Salary & Payroll', desc: 'Complete payroll processing, salary structures, advance management & payslips', price: '₹25/staff/month', priceLabel: 'per staff / month', type: 'recurring' as const },
   { id: 'premium_feature', icon: Crown, name: 'Premium Features', desc: 'Advanced analytics, AI-powered insights, custom reports & priority feature requests', price: '₹1,000', priceLabel: 'one-time', type: 'one_time' as const },
-  { id: 'custom_branding', icon: Palette, name: 'Custom Branding', desc: 'Your school logo, colors, subdomain & white-labeled experience', price: '₹1,000', priceLabel: 'one-time', type: 'one_time' as const },
+  { id: 'custom_branding', icon: Palette, name: 'Custom Branding', desc: 'Your school logo, colors & white-labeled experience', price: '₹1,000', priceLabel: 'one-time', type: 'one_time' as const },
   { id: 'school_landing_page', icon: Globe, name: 'School Landing Page', desc: 'Professional website with admission inquiry form & SEO optimization', price: '₹1,500', priceLabel: 'one-time', type: 'one_time' as const },
 ]
 

@@ -207,7 +207,6 @@ export async function POST(request: NextRequest) {
               name: user.school.name,
               logo: user.school.logo,
               status: user.school.status,
-              subdomain: user.school.subdomain,
               primaryColor: user.school.primaryColor,
               academicYear: user.school.academicYear,
             }

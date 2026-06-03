@@ -416,6 +416,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [currentHour, setCurrentHour] = useState(() => new Date().getHours())
   const [showProfileDialog, setShowProfileDialog] = useState(false)
   const [savingAvatar, setSavingAvatar] = useState(false)
+  const [profileName, setProfileName] = useState('')
+  const [savingName, setSavingName] = useState(false)
   const avatarInputRef = useRef<HTMLInputElement>(null)
 
   const initials = user?.name
@@ -626,9 +628,43 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     }
   }
 
+  const handleNameSave = async () => {
+    const trimmed = profileName.trim()
+    if (trimmed.length < 2) {
+      toast({ title: 'Name Too Short', description: 'Please enter at least 2 characters.', variant: 'destructive' })
+      return
+    }
+    if (trimmed === (user?.name || '')) return
+    try {
+      setSavingName(true)
+      const res = await api.patch<{ user: StoreUser }>('/api/auth/profile', { name: trimmed })
+      if (res?.user) {
+        useAppStore.setState({ user: res.user })
+        if (typeof window !== 'undefined') {
+          const { avatar: _avatar, ...slim } = res.user
+          void _avatar
+          try {
+            localStorage.setItem('erp_user', JSON.stringify(slim))
+          } catch {
+            // Non-fatal
+          }
+        }
+      }
+      toast({ title: 'Name Updated', description: 'Your display name has been updated.' })
+    } catch (err) {
+      toast({
+        title: "Couldn't Update Name",
+        description: err instanceof Error ? err.message : 'Please try again.',
+        variant: 'destructive',
+      })
+    } finally {
+      setSavingName(false)
+    }
+  }
+
   return (
     <div className="fixed inset-0 flex flex-col overflow-hidden bg-background font-sans" style={schoolThemeStyle}>
-      <header className="shrink-0 flex h-14 items-center gap-3 border-b border-primary/30 bg-primary text-primary-foreground shadow-sm px-3 lg:px-4 z-30 dark:border-sidebar-border dark:bg-sidebar dark:text-sidebar-foreground">
+      <header className="shrink-0 flex h-14 items-center gap-3 border-b border-primary/30 bg-primary bg-brand-header text-primary-foreground shadow-sm px-3 lg:px-4 z-30 dark:border-sidebar-border dark:bg-sidebar dark:text-sidebar-foreground">
         <TooltipProvider delayDuration={0}>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -748,7 +784,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <div className="flex flex-1 min-h-0">
         <AppSidebar />
 
-        <main className="flex-1 min-w-0 overflow-y-auto flex flex-col">
+        <main className="flex-1 min-w-0 overflow-y-auto flex flex-col bg-brand-page">
           <ImpersonationBanner />
           <PastYearGlobalBanner />
           <div className="flex-1 p-4 lg:p-6">
@@ -770,6 +806,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       <Dialog open={showProfileDialog} onOpenChange={(open) => {
         setShowProfileDialog(open)
+        if (open) {
+          setProfileName(user?.name || '')
+        }
         if (!open) {
           setCurrentPassword('')
           setNewPassword('')
@@ -779,7 +818,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <DialogContent className="flex max-h-[90svh] flex-col overflow-hidden p-0 sm:max-w-lg">
           <DialogHeader className="shrink-0 border-b px-6 py-5 pr-12">
             <DialogTitle className="flex items-center gap-2">
-              <User className="size-4" />
+              <span className="bg-brand-soft flex size-8 shrink-0 items-center justify-center rounded-lg text-white shadow-sm">
+                <User className="size-4" />
+              </span>
               My Profile
             </DialogTitle>
             <DialogDescription>
@@ -789,7 +830,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
           <div className="themed-scrollbar min-h-0 flex-1 space-y-6 overflow-y-auto overscroll-contain px-6 py-5 pr-7">
             <section className="space-y-3">
-              <h3 className="text-sm font-semibold">Profile Photo</h3>
+              <h3 className="flex items-center gap-2 text-sm font-semibold">
+                <span aria-hidden className="bg-brand h-4 w-1 shrink-0 rounded-full" />
+                Profile Photo
+              </h3>
               <input
                 ref={avatarInputRef}
                 type="file"
@@ -840,6 +884,34 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
             <section className="space-y-3">
               <h3 className="flex items-center gap-2 text-sm font-semibold">
+                <span aria-hidden className="bg-brand h-4 w-1 shrink-0 rounded-full" />
+                Display Name
+              </h3>
+              <div className="space-y-3 rounded-lg border bg-muted/20 p-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="profile-name">Full Name</Label>
+                  <Input
+                    id="profile-name"
+                    value={profileName}
+                    onChange={(event) => setProfileName(event.target.value)}
+                    placeholder="Enter your name"
+                    maxLength={80}
+                    autoComplete="name"
+                  />
+                </div>
+                <Button
+                  onClick={handleNameSave}
+                  disabled={savingName || profileName.trim().length < 2 || profileName.trim() === (user?.name || '')}
+                  className="w-full"
+                >
+                  {savingName ? 'Saving...' : 'Update Name'}
+                </Button>
+              </div>
+            </section>
+
+            <section className="space-y-3">
+              <h3 className="flex items-center gap-2 text-sm font-semibold">
+                <span aria-hidden className="bg-brand h-4 w-1 shrink-0 rounded-full" />
                 <Lock className="size-3.5" />
                 Change Password
               </h3>

@@ -12,11 +12,14 @@ export function SchoolPermissionsPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Role Assignments</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Access is managed through roles. Create a role, assign permissions to it, then assign users to that role.
-          </p>
+        <div className="flex min-w-0 items-stretch gap-3">
+          <span aria-hidden className="bg-brand mt-0.5 w-1 shrink-0 self-stretch rounded-full" />
+          <div className="min-w-0">
+            <h1 className="text-xl font-semibold tracking-tight text-foreground/90">Role Assignments</h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Access is managed through roles. Create a role, assign permissions to it, then assign users to that role.
+            </p>
+          </div>
         </div>
         <Badge variant="secondary" className="w-fit">
           Role-based access
@@ -26,7 +29,7 @@ export function SchoolPermissionsPage() {
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
           <CardHeader>
-            <div className="flex size-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <div className="bg-brand-soft flex size-10 items-center justify-center rounded-lg text-white shadow-sm">
               <ShieldCheck className="size-5" />
             </div>
             <CardTitle>Create Roles & Assign Permissions</CardTitle>

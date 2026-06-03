@@ -101,14 +101,24 @@ function formatTimeAgo(dateStr: string) {
   return date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
 }
 
+interface ContactRequestsListState {
+  search?: string
+  statusFilter?: string
+  page?: number
+}
+
+const CONTACT_REQUESTS_LIST_STATE_KEY = 'marketing:contact-requests:list'
+
 export function ContactRequestsPage() {
   const { user } = useAppStore()
+  const savedListState = useAppStore((state) => state.pageState[CONTACT_REQUESTS_LIST_STATE_KEY] as ContactRequestsListState | undefined)
+  const setPageState = useAppStore((state) => state.setPageState)
   const { toast } = useToast()
   const [contacts, setContacts] = useState<ContactRequest[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState('all')
-  const [page, setPage] = useState(1)
+  const [search, setSearch] = useState(savedListState?.search ?? '')
+  const [statusFilter, setStatusFilter] = useState(savedListState?.statusFilter ?? 'all')
+  const [page, setPage] = useState(savedListState?.page ?? 1)
   const [totalPages, setTotalPages] = useState(1)
   const [total, setTotal] = useState(0)
   const [selectedContact, setSelectedContact] = useState<ContactRequest | null>(null)
@@ -153,6 +163,27 @@ export function ContactRequestsPage() {
   useEffect(() => {
     fetchContacts()
   }, [fetchContacts])
+
+  const rememberListState = (patch: Partial<ContactRequestsListState>) => {
+    setPageState(CONTACT_REQUESTS_LIST_STATE_KEY, { search, statusFilter, page, ...patch })
+  }
+
+  const handleSearchChange = (value: string) => {
+    setSearch(value)
+    setPage(1)
+    rememberListState({ search: value, page: 1 })
+  }
+
+  const handleStatusFilterChange = (value: string) => {
+    setStatusFilter(value)
+    setPage(1)
+    rememberListState({ statusFilter: value, page: 1 })
+  }
+
+  const handlePageChange = (value: number) => {
+    setPage(value)
+    rememberListState({ page: value })
+  }
 
   const handleOpenDetail = (contact: ContactRequest) => {
     setSelectedContact(contact)
@@ -214,10 +245,10 @@ export function ContactRequestsPage() {
             placeholder="Search by name, school, email, phone..."
             className="pl-9"
             value={search}
-            onChange={(e) => { setSearch(e.target.value); setPage(1) }}
+            onChange={(e) => handleSearchChange(e.target.value)}
           />
         </div>
-        <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1) }}>
+        <Select value={statusFilter} onValueChange={handleStatusFilterChange}>
           <SelectTrigger className="w-full sm:w-44">
             <SelectValue placeholder="Filter by status" />
           </SelectTrigger>
@@ -319,11 +350,11 @@ export function ContactRequestsPage() {
       {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex items-center justify-center gap-2">
-          <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>
+          <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => handlePageChange(page - 1)}>
             <ChevronLeft className="size-4" />
           </Button>
           <span className="text-sm text-muted-foreground">Page {page} of {totalPages}</span>
-          <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>
+          <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => handlePageChange(page + 1)}>
             <ChevronRight className="size-4" />
           </Button>
         </div>

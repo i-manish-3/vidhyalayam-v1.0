@@ -16,6 +16,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { api } from '@/lib/api'
+import { useAppStore } from '@/lib/store'
 import { useToast } from '@/hooks/use-toast'
 import { ChevronDown, ChevronRight, Download, History } from 'lucide-react'
 
@@ -46,6 +47,23 @@ interface Pagination {
   total: number
   totalPages: number
 }
+
+interface ExamAuditFilters {
+  entityType: string
+  action: string
+  examId: string
+  studentId: string
+  startDate: string
+  endDate: string
+}
+
+interface ExamAuditListState {
+  filters?: ExamAuditFilters
+  page?: number
+  limit?: number
+}
+
+const EXAM_AUDIT_LIST_STATE_KEY = 'exams:audit-log:list'
 
 const ENTITY_TYPES = [
   'Exam',
@@ -95,22 +113,17 @@ const ACTION_BADGE: Record<string, string> = {
 export function ExamAuditLogPage() {
   const router = useRouter()
   const { toast } = useToast()
+  const savedListState = useAppStore((state) => state.pageState[EXAM_AUDIT_LIST_STATE_KEY] as ExamAuditListState | undefined)
+  const setPageState = useAppStore((state) => state.setPageState)
   const [loading, setLoading] = useState(true)
   const [logs, setLogs] = useState<ExamAuditLog[]>([])
   const [pagination, setPagination] = useState<Pagination>({
-    page: 1,
-    limit: 50,
+    page: savedListState?.page ?? 1,
+    limit: savedListState?.limit ?? 50,
     total: 0,
     totalPages: 0,
   })
-  const [filters, setFilters] = useState<{
-    entityType: string
-    action: string
-    examId: string
-    studentId: string
-    startDate: string
-    endDate: string
-  }>({
+  const [filters, setFilters] = useState<ExamAuditFilters>(savedListState?.filters ?? {
     entityType: '',
     action: '',
     examId: '',
@@ -165,8 +178,27 @@ export function ExamAuditLogPage() {
   }
 
   function resetFilters() {
-    setFilters({ entityType: '', action: '', examId: '', studentId: '', startDate: '', endDate: '' })
+    const emptyFilters = { entityType: '', action: '', examId: '', studentId: '', startDate: '', endDate: '' }
+    setFilters(emptyFilters)
     setPagination((p) => ({ ...p, page: 1 }))
+    setPageState(EXAM_AUDIT_LIST_STATE_KEY, { filters: emptyFilters, page: 1, limit: pagination.limit })
+  }
+
+  function updateFilters(patch: Partial<ExamAuditFilters>) {
+    const nextFilters = { ...filters, ...patch }
+    setFilters(nextFilters)
+    setPagination((p) => ({ ...p, page: 1 }))
+    setPageState(EXAM_AUDIT_LIST_STATE_KEY, { filters: nextFilters, page: 1, limit: pagination.limit })
+  }
+
+  function handlePageChange(page: number) {
+    setPagination((p) => ({ ...p, page }))
+    setPageState(EXAM_AUDIT_LIST_STATE_KEY, { filters, page, limit: pagination.limit })
+  }
+
+  function handlePageSizeChange(limit: number) {
+    setPagination((p) => ({ ...p, page: 1, limit }))
+    setPageState(EXAM_AUDIT_LIST_STATE_KEY, { filters, page: 1, limit })
   }
 
   async function exportCsv() {
@@ -215,13 +247,13 @@ export function ExamAuditLogPage() {
           <FilterSelect
             label="Entity"
             value={filters.entityType}
-            onChange={(v) => setFilters((p) => ({ ...p, entityType: v }))}
+            onChange={(v) => updateFilters({ entityType: v })}
             options={ENTITY_TYPES}
           />
           <FilterSelect
             label="Action"
             value={filters.action}
-            onChange={(v) => setFilters((p) => ({ ...p, action: v }))}
+            onChange={(v) => updateFilters({ action: v })}
             options={ACTIONS}
           />
           <div>
@@ -231,7 +263,7 @@ export function ExamAuditLogPage() {
             <Input
               className="h-9 text-xs"
               value={filters.examId}
-              onChange={(e) => setFilters((p) => ({ ...p, examId: e.target.value }))}
+              onChange={(e) => updateFilters({ examId: e.target.value })}
               placeholder="cuid"
             />
           </div>
@@ -242,7 +274,7 @@ export function ExamAuditLogPage() {
             <Input
               className="h-9 text-xs"
               value={filters.studentId}
-              onChange={(e) => setFilters((p) => ({ ...p, studentId: e.target.value }))}
+              onChange={(e) => updateFilters({ studentId: e.target.value })}
               placeholder="cuid"
             />
           </div>
@@ -254,7 +286,7 @@ export function ExamAuditLogPage() {
               type="date"
               className="h-9 text-xs"
               value={filters.startDate}
-              onChange={(e) => setFilters((p) => ({ ...p, startDate: e.target.value }))}
+              onChange={(e) => updateFilters({ startDate: e.target.value })}
             />
           </div>
           <div>
@@ -263,7 +295,7 @@ export function ExamAuditLogPage() {
               type="date"
               className="h-9 text-xs"
               value={filters.endDate}
-              onChange={(e) => setFilters((p) => ({ ...p, endDate: e.target.value }))}
+              onChange={(e) => updateFilters({ endDate: e.target.value })}
             />
           </div>
           <div className="sm:col-span-3 lg:col-span-6 flex items-center justify-between border-t pt-2 text-xs">
@@ -276,10 +308,7 @@ export function ExamAuditLogPage() {
               </Button>
               <Button
                 size="sm"
-                onClick={() => {
-                  setPagination((p) => ({ ...p, page: 1 }))
-                  void load()
-                }}
+                onClick={() => handlePageChange(1)}
               >
                 Apply
               </Button>
@@ -384,9 +413,7 @@ export function ExamAuditLogPage() {
             <div className="flex items-center gap-1">
               <Select
                 value={String(pagination.limit)}
-                onValueChange={(v) =>
-                  setPagination((p) => ({ ...p, page: 1, limit: parseInt(v, 10) }))
-                }
+                onValueChange={(v) => handlePageSizeChange(parseInt(v, 10))}
               >
                 <SelectTrigger className="h-7 w-20 text-xs">
                   <SelectValue />
@@ -403,7 +430,7 @@ export function ExamAuditLogPage() {
                 size="sm"
                 variant="outline"
                 disabled={pagination.page <= 1}
-                onClick={() => setPagination((p) => ({ ...p, page: p.page - 1 }))}
+                onClick={() => handlePageChange(pagination.page - 1)}
               >
                 Prev
               </Button>
@@ -411,7 +438,7 @@ export function ExamAuditLogPage() {
                 size="sm"
                 variant="outline"
                 disabled={pagination.page >= pagination.totalPages}
-                onClick={() => setPagination((p) => ({ ...p, page: p.page + 1 }))}
+                onClick={() => handlePageChange(pagination.page + 1)}
               >
                 Next
               </Button>

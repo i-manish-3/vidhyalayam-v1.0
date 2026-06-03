@@ -109,9 +109,9 @@ export function LoginScreen() {
       login(response.user)
 
       try {
-        const profile = await api.get<{ user: { id: string; email: string; name: string; role: string; schoolId?: string }; school?: { id: string; name: string; logo?: string; favicon?: string; subdomain: string; status: string; primaryColor?: string; dashboardFont?: string; academicYear?: string; board?: string; address?: string; city?: string; state: string } }>('/api/auth/me')
+        const profile = await api.get<{ user: { id: string; email: string; name: string; role: string; schoolId?: string }; school?: { id: string; name: string; logo?: string; favicon?: string; status: string; primaryColor?: string; dashboardFont?: string; academicYear?: string; board?: string; address?: string; city?: string; state: string } }>('/api/auth/me')
         if (profile.school) {
-          setCurrentSchool(profile.school as { id: string; name: string; logo?: string; favicon?: string; subdomain: string; status: string; primaryColor?: string; dashboardFont?: string; academicYear?: string; board?: string; address?: string; city?: string; state: string })
+          setCurrentSchool(profile.school as { id: string; name: string; logo?: string; favicon?: string; status: string; primaryColor?: string; dashboardFont?: string; academicYear?: string; board?: string; address?: string; city?: string; state: string })
           setBranding(profile.school)
           applySchoolBranding(profile.school)
         }

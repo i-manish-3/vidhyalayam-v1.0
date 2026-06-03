@@ -58,6 +58,7 @@ import {
 import { Textarea } from '@/components/ui/textarea'
 import { toast } from 'sonner'
 import { api } from '@/lib/api'
+import { useAppStore } from '@/lib/store'
 import { cn } from '@/lib/utils'
 import { UidCaptureInput } from '@/features/rfid/components/uid-capture-input'
 
@@ -97,6 +98,17 @@ interface CardRow {
 
 type Filter = 'all' | 'assigned' | 'unassigned'
 
+interface BulkCardAssignListState {
+  classId: string
+  sectionId: string
+  search: string
+  filter: Filter
+  page: number
+  pageSize: number
+}
+
+const BULK_CARD_ASSIGN_LIST_STATE_KEY = 'rfid:bulk-card-assign:list'
+
 interface CardConflict {
   isActive: boolean
   sameStudent: boolean
@@ -125,10 +137,12 @@ function compareRollNumbers(a: RosterStudent, b: RosterStudent): number {
 }
 
 export function BulkCardAssignPage() {
+  const savedListState = useAppStore((state) => state.pageState[BULK_CARD_ASSIGN_LIST_STATE_KEY] as BulkCardAssignListState | undefined)
+  const setPageState = useAppStore((state) => state.setPageState)
   const [classes, setClasses] = useState<ClassOption[]>([])
   const [sections, setSections] = useState<SectionOption[]>([])
-  const [classId, setClassId] = useState('')
-  const [sectionId, setSectionId] = useState('')
+  const [classId, setClassId] = useState(savedListState?.classId ?? '')
+  const [sectionId, setSectionId] = useState(savedListState?.sectionId ?? '')
 
   const [students, setStudents] = useState<RosterStudent[]>([])
   const [cardsByStudent, setCardsByStudent] = useState<Map<string, CardRow>>(
@@ -138,12 +152,12 @@ export function BulkCardAssignPage() {
 
   const [loadingInit, setLoadingInit] = useState(true)
   const [loadingRoster, setLoadingRoster] = useState(false)
-  const [search, setSearch] = useState('')
-  const [filter, setFilter] = useState<Filter>('all')
+  const [search, setSearch] = useState(savedListState?.search ?? '')
+  const [filter, setFilter] = useState<Filter>(savedListState?.filter ?? 'all')
 
   // pagination
-  const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState(24)
+  const [page, setPage] = useState(savedListState?.page ?? 1)
+  const [pageSize, setPageSize] = useState(savedListState?.pageSize ?? 24)
 
   // assign modal
   const [assignTarget, setAssignTarget] = useState<RosterStudent | null>(null)
@@ -151,6 +165,18 @@ export function BulkCardAssignPage() {
   const [assignNotes, setAssignNotes] = useState('')
   const [assigning, setAssigning] = useState(false)
   const [assignConflict, setAssignConflict] = useState<CardConflict | null>(null)
+
+  const rememberListState = useCallback((patch: Partial<BulkCardAssignListState>) => {
+    setPageState(BULK_CARD_ASSIGN_LIST_STATE_KEY, {
+      classId,
+      sectionId,
+      search,
+      filter,
+      page,
+      pageSize,
+      ...patch,
+    })
+  }, [classId, filter, page, pageSize, search, sectionId, setPageState])
 
   // revoke modal
   const [revokeTarget, setRevokeTarget] = useState<CardRow | null>(null)
@@ -274,10 +300,41 @@ export function BulkCardAssignPage() {
     [filteredStudents, pageStart, pageEnd],
   )
 
-  // Reset to page 1 whenever the filtered result key changes
-  useEffect(() => {
+  const handleClassChange = (value: string) => {
+    setClassId(value)
+    setSectionId('')
     setPage(1)
-  }, [classId, sectionId, search, filter, pageSize])
+    rememberListState({ classId: value, sectionId: '', page: 1 })
+  }
+
+  const handleSectionChange = (value: string) => {
+    setSectionId(value)
+    setPage(1)
+    rememberListState({ sectionId: value, page: 1 })
+  }
+
+  const handleSearchChange = (value: string) => {
+    setSearch(value)
+    setPage(1)
+    rememberListState({ search: value, page: 1 })
+  }
+
+  const handleFilterChange = (value: Filter) => {
+    setFilter(value)
+    setPage(1)
+    rememberListState({ filter: value, page: 1 })
+  }
+
+  const handlePageChange = (value: number) => {
+    setPage(value)
+    rememberListState({ page: value })
+  }
+
+  const handlePageSizeChange = (value: number) => {
+    setPageSize(value)
+    setPage(1)
+    rememberListState({ pageSize: value, page: 1 })
+  }
 
   // ── Actions ──────────────────────────────────────────────────────────────
   async function handleAssign() {
@@ -398,7 +455,7 @@ export function BulkCardAssignPage() {
                 <Label className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
                   Class
                 </Label>
-                <Select value={classId} onValueChange={setClassId} disabled={loadingInit}>
+                <Select value={classId} onValueChange={handleClassChange} disabled={loadingInit}>
                   <SelectTrigger className="h-9 w-full">
                     <SelectValue placeholder={loadingInit ? 'Loading…' : 'Select'} />
                   </SelectTrigger>
@@ -417,7 +474,7 @@ export function BulkCardAssignPage() {
                 </Label>
                 <Select
                   value={sectionId}
-                  onValueChange={setSectionId}
+                  onValueChange={handleSectionChange}
                   disabled={!classId || classHasNoSections}
                 >
                   <SelectTrigger className="h-9 w-full">
@@ -448,7 +505,7 @@ export function BulkCardAssignPage() {
                   <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     value={search}
-                    onChange={(e) => setSearch(e.target.value)}
+                    onChange={(e) => handleSearchChange(e.target.value)}
                     placeholder="Name, roll, or admission no."
                     className="h-9 pl-8 text-sm"
                     disabled={!rosterReady}
@@ -482,19 +539,19 @@ export function BulkCardAssignPage() {
                     <Filter className="size-3" />
                     Show:
                   </span>
-                  <FilterPill active={filter === 'all'} onClick={() => setFilter('all')}>
+                  <FilterPill active={filter === 'all'} onClick={() => handleFilterChange('all')}>
                     All <CountChip>{stats.total}</CountChip>
                   </FilterPill>
                   <FilterPill
                     active={filter === 'assigned'}
-                    onClick={() => setFilter('assigned')}
+                    onClick={() => handleFilterChange('assigned')}
                     tone="success"
                   >
                     Assigned <CountChip>{stats.assigned}</CountChip>
                   </FilterPill>
                   <FilterPill
                     active={filter === 'unassigned'}
-                    onClick={() => setFilter('unassigned')}
+                    onClick={() => handleFilterChange('unassigned')}
                     tone="warn"
                   >
                     Unassigned <CountChip>{stats.unassigned}</CountChip>
@@ -596,8 +653,8 @@ export function BulkCardAssignPage() {
               pageSize={pageSize}
               totalPages={totalPages}
               total={filteredStudents.length}
-              onPageChange={setPage}
-              onPageSizeChange={(v) => setPageSize(v)}
+              onPageChange={handlePageChange}
+              onPageSizeChange={handlePageSizeChange}
             />
           </div>
         )}
@@ -779,7 +836,6 @@ function StudentCard({
       <div className="flex items-center gap-2.5">
         <div className="relative size-10 shrink-0 overflow-hidden rounded-full bg-muted">
           {student.profileImage ? (
-            // eslint-disable-next-line @next/next/no-img-element
             <img
               src={student.profileImage}
               alt=""

@@ -157,6 +157,15 @@ function getInitials(firstName: string, lastName: string): string {
 
 const rollNumberCollator = new Intl.Collator('en', { numeric: true, sensitivity: 'base' })
 
+interface AttendanceListState {
+  date?: string
+  classId?: string
+  sectionId?: string
+  searchQuery?: string
+}
+
+const ATTENDANCE_LIST_STATE_KEY = 'attendance:mark:list'
+
 function compareStudentsByRollNumber(a: Student, b: Student): number {
   const aRoll = (a.rollNumber || '').trim()
   const bRoll = (b.rollNumber || '').trim()
@@ -198,16 +207,18 @@ export function AttendancePage() {
   const canView = hasPermission(PERMISSIONS.ATTENDANCE_READ)
   const canReopen = hasPermission(PERMISSIONS.ATTENDANCE_REOPEN)
   const currentUser = useAppStore((s) => s.user)
+  const savedListState = useAppStore((s) => s.pageState[ATTENDANCE_LIST_STATE_KEY] as AttendanceListState | undefined)
+  const setPageState = useAppStore((s) => s.setPageState)
   const effectiveRole = useEffectiveRole()
   const currentSchoolAcademicYear = useAppStore((s) => s.currentSchool?.academicYear)
   const viewingAcademicYear = useAppStore((s) => s.viewingAcademicYear)
   const academicYear = viewingAcademicYear || currentSchoolAcademicYear || getCurrentAcademicYear()
 
   // Filter state
-  const [date, setDate] = useState(getTodayString())
-  const [classId, setClassId] = useState('')
-  const [sectionId, setSectionId] = useState('')
-  const [searchQuery, setSearchQuery] = useState('')
+  const [date, setDate] = useState(savedListState?.date ?? getTodayString())
+  const [classId, setClassId] = useState(savedListState?.classId ?? '')
+  const [sectionId, setSectionId] = useState(savedListState?.sectionId ?? '')
+  const [searchQuery, setSearchQuery] = useState(savedListState?.searchQuery ?? '')
 
   // Data state
   const [students, setStudents] = useState<Student[]>([])
@@ -351,6 +362,21 @@ export function AttendancePage() {
     if (classId && date && (effectiveSectionId || classHasNoSections)) fetchAttendanceData()
   }, [classId, effectiveSectionId, date, classHasNoSections, fetchAttendanceData])
 
+  const rememberListState = (patch: Partial<AttendanceListState>) => {
+    setPageState(ATTENDANCE_LIST_STATE_KEY, {
+      date,
+      classId,
+      sectionId,
+      searchQuery,
+      ...patch,
+    })
+  }
+
+  const handleDateChange = (value: string) => {
+    setDate(value)
+    rememberListState({ date: value })
+  }
+
   const handleClassChange = (value: string) => {
     setClassId(value)
     setSectionId('')
@@ -360,6 +386,17 @@ export function AttendancePage() {
     setExpandedRemark(null)
     setIsFinalized(false)
     setSearchQuery('')
+    rememberListState({ classId: value, sectionId: '', searchQuery: '' })
+  }
+
+  const handleSectionChange = (value: string) => {
+    setSectionId(value)
+    rememberListState({ sectionId: value })
+  }
+
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value)
+    rememberListState({ searchQuery: value })
   }
 
   const handleStatusChange = (studentId: string, status: AttendanceStatus) => {
@@ -700,20 +737,20 @@ export function AttendancePage() {
           <div className="grid gap-3 xl:grid-cols-[auto_auto_auto_1fr] xl:items-center">
             {/* Date navigation */}
             <div className="grid grid-cols-[36px_minmax(0,1fr)_36px] gap-2 sm:grid-cols-[28px_220px_28px_auto] sm:items-center">
-              <Button variant="outline" size="icon" className="size-9 shrink-0 sm:size-7" onClick={() => setDate(navigateDate(date, -1))}>
+              <Button variant="outline" size="icon" className="size-9 shrink-0 sm:size-7" onClick={() => handleDateChange(navigateDate(date, -1))}>
                 <ChevronLeft className="size-3" />
               </Button>
               <DatePicker
                 value={date}
-                onChange={setDate}
+                onChange={handleDateChange}
                 disableFuture
                 triggerClassName="h-9 w-full min-w-0 justify-start px-2.5 text-sm sm:h-7 sm:w-[220px] sm:text-xs"
               />
-              <Button variant="outline" size="icon" className="size-9 shrink-0 sm:size-7" onClick={() => setDate(navigateDate(date, 1))} disabled={isFutureDate || isToday}>
+              <Button variant="outline" size="icon" className="size-9 shrink-0 sm:size-7" onClick={() => handleDateChange(navigateDate(date, 1))} disabled={isFutureDate || isToday}>
                 <ChevronRight className="size-3" />
               </Button>
               {!isToday && (
-                <Button variant="ghost" size="sm" className="col-span-3 h-8 px-2 text-xs sm:col-span-1 sm:h-7 sm:text-[11px]" onClick={() => setDate(getTodayString())}>
+                <Button variant="ghost" size="sm" className="col-span-3 h-8 px-2 text-xs sm:col-span-1 sm:h-7 sm:text-[11px]" onClick={() => handleDateChange(getTodayString())}>
                   Today
                 </Button>
               )}
@@ -740,7 +777,7 @@ export function AttendancePage() {
               {classHasNoSections ? (
                 <Badge variant="secondary" className="flex h-9 w-full items-center px-3 text-sm sm:h-7 sm:w-auto sm:text-xs">No Sections</Badge>
               ) : (
-                <Select value={sectionId} onValueChange={setSectionId} disabled={!classId}>
+                <Select value={sectionId} onValueChange={handleSectionChange} disabled={!classId}>
                   <SelectTrigger className="h-9 w-full text-sm sm:h-7 sm:w-[150px] sm:text-xs">
                     <SelectValue placeholder="Select section" />
                   </SelectTrigger>
@@ -925,12 +962,12 @@ export function AttendancePage() {
                 <Input
                   placeholder="Search student..."
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onChange={(e) => handleSearchChange(e.target.value)}
                   className="h-7 pl-8 pr-7 text-xs"
                 />
                 {searchQuery && (
                   <button
-                    onClick={() => setSearchQuery('')}
+                    onClick={() => handleSearchChange('')}
                     className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                   >
                     <X className="size-3" />
@@ -943,12 +980,12 @@ export function AttendancePage() {
               <Input
                 placeholder="Search student..."
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => handleSearchChange(e.target.value)}
                 className="h-9 pl-8 pr-8 text-sm"
               />
               {searchQuery && (
                 <button
-                  onClick={() => setSearchQuery('')}
+                  onClick={() => handleSearchChange('')}
                   className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 >
                   <X className="size-3.5" />

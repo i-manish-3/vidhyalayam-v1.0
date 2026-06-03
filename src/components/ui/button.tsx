@@ -10,7 +10,9 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default:
-          "bg-[var(--button-primary,var(--primary))] text-[var(--button-primary-foreground,var(--primary-foreground))] shadow-xs hover:bg-[var(--button-primary-hover,var(--primary))]",
+          "text-[var(--button-primary-foreground,var(--primary-foreground))] bg-[var(--button-primary,var(--primary))] [background-image:var(--gradient-button)] shadow-sm hover:shadow-md hover:brightness-[1.07] active:brightness-95",
+        gradientSecondary:
+          "text-white bg-[var(--sidebar-accent,var(--primary))] [background-image:var(--gradient-soft)] shadow-sm hover:shadow-md hover:brightness-[1.06] active:brightness-95",
         destructive:
           "bg-destructive text-white shadow-xs hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60",
         outline:

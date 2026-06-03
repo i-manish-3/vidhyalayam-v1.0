@@ -45,7 +45,6 @@ import {
   UserX,
   Eye,
   MoreHorizontal,
-  Printer,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -55,6 +54,13 @@ import {
   Heart,
   Edit,
   User,
+  Image as ImageIcon,
+  Hash,
+  FileText,
+  IdCard,
+  CalendarDays,
+  Bus,
+  Phone,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -122,6 +128,17 @@ interface SectionOption {
   classId: string
 }
 
+interface StudentsListPageState {
+  classFilter: string
+  sectionFilter: string
+  genderFilter: string
+  statusFilter: string
+  searchQuery: string
+  showFilters: boolean
+  page: number
+  limit: number
+}
+
 // ============================================
 // Constants
 // ============================================
@@ -138,6 +155,19 @@ const STATUS_OPTIONS = [
 ]
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100]
+
+const STUDENTS_LIST_STATE_KEY = 'students:list'
+
+const DEFAULT_STUDENTS_LIST_STATE: StudentsListPageState = {
+  classFilter: 'all',
+  sectionFilter: 'all',
+  genderFilter: 'all',
+  statusFilter: 'all',
+  searchQuery: '',
+  showFilters: false,
+  page: 1,
+  limit: 25,
+}
 
 // ============================================
 // Helpers
@@ -264,6 +294,9 @@ export function StudentsPage() {
   // year from the top bar appeared to do nothing.
   const viewingAcademicYear = useAppStore((s) => s.viewingAcademicYear)
   const currentSchoolAcademicYear = useAppStore((s) => s.currentSchool?.academicYear)
+  const savedListState = useAppStore((s) => s.pageState[STUDENTS_LIST_STATE_KEY] as StudentsListPageState | undefined)
+  const setPageState = useAppStore((s) => s.setPageState)
+  const initialListState = { ...DEFAULT_STUDENTS_LIST_STATE, ...savedListState }
   const { hasPermission } = usePermissions()
   const canAdmit = hasPermission(PERMISSIONS.ADMISSION_CREATE)
   const canEdit = hasPermission(PERMISSIONS.STUDENT_UPDATE)
@@ -275,22 +308,22 @@ export function StudentsPage() {
   const [classes, setClasses] = useState<ClassOption[]>([])
   const [sections, setSections] = useState<SectionOption[]>([])
   const [pagination, setPagination] = useState<PaginationInfo>({
-    page: 1,
-    limit: 25,
+    page: initialListState.page,
+    limit: initialListState.limit,
     total: 0,
     totalPages: 0,
   })
 
   // Filter states
-  const [classFilter, setClassFilter] = useState('all')
-  const [sectionFilter, setSectionFilter] = useState('all')
-  const [genderFilter, setGenderFilter] = useState('all')
-  const [statusFilter, setStatusFilter] = useState('all')
-  const [searchQuery, setSearchQuery] = useState('')
-  const [showFilters, setShowFilters] = useState(false)
+  const [classFilter, setClassFilter] = useState(initialListState.classFilter)
+  const [sectionFilter, setSectionFilter] = useState(initialListState.sectionFilter)
+  const [genderFilter, setGenderFilter] = useState(initialListState.genderFilter)
+  const [statusFilter, setStatusFilter] = useState(initialListState.statusFilter)
+  const [searchQuery, setSearchQuery] = useState(initialListState.searchQuery)
+  const [showFilters, setShowFilters] = useState(initialListState.showFilters || initialListState.classFilter !== 'all' || initialListState.sectionFilter !== 'all' || initialListState.genderFilter !== 'all' || initialListState.statusFilter !== 'all')
 
   // Debounced search
-  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState(initialListState.searchQuery)
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Toggle states
@@ -302,6 +335,20 @@ export function StudentsPage() {
 
   // Stats (fetched separately to include all students)
   const [stats, setStats] = useState({ total: 0, active: 0, disabled: 0, thisMonth: 0 })
+
+  const rememberListState = useCallback((patch: Partial<StudentsListPageState>) => {
+    setPageState(STUDENTS_LIST_STATE_KEY, {
+      classFilter,
+      sectionFilter,
+      genderFilter,
+      statusFilter,
+      searchQuery,
+      showFilters,
+      page: pagination.page,
+      limit: pagination.limit,
+      ...patch,
+    })
+  }, [classFilter, genderFilter, pagination.limit, pagination.page, searchQuery, sectionFilter, setPageState, showFilters, statusFilter])
 
   // ============================================
   // Debounced Search
@@ -407,7 +454,7 @@ export function StudentsPage() {
   useEffect(() => {
     const init = async () => {
       await Promise.all([fetchStats(), fetchClasses(), fetchSections()])
-      await fetchStudents(1, 25)
+      await fetchStudents(initialListState.page, initialListState.limit)
     }
     init()
   }, [])
@@ -416,7 +463,7 @@ export function StudentsPage() {
   // (reset to page 1). Year is included so top-bar switching refreshes the
   // list immediately instead of requiring a manual page refresh.
   useEffect(() => {
-    if (!loading || students.length > 0 || debouncedSearch) {
+    if (!loading || students.length > 0) {
       fetchStudents(1, pagination.limit)
     }
   }, [debouncedSearch, classFilter, sectionFilter, genderFilter, statusFilter, viewingAcademicYear, currentSchoolAcademicYear])
@@ -453,13 +500,47 @@ export function StudentsPage() {
 
   const handlePageChange = useCallback((page: number) => {
     setPagination(prev => ({ ...prev, page }))
+    rememberListState({ page })
     fetchStudents(page, pagination.limit)
-  }, [fetchStudents, pagination.limit])
+  }, [fetchStudents, pagination.limit, rememberListState])
 
   const handlePageSizeChange = useCallback((size: number) => {
     setPagination(prev => ({ ...prev, page: 1, limit: size }))
+    rememberListState({ page: 1, limit: size })
     fetchStudents(1, size)
-  }, [fetchStudents])
+  }, [fetchStudents, rememberListState])
+
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value)
+    rememberListState({ searchQuery: value, page: 1 })
+  }
+
+  const handleShowFiltersChange = () => {
+    const next = !showFilters
+    setShowFilters(next)
+    rememberListState({ showFilters: next })
+  }
+
+  const handleClassFilterChange = (value: string) => {
+    setClassFilter(value)
+    setSectionFilter('all')
+    rememberListState({ classFilter: value, sectionFilter: 'all', page: 1 })
+  }
+
+  const handleSectionFilterChange = (value: string) => {
+    setSectionFilter(value)
+    rememberListState({ sectionFilter: value, page: 1 })
+  }
+
+  const handleGenderFilterChange = (value: string) => {
+    setGenderFilter(value)
+    rememberListState({ genderFilter: value, page: 1 })
+  }
+
+  const handleStatusFilterChange = (value: string) => {
+    setStatusFilter(value)
+    rememberListState({ statusFilter: value, page: 1 })
+  }
 
   // ============================================
   // Toggle Student Active/Inactive
@@ -514,6 +595,13 @@ export function StudentsPage() {
     setSectionFilter('all')
     setGenderFilter('all')
     setStatusFilter('all')
+    rememberListState({
+      classFilter: 'all',
+      sectionFilter: 'all',
+      genderFilter: 'all',
+      statusFilter: 'all',
+      page: 1,
+    })
   }
 
   // ============================================
@@ -526,8 +614,9 @@ export function StudentsPage() {
     <div className="space-y-4">
       {/* Header */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-start gap-3">
-          <div>
+        <div className="flex min-w-0 items-stretch gap-3">
+          <span aria-hidden className="bg-brand mt-0.5 w-1 shrink-0 self-stretch rounded-full" />
+          <div className="min-w-0">
             <h1 className="text-xl font-bold tracking-tight">Students</h1>
             <p className="mt-0.5 text-sm text-muted-foreground">Manage all students</p>
           </div>
@@ -571,21 +660,26 @@ export function StudentsPage() {
       <Card className="gap-0 py-0">
         <CardHeader className="px-4 py-3">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <CardTitle className="text-base">All Students</CardTitle>
+            <CardTitle className="text-base flex items-center gap-2">
+              <span className="bg-brand-soft flex size-7 shrink-0 items-center justify-center rounded-lg text-white shadow-sm">
+                <Users className="size-4" />
+              </span>
+              All Students
+            </CardTitle>
             <div className="flex items-center gap-2">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   placeholder="Search name, adm no, roll..."
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onChange={(e) => handleSearchChange(e.target.value)}
                   className="pl-9 h-9 w-full sm:w-56"
                 />
               </div>
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setShowFilters(!showFilters)}
+                onClick={handleShowFiltersChange}
                 className="gap-1 h-9"
               >
                 <ChevronDown className={`size-4 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
@@ -608,28 +702,28 @@ export function StudentsPage() {
           {/* Filter row */}
           {showFilters && (
             <div className="px-4 pb-3 grid grid-cols-2 sm:grid-cols-4 gap-2">
-              <Select value={classFilter} onValueChange={(v) => { setClassFilter(v); setSectionFilter('all') }}>
+              <Select value={classFilter} onValueChange={handleClassFilterChange}>
                 <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Class" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Classes</SelectItem>
                   {classes.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                 </SelectContent>
               </Select>
-              <Select value={sectionFilter} onValueChange={setSectionFilter} disabled={classFilter === 'all'}>
+              <Select value={sectionFilter} onValueChange={handleSectionFilterChange} disabled={classFilter === 'all'}>
                 <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Section" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Sections</SelectItem>
                   {filteredSections.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
                 </SelectContent>
               </Select>
-              <Select value={genderFilter} onValueChange={setGenderFilter}>
+              <Select value={genderFilter} onValueChange={handleGenderFilterChange}>
                 <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Gender" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Genders</SelectItem>
                   {GENDER_OPTIONS.map(g => <SelectItem key={g.value} value={g.value}>{g.label}</SelectItem>)}
                 </SelectContent>
               </Select>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <Select value={statusFilter} onValueChange={handleStatusFilterChange}>
                 <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Status" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Status</SelectItem>
@@ -654,20 +748,40 @@ export function StudentsPage() {
               />
             </div>
           ) : (
-            <div className="overflow-x-auto mx-4 mb-4 rounded-lg border">
+            <div className="overflow-x-auto mx-4 mb-4 rounded-xl border shadow-sm">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[44px]">Photo</TableHead>
-                    <TableHead>Student Name</TableHead>
-                    <TableHead>Father&apos;s Name</TableHead>
-                    <TableHead>Class</TableHead>
-                    <TableHead>Roll</TableHead>
-                    <TableHead>Reg.No.</TableHead>
-                    <TableHead>Adm.No.</TableHead>
-                    <TableHead>Adm.Date</TableHead>
-                    <TableHead>Route</TableHead>
-                    <TableHead>Phone</TableHead>
+                    <TableHead className="w-[44px]">
+                      <span className="flex items-center gap-1.5"><ImageIcon className="size-3.5 text-muted-foreground" />Photo</span>
+                    </TableHead>
+                    <TableHead>
+                      <span className="flex items-center gap-1.5"><User className="size-3.5 text-muted-foreground" />Student Name</span>
+                    </TableHead>
+                    <TableHead>
+                      <span className="flex items-center gap-1.5"><Users className="size-3.5 text-muted-foreground" />Father&apos;s Name</span>
+                    </TableHead>
+                    <TableHead>
+                      <span className="flex items-center gap-1.5"><GraduationCap className="size-3.5 text-muted-foreground" />Class</span>
+                    </TableHead>
+                    <TableHead>
+                      <span className="flex items-center gap-1.5"><Hash className="size-3.5 text-muted-foreground" />Roll</span>
+                    </TableHead>
+                    <TableHead>
+                      <span className="flex items-center gap-1.5"><FileText className="size-3.5 text-muted-foreground" />Reg.No.</span>
+                    </TableHead>
+                    <TableHead>
+                      <span className="flex items-center gap-1.5"><IdCard className="size-3.5 text-muted-foreground" />Adm.No.</span>
+                    </TableHead>
+                    <TableHead>
+                      <span className="flex items-center gap-1.5"><CalendarDays className="size-3.5 text-muted-foreground" />Adm.Date</span>
+                    </TableHead>
+                    <TableHead>
+                      <span className="flex items-center gap-1.5"><Bus className="size-3.5 text-muted-foreground" />Route</span>
+                    </TableHead>
+                    <TableHead>
+                      <span className="flex items-center gap-1.5"><Phone className="size-3.5 text-muted-foreground" />Phone</span>
+                    </TableHead>
                     <TableHead className="w-[50px]" />
                   </TableRow>
                 </TableHeader>
@@ -704,7 +818,7 @@ export function StudentsPage() {
                               {name}
                             </p>
                             {s.siblingId && (
-                              <Badge variant="outline" className="bg-blue-50 text-blue-700 text-[10px] px-1 py-0 h-4 gap-0.5 mt-0.5">
+                              <Badge variant="info" className="text-[10px] px-1 py-0 h-4 gap-0.5 mt-0.5">
                                 <Heart className="size-2.5" /> Sibling
                               </Badge>
                             )}
@@ -773,9 +887,6 @@ export function StudentsPage() {
                                   <Edit className="size-4 mr-2" /> Edit
                                 </DropdownMenuItem>
                               )}
-                              <DropdownMenuItem onClick={() => toast({ title: 'Print', description: 'Print admission form feature coming soon' })}>
-                                <Printer className="size-4 mr-2" /> Print Admission Form
-                              </DropdownMenuItem>
                               {canEnableDisable && <DropdownMenuSeparator />}
                               {canEnableDisable && (
                                 isToggling ? (
@@ -881,16 +992,16 @@ function StudentStatCard({
   icon: LucideIcon
 }) {
   return (
-    <Card className="w-full overflow-hidden rounded-md py-0 shadow-xs">
-      <CardContent className="p-2.5">
+    <Card className="card-premium w-full overflow-hidden rounded-xl border-0 py-0">
+      <CardContent className="p-3">
         <div className="flex items-center justify-between gap-2">
           <div className="min-w-0">
             <p className="truncate text-[11px] font-medium leading-4 text-muted-foreground">{title}</p>
-            <p className="text-base font-semibold leading-5 tracking-tight">{value}</p>
+            <p className="text-lg font-bold leading-6 tracking-tight tabular-nums">{value}</p>
             <p className="truncate text-[10px] leading-3 text-muted-foreground">{description}</p>
           </div>
-          <div className="flex size-6 shrink-0 items-center justify-center rounded bg-primary/10 text-primary">
-            <Icon className="size-3" />
+          <div className="bg-brand-soft flex size-9 shrink-0 items-center justify-center rounded-lg text-white shadow-sm">
+            <Icon className="size-4" />
           </div>
         </div>
       </CardContent>

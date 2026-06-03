@@ -182,9 +182,10 @@ export function FeesGroupsPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-start gap-3">
-          <div>
-            <h1 className="text-xl font-bold tracking-tight">Fee Groups</h1>
+        <div className="flex min-w-0 items-stretch gap-3">
+          <span aria-hidden className="bg-brand mt-0.5 w-1 shrink-0 self-stretch rounded-full" />
+          <div className="min-w-0">
+            <h1 className="text-xl font-semibold tracking-tight text-foreground/90">Fee Groups</h1>
             <p className="mt-1 text-sm text-muted-foreground">{feeGroups.length} fee groups configured</p>
           </div>
         </div>

@@ -365,9 +365,10 @@ export function BulkAdmissionPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start gap-3">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Bulk Admission</h1>
+      <div className="flex min-w-0 items-stretch gap-3">
+        <span aria-hidden className="bg-brand mt-0.5 w-1 shrink-0 self-stretch rounded-full" />
+        <div className="min-w-0">
+          <h1 className="text-xl font-semibold tracking-tight text-foreground/90">Bulk Admission</h1>
           <p className="text-sm text-muted-foreground mt-1">
             Admit up to 1,000 students at once by uploading a CSV. Use this when onboarding a school for the first time.
           </p>

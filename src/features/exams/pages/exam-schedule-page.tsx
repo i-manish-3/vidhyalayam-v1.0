@@ -18,7 +18,7 @@ import {
 import { api } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
 import { detectScheduleConflicts, type ScheduleRow } from '@/features/exams/lib/schedule-conflict-checker'
-import { Calendar as CalIcon, Plus, Save, Trash2, AlertTriangle } from 'lucide-react'
+import { Calendar as CalIcon, Plus, Save, Trash2, AlertTriangle, TicketCheck } from 'lucide-react'
 
 interface ScheduleEntry {
   id?: string
@@ -406,6 +406,14 @@ export function ExamSchedulePage({ examId }: Props) {
       )}
 
       <div className="flex justify-end gap-2">
+        <Button
+          variant="outline"
+          onClick={() => router.push(`/exams/${examId}/admit-cards`)}
+          disabled={saving}
+          className="gap-1.5"
+        >
+          <TicketCheck className="size-4" /> Admit cards
+        </Button>
         <Button variant="outline" onClick={() => router.push(`/exams/${examId}/configure`)} disabled={saving}>
           Back to configure
         </Button>

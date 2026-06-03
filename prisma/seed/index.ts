@@ -693,6 +693,7 @@ async function seed() {
     { code: 'exam:gradescale:manage', name: 'Manage Grade Scales', module: 'exams', action: 'update' },
     { code: 'exam:reportcard:manage', name: 'Manage Report Card Templates', module: 'exams', action: 'update' },
     { code: 'exam:reportcard:download', name: 'Download Report Cards', module: 'exams', action: 'read' },
+    { code: 'exam:admitcard:download', name: 'Download Admit Cards', module: 'exams', action: 'read' },
     { code: 'exam:audit:view', name: 'View Exam Audit Log', module: 'exams', action: 'read' },
     // Legacy alias kept for back-compat with existing role templates / sidebar entries.
     { code: 'exam:results', name: 'Manage Exam Results (legacy)', module: 'exams', action: 'update' },

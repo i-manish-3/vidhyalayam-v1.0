@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { PageHeader, DataTable, ResetUserPasswordDialog, type Column, type ActionItem } from '@/components/shared'
 import { api } from '@/lib/api'
+import { useAppStore } from '@/lib/store'
 import { useToast } from '@/hooks/use-toast'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -47,6 +48,15 @@ interface TeacherDetail extends Teacher {
   joinDate: string | null
   email: string | null
 }
+
+interface TeachersListState {
+  search: string
+  statusFilter: string
+  subjectFilter: string
+  experienceFilter: string
+}
+
+const TEACHERS_LIST_STATE_KEY = 'teachers:list'
 
 function getTeacherName(teacher: Teacher) {
   return teacher.fullName || `${teacher.firstName} ${teacher.lastName}`.trim()
@@ -98,15 +108,17 @@ function DetailItem({
 export function TeachersPage() {
   const router = useRouter()
   const { toast } = useToast()
+  const savedListState = useAppStore((state) => state.pageState[TEACHERS_LIST_STATE_KEY] as TeachersListState | undefined)
+  const setPageState = useAppStore((state) => state.setPageState)
   const [teachers, setTeachers] = useState<Teacher[]>([])
   const [loading, setLoading] = useState(true)
   const [detailOpen, setDetailOpen] = useState(false)
   const [detailLoading, setDetailLoading] = useState(false)
   const [selectedTeacher, setSelectedTeacher] = useState<TeacherDetail | null>(null)
-  const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState('all')
-  const [subjectFilter, setSubjectFilter] = useState('all')
-  const [experienceFilter, setExperienceFilter] = useState('all')
+  const [search, setSearch] = useState(savedListState?.search ?? '')
+  const [statusFilter, setStatusFilter] = useState(savedListState?.statusFilter ?? 'all')
+  const [subjectFilter, setSubjectFilter] = useState(savedListState?.subjectFilter ?? 'all')
+  const [experienceFilter, setExperienceFilter] = useState(savedListState?.experienceFilter ?? 'all')
   const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null)
   const [resetPasswordTeacher, setResetPasswordTeacher] = useState<Teacher | null>(null)
 
@@ -168,11 +180,42 @@ export function TeachersPage() {
   }, [experienceFilter, search, statusFilter, subjectFilter, teachers])
   const activeFilterCount = [search, statusFilter, subjectFilter, experienceFilter].filter((value) => value.trim() && value !== 'all').length
 
+  const rememberListState = useCallback((patch: Partial<TeachersListState>) => {
+    setPageState(TEACHERS_LIST_STATE_KEY, {
+      search,
+      statusFilter,
+      subjectFilter,
+      experienceFilter,
+      ...patch,
+    })
+  }, [experienceFilter, search, setPageState, statusFilter, subjectFilter])
+
   const clearFilters = () => {
     setSearch('')
     setStatusFilter('all')
     setSubjectFilter('all')
     setExperienceFilter('all')
+    rememberListState({ search: '', statusFilter: 'all', subjectFilter: 'all', experienceFilter: 'all' })
+  }
+
+  const handleSearchChange = (value: string) => {
+    setSearch(value)
+    rememberListState({ search: value })
+  }
+
+  const handleStatusFilterChange = (value: string) => {
+    setStatusFilter(value)
+    rememberListState({ statusFilter: value })
+  }
+
+  const handleSubjectFilterChange = (value: string) => {
+    setSubjectFilter(value)
+    rememberListState({ subjectFilter: value })
+  }
+
+  const handleExperienceFilterChange = (value: string) => {
+    setExperienceFilter(value)
+    rememberListState({ experienceFilter: value })
   }
 
   const handleToggleStatus = async (teacher: Teacher) => {
@@ -393,13 +436,13 @@ export function TeachersPage() {
                 <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   value={search}
-                  onChange={(event) => setSearch(event.target.value)}
+                  onChange={(event) => handleSearchChange(event.target.value)}
                   placeholder="Search name, ID, phone..."
                   className="h-9 pl-9"
                 />
               </div>
 
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <Select value={statusFilter} onValueChange={handleStatusFilterChange}>
                 <SelectTrigger className="h-9">
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
@@ -410,7 +453,7 @@ export function TeachersPage() {
                 </SelectContent>
               </Select>
 
-              <Select value={subjectFilter} onValueChange={setSubjectFilter}>
+              <Select value={subjectFilter} onValueChange={handleSubjectFilterChange}>
                 <SelectTrigger className="h-9">
                   <SelectValue placeholder="Subject" />
                 </SelectTrigger>
@@ -424,7 +467,7 @@ export function TeachersPage() {
                 </SelectContent>
               </Select>
 
-              <Select value={experienceFilter} onValueChange={setExperienceFilter}>
+              <Select value={experienceFilter} onValueChange={handleExperienceFilterChange}>
                 <SelectTrigger className="h-9">
                   <SelectValue placeholder="Experience" />
                 </SelectTrigger>

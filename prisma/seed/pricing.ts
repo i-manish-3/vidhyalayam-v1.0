@@ -66,7 +66,7 @@ async function main() {
     },
     {
       name: 'Custom Branding',
-      description: 'Your school logo, colors, subdomain & white-labeled experience',
+      description: 'Your school logo, colors & white-labeled experience',
       icon: 'Palette',
       price: 1000,
       priceLabel: 'one-time',

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { PageHeader, EmptyState, LoadingState, ResetUserPasswordDialog } from '@/components/shared'
 import { api } from '@/lib/api'
+import { useAppStore } from '@/lib/store'
 import { useToast } from '@/hooks/use-toast'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
@@ -52,6 +53,15 @@ interface TransportRoute {
   driverPhone: string | null
 }
 
+interface DriverDirectoryListState {
+  search: string
+  statusFilter: string
+  assignmentFilter: string
+  genderFilter: string
+}
+
+const DRIVER_DIRECTORY_LIST_STATE_KEY = 'transport:drivers:list'
+
 function initials(name: string) {
   const parts = name.trim().split(/\s+/).filter(Boolean)
   return parts.slice(0, 2).map((part) => part[0]?.toUpperCase()).join('') || 'D'
@@ -93,16 +103,28 @@ function DetailItem({
 export function DriverDirectoryPage() {
   const router = useRouter()
   const { toast } = useToast()
+  const savedListState = useAppStore((state) => state.pageState[DRIVER_DIRECTORY_LIST_STATE_KEY] as DriverDirectoryListState | undefined)
+  const setPageState = useAppStore((state) => state.setPageState)
   const [drivers, setDrivers] = useState<Driver[]>([])
   const [routes, setRoutes] = useState<TransportRoute[]>([])
-  const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState('all')
-  const [assignmentFilter, setAssignmentFilter] = useState('all')
-  const [genderFilter, setGenderFilter] = useState('all')
+  const [search, setSearch] = useState(savedListState?.search ?? '')
+  const [statusFilter, setStatusFilter] = useState(savedListState?.statusFilter ?? 'all')
+  const [assignmentFilter, setAssignmentFilter] = useState(savedListState?.assignmentFilter ?? 'all')
+  const [genderFilter, setGenderFilter] = useState(savedListState?.genderFilter ?? 'all')
   const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null)
   const [resetTarget, setResetTarget] = useState<Driver | null>(null)
   const [loading, setLoading] = useState(true)
   const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null)
+
+  const rememberListState = useCallback((patch: Partial<DriverDirectoryListState>) => {
+    setPageState(DRIVER_DIRECTORY_LIST_STATE_KEY, {
+      search,
+      statusFilter,
+      assignmentFilter,
+      genderFilter,
+      ...patch,
+    })
+  }, [assignmentFilter, genderFilter, search, setPageState, statusFilter])
 
   const fetchData = useCallback(async () => {
     try {
@@ -224,6 +246,27 @@ export function DriverDirectoryPage() {
     setStatusFilter('all')
     setAssignmentFilter('all')
     setGenderFilter('all')
+    rememberListState({ search: '', statusFilter: 'all', assignmentFilter: 'all', genderFilter: 'all' })
+  }
+
+  const handleSearchChange = (value: string) => {
+    setSearch(value)
+    rememberListState({ search: value })
+  }
+
+  const handleStatusFilterChange = (value: string) => {
+    setStatusFilter(value)
+    rememberListState({ statusFilter: value })
+  }
+
+  const handleAssignmentFilterChange = (value: string) => {
+    setAssignmentFilter(value)
+    rememberListState({ assignmentFilter: value })
+  }
+
+  const handleGenderFilterChange = (value: string) => {
+    setGenderFilter(value)
+    rememberListState({ genderFilter: value })
   }
 
   if (loading) return <LoadingState />
@@ -265,13 +308,13 @@ export function DriverDirectoryPage() {
                     <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
                       value={search}
-                      onChange={(event) => setSearch(event.target.value)}
+                      onChange={(event) => handleSearchChange(event.target.value)}
                       placeholder="Search name, ID, phone, license, route..."
                       className="h-9 pl-9"
                     />
                   </div>
 
-                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <Select value={statusFilter} onValueChange={handleStatusFilterChange}>
                     <SelectTrigger className="h-9">
                       <SelectValue placeholder="Status" />
                     </SelectTrigger>
@@ -282,7 +325,7 @@ export function DriverDirectoryPage() {
                     </SelectContent>
                   </Select>
 
-                  <Select value={assignmentFilter} onValueChange={setAssignmentFilter}>
+                  <Select value={assignmentFilter} onValueChange={handleAssignmentFilterChange}>
                     <SelectTrigger className="h-9">
                       <SelectValue placeholder="Route Assignment" />
                     </SelectTrigger>
@@ -293,7 +336,7 @@ export function DriverDirectoryPage() {
                     </SelectContent>
                   </Select>
 
-                  <Select value={genderFilter} onValueChange={setGenderFilter}>
+                  <Select value={genderFilter} onValueChange={handleGenderFilterChange}>
                     <SelectTrigger className="h-9">
                       <SelectValue placeholder="Gender" />
                     </SelectTrigger>

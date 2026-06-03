@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo, type ElementType } from 'react'
 import { api } from '@/lib/api'
+import { useAppStore } from '@/lib/store'
 import { useToast } from '@/hooks/use-toast'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -113,6 +114,13 @@ interface SchoolOption {
   name: string
 }
 
+interface SuperAdminRolesListState {
+  roleSearch?: string
+  schoolFilter?: string
+}
+
+const SUPER_ADMIN_ROLES_LIST_STATE_KEY = 'admin:super-admin-roles:list'
+
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const PRESET_COLORS = [
@@ -181,6 +189,8 @@ function SummaryTile({
 
 export function SuperAdminRolesPage() {
   const { toast } = useToast()
+  const savedListState = useAppStore((s) => s.pageState[SUPER_ADMIN_ROLES_LIST_STATE_KEY] as SuperAdminRolesListState | undefined)
+  const setPageState = useAppStore((s) => s.setPageState)
 
   // Data state
   const [roles, setRoles] = useState<RoleListItem[]>([])
@@ -198,8 +208,8 @@ export function SuperAdminRolesPage() {
   const [originalEditData, setOriginalEditData] = useState({ name: '', description: '', color: '' })
 
   // UI state
-  const [roleSearch, setRoleSearch] = useState('')
-  const [schoolFilter, setSchoolFilter] = useState<string>('all')
+  const [roleSearch, setRoleSearch] = useState(savedListState?.roleSearch ?? '')
+  const [schoolFilter, setSchoolFilter] = useState<string>(savedListState?.schoolFilter ?? 'all')
   const [loadingRoles, setLoadingRoles] = useState(true)
   const [loadingDetail, setLoadingDetail] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -283,6 +293,24 @@ export function SuperAdminRolesPage() {
   useEffect(() => {
     fetchRoles()
   }, [schoolFilter, fetchRoles])
+
+  const rememberListState = (patch: Partial<SuperAdminRolesListState>) => {
+    setPageState(SUPER_ADMIN_ROLES_LIST_STATE_KEY, {
+      roleSearch,
+      schoolFilter,
+      ...patch,
+    })
+  }
+
+  const handleRoleSearchChange = (value: string) => {
+    setRoleSearch(value)
+    rememberListState({ roleSearch: value })
+  }
+
+  const handleSchoolFilterChange = (value: string) => {
+    setSchoolFilter(value)
+    rememberListState({ schoolFilter: value })
+  }
 
   // ── Load role detail when selected ──
   useEffect(() => {
@@ -497,7 +525,7 @@ export function SuperAdminRolesPage() {
         <div className="p-4">
           <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
             <div className="space-y-2">
-              <Badge variant="secondary" className="w-fit gap-2 bg-primary/10 text-primary hover:bg-primary/10">
+              <Badge variant="brand" className="w-fit gap-2">
                 <Sparkles className="size-3.5" />
                 Super Admin Control
               </Badge>
@@ -525,11 +553,11 @@ export function SuperAdminRolesPage() {
           <Input
             placeholder="Search roles..."
             value={roleSearch}
-            onChange={(e) => setRoleSearch(e.target.value)}
+            onChange={(e) => handleRoleSearchChange(e.target.value)}
             className="h-9 pl-9"
           />
         </div>
-        <Select value={schoolFilter} onValueChange={setSchoolFilter}>
+        <Select value={schoolFilter} onValueChange={handleSchoolFilterChange}>
           <SelectTrigger className="h-9 w-full lg:w-[260px]">
             <School className="size-3.5 mr-1.5 shrink-0" />
             <SelectValue placeholder="All Schools" />

@@ -37,6 +37,7 @@ import {
 import { DatePicker } from '@/components/date-picker'
 import { toast } from 'sonner'
 import { api } from '@/lib/api'
+import { useAppStore } from '@/lib/store'
 import { cn } from '@/lib/utils'
 
 interface CardEvent {
@@ -87,7 +88,44 @@ const RESULT_TONES: Record<string, { label: string; tone: 'success' | 'warn' | '
   invalid_uid: { label: 'Invalid UID', tone: 'error' },
 }
 
+interface RfidAuditPageState {
+  activeTab?: 'taps' | 'cards'
+}
+
+interface RfidTapsListState {
+  page?: number
+  limit?: number
+  search?: string
+  result?: string
+  source?: string
+  dateFrom?: string
+  dateTo?: string
+}
+
+interface RfidCardsListState {
+  page?: number
+  limit?: number
+  search?: string
+  action?: string
+  dateFrom?: string
+  dateTo?: string
+}
+
+const RFID_AUDIT_PAGE_STATE_KEY = 'rfid:audit:page'
+const RFID_AUDIT_TAPS_LIST_STATE_KEY = 'rfid:audit:taps:list'
+const RFID_AUDIT_CARDS_LIST_STATE_KEY = 'rfid:audit:cards:list'
+
 export function RfidAuditPage() {
+  const savedPageState = useAppStore((state) => state.pageState[RFID_AUDIT_PAGE_STATE_KEY] as RfidAuditPageState | undefined)
+  const setPageState = useAppStore((state) => state.setPageState)
+  const [activeTab, setActiveTab] = useState<'taps' | 'cards'>(savedPageState?.activeTab ?? 'taps')
+
+  const handleTabChange = (value: string) => {
+    const nextTab = value as 'taps' | 'cards'
+    setActiveTab(nextTab)
+    setPageState(RFID_AUDIT_PAGE_STATE_KEY, { activeTab: nextTab })
+  }
+
   return (
     <div className="mx-auto max-w-6xl space-y-3 p-3 md:p-5">
       <div className="flex items-center gap-3">
@@ -102,7 +140,7 @@ export function RfidAuditPage() {
         </div>
       </div>
 
-      <Tabs defaultValue="taps" className="space-y-3">
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-3">
         <TabsList className="h-9">
           <TabsTrigger value="taps" className="h-7 gap-1.5 text-xs">
             <ScanLine className="size-3.5" />
@@ -130,16 +168,18 @@ export function RfidAuditPage() {
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100]
 
 function TapsTab() {
+  const savedListState = useAppStore((state) => state.pageState[RFID_AUDIT_TAPS_LIST_STATE_KEY] as RfidTapsListState | undefined)
+  const setPageState = useAppStore((state) => state.setPageState)
   const [loading, setLoading] = useState(true)
   const [taps, setTaps] = useState<TapEvent[]>([])
   const [total, setTotal] = useState(0)
-  const [page, setPage] = useState(1)
-  const [limit, setLimit] = useState(50)
-  const [search, setSearch] = useState('')
-  const [result, setResult] = useState<string>('all')
-  const [source, setSource] = useState<string>('all')
-  const [dateFrom, setDateFrom] = useState('')
-  const [dateTo, setDateTo] = useState('')
+  const [page, setPage] = useState(savedListState?.page ?? 1)
+  const [limit, setLimit] = useState(savedListState?.limit ?? 50)
+  const [search, setSearch] = useState(savedListState?.search ?? '')
+  const [result, setResult] = useState<string>(savedListState?.result ?? 'all')
+  const [source, setSource] = useState<string>(savedListState?.source ?? 'all')
+  const [dateFrom, setDateFrom] = useState(savedListState?.dateFrom ?? '')
+  const [dateTo, setDateTo] = useState(savedListState?.dateTo ?? '')
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -191,6 +231,61 @@ function TapsTab() {
     setDateFrom('')
     setDateTo('')
     setPage(1)
+    setPageState(RFID_AUDIT_TAPS_LIST_STATE_KEY, { result: 'all', source: 'all', search: '', dateFrom: '', dateTo: '', page: 1, limit })
+  }
+
+  const rememberListState = (patch: Partial<RfidTapsListState>) => {
+    setPageState(RFID_AUDIT_TAPS_LIST_STATE_KEY, {
+      page,
+      limit,
+      search,
+      result,
+      source,
+      dateFrom,
+      dateTo,
+      ...patch,
+    })
+  }
+
+  const handleSearchChange = (value: string) => {
+    setSearch(value)
+    setPage(1)
+    rememberListState({ search: value, page: 1 })
+  }
+
+  const handleResultChange = (value: string) => {
+    setResult(value)
+    setPage(1)
+    rememberListState({ result: value, page: 1 })
+  }
+
+  const handleSourceChange = (value: string) => {
+    setSource(value)
+    setPage(1)
+    rememberListState({ source: value, page: 1 })
+  }
+
+  const handleDateFromChange = (value: string) => {
+    setDateFrom(value)
+    setPage(1)
+    rememberListState({ dateFrom: value, page: 1 })
+  }
+
+  const handleDateToChange = (value: string) => {
+    setDateTo(value)
+    setPage(1)
+    rememberListState({ dateTo: value, page: 1 })
+  }
+
+  const handlePageChange = (value: number) => {
+    setPage(value)
+    rememberListState({ page: value })
+  }
+
+  const handlePageSizeChange = (value: number) => {
+    setLimit(value)
+    setPage(1)
+    rememberListState({ limit: value, page: 1 })
   }
 
   return (
@@ -239,10 +334,7 @@ function TapsTab() {
             <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={search}
-              onChange={(e) => {
-                setSearch(e.target.value)
-                setPage(1)
-              }}
+              onChange={(e) => handleSearchChange(e.target.value)}
               placeholder="UID, name, or admission no."
               className="h-8 pl-8 text-sm"
             />
@@ -251,10 +343,7 @@ function TapsTab() {
         <FilterField label="Result">
           <Select
             value={result}
-            onValueChange={(v) => {
-              setResult(v)
-              setPage(1)
-            }}
+            onValueChange={handleResultChange}
           >
             <SelectTrigger className="h-8 text-sm">
               <SelectValue placeholder="All" />
@@ -276,10 +365,7 @@ function TapsTab() {
         <FilterField label="Source">
           <Select
             value={source}
-            onValueChange={(v) => {
-              setSource(v)
-              setPage(1)
-            }}
+            onValueChange={handleSourceChange}
           >
             <SelectTrigger className="h-8 text-sm">
               <SelectValue />
@@ -294,10 +380,7 @@ function TapsTab() {
         <FilterField label="From">
           <DatePicker
             value={dateFrom}
-            onChange={(v) => {
-              setDateFrom(v)
-              setPage(1)
-            }}
+            onChange={handleDateFromChange}
             disableFuture
             showQuickActions
             placeholder="Any date"
@@ -307,10 +390,7 @@ function TapsTab() {
         <FilterField label="To">
           <DatePicker
             value={dateTo}
-            onChange={(v) => {
-              setDateTo(v)
-              setPage(1)
-            }}
+            onChange={handleDateToChange}
             disableFuture
             showQuickActions
             placeholder="Any date"
@@ -345,11 +425,8 @@ function TapsTab() {
             total={total}
             totalPages={totalPages}
             itemLabel="taps"
-            onPageChange={setPage}
-            onPageSizeChange={(s) => {
-              setLimit(s)
-              setPage(1)
-            }}
+            onPageChange={handlePageChange}
+            onPageSizeChange={handlePageSizeChange}
           />
         )}
       </Card>
@@ -415,15 +492,17 @@ function TapRow({ tap }: { tap: TapEvent }) {
 // ─── Cards tab ──────────────────────────────────────────────────────────────
 
 function CardsTab() {
+  const savedListState = useAppStore((state) => state.pageState[RFID_AUDIT_CARDS_LIST_STATE_KEY] as RfidCardsListState | undefined)
+  const setPageState = useAppStore((state) => state.setPageState)
   const [loading, setLoading] = useState(true)
   const [events, setEvents] = useState<CardEvent[]>([])
-  const [page, setPage] = useState(1)
-  const [limit, setLimit] = useState(50)
+  const [page, setPage] = useState(savedListState?.page ?? 1)
+  const [limit, setLimit] = useState(savedListState?.limit ?? 50)
   const [hasMore, setHasMore] = useState(false)
-  const [search, setSearch] = useState('')
-  const [action, setAction] = useState<string>('all')
-  const [dateFrom, setDateFrom] = useState('')
-  const [dateTo, setDateTo] = useState('')
+  const [search, setSearch] = useState(savedListState?.search ?? '')
+  const [action, setAction] = useState<string>(savedListState?.action ?? 'all')
+  const [dateFrom, setDateFrom] = useState(savedListState?.dateFrom ?? '')
+  const [dateTo, setDateTo] = useState(savedListState?.dateTo ?? '')
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -471,6 +550,54 @@ function CardsTab() {
     setDateFrom('')
     setDateTo('')
     setPage(1)
+    setPageState(RFID_AUDIT_CARDS_LIST_STATE_KEY, { action: 'all', search: '', dateFrom: '', dateTo: '', page: 1, limit })
+  }
+
+  const rememberListState = (patch: Partial<RfidCardsListState>) => {
+    setPageState(RFID_AUDIT_CARDS_LIST_STATE_KEY, {
+      page,
+      limit,
+      search,
+      action,
+      dateFrom,
+      dateTo,
+      ...patch,
+    })
+  }
+
+  const handleSearchChange = (value: string) => {
+    setSearch(value)
+    setPage(1)
+    rememberListState({ search: value, page: 1 })
+  }
+
+  const handleActionChange = (value: string) => {
+    setAction(value)
+    setPage(1)
+    rememberListState({ action: value, page: 1 })
+  }
+
+  const handleDateFromChange = (value: string) => {
+    setDateFrom(value)
+    setPage(1)
+    rememberListState({ dateFrom: value, page: 1 })
+  }
+
+  const handleDateToChange = (value: string) => {
+    setDateTo(value)
+    setPage(1)
+    rememberListState({ dateTo: value, page: 1 })
+  }
+
+  const handlePageChange = (value: number) => {
+    setPage(value)
+    rememberListState({ page: value })
+  }
+
+  const handlePageSizeChange = (value: number) => {
+    setLimit(value)
+    setPage(1)
+    rememberListState({ limit: value, page: 1 })
   }
 
   return (
@@ -509,10 +636,7 @@ function CardsTab() {
             <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={search}
-              onChange={(e) => {
-                setSearch(e.target.value)
-                setPage(1)
-              }}
+              onChange={(e) => handleSearchChange(e.target.value)}
               placeholder="UID, name, or admission no."
               className="h-8 pl-8 text-sm"
             />
@@ -521,10 +645,7 @@ function CardsTab() {
         <FilterField label="Action">
           <Select
             value={action}
-            onValueChange={(v) => {
-              setAction(v)
-              setPage(1)
-            }}
+            onValueChange={handleActionChange}
           >
             <SelectTrigger className="h-8 text-sm">
               <SelectValue />
@@ -539,10 +660,7 @@ function CardsTab() {
         <FilterField label="From">
           <DatePicker
             value={dateFrom}
-            onChange={(v) => {
-              setDateFrom(v)
-              setPage(1)
-            }}
+            onChange={handleDateFromChange}
             disableFuture
             showQuickActions
             placeholder="Any date"
@@ -552,10 +670,7 @@ function CardsTab() {
         <FilterField label="To">
           <DatePicker
             value={dateTo}
-            onChange={(v) => {
-              setDateTo(v)
-              setPage(1)
-            }}
+            onChange={handleDateToChange}
             disableFuture
             showQuickActions
             placeholder="Any date"
@@ -590,11 +705,8 @@ function CardsTab() {
             total={null}
             totalPages={hasMore ? page + 1 : page}
             itemLabel="events"
-            onPageChange={setPage}
-            onPageSizeChange={(s) => {
-              setLimit(s)
-              setPage(1)
-            }}
+            onPageChange={handlePageChange}
+            onPageSizeChange={handlePageSizeChange}
             itemsOnPage={events.length}
           />
         )}

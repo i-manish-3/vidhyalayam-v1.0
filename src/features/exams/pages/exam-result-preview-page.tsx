@@ -24,6 +24,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { api } from '@/lib/api'
+import { useAppStore } from '@/lib/store'
 import { useToast } from '@/hooks/use-toast'
 import { Award, BarChart3, Calculator, FileText, Printer, Send, Trophy, Undo2 } from 'lucide-react'
 import {
@@ -95,17 +96,25 @@ interface Props {
   examId: string
 }
 
+interface ExamResultPreviewListState {
+  classFilter?: string
+  sectionFilter?: string | null
+}
+
 export function ExamResultPreviewPage({ examId }: Props) {
   const router = useRouter()
   const { toast } = useToast()
+  const listStateKey = `exams:result-preview:${examId}:list`
+  const savedListState = useAppStore((state) => state.pageState[listStateKey] as ExamResultPreviewListState | undefined)
+  const setPageState = useAppStore((state) => state.setPageState)
   const [loading, setLoading] = useState(true)
   const [computing, setComputing] = useState(false)
   const [confirmingRecompute, setConfirmingRecompute] = useState(false)
   const [exam, setExam] = useState<ExamInfo | null>(null)
   const [results, setResults] = useState<ExamResultRow[]>([])
   const [classes, setClasses] = useState<ClassOption[]>([])
-  const [classFilter, setClassFilter] = useState('')
-  const [sectionFilter, setSectionFilter] = useState<string | null>(null)
+  const [classFilter, setClassFilter] = useState(savedListState?.classFilter ?? '')
+  const [sectionFilter, setSectionFilter] = useState<string | null>(savedListState?.sectionFilter ?? null)
   const [publishing, setPublishing] = useState(false)
   const [unpublishOpen, setUnpublishOpen] = useState(false)
   const [unpublishReason, setUnpublishReason] = useState('')
@@ -145,6 +154,19 @@ export function ExamResultPreviewPage({ examId }: Props) {
     () => classes.find((c) => c.id === classFilter)?.sections ?? [],
     [classes, classFilter],
   )
+
+  const handleClassFilterChange = (value: string) => {
+    const nextClassFilter = value === '__all' ? '' : value
+    setClassFilter(nextClassFilter)
+    setSectionFilter(null)
+    setPageState(listStateKey, { classFilter: nextClassFilter, sectionFilter: null })
+  }
+
+  const handleSectionFilterChange = (value: string) => {
+    const nextSectionFilter = value === '__all' ? null : value
+    setSectionFilter(nextSectionFilter)
+    setPageState(listStateKey, { classFilter, sectionFilter: nextSectionFilter })
+  }
 
   async function handleRecompute() {
     setConfirmingRecompute(false)
@@ -297,10 +319,7 @@ export function ExamResultPreviewPage({ examId }: Props) {
             <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Class</span>
             <Select
               value={classFilter || '__all'}
-              onValueChange={(v) => {
-                setClassFilter(v === '__all' ? '' : v)
-                setSectionFilter(null)
-              }}
+              onValueChange={handleClassFilterChange}
             >
               <SelectTrigger className="h-9 w-44"><SelectValue placeholder="All classes" /></SelectTrigger>
               <SelectContent>
@@ -316,7 +335,7 @@ export function ExamResultPreviewPage({ examId }: Props) {
               <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Section</span>
               <Select
                 value={sectionFilter ?? '__all'}
-                onValueChange={(v) => setSectionFilter(v === '__all' ? null : v)}
+                onValueChange={handleSectionFilterChange}
               >
                 <SelectTrigger className="h-9 w-32"><SelectValue placeholder="All" /></SelectTrigger>
                 <SelectContent>

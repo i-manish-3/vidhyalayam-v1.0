@@ -24,7 +24,8 @@ import {
   UserPlus, ChevronLeft, ChevronRight, Check, Upload, X, Plus,
   MapPin, Phone, Mail, CalendarDays, GraduationCap, Building, Bus,
   Home, Banknote, FileText, Camera, AlertTriangle, Info, Save, Send,
-  ShieldCheck, Edit, User, Heart, Search, CircleUser, CircleUserRound
+  ShieldCheck, Edit, User, Heart, Search, CircleUser, CircleUserRound,
+  type LucideIcon
 } from 'lucide-react'
 
 // ============================================
@@ -39,6 +40,15 @@ const WIZARD_STEPS = [
   { number: 5, label: 'Documents', icon: FileText },
   { number: 6, label: 'Review & Submit', icon: ShieldCheck },
 ]
+
+const STEP_SUBTITLES: Record<number, string> = {
+  1: 'Student photo, identity and personal information',
+  2: 'Parent details, contact numbers and address',
+  3: 'Class, section and academic placement',
+  4: 'Fees, transport and account setup',
+  5: 'Upload supporting documents',
+  6: 'Verify all details before admitting the student',
+}
 
 const GENDER_OPTIONS = [
   { value: 'Male', label: 'Male' },
@@ -316,6 +326,35 @@ const DEFAULT_FORM: WizardForm = {
 function FieldError({ message }: { message?: string | null }) {
   if (!message) return null
   return <p className="text-xs text-destructive mt-1">{message}</p>
+}
+
+// Grouped sub-card used inside a wizard step ("card under card").
+function FormSection({
+  title,
+  icon: Icon,
+  children,
+  className,
+}: {
+  title?: string
+  icon?: LucideIcon
+  children: React.ReactNode
+  className?: string
+}) {
+  return (
+    <section className={cn('rounded-xl border bg-muted/20 p-4 sm:p-5 space-y-4', className)}>
+      {title && (
+        <div className="flex items-center gap-2 border-b pb-2.5">
+          {Icon && (
+            <span className="bg-brand-soft flex size-7 shrink-0 items-center justify-center rounded-lg text-white shadow-sm">
+              <Icon className="size-3.5" />
+            </span>
+          )}
+          <h3 className="text-sm font-semibold tracking-tight">{title}</h3>
+        </div>
+      )}
+      {children}
+    </section>
+  )
 }
 
 // Check if a field has a visible error (touched + has error)
@@ -1216,7 +1255,8 @@ export function AdmissionFormPage() {
     const age = calculateAge(form.dateOfBirth)
     const ec = (f: string) => fieldHasError(f, touched, fieldErrors) ? 'border-destructive focus-visible:ring-destructive' : ''
     return (
-      <div className="space-y-6">
+      <div className="space-y-4">
+        <FormSection title="Student Photo" icon={Camera}>
         {/* Photo Upload */}
         <div className="flex items-center gap-4">
           <div
@@ -1265,8 +1305,9 @@ export function AdmissionFormPage() {
           </div>
         </div>
 
-        <Separator />
+        </FormSection>
 
+        <FormSection title="Admission Details" icon={ShieldCheck}>
         {/* Admission Number - Auto Generated */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-2">
@@ -1313,7 +1354,9 @@ export function AdmissionFormPage() {
             <p className="text-xs text-muted-foreground">Uses the school registration format</p>
           </div>
         </div>
+        </FormSection>
 
+        <FormSection title="Personal Information" icon={User}>
         {/* Name */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-2">
@@ -1411,12 +1454,9 @@ export function AdmissionFormPage() {
             <FieldError message={touched.aadhaarNumber ? fieldErrors.aadhaarNumber : null} />
           </div>
         </div>
+        </FormSection>
 
-        {/* Government IDs */}
-        <Separator />
-        <p className="text-sm font-semibold text-muted-foreground flex items-center gap-1.5">
-          <ShieldCheck className="size-4" /> Government IDs
-        </p>
+        <FormSection title="Government IDs" icon={ShieldCheck}>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="space-y-2">
             <Label>PEN Number</Label>
@@ -1451,6 +1491,7 @@ export function AdmissionFormPage() {
             <FieldError message={touched.weightKg ? fieldErrors.weightKg : null} />
           </div>
         </div>
+        </FormSection>
       </div>
     )
   }
@@ -1458,7 +1499,7 @@ export function AdmissionFormPage() {
   const renderStep2ContactInfo = () => {
     const ec = (f: string) => fieldHasError(f, touched, fieldErrors) ? 'border-destructive focus-visible:ring-destructive' : ''
     return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Sibling Search — at the top of Contact Info */}
       <div className="rounded-lg border border-primary/20 bg-primary/5 dark:bg-primary/10 p-4 space-y-3">
         <div className="flex items-center gap-2">
@@ -1531,12 +1572,7 @@ export function AdmissionFormPage() {
         )}
       </div>
 
-      <Separator />
-
-      {/* Mother's Details */}
-      <p className="text-sm font-semibold text-muted-foreground flex items-center gap-1.5">
-        <Heart className="size-4" /> Mother&apos;s Details
-      </p>
+      <FormSection title="Mother's Details" icon={Heart}>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Mother&apos;s Name</Label>
@@ -1584,12 +1620,9 @@ export function AdmissionFormPage() {
         </div>
       </div>
 
-      <Separator />
+      </FormSection>
 
-      {/* Father's Details */}
-      <p className="text-sm font-semibold text-muted-foreground flex items-center gap-1.5">
-        <User className="size-4" /> Father&apos;s Details
-      </p>
+      <FormSection title="Father's Details" icon={User}>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Father&apos;s Name <span className="text-destructive">*</span></Label>
@@ -1637,12 +1670,9 @@ export function AdmissionFormPage() {
         </div>
       </div>
 
-      <Separator />
+      </FormSection>
 
-      {/* Permanent Address */}
-      <p className="text-sm font-semibold text-muted-foreground flex items-center gap-1.5">
-        <MapPin className="size-4" /> Permanent Address
-      </p>
+      <FormSection title="Permanent Address" icon={MapPin}>
       <div className="space-y-2">
         <Label>Street / Landmark / Area</Label>
         <Textarea value={form.address} onChange={e => updateForm('address', e.target.value)} onBlur={() => handleBlur('address')} placeholder="House No., Street, Landmark, Area..." rows={2} className={ec('address')} />
@@ -1691,12 +1721,9 @@ export function AdmissionFormPage() {
         </div>
       </div>
 
-      <Separator />
+      </FormSection>
 
-      {/* Local Address */}
-      <p className="text-sm font-semibold text-muted-foreground flex items-center gap-1.5">
-        <Home className="size-4" /> Local / Residential Address
-      </p>
+      <FormSection title="Local / Residential Address" icon={Home}>
       <div className="flex items-center gap-2">
         <Checkbox id="sameAsPermanent" checked={form.sameAsPermanent} onCheckedChange={v => updateForm('sameAsPermanent', v === true)} />
         <Label htmlFor="sameAsPermanent" className="text-sm">Same as Permanent Address</Label>
@@ -1752,12 +1779,9 @@ export function AdmissionFormPage() {
         </div>
       )}
 
-      <Separator />
+      </FormSection>
 
-      {/* Other Details */}
-      <p className="text-sm font-semibold text-muted-foreground flex items-center gap-1.5">
-        <AlertTriangle className="size-4" /> Special Categories
-      </p>
+      <FormSection title="Special Categories" icon={AlertTriangle}>
       <div className="flex flex-wrap gap-6">
         <div className="flex items-center gap-2">
           <Checkbox id="belongsToEws" checked={form.belongsToEws} onCheckedChange={v => updateForm('belongsToEws', v === true)} />
@@ -1772,6 +1796,7 @@ export function AdmissionFormPage() {
           <Label htmlFor="isDivyangian" className="text-sm">Divyangian (Differently Abled)</Label>
         </div>
       </div>
+      </FormSection>
     </div>
     )
   }
@@ -1779,11 +1804,8 @@ export function AdmissionFormPage() {
   const renderStep3GeneralDetails = () => {
     const ec = (f: string) => fieldHasError(f, touched, fieldErrors) ? 'border-destructive focus-visible:ring-destructive' : ''
     return (
-    <div className="space-y-6">
-      {/* Academic Details */}
-      <p className="text-sm font-semibold text-muted-foreground flex items-center gap-1.5">
-        <GraduationCap className="size-4" /> Academic Details
-      </p>
+    <div className="space-y-4">
+      <FormSection title="Academic Details" icon={GraduationCap}>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Class Admitted <span className="text-destructive">*</span></Label>
@@ -1858,12 +1880,9 @@ export function AdmissionFormPage() {
         </div>
       </div>
 
-      <Separator />
+      </FormSection>
 
-      {/* Last Institution */}
-      <p className="text-sm font-semibold text-muted-foreground flex items-center gap-1.5">
-        <Building className="size-4" /> Last Institution Details
-      </p>
+      <FormSection title="Last Institution Details" icon={Building}>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Institution Name</Label>
@@ -1905,12 +1924,9 @@ export function AdmissionFormPage() {
         </div>
       </div>
 
-      <Separator />
+      </FormSection>
 
-      {/* Transport */}
-      <p className="text-sm font-semibold text-muted-foreground flex items-center gap-1.5">
-        <Bus className="size-4" /> Transport Details
-      </p>
+      <FormSection title="Transport Details" icon={Bus}>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Transport Route</Label>
@@ -1941,12 +1957,9 @@ export function AdmissionFormPage() {
         </div>
       </div>
 
-      <Separator />
+      </FormSection>
 
-      {/* Hostel */}
-      <p className="text-sm font-semibold text-muted-foreground flex items-center gap-1.5">
-        <Home className="size-4" /> Hostel Details
-      </p>
+      <FormSection title="Hostel Details" icon={Home}>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="space-y-2">
           <Label>Hostel Name</Label>
@@ -1961,6 +1974,7 @@ export function AdmissionFormPage() {
           <Input value={form.hostelBedNo} onChange={e => updateForm('hostelBedNo', e.target.value)} placeholder="Bed number" />
         </div>
       </div>
+      </FormSection>
     </div>
     )
   }
@@ -1968,10 +1982,8 @@ export function AdmissionFormPage() {
   const renderStep4AccountsInfo = () => {
     const ec = (f: string) => fieldHasError(f, touched, fieldErrors) ? 'border-destructive focus-visible:ring-destructive' : ''
     return (
-    <div className="space-y-6">
-      <p className="text-sm font-semibold text-muted-foreground flex items-center gap-1.5">
-        <Banknote className="size-4" /> Bank Account Details
-      </p>
+    <div className="space-y-4">
+      <FormSection title="Bank Account Details" icon={Banknote}>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Bank Account Number</Label>
@@ -1985,11 +1997,9 @@ export function AdmissionFormPage() {
         </div>
       </div>
 
-      <Separator />
+      </FormSection>
 
-      <p className="text-sm font-semibold text-muted-foreground flex items-center gap-1.5">
-        <Banknote className="size-4" /> Fee Group
-      </p>
+      <FormSection title="Fee Group" icon={Banknote}>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Fee Group <span className="text-destructive">*</span></Label>
@@ -2041,12 +2051,13 @@ export function AdmissionFormPage() {
           </div>
         </div>
       </div>
+      </FormSection>
     </div>
     )
   }
 
   const renderStep5Documents = () => (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 p-3">
         <Info className="size-4 text-amber-600 mt-0.5 shrink-0" />
         <p className="text-sm text-amber-800 dark:text-amber-300">
@@ -2054,6 +2065,7 @@ export function AdmissionFormPage() {
         </p>
       </div>
 
+      <FormSection title="Required Documents" icon={FileText}>
       <div className="space-y-2">
         {REQUIRED_DOCUMENTS.map(doc => {
           const uploadState = documentUploads[doc.type]
@@ -2172,15 +2184,16 @@ export function AdmissionFormPage() {
         )
       })}
 
-      <Separator />
+      </FormSection>
 
-      <p className="text-sm font-medium text-muted-foreground">Add Custom Document</p>
+      <FormSection title="Add Custom Document" icon={Plus}>
       <div className="flex items-center gap-2">
         <Input value={customDocName} onChange={e => setCustomDocName(e.target.value)} placeholder="Custom document name" className="flex-1" />
         <Button variant="outline" size="sm" disabled={!customDocName.trim()} onClick={addCustomDocument}>
           <Plus className="size-4 mr-1" /> Add
         </Button>
       </div>
+      </FormSection>
     </div>
   )
 
@@ -2433,19 +2446,20 @@ export function AdmissionFormPage() {
   // Render
   // ============================================
 
+  const currentStepMeta = WIZARD_STEPS.find((s) => s.number === currentStep) ?? WIZARD_STEPS[0]
+  const CurrentStepIcon = currentStepMeta.icon
+
   return (
-    <div className="min-h-[calc(100vh-10rem)] flex flex-col">
+    <div className="flex w-full flex-col min-h-[calc(100vh-10rem)]">
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-6">
-        <div className="flex items-center gap-3">
-          <div>
-            <h1 className="text-xl font-bold">Admit New Student</h1>
+        <div className="flex min-w-0 items-stretch gap-3">
+          <span aria-hidden className="bg-brand mt-0.5 w-1 shrink-0 self-stretch rounded-full" />
+          <div className="min-w-0">
+            <h1 className="text-xl font-bold tracking-tight">Admit New Student</h1>
             <p className="text-sm text-muted-foreground">Fill in the details to register a new student admission</p>
           </div>
         </div>
-        <Badge variant="outline" className="text-xs shrink-0">
-          Step {currentStep} of {WIZARD_STEPS.length}
-        </Badge>
       </div>
 
       {/* Step Indicator */}
@@ -2470,7 +2484,7 @@ export function AdmissionFormPage() {
                   <div
                     className={`flex size-10 items-center justify-center rounded-full border-2 transition-all duration-200 ${
                       isCompleted
-                        ? 'border-emerald-500 bg-emerald-500 text-white'
+                        ? 'border-[var(--sidebar-accent,var(--primary))] bg-[var(--sidebar-accent,var(--primary))] text-white'
                         : isCurrent
                         ? 'border-[var(--button-primary,var(--primary))] bg-[var(--button-primary,var(--primary))] text-[var(--button-primary-foreground,var(--primary-foreground))] shadow-md scale-110'
                         : 'border-muted-foreground/30 bg-background text-muted-foreground'
@@ -2480,7 +2494,7 @@ export function AdmissionFormPage() {
                   </div>
                   <span
                     className={`text-[10px] sm:text-xs font-medium transition-colors text-center leading-tight ${
-                      isCurrent ? 'text-[var(--button-primary,var(--primary))]' : isCompleted ? 'text-emerald-600' : 'text-muted-foreground'
+                      isCurrent ? 'text-[var(--button-primary,var(--primary))]' : isCompleted ? 'text-[var(--sidebar-accent,var(--primary))]' : 'text-muted-foreground'
                     }`}
                   >
                     <span className="hidden sm:inline">{step.label}</span>
@@ -2491,7 +2505,7 @@ export function AdmissionFormPage() {
                   <div className="flex-1 mx-1 mt-4">
                     <div
                       className={`h-0.5 w-full transition-colors ${
-                        isCompleted || currentStep > step.number ? 'bg-emerald-500' : 'bg-muted-foreground/20'
+                        isCompleted || currentStep > step.number ? 'bg-[var(--sidebar-accent,var(--primary))]' : 'bg-muted-foreground/20'
                       }`}
                     />
                   </div>
@@ -2503,38 +2517,49 @@ export function AdmissionFormPage() {
       </div>
 
       {/* Step Content */}
-      <Card className="flex-1">
+      <Card className="card-premium flex-1 overflow-hidden border-0 p-0">
+        {/* Branded step header band */}
+        <div className="flex items-center gap-3 border-b bg-[color-mix(in_oklab,var(--primary),transparent_95%)] px-4 py-3 sm:px-6">
+          <div className="bg-brand-soft flex size-10 shrink-0 items-center justify-center rounded-xl text-white shadow-sm">
+            <CurrentStepIcon className="size-5" />
+          </div>
+          <div className="min-w-0">
+            <h2 className="text-base font-semibold leading-tight tracking-tight">{currentStepMeta.label}</h2>
+            <p className="truncate text-xs text-muted-foreground">{STEP_SUBTITLES[currentStep]}</p>
+          </div>
+          <Badge variant="brand" className="ml-auto hidden shrink-0 sm:inline-flex">
+            Step {currentStep} of {WIZARD_STEPS.length}
+          </Badge>
+        </div>
         <CardContent className="p-4 sm:p-6">
           {renderStepContent()}
         </CardContent>
       </Card>
 
       {/* Navigation Buttons */}
-      <div className="flex items-center justify-between mt-6 pb-4">
+      <div className="flex items-center justify-between gap-3 mt-5 border-t pt-4 pb-4">
         <div>
           {currentStep > 1 && (
-            <Button variant="outline" onClick={handlePrev} className="gap-1">
+            <Button variant="outline" size="lg" onClick={handlePrev} className="gap-1">
               <ChevronLeft className="size-4" /> Previous
             </Button>
           )}
         </div>
         <div className="flex items-center gap-2">
           {currentStep < 6 && (
-            <Button onClick={handleNext} className="gap-1">
+            <Button onClick={handleNext} size="lg" className="gap-1 px-8">
               Next <ChevronRight className="size-4" />
             </Button>
           )}
           {currentStep === 6 && (
-            <>
-              <Button onClick={handleSubmit} disabled={submitting} className="gap-1">
-                {submitting ? (
-                  <div className="size-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                ) : (
-                  <Send className="size-4" />
-                )}
-                Admit Student
-              </Button>
-            </>
+            <Button onClick={handleSubmit} size="lg" disabled={submitting} className="gap-1 px-8">
+              {submitting ? (
+                <div className="size-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+              ) : (
+                <Send className="size-4" />
+              )}
+              Admit Student
+            </Button>
           )}
         </div>
       </div>

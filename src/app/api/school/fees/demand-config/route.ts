@@ -110,7 +110,7 @@ export async function PATCH(request: NextRequest) {
     const dueDay = cleanInt(body.dueDay, 10, 1, 28)
     const slipNumberFormat = typeof body.slipNumberFormat === 'string' && body.slipNumberFormat.trim()
       ? body.slipNumberFormat.trim()
-      : 'DS/{academicYear}/{subdomain}/{month}/{sequence}'
+      : 'DS/{academicYear}/{month}/{sequence}'
 
     const lateFeeEnabled = cleanBool(body.lateFeeEnabled, false)
     const lateFeeType = (typeof body.lateFeeType === 'string' && VALID_FEE_TYPES.has(body.lateFeeType))

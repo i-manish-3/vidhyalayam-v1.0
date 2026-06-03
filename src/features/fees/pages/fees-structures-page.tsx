@@ -229,11 +229,24 @@ function dueDateForPeriod(period: string, academicYear: string, day: number) {
 
 // ── Component ──────────────────────────────────────────────────────────
 
+interface FeeStructuresListState {
+  structureSearch: string
+  structureClassFilter: string
+  structureGroupFilter: string
+  structureYearFilter: string
+  structurePage: number
+  structurePageSize: number
+}
+
+const FEE_STRUCTURES_LIST_STATE_KEY = 'fees:structures:list'
+
 export function FeesStructuresPage() {
   const router = useRouter()
   const { toast } = useToast()
   const currentSchoolAcademicYear = useAppStore((s) => s.currentSchool?.academicYear)
   const viewingAcademicYear = useAppStore((s) => s.viewingAcademicYear)
+  const savedListState = useAppStore((s) => s.pageState[FEE_STRUCTURES_LIST_STATE_KEY] as FeeStructuresListState | undefined)
+  const setPageState = useAppStore((s) => s.setPageState)
   const effectiveAcademicYear = viewingAcademicYear || currentSchoolAcademicYear || getCurrentAcademicYear()
 
   // Data
@@ -256,15 +269,27 @@ export function FeesStructuresPage() {
 
   // Expanded cards
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
-  const [structureSearch, setStructureSearch] = useState('')
-  const [structureClassFilter, setStructureClassFilter] = useState('ALL')
-  const [structureGroupFilter, setStructureGroupFilter] = useState('ALL')
-  const [structureYearFilter, setStructureYearFilter] = useState('')
+  const [structureSearch, setStructureSearch] = useState(savedListState?.structureSearch ?? '')
+  const [structureClassFilter, setStructureClassFilter] = useState(savedListState?.structureClassFilter ?? 'ALL')
+  const [structureGroupFilter, setStructureGroupFilter] = useState(savedListState?.structureGroupFilter ?? 'ALL')
+  const [structureYearFilter, setStructureYearFilter] = useState(savedListState?.structureYearFilter ?? '')
   const [classSelectSearch, setClassSelectSearch] = useState('')
   const [feeGroupSelectSearch, setFeeGroupSelectSearch] = useState('')
-  const [structurePage, setStructurePage] = useState(1)
-  const [structurePageSize, setStructurePageSize] = useState(10)
+  const [structurePage, setStructurePage] = useState(savedListState?.structurePage ?? 1)
+  const [structurePageSize, setStructurePageSize] = useState(savedListState?.structurePageSize ?? 10)
   const selectedStructureYearFilter = structureYearFilter || activeSessionYear
+
+  const rememberListState = useCallback((patch: Partial<FeeStructuresListState>) => {
+    setPageState(FEE_STRUCTURES_LIST_STATE_KEY, {
+      structureSearch,
+      structureClassFilter,
+      structureGroupFilter,
+      structureYearFilter,
+      structurePage,
+      structurePageSize,
+      ...patch,
+    })
+  }, [setPageState, structureClassFilter, structureGroupFilter, structurePage, structurePageSize, structureSearch, structureYearFilter])
 
   // Dialog state
   const [showAdd, setShowAdd] = useState(false)
@@ -453,22 +478,48 @@ export function FeesStructuresPage() {
   }, [selectedStructureYearFilter, structureClassFilter, structureGroupFilter, structureSearch, structures])
 
   const structureTotalPages = Math.max(1, Math.ceil(filteredStructures.length / structurePageSize))
+  const safeStructurePage = Math.min(structurePage, structureTotalPages)
   const paginatedStructures = useMemo(() => {
-    const start = (structurePage - 1) * structurePageSize
+    const start = (safeStructurePage - 1) * structurePageSize
     return filteredStructures.slice(start, start + structurePageSize)
-  }, [filteredStructures, structurePage, structurePageSize])
-  const structureRangeFrom = filteredStructures.length === 0 ? 0 : (structurePage - 1) * structurePageSize + 1
-  const structureRangeTo = Math.min(structurePage * structurePageSize, filteredStructures.length)
+  }, [filteredStructures, safeStructurePage, structurePageSize])
+  const structureRangeFrom = filteredStructures.length === 0 ? 0 : (safeStructurePage - 1) * structurePageSize + 1
+  const structureRangeTo = Math.min(safeStructurePage * structurePageSize, filteredStructures.length)
 
-  useEffect(() => {
-    if (structurePage > structureTotalPages) {
-      setStructurePage(structureTotalPages)
-    }
-  }, [structurePage, structureTotalPages])
+  const handleStructurePageChange = (page: number) => {
+    setStructurePage(page)
+    rememberListState({ structurePage: page })
+  }
 
-  useEffect(() => {
+  const handleStructurePageSizeChange = (size: number) => {
     setStructurePage(1)
-  }, [structureSearch, structureClassFilter, structureGroupFilter, selectedStructureYearFilter, structurePageSize])
+    setStructurePageSize(size)
+    rememberListState({ structurePage: 1, structurePageSize: size })
+  }
+
+  const handleStructureSearchChange = (value: string) => {
+    setStructureSearch(value)
+    setStructurePage(1)
+    rememberListState({ structureSearch: value, structurePage: 1 })
+  }
+
+  const handleStructureClassFilterChange = (value: string) => {
+    setStructureClassFilter(value)
+    setStructurePage(1)
+    rememberListState({ structureClassFilter: value, structurePage: 1 })
+  }
+
+  const handleStructureGroupFilterChange = (value: string) => {
+    setStructureGroupFilter(value)
+    setStructurePage(1)
+    rememberListState({ structureGroupFilter: value, structurePage: 1 })
+  }
+
+  const handleStructureYearFilterChange = (value: string) => {
+    setStructureYearFilter(value)
+    setStructurePage(1)
+    rememberListState({ structureYearFilter: value, structurePage: 1 })
+  }
 
   const toggleClassStructureHead = (feeHead: FeeHead) => {
     const isSelected = classStructureHeadIds.includes(feeHead.id)
@@ -743,9 +794,10 @@ export function FeesStructuresPage() {
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-start gap-3">
-          <div>
-            <h1 className="text-xl font-bold tracking-tight">Class Fee Structure</h1>
+        <div className="flex min-w-0 items-stretch gap-3">
+          <span aria-hidden className="bg-brand mt-0.5 w-1 shrink-0 self-stretch rounded-full" />
+          <div className="min-w-0">
+            <h1 className="text-xl font-semibold tracking-tight text-foreground/90">Class Fee Structure</h1>
             <p className="mt-0.5 text-sm text-muted-foreground">
               Configure fee amounts by session, class, and fee group.
             </p>
@@ -1184,12 +1236,12 @@ export function FeesStructuresPage() {
               <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 value={structureSearch}
-                onChange={(event) => setStructureSearch(event.target.value)}
+                onChange={(event) => handleStructureSearchChange(event.target.value)}
                 placeholder="Search structure, group, class..."
                 className="pl-9"
               />
             </div>
-            <Select value={structureClassFilter} onValueChange={setStructureClassFilter}>
+            <Select value={structureClassFilter} onValueChange={handleStructureClassFilterChange}>
               <SelectTrigger>
                 <SelectValue placeholder="All classes" />
               </SelectTrigger>
@@ -1200,7 +1252,7 @@ export function FeesStructuresPage() {
                 ))}
               </SelectContent>
             </Select>
-            <Select value={structureGroupFilter} onValueChange={setStructureGroupFilter}>
+            <Select value={structureGroupFilter} onValueChange={handleStructureGroupFilterChange}>
               <SelectTrigger>
                 <SelectValue placeholder="All fee groups" />
               </SelectTrigger>
@@ -1211,7 +1263,7 @@ export function FeesStructuresPage() {
                 ))}
               </SelectContent>
             </Select>
-            <Select value={selectedStructureYearFilter} onValueChange={setStructureYearFilter}>
+            <Select value={selectedStructureYearFilter} onValueChange={handleStructureYearFilterChange}>
               <SelectTrigger>
                 <SelectValue placeholder="Current session" />
               </SelectTrigger>
@@ -1377,7 +1429,7 @@ export function FeesStructuresPage() {
               <div className="flex flex-col items-center justify-between gap-3 border-t px-4 py-3 sm:flex-row">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <span>Rows per page:</span>
-                  <Select value={String(structurePageSize)} onValueChange={(v) => setStructurePageSize(Number(v))}>
+                  <Select value={String(structurePageSize)} onValueChange={(v) => handleStructurePageSizeChange(Number(v))}>
                     <SelectTrigger className="h-8 w-[70px] text-xs">
                       <SelectValue />
                     </SelectTrigger>
@@ -1396,21 +1448,21 @@ export function FeesStructuresPage() {
                     variant="outline"
                     size="icon"
                     className="size-8"
-                    onClick={() => setStructurePage((p) => Math.max(1, p - 1))}
-                    disabled={structurePage <= 1}
+                    onClick={() => handleStructurePageChange(Math.max(1, safeStructurePage - 1))}
+                    disabled={safeStructurePage <= 1}
                     aria-label="Previous page"
                   >
                     <ChevronLeft className="size-4" />
                   </Button>
                   <span className="px-2 text-sm">
-                    Page {structurePage} of {structureTotalPages}
+                    Page {safeStructurePage} of {structureTotalPages}
                   </span>
                   <Button
                     variant="outline"
                     size="icon"
                     className="size-8"
-                    onClick={() => setStructurePage((p) => Math.min(structureTotalPages, p + 1))}
-                    disabled={structurePage >= structureTotalPages}
+                    onClick={() => handleStructurePageChange(Math.min(structureTotalPages, safeStructurePage + 1))}
+                    disabled={safeStructurePage >= structureTotalPages}
                     aria-label="Next page"
                   >
                     <ChevronRight className="size-4" />

@@ -181,6 +181,15 @@ function getInitials(firstName: string, lastName: string): string {
 
 const rollNumberCollator = new Intl.Collator('en', { numeric: true, sensitivity: 'base' })
 
+interface ViewAttendanceListState {
+  date?: string
+  classId?: string
+  sectionId?: string
+  searchQuery?: string
+}
+
+const VIEW_ATTENDANCE_LIST_STATE_KEY = 'attendance:view:list'
+
 function compareRecordsByRollNumber(a: AttendanceRecord, b: AttendanceRecord): number {
   const aRoll = (a.student.rollNumber || '').trim()
   const bRoll = (b.student.rollNumber || '').trim()
@@ -221,16 +230,18 @@ export function ViewAttendancePage() {
   const { toast } = useToast()
   const { hasPermission } = usePermissions()
   const canMark = hasPermission(PERMISSIONS.ATTENDANCE_MARK)
+  const savedListState = useAppStore((s) => s.pageState[VIEW_ATTENDANCE_LIST_STATE_KEY] as ViewAttendanceListState | undefined)
+  const setPageState = useAppStore((s) => s.setPageState)
   const currentSchoolAcademicYear = useAppStore((s) => s.currentSchool?.academicYear)
   const viewingAcademicYear = useAppStore((s) => s.viewingAcademicYear)
   const academicYear = viewingAcademicYear || currentSchoolAcademicYear || getCurrentAcademicYear()
 
   // Filter state — initial values can come from URL params so the Audit Log
   // page (and any future deep link) can land on a specific date/class/section.
-  const [date, setDate] = useState(() => searchParams.get('date') || getTodayString())
-  const [classId, setClassId] = useState<string>(() => searchParams.get('classId') || '')
-  const [sectionId, setSectionId] = useState<string>(() => searchParams.get('sectionId') || '')
-  const [searchQuery, setSearchQuery] = useState('')
+  const [date, setDate] = useState(() => searchParams.get('date') || savedListState?.date || getTodayString())
+  const [classId, setClassId] = useState<string>(() => searchParams.get('classId') || savedListState?.classId || '')
+  const [sectionId, setSectionId] = useState<string>(() => searchParams.get('sectionId') || savedListState?.sectionId || '')
+  const [searchQuery, setSearchQuery] = useState(savedListState?.searchQuery ?? '')
 
   // Snapshot mode — when navigated from the Audit Log, ?snapshot=<auditId>
   // tells us to reconstruct the attendance state as it was at that moment
@@ -354,18 +365,35 @@ export function ViewAttendancePage() {
 
   // Any manual filter change exits snapshot mode — snapshots are point-in-time
   // captures, so editing the filters means the user wants live data.
+  const rememberListState = (patch: Partial<ViewAttendanceListState>) => {
+    setPageState(VIEW_ATTENDANCE_LIST_STATE_KEY, {
+      date,
+      classId,
+      sectionId,
+      searchQuery,
+      ...patch,
+    })
+  }
+
   const handleClassChange = (value: string) => {
     exitSnapshot()
     setClassId(value)
     setSectionId('')
+    rememberListState({ classId: value, sectionId: '' })
   }
   const handleSectionChangeWithSnapshot = (value: string) => {
     exitSnapshot()
     setSectionId(value)
+    rememberListState({ sectionId: value })
   }
   const handleDateChange = (value: string) => {
     exitSnapshot()
     setDate(value)
+    rememberListState({ date: value })
+  }
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value)
+    rememberListState({ searchQuery: value })
   }
 
   // Filter records by search
@@ -558,12 +586,12 @@ export function ViewAttendancePage() {
               <Input
                 placeholder="Search by name, roll no..."
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => handleSearchChange(e.target.value)}
                 className="h-9 pl-8 pr-8 text-sm sm:h-7 sm:text-xs"
               />
               {searchQuery && (
                 <button
-                  onClick={() => setSearchQuery('')}
+                  onClick={() => handleSearchChange('')}
                   className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 >
                   <X className="size-3.5 sm:size-3" />
@@ -667,7 +695,7 @@ export function ViewAttendancePage() {
         <div className="text-center py-12">
           <Search className="size-10 text-muted-foreground/40 mx-auto mb-3" />
           <p className="text-sm text-muted-foreground">No records match &ldquo;{searchQuery}&rdquo;</p>
-          <Button variant="link" size="sm" onClick={() => setSearchQuery('')} className="mt-1">
+          <Button variant="link" size="sm" onClick={() => handleSearchChange('')} className="mt-1">
             Clear search
           </Button>
         </div>

@@ -445,10 +445,18 @@ function periodStateLabel(state: ReturnType<typeof periodPaymentState>) {
 // numberToWords now lives in @/lib/fee-slip-template
 
 
+interface FeeCollectionsListState {
+  search?: string
+}
+
+const FEE_COLLECTIONS_LIST_STATE_KEY = 'fees:collections:list'
+
 export function FeeCollectionsPage() {
   const { toast } = useToast()
   const currentSchool = useAppStore((state) => state.currentSchool)
   const currentUser = useAppStore((state) => state.user)
+  const savedListState = useAppStore((state) => state.pageState[FEE_COLLECTIONS_LIST_STATE_KEY] as FeeCollectionsListState | undefined)
+  const setPageState = useAppStore((state) => state.setPageState)
   const currentSchoolAcademicYear = currentSchool?.academicYear
   const viewingAcademicYear = useAppStore((state) => state.viewingAcademicYear)
   const academicYear = viewingAcademicYear || currentSchoolAcademicYear || getCurrentAcademicYear()
@@ -460,7 +468,7 @@ export function FeeCollectionsPage() {
   const [receiptHistory, setReceiptHistory] = useState<ReceiptHistoryRow[]>([])
   const [transportInfo, setTransportInfo] = useState<TransportInfo | null>(null)
   const [selectedCollectionIds, setSelectedCollectionIds] = useState<string[]>([])
-  const [search, setSearch] = useState('')
+  const [search, setSearch] = useState(savedListState?.search ?? '')
   const [paymentDate, setPaymentDate] = useState(() => todayLocalIso())
   const [discountAmount, setDiscountAmount] = useState('')
   const [remarks, setRemarks] = useState('')
@@ -520,7 +528,6 @@ export function FeeCollectionsPage() {
       }
     })()
     return () => { cancelled = true }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [feesPreselectStudentId])
 
   useEffect(() => {
@@ -993,7 +1000,9 @@ export function FeeCollectionsPage() {
   const handleSelectStudent = (student: Student) => {
     setSelectedStudent(student)
     setTransportInfo(null)
-    setSearch(studentName(student))
+    const nextSearch = studentName(student)
+    setSearch(nextSearch)
+    setPageState(FEE_COLLECTIONS_LIST_STATE_KEY, { search: nextSearch })
   }
 
   const createReceiptSummary = (
@@ -1313,7 +1322,8 @@ export function FeeCollectionsPage() {
     <div className="space-y-4">
       {/* ── Page Header ──────────────────────────────────────── */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-3">
+        <div className="flex items-stretch gap-3">
+          <span aria-hidden className="bg-brand mt-0.5 w-1 shrink-0 self-stretch rounded-full" />
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-xl font-bold tracking-tight leading-tight">Collect Fee</h1>
@@ -1358,6 +1368,7 @@ export function FeeCollectionsPage() {
                 value={search}
                 onChange={(event) => {
                   setSearch(event.target.value)
+                  setPageState(FEE_COLLECTIONS_LIST_STATE_KEY, { search: event.target.value })
                   setSelectedStudent(null)
                   setAllStudentCollections([])
                   setReceiptHistory([])

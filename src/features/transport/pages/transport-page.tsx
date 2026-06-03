@@ -47,15 +47,23 @@ interface TransportDriver {
   isActive?: boolean
 }
 
+interface TransportRouteListState {
+  searchQuery: string
+}
+
+const TRANSPORT_ROUTE_LIST_STATE_KEY = 'transport:routes:list'
+
 export function TransportPage() {
   const router = useRouter()
   const { toast } = useToast()
   const viewingAcademicYear = useAppStore((state) => state.viewingAcademicYear)
   const currentSchool = useAppStore((state) => state.currentSchool)
+  const savedListState = useAppStore((state) => state.pageState[TRANSPORT_ROUTE_LIST_STATE_KEY] as TransportRouteListState | undefined)
+  const setPageState = useAppStore((state) => state.setPageState)
   const [routes, setRoutes] = useState<TransportRoute[]>([])
   const [drivers, setDrivers] = useState<TransportDriver[]>([])
   const [loading, setLoading] = useState(true)
-  const [searchQuery, setSearchQuery] = useState('')
+  const [searchQuery, setSearchQuery] = useState(savedListState?.searchQuery ?? '')
   const [selectedRoute, setSelectedRoute] = useState<TransportRoute | null>(null)
   const [deleteRoute, setDeleteRoute] = useState<TransportRoute | null>(null)
   const [deleting, setDeleting] = useState(false)
@@ -140,6 +148,11 @@ export function TransportPage() {
     router.push(`/transport/routes/${route.id}/edit`)
   }
 
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value)
+    setPageState(TRANSPORT_ROUTE_LIST_STATE_KEY, { searchQuery: value })
+  }
+
   const handleDelete = async () => {
     if (!deleteRoute) return
     setDeleting(true)
@@ -213,13 +226,13 @@ export function TransportPage() {
                 <Input
                   placeholder="Search route, driver, vehicle, or stop"
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onChange={(e) => handleSearchChange(e.target.value)}
                   className="h-10 pl-9 pr-9"
                 />
                 {searchQuery && (
                   <button
                     type="button"
-                    onClick={() => setSearchQuery('')}
+                    onClick={() => handleSearchChange('')}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                     aria-label="Clear search"
                   >
@@ -234,7 +247,7 @@ export function TransportPage() {
             <div className="px-4 py-12 text-center">
               <Search className="mx-auto mb-3 size-10 text-muted-foreground/40" />
               <p className="text-sm text-muted-foreground">No routes match &ldquo;{searchQuery}&rdquo;</p>
-              <Button variant="link" size="sm" onClick={() => setSearchQuery('')} className="mt-1">
+              <Button variant="link" size="sm" onClick={() => handleSearchChange('')} className="mt-1">
                 Clear search
               </Button>
             </div>

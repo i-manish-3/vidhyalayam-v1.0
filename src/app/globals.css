@@ -80,6 +80,18 @@
   --input: oklch(0.929 0.013 256);
   --ring: oklch(0.61 0.16 160);
 
+  /* Brand gradient tokens — palette-aware, derived from the live theme vars.
+     They reference --primary / --sidebar / --button-primary so every palette
+     (existing + new) gets a consistent gradient treatment with nothing hardcoded. */
+  --gradient-primary: linear-gradient(135deg, var(--primary) 0%, color-mix(in oklab, var(--primary), white 18%) 100%);
+  --gradient-secondary: linear-gradient(135deg, color-mix(in oklab, var(--primary), white 16%) 0%, var(--sidebar-accent, var(--primary)) 100%);
+  --gradient-soft: linear-gradient(135deg, var(--sidebar-accent, var(--primary)) 0%, color-mix(in oklab, var(--primary), white 40%) 100%);
+  --gradient-button: linear-gradient(135deg, var(--button-primary, var(--primary)) 0%, color-mix(in oklab, var(--button-primary, var(--primary)), white 16%) 100%);
+  --gradient-sidebar: linear-gradient(180deg, var(--sidebar, var(--primary)) 0%, color-mix(in oklab, var(--sidebar, var(--primary)), white 9%) 100%);
+  --gradient-header: linear-gradient(120deg, var(--primary) 0%, color-mix(in oklab, var(--primary), white 12%) 100%);
+  --gradient-page: linear-gradient(160deg, color-mix(in oklab, var(--primary), white 95%) 0%, color-mix(in oklab, var(--primary), white 90%) 55%, color-mix(in oklab, var(--primary), white 96%) 100%);
+  --shadow-premium: 0 1px 2px 0 oklch(0.2 0.04 266 / 0.04), 0 4px 16px -4px oklch(0.2 0.04 266 / 0.10);
+
   /* Chart palette — emerald/teal family */
   --chart-1: oklch(0.696 0.17 163);
   --chart-2: oklch(0.657 0.137 175);
@@ -129,6 +141,14 @@
   --border: oklch(0.38 0.035 260);
   --input: oklch(0.38 0.035 260);
   --ring: oklch(0.765 0.177 163);
+
+  /* Dark-mode gradient overrides — keep brand gradients legible on dark surfaces.
+     The light page tint would be near-white, so it is replaced with a dark wash. */
+  --gradient-soft: linear-gradient(135deg, color-mix(in oklab, var(--primary), black 12%) 0%, var(--primary) 100%);
+  --gradient-sidebar: linear-gradient(180deg, var(--sidebar) 0%, color-mix(in oklab, var(--sidebar), black 22%) 100%);
+  --gradient-header: linear-gradient(120deg, var(--sidebar) 0%, color-mix(in oklab, var(--sidebar), white 5%) 100%);
+  --gradient-page: linear-gradient(160deg, var(--background) 0%, color-mix(in oklab, var(--background), white 3%) 55%, var(--background) 100%);
+  --shadow-premium: 0 1px 2px 0 oklch(0 0 0 / 0.30), 0 6px 20px -6px oklch(0 0 0 / 0.45);
 
   /* Chart palette — brighter for dark mode */
   --chart-1: oklch(0.765 0.177 163);
@@ -276,4 +296,72 @@ body::-webkit-scrollbar-thumb:hover,
   .page-transition {
     animation: none;
   }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Brand gradient utilities — premium, palette-aware surfaces.
+   All reference the live theme tokens above, so switching palette in Settings
+   updates every gradient consistently across the app. Collision-free names.
+   ───────────────────────────────────────────────────────────────────────── */
+.bg-brand {
+  background-image: var(--gradient-primary);
+}
+.bg-brand-secondary {
+  background-image: var(--gradient-secondary);
+}
+.bg-brand-soft {
+  background-image: var(--gradient-soft);
+}
+.bg-brand-button {
+  background-image: var(--gradient-button);
+}
+.bg-brand-sidebar {
+  background-image: var(--gradient-sidebar);
+}
+.bg-brand-header {
+  background-image: var(--gradient-header);
+}
+.bg-brand-page {
+  background-image: var(--gradient-page);
+}
+
+/* Gradient brand text — used sparingly for page titles / key figures. */
+.text-brand-gradient {
+  background-image: var(--gradient-primary);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+.dark .text-brand-gradient {
+  /* On dark surfaces the deep navy gradient loses contrast — fall back to solid. */
+  background-image: none;
+  -webkit-text-fill-color: currentColor;
+  color: var(--foreground);
+}
+
+/* Premium card surface — clean (no glass), subtle depth + smooth hover lift. */
+.card-premium {
+  background-color: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-premium);
+  transition: box-shadow 200ms ease, transform 200ms ease, border-color 200ms ease;
+}
+.card-premium:hover {
+  box-shadow: 0 2px 4px 0 oklch(0.2 0.04 266 / 0.06), 0 10px 28px -8px color-mix(in oklab, var(--primary), transparent 72%);
+  border-color: color-mix(in oklab, var(--primary), transparent 78%);
+}
+
+/* Gradient top accent strip for headlining cards. */
+.card-accent-strip {
+  position: relative;
+  overflow: hidden;
+}
+.card-accent-strip::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+  background-image: var(--gradient-primary);
 }

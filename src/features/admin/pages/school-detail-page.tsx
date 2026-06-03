@@ -57,7 +57,6 @@ interface SchoolDetail {
   website?: string
   academicYear?: string
   board?: string
-  subdomain: string
   status: string
   trialEndsAt?: string
   onboardingDate?: string
@@ -266,11 +265,6 @@ export function SchoolDetailPage({ schoolId }: { schoolId: string }) {
                 {statusBadge(school.status)}
               </div>
 
-              <div className="mt-1.5 flex items-center gap-1.5 text-sm text-muted-foreground">
-                <Globe className="size-3.5" />
-                <span className="font-mono">{school.subdomain}</span>
-              </div>
-
               {/* Meta chips */}
               <div className="mt-4 flex flex-wrap items-center gap-2">
                 {school.board && (
@@ -357,7 +351,6 @@ export function SchoolDetailPage({ schoolId }: { schoolId: string }) {
               <div className="space-y-5">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <DetailItem icon={Building2} label="School Name" value={school.name} />
-                  <DetailItem icon={Globe} label="Subdomain" value={<span className="font-mono">{school.subdomain}</span>} />
                   <DetailItem icon={BookOpen} label="Board" value={school.board} />
                   <DetailItem icon={Calendar} label="Academic Year" value={school.academicYear} />
                   <DetailItem icon={Shield} label="Status" value={statusBadge(school.status)} />

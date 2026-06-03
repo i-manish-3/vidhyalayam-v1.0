@@ -61,6 +61,18 @@ export const DEFAULT_DASHBOARD_FONT = DASHBOARD_FONT_OPTIONS[0]
 
 export const SCHOOL_THEME_PALETTES: ThemePalette[] = [
   {
+    // Vidhyalayam Classic — the premium deep-navy → indigo house theme.
+    // First entry, so it is also DEFAULT_SCHOOL_THEME for schools without a saved color.
+    id: 'vidhyalayam-classic',
+    name: 'Vidhyalayam Classic',
+    primary: '#0F0E47',
+    foreground: '#ffffff',
+    ring: '#272757',
+    sidebarAccent: '#505081',
+    sidebarBorder: '#272757',
+    chart: ['#0F0E47', '#272757', '#505081', '#8686AC', '#3A3A6B'],
+  },
+  {
     id: 'white',
     name: 'White',
     primary: '#ffffff',
@@ -214,17 +226,18 @@ export const SCHOOL_THEME_PALETTES: ThemePalette[] = [
 
 export const DEFAULT_SCHOOL_THEME = SCHOOL_THEME_PALETTES[0]
 
-// Dedicated palette for the SUPER_ADMIN role — matches the "D" platform logo (emerald-600).
-// Kept separate from SCHOOL_THEME_PALETTES so schools can't pick it from their settings.
+// Dedicated palette for the SUPER_ADMIN role — Vidhyalayam Classic (deep navy → indigo).
+// Kept separate from SCHOOL_THEME_PALETTES so schools can't pick it from their settings,
+// but mirrors the "Vidhyalayam Classic" house theme used by the rest of the app.
 export const SUPER_ADMIN_THEME_PALETTE: ThemePalette = {
-  id: 'super-admin-emerald',
-  name: 'Super Admin Emerald',
-  primary: '#059669',
-  foreground: '#f0fdf4',
-  ring: '#047857',
-  sidebarAccent: '#047857',
-  sidebarBorder: '#065f46',
-  chart: ['#059669', '#10b981', '#14b8a6', '#34d399', '#047857'],
+  id: 'super-admin-vidhyalayam-classic',
+  name: 'Super Admin Vidhyalayam Classic',
+  primary: '#0F0E47',
+  foreground: '#ffffff',
+  ring: '#272757',
+  sidebarAccent: '#505081',
+  sidebarBorder: '#272757',
+  chart: ['#0F0E47', '#272757', '#505081', '#8686AC', '#3A3A6B'],
 }
 
 export const SCHOOL_THEME_VARIABLE_NAMES = [

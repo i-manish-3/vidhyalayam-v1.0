@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
+import { useAppStore } from '@/lib/store'
 import { useToast } from '@/hooks/use-toast'
 import { ResetUserPasswordDialog } from '@/components/shared'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -141,9 +142,18 @@ interface PaginationInfo {
 
 type StatusFilter = 'all' | 'active' | 'inactive'
 
+interface StaffListState {
+  searchQuery: string
+  roleFilter: string
+  statusFilter: StatusFilter
+  page: number
+  limit: number
+}
+
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100]
+const STAFF_LIST_STATE_KEY = 'staff:list'
 
 const ROLE_BADGE_COLORS: Record<string, string> = {
   SCHOOL_ADMIN: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400',
@@ -349,17 +359,19 @@ function Pagination({
 export function StaffPage() {
   const router = useRouter()
   const { toast } = useToast()
+  const savedListState = useAppStore((s) => s.pageState[STAFF_LIST_STATE_KEY] as StaffListState | undefined)
+  const setPageState = useAppStore((s) => s.setPageState)
 
   const [users, setUsers] = useState<SchoolUser[]>([])
   const [availableRoles, setAvailableRoles] = useState<AvailableRole[]>([])
-  const [searchQuery, setSearchQuery] = useState('')
-  const [debouncedSearch, setDebouncedSearch] = useState('')
-  const [roleFilter, setRoleFilter] = useState<string>('all')
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
+  const [searchQuery, setSearchQuery] = useState(savedListState?.searchQuery ?? '')
+  const [debouncedSearch, setDebouncedSearch] = useState(savedListState?.searchQuery?.trim() ?? '')
+  const [roleFilter, setRoleFilter] = useState<string>(savedListState?.roleFilter ?? 'all')
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>(savedListState?.statusFilter ?? 'all')
   const [loadingUsers, setLoadingUsers] = useState(true)
   const [pagination, setPagination] = useState<PaginationInfo>({
-    page: 1,
-    limit: 25,
+    page: savedListState?.page ?? 1,
+    limit: savedListState?.limit ?? 25,
     total: 0,
     totalPages: 1,
   })
@@ -373,6 +385,19 @@ export function StaffPage() {
   const [detailOpen, setDetailOpen] = useState(false)
   const [detailLoading, setDetailLoading] = useState(false)
   const [selectedStaff, setSelectedStaff] = useState<StaffDetail | null>(null)
+  const initialStaffPageRef = useRef(pagination.page)
+  const firstStaffFetchRef = useRef(true)
+
+  const rememberListState = useCallback((patch: Partial<StaffListState>) => {
+    setPageState(STAFF_LIST_STATE_KEY, {
+      searchQuery,
+      roleFilter,
+      statusFilter,
+      page: pagination.page,
+      limit: pagination.limit,
+      ...patch,
+    })
+  }, [pagination.limit, pagination.page, roleFilter, searchQuery, setPageState, statusFilter])
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(searchQuery.trim()), 300)
@@ -476,9 +501,10 @@ export function StaffPage() {
 
   // Filter changes always reset back to page 1.
   useEffect(() => {
-    fetchUsers(1, pagination.limit, debouncedSearch, roleFilter, statusFilter)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debouncedSearch, roleFilter, statusFilter])
+    const nextPage = firstStaffFetchRef.current ? initialStaffPageRef.current : 1
+    firstStaffFetchRef.current = false
+    fetchUsers(nextPage, pagination.limit, debouncedSearch, roleFilter, statusFilter)
+  }, [debouncedSearch, fetchUsers, pagination.limit, roleFilter, statusFilter])
 
   useEffect(() => {
     fetchRoles()
@@ -486,12 +512,29 @@ export function StaffPage() {
 
   // ── Pagination handlers ──
   const handlePageChange = useCallback((page: number) => {
+    rememberListState({ page })
     fetchUsers(page, pagination.limit, debouncedSearch, roleFilter, statusFilter)
-  }, [fetchUsers, pagination.limit, debouncedSearch, roleFilter, statusFilter])
+  }, [fetchUsers, pagination.limit, debouncedSearch, roleFilter, statusFilter, rememberListState])
 
   const handlePageSizeChange = useCallback((size: number) => {
+    rememberListState({ page: 1, limit: size })
     fetchUsers(1, size, debouncedSearch, roleFilter, statusFilter)
-  }, [fetchUsers, debouncedSearch, roleFilter, statusFilter])
+  }, [fetchUsers, debouncedSearch, roleFilter, statusFilter, rememberListState])
+
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value)
+    rememberListState({ searchQuery: value, page: 1 })
+  }
+
+  const handleRoleFilterChange = (value: string) => {
+    setRoleFilter(value)
+    rememberListState({ roleFilter: value, page: 1 })
+  }
+
+  const handleStatusFilterChange = (value: StatusFilter) => {
+    setStatusFilter(value)
+    rememberListState({ statusFilter: value, page: 1 })
+  }
 
   // ── Navigation ──
   const handleViewStaff = useCallback(async (userId: string) => {
@@ -557,7 +600,8 @@ export function StaffPage() {
     setSearchQuery('')
     setRoleFilter('all')
     setStatusFilter('all')
-  }, [])
+    rememberListState({ searchQuery: '', roleFilter: 'all', statusFilter: 'all', page: 1 })
+  }, [rememberListState])
 
   // ── Render ──
   return (
@@ -597,13 +641,13 @@ export function StaffPage() {
                 <Input
                   placeholder="Search by name, employee ID, email..."
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onChange={(e) => handleSearchChange(e.target.value)}
                   className="pl-8 h-9 text-sm"
                 />
               </div>
 
               <div className="flex items-center gap-2">
-                <Select value={roleFilter} onValueChange={setRoleFilter}>
+                <Select value={roleFilter} onValueChange={handleRoleFilterChange}>
                   <SelectTrigger className="h-9 w-full sm:w-[180px] text-sm">
                     <SelectValue placeholder="All roles" />
                   </SelectTrigger>
@@ -625,7 +669,7 @@ export function StaffPage() {
 
                 <Select
                   value={statusFilter}
-                  onValueChange={(v) => setStatusFilter(v as StatusFilter)}
+                  onValueChange={(v) => handleStatusFilterChange(v as StatusFilter)}
                 >
                   <SelectTrigger className="h-9 w-full sm:w-[140px] text-sm">
                     <SelectValue />

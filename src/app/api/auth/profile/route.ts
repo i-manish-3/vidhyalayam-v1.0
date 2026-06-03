@@ -22,6 +22,8 @@ export async function PATCH(request: NextRequest) {
     const body = await request.json().catch(() => ({}))
     const hasAvatar = Object.prototype.hasOwnProperty.call(body, 'avatar')
     const avatar = hasAvatar ? body.avatar : undefined
+    const hasName = Object.prototype.hasOwnProperty.call(body, 'name')
+    const name = hasName ? body.name : undefined
 
     if (hasAvatar && avatar !== null && typeof avatar !== 'string') {
       return apiError(400, 'Avatar must be a string or null.')
@@ -36,9 +38,26 @@ export async function PATCH(request: NextRequest) {
       }
     }
 
-    const updateData: { avatar?: string | null } = {}
+    if (hasName && typeof name !== 'string') {
+      return apiError(400, 'Name must be a string.')
+    }
+
+    const trimmedName = typeof name === 'string' ? name.trim() : ''
+    if (hasName) {
+      if (trimmedName.length < 2) {
+        return apiError(400, 'Name must be at least 2 characters long.')
+      }
+      if (trimmedName.length > 80) {
+        return apiError(400, 'Name must be 80 characters or fewer.')
+      }
+    }
+
+    const updateData: { avatar?: string | null; name?: string } = {}
     if (hasAvatar) {
       updateData.avatar = avatar === null || avatar === '' ? null : avatar
+    }
+    if (hasName) {
+      updateData.name = trimmedName
     }
 
     if (Object.keys(updateData).length === 0) {

@@ -30,6 +30,7 @@ import {
 import { toast } from 'sonner'
 import { AuditTrailViewer } from '../components/audit-trail-viewer'
 import { AuditLogFilters } from '../components/audit-log-filters'
+import { useAppStore } from '@/lib/store'
 
 type TabType = 'transactions' | 'config'
 
@@ -55,14 +56,25 @@ interface AuditLogItem {
   [key: string]: unknown
 }
 
+interface FeeAuditTrailListState {
+  activeTab?: TabType
+  filters?: Record<string, string>
+  page?: number
+  limit?: number
+}
+
+const FEE_AUDIT_TRAIL_LIST_STATE_KEY = 'fees:audit-trail:list'
+
 export function FeeAuditTrailPage() {
-  const [activeTab, setActiveTab] = useState<TabType>('transactions')
-  const [filters, setFilters] = useState<Record<string, string>>({})
+  const savedListState = useAppStore((state) => state.pageState[FEE_AUDIT_TRAIL_LIST_STATE_KEY] as FeeAuditTrailListState | undefined)
+  const setPageState = useAppStore((state) => state.setPageState)
+  const [activeTab, setActiveTab] = useState<TabType>(savedListState?.activeTab ?? 'transactions')
+  const [filters, setFilters] = useState<Record<string, string>>(savedListState?.filters ?? {})
   const [logs, setLogs] = useState<AuditLogItem[]>([])
   const [loading, setLoading] = useState(false)
   const [pagination, setPagination] = useState<PaginationInfo>({
-    page: 1,
-    limit: 50,
+    page: savedListState?.page ?? 1,
+    limit: savedListState?.limit ?? 50,
     total: 0,
     totalPages: 0,
   })
@@ -112,14 +124,32 @@ export function FeeAuditTrailPage() {
   const handleFilterChange = (newFilters: Record<string, string>) => {
     setFilters(newFilters)
     setPagination((prev) => ({ ...prev, page: 1 }))
+    setPageState(FEE_AUDIT_TRAIL_LIST_STATE_KEY, {
+      activeTab,
+      filters: newFilters,
+      page: 1,
+      limit: pagination.limit,
+    })
   }
 
   const handlePageChange = (page: number) => {
     setPagination((prev) => ({ ...prev, page }))
+    setPageState(FEE_AUDIT_TRAIL_LIST_STATE_KEY, {
+      activeTab,
+      filters,
+      page,
+      limit: pagination.limit,
+    })
   }
 
   const handlePageSizeChange = (size: number) => {
     setPagination((prev) => ({ ...prev, limit: size, page: 1 }))
+    setPageState(FEE_AUDIT_TRAIL_LIST_STATE_KEY, {
+      activeTab,
+      filters,
+      page: 1,
+      limit: size,
+    })
   }
 
   const handleLoadMore = () => {
@@ -171,11 +201,11 @@ export function FeeAuditTrailPage() {
   return (
     <div className="mx-auto max-w-6xl space-y-3 p-3 md:p-5">
       <div className="flex items-center gap-3">
-        <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+        <span className="bg-brand-soft flex size-9 shrink-0 items-center justify-center rounded-lg text-white shadow-sm">
           <History className="size-4.5" />
         </span>
         <div className="min-w-0">
-          <h1 className="text-xl font-bold leading-tight tracking-tight">Fee Audit Trail</h1>
+          <h1 className="text-xl font-semibold leading-tight tracking-tight text-foreground/90">Fee Audit Trail</h1>
           <p className="text-xs text-muted-foreground">
             Every fee transaction and config change, kept for compliance.
           </p>
@@ -185,8 +215,15 @@ export function FeeAuditTrailPage() {
       <Tabs
         value={activeTab}
         onValueChange={(v) => {
-          setActiveTab(v as TabType)
+          const nextTab = v as TabType
+          setActiveTab(nextTab)
           setPagination((p) => ({ ...p, page: 1 }))
+          setPageState(FEE_AUDIT_TRAIL_LIST_STATE_KEY, {
+            activeTab: nextTab,
+            filters,
+            page: 1,
+            limit: pagination.limit,
+          })
         }}
         className="space-y-3"
       >

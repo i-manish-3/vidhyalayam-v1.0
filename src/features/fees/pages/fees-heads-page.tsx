@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { EmptyState, LoadingState, PageHeader } from '@/components/shared'
 import { api } from '@/lib/api'
 import { cn } from '@/lib/utils'
+import { useAppStore } from '@/lib/store'
 import { useToast } from '@/hooks/use-toast'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -92,18 +93,37 @@ function getFrequencyOption(freq: FeeFrequency) {
   return FREQUENCY_OPTIONS.find((option) => option.value === freq) || FREQUENCY_OPTIONS[0]
 }
 
+interface FeeHeadsListState {
+  search: string
+  statusFilter: StatusFilter
+  frequencyFilter: FrequencyFilter
+}
+
+const FEE_HEADS_LIST_STATE_KEY = 'fees:heads:list'
+
 export function FeesHeadsPage() {
   const router = useRouter()
   const { toast } = useToast()
+  const savedListState = useAppStore((state) => state.pageState[FEE_HEADS_LIST_STATE_KEY] as FeeHeadsListState | undefined)
+  const setPageState = useAppStore((state) => state.setPageState)
 
   const [feeHeads, setFeeHeads] = useState<FeeHead[]>([])
   const [loading, setLoading] = useState(true)
   const [showAdd, setShowAdd] = useState(false)
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState<FeeHeadForm>(DEFAULT_FORM)
-  const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL')
-  const [frequencyFilter, setFrequencyFilter] = useState<FrequencyFilter>('ALL')
+  const [search, setSearch] = useState(savedListState?.search ?? '')
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>(savedListState?.statusFilter ?? 'ALL')
+  const [frequencyFilter, setFrequencyFilter] = useState<FrequencyFilter>(savedListState?.frequencyFilter ?? 'ALL')
+
+  const rememberListState = useCallback((patch: Partial<FeeHeadsListState>) => {
+    setPageState(FEE_HEADS_LIST_STATE_KEY, {
+      search,
+      statusFilter,
+      frequencyFilter,
+      ...patch,
+    })
+  }, [frequencyFilter, search, setPageState, statusFilter])
 
   const fetchFeeHeads = useCallback(async () => {
     try {
@@ -213,12 +233,23 @@ export function FeesHeadsPage() {
                   <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     value={search}
-                    onChange={(event) => setSearch(event.target.value)}
+                    onChange={(event) => {
+                      const value = event.target.value
+                      setSearch(value)
+                      rememberListState({ search: value })
+                    }}
                     placeholder="Search fee heads..."
                     className="h-9 pl-9"
                   />
                 </div>
-                <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as StatusFilter)}>
+                <Select
+                  value={statusFilter}
+                  onValueChange={(value) => {
+                    const next = value as StatusFilter
+                    setStatusFilter(next)
+                    rememberListState({ statusFilter: next })
+                  }}
+                >
                   <SelectTrigger className="h-9">
                     <SelectValue placeholder="Status" />
                   </SelectTrigger>
@@ -228,7 +259,14 @@ export function FeesHeadsPage() {
                     <SelectItem value="INACTIVE">Inactive</SelectItem>
                   </SelectContent>
                 </Select>
-                <Select value={frequencyFilter} onValueChange={(value) => setFrequencyFilter(value as FrequencyFilter)}>
+                <Select
+                  value={frequencyFilter}
+                  onValueChange={(value) => {
+                    const next = value as FrequencyFilter
+                    setFrequencyFilter(next)
+                    rememberListState({ frequencyFilter: next })
+                  }}
+                >
                   <SelectTrigger className="h-9">
                     <SelectValue placeholder="Frequency" />
                   </SelectTrigger>
@@ -331,7 +369,7 @@ export function FeesHeadsPage() {
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <span className="flex size-9 items-center justify-center rounded-md bg-primary/10 text-primary">
+              <span className="bg-brand-soft flex size-9 items-center justify-center rounded-md text-white shadow-sm">
                 <IndianRupee className="size-5" />
               </span>
               Add Fee Head

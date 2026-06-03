@@ -1308,8 +1308,8 @@ model FeeDemandConfig {
   // General — when monthly slips are due (1-28 to avoid month-end edge cases)
   dueDay Int @default(10)
 
-  // Slip number format — template with variables: {academicYear}, {subdomain}, {month}, {year}, {sequence}
-  slipNumberFormat String @default("DS/{academicYear}/{subdomain}/{month}/{sequence}")
+  // Slip number format — template with variables: {academicYear}, {month}, {year}, {sequence}
+  slipNumberFormat String @default("DS/{academicYear}/{month}/{sequence}")
 
   // Late fine — schema ready, code skips Phase 1
   lateFeeEnabled   Boolean @default(false)

@@ -21,6 +21,7 @@ const EXAM_PERMISSIONS = [
   { code: 'exam:gradescale:manage', name: 'Manage Grade Scales', module: 'exams', action: 'update' },
   { code: 'exam:reportcard:manage', name: 'Manage Report Card Templates', module: 'exams', action: 'update' },
   { code: 'exam:reportcard:download', name: 'Download Report Cards', module: 'exams', action: 'read' },
+  { code: 'exam:admitcard:download', name: 'Download Admit Cards', module: 'exams', action: 'read' },
   { code: 'exam:audit:view', name: 'View Exam Audit Log', module: 'exams', action: 'read' },
 ]
 
@@ -29,6 +30,7 @@ const TEACHER_PERMISSION_CODES = new Set([
   'exam:marks:enter',
   'exam:marks:submit',
   'exam:result:view',
+  'exam:admitcard:download',
 ])
 
 async function main() {

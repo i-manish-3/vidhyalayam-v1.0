@@ -47,7 +47,6 @@ import {
 
 type FormState = {
   name: string
-  subdomain: string
   board: string
   academicYear: string
   status: string
@@ -64,7 +63,7 @@ type FormState = {
 }
 
 const emptyForm: FormState = {
-  name: '', subdomain: '', board: 'CBSE', academicYear: '2025-2026', status: 'active',
+  name: '', board: 'CBSE', academicYear: '2025-2026', status: 'active',
   primaryColor: '#10B981', address: '', city: '', state: '', pincode: '', country: 'India',
   contactPhone: '', contactEmail: '', website: '', trialDays: '14',
 }
@@ -72,7 +71,6 @@ const emptyForm: FormState = {
 interface SchoolDetail {
   id: string
   name: string
-  subdomain: string
   board?: string
   academicYear?: string
   status?: string
@@ -131,7 +129,6 @@ export function EditSchoolPage({ schoolId }: { schoolId: string }) {
 
       setForm({
         name: school.name || '',
-        subdomain: school.subdomain || '',
         board: school.board || 'CBSE',
         academicYear: school.academicYear || '2025-2026',
         status: school.status || 'active',
@@ -321,15 +318,6 @@ export function EditSchoolPage({ schoolId }: { schoolId: string }) {
                   {showErr(errors.name, form.name) && (
                     <p className="text-xs text-destructive">{errors.name}</p>
                   )}
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Subdomain</Label>
-                  <Input
-                    value={form.subdomain}
-                    disabled
-                    className="h-9 bg-muted font-mono"
-                  />
-                  <p className="text-xs text-muted-foreground">Subdomain cannot be changed after creation.</p>
                 </div>
                 <div className="space-y-1.5">
                   <Label>Board</Label>

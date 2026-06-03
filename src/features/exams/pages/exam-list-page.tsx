@@ -15,8 +15,9 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { api } from '@/lib/api'
+import { useAppStore } from '@/lib/store'
 import { useToast } from '@/hooks/use-toast'
-import { ClipboardList, Plus, Search, Settings2, Calendar as CalIcon } from 'lucide-react'
+import { ClipboardList, Plus, Search, Settings2, Calendar as CalIcon, TicketCheck } from 'lucide-react'
 
 interface ExamRow {
   id: string
@@ -39,7 +40,14 @@ interface GroupOption {
   paradigm: { id: string; name: string; academicYear: string }
 }
 
+interface ExamListState {
+  search: string
+  statusFilter: string
+  groupFilter: string
+}
+
 const STATUSES = ['', 'draft', 'scheduled', 'ongoing', 'completed', 'result_published']
+const EXAM_LIST_STATE_KEY = 'exams:list'
 const STATUS_TONE: Record<string, string> = {
   draft: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200',
   scheduled: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-200',
@@ -61,13 +69,24 @@ export function ExamListPage() {
   const searchParams = useSearchParams()
   const { toast } = useToast()
   const initialGroup = searchParams.get('examGroupId') ?? ''
+  const savedListState = useAppStore((state) => state.pageState[EXAM_LIST_STATE_KEY] as ExamListState | undefined)
+  const setPageState = useAppStore((state) => state.setPageState)
 
   const [loading, setLoading] = useState(true)
   const [exams, setExams] = useState<ExamRow[]>([])
   const [groups, setGroups] = useState<GroupOption[]>([])
-  const [statusFilter, setStatusFilter] = useState('')
-  const [groupFilter, setGroupFilter] = useState(initialGroup)
-  const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState(savedListState?.statusFilter ?? '')
+  const [groupFilter, setGroupFilter] = useState(initialGroup || savedListState?.groupFilter || '')
+  const [search, setSearch] = useState(savedListState?.search ?? '')
+
+  const rememberListState = useCallback((patch: Partial<ExamListState>) => {
+    setPageState(EXAM_LIST_STATE_KEY, {
+      search,
+      statusFilter,
+      groupFilter,
+      ...patch,
+    })
+  }, [groupFilter, search, setPageState, statusFilter])
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -128,10 +147,21 @@ export function ExamListPage() {
               className="h-9 pl-8"
               placeholder="Search by name, code, or group…"
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => {
+                const value = e.target.value
+                setSearch(value)
+                rememberListState({ search: value })
+              }}
             />
           </div>
-          <Select value={statusFilter || 'all'} onValueChange={(v) => setStatusFilter(v === 'all' ? '' : v)}>
+          <Select
+            value={statusFilter || 'all'}
+            onValueChange={(v) => {
+              const value = v === 'all' ? '' : v
+              setStatusFilter(value)
+              rememberListState({ statusFilter: value })
+            }}
+          >
             <SelectTrigger className="h-9 w-40"><SelectValue placeholder="Status" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All statuses</SelectItem>
@@ -140,7 +170,14 @@ export function ExamListPage() {
               ))}
             </SelectContent>
           </Select>
-          <Select value={groupFilter || 'all'} onValueChange={(v) => setGroupFilter(v === 'all' ? '' : v)}>
+          <Select
+            value={groupFilter || 'all'}
+            onValueChange={(v) => {
+              const value = v === 'all' ? '' : v
+              setGroupFilter(value)
+              rememberListState({ groupFilter: value })
+            }}
+          >
             <SelectTrigger className="h-9 w-56"><SelectValue placeholder="Group" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All groups</SelectItem>
@@ -224,6 +261,17 @@ export function ExamListPage() {
                       }}
                     >
                       <CalIcon className="size-3.5" /> Schedule
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5"
+                      onClick={(ev) => {
+                        ev.stopPropagation()
+                        router.push(`/exams/${e.id}/admit-cards`)
+                      }}
+                    >
+                      <TicketCheck className="size-3.5" /> Admit cards
                     </Button>
                   </div>
                 </CardContent>

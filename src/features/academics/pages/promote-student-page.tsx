@@ -55,6 +55,15 @@ interface StudentRow {
   parentLinks?: Array<{ parent?: { fatherName?: string | null; phone?: string | null } | null }>
 }
 
+interface PromoteStudentListState {
+  fromAcademicYear?: string
+  fromClassId?: string
+  fromSectionId?: string
+  studentStatus?: 'active' | 'inactive' | 'all'
+}
+
+const PROMOTE_STUDENT_LIST_STATE_KEY = 'academics:promote-student:list'
+
 const CHECKLIST = [
   { number: 1, title: 'Create a new session', description: 'Open session setup',  link: true, tone: 'normal' },
   { number: 2, title: 'Update fee structure', description: 'Prepare fee plans for the incoming session.', tone: 'normal' },
@@ -74,6 +83,8 @@ export function PromoteStudentPage() {
   const { toast } = useToast()
   const router = useRouter()
   const { currentSchool } = useAppStore()
+  const savedListState = useAppStore((state) => state.pageState[PROMOTE_STUDENT_LIST_STATE_KEY] as PromoteStudentListState | undefined)
+  const setPageState = useAppStore((state) => state.setPageState)
   const defaultYear = currentSchool?.academicYear || getCurrentAcademicYear()
 
   const [classes, setClasses] = useState<ClassOption[]>([])
@@ -88,10 +99,10 @@ export function PromoteStudentPage() {
   const [submitting, setSubmitting] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
 
-  const [fromAcademicYear, setFromAcademicYear] = useState(defaultYear)
-  const [fromClassId, setFromClassId] = useState('')
-  const [fromSectionId, setFromSectionId] = useState('all')
-  const [studentStatus, setStudentStatus] = useState<'active' | 'inactive' | 'all'>('active')
+  const [fromAcademicYear, setFromAcademicYear] = useState(savedListState?.fromAcademicYear ?? defaultYear)
+  const [fromClassId, setFromClassId] = useState(savedListState?.fromClassId ?? '')
+  const [fromSectionId, setFromSectionId] = useState(savedListState?.fromSectionId ?? 'all')
+  const [studentStatus, setStudentStatus] = useState<'active' | 'inactive' | 'all'>(savedListState?.studentStatus ?? 'active')
   const [promotionType, setPromotionType] = useState<'class' | 'alumni'>('class')
   const [toAcademicYear, setToAcademicYear] = useState(defaultYear)
   const [toClassId, setToClassId] = useState('')
@@ -180,6 +191,37 @@ export function PromoteStudentPage() {
     [activeAcademicYears, fromAcademicYear, promotionType]
   )
   const allSelected = students.length > 0 && selectedIds.length === students.length
+
+  const rememberListState = (patch: Partial<PromoteStudentListState>) => {
+    setPageState(PROMOTE_STUDENT_LIST_STATE_KEY, {
+      fromAcademicYear,
+      fromClassId,
+      fromSectionId,
+      studentStatus,
+      ...patch,
+    })
+  }
+
+  const handleFromAcademicYearChange = (value: string) => {
+    setFromAcademicYear(value)
+    rememberListState({ fromAcademicYear: value })
+  }
+
+  const handleFromClassChange = (value: string) => {
+    setFromClassId(value)
+    setFromSectionId('all')
+    rememberListState({ fromClassId: value, fromSectionId: 'all' })
+  }
+
+  const handleFromSectionChange = (value: string) => {
+    setFromSectionId(value)
+    rememberListState({ fromSectionId: value })
+  }
+
+  const handleStudentStatusChange = (value: 'active' | 'inactive' | 'all') => {
+    setStudentStatus(value)
+    rememberListState({ studentStatus: value })
+  }
 
   useEffect(() => {
     if (promotionType !== 'class') return
@@ -361,7 +403,7 @@ export function PromoteStudentPage() {
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="space-y-1.5">
                   <Label className="text-xs font-medium">Current Session</Label>
-                <Select value={fromAcademicYear} onValueChange={setFromAcademicYear} disabled={loadingOptions}>
+                <Select value={fromAcademicYear} onValueChange={handleFromAcademicYearChange} disabled={loadingOptions}>
                   <SelectTrigger className="w-full bg-background"><SelectValue placeholder="Select session" /></SelectTrigger>
                   <SelectContent>
                     {academicYears.map((year) => <SelectItem key={year} value={year}>{year}</SelectItem>)}
@@ -370,7 +412,7 @@ export function PromoteStudentPage() {
               </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs font-medium">Class</Label>
-                <Select value={fromClassId} onValueChange={(value) => { setFromClassId(value); setFromSectionId('all') }} disabled={loadingOptions}>
+                <Select value={fromClassId} onValueChange={handleFromClassChange} disabled={loadingOptions}>
                   <SelectTrigger className="w-full bg-background"><SelectValue placeholder="Select class" /></SelectTrigger>
                   <SelectContent>
                     {classes.map((item) => <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>)}
@@ -379,7 +421,7 @@ export function PromoteStudentPage() {
               </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs font-medium">Section</Label>
-                <Select value={fromSectionId} onValueChange={setFromSectionId} disabled={!fromClassId || loadingOptions}>
+                <Select value={fromSectionId} onValueChange={handleFromSectionChange} disabled={!fromClassId || loadingOptions}>
                   <SelectTrigger className="w-full bg-background"><SelectValue placeholder="Select section" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Sections</SelectItem>
@@ -389,7 +431,7 @@ export function PromoteStudentPage() {
               </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs font-medium">Status</Label>
-                <Select value={studentStatus} onValueChange={(value: 'active' | 'inactive' | 'all') => setStudentStatus(value)}>
+                <Select value={studentStatus} onValueChange={handleStudentStatusChange}>
                   <SelectTrigger className="w-full bg-background"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="active">Active</SelectItem>

@@ -131,6 +131,12 @@ interface SchoolUser {
   isActive: boolean
 }
 
+interface SchoolRolesListState {
+  roleSearch?: string
+}
+
+const SCHOOL_ROLES_LIST_STATE_KEY = 'admin:school-roles:list'
+
 const PRIMARY_ROLE_COMPATIBILITY: Record<string, string[]> = {
   'School Admin': ['SCHOOL_ADMIN'],
   Teacher: ['TEACHER'],
@@ -539,6 +545,8 @@ function ModulePermissionsCard({
 export function SchoolRolesPage() {
   const { toast } = useToast()
   const user = useAppStore((s) => s.user)
+  const savedListState = useAppStore((s) => s.pageState[SCHOOL_ROLES_LIST_STATE_KEY] as SchoolRolesListState | undefined)
+  const setPageState = useAppStore((s) => s.setPageState)
 
   // Data state
   const [roles, setRoles] = useState<RoleListItem[]>([])
@@ -555,7 +563,7 @@ export function SchoolRolesPage() {
   const [originalEditData, setOriginalEditData] = useState({ name: '', description: '', color: '' })
 
   // UI state
-  const [roleSearch, setRoleSearch] = useState('')
+  const [roleSearch, setRoleSearch] = useState(savedListState?.roleSearch ?? '')
   const [loadingRoles, setLoadingRoles] = useState(true)
   const [loadingDetail, setLoadingDetail] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -835,6 +843,11 @@ export function SchoolRolesPage() {
     return roles.filter((r) => r.name.toLowerCase().includes(q))
   }, [roles, roleSearch])
 
+  const handleRoleSearchChange = (value: string) => {
+    setRoleSearch(value)
+    setPageState(SCHOOL_ROLES_LIST_STATE_KEY, { roleSearch: value })
+  }
+
   const moduleNames = useMemo(
     () => Object.keys(schoolPermissions).sort(),
     [schoolPermissions]
@@ -921,15 +934,12 @@ export function SchoolRolesPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="rounded-lg border bg-card px-4 py-3 shadow-sm">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex min-w-0 items-center gap-3">
-            <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary/10">
-              <ShieldCheck className="size-4 text-primary" />
-            </div>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-stretch gap-3">
+            <span aria-hidden className="bg-brand mt-0.5 w-1 shrink-0 self-stretch rounded-full" />
             <div className="min-w-0">
-              <h1 className="text-xl font-semibold tracking-tight">Roles & Permissions</h1>
-              <p className="mt-0.5 text-xs text-muted-foreground">
+              <h1 className="text-xl font-semibold tracking-tight text-foreground/90">Roles &amp; Permissions</h1>
+              <p className="mt-1 text-sm text-muted-foreground">
                 Manage role access, permission inheritance, and user assignments.
               </p>
             </div>
@@ -967,7 +977,6 @@ export function SchoolRolesPage() {
             )}
           </div>
         </div>
-      </div>
 
       {/* Two-panel layout */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -987,7 +996,7 @@ export function SchoolRolesPage() {
                 <Input
                   placeholder="Search roles..."
                   value={roleSearch}
-                  onChange={(e) => setRoleSearch(e.target.value)}
+                  onChange={(e) => handleRoleSearchChange(e.target.value)}
                   className="pl-8 h-8 text-sm"
                 />
               </div>

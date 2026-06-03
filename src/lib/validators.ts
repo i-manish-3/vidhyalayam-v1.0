@@ -29,16 +29,6 @@ export const validatePincode = (value: string, required = false): string | null 
   return null
 }
 
-export const validateSubdomain = (value: string, required = false): string | null => {
-  const v = (value || '').trim().toLowerCase()
-  if (!v) return required ? 'Subdomain is required.' : null
-  if (v.length < 3) return 'Subdomain must be at least 3 characters.'
-  if (v.length > 30) return 'Subdomain must be at most 30 characters.'
-  if (!/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(v))
-    return 'Use lowercase letters, numbers and hyphens only (cannot start/end with hyphen).'
-  return null
-}
-
 export const validateWebsite = (value: string, required = false): string | null => {
   const v = (value || '').trim()
   if (!v) return required ? 'Website is required.' : null

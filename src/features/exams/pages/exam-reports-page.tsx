@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { api } from '@/lib/api'
+import { useAppStore } from '@/lib/store'
 import { useToast } from '@/hooks/use-toast'
 import { BarChart3, Trophy, Users, Activity, ArrowDown, ArrowUp } from 'lucide-react'
 
@@ -64,20 +65,29 @@ interface ClassOption {
   sections?: { id: string; name: string }[]
 }
 
+interface ExamReportsListState {
+  tab?: 'class' | 'subject'
+  classFilter?: string
+  sectionFilter?: string | null
+}
+
 export function ExamReportsPage() {
   const router = useRouter()
   const params = useParams<{ id: string }>()
   const search = useSearchParams()
   const examId = params?.id ?? ''
   const { toast } = useToast()
+  const listStateKey = `exams:reports:${examId}:list`
+  const savedListState = useAppStore((state) => state.pageState[listStateKey] as ExamReportsListState | undefined)
+  const setPageState = useAppStore((state) => state.setPageState)
 
   const [tab, setTab] = useState<'class' | 'subject'>(
-    search.get('tab') === 'subject' ? 'subject' : 'class',
+    search.get('tab') === 'subject' ? 'subject' : savedListState?.tab ?? 'class',
   )
   const [loading, setLoading] = useState(true)
   const [classes, setClasses] = useState<ClassOption[]>([])
-  const [classFilter, setClassFilter] = useState('')
-  const [sectionFilter, setSectionFilter] = useState<string | null>(null)
+  const [classFilter, setClassFilter] = useState(savedListState?.classFilter ?? '')
+  const [sectionFilter, setSectionFilter] = useState<string | null>(savedListState?.sectionFilter ?? null)
   const [classSummary, setClassSummary] = useState<ClassSummaryRow[]>([])
   const [subjects, setSubjects] = useState<SubjectStats[]>([])
   const [examName, setExamName] = useState('')
@@ -135,6 +145,29 @@ export function ExamReportsPage() {
   )
   const passRate = totals.total > 0 ? Math.round((totals.pass / totals.total) * 1000) / 10 : 0
 
+  const rememberListState = (patch: Partial<ExamReportsListState>) => {
+    setPageState(listStateKey, { tab, classFilter, sectionFilter, ...patch })
+  }
+
+  const handleTabChange = (value: string) => {
+    const nextTab = value as 'class' | 'subject'
+    setTab(nextTab)
+    rememberListState({ tab: nextTab })
+  }
+
+  const handleClassFilterChange = (value: string) => {
+    const nextClassFilter = value === '__all' ? '' : value
+    setClassFilter(nextClassFilter)
+    setSectionFilter(null)
+    rememberListState({ classFilter: nextClassFilter, sectionFilter: null })
+  }
+
+  const handleSectionFilterChange = (value: string) => {
+    const nextSectionFilter = value === '__all' ? null : value
+    setSectionFilter(nextSectionFilter)
+    rememberListState({ sectionFilter: nextSectionFilter })
+  }
+
   return (
     <div className="space-y-5">
       <PageHeader
@@ -163,7 +196,7 @@ export function ExamReportsPage() {
         />
       </div>
 
-      <Tabs value={tab} onValueChange={(v) => setTab(v as 'class' | 'subject')}>
+      <Tabs value={tab} onValueChange={handleTabChange}>
         <TabsList>
           <TabsTrigger value="class" className="gap-1.5">
             <BarChart3 className="size-3.5" /> Class summary
@@ -233,10 +266,7 @@ export function ExamReportsPage() {
                 <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Class</div>
                 <Select
                   value={classFilter || '__all'}
-                  onValueChange={(v) => {
-                    setClassFilter(v === '__all' ? '' : v)
-                    setSectionFilter(null)
-                  }}
+                  onValueChange={handleClassFilterChange}
                 >
                   <SelectTrigger className="h-9 w-44"><SelectValue placeholder="All" /></SelectTrigger>
                   <SelectContent>
@@ -252,7 +282,7 @@ export function ExamReportsPage() {
                   <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Section</div>
                   <Select
                     value={sectionFilter ?? '__all'}
-                    onValueChange={(v) => setSectionFilter(v === '__all' ? null : v)}
+                    onValueChange={handleSectionFilterChange}
                   >
                     <SelectTrigger className="h-9 w-32"><SelectValue placeholder="All" /></SelectTrigger>
                     <SelectContent>

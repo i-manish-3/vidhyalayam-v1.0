@@ -30,8 +30,6 @@ import {
   BarChart3,
   Headphones,
   ChevronDown,
-  ChevronLeft,
-  ChevronRight,
   X,
   PlusCircle,
   UserPlus,
@@ -438,12 +436,29 @@ function filterChildren(children: MenuChild[], permissions: string[], role: stri
     })
 }
 
+function getSidebarItemKey(item: SidebarMenuEntry, parentKey = ''): string {
+  return `${parentKey}/${item.label}-${item.page}`
+}
+
+function collectOpenKeysForPath(items: SidebarMenuEntry[], path: string, parentKey = ''): string[] {
+  return items.flatMap((item) => {
+    if (!item.children?.length) return []
+
+    const itemKey = getSidebarItemKey(item, parentKey)
+    const childKeys = collectOpenKeysForPath(item.children, path, itemKey)
+    const isActiveBranch = isPageActiveOnPath(item.page, path) ||
+      item.children.some((child) => hasActiveDescendant(child, path))
+
+    return isActiveBranch ? [itemKey, ...childKeys] : []
+  })
+}
+
 export function AppSidebar() {
   const router = useRouter()
   const pathname = usePathname()
   const { user, currentSchool, sidebarOpen, setSidebarOpen, sidebarCollapsed, permissions, permissionsLoaded } = useAppStore()
-  const [menuStack, setMenuStack] = useState<Array<{ label: string; items: SidebarMenuEntry[] }>>([])
-  const [menuPanelPos, setMenuPanelPos] = useState({ top: 0, left: 0 })
+  const [openMenuKeys, setOpenMenuKeys] = useState<Set<string>>(() => new Set())
+  const [hasMenuInteraction, setHasMenuInteraction] = useState(false)
   const [flyoutMenu, setFlyoutMenu] = useState<string | null>(null)
   const [flyoutPos, setFlyoutPos] = useState({ top: 0, left: 0 })
   const flyoutTimeoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -455,9 +470,7 @@ export function AppSidebar() {
     : currentSchool?.name || 'Vidhyalayam'
   const schoolSubLabel = role === 'SUPER_ADMIN' && !isImpersonating
     ? 'Platform Admin'
-    : currentSchool?.subdomain
-    ? `${currentSchool.subdomain} dashboard`
-    : 'School Management'
+    : ''
   const schoolLogo = (role === 'SUPER_ADMIN' && !isImpersonating) ? undefined : currentSchool?.logo
 
   const menus = useMemo(() => {
@@ -480,39 +493,41 @@ export function AppSidebar() {
   }, [effectiveRole, permissions, permissionsLoaded])
 
   const isCollapsed = sidebarCollapsed
-  const activeDrill = menuStack[menuStack.length - 1]
-
-  const openMenuPanel = (item: SidebarMenuEntry, buttonEl: HTMLButtonElement) => {
-    if (!item.children?.length) return
-    const rect = buttonEl.getBoundingClientRect()
-    setMenuPanelPos({
-      top: Math.max(64, rect.top),
-      left: Math.min(rect.right + 8, window.innerWidth - 300),
-    })
-    setMenuStack([{ label: item.label, items: item.children || [] }])
-  }
-
-  const enterPanelMenu = (item: SidebarMenuEntry) => {
-    if (!item.children?.length) return
-    setMenuStack((prev) => [...prev, { label: item.label, items: item.children || [] }])
-  }
-
-  const closeMenuPanel = () => {
-    setMenuStack([])
-  }
-
-  const goBackMenuPanel = () => {
-    setMenuStack((prev) => prev.slice(0, -1))
-  }
 
   const handleNavigate = (page: PageName) => {
     const url = resolveMigratedUrl(page)
-    if (url) router.push(url)
+    if (url) {
+      setHasMenuInteraction(true)
+      setOpenMenuKeys(new Set(collectOpenKeysForPath(menus, url)))
+      router.push(url)
+    }
     setFlyoutMenu(null)
-    setMenuStack([])
     if (window.innerWidth < 1024) {
       setSidebarOpen(false)
     }
+  }
+
+  const toggleMenuKey = (key: string, depth: number) => {
+    setHasMenuInteraction(true)
+    setOpenMenuKeys((prev) => {
+      const isOpen = prev.has(key)
+
+      if (isOpen) {
+        const next = new Set(prev)
+        next.forEach((openKey) => {
+          if (openKey === key || openKey.startsWith(`${key}/`)) next.delete(openKey)
+        })
+        return next
+      }
+
+      if (depth === 0) {
+        return new Set([key])
+      }
+
+      const next = new Set(prev)
+      next.add(key)
+      return next
+    })
   }
 
   const openFlyout = useCallback((label: string, buttonEl: HTMLButtonElement) => {
@@ -545,15 +560,87 @@ export function AppSidebar() {
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       const target = e.target as HTMLElement
-      if (target.closest('[data-flyout]') || target.closest('[data-flyout-trigger]') || target.closest('[data-menu-panel]') || target.closest('[data-menu-panel-trigger]')) return
+      if (target.closest('[data-flyout]') || target.closest('[data-flyout-trigger]')) return
       if (flyoutMenu) setFlyoutMenu(null)
-      if (menuStack.length) setMenuStack([])
     }
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [flyoutMenu, menuStack.length])
+  }, [flyoutMenu])
 
   const flyoutItem = flyoutMenu ? menus.find(m => m.label === flyoutMenu && m.children && m.children.length > 0) : null
+
+  const renderExpandedItems = (items: SidebarMenuEntry[], depth = 0, parentKey = '') => {
+    return items.map((item) => {
+      const itemKey = getSidebarItemKey(item, parentKey)
+      const Icon = item.icon
+      const isActive = item.children?.length
+        ? isPageActiveOnPath(item.page, pathname) || item.children.some((child) => hasActiveDescendant(child, pathname))
+        : isPageActiveOnPath(item.page, pathname, true)
+      const hasChildren = !!item.children?.length
+      const isOpen = hasChildren && (openMenuKeys.has(itemKey) || (!hasMenuInteraction && isActive))
+      const visualDepth = Math.min(depth, 1)
+      const leftPadding = visualDepth === 0 ? 12 : 14
+
+      if (hasChildren) {
+        return (
+          <div key={itemKey} className="space-y-1">
+            <button
+              type="button"
+              onClick={() => toggleMenuKey(itemKey, depth)}
+              className={cn(
+                'group relative flex min-h-10 w-full items-center gap-3 rounded-lg py-2.5 pr-2.5 text-sm font-medium transition-all',
+                isActive
+                  ? 'bg-sidebar-accent text-sidebar-primary shadow-sm'
+                  : 'text-sidebar-foreground/75 hover:bg-sidebar-accent/70 hover:text-sidebar-foreground'
+              )}
+              style={{ paddingLeft: leftPadding }}
+              aria-expanded={isOpen}
+            >
+              {isActive && (
+                <span className="absolute left-0 top-1/2 h-6 w-[3px] -translate-y-1/2 rounded-r-full bg-sidebar-primary" />
+              )}
+              <Icon className="size-4 shrink-0" />
+              <span className="min-w-0 flex-1 truncate text-left">{item.label}</span>
+              <ChevronDown className={cn('size-4 shrink-0 opacity-70 transition-transform', isOpen && 'rotate-180')} />
+            </button>
+            <div
+              className={cn(
+                'grid transition-[grid-template-rows,opacity] duration-200 ease-out',
+                isOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
+              )}
+            >
+              <div className="min-h-0 overflow-hidden">
+                <div className="mt-1 space-y-1 rounded-lg bg-sidebar-foreground/[0.04] p-1">
+                  {renderExpandedItems(item.children || [], depth + 1, itemKey)}
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+      }
+
+      return (
+        <button
+          key={itemKey}
+          type="button"
+          onClick={() => handleNavigate(item.page)}
+          className={cn(
+            'relative flex min-h-9 w-full items-center gap-3 rounded-lg py-2 pr-2.5 text-sm font-medium transition-all',
+            isActive
+              ? 'bg-sidebar-accent text-sidebar-primary shadow-sm'
+              : 'text-sidebar-foreground/72 hover:bg-sidebar-accent/65 hover:text-sidebar-foreground'
+          )}
+          style={{ paddingLeft: leftPadding }}
+        >
+          {isActive && (
+            <span className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-sidebar-primary" />
+          )}
+          <Icon className="size-4 shrink-0" />
+          <span className="min-w-0 truncate text-left">{item.label}</span>
+        </button>
+      )
+    })
+  }
 
   return (
     <>
@@ -567,7 +654,7 @@ export function AppSidebar() {
 
       <aside
         className={cn(
-          'shrink-0 bg-sidebar text-sidebar-foreground border-r border-sidebar-border z-50',
+          'shrink-0 bg-sidebar bg-brand-sidebar text-sidebar-foreground border-r border-sidebar-border z-50',
           'fixed lg:relative h-full lg:h-auto',
           sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
           'transition-[width,transform] duration-300 ease-in-out',
@@ -594,7 +681,9 @@ export function AppSidebar() {
               isCollapsed ? 'opacity-0 max-w-0' : 'opacity-100 max-w-[200px]'
             )}>
               <span className="text-sm font-bold text-sidebar-foreground truncate">{schoolDisplayName}</span>
-              <span className="text-[10px] text-sidebar-foreground/60 truncate">{schoolSubLabel}</span>
+              {schoolSubLabel && (
+                <span className="text-[10px] text-sidebar-foreground/60 truncate">{schoolSubLabel}</span>
+              )}
             </div>
             <Button
               variant="ghost"
@@ -607,59 +696,39 @@ export function AppSidebar() {
           </div>
 
           {/* Sidebar Navigation */}
-          <ScrollArea className="flex-1 min-h-0">
+          <ScrollArea className="flex-1 min-h-0 overscroll-contain">
             <TooltipProvider delayDuration={0}>
-              <nav className={cn('py-2 space-y-0.5 transition-[padding] duration-300 ease-in-out', isCollapsed ? 'px-2' : 'px-3')}>
-                {menus.map((item) => {
+              <nav className={cn('space-y-1 py-2 transition-[padding] duration-300 ease-in-out', isCollapsed ? 'px-2' : 'px-3')}>
+                {isCollapsed ? menus.map((item) => {
                   const isActive = isPageActiveOnPath(item.page, pathname) ||
                     (item.children && item.children.some((child) => hasActiveDescendant(child, pathname)))
 
-                  /* ─── Collapsed mode: icon-only buttons ─── */
-                  if (isCollapsed) {
-                    if (item.children && item.children.length > 0) {
-                      const isFlyoutOpen = flyoutMenu === item.label
-                      return (
-                        <button
-                          key={item.label}
-                          data-flyout-trigger={item.label}
-                          onClick={(e) => {
-                            if (isFlyoutOpen) closeFlyout()
-                            else openFlyout(item.label, e.currentTarget)
-                          }}
-                          onMouseEnter={(e) => openFlyout(item.label, e.currentTarget)}
-                          onMouseLeave={closeFlyoutDelayed}
-                          className={cn(
-                            'flex w-full items-center justify-center rounded-lg py-2.5 transition-colors relative',
-                            (isActive || isFlyoutOpen)
-                              ? 'bg-sidebar-accent text-sidebar-primary'
-                              : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground'
-                          )}
-                        >
-                          <item.icon className="size-5 shrink-0" />
-                          {isActive && (
-                            <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-sidebar-primary rounded-r-full" />
-                          )}
-                          <ChevronDown className="absolute -right-0.5 bottom-1 size-2.5 opacity-50" />
-                        </button>
-                      )
-                    }
-
+                  if (item.children && item.children.length > 0) {
+                    const isFlyoutOpen = flyoutMenu === item.label
                     return (
                       <Tooltip key={item.label}>
                         <TooltipTrigger asChild>
                           <button
-                            onClick={() => handleNavigate(item.page)}
+                            type="button"
+                            data-flyout-trigger={item.label}
+                            onClick={(e) => {
+                              if (isFlyoutOpen) closeFlyout()
+                              else openFlyout(item.label, e.currentTarget)
+                            }}
+                            onMouseEnter={(e) => openFlyout(item.label, e.currentTarget)}
+                            onMouseLeave={closeFlyoutDelayed}
                             className={cn(
-                              'flex w-full items-center justify-center rounded-lg py-2.5 transition-colors relative',
-                              isActive
-                                ? 'bg-sidebar-accent text-sidebar-primary'
-                                : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground'
+                              'relative flex min-h-10 w-full items-center justify-center rounded-lg py-2.5 transition-colors',
+                              (isActive || isFlyoutOpen)
+                                ? 'bg-sidebar-accent text-sidebar-primary shadow-sm'
+                                : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/70 hover:text-sidebar-foreground'
                             )}
                           >
                             <item.icon className="size-5 shrink-0" />
                             {isActive && (
-                              <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-sidebar-primary rounded-r-full" />
+                              <span className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-sidebar-primary" />
                             )}
+                            <ChevronDown className="absolute -right-0.5 bottom-1 size-2.5 opacity-50" />
                           </button>
                         </TooltipTrigger>
                         <TooltipContent side="right" sideOffset={8} className="font-medium">
@@ -669,45 +738,31 @@ export function AppSidebar() {
                     )
                   }
 
-                  /* ─── Expanded mode: full items with collapsible sub-menus ─── */
-                  if (item.children) {
-                    return (
-                      <button
-                        key={item.label}
-                        type="button"
-                        data-menu-panel-trigger={item.label}
-                        onClick={(e) => openMenuPanel(item, e.currentTarget)}
-                        className={cn(
-                          'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
-                          isActive || activeDrill?.label === item.label
-                            ? 'bg-sidebar-accent text-sidebar-primary'
-                            : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground'
-                        )}
-                      >
-                        <item.icon className="size-4 shrink-0" />
-                        <span className="min-w-0 flex-1 truncate text-left">{item.label}</span>
-                        <ChevronRight className="size-4 shrink-0 opacity-70" />
-                      </button>
-                    )
-                  }
-
-                  // Regular item without children
                   return (
-                    <button
-                      key={item.page}
-                      onClick={() => handleNavigate(item.page)}
-                      className={cn(
-                        'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
-                        isActive
-                          ? 'bg-sidebar-accent text-sidebar-primary'
-                          : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground'
-                      )}
-                    >
-                      <item.icon className="size-4 shrink-0" />
-                      <span className="min-w-0 truncate">{item.label}</span>
-                    </button>
+                    <Tooltip key={item.label}>
+                      <TooltipTrigger asChild>
+                        <button
+                          type="button"
+                          onClick={() => handleNavigate(item.page)}
+                          className={cn(
+                            'relative flex min-h-10 w-full items-center justify-center rounded-lg py-2.5 transition-colors',
+                            isActive
+                              ? 'bg-sidebar-accent text-sidebar-primary shadow-sm'
+                              : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/70 hover:text-sidebar-foreground'
+                          )}
+                        >
+                          <item.icon className="size-5 shrink-0" />
+                          {isActive && (
+                            <span className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-sidebar-primary" />
+                          )}
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="right" sideOffset={8} className="font-medium">
+                        {item.label}
+                      </TooltipContent>
+                    </Tooltip>
                   )
-                })}
+                }) : renderExpandedItems(menus)}
               </nav>
             </TooltipProvider>
           </ScrollArea>
@@ -717,7 +772,9 @@ export function AppSidebar() {
             {!isCollapsed ? (
               <div className="rounded-lg bg-sidebar-accent/50 p-3">
                 <p className="truncate text-xs font-medium text-sidebar-foreground/80">{schoolDisplayName}</p>
-                <p className="mt-1 truncate text-[10px] text-sidebar-foreground/50">{schoolSubLabel}</p>
+                {schoolSubLabel && (
+                  <p className="mt-1 truncate text-[10px] text-sidebar-foreground/50">{schoolSubLabel}</p>
+                )}
               </div>
             ) : (
               <TooltipProvider delayDuration={0}>
@@ -743,104 +800,30 @@ export function AppSidebar() {
         </div>
       </aside>
 
-      {/* Submenu panel for expanded sidebar */}
-      {!isCollapsed && activeDrill && typeof document !== 'undefined' && createPortal(
-        <div
-          data-menu-panel
-          className="fixed z-[100] w-72 overflow-hidden rounded-lg border border-sidebar-border bg-sidebar text-sidebar-foreground shadow-xl animate-in slide-in-from-left-1 fade-in duration-150"
-          style={{ top: menuPanelPos.top, left: menuPanelPos.left }}
-        >
-          <div className="flex items-center gap-2 border-b border-sidebar-border px-3 py-2.5">
-            {menuStack.length > 1 && (
-              <button
-                type="button"
-                onClick={goBackMenuPanel}
-                className="flex size-7 items-center justify-center rounded-md text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
-              >
-                <ChevronLeft className="size-4" />
-              </button>
-            )}
-            <p className="min-w-0 flex-1 truncate text-sm font-semibold">{activeDrill.label}</p>
-            <button
-              type="button"
-              onClick={closeMenuPanel}
-              className="flex size-7 items-center justify-center rounded-md text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
-            >
-              <X className="size-4" />
-            </button>
-          </div>
-
-          <div className="max-h-[min(520px,calc(100vh-96px))] overflow-y-auto p-2">
-            {activeDrill.items.map((item) => {
-              const isActive = item.children?.length
-                ? isPageActiveOnPath(item.page, pathname) || item.children.some((child) => hasActiveDescendant(child, pathname))
-                : isPageActiveOnPath(item.page, pathname, true)
-
-              if (item.children?.length) {
-                return (
-                  <button
-                    key={item.label}
-                    type="button"
-                    onClick={() => enterPanelMenu(item)}
-                    className={cn(
-                      'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
-                      isActive
-                        ? 'bg-sidebar-accent text-sidebar-primary'
-                        : 'text-sidebar-foreground/75 hover:bg-sidebar-accent hover:text-sidebar-foreground'
-                    )}
-                  >
-                    <item.icon className="size-4 shrink-0" />
-                    <span className="min-w-0 flex-1 truncate text-left">{item.label}</span>
-                    <ChevronRight className="size-4 shrink-0 opacity-70" />
-                  </button>
-                )
-              }
-
-              return (
-                <button
-                  key={item.page}
-                  type="button"
-                  onClick={() => handleNavigate(item.page)}
-                  className={cn(
-                    'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
-                    isActive
-                      ? 'bg-sidebar-accent text-sidebar-primary'
-                      : 'text-sidebar-foreground/75 hover:bg-sidebar-accent hover:text-sidebar-foreground'
-                  )}
-                >
-                  <item.icon className="size-4 shrink-0" />
-                  <span className="min-w-0 truncate">{item.label}</span>
-                </button>
-              )
-            })}
-          </div>
-        </div>,
-        document.body
-      )}
-
       {/* Flyout Popup for collapsed sidebar */}
       {isCollapsed && flyoutItem && flyoutMenu && typeof document !== 'undefined' && createPortal(
         <div
           data-flyout={flyoutMenu}
-          className="fixed z-[100] rounded-lg border bg-popover text-popover-foreground shadow-xl min-w-[200px] animate-in slide-in-from-left-1 fade-in duration-150"
+          className="fixed z-[100] min-w-[220px] overflow-hidden rounded-lg border bg-popover text-popover-foreground shadow-xl animate-in slide-in-from-left-1 fade-in duration-150"
           style={{ top: flyoutPos.top, left: flyoutPos.left }}
           onMouseEnter={cancelFlyoutClose}
           onMouseLeave={closeFlyoutDelayed}
         >
-          <div className="px-3 py-2 border-b">
+          <div className="border-b px-3 py-2">
             <p className="text-xs font-semibold">{flyoutItem.label}</p>
           </div>
-          <div className="py-1">
+          <div className="max-h-[min(70vh,560px)] overflow-y-auto py-1">
             {flyoutItem.children!.map((child) => {
               if (child.children && child.children.length > 0) {
                 return (
                   <div key={child.label}>
-                    <div className="px-3 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                    <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                       {child.label}
                     </div>
                     {child.children.map((grandChild) => (
                       <button
                         key={grandChild.page}
+                        type="button"
                         onClick={() => handleNavigate(grandChild.page)}
                         className={cn(
                           'flex w-full items-center gap-2.5 px-3 py-2 text-sm transition-colors',
@@ -860,6 +843,7 @@ export function AppSidebar() {
               return (
                 <button
                   key={child.page}
+                  type="button"
                   onClick={() => handleNavigate(child.page)}
                   className={cn(
                     'flex w-full items-center gap-2.5 px-3 py-2 text-sm transition-colors',

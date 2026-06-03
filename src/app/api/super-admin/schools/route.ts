@@ -6,6 +6,26 @@ import { unauthorizedError, internalError, apiError } from '@/lib/api-errors'
 import { assignUserToRoleByName, provisionDefaultRolesForSchool } from '@/lib/rbac'
 import { validatePasswordStrength } from '@/lib/auth-security'
 
+function slugifySchoolName(name: string) {
+  return name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 24) || 'school'
+}
+
+async function createInternalSchoolSlug(name: string) {
+  const base = slugifySchoolName(name)
+  for (let i = 0; i < 25; i += 1) {
+    const suffix = i === 0 ? '' : `-${i + 1}`
+    const candidate = `${base}${suffix}`.slice(0, 30)
+    const existing = await db.school.findUnique({ where: { subdomain: candidate } })
+    if (!existing) return candidate
+  }
+  return `${base.slice(0, 17)}-${Date.now().toString(36)}`.slice(0, 30)
+}
+
 // GET /api/super-admin/schools - List all schools with stats
 export async function GET(request: NextRequest) {
   try {
@@ -29,7 +49,6 @@ export async function GET(request: NextRequest) {
     if (search) {
       where.OR = [
         { name: { contains: search } },
-        { subdomain: { contains: search } },
         { contactEmail: { contains: search } },
         { city: { contains: search } },
       ]
@@ -72,7 +91,6 @@ export async function GET(request: NextRequest) {
       state: school.state,
       contactPhone: school.contactPhone,
       contactEmail: school.contactEmail,
-      subdomain: school.subdomain,
       status: school.status,
       trialEndsAt: school.trialEndsAt,
       onboardingDate: school.onboardingDate,
@@ -112,7 +130,6 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const {
       name,
-      subdomain,
       address,
       city,
       state,
@@ -135,21 +152,13 @@ export async function POST(request: NextRequest) {
       trialDays,
     } = body
 
-    if (!name || !subdomain || !adminName || !adminEmail || !adminPassword) {
-      return apiError(400, 'Please fill in the school name, subdomain, admin name, admin email, and password.')
+    if (!name || !adminName || !adminEmail || !adminPassword) {
+      return apiError(400, 'Please fill in the school name, admin name, admin email, and password.')
     }
 
     const strength = validatePasswordStrength(adminPassword)
     if (!strength.valid) {
       return apiError(400, strength.reason || 'Please choose a stronger admin password.')
-    }
-
-    // Check if subdomain is taken
-    const existingSchool = await db.school.findUnique({
-      where: { subdomain },
-    })
-    if (existingSchool) {
-      return apiError(400, 'This subdomain is already taken by another school. Please choose a different one.')
     }
 
     // Check if admin email is taken
@@ -161,6 +170,7 @@ export async function POST(request: NextRequest) {
     }
 
     const hashedPwd = await hashPassword(adminPassword)
+    const internalSubdomain = await createInternalSchoolSlug(name)
 
     // Determine initial status
     const initialStatus = body.status || 'trial'
@@ -183,7 +193,7 @@ export async function POST(request: NextRequest) {
     const school = await db.school.create({
       data: {
         name,
-        subdomain,
+        subdomain: internalSubdomain,
         address,
         city,
         state,
@@ -276,7 +286,6 @@ export async function POST(request: NextRequest) {
         school: {
           id: school.id,
           name: school.name,
-          subdomain: school.subdomain,
           status: school.status,
           trialEndsAt: school.trialEndsAt,
         },

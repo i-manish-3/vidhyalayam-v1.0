@@ -194,21 +194,35 @@ function formatDate(value: string | null | undefined): string {
 
 // ── Main page ─────────────────────────────────────────────────────────
 
+interface FeeDemandSlipsListState {
+  month: number
+  year: number
+  classId: string
+  sectionId: string
+  runFilter: string
+  limit: number
+  page: number
+}
+
+const FEE_DEMAND_SLIPS_LIST_STATE_KEY = 'fees:demand-slips:list'
+
 export function FeeDemandSlipsPage() {
   const { toast } = useToast()
+  const savedListState = useAppStore((state) => state.pageState[FEE_DEMAND_SLIPS_LIST_STATE_KEY] as FeeDemandSlipsListState | undefined)
+  const setPageState = useAppStore((state) => state.setPageState)
 
   const today = new Date()
   const defaultMonth = today.getMonth() + 1
   const defaultYear = today.getFullYear()
 
   // Filters
-  const [month, setMonth] = useState<number>(defaultMonth)
-  const [year, setYear] = useState<number>(defaultYear)
-  const [classId, setClassId] = useState<string>('')
-  const [sectionId, setSectionId] = useState<string>('')
-  const [runFilter, setRunFilter] = useState<string>('')
-  const [limit, setLimit] = useState<number>(50)
-  const [page, setPage] = useState<number>(1)
+  const [month, setMonth] = useState<number>(savedListState?.month ?? defaultMonth)
+  const [year, setYear] = useState<number>(savedListState?.year ?? defaultYear)
+  const [classId, setClassId] = useState<string>(savedListState?.classId ?? '')
+  const [sectionId, setSectionId] = useState<string>(savedListState?.sectionId ?? '')
+  const [runFilter, setRunFilter] = useState<string>(savedListState?.runFilter ?? '')
+  const [limit, setLimit] = useState<number>(savedListState?.limit ?? 50)
+  const [page, setPage] = useState<number>(savedListState?.page ?? 1)
 
   // Data
   const [slips, setSlips] = useState<SlipRow[]>([])
@@ -243,6 +257,19 @@ export function FeeDemandSlipsPage() {
     () => sections.filter((s) => !classId || s.classId === classId),
     [sections, classId]
   )
+
+  const rememberListState = useCallback((patch: Partial<FeeDemandSlipsListState>) => {
+    setPageState(FEE_DEMAND_SLIPS_LIST_STATE_KEY, {
+      month,
+      year,
+      classId,
+      sectionId,
+      runFilter,
+      limit,
+      page,
+      ...patch,
+    })
+  }, [classId, limit, month, page, runFilter, sectionId, setPageState, year])
 
   // Initial loads
   useEffect(() => {
@@ -298,11 +325,6 @@ export function FeeDemandSlipsPage() {
 
   useEffect(() => { fetchSlips() }, [fetchSlips])
   useEffect(() => { fetchRuns() }, [fetchRuns])
-
-  // Reset to page 1 when filters change
-  useEffect(() => {
-    setPage(1)
-  }, [month, year, classId, sectionId, runFilter])
 
   const onGenerated = useCallback(() => {
     setGeneratorOpen(false)
@@ -370,19 +392,66 @@ export function FeeDemandSlipsPage() {
     }
   }, [month, year, classId, sectionId, runFilter, toast])
 
+  const handleMonthChange = (value: number) => {
+    setMonth(value)
+    setPage(1)
+    rememberListState({ month: value, page: 1 })
+  }
+
+  const handleYearChange = (value: number) => {
+    setYear(value)
+    setPage(1)
+    rememberListState({ year: value, page: 1 })
+  }
+
+  const handleClassChange = (value: string) => {
+    const nextClassId = value === 'all' ? '' : value
+    setClassId(nextClassId)
+    setSectionId('')
+    setPage(1)
+    rememberListState({ classId: nextClassId, sectionId: '', page: 1 })
+  }
+
+  const handleSectionChange = (value: string) => {
+    const nextSectionId = value === 'all' ? '' : value
+    setSectionId(nextSectionId)
+    setPage(1)
+    rememberListState({ sectionId: nextSectionId, page: 1 })
+  }
+
+  const handleRunFilterChange = (value: string) => {
+    setRunFilter(value)
+    setPage(1)
+    rememberListState({ runFilter: value, page: 1 })
+  }
+
+  const handleLimitChange = (value: number) => {
+    setLimit(value)
+    setPage(1)
+    rememberListState({ limit: value, page: 1 })
+  }
+
+  const handlePageChange = (value: number) => {
+    setPage(value)
+    rememberListState({ page: value })
+  }
+
   const totalDemanded = useMemo(() => slips.reduce((s, r) => s + (r.totalAmount || 0), 0), [slips])
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-xl font-bold tracking-tight">Fee Demand Slips</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {slips.length > 0
-              ? `${slips.length} slips · ${formatCurrency(totalDemanded)} demanded for ${MONTHS[month - 1].label} ${year}`
-              : `Generate monthly demand slips for ${MONTHS[month - 1].label} ${year}`}
-          </p>
+        <div className="flex min-w-0 items-stretch gap-3">
+          <span aria-hidden className="bg-brand mt-0.5 w-1 shrink-0 self-stretch rounded-full" />
+          <div className="min-w-0">
+            <h1 className="text-xl font-semibold tracking-tight text-foreground/90">Fee Demand Slips</h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {slips.length > 0
+                ? `${slips.length} slips · ${formatCurrency(totalDemanded)} demanded for ${MONTHS[month - 1].label} ${year}`
+                : `Generate monthly demand slips for ${MONTHS[month - 1].label} ${year}`}
+            </p>
+          </div>
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-2">
           {waConfig?.whatsappEnabled && (waConfig?.whatsappProvider === 'META_CLOUD' || waConfig?.whatsappProvider === 'BAILEYS') && slips.length > 0 && (
@@ -403,7 +472,7 @@ export function FeeDemandSlipsPage() {
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4">
           <div className="space-y-1.5">
             <Label className="text-xs">Month</Label>
-            <Select value={String(month)} onValueChange={(v) => setMonth(Number(v))}>
+            <Select value={String(month)} onValueChange={(v) => handleMonthChange(Number(v))}>
               <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {MONTHS.map((m) => <SelectItem key={m.value} value={String(m.value)}>{m.label}</SelectItem>)}
@@ -412,7 +481,7 @@ export function FeeDemandSlipsPage() {
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Year</Label>
-            <Select value={String(year)} onValueChange={(v) => setYear(Number(v))}>
+            <Select value={String(year)} onValueChange={(v) => handleYearChange(Number(v))}>
               <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {yearOptions.map((y) => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
@@ -421,7 +490,7 @@ export function FeeDemandSlipsPage() {
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Class</Label>
-            <Select value={classId || 'all'} onValueChange={(v) => { setClassId(v === 'all' ? '' : v); setSectionId('') }}>
+            <Select value={classId || 'all'} onValueChange={handleClassChange}>
               <SelectTrigger className="h-9"><SelectValue placeholder="All classes" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All classes</SelectItem>
@@ -431,7 +500,7 @@ export function FeeDemandSlipsPage() {
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Section</Label>
-            <Select value={sectionId || 'all'} onValueChange={(v) => setSectionId(v === 'all' ? '' : v)} disabled={!classId}>
+            <Select value={sectionId || 'all'} onValueChange={handleSectionChange} disabled={!classId}>
               <SelectTrigger className="h-9"><SelectValue placeholder="All sections" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All sections</SelectItem>
@@ -443,7 +512,7 @@ export function FeeDemandSlipsPage() {
         {runFilter && (
           <div className="mt-3 flex items-center gap-2 rounded-md border bg-muted/40 px-3 py-2 text-xs">
             <span className="text-muted-foreground">Filtered to one run.</span>
-            <Button size="sm" variant="ghost" className="h-6 gap-1 px-2 text-xs" onClick={() => setRunFilter('')}>
+            <Button size="sm" variant="ghost" className="h-6 gap-1 px-2 text-xs" onClick={() => handleRunFilterChange('')}>
               <X className="size-3" /> Clear
             </Button>
           </div>
@@ -512,7 +581,7 @@ export function FeeDemandSlipsPage() {
           <div className="flex items-center justify-between rounded-lg border bg-background p-3 shadow-sm">
             <div className="flex items-center gap-2">
               <Label className="text-xs text-muted-foreground">Show:</Label>
-              <Select value={String(limit)} onValueChange={(v) => { setLimit(Number(v)); setPage(1) }}>
+              <Select value={String(limit)} onValueChange={(v) => handleLimitChange(Number(v))}>
                 <SelectTrigger className="h-8 w-24">
                   <SelectValue />
                 </SelectTrigger>
@@ -535,7 +604,7 @@ export function FeeDemandSlipsPage() {
                   size="sm"
                   variant="outline"
                   className="h-8 px-3"
-                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  onClick={() => handlePageChange(Math.max(1, page - 1))}
                   disabled={page === 1}
                 >
                   Previous
@@ -545,7 +614,7 @@ export function FeeDemandSlipsPage() {
                   size="sm"
                   variant="outline"
                   className="h-8 px-3"
-                  onClick={() => setPage(p => p + 1)}
+                  onClick={() => handlePageChange(page + 1)}
                   disabled={slips.length < limit}
                 >
                   Next
@@ -622,7 +691,9 @@ export function FeeDemandSlipsPage() {
                             onClick={() => {
                               setMonth(run.billingMonth)
                               setYear(run.billingYear)
-                              setRunFilter(run.id)
+                              setPage(1)
+                              handleRunFilterChange(run.id)
+                              rememberListState({ month: run.billingMonth, year: run.billingYear, runFilter: run.id, page: 1 })
                             }}
                           >
                             View slips

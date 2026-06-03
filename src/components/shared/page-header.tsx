@@ -2,12 +2,16 @@
 
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { ArrowLeft, type LucideIcon } from 'lucide-react'
+import { type LucideIcon } from 'lucide-react'
 
 interface PageHeaderProps {
   title: string
   description?: string
   titleClassName?: string
+  /**
+   * Deprecated: back buttons are no longer shown on pages. The prop is kept so
+   * existing callers continue to compile, but it is intentionally ignored.
+   */
   backAction?: {
     onClick: () => void
     label?: string
@@ -24,24 +28,13 @@ interface PageHeaderProps {
   }
 }
 
-export function PageHeader({ title, description, titleClassName, backAction, action, secondaryAction }: PageHeaderProps) {
+export function PageHeader({ title, description, titleClassName, action, secondaryAction }: PageHeaderProps) {
   return (
     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-      <div className="flex min-w-0 items-start gap-3">
-        {backAction && (
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            onClick={backAction.onClick}
-            className="mt-0.5 size-9 shrink-0"
-            aria-label={backAction.label || 'Go back'}
-          >
-            <ArrowLeft className="size-4" />
-          </Button>
-        )}
+      <div className="flex min-w-0 items-stretch gap-3">
+        <span aria-hidden className="bg-brand mt-0.5 w-1 shrink-0 self-stretch rounded-full" />
         <div className="min-w-0">
-          <h1 className={cn('text-xl font-semibold tracking-tight text-foreground/85', titleClassName)}>{title}</h1>
+          <h1 className={cn('text-xl font-semibold tracking-tight text-foreground/90', titleClassName)}>{title}</h1>
           {description && (
             <p className="text-sm text-muted-foreground mt-1">{description}</p>
           )}

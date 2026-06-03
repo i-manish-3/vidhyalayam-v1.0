@@ -43,6 +43,16 @@ interface ClassOption { id: string; name: string }
 interface SectionOption { id: string; name: string; classId: string }
 interface AcademicYearOption { name: string; isCurrent: boolean; isActive: boolean }
 
+interface IdCardGenerateListState {
+  academicYear: string
+  classId: string
+  sectionId: string
+  status: string
+  search: string
+}
+
+const ID_CARD_GENERATE_LIST_STATE_KEY = 'id-cards:generate:list'
+
 interface StudentRow {
   id: string
   firstName: string
@@ -98,6 +108,8 @@ export function IdCardGeneratePage() {
   const searchParams = useSearchParams()
   const { toast } = useToast()
   const currentSchool = useAppStore((s) => s.currentSchool)
+  const savedListState = useAppStore((s) => s.pageState[ID_CARD_GENERATE_LIST_STATE_KEY] as IdCardGenerateListState | undefined)
+  const setPageState = useAppStore((s) => s.setPageState)
 
   const [templates, setTemplates] = useState<TemplateSummary[]>([])
   const [templateId, setTemplateId] = useState<string>(searchParams.get('template') || '')
@@ -106,12 +118,12 @@ export function IdCardGeneratePage() {
   const [sections, setSections] = useState<SectionOption[]>([])
   const [loadingOptions, setLoadingOptions] = useState(true)
 
-  const [academicYear, setAcademicYear] = useState('')
-  const [classId, setClassId] = useState('all')
-  const [sectionId, setSectionId] = useState('all')
-  const [status, setStatus] = useState('admitted')
-  const [search, setSearch] = useState('')
-  const [searchDebounced, setSearchDebounced] = useState('')
+  const [academicYear, setAcademicYear] = useState(savedListState?.academicYear ?? '')
+  const [classId, setClassId] = useState(savedListState?.classId ?? 'all')
+  const [sectionId, setSectionId] = useState(savedListState?.sectionId ?? 'all')
+  const [status, setStatus] = useState(savedListState?.status ?? 'admitted')
+  const [search, setSearch] = useState(savedListState?.search ?? '')
+  const [searchDebounced, setSearchDebounced] = useState(savedListState?.search?.trim() ?? '')
 
   const [students, setStudents] = useState<StudentRow[]>([])
   const [loadingStudents, setLoadingStudents] = useState(false)
@@ -139,7 +151,7 @@ export function IdCardGeneratePage() {
         const years = yrRes.academicYears || []
         setAcademicYears(years)
         const current = yrRes.years?.find((y) => y.isCurrent)?.name || years[0] || ''
-        setAcademicYear(current)
+        setAcademicYear(savedListState?.academicYear || current)
         // Default to default template if none preselected.
         if (!templateId && tplRes.templates.length > 0) {
           const def = tplRes.templates.find((t) => t.isDefault && t.isActive) || tplRes.templates.find((t) => t.isActive)
@@ -160,7 +172,6 @@ export function IdCardGeneratePage() {
     return () => {
       cancelled = true
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Debounce search.
@@ -168,6 +179,43 @@ export function IdCardGeneratePage() {
     const t = setTimeout(() => setSearchDebounced(search.trim()), 250)
     return () => clearTimeout(t)
   }, [search])
+
+  const rememberListState = useCallback((patch: Partial<IdCardGenerateListState>) => {
+    setPageState(ID_CARD_GENERATE_LIST_STATE_KEY, {
+      academicYear,
+      classId,
+      sectionId,
+      status,
+      search,
+      ...patch,
+    })
+  }, [academicYear, classId, search, sectionId, setPageState, status])
+
+  const handleAcademicYearChange = (value: string) => {
+    setAcademicYear(value)
+    rememberListState({ academicYear: value })
+  }
+
+  const handleClassChange = (value: string) => {
+    setClassId(value)
+    setSectionId('all')
+    rememberListState({ classId: value, sectionId: 'all' })
+  }
+
+  const handleSectionChange = (value: string) => {
+    setSectionId(value)
+    rememberListState({ sectionId: value })
+  }
+
+  const handleStatusChange = (value: string) => {
+    setStatus(value)
+    rememberListState({ status: value })
+  }
+
+  const handleSearchChange = (value: string) => {
+    setSearch(value)
+    rememberListState({ search: value })
+  }
 
   // Fetch students whenever filters change.
   const fetchStudents = useCallback(async () => {
@@ -312,7 +360,7 @@ export function IdCardGeneratePage() {
                 </Select>
               </FilterField>
               <FilterField label="Academic Year">
-                <Select value={academicYear} onValueChange={setAcademicYear}>
+                <Select value={academicYear} onValueChange={handleAcademicYearChange}>
                   <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {academicYears.map((y) => (
@@ -322,7 +370,7 @@ export function IdCardGeneratePage() {
                 </Select>
               </FilterField>
               <FilterField label="Class">
-                <Select value={classId} onValueChange={(v) => { setClassId(v); setSectionId('all') }}>
+                <Select value={classId} onValueChange={handleClassChange}>
                   <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Classes</SelectItem>
@@ -333,7 +381,7 @@ export function IdCardGeneratePage() {
                 </Select>
               </FilterField>
               <FilterField label="Section">
-                <Select value={sectionId} onValueChange={setSectionId} disabled={classId === 'all'}>
+                <Select value={sectionId} onValueChange={handleSectionChange} disabled={classId === 'all'}>
                   <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="All sections" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Sections</SelectItem>
@@ -344,7 +392,7 @@ export function IdCardGeneratePage() {
                 </Select>
               </FilterField>
               <FilterField label="Status">
-                <Select value={status} onValueChange={setStatus}>
+                <Select value={status} onValueChange={handleStatusChange}>
                   <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {STATUS_OPTIONS.map((o) => (
@@ -358,7 +406,7 @@ export function IdCardGeneratePage() {
                   <Search className="pointer-events-none absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
                   <Input
                     value={search}
-                    onChange={(e) => setSearch(e.target.value)}
+                    onChange={(e) => handleSearchChange(e.target.value)}
                     placeholder="Name, admission no, roll no"
                     className="h-9 pl-8 text-sm"
                   />
@@ -431,7 +479,6 @@ export function IdCardGeneratePage() {
                         />
                         <div className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted text-xs">
                           {s.profileImage ? (
-                            // eslint-disable-next-line @next/next/no-img-element
                             <img src={s.profileImage} alt="" className="size-full object-cover" />
                           ) : (
                             <span className="font-medium uppercase">{(s.firstName?.[0] || '?')}</span>

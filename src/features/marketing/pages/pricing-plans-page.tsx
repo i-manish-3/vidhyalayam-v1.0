@@ -185,8 +185,16 @@ function linesToJsonArray(lines: string): string {
 
 type TabType = 'plan' | 'addon'
 
+interface PricingPlansListState {
+  search?: string
+}
+
+const PRICING_PLANS_LIST_STATE_KEY = 'marketing:pricing-plans:list'
+
 export function PricingPlansPage() {
   const { user } = useAppStore()
+  const savedListState = useAppStore((state) => state.pageState[PRICING_PLANS_LIST_STATE_KEY] as PricingPlansListState | undefined)
+  const setPageState = useAppStore((state) => state.setPageState)
   const { toast } = useToast()
 
   // Tab state
@@ -203,7 +211,7 @@ export function PricingPlansPage() {
   const [addonsLoading, setAddonsLoading] = useState(true)
 
   // Shared UI state
-  const [search, setSearch] = useState('')
+  const [search, setSearch] = useState(savedListState?.search ?? '')
 
   // Dialog states
   const [formOpen, setFormOpen] = useState(false)
@@ -511,7 +519,10 @@ export function PricingPlansPage() {
           placeholder={activeTab === 'plan' ? 'Search plans by name...' : 'Search add-ons by name...'}
           className="pl-9"
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => {
+            setSearch(e.target.value)
+            setPageState(PRICING_PLANS_LIST_STATE_KEY, { search: e.target.value })
+          }}
         />
       </div>
 
