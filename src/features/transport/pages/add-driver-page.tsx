@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
 import { compressImage } from '@/lib/image-compress'
 import { useToast } from '@/hooks/use-toast'
+import { PageHeader } from '@/components/shared'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -142,33 +143,24 @@ export function AddDriverPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-3">
-          <div>
-            <h1 className="text-xl font-bold tracking-tight">Add Driver</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">Create a transport driver account</p>
-          </div>
-        </div>
-        <Button
-          type="button"
-          variant="outline"
-          className="gap-2 self-start sm:self-auto"
-          onClick={() => router.push('/transport/drivers')}
-          disabled={submitting}
-        >
-          <UserCheck className="size-4" />
-          Driver Directory
-        </Button>
-      </div>
+      <PageHeader
+        title="Add Driver"
+        description="Create a transport driver account"
+        secondaryAction={{
+          label: 'Driver Directory',
+          icon: UserCheck,
+          onClick: () => router.push('/transport/drivers'),
+        }}
+      />
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <Bus className="size-4" />
+      <Card className="gap-0 overflow-hidden py-0">
+        <CardHeader className="border-b bg-muted/30 px-4 py-2.5 sm:px-5">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Bus className="size-4 text-muted-foreground" />
             Driver Details
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-4 pb-4 pt-3 sm:px-5">
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
               <Avatar className="size-20">

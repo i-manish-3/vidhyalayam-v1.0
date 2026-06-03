@@ -6,6 +6,7 @@ import { api } from '@/lib/api'
 import { useAppStore } from '@/lib/store'
 import { getCurrentAcademicYear } from '@/lib/academic-years'
 import { useToast } from '@/hooks/use-toast'
+import { PageHeader } from '@/components/shared'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -205,18 +206,15 @@ export function AddTransportRoutePage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-3">
-          <div>
-            <h1 className="text-xl font-bold tracking-tight">Create Route</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">Set the route name, route code, fee months, stop fares, and optional driver</p>
-          </div>
-        </div>
-        <Button type="button" variant="outline" className="gap-2 self-start sm:self-auto" onClick={() => router.push('/transport/routes')} disabled={submitting}>
-          <Eye className="size-4" />
-          View Routes
-        </Button>
-      </div>
+      <PageHeader
+        title="Create Route"
+        description="Set the route name, route code, fee months, stop fares, and optional driver"
+        secondaryAction={{
+          label: 'View Routes',
+          icon: Eye,
+          onClick: () => router.push('/transport/routes'),
+        }}
+      />
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <Card className="gap-0 overflow-hidden py-0">

@@ -13,7 +13,7 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Checkbox } from '@/components/ui/checkbox'
-import { LoadingState } from '@/components/shared'
+import { LoadingState, PageHeader } from '@/components/shared'
 import { Bus, CalendarDays, Eye, Loader2, MapPin, PlusCircle, Save, X } from 'lucide-react'
 
 interface DriverOption {
@@ -335,27 +335,24 @@ export function EditTransportRoutePage({ routeId }: { routeId: string }) {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-3">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Edit Route</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">Update the route name, route code, fee months, stop fares, and optional driver</p>
-          </div>
-        </div>
-        <Button type="button" variant="outline" className="gap-2 self-start sm:self-auto" onClick={viewRoutes} disabled={submitting}>
-          <Eye className="size-4" />
-          View Routes
-        </Button>
-      </div>
+      <PageHeader
+        title="Edit Route"
+        description="Update the route name, route code, fee months, stop fares, and optional driver"
+        secondaryAction={{
+          label: 'View Routes',
+          icon: Eye,
+          onClick: viewRoutes,
+        }}
+      />
 
-      <Card>
-        <CardHeader>
+      <Card className="gap-0 overflow-hidden py-0">
+        <CardHeader className="border-b bg-muted/30 px-4 py-2.5 sm:px-5">
           <CardTitle className="flex items-center gap-2 text-base">
-            <Bus className="size-4" />
+            <Bus className="size-4 text-muted-foreground" />
             Route Details
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-4 pb-4 pt-3 sm:px-5">
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div className="space-y-2">

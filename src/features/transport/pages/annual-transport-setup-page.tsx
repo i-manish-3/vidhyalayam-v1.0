@@ -983,7 +983,10 @@ export function AnnualTransportSetupPage() {
       {!loadingPlan && fromYear && toYear && !sameYear && (
         <Card className="gap-0 overflow-hidden py-0">
           <CardHeader className="flex flex-row items-center justify-between gap-3 border-b bg-muted/30 px-4 py-2.5 sm:px-5">
-            <CardTitle className="text-base">New routes for {toYear || '—'}</CardTitle>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Bus className="size-4 text-muted-foreground" />
+              New routes for {toYear || '—'}
+            </CardTitle>
             <Button type="button" variant="outline" size="sm" onClick={addNewRoute} className="gap-1">
               <PlusCircle className="size-3.5" />
               Add Route
