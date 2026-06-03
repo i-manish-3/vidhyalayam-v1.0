@@ -103,6 +103,18 @@ export const SCHOOL_THEME_PALETTES: ThemePalette[] = [
     chart: ['#0d9488', '#06b6d4', '#2dd4bf', '#22d3ee', '#0f766e'],
   },
   {
+    // Flat single-tone navbar: primary, accent, border and ring are all the
+    // exact same #19A797 so the sidebar shows no shading whatsoever.
+    id: 'turquoise',
+    name: 'Turquoise',
+    primary: '#19A797',
+    foreground: '#f0fdfa',
+    ring: '#19A797',
+    sidebarAccent: '#19A797',
+    sidebarBorder: '#19A797',
+    chart: ['#19A797', '#2dd4bf', '#5eead4', '#0d9488', '#14887A'],
+  },
+  {
     id: 'blue',
     name: 'Blue',
     primary: '#2563eb',
