@@ -3,14 +3,32 @@ import { verifyAccessToken, JWTPayload } from './auth'
 import { ACCESS_COOKIE } from './cookies'
 import { db } from '@/lib/db'
 
-// Auth state lives in the HttpOnly `erp_access` cookie. JavaScript on the page
-// can't read this cookie, so an XSS bug can't exfiltrate it the way it could
-// have with localStorage. The browser attaches it automatically on every
-// same-origin request as long as fetch uses `credentials: 'include'`.
+// Auth state lives in the HttpOnly `erp_access` cookie for the web app.
+// JavaScript on the page can't read this cookie, so an XSS bug can't exfiltrate
+// it the way it could have with localStorage. The browser attaches it
+// automatically on every same-origin request as long as fetch uses
+// `credentials: 'include'`.
+//
+// Native clients (the React Native / Expo mobile app) can't use HttpOnly
+// cookies, so they send the access token in an `Authorization: Bearer <token>`
+// header instead. We check the cookie FIRST (web, the common case) and only
+// fall back to the header when no cookie is present. This single change lets
+// every existing API route serve the mobile app unchanged — token issuance for
+// mobile lives in /api/mobile/auth/*, but every data route flows through here.
 export function getAuthUser(request: NextRequest): JWTPayload | null {
-  const token = request.cookies.get(ACCESS_COOKIE)?.value
+  const cookieToken = request.cookies.get(ACCESS_COOKIE)?.value
+  const token = cookieToken ?? getBearerToken(request)
   if (!token) return null
   return verifyAccessToken(token)
+}
+
+// Extract a bearer token from the Authorization header, if present and
+// well-formed. Case-insensitive on the "Bearer" scheme per RFC 6750.
+function getBearerToken(request: NextRequest): string | null {
+  const header = request.headers.get('authorization')
+  if (!header) return null
+  const match = /^Bearer\s+(.+)$/i.exec(header.trim())
+  return match ? match[1].trim() : null
 }
 
 export function getSchoolId(request: NextRequest): string | null {
