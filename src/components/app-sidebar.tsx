@@ -191,7 +191,6 @@ export const MENUS: Record<string, MenuItem[]> = {
       children: [
         { label: 'Dashboard', page: 'exam-dashboard', icon: LayoutDashboard },
         { label: 'Exam List', page: 'exam-list', icon: FileText },
-        { label: 'Enter Marks', page: 'exam-marks-entry', icon: ClipboardCheck },
         { label: 'Exam Patterns', page: 'exam-paradigms', icon: Layers },
         { label: 'Grade Scales', page: 'exam-grade-scales', icon: Award },
         { label: 'Report Card Templates', page: 'exam-report-card-templates', icon: LayoutTemplate },
@@ -589,10 +588,10 @@ export function AppSidebar() {
               type="button"
               onClick={() => toggleMenuKey(itemKey, depth)}
               className={cn(
-                'group relative flex min-h-10 w-full items-center gap-3 rounded-lg py-2.5 pr-2.5 text-sm font-medium transition-all',
+                'group relative flex min-h-10 w-full items-center gap-3 rounded-lg py-2.5 pr-2.5 text-sm font-semibold transition-all',
                 isActive
                   ? 'bg-sidebar-accent text-sidebar-primary shadow-sm'
-                  : 'text-sidebar-foreground/75 hover:bg-sidebar-accent/70 hover:text-sidebar-foreground'
+                  : 'text-sidebar-foreground hover:bg-sidebar-accent/70'
               )}
               style={{ paddingLeft: leftPadding }}
               aria-expanded={isOpen}
@@ -602,7 +601,7 @@ export function AppSidebar() {
               )}
               <Icon className="size-4 shrink-0" />
               <span className="min-w-0 flex-1 truncate text-left">{item.label}</span>
-              <ChevronDown className={cn('size-4 shrink-0 opacity-70 transition-transform', isOpen && 'rotate-180')} />
+              <ChevronDown className={cn('size-4 shrink-0 transition-transform', isOpen && 'rotate-180')} />
             </button>
             <div
               className={cn(
@@ -626,10 +625,10 @@ export function AppSidebar() {
           type="button"
           onClick={() => handleNavigate(item.page)}
           className={cn(
-            'relative flex min-h-9 w-full items-center gap-3 rounded-lg py-2 pr-2.5 text-sm font-medium transition-all',
+            'relative flex min-h-9 w-full items-center gap-3 rounded-lg py-2 pr-2.5 text-sm font-semibold transition-all',
             isActive
               ? 'bg-sidebar-accent text-sidebar-primary shadow-sm'
-              : 'text-sidebar-foreground/72 hover:bg-sidebar-accent/65 hover:text-sidebar-foreground'
+              : 'text-sidebar-foreground hover:bg-sidebar-accent/65'
           )}
           style={{ paddingLeft: leftPadding }}
         >
@@ -722,14 +721,14 @@ export function AppSidebar() {
                               'relative flex min-h-10 w-full items-center justify-center rounded-lg py-2.5 transition-colors',
                               (isActive || isFlyoutOpen)
                                 ? 'bg-sidebar-accent text-sidebar-primary shadow-sm'
-                                : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/70 hover:text-sidebar-foreground'
+                                : 'text-sidebar-foreground hover:bg-sidebar-accent/70'
                             )}
                           >
                             <item.icon className="size-5 shrink-0" />
                             {isActive && (
                               <span className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-sidebar-primary" />
                             )}
-                            <ChevronDown className="absolute -right-0.5 bottom-1 size-2.5 opacity-50" />
+                            <ChevronDown className="absolute -right-0.5 bottom-1 size-2.5" />
                           </button>
                         </TooltipTrigger>
                         <TooltipContent side="right" sideOffset={8} className="font-medium">
@@ -749,7 +748,7 @@ export function AppSidebar() {
                             'relative flex min-h-10 w-full items-center justify-center rounded-lg py-2.5 transition-colors',
                             isActive
                               ? 'bg-sidebar-accent text-sidebar-primary shadow-sm'
-                              : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/70 hover:text-sidebar-foreground'
+                              : 'text-sidebar-foreground hover:bg-sidebar-accent/70'
                           )}
                         >
                           <item.icon className="size-5 shrink-0" />
