@@ -1,9 +1,7 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
-import { format } from 'date-fns'
+import { useEffect, useState } from 'react'
 import {
-  Activity,
   AlertCircle,
   ArrowRight,
   Bell,
@@ -12,8 +10,6 @@ import {
   Cake,
   Calendar,
   CalendarCheck,
-  ClipboardList,
-  Clock,
   GraduationCap,
   IndianRupee,
   Layers,
@@ -39,7 +35,6 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Progress } from '@/components/ui/progress'
 import { LoadingState } from '@/components/shared'
 import { api } from '@/lib/api'
 import { useRouter } from 'next/navigation'
@@ -110,30 +105,11 @@ function formatMoney(value: number) {
   return `INR ${money.format(value || 0)}`
 }
 
-function activityIcon(type: string) {
-  switch (type) {
-    case 'student':
-      return GraduationCap
-    case 'fee':
-      return IndianRupee
-    case 'attendance':
-      return ClipboardList
-    case 'announcement':
-      return Megaphone
-    case 'exam':
-      return TrendingUp
-    default:
-      return Activity
-  }
-}
-
 export function SchoolAdminDashboard() {
   const [loading, setLoading] = useState(true)
   const [data, setData] = useState<DashboardData | null>(null)
   const [birthdays, setBirthdays] = useState<BirthdayPerson[]>([])
-  const [now, setNow] = useState(() => new Date())
   const router = useRouter()
-  const { currentSchool } = useAppStore()
   const { hasPermission, permissions } = usePermissions()
   const role = useAppStore((s) => s.user?.role || '')
   const permissionsLoaded = useAppStore((s) => s.permissionsLoaded)
@@ -201,11 +177,6 @@ export function SchoolAdminDashboard() {
     fetchBirthdays()
   }, [])
 
-  useEffect(() => {
-    const timer = window.setInterval(() => setNow(new Date()), 1000)
-    return () => window.clearInterval(timer)
-  }, [])
-
   const fallbackData: DashboardData = {
     totalStudents: 0,
     totalTeachers: 0,
@@ -221,11 +192,6 @@ export function SchoolAdminDashboard() {
   const attendancePercent = dashboard.attendanceToday.total > 0
     ? Math.round((dashboard.attendanceToday.present / dashboard.attendanceToday.total) * 100)
     : 0
-  const attendanceHeroLabel = !isTeachingDayToday
-    ? (dashboard.attendanceToday.nonTeachingReason === 'holiday' ? 'Holiday' : 'Off Day')
-    : `${attendancePercent}%`
-  const today = format(now, 'EEEE, d MMM yyyy')
-  const currentTime = format(now, 'hh:mm:ss a')
   const collectionRate = Math.min(100, Math.max(0, dashboard.feeStats.collectionRate))
   const pendingRate = dashboard.feeStats.totalFees > 0
     ? Math.round((dashboard.feeStats.totalPending / dashboard.feeStats.totalFees) * 100)
@@ -275,11 +241,6 @@ export function SchoolAdminDashboard() {
     },
   ].filter(Boolean) as MetricItem[]
 
-  const heroKpis = [
-    canSeeAttendance && { label: 'Attendance', value: attendanceHeroLabel, icon: CalendarCheck },
-    canSeeFees && { label: 'Collection', value: `${collectionRate}%`, icon: IndianRupee },
-  ].filter(Boolean) as Array<{ label: string; value: string; icon: React.ElementType }>
-
   const quickActions: Array<{ label: string; page: PageName; icon: React.ElementType; iconClassName: string }> = ([
     { label: 'Students', page: 'students', icon: GraduationCap, iconClassName: 'text-cyan-600 dark:text-cyan-300' },
     { label: 'New Admission', page: 'admission-form', icon: PlusCircle, iconClassName: 'text-emerald-600 dark:text-emerald-300' },
@@ -295,48 +256,10 @@ export function SchoolAdminDashboard() {
     { label: 'Settings', page: 'settings', icon: Settings, iconClassName: 'text-slate-600 dark:text-slate-300' },
   ] as const).filter((action) => isPageVisible(action.page, permissions, role, permissionsLoaded))
 
-  const recentActivities = useMemo(() => {
-    if (dashboard.recentActivities.length > 0) return dashboard.recentActivities
-    return [
-      { id: 'empty-1', type: 'student', message: 'No recent activity yet. New school events will appear here.', time: 'Today' },
-    ]
-  }, [dashboard.recentActivities])
-
   if (loading) return <LoadingState />
 
   return (
     <div className="space-y-6">
-      <section className="overflow-hidden rounded-xl border bg-card shadow-sm">
-        <div className="p-3">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="space-y-2 lg:flex-1 lg:min-w-0">
-            <Badge variant="secondary" className="w-fit gap-2 bg-primary/10 text-primary hover:bg-primary/10">
-              <Clock className="size-3.5" />
-              <span>{today}</span>
-              <span className="text-primary/45">|</span>
-              <span className="font-mono tabular-nums">{currentTime}</span>
-            </Badge>
-            <h1 className="text-lg font-semibold tracking-tight text-foreground/85 sm:text-xl">
-              {currentSchool?.name || 'School'}
-            </h1>
-          </div>
-          <div className="grid w-full gap-2 sm:grid-cols-2 lg:max-w-md lg:shrink-0">
-            {heroKpis.map((item) => (
-              <div key={item.label} className="flex items-center gap-2 rounded-lg border bg-background/70 px-3 py-1.5">
-                <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-                  <item.icon className="size-3.5" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-[11px] text-muted-foreground">{item.label}</p>
-                  <p className="text-sm font-semibold text-foreground/85">{item.value}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-        </div>
-      </section>
-
       <section className="overflow-hidden rounded-lg border bg-card shadow-sm">
         <div className="px-3.5 pt-2">
           <h2 className="flex items-center gap-2 text-sm font-semibold tracking-tight text-foreground/90">
@@ -508,71 +431,6 @@ export function SchoolAdminDashboard() {
         )}
       </section>
       )}
-
-      <section className="grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
-        {(canSeeFees || canSeeAttendance) && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Operations Snapshot</CardTitle>
-            <CardDescription>Quick health check for today</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {canSeeAttendance && (
-              <SnapshotRow
-                label="Attendance Marking"
-                value={
-                  !isTeachingDayToday
-                    ? (dashboard.attendanceToday.nonTeachingReason === 'holiday' ? 'Holiday' : 'Off day')
-                    : dashboard.attendanceToday.total > 0 ? 'In progress' : 'Not started'
-                }
-                progress={!isTeachingDayToday ? 0 : attendancePercent}
-                tone={!isTeachingDayToday ? 'neutral' : dashboard.attendanceToday.total > 0 ? 'good' : 'warn'}
-              />
-            )}
-            {canSeeFees && (
-              <SnapshotRow label="Fee Collection Rate" value={`${collectionRate}%`} progress={collectionRate} tone={collectionRate >= 70 ? 'good' : 'warn'} />
-            )}
-            {canSeeFees && (
-              <SnapshotRow label="Pending Follow-ups" value={formatMoney(dashboard.feeStats.totalPending)} progress={100 - Math.min(100, pendingRate)} tone={dashboard.feeStats.totalPending > 0 ? 'warn' : 'good'} />
-            )}
-          </CardContent>
-        </Card>
-        )}
-
-        <Card>
-          <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <CardTitle>Recent Activity</CardTitle>
-              <CardDescription>Latest events across school modules</CardDescription>
-            </div>
-            <Button variant="outline" size="sm" onClick={() => router.push('/notifications')}>
-              Notifications
-              <ArrowRight className="size-4" />
-            </Button>
-          </CardHeader>
-          <CardContent>
-            <div className="max-h-96 space-y-1 overflow-y-auto custom-scrollbar pr-1">
-              {recentActivities.map((activity) => {
-                const Icon = activityIcon(activity.type)
-                return (
-                  <div key={activity.id} className="flex items-start gap-3 rounded-lg p-3 transition-colors hover:bg-muted/60">
-                    <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                      <Icon className="size-4" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm leading-5">{activity.message}</p>
-                      <p className="mt-1 text-xs text-muted-foreground">{activity.time}</p>
-                    </div>
-                    <Badge variant="secondary" className="text-[10px] capitalize">
-                      {activity.type}
-                    </Badge>
-                  </div>
-                )
-              })}
-            </div>
-          </CardContent>
-        </Card>
-      </section>
     </div>
   )
 }
@@ -591,34 +449,6 @@ function InsightCard({ title, value, description, icon: Icon }: { title: string;
         </div>
       </CardContent>
     </Card>
-  )
-}
-
-function SnapshotRow({ label, value, progress, tone }: { label: string; value: string; progress: number; tone: 'good' | 'warn' | 'neutral' }) {
-  const badgeClass =
-    tone === 'good'
-      ? 'bg-primary/10 text-primary hover:bg-primary/10'
-      : tone === 'warn'
-        ? 'bg-amber-500/10 text-amber-700 hover:bg-amber-500/10 dark:text-amber-300'
-        : 'bg-sky-500/10 text-sky-700 hover:bg-sky-500/10 dark:text-sky-300'
-  return (
-    <div className="space-y-3 rounded-lg border bg-background p-3">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <p className="text-sm font-medium">{label}</p>
-          <p className="text-xs text-muted-foreground">Current status</p>
-        </div>
-        <Badge className={cn('shrink-0', badgeClass)}>{value}</Badge>
-      </div>
-      <Progress
-        value={Math.min(100, Math.max(0, progress))}
-        className={cn(
-          'h-1.5',
-          tone === 'warn' && '[&_[data-slot=progress-indicator]]:bg-amber-500',
-          tone === 'neutral' && '[&_[data-slot=progress-indicator]]:bg-sky-500'
-        )}
-      />
-    </div>
   )
 }
 
