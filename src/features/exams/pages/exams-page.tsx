@@ -23,6 +23,7 @@ import {
   Award,
   ChevronRight,
 } from 'lucide-react'
+import { ExamInstructionsButton } from '@/features/exams/components/exam-instructions-button'
 
 interface ExamSummary {
   id: string
@@ -115,14 +116,15 @@ export function ExamsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Exams"
-        description="Set up exam paradigms, configure subjects, schedule papers, and publish results."
+        description="Set up exam patterns, configure subjects, schedule papers, and publish results."
+        extraActions={<ExamInstructionsButton />}
         action={{
           label: 'New exam',
           icon: Plus,
           onClick: () => router.push('/exams/new'),
         }}
         secondaryAction={{
-          label: 'Manage paradigms',
+          label: 'Manage exam patterns',
           icon: Layers,
           onClick: () => router.push('/exams/paradigms'),
         }}
@@ -191,14 +193,14 @@ export function ExamsPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Paradigms</CardTitle>
+            <CardTitle className="text-base">Exam patterns</CardTitle>
           </CardHeader>
           <CardContent>
             {paradigms.length === 0 ? (
               <EmptyState
                 icon={Layers}
-                title="No paradigms yet"
-                description="Create a paradigm to start setting up exams."
+                title="No exam patterns yet"
+                description="Create an exam pattern to start setting up exams."
               />
             ) : (
               <ul className="space-y-2">
@@ -216,7 +218,7 @@ export function ExamsPage() {
                         )}
                       </div>
                       <p className="text-xs text-muted-foreground">
-                        {p.academicYear} · {p._count.examGroups} group{p._count.examGroups === 1 ? '' : 's'}
+                        {p.academicYear} · {p._count.examGroups} term{p._count.examGroups === 1 ? '' : 's'}
                       </p>
                     </div>
                     <ChevronRight className="size-4 text-muted-foreground" />
@@ -230,7 +232,7 @@ export function ExamsPage() {
               className="mt-3 w-full"
               onClick={() => router.push('/exams/paradigms')}
             >
-              Manage paradigms
+              Manage exam patterns
             </Button>
           </CardContent>
         </Card>
@@ -241,12 +243,13 @@ export function ExamsPage() {
           <CardContent className="py-10 text-center">
             <h3 className="text-base font-semibold">Get started</h3>
             <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
-              The exam module is multi-layered: paradigms hold groups, groups hold exams, exams hold subject configs.
-              Start by creating a paradigm.
+              Exams are organised in three layers: an <strong>exam pattern</strong> (your school&apos;s overall framework for the year),
+              which holds <strong>terms</strong>, which hold individual <strong>exams</strong> with their subjects.
+              Start by creating an exam pattern.
             </p>
             <div className="mt-4 flex justify-center gap-2">
               <Button onClick={() => router.push('/exams/paradigms')} className="gap-1.5">
-                <Layers className="size-4" /> Create paradigm
+                <Layers className="size-4" /> Create exam pattern
               </Button>
               <Button
                 variant="outline"

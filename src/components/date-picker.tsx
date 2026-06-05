@@ -18,6 +18,8 @@ interface DatePickerProps {
   placeholder?: string
   className?: string
   triggerClassName?: string
+  /** How the calendar popover aligns to the trigger. Use "end" for right-edge triggers. */
+  align?: 'start' | 'center' | 'end'
 }
 
 function toYmd(d: Date): string {
@@ -64,6 +66,7 @@ export function DatePicker({
   placeholder = 'Pick date',
   className,
   triggerClassName,
+  align = 'start',
 }: DatePickerProps) {
   const [open, setOpen] = useState(false)
   const selected = fromYmd(value)
@@ -107,7 +110,7 @@ export function DatePicker({
           <span className="truncate">{formatLabel(value, placeholder)}</span>
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-0" align="start">
+      <PopoverContent className="w-auto p-0" align={align} collisionPadding={8}>
         {showQuickActions && (
           <div className="grid grid-cols-2 gap-1 border-b p-2">
             <Button

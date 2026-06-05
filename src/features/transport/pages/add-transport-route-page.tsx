@@ -220,7 +220,9 @@ export function AddTransportRoutePage() {
         <Card className="gap-0 overflow-hidden py-0">
           <CardHeader className="border-b bg-muted/30 px-4 py-2.5 sm:px-5">
             <CardTitle className="flex items-center gap-2 text-base">
-              <Bus className="size-4 text-muted-foreground" />
+              <span className="bg-brand-soft flex size-7 shrink-0 items-center justify-center rounded-lg text-white shadow-sm">
+                <Bus className="size-3.5" />
+              </span>
               Basic Route Info
             </CardTitle>
           </CardHeader>
@@ -263,7 +265,9 @@ export function AddTransportRoutePage() {
         <Card className="gap-0 overflow-hidden py-0">
           <CardHeader className="border-b bg-muted/30 px-4 py-2.5 sm:px-5">
             <CardTitle className="flex items-center gap-2 text-base">
-              <MapPin className="size-4 text-muted-foreground" />
+              <span className="bg-brand-soft flex size-7 shrink-0 items-center justify-center rounded-lg text-white shadow-sm">
+                <MapPin className="size-3.5" />
+              </span>
               Route Path & Vehicle
             </CardTitle>
           </CardHeader>
@@ -330,7 +334,9 @@ export function AddTransportRoutePage() {
         <Card className="gap-0 overflow-hidden py-0">
           <CardHeader className="flex flex-col gap-2 border-b bg-muted/30 px-4 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:px-5">
             <CardTitle className="flex items-center gap-2 text-base">
-              <CalendarDays className="size-4 text-muted-foreground" />
+              <span className="bg-brand-soft flex size-7 shrink-0 items-center justify-center rounded-lg text-white shadow-sm">
+                <CalendarDays className="size-3.5" />
+              </span>
               Fee Months
             </CardTitle>
             <div className="flex flex-wrap items-center gap-3">
@@ -404,7 +410,9 @@ export function AddTransportRoutePage() {
         <Card className="gap-0 overflow-hidden py-0">
           <CardHeader className="border-b bg-muted/30 px-4 py-2.5 sm:px-5">
             <CardTitle className="flex items-center gap-2 text-base">
-              <PlusCircle className="size-4 text-muted-foreground" />
+              <span className="bg-brand-soft flex size-7 shrink-0 items-center justify-center rounded-lg text-white shadow-sm">
+                <PlusCircle className="size-3.5" />
+              </span>
               Stops & Fares
             </CardTitle>
           </CardHeader>
@@ -467,7 +475,9 @@ export function AddTransportRoutePage() {
         <Card className="gap-0 overflow-hidden py-0">
           <CardHeader className="border-b bg-muted/30 px-4 py-2.5 sm:px-5">
             <CardTitle className="flex items-center gap-2 text-base">
-              <User className="size-4 text-muted-foreground" />
+              <span className="bg-brand-soft flex size-7 shrink-0 items-center justify-center rounded-lg text-white shadow-sm">
+                <User className="size-3.5" />
+              </span>
               Driver Assignment
             </CardTitle>
           </CardHeader>

@@ -299,10 +299,10 @@ export function ExamFormPage({ examId }: Props) {
 
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="sm:col-span-2">
-              <Label className="text-xs">Group</Label>
+              <Label className="text-xs">Term</Label>
               <Select value={examGroupId} onValueChange={setExamGroupId} disabled={isEdit}>
                 <SelectTrigger className="h-9">
-                  <SelectValue placeholder="Pick a group" />
+                  <SelectValue placeholder="Pick a term" />
                 </SelectTrigger>
                 <SelectContent>
                   {groups.map((g) => (
@@ -314,7 +314,7 @@ export function ExamFormPage({ examId }: Props) {
               </Select>
               {isEdit && (
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Group cannot be changed after creation.
+                  Term cannot be changed after creation.
                 </p>
               )}
             </div>

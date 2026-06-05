@@ -215,11 +215,16 @@ export function TransportPage() {
         <div className="overflow-hidden rounded-lg border bg-card">
           <div className="border-b p-4">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <h2 className="text-base font-semibold">Route List</h2>
-                <p className="text-sm text-muted-foreground">
-                  {filteredRoutes.length} of {routes.length} route{routes.length !== 1 ? 's' : ''} shown
-                </p>
+              <div className="flex items-center gap-2.5">
+                <span className="bg-brand-soft flex size-8 shrink-0 items-center justify-center rounded-lg text-white shadow-sm">
+                  <Bus className="size-4" />
+                </span>
+                <div>
+                  <h2 className="text-base font-semibold">Route List</h2>
+                  <p className="text-sm text-muted-foreground">
+                    {filteredRoutes.length} of {routes.length} route{routes.length !== 1 ? 's' : ''} shown
+                  </p>
+                </div>
               </div>
               <div className="relative w-full lg:max-w-md">
                 <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -280,7 +285,7 @@ export function TransportPage() {
                     >
                       <TableCell className="px-4 py-4 align-top whitespace-normal">
                         <div className="flex min-w-0 gap-3">
-                          <div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">
+                          <div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
                             <Bus className="size-5" />
                           </div>
                           <div className="min-w-0 space-y-2">
@@ -355,7 +360,7 @@ export function TransportPage() {
                             Inactive
                           </Badge>
                         ) : (
-                          <Badge className="gap-1.5 bg-emerald-100 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-950/50 dark:text-emerald-300">
+                          <Badge className="gap-1.5">
                             <CheckCircle2 className="size-3" />
                             Active
                           </Badge>

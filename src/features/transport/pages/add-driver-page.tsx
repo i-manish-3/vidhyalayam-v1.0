@@ -156,7 +156,9 @@ export function AddDriverPage() {
       <Card className="gap-0 overflow-hidden py-0">
         <CardHeader className="border-b bg-muted/30 px-4 py-2.5 sm:px-5">
           <CardTitle className="flex items-center gap-2 text-base">
-            <Bus className="size-4 text-muted-foreground" />
+            <span className="bg-brand-soft flex size-7 shrink-0 items-center justify-center rounded-lg text-white shadow-sm">
+              <Bus className="size-3.5" />
+            </span>
             Driver Details
           </CardTitle>
         </CardHeader>

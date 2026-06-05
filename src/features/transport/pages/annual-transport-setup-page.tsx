@@ -729,7 +729,9 @@ export function AnnualTransportSetupPage() {
       <Card className="gap-0 overflow-hidden py-0">
         <CardHeader className="border-b bg-muted/30 px-4 py-2.5 sm:px-5">
           <CardTitle className="flex items-center gap-2 text-base">
-            <CalendarDays className="size-4 text-muted-foreground" />
+            <span className="bg-brand-soft flex size-7 shrink-0 items-center justify-center rounded-lg text-white shadow-sm">
+              <CalendarDays className="size-3.5" />
+            </span>
             Sessions
           </CardTitle>
         </CardHeader>
@@ -801,7 +803,9 @@ export function AnnualTransportSetupPage() {
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
                     <CardTitle className="flex items-center gap-2 text-base">
-                      <Bus className="size-4 text-muted-foreground" />
+                      <span className="bg-brand-soft flex size-7 shrink-0 items-center justify-center rounded-lg text-white shadow-sm">
+                        <Bus className="size-3.5" />
+                      </span>
                       {plan.routeName}
                       {plan.routeNumber && (
                         <Badge variant="outline" className="font-mono text-[10px]">
@@ -984,7 +988,9 @@ export function AnnualTransportSetupPage() {
         <Card className="gap-0 overflow-hidden py-0">
           <CardHeader className="flex flex-row items-center justify-between gap-3 border-b bg-muted/30 px-4 py-2.5 sm:px-5">
             <CardTitle className="flex items-center gap-2 text-base">
-              <Bus className="size-4 text-muted-foreground" />
+              <span className="bg-brand-soft flex size-7 shrink-0 items-center justify-center rounded-lg text-white shadow-sm">
+                <Bus className="size-3.5" />
+              </span>
               New routes for {toYear || '—'}
             </CardTitle>
             <Button type="button" variant="outline" size="sm" onClick={addNewRoute} className="gap-1">
@@ -1257,7 +1263,9 @@ export function AnnualTransportSetupPage() {
                       <div key={diff.routeId} className="rounded-md border p-3 space-y-2">
                         <div className="flex flex-wrap items-center justify-between gap-2">
                           <div className="font-medium flex items-center gap-2">
-                            <Bus className="size-4 text-muted-foreground" />
+                            <span className="bg-brand-soft flex size-7 shrink-0 items-center justify-center rounded-lg text-white shadow-sm">
+                              <Bus className="size-3.5" />
+                            </span>
                             {diff.routeName}
                             {diff.routeNumber && (
                               <Badge variant="outline" className="font-mono text-[10px]">{diff.routeNumber}</Badge>
@@ -1365,7 +1373,9 @@ export function AnnualTransportSetupPage() {
                     <div key={diff.tempId} className="rounded-md border p-3">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div className="font-medium flex items-center gap-2">
-                          <PlusCircle className="size-4 text-emerald-600" />
+                          <span className="bg-brand-soft flex size-7 shrink-0 items-center justify-center rounded-lg text-white shadow-sm">
+                            <PlusCircle className="size-3.5" />
+                          </span>
                           {diff.routeName}
                           {diff.routeNumber && (
                             <Badge variant="outline" className="font-mono text-[10px]">{diff.routeNumber}</Badge>

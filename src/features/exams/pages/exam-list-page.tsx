@@ -17,7 +17,7 @@ import {
 import { api } from '@/lib/api'
 import { useAppStore } from '@/lib/store'
 import { useToast } from '@/hooks/use-toast'
-import { ClipboardList, Plus, Search, Settings2, Calendar as CalIcon, TicketCheck } from 'lucide-react'
+import { ClipboardCheck, ClipboardList, Plus, Search, Settings2, Calendar as CalIcon, TicketCheck, BarChart3 } from 'lucide-react'
 
 interface ExamRow {
   id: string
@@ -130,7 +130,7 @@ export function ExamListPage() {
     <div className="space-y-5">
       <PageHeader
         title="Exams"
-        description="All exams across paradigms and groups."
+        description="All exams across patterns and terms."
         backAction={{ onClick: () => router.push('/exams') }}
         action={{
           label: 'New exam',
@@ -145,7 +145,7 @@ export function ExamListPage() {
             <Search className="absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
             <Input
               className="h-9 pl-8"
-              placeholder="Search by name, code, or group…"
+              placeholder="Search by name, code, or term…"
               value={search}
               onChange={(e) => {
                 const value = e.target.value
@@ -178,9 +178,9 @@ export function ExamListPage() {
               rememberListState({ groupFilter: value })
             }}
           >
-            <SelectTrigger className="h-9 w-56"><SelectValue placeholder="Group" /></SelectTrigger>
+            <SelectTrigger className="h-9 w-56"><SelectValue placeholder="Term" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All groups</SelectItem>
+              <SelectItem value="all">All terms</SelectItem>
               {groups.map((g) => (
                 <SelectItem key={g.id} value={g.id}>
                   {g.paradigm.name} · {g.name}
@@ -216,7 +216,7 @@ export function ExamListPage() {
               <Card
                 key={e.id}
                 className="cursor-pointer transition hover:border-primary/40"
-                onClick={() => router.push(`/exams/${e.id}/configure`)}
+                onClick={() => router.push(`/exams/${e.id}/marks-entry`)}
               >
                 <CardContent className="flex flex-col items-start justify-between gap-3 p-4 sm:flex-row sm:items-center">
                   <div className="min-w-0 flex-1">
@@ -239,7 +239,7 @@ export function ExamListPage() {
                       {e._count.schedules} schedule row{e._count.schedules === 1 ? '' : 's'}
                     </p>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
                     <Button
                       variant="outline"
                       size="sm"
@@ -261,6 +261,28 @@ export function ExamListPage() {
                       }}
                     >
                       <CalIcon className="size-3.5" /> Schedule
+                    </Button>
+                    <Button
+                      variant="default"
+                      size="sm"
+                      className="gap-1.5"
+                      onClick={(ev) => {
+                        ev.stopPropagation()
+                        router.push(`/exams/${e.id}/marks-entry`)
+                      }}
+                    >
+                      <ClipboardCheck className="size-3.5" /> Enter marks
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5"
+                      onClick={(ev) => {
+                        ev.stopPropagation()
+                        router.push(`/exams/${e.id}/results`)
+                      }}
+                    >
+                      <BarChart3 className="size-3.5" /> Results
                     </Button>
                     <Button
                       variant="outline"

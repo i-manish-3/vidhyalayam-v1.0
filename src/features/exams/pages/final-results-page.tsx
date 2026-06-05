@@ -185,7 +185,7 @@ export function FinalResultsPage({ paradigmId }: Props) {
     <div className="space-y-5">
       <PageHeader
         title={`Final results: ${paradigm.name}`}
-        description={`Academic year ${paradigm.academicYear} · paradigm-level rollup with promotion preview`}
+        description={`Academic year ${paradigm.academicYear} · year-level rollup with promotion preview`}
         backAction={{ onClick: () => router.push('/exams/paradigms') }}
         action={{
           label: computing ? 'Computing…' : 'Recompute final',
@@ -307,7 +307,7 @@ export function FinalResultsPage({ paradigmId }: Props) {
           <AlertDialogHeader>
             <AlertDialogTitle>Compute / recompute final results?</AlertDialogTitle>
             <AlertDialogDescription>
-              This aggregates every ExamResult under this paradigm into ExamGroupResult and FinalResult rows.
+              This aggregates every exam result under this exam pattern into term and final results.
               Withdrawn students are excluded. Existing final results will be overwritten.
               {classFilter && ' (Scoped to the selected class.)'}
             </AlertDialogDescription>

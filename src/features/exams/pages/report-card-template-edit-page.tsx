@@ -451,14 +451,14 @@ export function ReportCardTemplateEditPage() {
                   </Select>
                 </div>
                 <div>
-                  <Label className="text-xs">Applies to paradigm</Label>
+                  <Label className="text-xs">Applies to exam pattern</Label>
                   <Select
                     value={paradigmId || '__any'}
                     onValueChange={(v) => setParadigmId(v === '__any' ? '' : v)}
                   >
-                    <SelectTrigger className="h-9"><SelectValue placeholder="Any paradigm" /></SelectTrigger>
+                    <SelectTrigger className="h-9"><SelectValue placeholder="Any pattern" /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="__any">Any paradigm</SelectItem>
+                      <SelectItem value="__any">Any pattern</SelectItem>
                       {paradigms.map((p) => (
                         <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                       ))}

@@ -14,7 +14,7 @@ export function ExamResultsPage() {
       <EmptyState
         icon={FileText}
         title="Results are being rebuilt"
-        description="The new result-calculation engine (subject summary → exam result → group rollup → final result) ships in Phase 4."
+        description="The new result-calculation engine (subject summary → exam result → term rollup → final result) ships in Phase 4."
       />
     </>
   )

@@ -167,7 +167,7 @@ export function GradeScalesPage() {
     <div className="space-y-6">
       <PageHeader
         title="Grade scales"
-        description="Percentage/marks ranges that map to letter grades. Assignable per paradigm, group, or class."
+        description="Percentage/marks ranges that map to letter grades. Assignable per exam pattern, term, or class."
         backAction={{ onClick: () => router.push('/exams') }}
         action={{
           label: 'New scale',

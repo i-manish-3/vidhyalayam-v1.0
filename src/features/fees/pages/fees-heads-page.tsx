@@ -81,11 +81,11 @@ const FREQUENCY_OPTIONS: { value: FeeFrequency; label: string; shortLabel: strin
 const FREQUENCY_BADGE_CLASSES: Record<FeeFrequency, string> = {
   MONTHLY: 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-300',
   YEARLY: 'border-teal-200 bg-teal-50 text-teal-700 dark:border-teal-900/60 dark:bg-teal-950/40 dark:text-teal-300',
-  ONE_TIME: 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-300',
+  ONE_TIME: 'border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-900/60 dark:bg-sky-950/40 dark:text-sky-300',
   QUARTERLY: 'border-cyan-200 bg-cyan-50 text-cyan-700 dark:border-cyan-900/60 dark:bg-cyan-950/40 dark:text-cyan-300',
-  HALF_YEARLY: 'border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-300',
+  HALF_YEARLY: 'border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-900/60 dark:bg-indigo-950/40 dark:text-indigo-300',
   INSTALLMENT: 'border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900/60 dark:bg-blue-950/40 dark:text-blue-300',
-  ON_DEMAND: 'border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-900/60 dark:bg-orange-950/40 dark:text-orange-300',
+  ON_DEMAND: 'border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-900/60 dark:bg-violet-950/40 dark:text-violet-300',
   CUSTOM: 'border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-300',
 }
 
@@ -223,7 +223,12 @@ export function FeesHeadsPage() {
           <CardHeader className="border-b bg-muted/30 px-4 py-3">
             <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
               <div>
-                <CardTitle className="text-base">Fee Head Library</CardTitle>
+                <div className="flex items-center gap-2">
+                  <span className="bg-brand-soft flex size-7 shrink-0 items-center justify-center rounded-lg text-white shadow-sm">
+                    <IndianRupee className="size-3.5" />
+                  </span>
+                  <CardTitle className="text-base">Fee Head Library</CardTitle>
+                </div>
                 <p className="mt-0.5 text-xs text-muted-foreground">
                   {filteredFeeHeads.length} of {feeHeads.length} heads shown
                 </p>

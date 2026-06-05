@@ -134,11 +134,11 @@ const DEFAULT_FEE_GROUP_NAME = '_DEFAULT'
 const FREQUENCY_BADGE_CLASSES: Record<FeeFrequency, string> = {
   MONTHLY: 'bg-emerald-100 text-emerald-800 hover:bg-emerald-100',
   YEARLY: 'bg-purple-100 text-purple-800 hover:bg-purple-100',
-  ONE_TIME: 'bg-amber-100 text-amber-800 hover:bg-amber-100',
+  ONE_TIME: 'bg-sky-100 text-sky-800 hover:bg-sky-100',
   QUARTERLY: 'bg-teal-100 text-teal-800 hover:bg-teal-100',
-  HALF_YEARLY: 'bg-pink-100 text-pink-800 hover:bg-pink-100',
+  HALF_YEARLY: 'bg-indigo-100 text-indigo-800 hover:bg-indigo-100',
   INSTALLMENT: 'bg-blue-100 text-blue-800 hover:bg-blue-100',
-  ON_DEMAND: 'bg-orange-100 text-orange-800 hover:bg-orange-100',
+  ON_DEMAND: 'bg-violet-100 text-violet-800 hover:bg-violet-100',
   CUSTOM: 'bg-gray-100 text-gray-800 hover:bg-gray-100',
 }
 

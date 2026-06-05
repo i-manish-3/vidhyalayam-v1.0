@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Textarea } from '@/components/ui/textarea'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import { RefreshCw, AlertTriangle, FileCheck2 } from 'lucide-react'
+import { RefreshCw, AlertTriangle, FileCheck2, CalendarRange } from 'lucide-react'
 
 interface EligibleAssignment {
   id: string
@@ -24,6 +24,7 @@ interface EligibleAssignment {
   classId: string | null
   sectionId: string | null
   totalAmount: number
+  billingMode: 'full_year' | 'pro_rated'
   student: {
     id: string
     firstName: string
@@ -52,6 +53,11 @@ export function ChangeFeeGroupPage() {
   const [activeAssignment, setActiveAssignment] = useState<EligibleAssignment | null>(null)
   const [newGroupId, setNewGroupId] = useState('')
   const [reason, setReason] = useState('')
+
+  // "Bill Full Year" fix — separate dialog state from the group-change flow.
+  const [fullYearTarget, setFullYearTarget] = useState<EligibleAssignment | null>(null)
+  const [fullYearReason, setFullYearReason] = useState('')
+  const [billingFullYear, setBillingFullYear] = useState(false)
 
   const academicYearOptions = useMemo(
     () => toAcademicYearOptions(academicYears, currentSchoolAcademicYear),
@@ -108,6 +114,42 @@ export function ChangeFeeGroupPage() {
     return activeAssignment?.availableGroups || []
   }, [activeAssignment])
 
+  const openFullYearDialog = (assignment: EligibleAssignment) => {
+    setFullYearTarget(assignment)
+    setFullYearReason('')
+  }
+
+  const closeFullYearDialog = () => {
+    if (billingFullYear) return
+    setFullYearTarget(null)
+    setFullYearReason('')
+  }
+
+  const handleConfirmFullYear = async () => {
+    if (!fullYearTarget) return
+    try {
+      setBillingFullYear(true)
+      await api.patch(`/api/school/fees/assignments/${fullYearTarget.id}/charge-full-year`, {
+        reason: fullYearReason || undefined,
+      })
+      toast({
+        title: 'Billed for Full Year',
+        description: 'The fee demand was recomputed to cover the full academic year.',
+      })
+      setFullYearTarget(null)
+      setFullYearReason('')
+      fetchData()
+    } catch (err) {
+      toast({
+        title: "Couldn't Bill Full Year",
+        description: err instanceof Error ? err.message : 'Please try again.',
+        variant: 'destructive',
+      })
+    } finally {
+      setBillingFullYear(false)
+    }
+  }
+
   const handleConfirm = async () => {
     if (!activeAssignment || !newGroupId) {
       toast({
@@ -146,7 +188,7 @@ export function ChangeFeeGroupPage() {
     <div className="space-y-6">
       <PageHeader
         title="Change Fee Group"
-        description="Switch a student to a different fee group. Only available when no payments have been collected against the current group."
+        description="Switch a student to a different fee group, or fix a pro-rated demand to bill the full year. Only available when no payments have been collected against the current group."
       />
 
       <Alert>
@@ -197,6 +239,7 @@ export function ChangeFeeGroupPage() {
                 <TableHead>Admission #</TableHead>
                 <TableHead>Class</TableHead>
                 <TableHead>Current Fee Group</TableHead>
+                <TableHead>Billing</TableHead>
                 <TableHead>Total Demand</TableHead>
                 <TableHead className="text-right">Action</TableHead>
               </TableRow>
@@ -217,22 +260,44 @@ export function ChangeFeeGroupPage() {
                     <TableCell>
                       <Badge variant="secondary">{assignment.feesGroupName || '-'}</Badge>
                     </TableCell>
+                    <TableCell>
+                      {assignment.billingMode === 'full_year' ? (
+                        <Badge variant="outline">Full Year</Badge>
+                      ) : (
+                        <Badge variant="outline" className="border-amber-300 text-amber-700 dark:text-amber-400">
+                          Pro-rated
+                        </Badge>
+                      )}
+                    </TableCell>
                     <TableCell>{money(assignment.totalAmount)}</TableCell>
                     <TableCell className="text-right">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => openDialog(assignment)}
-                        disabled={assignment.availableGroups.length === 0}
-                        title={
-                          assignment.availableGroups.length === 0
-                            ? 'No other fee group has an active structure for this class & academic year'
-                            : undefined
-                        }
-                      >
-                        <RefreshCw className="mr-2 size-4" />
-                        Change Group
-                      </Button>
+                      <div className="flex items-center justify-end gap-2">
+                        {assignment.billingMode === 'pro_rated' && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => openFullYearDialog(assignment)}
+                            title="Recompute this demand to cover the full academic year"
+                          >
+                            <CalendarRange className="mr-2 size-4" />
+                            Bill Full Year
+                          </Button>
+                        )}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => openDialog(assignment)}
+                          disabled={assignment.availableGroups.length === 0}
+                          title={
+                            assignment.availableGroups.length === 0
+                              ? 'No other fee group has an active structure for this class & academic year'
+                              : undefined
+                          }
+                        >
+                          <RefreshCw className="mr-2 size-4" />
+                          Change Group
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 )
@@ -314,6 +379,67 @@ export function ChangeFeeGroupPage() {
             <Button onClick={handleConfirm} disabled={saving || !newGroupId}>
               {saving ? <RefreshCw className="mr-2 size-4 animate-spin" /> : <RefreshCw className="mr-2 size-4" />}
               Confirm Change
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!fullYearTarget} onOpenChange={(open) => !open && closeFullYearDialog()}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Bill Full Year</DialogTitle>
+          </DialogHeader>
+          {fullYearTarget && (
+            <div className="grid gap-4 py-2">
+              <div className="rounded-md border bg-muted/40 p-3 text-sm">
+                <div>
+                  <span className="font-medium">Student: </span>
+                  {fullYearTarget.student
+                    ? `${fullYearTarget.student.firstName} ${fullYearTarget.student.lastName}`.trim()
+                    : 'Unknown student'}
+                </div>
+                <div>
+                  <span className="font-medium">Fee Group: </span>
+                  {fullYearTarget.feesGroupName || '-'}
+                </div>
+                <div>
+                  <span className="font-medium">Academic Year: </span>
+                  {fullYearTarget.academicYear}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="full-year-reason">Reason (optional)</Label>
+                <Textarea
+                  id="full-year-reason"
+                  value={fullYearReason}
+                  onChange={(event) => setFullYearReason(event.target.value)}
+                  placeholder="Why is this being changed to full year? (recorded in audit log)"
+                  rows={3}
+                />
+              </div>
+
+              <Alert>
+                <AlertTriangle className="size-4" />
+                <AlertDescription>
+                  This rebuilds the fee demand to cover the full academic year, adding the months skipped at admission
+                  (including transport, if a route is assigned). The existing demand is replaced and the change is
+                  recorded in the audit log. Only available when no payment has been collected yet.
+                </AlertDescription>
+              </Alert>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={closeFullYearDialog} disabled={billingFullYear}>
+              Cancel
+            </Button>
+            <Button onClick={handleConfirmFullYear} disabled={billingFullYear}>
+              {billingFullYear ? (
+                <CalendarRange className="mr-2 size-4 animate-spin" />
+              ) : (
+                <CalendarRange className="mr-2 size-4" />
+              )}
+              Confirm Full Year
             </Button>
           </DialogFooter>
         </DialogContent>

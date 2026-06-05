@@ -191,6 +191,7 @@ export const MENUS: Record<string, MenuItem[]> = {
       children: [
         { label: 'Dashboard', page: 'exam-dashboard', icon: LayoutDashboard },
         { label: 'Exam List', page: 'exam-list', icon: FileText },
+        { label: 'Enter Marks', page: 'exam-marks-entry', icon: ClipboardCheck },
         { label: 'Exam Patterns', page: 'exam-paradigms', icon: Layers },
         { label: 'Grade Scales', page: 'exam-grade-scales', icon: Award },
         { label: 'Report Card Templates', page: 'exam-report-card-templates', icon: LayoutTemplate },
@@ -767,36 +768,6 @@ export function AppSidebar() {
             </TooltipProvider>
           </ScrollArea>
 
-          {/* Sidebar Footer */}
-          <div className={cn('shrink-0 border-t border-sidebar-border transition-[padding] duration-300 ease-in-out', isCollapsed ? 'p-2' : 'p-3')}>
-            {!isCollapsed ? (
-              <div className="rounded-lg bg-sidebar-accent/50 p-3">
-                <p className="truncate text-xs font-medium text-sidebar-foreground/80">{schoolDisplayName}</p>
-                {schoolSubLabel && (
-                  <p className="mt-1 truncate text-[10px] text-sidebar-foreground/50">{schoolSubLabel}</p>
-                )}
-              </div>
-            ) : (
-              <TooltipProvider delayDuration={0}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div className="flex justify-center py-2">
-                      <div className="size-7 overflow-hidden rounded-md bg-sidebar-accent/50 flex items-center justify-center">
-                        {schoolLogo ? (
-                          <img src={schoolLogo} alt={`${schoolDisplayName} logo`} className="size-full object-cover" />
-                        ) : (
-                          <GraduationCap className="size-3.5 text-sidebar-foreground/60" />
-                        )}
-                      </div>
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent side="right" sideOffset={8}>
-                    {schoolDisplayName}
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            )}
-          </div>
         </div>
       </aside>
 

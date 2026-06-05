@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { api } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
 import { MarksGrid } from '@/features/exams/components/marks-grid'
+import { ExamInstructionsButton } from '@/features/exams/components/exam-instructions-button'
 import { Settings2, Calendar as CalIcon } from 'lucide-react'
 
 interface ExamInfo {
@@ -17,7 +18,7 @@ interface ExamInfo {
   academicYear: string
   lockedAt: string | null
   group: { name: string; paradigm: { name: string; academicYear: string } }
-  _count: { subjectConfigs: number }
+  subjectConfigs: unknown[]
 }
 
 interface Props {
@@ -77,16 +78,19 @@ export function MarksEntryPage({ examId }: Props) {
       <div className="flex items-center gap-3">
         <Badge className={statusTone}>{exam.status.replace('_', ' ')}</Badge>
         <Badge variant="outline">
-          {exam._count.subjectConfigs} subject{exam._count.subjectConfigs === 1 ? '' : 's'} configured
+          {exam.subjectConfigs.length} subject{exam.subjectConfigs.length === 1 ? '' : 's'} configured
         </Badge>
         {exam.lockedAt && (
           <Badge className="gap-1 bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200">
             Exam is locked — marks cannot be changed
           </Badge>
         )}
+        <div className="ml-auto">
+          <ExamInstructionsButton />
+        </div>
       </div>
 
-      {exam._count.subjectConfigs === 0 && (
+      {exam.subjectConfigs.length === 0 && (
         <div className="rounded-md border border-amber-500/30 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:bg-amber-950/20 dark:text-amber-200">
           No subjects have been configured for this exam yet.{' '}
           <Button variant="link" size="sm" className="h-auto p-0 text-sm" onClick={() => router.push(`/exams/${examId}/configure`)}>

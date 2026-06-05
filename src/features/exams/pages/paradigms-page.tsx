@@ -109,7 +109,7 @@ export function ExamParadigmsPage() {
     } catch (err) {
       toast({
         variant: 'destructive',
-        title: 'Could not load paradigms',
+        title: 'Could not load exam patterns',
         description: err instanceof Error ? err.message : 'Please try again.',
       })
     } finally {
@@ -126,7 +126,7 @@ export function ExamParadigmsPage() {
     setDeleting(true)
     try {
       await api.delete(`/api/school/exams/paradigms/${deleteTarget.id}`)
-      toast({ title: 'Paradigm deleted' })
+      toast({ title: 'Exam pattern deleted' })
       setDeleteTarget(null)
       void load()
     } catch (err) {
@@ -145,11 +145,11 @@ export function ExamParadigmsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Exam paradigms"
-        description="Each paradigm defines an academic year's exam framework — its groups, weighting, and passing rules."
+        title="Exam patterns"
+        description="An exam pattern defines an academic year's exam framework — its terms, weighting, and passing rules."
         backAction={{ onClick: () => router.push('/exams'), label: 'Back to exams' }}
         action={{
-          label: 'New paradigm',
+          label: 'New exam pattern',
           icon: Plus,
           onClick: () => setEditing('new'),
         }}
@@ -158,9 +158,9 @@ export function ExamParadigmsPage() {
       {paradigms.length === 0 ? (
         <EmptyState
           icon={Layers}
-          title="No paradigms yet"
-          description='Create your first paradigm — e.g. "CBSE Term Pattern 2026-27".'
-          action={{ label: 'Create paradigm', onClick: () => setEditing('new') }}
+          title="No exam patterns yet"
+          description='Create your first exam pattern — e.g. "CBSE Term Pattern 2026-27".'
+          action={{ label: 'Create exam pattern', onClick: () => setEditing('new') }}
         />
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -238,10 +238,10 @@ export function ExamParadigmsPage() {
           try {
             if (id) {
               await api.patch(`/api/school/exams/paradigms/${id}`, payload)
-              toast({ title: 'Paradigm updated' })
+              toast({ title: 'Exam pattern updated' })
             } else {
               await api.post('/api/school/exams/paradigms', payload)
-              toast({ title: 'Paradigm created' })
+              toast({ title: 'Exam pattern created' })
             }
             setEditing(null)
             void load()
@@ -260,9 +260,9 @@ export function ExamParadigmsPage() {
       <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete this paradigm?</AlertDialogTitle>
+            <AlertDialogTitle>Delete this exam pattern?</AlertDialogTitle>
             <AlertDialogDescription>
-              "{deleteTarget?.name}" will be removed. Paradigms with live exams cannot be deleted.
+              &ldquo;{deleteTarget?.name}&rdquo; will be removed. Exam patterns with live exams cannot be deleted.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -344,9 +344,9 @@ function ParadigmEditDialog({ open, target, years, saving, onClose, onSave }: Pa
     <Dialog open={open} onOpenChange={(o) => !saving && !o && onClose()}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>{isNew ? 'New paradigm' : `Edit ${existing?.name}`}</DialogTitle>
+          <DialogTitle>{isNew ? 'New exam pattern' : `Edit ${existing?.name}`}</DialogTitle>
           <DialogDescription>
-            Each paradigm groups its exams under shared aggregation and passing rules.
+            An exam pattern groups its exams under shared aggregation and passing rules.
           </DialogDescription>
         </DialogHeader>
 
@@ -490,7 +490,7 @@ function ParadigmEditDialog({ open, target, years, saving, onClose, onSave }: Pa
             Cancel
           </Button>
           <Button onClick={() => void handleSave()} disabled={!valid || saving}>
-            {saving ? 'Saving…' : isNew ? 'Create paradigm' : 'Save changes'}
+            {saving ? 'Saving…' : isNew ? 'Create exam pattern' : 'Save changes'}
           </Button>
         </DialogFooter>
       </DialogContent>

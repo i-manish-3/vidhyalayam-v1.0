@@ -59,6 +59,18 @@ export async function GET(request: NextRequest) {
       orderBy: { createdAt: 'desc' },
     })
 
+    // Read the persisted billing mode (full_year | pro_rated) from each
+    // assignment snapshot so the UI can offer a "Bill Full Year" fix for
+    // pro-rated demands. Older rows without the field default to 'pro_rated'.
+    const resolveBillingMode = (snapshotJson: string | null): 'full_year' | 'pro_rated' => {
+      if (!snapshotJson) return 'pro_rated'
+      try {
+        return JSON.parse(snapshotJson)?.billingMode === 'full_year' ? 'full_year' : 'pro_rated'
+      } catch {
+        return 'pro_rated'
+      }
+    }
+
     // Filter to only those with zero paid amount across all invoices.
     // (Invoice.paidAmount is the authoritative payment total per invoice.)
     const zeroPaid = assignments.filter((assignment) => {
@@ -129,6 +141,7 @@ export async function GET(request: NextRequest) {
               }
             : null,
           totalAmount: assignment.invoices.reduce((sum, invoice) => sum + (invoice.totalAmount || 0), 0),
+          billingMode: resolveBillingMode(assignment.snapshotJson),
           availableGroups,
         }
       })

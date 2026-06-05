@@ -215,7 +215,7 @@ export function FeesGroupsPage() {
               <TableRow className="hover:bg-transparent">
                 <TableHead className="h-11 px-4 text-xs font-semibold uppercase text-muted-foreground">
                   <span className="flex items-center gap-2">
-                    <Tag className="size-3.5" />
+                    <Tag className="size-3.5 text-primary" />
                     Fee Group Name
                   </span>
                 </TableHead>
@@ -241,7 +241,7 @@ export function FeesGroupsPage() {
                   <TableRow key={group.id} className="group">
                     <TableCell className="px-4 py-3">
                       <div className="flex items-center gap-3">
-                        <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+                        <span className="bg-brand-soft flex size-8 shrink-0 items-center justify-center rounded-md text-white shadow-sm">
                           <Layers className="size-4" />
                         </span>
                         <span className="font-medium text-foreground">{group.name}</span>

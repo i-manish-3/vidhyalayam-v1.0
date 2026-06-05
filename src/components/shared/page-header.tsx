@@ -1,5 +1,6 @@
 'use client'
 
+import { type ReactNode } from 'react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { type LucideIcon } from 'lucide-react'
@@ -26,9 +27,15 @@ interface PageHeaderProps {
     icon?: LucideIcon
     onClick: () => void
   }
+  /**
+   * Render an arbitrary node (e.g. a "How it works" guide button) to the LEFT
+   * of the action buttons. Useful when a page needs a tertiary affordance that
+   * doesn't fit the standard primary/secondary action shape.
+   */
+  extraActions?: ReactNode
 }
 
-export function PageHeader({ title, description, titleClassName, action, secondaryAction }: PageHeaderProps) {
+export function PageHeader({ title, description, titleClassName, action, secondaryAction, extraActions }: PageHeaderProps) {
   return (
     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex min-w-0 items-stretch gap-3">
@@ -40,8 +47,9 @@ export function PageHeader({ title, description, titleClassName, action, seconda
           )}
         </div>
       </div>
-      {(secondaryAction || action) && (
+      {(extraActions || secondaryAction || action) && (
         <div className="flex shrink-0 flex-wrap items-center gap-2">
+          {extraActions}
           {action && (
             <Button onClick={action.onClick} className="gap-2">
               {action.icon && <action.icon className="size-4" />}

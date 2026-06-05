@@ -22,8 +22,10 @@ import {
 } from '@/components/ui/table'
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
@@ -61,6 +63,17 @@ import {
   CalendarDays,
   Bus,
   Phone,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  Columns3,
+  UserRound,
+  VenusAndMars,
+  Cake,
+  Droplet,
+  Tag,
+  Fingerprint,
+  Activity,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -137,6 +150,7 @@ interface StudentsListPageState {
   showFilters: boolean
   page: number
   limit: number
+  visibleColumns: ColumnId[]
 }
 
 // ============================================
@@ -158,6 +172,62 @@ const PAGE_SIZE_OPTIONS = [10, 25, 50, 100]
 
 const STUDENTS_LIST_STATE_KEY = 'students:list'
 
+// ============================================
+// Column configuration
+// ============================================
+
+type ColumnId =
+  | 'photo'
+  | 'name'
+  | 'father'
+  | 'mother'
+  | 'class'
+  | 'roll'
+  | 'reg'
+  | 'adm'
+  | 'admDate'
+  | 'route'
+  | 'phone'
+  | 'gender'
+  | 'dob'
+  | 'bloodGroup'
+  | 'category'
+  | 'aadhaar'
+  | 'status'
+
+interface ColumnConfig {
+  id: ColumnId
+  label: string
+  icon: LucideIcon
+  sortKey?: SortKey
+  // Mandatory columns are always shown and cannot be hidden by the user.
+  mandatory?: boolean
+  // Whether the column is shown by default (before the user customises).
+  defaultVisible?: boolean
+}
+
+const COLUMN_CONFIG: ColumnConfig[] = [
+  { id: 'photo', label: 'Photo', icon: ImageIcon, mandatory: true, defaultVisible: true },
+  { id: 'name', label: 'Student Name', icon: User, sortKey: 'name', mandatory: true, defaultVisible: true },
+  { id: 'father', label: "Father's Name", icon: Users, sortKey: 'father', defaultVisible: true },
+  { id: 'mother', label: "Mother's Name", icon: UserRound, sortKey: 'mother' },
+  { id: 'class', label: 'Class', icon: GraduationCap, sortKey: 'class', defaultVisible: true },
+  { id: 'roll', label: 'Roll', icon: Hash, sortKey: 'roll', defaultVisible: true },
+  { id: 'reg', label: 'Reg.No.', icon: FileText, sortKey: 'reg', defaultVisible: true },
+  { id: 'adm', label: 'Adm.No.', icon: IdCard, sortKey: 'adm', defaultVisible: true },
+  { id: 'admDate', label: 'Adm.Date', icon: CalendarDays, sortKey: 'admDate', defaultVisible: true },
+  { id: 'gender', label: 'Gender', icon: VenusAndMars, sortKey: 'gender' },
+  { id: 'dob', label: 'Date of Birth', icon: Cake, sortKey: 'dob' },
+  { id: 'bloodGroup', label: 'Blood Group', icon: Droplet, sortKey: 'bloodGroup' },
+  { id: 'category', label: 'Category', icon: Tag, sortKey: 'category' },
+  { id: 'aadhaar', label: 'Aadhaar No.', icon: Fingerprint, sortKey: 'aadhaar' },
+  { id: 'route', label: 'Route', icon: Bus, defaultVisible: true },
+  { id: 'phone', label: 'Phone', icon: Phone, defaultVisible: true },
+  { id: 'status', label: 'Status', icon: Activity, sortKey: 'status' },
+]
+
+const DEFAULT_VISIBLE_COLUMNS: ColumnId[] = COLUMN_CONFIG.filter(c => c.defaultVisible).map(c => c.id)
+
 const DEFAULT_STUDENTS_LIST_STATE: StudentsListPageState = {
   classFilter: 'all',
   sectionFilter: 'all',
@@ -167,6 +237,7 @@ const DEFAULT_STUDENTS_LIST_STATE: StudentsListPageState = {
   showFilters: false,
   page: 1,
   limit: 25,
+  visibleColumns: DEFAULT_VISIBLE_COLUMNS,
 }
 
 // ============================================
@@ -180,6 +251,96 @@ function formatDate(dateStr: string | null | undefined): string {
   } catch {
     return '--'
   }
+}
+
+// ============================================
+// Sorting
+// ============================================
+
+type SortKey =
+  | 'name'
+  | 'father'
+  | 'mother'
+  | 'class'
+  | 'roll'
+  | 'reg'
+  | 'adm'
+  | 'admDate'
+  | 'gender'
+  | 'dob'
+  | 'bloodGroup'
+  | 'category'
+  | 'aadhaar'
+  | 'status'
+type SortDirection = 'asc' | 'desc'
+
+interface SortState {
+  key: SortKey
+  direction: SortDirection
+}
+
+function getFatherName(s: Student): string {
+  return s.parentLinks?.find(p => p.relation === 'Father')?.parent.fatherName || ''
+}
+
+function getMotherName(s: Student): string {
+  // The mother's name lives on the parent record; fall back across links since
+  // it may be stored on the primary parent rather than a "Mother" relation row.
+  for (const link of s.parentLinks ?? []) {
+    if (link.parent.motherName) return link.parent.motherName
+  }
+  return ''
+}
+
+function getSortValue(s: Student, key: SortKey): string | number {
+  switch (key) {
+    case 'name':
+      return (s.fullName || `${s.firstName} ${s.lastName}`).toLowerCase()
+    case 'father':
+      return getFatherName(s).toLowerCase()
+    case 'mother':
+      return getMotherName(s).toLowerCase()
+    case 'class':
+      return `${s.class?.name || ''} ${s.section?.name || ''}`.toLowerCase()
+    case 'roll':
+      return s.rollNumber || ''
+    case 'reg':
+      return s.admission?.registrationNumber || ''
+    case 'adm':
+      return s.admissionNumber || ''
+    case 'admDate': {
+      const d = s.admission?.dateOfAdmission
+      return d ? new Date(d).getTime() : 0
+    }
+    case 'gender':
+      return (s.gender || '').toLowerCase()
+    case 'dob': {
+      const d = s.dateOfBirth
+      return d ? new Date(d).getTime() : 0
+    }
+    case 'bloodGroup':
+      return (s.bloodGroup || '').toLowerCase()
+    case 'category':
+      return (s.category || '').toLowerCase()
+    case 'aadhaar':
+      return s.aadhaarNumber || ''
+    case 'status':
+      return s.isActive ? 'active' : 'disabled'
+  }
+}
+
+function sortStudents(students: Student[], sort: SortState | null): Student[] {
+  if (!sort) return students
+  const { key, direction } = sort
+  const factor = direction === 'asc' ? 1 : -1
+  return [...students].sort((a, b) => {
+    const av = getSortValue(a, key)
+    const bv = getSortValue(b, key)
+    if (typeof av === 'number' && typeof bv === 'number') {
+      return (av - bv) * factor
+    }
+    return String(av).localeCompare(String(bv), undefined, { numeric: true }) * factor
+  })
 }
 
 // ============================================
@@ -283,6 +444,38 @@ function Pagination({
 }
 
 // ============================================
+// Sortable Header
+// ============================================
+
+function SortableHeader({
+  label,
+  icon: Icon,
+  sortKey,
+  sort,
+  onSort,
+}: {
+  label: string
+  icon: LucideIcon
+  sortKey: SortKey
+  sort: SortState | null
+  onSort: (key: SortKey) => void
+}) {
+  const isActive = sort?.key === sortKey
+  const SortIcon = !isActive ? ArrowUpDown : sort?.direction === 'asc' ? ArrowUp : ArrowDown
+  return (
+    <button
+      type="button"
+      onClick={() => onSort(sortKey)}
+      className="flex items-center gap-1.5 select-none hover:text-foreground transition-colors"
+    >
+      <Icon className="size-3.5 text-muted-foreground" />
+      {label}
+      <SortIcon className={`size-3.5 ${isActive ? 'text-brand' : 'text-muted-foreground/50'}`} />
+    </button>
+  )
+}
+
+// ============================================
 // Main Component
 // ============================================
 
@@ -336,6 +529,32 @@ export function StudentsPage() {
   // Stats (fetched separately to include all students)
   const [stats, setStats] = useState({ total: 0, active: 0, disabled: 0, thisMonth: 0 })
 
+  // Column sort (client-side, applies to the loaded page)
+  const [sort, setSort] = useState<SortState | null>(null)
+
+  const handleSort = useCallback((key: SortKey) => {
+    setSort(prev => {
+      if (prev?.key !== key) return { key, direction: 'asc' }
+      return { key, direction: prev.direction === 'asc' ? 'desc' : 'asc' }
+    })
+  }, [])
+
+  // Column visibility — user picks which columns to show; persisted per session.
+  const [visibleColumns, setVisibleColumns] = useState<ColumnId[]>(() => {
+    const saved = initialListState.visibleColumns
+    const valid = Array.isArray(saved)
+      ? saved.filter((id): id is ColumnId => COLUMN_CONFIG.some(c => c.id === id))
+      : []
+    return valid.length > 0 ? valid : DEFAULT_VISIBLE_COLUMNS
+  })
+
+  const isColumnVisible = useCallback(
+    (id: ColumnId) => visibleColumns.includes(id),
+    [visibleColumns]
+  )
+
+  const sortedStudents = useMemo(() => sortStudents(students, sort), [students, sort])
+
   const rememberListState = useCallback((patch: Partial<StudentsListPageState>) => {
     setPageState(STUDENTS_LIST_STATE_KEY, {
       classFilter,
@@ -346,9 +565,27 @@ export function StudentsPage() {
       showFilters,
       page: pagination.page,
       limit: pagination.limit,
+      visibleColumns,
       ...patch,
     })
-  }, [classFilter, genderFilter, pagination.limit, pagination.page, searchQuery, sectionFilter, setPageState, showFilters, statusFilter])
+  }, [classFilter, genderFilter, pagination.limit, pagination.page, searchQuery, sectionFilter, setPageState, showFilters, statusFilter, visibleColumns])
+
+  const handleToggleColumn = useCallback((id: ColumnId) => {
+    const config = COLUMN_CONFIG.find(c => c.id === id)
+    if (config?.mandatory) return
+    setVisibleColumns(prev => {
+      const next = prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id]
+      // Keep the canonical column order regardless of toggle order.
+      const ordered = COLUMN_CONFIG.filter(c => next.includes(c.id)).map(c => c.id)
+      rememberListState({ visibleColumns: ordered })
+      return ordered
+    })
+  }, [rememberListState])
+
+  const handleResetColumns = useCallback(() => {
+    setVisibleColumns(DEFAULT_VISIBLE_COLUMNS)
+    rememberListState({ visibleColumns: DEFAULT_VISIBLE_COLUMNS })
+  }, [rememberListState])
 
   // ============================================
   // Debounced Search
@@ -685,6 +922,34 @@ export function StudentsPage() {
                 <ChevronDown className={`size-4 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
                 Filters
               </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-1 h-9">
+                    <Columns3 className="size-4" />
+                    Columns
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-52">
+                  <DropdownMenuLabel>Toggle columns</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {COLUMN_CONFIG.map(col => (
+                    <DropdownMenuCheckboxItem
+                      key={col.id}
+                      checked={isColumnVisible(col.id)}
+                      disabled={col.mandatory}
+                      onSelect={(e) => e.preventDefault()}
+                      onCheckedChange={() => handleToggleColumn(col.id)}
+                    >
+                      <col.icon className="size-3.5 text-muted-foreground mr-2" />
+                      {col.label}
+                    </DropdownMenuCheckboxItem>
+                  ))}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onSelect={handleResetColumns}>
+                    Reset to default
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
               {hasActiveFilters && (
                 <Button
                   variant="ghost"
@@ -752,45 +1017,101 @@ export function StudentsPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[44px]">
-                      <span className="flex items-center gap-1.5"><ImageIcon className="size-3.5 text-muted-foreground" />Photo</span>
-                    </TableHead>
-                    <TableHead>
-                      <span className="flex items-center gap-1.5"><User className="size-3.5 text-muted-foreground" />Student Name</span>
-                    </TableHead>
-                    <TableHead>
-                      <span className="flex items-center gap-1.5"><Users className="size-3.5 text-muted-foreground" />Father&apos;s Name</span>
-                    </TableHead>
-                    <TableHead>
-                      <span className="flex items-center gap-1.5"><GraduationCap className="size-3.5 text-muted-foreground" />Class</span>
-                    </TableHead>
-                    <TableHead>
-                      <span className="flex items-center gap-1.5"><Hash className="size-3.5 text-muted-foreground" />Roll</span>
-                    </TableHead>
-                    <TableHead>
-                      <span className="flex items-center gap-1.5"><FileText className="size-3.5 text-muted-foreground" />Reg.No.</span>
-                    </TableHead>
-                    <TableHead>
-                      <span className="flex items-center gap-1.5"><IdCard className="size-3.5 text-muted-foreground" />Adm.No.</span>
-                    </TableHead>
-                    <TableHead>
-                      <span className="flex items-center gap-1.5"><CalendarDays className="size-3.5 text-muted-foreground" />Adm.Date</span>
-                    </TableHead>
-                    <TableHead>
-                      <span className="flex items-center gap-1.5"><Bus className="size-3.5 text-muted-foreground" />Route</span>
-                    </TableHead>
-                    <TableHead>
-                      <span className="flex items-center gap-1.5"><Phone className="size-3.5 text-muted-foreground" />Phone</span>
-                    </TableHead>
+                    {isColumnVisible('photo') && (
+                      <TableHead className="w-[44px]">
+                        <span className="flex items-center gap-1.5"><ImageIcon className="size-3.5 text-muted-foreground" />Photo</span>
+                      </TableHead>
+                    )}
+                    {isColumnVisible('name') && (
+                      <TableHead>
+                        <SortableHeader label="Student Name" icon={User} sortKey="name" sort={sort} onSort={handleSort} />
+                      </TableHead>
+                    )}
+                    {isColumnVisible('father') && (
+                      <TableHead>
+                        <SortableHeader label="Father's Name" icon={Users} sortKey="father" sort={sort} onSort={handleSort} />
+                      </TableHead>
+                    )}
+                    {isColumnVisible('mother') && (
+                      <TableHead>
+                        <SortableHeader label="Mother's Name" icon={UserRound} sortKey="mother" sort={sort} onSort={handleSort} />
+                      </TableHead>
+                    )}
+                    {isColumnVisible('class') && (
+                      <TableHead>
+                        <SortableHeader label="Class" icon={GraduationCap} sortKey="class" sort={sort} onSort={handleSort} />
+                      </TableHead>
+                    )}
+                    {isColumnVisible('roll') && (
+                      <TableHead>
+                        <SortableHeader label="Roll" icon={Hash} sortKey="roll" sort={sort} onSort={handleSort} />
+                      </TableHead>
+                    )}
+                    {isColumnVisible('reg') && (
+                      <TableHead>
+                        <SortableHeader label="Reg.No." icon={FileText} sortKey="reg" sort={sort} onSort={handleSort} />
+                      </TableHead>
+                    )}
+                    {isColumnVisible('adm') && (
+                      <TableHead>
+                        <SortableHeader label="Adm.No." icon={IdCard} sortKey="adm" sort={sort} onSort={handleSort} />
+                      </TableHead>
+                    )}
+                    {isColumnVisible('admDate') && (
+                      <TableHead>
+                        <SortableHeader label="Adm.Date" icon={CalendarDays} sortKey="admDate" sort={sort} onSort={handleSort} />
+                      </TableHead>
+                    )}
+                    {isColumnVisible('gender') && (
+                      <TableHead>
+                        <SortableHeader label="Gender" icon={VenusAndMars} sortKey="gender" sort={sort} onSort={handleSort} />
+                      </TableHead>
+                    )}
+                    {isColumnVisible('dob') && (
+                      <TableHead>
+                        <SortableHeader label="Date of Birth" icon={Cake} sortKey="dob" sort={sort} onSort={handleSort} />
+                      </TableHead>
+                    )}
+                    {isColumnVisible('bloodGroup') && (
+                      <TableHead>
+                        <SortableHeader label="Blood Group" icon={Droplet} sortKey="bloodGroup" sort={sort} onSort={handleSort} />
+                      </TableHead>
+                    )}
+                    {isColumnVisible('category') && (
+                      <TableHead>
+                        <SortableHeader label="Category" icon={Tag} sortKey="category" sort={sort} onSort={handleSort} />
+                      </TableHead>
+                    )}
+                    {isColumnVisible('aadhaar') && (
+                      <TableHead>
+                        <SortableHeader label="Aadhaar No." icon={Fingerprint} sortKey="aadhaar" sort={sort} onSort={handleSort} />
+                      </TableHead>
+                    )}
+                    {isColumnVisible('route') && (
+                      <TableHead>
+                        <span className="flex items-center gap-1.5"><Bus className="size-3.5 text-muted-foreground" />Route</span>
+                      </TableHead>
+                    )}
+                    {isColumnVisible('phone') && (
+                      <TableHead>
+                        <span className="flex items-center gap-1.5"><Phone className="size-3.5 text-muted-foreground" />Phone</span>
+                      </TableHead>
+                    )}
+                    {isColumnVisible('status') && (
+                      <TableHead>
+                        <SortableHeader label="Status" icon={Activity} sortKey="status" sort={sort} onSort={handleSort} />
+                      </TableHead>
+                    )}
                     <TableHead className="w-[50px]" />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {students.map((s) => {
+                  {sortedStudents.map((s) => {
                     const isToggling = togglingId === s.id
                     const fatherLink = s.parentLinks?.find(p => p.relation === 'Father')
                     const fatherName = fatherLink?.parent.fatherName
                     const fatherPhone = fatherLink?.parent.phone
+                    const motherName = getMotherName(s)
                     const name = s.fullName || `${s.firstName} ${s.lastName}`
                     const photoSrc = s.profileImage || s.admission?.profileImage
 
@@ -801,74 +1122,145 @@ export function StudentsPage() {
                         onClick={() => handleViewStudent(s)}
                       >
                         {/* Photo */}
-                        <TableCell>
-                          <div className="size-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0 overflow-hidden">
-                            {photoSrc ? (
-                              <img src={photoSrc} alt={name} className="size-full object-cover" />
-                            ) : (
-                              <User className="size-4 text-primary" />
-                            )}
-                          </div>
-                        </TableCell>
+                        {isColumnVisible('photo') && (
+                          <TableCell>
+                            <div className="size-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0 overflow-hidden">
+                              {photoSrc ? (
+                                <img src={photoSrc} alt={name} className="size-full object-cover" />
+                              ) : (
+                                <User className="size-4 text-primary" />
+                              )}
+                            </div>
+                          </TableCell>
+                        )}
 
                         {/* Student Name */}
-                        <TableCell>
-                          <div>
-                            <p className={`font-medium ${!s.isActive ? 'line-through decoration-muted-foreground' : ''}`}>
-                              {name}
-                            </p>
-                            {s.siblingId && (
-                              <Badge variant="info" className="text-[10px] px-1 py-0 h-4 gap-0.5 mt-0.5">
-                                <Heart className="size-2.5" /> Sibling
-                              </Badge>
-                            )}
-                          </div>
-                        </TableCell>
+                        {isColumnVisible('name') && (
+                          <TableCell>
+                            <div>
+                              <p className={`font-medium ${!s.isActive ? 'line-through decoration-muted-foreground' : ''}`}>
+                                {name}
+                              </p>
+                              {s.siblingId && (
+                                <Badge variant="info" className="text-[10px] px-1 py-0 h-4 gap-0.5 mt-0.5">
+                                  <Heart className="size-2.5" /> Sibling
+                                </Badge>
+                              )}
+                            </div>
+                          </TableCell>
+                        )}
 
                         {/* Father's Name */}
-                        <TableCell>
-                          <span className="text-sm">{fatherName || '--'}</span>
-                        </TableCell>
+                        {isColumnVisible('father') && (
+                          <TableCell>
+                            <span className="text-sm">{fatherName || '--'}</span>
+                          </TableCell>
+                        )}
+
+                        {/* Mother's Name */}
+                        {isColumnVisible('mother') && (
+                          <TableCell>
+                            <span className="text-sm">{motherName || '--'}</span>
+                          </TableCell>
+                        )}
 
                         {/* Class */}
-                        <TableCell>
-                          <span className="text-sm">{s.class?.name || '--'}</span>
-                          {s.section?.name && <span className="text-xs text-muted-foreground ml-1">- {s.section.name}</span>}
-                        </TableCell>
+                        {isColumnVisible('class') && (
+                          <TableCell>
+                            <span className="text-sm">{s.class?.name || '--'}</span>
+                            {s.section?.name && <span className="text-xs text-muted-foreground ml-1">- {s.section.name}</span>}
+                          </TableCell>
+                        )}
 
                         {/* Roll */}
-                        <TableCell>
-                          <span className="text-sm font-mono">{s.rollNumber || '--'}</span>
-                        </TableCell>
+                        {isColumnVisible('roll') && (
+                          <TableCell>
+                            <span className="text-sm font-mono">{s.rollNumber || '--'}</span>
+                          </TableCell>
+                        )}
 
                         {/* Reg.No. */}
-                        <TableCell>
-                          <span className="text-sm font-mono">{s.admission?.registrationNumber || '--'}</span>
-                        </TableCell>
+                        {isColumnVisible('reg') && (
+                          <TableCell>
+                            <span className="text-sm font-mono">{s.admission?.registrationNumber || '--'}</span>
+                          </TableCell>
+                        )}
 
                         {/* Adm.No. */}
-                        <TableCell>
-                          <span className={`font-mono text-sm font-semibold ${s.isActive ? 'text-primary' : 'text-muted-foreground'}`}>
-                            {s.admissionNumber || '--'}
-                          </span>
-                        </TableCell>
+                        {isColumnVisible('adm') && (
+                          <TableCell>
+                            <span className={`font-mono text-sm font-semibold ${s.isActive ? 'text-primary' : 'text-muted-foreground'}`}>
+                              {s.admissionNumber || '--'}
+                            </span>
+                          </TableCell>
+                        )}
 
                         {/* Adm.Date */}
-                        <TableCell>
-                          <span className="text-sm text-muted-foreground">
-                            {formatDate(s.admission?.dateOfAdmission)}
-                          </span>
-                        </TableCell>
+                        {isColumnVisible('admDate') && (
+                          <TableCell>
+                            <span className="text-sm text-muted-foreground">
+                              {formatDate(s.admission?.dateOfAdmission)}
+                            </span>
+                          </TableCell>
+                        )}
+
+                        {/* Gender */}
+                        {isColumnVisible('gender') && (
+                          <TableCell>
+                            <span className="text-sm">{s.gender || '--'}</span>
+                          </TableCell>
+                        )}
+
+                        {/* Date of Birth */}
+                        {isColumnVisible('dob') && (
+                          <TableCell>
+                            <span className="text-sm text-muted-foreground">{formatDate(s.dateOfBirth)}</span>
+                          </TableCell>
+                        )}
+
+                        {/* Blood Group */}
+                        {isColumnVisible('bloodGroup') && (
+                          <TableCell>
+                            <span className="text-sm font-mono">{s.bloodGroup || '--'}</span>
+                          </TableCell>
+                        )}
+
+                        {/* Category */}
+                        {isColumnVisible('category') && (
+                          <TableCell>
+                            <span className="text-sm">{s.category || '--'}</span>
+                          </TableCell>
+                        )}
+
+                        {/* Aadhaar No. */}
+                        {isColumnVisible('aadhaar') && (
+                          <TableCell>
+                            <span className="text-sm font-mono">{s.aadhaarNumber || '--'}</span>
+                          </TableCell>
+                        )}
 
                         {/* Route */}
-                        <TableCell>
-                          <span className="text-sm">{s.transportRouteName || '--'}</span>
-                        </TableCell>
+                        {isColumnVisible('route') && (
+                          <TableCell>
+                            <span className="text-sm">{s.transportRouteName || '--'}</span>
+                          </TableCell>
+                        )}
 
                         {/* Phone */}
-                        <TableCell>
-                          <span className="text-sm">{fatherPhone || '--'}</span>
-                        </TableCell>
+                        {isColumnVisible('phone') && (
+                          <TableCell>
+                            <span className="text-sm">{fatherPhone || '--'}</span>
+                          </TableCell>
+                        )}
+
+                        {/* Status */}
+                        {isColumnVisible('status') && (
+                          <TableCell>
+                            <Badge variant={s.isActive ? 'success' : 'secondary'} className="text-[10px] px-1.5 py-0 h-5">
+                              {s.isActive ? 'Active' : 'Disabled'}
+                            </Badge>
+                          </TableCell>
+                        )}
 
                         {/* Actions */}
                         <TableCell onClick={(e) => e.stopPropagation()}>

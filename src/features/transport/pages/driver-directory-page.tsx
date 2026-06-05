@@ -292,7 +292,7 @@ export function DriverDirectoryPage() {
             <CardContent className="p-3">
               <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
                 <div className="flex items-center gap-2 text-sm font-medium">
-                  <div className="flex size-8 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                  <div className="bg-brand-soft flex size-8 items-center justify-center rounded-lg text-white shadow-sm">
                     <Filter className="size-4" />
                   </div>
                   Filters

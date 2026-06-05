@@ -94,7 +94,7 @@ export function ParadigmGroupsPage({ paradigmId }: Props) {
     } catch (err) {
       toast({
         variant: 'destructive',
-        title: 'Could not load paradigm',
+        title: 'Could not load exam pattern',
         description: err instanceof Error ? err.message : 'Please try again.',
       })
     } finally {
@@ -111,7 +111,7 @@ export function ParadigmGroupsPage({ paradigmId }: Props) {
     setDeleting(true)
     try {
       await api.delete(`/api/school/exams/groups/${deleteTarget.id}`)
-      toast({ title: 'Group deleted' })
+      toast({ title: 'Term deleted' })
       setDeleteTarget(null)
       void load()
     } catch (err) {
@@ -131,11 +131,11 @@ export function ParadigmGroupsPage({ paradigmId }: Props) {
   return (
     <div className="space-y-6">
       <PageHeader
-        title={`Groups under "${paradigm.name}"`}
-        description={`${paradigm.academicYear} · group exams together for term-level and final aggregation.`}
+        title={`Terms under "${paradigm.name}"`}
+        description={`${paradigm.academicYear} · organise exams under each term for term-level and final aggregation.`}
         backAction={{ onClick: () => router.push('/exams/paradigms') }}
         action={{
-          label: 'New group',
+          label: 'New term',
           icon: Plus,
           onClick: () => setEditing('new'),
         }}
@@ -144,9 +144,9 @@ export function ParadigmGroupsPage({ paradigmId }: Props) {
       {paradigm.examGroups.length === 0 ? (
         <EmptyState
           icon={Layers}
-          title="No groups yet"
-          description='Add a group — e.g. "Term 1" — to start defining exams under this paradigm.'
-          action={{ label: 'Create group', onClick: () => setEditing('new') }}
+          title="No terms yet"
+          description='Add a term — e.g. "Term 1" — to start defining exams under this pattern.'
+          action={{ label: 'Create term', onClick: () => setEditing('new') }}
         />
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -220,10 +220,10 @@ export function ParadigmGroupsPage({ paradigmId }: Props) {
           try {
             if (id) {
               await api.patch(`/api/school/exams/groups/${id}`, payload)
-              toast({ title: 'Group updated' })
+              toast({ title: 'Term updated' })
             } else {
               await api.post('/api/school/exams/groups', payload)
-              toast({ title: 'Group created' })
+              toast({ title: 'Term created' })
             }
             setEditing(null)
             void load()
@@ -242,9 +242,9 @@ export function ParadigmGroupsPage({ paradigmId }: Props) {
       <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete this group?</AlertDialogTitle>
+            <AlertDialogTitle>Delete this term?</AlertDialogTitle>
             <AlertDialogDescription>
-              "{deleteTarget?.name}" will be removed. Groups with live exams cannot be deleted.
+              &ldquo;{deleteTarget?.name}&rdquo; will be removed. Terms with live exams cannot be deleted.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -317,7 +317,7 @@ function GroupEditDialog({ open, target, paradigmId, saving, onClose, onSave }: 
     <Dialog open={open} onOpenChange={(o) => !saving && !o && onClose()}>
       <DialogContent className="max-w-xl">
         <DialogHeader>
-          <DialogTitle>{isNew ? 'New group' : `Edit ${existing?.name}`}</DialogTitle>
+          <DialogTitle>{isNew ? 'New term' : `Edit ${existing?.name}`}</DialogTitle>
           <DialogDescription>
             A group bundles exams that aggregate together — e.g. Unit Test 1 + Half Yearly = Term 1.
           </DialogDescription>
@@ -388,7 +388,7 @@ function GroupEditDialog({ open, target, paradigmId, saving, onClose, onSave }: 
             Cancel
           </Button>
           <Button onClick={() => void handleSave()} disabled={!valid || saving}>
-            {saving ? 'Saving…' : isNew ? 'Create group' : 'Save changes'}
+            {saving ? 'Saving…' : isNew ? 'Create term' : 'Save changes'}
           </Button>
         </DialogFooter>
       </DialogContent>

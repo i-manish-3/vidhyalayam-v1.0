@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/use-toast'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -144,6 +145,7 @@ interface ReceiptSummary {
   paymentMethod: PaymentMethod
   splits?: ReceiptSplit[] | null
   collectedBy?: CollectedBy | null
+  notes?: string | null
 }
 
 interface ReceiptHistoryLine {
@@ -166,6 +168,13 @@ interface ReceiptSplit {
 interface CollectedBy {
   id: string
   name: string
+}
+
+interface FeeSpecialComment {
+  id: string
+  comment: string
+  createdAt: string
+  createdBy?: CollectedBy | null
 }
 
 interface ReceiptHistoryRow {
@@ -338,6 +347,12 @@ function periodSelectionKey(period: string, transport = false, itemAcademicYear?
   return `${transport ? 'transport' : 'fees'}:${academicYearKey(itemAcademicYear)}:${normalizedPeriod(period)}`
 }
 
+function sameStringSet(a: string[], b: string[]) {
+  if (a.length !== b.length) return false
+  const bSet = new Set(b)
+  return a.every((item) => bSet.has(item))
+}
+
 function collectionSelectionKey(item: FeeCollectionItem) {
   return periodSelectionKey(itemPeriod(item), isTransportItem(item), item.academicYear)
 }
@@ -467,11 +482,15 @@ export function FeeCollectionsPage() {
   const [allStudentCollections, setAllStudentCollections] = useState<FeeCollectionItem[]>([])
   const [receiptHistory, setReceiptHistory] = useState<ReceiptHistoryRow[]>([])
   const [transportInfo, setTransportInfo] = useState<TransportInfo | null>(null)
+  const [transportDetailsOpen, setTransportDetailsOpen] = useState(false)
   const [selectedCollectionIds, setSelectedCollectionIds] = useState<string[]>([])
   const [search, setSearch] = useState(savedListState?.search ?? '')
   const [paymentDate, setPaymentDate] = useState(() => todayLocalIso())
   const [discountAmount, setDiscountAmount] = useState('')
   const [remarks, setRemarks] = useState('')
+  const [specialComments, setSpecialComments] = useState<FeeSpecialComment[]>([])
+  const [commentsLoading, setCommentsLoading] = useState(false)
+  const [commentSaving, setCommentSaving] = useState(false)
   const [paymentSplits, setPaymentSplits] = useState<PaymentSplitRow[]>([
     { id: 'split-1', paymentMethod: 'CASH', amount: '', remarks: '' },
   ])
@@ -480,6 +499,8 @@ export function FeeCollectionsPage() {
   // total payable, so the cashier can simply hit "Collect" for full payment.
   const [firstSplitEdited, setFirstSplitEdited] = useState(false)
   const [selectedPeriods, setSelectedPeriods] = useState<string[]>([])
+  const [autoSelectedCollectionIds, setAutoSelectedCollectionIds] = useState<string[]>([])
+  const [autoSelectedPeriods, setAutoSelectedPeriods] = useState<string[]>([])
   const [receiptSummary, setReceiptSummary] = useState<ReceiptSummary | null>(null)
   const [saving, setSaving] = useState(false)
   const previewIframeRef = useRef<HTMLIFrameElement>(null)
@@ -614,14 +635,24 @@ export function FeeCollectionsPage() {
         }
       }
       setSelectedCollectionIds(autoIds)
-      setSelectedPeriods(Array.from(autoKeys))
+      setAutoSelectedCollectionIds(autoIds)
+      const nextAutoPeriods = Array.from(autoKeys)
+      setSelectedPeriods(nextAutoPeriods)
+      setAutoSelectedPeriods(nextAutoPeriods)
       setDiscountAmount('')
+      setRemarks('')
       setPaymentSplits([{ id: 'split-1', paymentMethod: 'CASH', amount: '', remarks: '' }])
       setFirstSplitEdited(false)
     } catch {
       setAllStudentCollections([])
       setReceiptHistory([])
       setTransportInfo(null)
+      setSelectedCollectionIds([])
+      setAutoSelectedCollectionIds([])
+      setSelectedPeriods([])
+      setAutoSelectedPeriods([])
+      setRemarks('')
+      setSpecialComments([])
       toast({
         title: "Couldn't Load Student Dues",
         description: 'This student fee assignment may not be generated yet.',
@@ -629,6 +660,54 @@ export function FeeCollectionsPage() {
       })
     }
   }, [academicYear, toast])
+
+  const fetchSpecialComments = useCallback(async (studentId: string) => {
+    setCommentsLoading(true)
+    try {
+      const data = await api.get<{ comments: FeeSpecialComment[] }>('/api/school/fees/special-comments', { studentId })
+      setSpecialComments(data.comments || [])
+    } catch {
+      setSpecialComments([])
+      toast({
+        title: "Couldn't Load Comments",
+        description: 'Special comments for this student could not be loaded.',
+        variant: 'destructive',
+      })
+    } finally {
+      setCommentsLoading(false)
+    }
+  }, [toast])
+
+  const submitSpecialComment = async () => {
+    if (!selectedStudent) {
+      toast({ title: 'Missing Student', description: 'Please select a student first.', variant: 'destructive' })
+      return
+    }
+    const comment = remarks.trim()
+    if (!comment) {
+      toast({ title: 'Missing Comment', description: 'Please enter a comment before submitting.', variant: 'destructive' })
+      return
+    }
+
+    setCommentSaving(true)
+    try {
+      const data = await api.post<{ comment: FeeSpecialComment }>('/api/school/fees/special-comments', {
+        studentId: selectedStudent.id,
+        comment,
+      })
+      setSpecialComments((current) => [data.comment, ...current])
+      setRemarks('')
+      toast({ title: 'Comment Added', description: 'Special comment saved for this student.' })
+    } catch (error) {
+      toast({
+        title: 'Comment Failed',
+        description: error instanceof Error ? error.message : 'Could not save the special comment.',
+        variant: 'destructive',
+      })
+    } finally {
+      setCommentSaving(false)
+    }
+  }
 
   const filteredStudents = useMemo(() => {
     const value = search.trim().toLowerCase()
@@ -838,9 +917,13 @@ export function FeeCollectionsPage() {
       future_month: 'Future / Advance',
       term: '',
     }
-    const accentFor = (bucket: Bucket, isTransport: boolean): 'amber' | 'emerald' | undefined => {
+    const accentFor = (bucket: Bucket): 'amber' | 'emerald' | undefined => {
       if (bucket === 'prev_session' || bucket === 'prev_month' || bucket === 'overdue_term') return 'amber'
-      if (isTransport && bucket === 'current_month') return 'emerald'
+      // Current-month rows are all emerald. This bucket only ever holds monthly
+      // tuition + transport items (term heads are classified into term/
+      // overdue_term), so current-month tuition matches current-month transport
+      // regardless of what the tuition fee head is actually named.
+      if (bucket === 'current_month') return 'emerald'
       return undefined
     }
     const today = new Date()
@@ -946,7 +1029,7 @@ export function FeeCollectionsPage() {
           label,
           amount: group.amount,
           periodCount: group.periods.length,
-          accent: accentFor(group.bucket, group.isTransport),
+          accent: accentFor(group.bucket),
         }
       })
   }, [selectedItems, academicYear])
@@ -993,13 +1076,24 @@ export function FeeCollectionsPage() {
   }
 
   const clearAllSelections = () => {
-    setSelectedPeriods([])
-    setSelectedCollectionIds([])
+    setSelectedPeriods(autoSelectedPeriods)
+    setSelectedCollectionIds(autoSelectedCollectionIds)
   }
+
+  const hasSelectionChanges =
+    !sameStringSet(selectedPeriods, autoSelectedPeriods) ||
+    !sameStringSet(selectedCollectionIds, autoSelectedCollectionIds)
 
   const handleSelectStudent = (student: Student) => {
     setSelectedStudent(student)
     setTransportInfo(null)
+    setTransportDetailsOpen(false)
+    setSelectedCollectionIds([])
+    setAutoSelectedCollectionIds([])
+    setSelectedPeriods([])
+    setAutoSelectedPeriods([])
+    setRemarks('')
+    setSpecialComments([])
     const nextSearch = studentName(student)
     setSearch(nextSearch)
     setPageState(FEE_COLLECTIONS_LIST_STATE_KEY, { search: nextSearch })
@@ -1015,6 +1109,7 @@ export function FeeCollectionsPage() {
     discountValue: number,
     splits: ReceiptSplit[] | null,
     collectedBy: CollectedBy | null,
+    notes: string | null,
   ) => {
     if (!selectedStudent) return null
 
@@ -1033,6 +1128,7 @@ export function FeeCollectionsPage() {
       paymentMethod: method,
       splits,
       collectedBy,
+      notes,
     }
   }
 
@@ -1099,6 +1195,7 @@ export function FeeCollectionsPage() {
       paymentMethod: row.paymentMethod || 'CASH',
       splits: row.splits ?? null,
       collectedBy: row.collectedBy ?? null,
+      notes: row.notes || null,
     })
   }
 
@@ -1122,6 +1219,7 @@ export function FeeCollectionsPage() {
       totalPaid: receiptSummary.totalPaid,
       discountAmount: receiptSummary.discountAmount,
       duesAmount: receiptSummary.duesAmount,
+      notes: receiptSummary.notes,
     })
   }
 
@@ -1156,8 +1254,9 @@ export function FeeCollectionsPage() {
   useEffect(() => {
     if (selectedStudent) {
       fetchStudentCollections(selectedStudent.id)
+      fetchSpecialComments(selectedStudent.id)
     }
-  }, [academicYear, fetchStudentCollections, selectedStudent])
+  }, [academicYear, fetchSpecialComments, fetchStudentCollections, selectedStudent])
 
   const updatePaymentSplit = (id: string, patch: Partial<PaymentSplitRow>) => {
     if (id === 'split-1' && 'amount' in patch) {
@@ -1171,7 +1270,7 @@ export function FeeCollectionsPage() {
   const addPaymentSplit = () => {
     setPaymentSplits((current) => [
       ...current,
-      { id: `split-${Date.now()}`, paymentMethod: 'CASH', amount: '', remarks: '' },
+      { id: `split-${Date.now()}`, paymentMethod: 'UPI', amount: '', remarks: '' },
     ])
   }
 
@@ -1243,9 +1342,6 @@ export function FeeCollectionsPage() {
       }
 
       const activePaymentSplits = paymentSplits.filter((split) => Number(split.amount || 0) > 0)
-      const splitSummary = activePaymentSplits
-        .map((split) => `${PAYMENT_METHOD_LABELS[split.paymentMethod]}: ${money(split.amount)}${split.remarks ? ` (${split.remarks})` : ''}`)
-        .join('; ')
       const appliedPaymentTotal = payments.reduce((sum, payment) => sum + payment.amount, 0)
 
       const selectedPaymentMethod: PaymentMethod = activePaymentSplits.length > 1
@@ -1265,7 +1361,7 @@ export function FeeCollectionsPage() {
         payments,
         paymentMethod: selectedPaymentMethod,
         paymentDate,
-        notes: [remarks, splitSummary].filter(Boolean).join(' | '),
+        notes: null,
         // Structured split breakdown for audit. Server stores it as a JSON
         // tail on the ledger entry's `notes` field; the legacy free-text
         // summary above keeps the human-readable form. Both are persisted.
@@ -1298,6 +1394,7 @@ export function FeeCollectionsPage() {
         discount,
         liveSplits.length > 0 ? liveSplits : null,
         liveCollectedBy,
+        null,
       )
       setReceiptSummary(receipt)
       toast({ title: 'Success', description: 'Fee payment collected successfully.' })
@@ -1342,18 +1439,6 @@ export function FeeCollectionsPage() {
             </p>
           </div>
         </div>
-        {selectedStudent && selectedTotal > 0 && (
-          <div className="flex items-center gap-2">
-            <div className="rounded-md border bg-card px-3 py-1.5 shadow-sm">
-              <div className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wider">Selected</div>
-              <div className="text-sm font-bold tabular-nums leading-tight">{money(selectedTotal)}</div>
-            </div>
-            <div className="rounded-md border border-primary/40 bg-primary/5 px-3 py-1.5 shadow-sm">
-              <div className="text-[9px] font-semibold text-primary uppercase tracking-wider">Payable</div>
-              <div className="text-sm font-bold text-primary tabular-nums leading-tight">{money(payableTotal)}</div>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* ── Search Bar + Payment Date ───────────────────────── */}
@@ -1373,7 +1458,13 @@ export function FeeCollectionsPage() {
                   setAllStudentCollections([])
                   setReceiptHistory([])
                   setTransportInfo(null)
+                  setTransportDetailsOpen(false)
                   setSelectedCollectionIds([])
+                  setAutoSelectedCollectionIds([])
+                  setSelectedPeriods([])
+                  setAutoSelectedPeriods([])
+                  setRemarks('')
+                  setSpecialComments([])
                 }}
               />
               {search && !selectedStudent && (
@@ -1415,6 +1506,7 @@ export function FeeCollectionsPage() {
               disableFuture
               placeholder="Payment date"
               triggerClassName="h-9 w-full text-sm"
+              align="end"
             />
           </div>
         </CardContent>
@@ -1493,7 +1585,7 @@ export function FeeCollectionsPage() {
                         size="sm"
                         className="h-7 text-xs text-muted-foreground hover:text-foreground"
                         onClick={clearAllSelections}
-                        disabled={selectedPeriods.length === 0 && selectedCollectionIds.length === 0}
+                        disabled={!hasSelectionChanges}
                       >
                         Clear
                       </Button>
@@ -1663,45 +1755,60 @@ export function FeeCollectionsPage() {
               {/* Transport */}
               {currentAllTransportItems.length > 0 && (
                 <Card className="!gap-0 overflow-hidden !py-0 shadow-sm">
-                  <CardHeader className="border-b border-emerald-200 bg-emerald-50 px-3 !py-2 dark:border-emerald-500/30 dark:bg-emerald-500/10">
-                    <CardTitle className="flex items-center justify-between gap-3 text-sm text-emerald-900 dark:text-emerald-200">
+                  <CardHeader className="border-b bg-muted/30 px-3 !py-2">
+                    <CardTitle className="flex items-center justify-between gap-3 text-sm">
                       <span className="flex items-center gap-2">
-                        <Bus className="size-4" />
+                        <Bus className="size-4 text-primary" />
                         Transport
                       </span>
-                      {(transportInfo?.fareAmount || currentAllTransportItems[0]?.amount) && (
-                        <Badge variant="outline" className="border-emerald-300 bg-white text-[10px] text-emerald-800 dark:border-emerald-500/30 dark:bg-emerald-500/20 dark:text-emerald-200">
-                          Monthly · {money(transportInfo?.fareAmount || currentAllTransportItems[0]?.amount || 0)}
-                        </Badge>
-                      )}
+                      <div className="flex items-center gap-1.5">
+                        {(transportInfo?.fareAmount || currentAllTransportItems[0]?.amount) && (
+                          <Badge variant="secondary" className="bg-primary/10 text-[10px] text-primary hover:bg-primary/10">
+                            Monthly · {money(transportInfo?.fareAmount || currentAllTransportItems[0]?.amount || 0)}
+                          </Badge>
+                        )}
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 gap-1 px-1.5 text-[10px] text-muted-foreground hover:text-foreground"
+                          aria-expanded={transportDetailsOpen}
+                          onClick={() => setTransportDetailsOpen((open) => !open)}
+                        >
+                          Details
+                          <ChevronDown className={cn('size-3 transition-transform', transportDetailsOpen && 'rotate-180')} />
+                        </Button>
+                      </div>
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-2.5 px-3 py-2.5">
-                    <div className="grid gap-2 rounded-md border bg-muted/30 p-2.5 text-xs sm:grid-cols-2">
-                      <div>
-                        <span className="text-muted-foreground">Route:</span>
-                        <span className="ml-1 font-medium">
-                          {transportInfo?.routeName || 'Assigned Route'}
-                          {transportInfo?.routeNumber ? ` (${transportInfo.routeNumber})` : ''}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">Stop:</span>
-                        <span className="ml-1 font-medium">{transportInfo?.stopName || transportInfo?.pickupPoint || '-'}</span>
-                      </div>
-                      {transportInfo?.vehicleNumber && (
+                    {transportDetailsOpen && (
+                      <div className="grid gap-2 rounded-md border bg-muted/30 p-2.5 text-xs sm:grid-cols-2">
                         <div>
-                          <span className="text-muted-foreground">Vehicle:</span>
-                          <span className="ml-1 font-medium">{transportInfo.vehicleNumber}</span>
+                          <span className="text-muted-foreground">Route:</span>
+                          <span className="ml-1 font-medium">
+                            {transportInfo?.routeName || 'Assigned Route'}
+                            {transportInfo?.routeNumber ? ` (${transportInfo.routeNumber})` : ''}
+                          </span>
                         </div>
-                      )}
-                      {transportInfo?.startPoint && transportInfo?.endPoint && (
                         <div>
-                          <span className="text-muted-foreground">Path:</span>
-                          <span className="ml-1 font-medium">{transportInfo.startPoint} → {transportInfo.endPoint}</span>
+                          <span className="text-muted-foreground">Stop:</span>
+                          <span className="ml-1 font-medium">{transportInfo?.stopName || transportInfo?.pickupPoint || '-'}</span>
                         </div>
-                      )}
-                    </div>
+                        {transportInfo?.vehicleNumber && (
+                          <div>
+                            <span className="text-muted-foreground">Vehicle:</span>
+                            <span className="ml-1 font-medium">{transportInfo.vehicleNumber}</span>
+                          </div>
+                        )}
+                        {transportInfo?.startPoint && transportInfo?.endPoint && (
+                          <div>
+                            <span className="text-muted-foreground">Path:</span>
+                            <span className="ml-1 font-medium">{transportInfo.startPoint} → {transportInfo.endPoint}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
                     <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-4 lg:grid-cols-6">
                       {MONTHS.map((month) => {
                         const monthItems = currentTransportItems.filter((item) => matchesPeriod(item, month))
@@ -1719,10 +1826,10 @@ export function FeeCollectionsPage() {
                           <label
                             key={month}
                             className={cn(
-                              'flex cursor-pointer flex-col gap-0.5 rounded-md border bg-white px-2 py-1.5 text-xs transition-all hover:border-emerald-400 dark:bg-background',
-                              checked && 'border-emerald-500 bg-emerald-50 ring-1 ring-emerald-200 dark:bg-emerald-500/20',
+                              'flex cursor-pointer flex-col gap-0.5 rounded-md border bg-card px-2 py-1.5 text-xs transition-all hover:border-primary/40 hover:bg-primary/5',
+                              checked && 'border-primary bg-primary/10 ring-1 ring-primary/20',
                               isOverdue && !checked && 'border-red-300 bg-red-50/70 text-red-900 hover:border-red-400 hover:bg-red-50 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-200',
-                              isCurrentCal && !checked && !isOverdue && 'border-emerald-400 bg-emerald-50/60 dark:bg-emerald-500/10',
+                              isCurrentCal && !checked && !isOverdue && 'border-primary/40 bg-primary/5',
                               isSettled && 'cursor-default border-emerald-300 bg-emerald-100 text-emerald-900 hover:border-emerald-300 dark:bg-emerald-500/20 dark:text-emerald-200',
                               !hasFee && 'cursor-default bg-muted/40 text-muted-foreground hover:border-border hover:bg-muted/40'
                             )}
@@ -1735,7 +1842,7 @@ export function FeeCollectionsPage() {
                               />
                               <span className="font-medium">{month}</span>
                               {isCurrentCal && hasFee && !isSettled && (
-                                <span className="rounded bg-emerald-500/20 px-1 py-px text-[9px] font-semibold uppercase leading-none tracking-wide text-emerald-700 dark:text-emerald-300">Now</span>
+                                <span className="rounded bg-primary/15 px-1 py-px text-[9px] font-semibold uppercase leading-none tracking-wide text-primary">Now</span>
                               )}
                               {monthState && (
                                 <span
@@ -1776,7 +1883,7 @@ export function FeeCollectionsPage() {
                     </Badge>
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-1.5 px-3 py-2.5">
+                <CardContent className="space-y-1.5 px-3 py-2">
                   {studentCollections.length === 0 ? (
                     <div className="rounded-md border border-dashed p-6 text-center text-xs text-muted-foreground">
                       No pending fee rows found. Assign fees during admission or manual assignment first.
@@ -1786,72 +1893,74 @@ export function FeeCollectionsPage() {
                       Tick a month or term above to show its fee heads here.
                     </div>
                   ) : (
-                    visibleCollectionItems.map((item) => {
-                      const checked = selectedCollectionIds.includes(item.id)
-                      const preview = checked ? allocationPreview.get(item.id) : undefined
-                      const due = preview?.due ?? remainingAmount(item)
-                      const paying = preview?.paying ?? 0
-                      const previewDiscount = preview?.discount ?? 0
-                      const remainingAfter = preview ? preview.remaining : due
-                      const hasPaymentInput = splitTotal > 0 || discount > 0
-                      const isFullyPaid = preview && hasPaymentInput && remainingAfter <= 0 && (paying > 0 || previewDiscount > 0)
-                      const isPartiallyPaid = preview && hasPaymentInput && (paying > 0 || previewDiscount > 0) && remainingAfter > 0
-                      const isUnpaid = preview && hasPaymentInput && paying <= 0 && previewDiscount <= 0
-                      return (
-                        <div
-                          key={item.id}
-                          className={cn(
-                            'grid grid-cols-[24px_1fr_auto] items-center gap-2.5 rounded-md border bg-background p-2.5 transition-colors hover:border-primary/40 hover:bg-primary/5',
-                            checked && 'border-primary/50 bg-primary/10',
-                            isFullyPaid && 'border-emerald-300 bg-emerald-50 dark:border-emerald-500/30 dark:bg-emerald-500/10',
-                            isPartiallyPaid && 'border-amber-300 bg-amber-50 dark:border-amber-500/30 dark:bg-amber-500/10',
-                          )}
-                        >
-                          <Checkbox checked={checked} onCheckedChange={() => toggleCollection(item.id)} />
-                          <div className="min-w-0">
-                            <div className="truncate text-sm font-medium leading-tight">{item.feeHeadName || 'Fee'}</div>
-                            <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                              <Badge variant="secondary" className="h-4 px-1.5 text-[10px]">{itemPeriod(item)}</Badge>
-                              {item.academicYear && item.academicYear !== academicYear && (
-                                <Badge className="h-4 bg-amber-100 px-1.5 text-[10px] text-amber-900 hover:bg-amber-100">Past · {item.academicYear}</Badge>
+                    <div className="grid gap-0.5 md:grid-cols-2 lg:grid-cols-3">
+                      {visibleCollectionItems.map((item) => {
+                        const checked = selectedCollectionIds.includes(item.id)
+                        const preview = checked ? allocationPreview.get(item.id) : undefined
+                        const due = preview?.due ?? remainingAmount(item)
+                        const paying = preview?.paying ?? 0
+                        const previewDiscount = preview?.discount ?? 0
+                        const remainingAfter = preview ? preview.remaining : due
+                        const hasPaymentInput = splitTotal > 0 || discount > 0
+                        const isFullyPaid = preview && hasPaymentInput && remainingAfter <= 0 && (paying > 0 || previewDiscount > 0)
+                        const isPartiallyPaid = preview && hasPaymentInput && (paying > 0 || previewDiscount > 0) && remainingAfter > 0
+                        const isUnpaid = preview && hasPaymentInput && paying <= 0 && previewDiscount <= 0
+                        return (
+                          <div
+                            key={item.id}
+                            className={cn(
+                              'grid min-h-[52px] grid-cols-[18px_minmax(0,1fr)_auto] items-center gap-1.5 rounded-md border bg-background px-2 py-1.5 transition-colors hover:border-primary/40 hover:bg-primary/5',
+                              checked && 'border-primary bg-primary/10 ring-1 ring-primary/20',
+                              isFullyPaid && 'border-primary bg-primary/10 dark:bg-primary/10',
+                              isPartiallyPaid && 'border-amber-300 bg-amber-50 dark:border-amber-500/30 dark:bg-amber-500/10',
+                            )}
+                          >
+                            <Checkbox checked={checked} onCheckedChange={() => toggleCollection(item.id)} />
+                            <div className="min-w-0">
+                              <div className="truncate text-[11px] font-semibold leading-tight">{item.feeHeadName || 'Fee'}</div>
+                              <div className="mt-px flex flex-nowrap items-center gap-0.5 overflow-hidden">
+                                <Badge variant="secondary" className="h-3 px-1 text-[8px] leading-none">{itemPeriod(item)}</Badge>
+                                {item.academicYear && item.academicYear !== academicYear && (
+                                  <Badge className="h-3 bg-amber-100 px-1 text-[8px] leading-none text-amber-900 hover:bg-amber-100">Past · {item.academicYear}</Badge>
+                                )}
+                                {isFullyPaid && (
+                                  <Badge className="h-3 bg-primary/15 px-1 text-[8px] leading-none text-primary hover:bg-primary/15">Will Be Paid</Badge>
+                                )}
+                                {isPartiallyPaid && (
+                                  <Badge className="h-3 bg-amber-100 px-1 text-[8px] leading-none text-amber-900 hover:bg-amber-100">Partial</Badge>
+                                )}
+                                {isUnpaid && (
+                                  <Badge variant="outline" className="h-3 px-1 text-[8px] leading-none text-muted-foreground">Unpaid</Badge>
+                                )}
+                                {!hasPaymentInput && (
+                                  <span className="text-[8px] leading-none text-muted-foreground">{statusLabel(item.status)}</span>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex min-w-[72px] flex-col items-end text-right">
+                              <div className={cn(
+                                'text-[11px] font-bold leading-tight tabular-nums',
+                                isFullyPaid && 'text-primary',
+                                isPartiallyPaid && 'text-amber-700 dark:text-amber-300',
+                              )}>
+                                {money(due)}
+                              </div>
+                              {preview && hasPaymentInput && (paying > 0 || previewDiscount > 0) && (
+                                <div className="text-[8px] leading-tight tabular-nums text-primary">
+                                  Paying {money(paying + previewDiscount)}
+                                  {previewDiscount > 0 && ` (incl. ${money(previewDiscount)} disc.)`}
+                                </div>
                               )}
-                              {isFullyPaid && (
-                                <Badge className="h-4 bg-emerald-100 px-1.5 text-[10px] text-emerald-900 hover:bg-emerald-100">Will Be Paid</Badge>
-                              )}
-                              {isPartiallyPaid && (
-                                <Badge className="h-4 bg-amber-100 px-1.5 text-[10px] text-amber-900 hover:bg-amber-100">Partial</Badge>
-                              )}
-                              {isUnpaid && (
-                                <Badge variant="outline" className="h-4 px-1.5 text-[10px] text-muted-foreground">Unpaid</Badge>
-                              )}
-                              {!hasPaymentInput && (
-                                <span className="text-[10px] text-muted-foreground">{statusLabel(item.status)}</span>
+                              {preview && hasPaymentInput && remainingAfter > 0 && (
+                                <div className="text-[8px] leading-tight tabular-nums text-red-600 dark:text-red-400">
+                                  {money(remainingAfter)} due
+                                </div>
                               )}
                             </div>
                           </div>
-                          <div className="flex flex-col items-end gap-0.5">
-                            <div className={cn(
-                              'text-sm font-bold tabular-nums',
-                              isFullyPaid && 'text-emerald-700 dark:text-emerald-300',
-                              isPartiallyPaid && 'text-amber-700 dark:text-amber-300',
-                            )}>
-                              {money(due)}
-                            </div>
-                            {preview && hasPaymentInput && (paying > 0 || previewDiscount > 0) && (
-                              <div className="text-[10px] tabular-nums text-emerald-700 dark:text-emerald-300">
-                                Paying {money(paying + previewDiscount)}
-                                {previewDiscount > 0 && ` (incl. ${money(previewDiscount)} disc.)`}
-                              </div>
-                            )}
-                            {preview && hasPaymentInput && remainingAfter > 0 && (
-                              <div className="text-[10px] tabular-nums text-red-600 dark:text-red-400">
-                                {money(remainingAfter)} due
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      )
-                    })
+                        )
+                      })}
+                    </div>
                   )}
                 </CardContent>
               </Card>
@@ -2078,7 +2187,7 @@ export function FeeCollectionsPage() {
                 </div>
               ) : (
                 <div className="max-h-[420px] overflow-auto">
-                  <table className="w-full min-w-[1080px] border-collapse text-xs">
+                  <table className="w-full min-w-[1180px] border-collapse text-xs">
                     <thead className="sticky top-0 z-10 bg-muted">
                       <tr>
                         <th className="w-10 px-2.5 py-2 text-left font-semibold">#</th>
@@ -2091,6 +2200,7 @@ export function FeeCollectionsPage() {
                         <th className="px-2.5 py-2 text-left font-semibold">Date</th>
                         <th className="px-2.5 py-2 text-left font-semibold">Payment Mode</th>
                         <th className="px-2.5 py-2 text-left font-semibold">Collected By</th>
+                        <th className="px-2.5 py-2 text-left font-semibold">Comment</th>
                         <th className="px-2.5 py-2 text-right font-semibold">Disc.</th>
                         <th className="px-2.5 py-2 text-right font-semibold">Paid</th>
                         <th className="px-2.5 py-2 text-right font-semibold">Dues</th>
@@ -2099,7 +2209,7 @@ export function FeeCollectionsPage() {
                     </thead>
                     <tbody>
                       <tr className="border-y bg-primary/5">
-                        <td colSpan={14} className="px-2.5 py-1.5 text-center text-[11px] font-bold uppercase tracking-wider text-primary">
+                        <td colSpan={15} className="px-2.5 py-1.5 text-center text-[11px] font-bold uppercase tracking-wider text-primary">
                           Session {academicYear}
                         </td>
                       </tr>
@@ -2135,6 +2245,13 @@ export function FeeCollectionsPage() {
                           <td className="px-2.5 py-2 text-[11px]">
                             {row.collectedBy?.name || <span className="text-muted-foreground">-</span>}
                           </td>
+                          <td className="max-w-[180px] px-2.5 py-2 text-[11px]">
+                            {row.notes ? (
+                              <span className="block truncate" title={row.notes}>{row.notes}</span>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </td>
                           <td className="px-2.5 py-2 text-right tabular-nums">{row.discount > 0 ? receiptMoney(row.discount) : '-'}</td>
                           <td className="px-2.5 py-2 text-right font-semibold tabular-nums text-emerald-700">{receiptMoney(row.paid)}</td>
                           <td className="px-2.5 py-2 text-right font-semibold tabular-nums text-red-700">{row.dues > 0 ? receiptMoney(row.dues) : '-'}</td>
@@ -2157,13 +2274,51 @@ export function FeeCollectionsPage() {
               )}
             </TabsContent>
             <TabsContent value="comment" className="mt-2 rounded-lg border bg-card px-3 py-2 shadow-sm">
-              <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Remarks for cashier / accountant</Label>
-              <Input
-                value={remarks}
-                onChange={(event) => setRemarks(event.target.value)}
-                placeholder="e.g. Approved by Principal for partial waiver…"
-                className="mt-1.5"
-              />
+              <div className="space-y-2">
+                <div>
+                  <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Add Special Comment</Label>
+                  <Textarea
+                    value={remarks}
+                    onChange={(event) => setRemarks(event.target.value)}
+                    placeholder="e.g. Parent promised to clear remaining balance next week."
+                    className="mt-1.5 min-h-20 resize-y text-sm"
+                  />
+                  <div className="mt-2 flex justify-end">
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="h-8 text-xs"
+                      onClick={submitSpecialComment}
+                      disabled={commentSaving || !remarks.trim()}
+                    >
+                      {commentSaving ? 'Submitting...' : 'Submit Comment'}
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="rounded-md border">
+                  <div className="border-b bg-muted/40 px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    Student Fee Comments
+                  </div>
+                  {commentsLoading ? (
+                    <div className="px-2.5 py-4 text-center text-xs text-muted-foreground">Loading comments...</div>
+                  ) : specialComments.length === 0 ? (
+                    <div className="px-2.5 py-4 text-center text-xs text-muted-foreground">No special comments yet.</div>
+                  ) : (
+                    <div className="max-h-56 divide-y overflow-auto">
+                      {specialComments.map((comment) => (
+                        <div key={comment.id} className="px-2.5 py-2">
+                          <p className="whitespace-pre-wrap text-xs leading-relaxed">{comment.comment}</p>
+                          <div className="mt-1 text-[10px] text-muted-foreground">
+                            {formatHistoryDateTime(comment.createdAt)}
+                            {comment.createdBy?.name ? ` · ${comment.createdBy.name}` : ''}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
             </TabsContent>
           </Tabs>
         </>

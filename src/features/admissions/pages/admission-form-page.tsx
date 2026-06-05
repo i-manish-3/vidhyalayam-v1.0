@@ -1882,14 +1882,14 @@ export function AdmissionFormPage() {
 
       </FormSection>
 
-      <FormSection title="Last Institution Details" icon={Building}>
+      <FormSection title="Last School Details" icon={Building}>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label>Institution Name</Label>
+          <Label>School Name</Label>
           <Input value={form.previousSchool} onChange={e => updateForm('previousSchool', e.target.value)} placeholder="Previous school name" />
         </div>
         <div className="space-y-2">
-          <Label>Institution Address</Label>
+          <Label>School Address</Label>
           <Input value={form.previousSchoolAddress} onChange={e => updateForm('previousSchoolAddress', e.target.value)} placeholder="School address" />
         </div>
       </div>
