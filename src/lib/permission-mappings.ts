@@ -103,6 +103,10 @@ const MODULE_PERMISSION_MAP: Record<string, string[]> = {
   'hostel-annual-setup': ['hostel:annual-setup'],
   'library': ['library:read', 'library:create'],
   'inventory': ['inventory:read', 'inventory:create'],
+  'inventory-sell': ['inventory:sell', 'fees:collect'],
+  'inventory-sales': ['inventory:read'],
+  'inventory-catalog': ['inventory:read', 'inventory:create'],
+  'inventory-reports': ['inventory:read'],
   'petty-cash': ['petty_cash:read', 'petty_cash:create'],
 
   // Communication

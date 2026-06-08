@@ -614,11 +614,85 @@ async function seed() {
   }
   console.log('✅ Created library books')
 
-  // Inventory
-  for (const item of [{ name: 'Whiteboard', cat: 'Furniture', qty: 30, price: 3500 }, { name: 'Student Desk', cat: 'Furniture', qty: 500, price: 2500 }, { name: 'Desktop Computer', cat: 'Electronics', qty: 25, price: 35000 }, { name: 'Projector', cat: 'Electronics', qty: 10, price: 45000 }, { name: 'A4 Paper Bundle', cat: 'Stationery', qty: 200, price: 350 }]) {
-    await db.inventoryItem.create({ data: { schoolId: school.id, name: item.name, category: item.cat, quantity: item.qty, unit: 'pcs', unitPrice: item.price, totalPrice: item.qty * item.price, condition: 'Good', location: 'Main Building', isActive: true } })
+  // Inventory — structured categories + items with dynamic variants (sizes/classes).
+  const invCategoryDefs = ['Furniture', 'Electronics', 'Stationery', 'Uniform', 'Books']
+  const invCategories = new Map<string, string>()
+  for (const name of invCategoryDefs) {
+    const cat = await db.inventoryCategory.create({ data: { schoolId: school.id, name, isActive: true }, select: { id: true } })
+    invCategories.set(name, cat.id)
   }
-  console.log('✅ Created inventory items')
+
+  // Each item carries 1..N variants; a null variantLabel means a plain item with
+  // a single default variant (label null).
+  interface SeedVariant { label: string | null; qty: number; cost: number | null; sell: number | null; reorder: number }
+  interface SeedItem { name: string; cat: string; variantLabel: string | null; sellable: boolean; variants: SeedVariant[] }
+  const invItemDefs: SeedItem[] = [
+    { name: 'Whiteboard', cat: 'Furniture', variantLabel: null, sellable: false, variants: [{ label: null, qty: 30, cost: 3500, sell: null, reorder: 5 }] },
+    { name: 'Desktop Computer', cat: 'Electronics', variantLabel: null, sellable: false, variants: [{ label: null, qty: 25, cost: 35000, sell: null, reorder: 5 }] },
+    { name: 'Notebook (200 pages)', cat: 'Stationery', variantLabel: null, sellable: true, variants: [{ label: null, qty: 400, cost: 35, sell: 60, reorder: 50 }] },
+    { name: 'School Tie', cat: 'Uniform', variantLabel: null, sellable: true, variants: [{ label: null, qty: 120, cost: 60, sell: 110, reorder: 20 }] },
+    {
+      name: 'School Shirt', cat: 'Uniform', variantLabel: 'Size', sellable: true, variants: [
+        { label: '24', qty: 40, cost: 180, sell: 250, reorder: 10 },
+        { label: '26', qty: 35, cost: 190, sell: 260, reorder: 10 },
+        { label: '28', qty: 20, cost: 200, sell: 280, reorder: 10 },
+        { label: '30', qty: 8, cost: 210, sell: 300, reorder: 10 },
+      ],
+    },
+    {
+      name: 'School Trousers', cat: 'Uniform', variantLabel: 'Size', sellable: true, variants: [
+        { label: '24', qty: 30, cost: 220, sell: 320, reorder: 8 },
+        { label: '26', qty: 28, cost: 230, sell: 330, reorder: 8 },
+        { label: '28', qty: 15, cost: 240, sell: 350, reorder: 8 },
+      ],
+    },
+    {
+      name: 'Book Set', cat: 'Books', variantLabel: 'Class', sellable: true, variants: [
+        { label: 'I', qty: 50, cost: 600, sell: 850, reorder: 10 },
+        { label: 'II', qty: 45, cost: 650, sell: 900, reorder: 10 },
+        { label: 'III', qty: 40, cost: 700, sell: 980, reorder: 10 },
+        { label: 'IV', qty: 12, cost: 750, sell: 1050, reorder: 10 },
+      ],
+    },
+  ]
+  let invVariantCount = 0
+  for (const item of invItemDefs) {
+    const created = await db.inventoryItem.create({
+      data: {
+        schoolId: school.id,
+        name: item.name,
+        category: item.cat,
+        categoryId: invCategories.get(item.cat),
+        unit: 'pcs',
+        variantLabel: item.variantLabel,
+        isSellable: item.sellable,
+        condition: 'Good',
+        location: 'Store Room',
+        isActive: true,
+      },
+      select: { id: true },
+    })
+    for (let i = 0; i < item.variants.length; i++) {
+      const v = item.variants[i]
+      const variant = await db.inventoryItemVariant.create({
+        data: {
+          schoolId: school.id, itemId: created.id, label: v.label, quantity: v.qty,
+          reorderLevel: v.reorder, unitPrice: v.cost, sellingPrice: v.sell, sortOrder: i, isActive: true,
+        },
+        select: { id: true },
+      })
+      if (v.qty > 0) {
+        await db.inventoryStockMovement.create({
+          data: {
+            schoolId: school.id, itemId: created.id, variantId: variant.id, type: 'IN',
+            quantity: v.qty, balanceAfter: v.qty, unitCost: v.cost, reason: 'Opening stock', referenceType: 'purchase',
+          },
+        })
+      }
+      invVariantCount++
+    }
+  }
+  console.log(`✅ Created ${invItemDefs.length} inventory items (${invVariantCount} variants), ${invCategoryDefs.length} categories`)
 
   // Notifications
   await Promise.all([
@@ -799,6 +873,7 @@ async function seed() {
     { code: 'inventory:create', name: 'Create Item', module: 'inventory', action: 'create' },
     { code: 'inventory:update', name: 'Update Item', module: 'inventory', action: 'update' },
     { code: 'inventory:delete', name: 'Delete Item', module: 'inventory', action: 'delete' },
+    { code: 'inventory:sell', name: 'Sell Inventory to Students', module: 'inventory', action: 'create' },
     // Petty Cash
     { code: 'petty_cash:read', name: 'View Petty Cash', module: 'petty_cash', action: 'read' },
     { code: 'petty_cash:create', name: 'Create Entry', module: 'petty_cash', action: 'create' },

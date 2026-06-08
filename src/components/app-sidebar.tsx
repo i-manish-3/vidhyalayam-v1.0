@@ -60,6 +60,7 @@ import {
   ScanLine,
   RadioTower,
   Building2,
+  ShoppingCart,
 } from 'lucide-react'
 
 export interface MenuChild {
@@ -237,7 +238,18 @@ export const MENUS: Record<string, MenuItem[]> = {
       ],
     },
     { label: 'Library', page: 'library', icon: Library },
-    { label: 'Inventory', page: 'inventory', icon: Package },
+    {
+      label: 'Inventory',
+      page: 'inventory',
+      icon: Package,
+      children: [
+        { label: 'Items', page: 'inventory', icon: Package },
+        { label: 'Sell to Student', page: 'inventory-sell', icon: ShoppingCart },
+        { label: 'Sales History', page: 'inventory-sales', icon: Receipt },
+        { label: 'Categories', page: 'inventory-catalog', icon: Layers },
+        { label: 'Reports', page: 'inventory-reports', icon: TrendingUp },
+      ],
+    },
     { label: 'Petty Cash', page: 'petty-cash', icon: Wallet },
     {
       label: 'ID Cards',
@@ -406,7 +418,18 @@ export const MENUS: Record<string, MenuItem[]> = {
       ],
     },
     { label: 'Library', page: 'library', icon: Library },
-    { label: 'Inventory', page: 'inventory', icon: Package },
+    {
+      label: 'Inventory',
+      page: 'inventory',
+      icon: Package,
+      children: [
+        { label: 'Items', page: 'inventory', icon: Package },
+        { label: 'Sell to Student', page: 'inventory-sell', icon: ShoppingCart },
+        { label: 'Sales History', page: 'inventory-sales', icon: Receipt },
+        { label: 'Categories', page: 'inventory-catalog', icon: Layers },
+        { label: 'Reports', page: 'inventory-reports', icon: TrendingUp },
+      ],
+    },
     { label: 'Petty Cash', page: 'petty-cash', icon: Wallet },
     { label: 'Notifications', page: 'notifications', icon: Bell },
     { label: 'Announcements', page: 'announcements', icon: Megaphone },

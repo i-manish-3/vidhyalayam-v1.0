@@ -140,6 +140,11 @@ model School {
   libraryBooks                LibraryBook[]
   bookIssues                  BookIssue[]
   inventoryItems              InventoryItem[]
+  inventoryCategories         InventoryCategory[]
+  inventoryItemVariants       InventoryItemVariant[]
+  inventoryStockMovements     InventoryStockMovement[]
+  inventorySales              InventorySale[]
+  inventorySaleReturns        InventorySaleReturn[]
   pettyCash                   PettyCashEntry[]
   notifications               Notification[]
   salaryStructures            SalaryStructure[]
@@ -373,6 +378,7 @@ model Student {
   withdrawals          StudentWithdrawal[]
   feeRefunds           StudentFeeRefund[]
   feeAuditLogs         FeeAuditLog[]
+  inventorySales       InventorySale[]
 
   @@index([schoolId])
   @@index([classId])
@@ -2668,16 +2674,19 @@ model BookIssue {
 // INVENTORY
 // ============================================
 
+// A product (e.g. "School Shirt", "Class V Book Set", "Trophy"). Stock and
+// prices live on its variants, not here. A plain item with no sizes/classes is
+// just an item with a single variant whose label is null.
 model InventoryItem {
   id           String    @id @default(cuid())
   schoolId     String
   name         String
-  category     String? // Furniture, Electronics, Stationery, Sports, Lab
-  quantity     Int       @default(0)
+  sku          String? // optional stock-keeping unit / code
+  category     String? // legacy free-text category (kept for back-compat)
+  categoryId   String? // structured category
   unit         String? // pcs, kg, box
-  unitPrice    Float?
-  totalPrice   Float?
-  supplier     String?
+  variantLabel String? // axis name for variants ("Size", "Class"); null = plain item
+  isSellable   Boolean   @default(true)
   purchaseDate DateTime?
   condition    String? // New, Good, Fair, Poor
   location     String?
@@ -2686,9 +2695,166 @@ model InventoryItem {
   updatedAt    DateTime  @updatedAt
   deletedAt    DateTime?
 
-  school School @relation(fields: [schoolId], references: [id])
+  school      School                   @relation(fields: [schoolId], references: [id])
+  categoryRef InventoryCategory?       @relation(fields: [categoryId], references: [id])
+  variants    InventoryItemVariant[]
+  movements   InventoryStockMovement[]
+  saleItems   InventorySaleItem[]
 
   @@index([schoolId])
+  @@index([categoryId])
+}
+
+// A stock-keeping unit under an item: one size of a shirt, one class's book set,
+// or the single default variant (label = null) of a plain item. Holds the
+// authoritative on-hand quantity and prices for that unit.
+model InventoryItemVariant {
+  id           String    @id @default(cuid())
+  schoolId     String
+  itemId       String
+  label        String? // "24", "Class V"; null for a plain item's default variant
+  sku          String?
+  quantity     Int       @default(0) // authoritative current on-hand stock
+  reorderLevel Int       @default(0) // low-stock threshold (0 = no alert)
+  unitPrice    Float? // cost price (purchase)
+  sellingPrice Float? // price charged to students on sale
+  sortOrder    Int       @default(0)
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+
+  school    School                   @relation(fields: [schoolId], references: [id])
+  item      InventoryItem            @relation(fields: [itemId], references: [id])
+  movements InventoryStockMovement[]
+  saleItems InventorySaleItem[]
+
+  @@index([schoolId])
+  @@index([itemId])
+}
+
+model InventoryCategory {
+  id          String    @id @default(cuid())
+  schoolId    String
+  name        String
+  description String?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  school School          @relation(fields: [schoolId], references: [id])
+  items  InventoryItem[]
+
+  @@unique([schoolId, name])
+  @@index([schoolId])
+}
+
+// Append-only stock ledger. Current stock lives on InventoryItemVariant.quantity
+// (maintained transactionally); this table is the audit trail of every change.
+model InventoryStockMovement {
+  id            String   @id @default(cuid())
+  schoolId      String
+  itemId        String // parent item (kept for grouping / reporting)
+  variantId     String // the variant whose stock changed
+  type          String // IN | OUT | ADJUST | SALE | RETURN
+  quantity      Int // positive magnitude of the change
+  balanceAfter  Int // variant.quantity after applying this movement
+  unitCost      Float? // for IN movements (purchase cost)
+  reason        String?
+  referenceType String? // purchase | sale | return | adjustment
+  referenceId   String? // e.g. InventorySale id
+  performedBy   String?
+  createdAt     DateTime @default(now())
+
+  school  School               @relation(fields: [schoolId], references: [id])
+  item    InventoryItem        @relation(fields: [itemId], references: [id])
+  variant InventoryItemVariant @relation(fields: [variantId], references: [id])
+
+  @@index([schoolId])
+  @@index([itemId])
+  @@index([variantId])
+  @@index([referenceId])
+  @@index([createdAt])
+}
+
+// A point-of-sale transaction selling inventory items to a student. The charge
+// posts to the student fee ledger (sourceType='inventory') and is paid in the
+// same transaction, producing a receipt via the shared fee receipt sequence.
+model InventorySale {
+  id            String    @id @default(cuid())
+  schoolId      String
+  studentId     String
+  receiptNumber String
+  saleDate      DateTime  @default(now())
+  subtotal      Float     @default(0)
+  discount      Float     @default(0)
+  totalAmount   Float     @default(0)
+  paymentMethod String    @default("cash") // cash | bank | adjustment
+  academicYear  String?
+  status        String    @default("completed") // completed | voided
+  notes         String?
+  soldBy        String?
+  ledgerDebitId String? // DEBIT ledger entry created for this sale
+  paymentId     String? // StudentFeePayment created for this sale
+  voidedAt      DateTime?
+  voidedBy      String?
+  voidReason    String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  school  School                @relation(fields: [schoolId], references: [id])
+  student Student               @relation(fields: [studentId], references: [id])
+  items   InventorySaleItem[]
+  returns InventorySaleReturn[]
+
+  @@unique([schoolId, receiptNumber])
+  @@index([schoolId])
+  @@index([studentId])
+  @@index([saleDate])
+  @@index([status])
+}
+
+model InventorySaleItem {
+  id           String  @id @default(cuid())
+  saleId       String
+  itemId       String
+  variantId    String
+  itemName     String // snapshot at sale time
+  variantLabel String? // snapshot of the variant label at sale time
+  quantity     Int
+  unitPrice    Float
+  lineTotal    Float
+  returnedQty  Int     @default(0)
+
+  sale    InventorySale        @relation(fields: [saleId], references: [id])
+  item    InventoryItem        @relation(fields: [itemId], references: [id])
+  variant InventoryItemVariant @relation(fields: [variantId], references: [id])
+
+  @@index([saleId])
+  @@index([itemId])
+  @@index([variantId])
+}
+
+// A (partial) return against a sale: restocks items and writes a refund/credit
+// reversal to the student ledger.
+model InventorySaleReturn {
+  id            String   @id @default(cuid())
+  schoolId      String
+  saleId        String
+  returnDate    DateTime @default(now())
+  refundAmount  Float    @default(0)
+  reason        String?
+  performedBy   String?
+  ledgerEntryId String? // ledger reversal entry written for this return
+  itemsJson     String? // JSON snapshot of returned [{saleItemId, quantity, refund}]
+  createdAt     DateTime @default(now())
+
+  school School        @relation(fields: [schoolId], references: [id])
+  sale   InventorySale @relation(fields: [saleId], references: [id])
+
+  @@index([schoolId])
+  @@index([saleId])
 }
 
 // ============================================

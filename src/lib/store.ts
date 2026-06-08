@@ -17,6 +17,7 @@ export type PageName =
   | 'exam-audit-log' | 'teacher-subject-assignments' | 'student-subject-mappings'
   | 'transport' | 'add-transport-route' | 'edit-transport-route' | 'transport-annual-setup' | 'drivers' | 'add-driver' | 'library' | 'inventory' | 'petty-cash'
   | 'hostel' | 'add-hostel' | 'edit-hostel' | 'hostel-annual-setup'
+  | 'inventory-sell' | 'inventory-sales' | 'inventory-catalog' | 'inventory-reports'
   | 'notifications' | 'announcements'
   | 'classes' | 'promote-student' | 'assign-roll-numbers' | 'subjects' | 'academic-years' | 'holidays' | 'add-subject' | 'add-class' | 'edit-class' | 'edit-subject'
   | 'settings' | 'support'
