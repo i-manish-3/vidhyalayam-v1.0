@@ -135,6 +135,8 @@ model School {
   reportCardTemplates         ReportCardTemplate[]
   examAuditLogs               ExamAuditLog[]
   transportRoutes             TransportRoute[]
+  hostels                     Hostel[]
+  hostelEvents                HostelEvent[]
   libraryBooks                LibraryBook[]
   bookIssues                  BookIssue[]
   inventoryItems              InventoryItem[]
@@ -519,6 +521,10 @@ model Admission {
   hostelName   String?
   hostelRoomNo String?
   hostelBedNo  String?
+  // Structured hostel snapshot (current allocation; mirrors transportRouteId/transportStop).
+  hostelId     String?
+  hostelRoomId String?
+  hostelBedId  String?
 
   // Accounts Info (Tab 4)
   bankAccountNumber  String?
@@ -2407,6 +2413,192 @@ model TransportEvent {
   toRouteId             String?
   fromStop              String?
   toStop                String?
+  effectiveDate         DateTime
+  cancelledMonths       String? // JSON: ["Oct","Nov","Dec"]
+  cancelledAmount       Float    @default(0)
+  reason                String?
+  performedBy           String?
+  cascadeFromWithdrawal Boolean  @default(false)
+  createdAt             DateTime @default(now())
+
+  school School @relation(fields: [schoolId], references: [id])
+
+  @@index([schoolId])
+  @@index([studentId, academicYear])
+  @@index([eventType])
+  @@index([createdAt])
+}
+
+// ============================================
+// HOSTEL
+// ============================================
+// Mirrors the transport subsystem (Route -> StopFare -> Allocation -> Event)
+// with an added physical-capacity layer: Hostel -> Room -> Bed. A bed holds at
+// most one student per academic year; the invariant is enforced application-side
+// with a SELECT ... FOR UPDATE on the bed row inside the allocation transaction
+// (same race-safety pattern transport uses on the Student row).
+//
+// As with transport, "Hostel Fee" is intentionally NOT a FeesHead — hostel
+// billing is monthly FeeCollection rows tagged sourceType='hostel' in the ledger.
+
+model Hostel {
+  id           String    @id @default(cuid())
+  schoolId     String
+  name         String
+  type         String? // boys | girls | mixed
+  academicYear String    @default("2025-2026")
+  feeMonths    String    @default("[]")
+  wardenName   String?
+  wardenPhone  String?
+  address      String?
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+
+  school      School             @relation(fields: [schoolId], references: [id])
+  rooms       HostelRoom[]
+  roomFares   HostelRoomFare[]
+  allocations HostelAllocation[]
+
+  @@index([schoolId])
+}
+
+model HostelRoom {
+  id         String    @id @default(cuid())
+  schoolId   String
+  hostelId   String
+  roomNumber String
+  roomType   String? // AC | Non-AC | 2-seater | 4-seater | dormitory, etc.
+  floor      String?
+  capacity   Int       @default(1) // bed count; kept in sync with HostelBed rows
+  isActive   Boolean   @default(true)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  deletedAt  DateTime?
+
+  hostel      Hostel             @relation(fields: [hostelId], references: [id])
+  beds        HostelBed[]
+  fares       HostelRoomFare[]
+  allocations HostelAllocation[]
+
+  @@unique([hostelId, roomNumber])
+  @@index([schoolId])
+  @@index([hostelId])
+}
+
+model HostelBed {
+  id         String    @id @default(cuid())
+  schoolId   String
+  hostelId   String
+  roomId     String
+  bedNumber  String
+  isActive   Boolean   @default(true)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  deletedAt  DateTime?
+
+  room        HostelRoom         @relation(fields: [roomId], references: [id])
+  allocations HostelAllocation[]
+
+  @@unique([roomId, bedNumber])
+  @@index([schoolId])
+  @@index([hostelId])
+  @@index([roomId])
+}
+
+// Per-year fare for a room. Mirrors TransportStopFare. fareAmount is always read
+// from the TARGET year's row on allocation/carry-forward, so a fare increase
+// flows through automatically and is never copied from a stale allocation.
+model HostelRoomFare {
+  id           String   @id @default(cuid())
+  schoolId     String
+  hostelId     String
+  roomId       String
+  academicYear String
+  fare         Float    @default(0)
+  feeMonths    String   @default("[]")
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  hostel Hostel     @relation(fields: [hostelId], references: [id])
+  room   HostelRoom @relation(fields: [roomId], references: [id])
+
+  @@unique([roomId, academicYear])
+  @@index([schoolId])
+  @@index([hostelId])
+  @@index([roomId])
+  @@index([academicYear])
+}
+
+model HostelAllocation {
+  id                    String    @id @default(cuid())
+  schoolId              String
+  studentId             String
+  hostelId              String
+  roomId                String
+  bedId                 String
+  academicYear          String    @default("2025-2026")
+  fareAmount            Float     @default(0)
+  feeMonths             String    @default("[]")
+  isActive              Boolean   @default(true)
+  // Window fields. Application sets effectiveFrom on creation and
+  // effectiveTo+isActive=false together on closure. isActive is kept for fast
+  // filtering; the canonical truth is effectiveTo (null OR future).
+  effectiveFrom         DateTime?
+  effectiveTo           DateTime?
+  changeReason          String? // INITIAL | CHANGED | WITHDRAWN | REJOIN |
+  // FARE_REVISION | YEAR_ROLLOVER | STUDENT_WITHDRAWN
+  previousAllocationId  String? // chains successive allocations within an AY
+  withdrawnBy           String? // userId who closed it
+  withdrawalNotes       String?
+  cascadeFromWithdrawal Boolean   @default(false) // true if closed because student TC'd
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  hostel Hostel     @relation(fields: [hostelId], references: [id])
+  room   HostelRoom @relation(fields: [roomId], references: [id])
+  bed    HostelBed  @relation(fields: [bedId], references: [id])
+
+  @@index([schoolId])
+  @@index([studentId])
+  @@index([academicYear])
+  @@index([effectiveTo])
+  @@index([previousAllocationId])
+  // Speeds up "is this (student, AY) already allocated?" and "is this bed taken
+  // this year?" checks. Race-safety for concurrent adds is enforced
+  // application-side: the POST /students/[id]/hostel endpoint takes a
+  // SELECT ... FOR UPDATE on the HostelBed row inside its $transaction before
+  // re-checking + inserting.
+  // In production, also create partial unique indexes:
+  //   CREATE UNIQUE INDEX CONCURRENTLY hostel_alloc_student_active_uniq
+  //     ON "HostelAllocation" ("studentId", "academicYear") WHERE "isActive" = true;
+  //   CREATE UNIQUE INDEX CONCURRENTLY hostel_alloc_bed_active_uniq
+  //     ON "HostelAllocation" ("bedId", "academicYear") WHERE "isActive" = true;
+  // Prisma's schema language can't express partial unique indexes, so these
+  // live here as TODOs for the production migration; the app already handles
+  // the P2002 case if they're added.
+  @@index([studentId, academicYear, isActive])
+  @@index([bedId, academicYear, isActive])
+}
+
+// Append-only history of every hostel state change for a student in an academic
+// year. Mirrors TransportEvent.
+model HostelEvent {
+  id                    String   @id @default(cuid())
+  schoolId              String
+  studentId             String
+  academicYear          String
+  eventType             String // CREATED | CHANGED | WITHDRAWN | REJOINED | FARE_REVISED
+  fromAllocationId      String?
+  toAllocationId        String?
+  fromHostelId          String?
+  toHostelId            String?
+  fromRoom              String?
+  toRoom                String?
+  fromBed               String?
+  toBed                 String?
   effectiveDate         DateTime
   cancelledMonths       String? // JSON: ["Oct","Nov","Dec"]
   cancelledAmount       Float    @default(0)

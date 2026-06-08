@@ -58,6 +58,7 @@ export async function POST(request: NextRequest) {
     const effectiveFrom = body.effectiveFrom ? new Date(body.effectiveFrom) : new Date()
     const remarks = typeof body.remarks === 'string' ? body.remarks.trim() : ''
     const carryForwardTransport = body.carryForwardTransport !== false
+    const carryForwardHostel = body.carryForwardHostel !== false
 
     if (!studentIds.length) {
       return apiError(400, 'Please select at least one student to promote.')
@@ -280,9 +281,131 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Pre-load hostel plan: for each student with an active hostel allocation in
+    // fromAcademicYear, decide whether toAcademicYear has a matching HostelRoomFare
+    // AND whether the same bed is still free that year. fareAmount is always read
+    // from the target year's HostelRoomFare so any fare increase flows through.
+    const hostelPlan = new Map<string, {
+      sourceAllocationId: string
+      hostelId: string
+      roomId: string
+      bedId: string
+      bedNumber: string | null
+      newFare: number | null
+      newFeeMonths: string | null
+      canCarry: boolean
+      reason?: string
+    }>()
+    const hostelWarnings: string[] = []
+    let hostelCarriedCount = 0
+
+    if (promotionType === 'class' && carryForwardHostel && toAcademicYear) {
+      const fromAllocations = await db.hostelAllocation.findMany({
+        where: {
+          schoolId: user.schoolId,
+          studentId: { in: studentIds },
+          academicYear: fromAcademicYear,
+          isActive: true,
+        },
+        orderBy: { updatedAt: 'desc' },
+      })
+
+      // Keep the most recent allocation per student.
+      const latestByStudent = new Map<string, typeof fromAllocations[number]>()
+      for (const alloc of fromAllocations) {
+        if (!latestByStudent.has(alloc.studentId)) latestByStudent.set(alloc.studentId, alloc)
+      }
+
+      // Students already allocated a hostel bed in the target year.
+      const existingTargetAllocs = await db.hostelAllocation.findMany({
+        where: {
+          schoolId: user.schoolId,
+          studentId: { in: Array.from(latestByStudent.keys()) },
+          academicYear: toAcademicYear,
+          isActive: true,
+        },
+        select: { studentId: true },
+      })
+      const alreadyAllocatedStudents = new Set(existingTargetAllocs.map((a) => a.studentId))
+
+      // Beds already taken in the target year — a bed can't carry forward onto an
+      // occupied seat.
+      const allocBedIds = Array.from(latestByStudent.values()).map((a) => a.bedId)
+      const occupiedTargetBeds = allocBedIds.length > 0
+        ? await db.hostelAllocation.findMany({
+            where: { schoolId: user.schoolId, bedId: { in: allocBedIds }, academicYear: toAcademicYear, isActive: true },
+            select: { bedId: true },
+          })
+        : []
+      const occupiedBedSet = new Set(occupiedTargetBeds.map((b) => b.bedId))
+
+      // Resolve target-year fares + bed numbers.
+      const roomIds = Array.from(new Set(Array.from(latestByStudent.values()).map((a) => a.roomId)))
+      const [targetFares, bedRows] = await Promise.all([
+        roomIds.length > 0
+          ? db.hostelRoomFare.findMany({
+              where: { schoolId: user.schoolId, roomId: { in: roomIds }, academicYear: toAcademicYear, isActive: true },
+              select: { roomId: true, fare: true, feeMonths: true },
+            })
+          : Promise.resolve([] as Array<{ roomId: string; fare: number; feeMonths: string }>),
+        allocBedIds.length > 0
+          ? db.hostelBed.findMany({ where: { id: { in: allocBedIds } }, select: { id: true, bedNumber: true, isActive: true, deletedAt: true } })
+          : Promise.resolve([] as Array<{ id: string; bedNumber: string; isActive: boolean; deletedAt: Date | null }>),
+      ])
+      const fareByRoom = new Map(targetFares.map((f) => [f.roomId, f]))
+      const bedById = new Map(bedRows.map((b) => [b.id, b]))
+
+      const studentNameById = new Map(students.map((s) => [s.id, `${s.firstName} ${s.lastName}`.trim()]))
+
+      for (const [studentId, alloc] of latestByStudent) {
+        const name = studentNameById.get(studentId) || 'Student'
+        const bed = bedById.get(alloc.bedId)
+        const fare = fareByRoom.get(alloc.roomId)
+
+        if (alreadyAllocatedStudents.has(studentId)) {
+          hostelWarnings.push(`${name}: already has a hostel allocation in ${toAcademicYear} — skipped to avoid overwrite.`)
+          hostelPlan.set(studentId, {
+            sourceAllocationId: alloc.id, hostelId: alloc.hostelId, roomId: alloc.roomId, bedId: alloc.bedId,
+            bedNumber: bed?.bedNumber ?? null, newFare: null, newFeeMonths: null, canCarry: false, reason: 'already-allocated',
+          })
+          continue
+        }
+        if (!bed || !bed.isActive || bed.deletedAt) {
+          hostelWarnings.push(`${name}: hostel bed no longer exists for ${toAcademicYear}. Please allocate manually.`)
+          hostelPlan.set(studentId, {
+            sourceAllocationId: alloc.id, hostelId: alloc.hostelId, roomId: alloc.roomId, bedId: alloc.bedId,
+            bedNumber: bed?.bedNumber ?? null, newFare: null, newFeeMonths: null, canCarry: false, reason: 'bed-missing',
+          })
+          continue
+        }
+        if (occupiedBedSet.has(alloc.bedId)) {
+          hostelWarnings.push(`${name}: their previous bed (${bed.bedNumber}) is already taken in ${toAcademicYear}. Please allocate manually.`)
+          hostelPlan.set(studentId, {
+            sourceAllocationId: alloc.id, hostelId: alloc.hostelId, roomId: alloc.roomId, bedId: alloc.bedId,
+            bedNumber: bed.bedNumber, newFare: null, newFeeMonths: null, canCarry: false, reason: 'bed-occupied',
+          })
+          continue
+        }
+        if (!fare) {
+          hostelWarnings.push(`${name}: hostel could not be carried forward (no matching room fare for ${toAcademicYear}). Please allocate manually.`)
+          hostelPlan.set(studentId, {
+            sourceAllocationId: alloc.id, hostelId: alloc.hostelId, roomId: alloc.roomId, bedId: alloc.bedId,
+            bedNumber: bed.bedNumber, newFare: null, newFeeMonths: null, canCarry: false, reason: 'fare-missing',
+          })
+          continue
+        }
+
+        hostelPlan.set(studentId, {
+          sourceAllocationId: alloc.id, hostelId: alloc.hostelId, roomId: alloc.roomId, bedId: alloc.bedId,
+          bedNumber: bed.bedNumber, newFare: fare.fare, newFeeMonths: fare.feeMonths, canCarry: true,
+        })
+      }
+    }
+
     const result = await db.$transaction(async (tx) => {
       let feeAssignmentsCreated = 0
       let transportCarried = 0
+      let hostelCarried = 0
 
       for (const student of students) {
         const previousEnrollment = student.academicEnrollments[0] || (student.classId
@@ -392,6 +515,45 @@ export async function POST(request: NextRequest) {
           transportCarried += 1
         }
 
+        const hPlan = hostelPlan.get(student.id)
+        if (hPlan && hPlan.canCarry && hPlan.newFare !== null) {
+          const newHostelAlloc = await tx.hostelAllocation.create({
+            data: {
+              schoolId: user.schoolId!,
+              studentId: student.id,
+              hostelId: hPlan.hostelId,
+              roomId: hPlan.roomId,
+              bedId: hPlan.bedId,
+              academicYear: toAcademicYear,
+              fareAmount: hPlan.newFare,
+              feeMonths: hPlan.newFeeMonths ?? '[]',
+              isActive: true,
+              effectiveFrom,
+              changeReason: 'YEAR_ROLLOVER',
+              previousAllocationId: hPlan.sourceAllocationId,
+            },
+          })
+          await tx.hostelEvent.create({
+            data: {
+              schoolId: user.schoolId!,
+              studentId: student.id,
+              academicYear: toAcademicYear,
+              eventType: 'CREATED',
+              fromAllocationId: hPlan.sourceAllocationId,
+              toAllocationId: newHostelAlloc.id,
+              toHostelId: hPlan.hostelId,
+              toRoom: hPlan.roomId,
+              toBed: hPlan.bedNumber,
+              effectiveDate: effectiveFrom,
+              cancelledAmount: 0,
+              reason: 'YEAR_ROLLOVER',
+              performedBy: user.userId,
+              cascadeFromWithdrawal: false,
+            },
+          })
+          hostelCarried += 1
+        }
+
         await tx.feeAuditLog.create({
           data: {
             schoolId: user.schoolId!,
@@ -413,10 +575,11 @@ export async function POST(request: NextRequest) {
         })
       }
 
-      return { promotedCount: students.length, feeAssignmentsCreated, transportCarried }
+      return { promotedCount: students.length, feeAssignmentsCreated, transportCarried, hostelCarried }
     })
 
     transportCarriedCount = result.transportCarried
+    hostelCarriedCount = result.hostelCarried
 
     const dueTotal = Array.from(duesByStudent.values()).reduce((sum, due) => sum + due, 0)
 
@@ -429,20 +592,34 @@ export async function POST(request: NextRequest) {
         }
       : null
 
+    const hostelEligibleCount = hostelPlan.size
+    const hostelSummary = promotionType === 'class' && carryForwardHostel
+      ? {
+          eligibleCount: hostelEligibleCount,
+          carriedCount: hostelCarriedCount,
+          warnings: hostelWarnings,
+        }
+      : null
+
     let promotionMessage: string
     if (promotionType === 'alumni') {
       promotionMessage = `${result.promotedCount} student(s) moved to alumni. Previous dues remain payable.`
     } else {
       const base = `${result.promotedCount} student(s) promoted to ${toClass?.name || 'selected class'}. Previous dues remain payable.`
+      let message = base
       if (transportSummary && transportSummary.eligibleCount > 0) {
         const skipped = transportSummary.eligibleCount - transportSummary.carriedCount
-        const transportLine = skipped > 0
+        message += skipped > 0
           ? ` Transport: ${transportSummary.carriedCount} carried forward, ${skipped} need manual allocation.`
           : ` Transport: ${transportSummary.carriedCount} carried forward.`
-        promotionMessage = base + transportLine
-      } else {
-        promotionMessage = base
       }
+      if (hostelSummary && hostelSummary.eligibleCount > 0) {
+        const skipped = hostelSummary.eligibleCount - hostelSummary.carriedCount
+        message += skipped > 0
+          ? ` Hostel: ${hostelSummary.carriedCount} carried forward, ${skipped} need manual allocation.`
+          : ` Hostel: ${hostelSummary.carriedCount} carried forward.`
+      }
+      promotionMessage = message
     }
 
     return NextResponse.json({
@@ -452,6 +629,7 @@ export async function POST(request: NextRequest) {
       toAcademicYear,
       dueTotal,
       transport: transportSummary,
+      hostel: hostelSummary,
       message: promotionMessage,
     }, { status: 201 })
   } catch (error) {

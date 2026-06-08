@@ -355,6 +355,20 @@ export async function GET(
       orderBy: { academicYear: 'desc' },
     })
 
+    const hostelAllocations = await db.hostelAllocation.findMany({
+      where: {
+        schoolId: user.schoolId,
+        studentId: student.id,
+        isActive: true,
+      },
+      include: {
+        hostel: { select: { id: true, name: true, type: true } },
+        room: { select: { id: true, roomNumber: true, roomType: true } },
+        bed: { select: { id: true, bedNumber: true } },
+      },
+      orderBy: { academicYear: 'desc' },
+    })
+
     // If PARENT role and student is disabled, block access
     if (user.role === 'PARENT' && !student.isActive) {
       return apiError(403, 'This student\'s account has been disabled by the school. Please contact the school administration for more information.')
@@ -481,6 +495,7 @@ export async function GET(
       siblings,
       sibling: siblings[0] || null, // legacy field for any frontend not yet updated
       transportAllocations,
+      hostelAllocations,
       academicYearContext,
     })
   } catch (error) {

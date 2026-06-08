@@ -216,21 +216,76 @@ export async function POST(
         })
       }
 
+      // 2b. Close every active hostel allocation for this AY.
+      const hostelAllocations = await tx.hostelAllocation.findMany({
+        where: {
+          schoolId: user.schoolId!,
+          studentId,
+          academicYear,
+          isActive: true,
+        },
+        select: { id: true, hostelId: true, roomId: true, bedId: true },
+      })
+
+      const hostelResults: WindowChangeResult[] = []
+      for (const alloc of hostelAllocations) {
+        const bed = await tx.hostelBed.findUnique({ where: { id: alloc.bedId }, select: { bedNumber: true } })
+        const r = await applyAssignmentWindow({
+          tx,
+          schoolId: user.schoolId!,
+          studentId,
+          scope: 'hostel',
+          hostelAllocationId: alloc.id,
+          effectiveTo: effectiveDate,
+          reason: 'STUDENT_WITHDRAWN',
+          reasonNotes,
+          performedBy: user.userId,
+          cascadeFromWithdrawal: true,
+          mode: 'commit',
+        })
+        hostelResults.push(r)
+        // Append a HostelEvent row so the timeline reflects the cascade.
+        await tx.hostelEvent.create({
+          data: {
+            schoolId: user.schoolId!,
+            studentId,
+            academicYear,
+            eventType: 'WITHDRAWN',
+            fromAllocationId: alloc.id,
+            fromHostelId: alloc.hostelId,
+            fromRoom: alloc.roomId,
+            fromBed: bed?.bedNumber ?? null,
+            effectiveDate,
+            cancelledMonths: JSON.stringify(
+              r.cancelledItems.map((i) => i.installmentName).filter(Boolean),
+            ),
+            cancelledAmount: r.cancelledAmount,
+            reason: 'STUDENT_WITHDRAWN',
+            performedBy: user.userId,
+            cascadeFromWithdrawal: true,
+          },
+        })
+      }
+
       // 3. Aggregate everything for the StudentWithdrawal audit row.
       const allCancelled = [
         ...academicResults.flatMap((r) => r.cancelledItems),
         ...transportResults.flatMap((r) => r.cancelledItems),
+        ...hostelResults.flatMap((r) => r.cancelledItems),
       ]
       const allSkipped = [
         ...academicResults.flatMap((r) => r.skippedDueToAllocations),
         ...transportResults.flatMap((r) => r.skippedDueToAllocations),
+        ...hostelResults.flatMap((r) => r.skippedDueToAllocations),
       ]
       const cancelledAmount =
         academicResults.reduce((s, r) => s + r.cancelledAmount, 0) +
-        transportResults.reduce((s, r) => s + r.cancelledAmount, 0)
+        transportResults.reduce((s, r) => s + r.cancelledAmount, 0) +
+        hostelResults.reduce((s, r) => s + r.cancelledAmount, 0)
       const totalRefundDue =
         academicResults.reduce((s, r) => s + r.totalRefundable, 0) +
-        transportResults.reduce((s, r) => s + r.totalRefundable, 0)
+        transportResults.reduce((s, r) => s + r.totalRefundable, 0) +
+        hostelResults.reduce((s, r) => s + r.totalRefundable, 0)
 
       // 4. Create the StudentWithdrawal row.
       const withdrawal = await tx.studentWithdrawal.create({
@@ -248,6 +303,10 @@ export async function POST(
               skippedDueToAllocations: r.skippedDueToAllocations,
             })),
             transport: transportResults.map((r) => ({
+              cancelledItems: r.cancelledItems,
+              skippedDueToAllocations: r.skippedDueToAllocations,
+            })),
+            hostel: hostelResults.map((r) => ({
               cancelledItems: r.cancelledItems,
               skippedDueToAllocations: r.skippedDueToAllocations,
             })),
@@ -285,6 +344,7 @@ export async function POST(
         totalRefundDue,
         academicAssignmentsClosed: academicResults.length,
         transportAllocationsClosed: transportResults.length,
+        hostelAllocationsClosed: hostelResults.length,
       }
     })
 

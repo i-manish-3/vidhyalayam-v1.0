@@ -803,20 +803,24 @@ export function FeeCollectionsPage() {
     }
     return Array.from(map.values()).sort((a, b) => comparePeriods(a.period, b.period))
   }, [currentAllOtherTermItems])
-  const previousDueOptions = useMemo(() => {
-    const map = new Map<string, { period: string; academicYear?: string | null; transport: boolean; amount: number; count: number }>()
+  // Previous-session dues are rolled up into ONE row per past academic year
+  // instead of one checkbox per month/head. The cashier sees a single
+  // "Previous Session Dues" line (with the carried-forward total) that ticks or
+  // unticks every arrear for that session at once. Each entry carries the
+  // underlying item ids + selection keys so the toggle stays in sync with both
+  // selectedCollectionIds and selectedPeriods.
+  const previousDueByYear = useMemo(() => {
+    const map = new Map<string, { academicYear: string; amount: number; count: number; ids: string[]; keys: string[] }>()
     for (const item of previousDueItems) {
-      const key = collectionSelectionKey(item)
-      const option = map.get(key) || { period: itemPeriod(item), academicYear: item.academicYear, transport: isTransportItem(item), amount: 0, count: 0 }
-      option.amount += remainingAmount(item)
-      option.count += 1
-      map.set(key, option)
+      const ay = typeof item.academicYear === 'string' ? item.academicYear : 'Past'
+      const entry = map.get(ay) || { academicYear: ay, amount: 0, count: 0, ids: [], keys: [] }
+      entry.amount += remainingAmount(item)
+      entry.count += 1
+      entry.ids.push(item.id)
+      entry.keys.push(collectionSelectionKey(item))
+      map.set(ay, entry)
     }
-    return Array.from(map.values()).sort((a, b) => {
-      const yearCompare = academicYearKey(a.academicYear).localeCompare(academicYearKey(b.academicYear))
-      if (yearCompare !== 0) return yearCompare
-      return comparePeriods(a.period, b.period)
-    })
+    return Array.from(map.values()).sort((a, b) => a.academicYear.localeCompare(b.academicYear))
   }, [previousDueItems])
   const selectedItems = useMemo(
     () => studentCollections.filter((item) => selectedCollectionIds.includes(item.id)),
@@ -1013,11 +1017,13 @@ export function FeeCollectionsPage() {
         } else if (group.bucket === 'overdue_term') {
           // Never show "Previous Dues" prefix for term fees, even if overdue
           label = periodList ? `${group.feeHeadName} (${periodList})` : group.feeHeadName
-        } else if (!shouldShowPreviousLabel && (group.bucket === 'prev_month' || group.bucket === 'prev_session')) {
-          // For non-transport/non-tuition fees in prev_month/prev_session, show without prefix
+        } else if (!shouldShowPreviousLabel && group.bucket === 'prev_month') {
+          // For non-transport/non-tuition fees in prev_month, show without prefix
           label = periodList ? `${group.feeHeadName} (${periodList})` : group.feeHeadName
         } else {
-          // Show prefix for transport/tuition in prev_month/prev_session buckets
+          // Every past-session head (Admission, Annual, Exam Qn included) gets the
+          // "Previous Session Dues — Head — Year" label so the slip and this
+          // summary both name the session the carried-forward due belongs to.
           const headPart = group.feeHeadName
           const monthPart = periodList ? ` (${periodList})` : ''
           const yearPart =
@@ -1068,6 +1074,22 @@ export function FeeCollectionsPage() {
       if (isSelected) return current.filter((id) => !ids.includes(id))
       return Array.from(new Set([...current, ...ids]))
     })
+  }
+
+  // Tick/untick every arrear of a past session in one shot. Mirrors the
+  // (selectedPeriods + selectedCollectionIds) bookkeeping that togglePeriod does
+  // for a single period, but across all ids/keys carried by the year entry.
+  const togglePreviousDueYear = (ids: string[], keys: string[], allSelected: boolean) => {
+    setSelectedPeriods((current) =>
+      allSelected
+        ? current.filter((key) => !keys.includes(key))
+        : Array.from(new Set([...current, ...keys]))
+    )
+    setSelectedCollectionIds((current) =>
+      allSelected
+        ? current.filter((id) => !ids.includes(id))
+        : Array.from(new Set([...current, ...ids]))
+    )
   }
 
   const selectAllDues = () => {
@@ -1593,29 +1615,34 @@ export function FeeCollectionsPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2.5 px-3 py-2.5">
-                  {previousDueOptions.length > 0 && (
+                  {previousDueByYear.length > 0 && (
                     <div className="rounded-lg border border-red-200 bg-red-50/60 p-2.5 dark:border-red-500/30 dark:bg-red-500/10">
                       <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-red-900 dark:text-red-300">
                         <span className="size-2 rounded-full bg-red-500" />
                         Previous Session Dues
                       </div>
-                      <div className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
-                        {previousDueOptions.map((option) => {
-                          const checked = selectedPeriods.includes(periodSelectionKey(option.period, option.transport, option.academicYear))
+                      <div className="grid gap-1.5 sm:grid-cols-2">
+                        {previousDueByYear.map((entry) => {
+                          const checked = entry.keys.length > 0 && entry.keys.every((key) => selectedPeriods.includes(key))
                           return (
                             <label
-                              key={`${option.academicYear}-${option.period}-${option.transport}`}
+                              key={entry.academicYear}
                               className={cn(
-                                'flex cursor-pointer items-center gap-2 rounded-md border bg-white px-2 py-1.5 text-xs transition-colors hover:border-red-400 dark:bg-background',
+                                'flex cursor-pointer items-center gap-2 rounded-md border bg-white px-2 py-2 text-xs transition-colors hover:border-red-400 dark:bg-background',
                                 checked && 'border-red-400 bg-red-50 dark:bg-red-500/20'
                               )}
                             >
                               <Checkbox
                                 checked={checked}
-                                onCheckedChange={() => togglePeriod(option.period, option.transport, option.academicYear || null)}
+                                onCheckedChange={() => togglePreviousDueYear(entry.ids, entry.keys, checked)}
                               />
-                              <span className="truncate">{option.academicYear || 'Past'} · {option.transport ? 'Transport ' : ''}{option.period}</span>
-                              <span className="ml-auto font-semibold tabular-nums text-red-700 dark:text-red-400">{money(option.amount)}</span>
+                              <span className="truncate">
+                                {entry.academicYear} · Previous Session Dues
+                                <span className="ml-1 text-[10px] font-normal text-red-700/70 dark:text-red-400/70">
+                                  ({entry.count} {entry.count === 1 ? 'item' : 'items'})
+                                </span>
+                              </span>
+                              <span className="ml-auto font-semibold tabular-nums text-red-700 dark:text-red-400">{money(entry.amount)}</span>
                             </label>
                           )
                         })}

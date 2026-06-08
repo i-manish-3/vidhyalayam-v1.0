@@ -3,7 +3,7 @@ import { cacheSchoolBranding } from '@/lib/branding'
 
 export type PageName =
   | 'dashboard'
-  | 'students' | 'teachers' | 'add-teacher' | 'parents' | 'admission-form' | 'student-detail' | 'bulk-admission'
+  | 'students' | 'teachers' | 'add-teacher' | 'parents' | 'admission-form' | 'student-detail' | 'bulk-admission' | 'alumni'
   | 'attendance' | 'mark-attendance' | 'view-attendance' | 'attendance-audit-log' | 'attendance-reports' | 'attendance-kiosk' | 'rfid-devices' | 'student-rfid-cards' | 'rfid-card-assign' | 'rfid-audit'
   | 'fees-heads' | 'fees-groups' | 'fees-structures' | 'fee-collections' | 'fee-change-group' | 'fee-demand-config' | 'fee-demand-slips' | 'fee-audit-log' | 'fee-reports'
   | 'salary' | 'salary-structure' | 'salary-payments' | 'salary-advance'
@@ -16,6 +16,7 @@ export type PageName =
   | 'exam-admit-cards'
   | 'exam-audit-log' | 'teacher-subject-assignments' | 'student-subject-mappings'
   | 'transport' | 'add-transport-route' | 'edit-transport-route' | 'transport-annual-setup' | 'drivers' | 'add-driver' | 'library' | 'inventory' | 'petty-cash'
+  | 'hostel' | 'add-hostel' | 'edit-hostel' | 'hostel-annual-setup'
   | 'notifications' | 'announcements'
   | 'classes' | 'promote-student' | 'assign-roll-numbers' | 'subjects' | 'academic-years' | 'holidays' | 'add-subject' | 'add-class' | 'edit-class' | 'edit-subject'
   | 'settings' | 'support'

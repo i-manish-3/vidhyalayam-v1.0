@@ -19,6 +19,7 @@ const CACHEABLE_ENDPOINTS = new Set([
   '/api/school/sections',
   '/api/school/fees/groups',
   '/api/school/transport/routes',
+  '/api/school/hostels',
 ])
 
 function getCacheKey(url: string): string {
@@ -67,6 +68,8 @@ function clearRelatedCache(path: string): void {
     { path: '/api/school/fees/groups', clear: ['/api/school/fees/groups'] },
     { path: '/api/school/transport/routes', clear: ['/api/school/transport/routes'] },
     { path: '/api/school/transport/annual-setup', clear: ['/api/school/transport/routes'] },
+    { path: '/api/school/hostels', clear: ['/api/school/hostels'] },
+    { path: '/api/school/hostels/annual-setup', clear: ['/api/school/hostels'] },
   ]
   
   for (const pattern of patterns) {

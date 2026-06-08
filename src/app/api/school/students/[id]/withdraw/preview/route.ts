@@ -132,23 +132,49 @@ export async function POST(
           }),
         )
       }
-      return { academicResults, transportResults }
+      const hostelAllocations = await tx.hostelAllocation.findMany({
+        where: { schoolId: user.schoolId!, studentId, academicYear, isActive: true },
+        select: { id: true },
+      })
+      const hostelResults: WindowChangeResult[] = []
+      for (const alloc of hostelAllocations) {
+        hostelResults.push(
+          await applyAssignmentWindow({
+            tx,
+            schoolId: user.schoolId!,
+            studentId,
+            scope: 'hostel',
+            hostelAllocationId: alloc.id,
+            effectiveTo: effectiveDate,
+            reason: 'STUDENT_WITHDRAWN',
+            reasonNotes,
+            performedBy: user.userId,
+            cascadeFromWithdrawal: true,
+            mode: 'preview',
+          }),
+        )
+      }
+      return { academicResults, transportResults, hostelResults }
     })
 
     const allCancelled = [
       ...result.academicResults.flatMap((r) => r.cancelledItems),
       ...result.transportResults.flatMap((r) => r.cancelledItems),
+      ...result.hostelResults.flatMap((r) => r.cancelledItems),
     ]
     const allSkipped = [
       ...result.academicResults.flatMap((r) => r.skippedDueToAllocations),
       ...result.transportResults.flatMap((r) => r.skippedDueToAllocations),
+      ...result.hostelResults.flatMap((r) => r.skippedDueToAllocations),
     ]
     const cancelledAmount =
       result.academicResults.reduce((s, r) => s + r.cancelledAmount, 0) +
-      result.transportResults.reduce((s, r) => s + r.cancelledAmount, 0)
+      result.transportResults.reduce((s, r) => s + r.cancelledAmount, 0) +
+      result.hostelResults.reduce((s, r) => s + r.cancelledAmount, 0)
     const totalRefundDue =
       result.academicResults.reduce((s, r) => s + r.totalRefundable, 0) +
-      result.transportResults.reduce((s, r) => s + r.totalRefundable, 0)
+      result.transportResults.reduce((s, r) => s + r.totalRefundable, 0) +
+      result.hostelResults.reduce((s, r) => s + r.totalRefundable, 0)
 
     return NextResponse.json({
       success: true,
@@ -161,6 +187,7 @@ export async function POST(
       totalRefundDue,
       academicAssignmentsClosed: result.academicResults.length,
       transportAllocationsClosed: result.transportResults.length,
+      hostelAllocationsClosed: result.hostelResults.length,
       alreadyWithdrawn: existing
         ? {
             withdrawalId: existing.id,

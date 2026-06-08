@@ -362,6 +362,75 @@ export async function selectDueTransportFees(
   }))
 }
 
+// Fetch unpaid hostel fees for all months up to the selected month.
+// Mirrors selectDueTransportFees: hostel fees are FeeCollection rows with
+// sourceType='hostel' in the ledger, billed monthly, and ALL unpaid months are
+// included in the main slip (not pushed to "Previous Dues").
+export async function selectDueHostelFees(
+  tx: FeeTx,
+  schoolId: string,
+  studentId: string,
+  month: number,
+  year: number,
+  upToMonth?: number | null
+): Promise<Array<{
+  id: string
+  feeHeadName: string
+  installmentName: string
+  amount: number
+  dueDate: Date | null
+  academicYear: string | null
+}>> {
+  const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+  const targetMonth = upToMonth || month
+  const targetMonths: string[] = []
+  const academicYearStart = 4 // April = month 4
+
+  if (targetMonth >= academicYearStart) {
+    for (let m = academicYearStart; m <= targetMonth; m++) {
+      targetMonths.push(MONTH_NAMES[m - 1])
+    }
+  } else {
+    for (let m = academicYearStart; m <= 12; m++) {
+      targetMonths.push(MONTH_NAMES[m - 1])
+    }
+    for (let m = 1; m <= targetMonth; m++) {
+      targetMonths.push(MONTH_NAMES[m - 1])
+    }
+  }
+
+  const debits = await tx.studentFeeLedgerEntry.findMany({
+    where: {
+      schoolId,
+      studentId,
+      entryType: 'DEBIT',
+      sourceType: 'hostel',
+      deletedAt: null,
+      status: { in: ['open', 'partial'] },
+      balanceAmount: { gt: 0 },
+      installmentName: { in: targetMonths },
+    },
+    select: {
+      id: true,
+      feeHeadName: true,
+      installmentName: true,
+      balanceAmount: true,
+      dueDate: true,
+      academicYear: true,
+    },
+  })
+
+  return debits.map((d) => ({
+    id: d.id,
+    feeHeadName: d.feeHeadName || 'Hostel Fee',
+    installmentName: d.installmentName || '',
+    amount: d.balanceAmount,
+    dueDate: d.dueDate,
+    academicYear: d.academicYear,
+  }))
+}
+
 export async function generateMonthlyDemandSlip(
   tx: FeeTx,
   args: GenerateSlipArgs
@@ -439,15 +508,17 @@ export async function generateMonthlyDemandSlip(
 
   const dueItems = await selectDueAssignmentItems(tx, schoolId, studentId, month, year, null, upToMonth)
   const transportFees = await selectDueTransportFees(tx, schoolId, studentId, month, year, upToMonth)
+  const hostelFees = await selectDueHostelFees(tx, schoolId, studentId, month, year, upToMonth)
 
-  if (dueItems.length === 0 && transportFees.length === 0) {
+  if (dueItems.length === 0 && transportFees.length === 0 && hostelFees.length === 0) {
     return { status: 'skipped', reason: 'no-items' }
   }
 
   // Calculate subtotal - skip if total amount is 0
   const assignmentSubtotal = roundMoney(dueItems.reduce((s, i) => s + i.amount, 0))
   const transportSubtotal = roundMoney(transportFees.reduce((s, i) => s + i.amount, 0))
-  const subtotal = roundMoney(assignmentSubtotal + transportSubtotal)
+  const hostelSubtotal = roundMoney(hostelFees.reduce((s, i) => s + i.amount, 0))
+  const subtotal = roundMoney(assignmentSubtotal + transportSubtotal + hostelSubtotal)
 
   if (subtotal === 0) {
     return { status: 'skipped', reason: 'no-items' }
@@ -482,6 +553,15 @@ export async function generateMonthlyDemandSlip(
     if (monthIndex >= 0) {
       const tfYM = year * 12 + monthIndex
       if (tfYM < earliestMonthYM) earliestMonthYM = tfYM
+    }
+  }
+
+  // Check hostel fees for the earliest month
+  for (const hf of hostelFees) {
+    const monthIndex = MONTH_NAMES.indexOf(hf.installmentName)
+    if (monthIndex >= 0) {
+      const hfYM = year * 12 + monthIndex
+      if (hfYM < earliestMonthYM) earliestMonthYM = hfYM
     }
   }
 
@@ -587,6 +667,34 @@ export async function generateMonthlyDemandSlip(
     })
   }
 
+  // Add hostel fees to the invoice
+  for (const hostelFee of hostelFees) {
+    const line = await tx.studentFeeInvoiceLine.create({
+      data: {
+        invoiceId: invoice.id,
+        assignmentItemId: null, // Hostel fees don't have assignment items
+        feeHeadName: hostelFee.feeHeadName,
+        installmentName: hostelFee.installmentName,
+        amount: hostelFee.amount,
+        totalAmount: hostelFee.amount,
+        dueDate,
+      },
+    })
+
+    // Link the existing hostel debit to this invoice
+    await tx.studentFeeLedgerEntry.updateMany({
+      where: {
+        id: hostelFee.id,
+        schoolId,
+        studentId,
+      },
+      data: {
+        invoiceId: invoice.id,
+        invoiceLineId: line.id,
+      },
+    })
+  }
+
   // Enhanced audit logging with snapshots
   await logFeeTransaction(
     tx,
@@ -602,9 +710,10 @@ export async function generateMonthlyDemandSlip(
         studentId,
         month,
         year,
-        itemCount: dueItems.length + transportFees.length,
+        itemCount: dueItems.length + transportFees.length + hostelFees.length,
         assignmentItemCount: dueItems.length,
         transportItemCount: transportFees.length,
+        hostelItemCount: hostelFees.length,
         subtotal,
         previousBalance,
         totalAmount,
@@ -621,7 +730,7 @@ export async function generateMonthlyDemandSlip(
     totalAmount,
     subtotal,
     previousBalance,
-    itemCount: dueItems.length + transportFees.length,
+    itemCount: dueItems.length + transportFees.length + hostelFees.length,
   }
 }
 
@@ -671,7 +780,8 @@ export async function generateBulkDemandSlips(args: BulkArgs): Promise<BulkResul
           upToMonth
         )
         const transportFees = await selectDueTransportFees(tx, schoolId, studentId, month, year, upToMonth)
-        if (items.length === 0 && transportFees.length === 0) {
+        const hostelFees = await selectDueHostelFees(tx, schoolId, studentId, month, year, upToMonth)
+        if (items.length === 0 && transportFees.length === 0 && hostelFees.length === 0) {
           preview.push({ studentId, itemCount: 0, subtotal: 0, previousBalance: 0, totalAmount: 0, skipReason: 'no-items' })
           skipped += 1
           continue
@@ -696,6 +806,14 @@ export async function generateBulkDemandSlips(args: BulkArgs): Promise<BulkResul
           }
         }
 
+        for (const hf of hostelFees) {
+          const monthIndex = MONTH_NAMES.indexOf(hf.installmentName)
+          if (monthIndex >= 0) {
+            const hfYM = year * 12 + monthIndex
+            if (hfYM < earliestMonthYM) earliestMonthYM = hfYM
+          }
+        }
+
         const earliestYear = Math.floor(earliestMonthYM / 12)
         const earliestMonth = (earliestMonthYM % 12) + 1
         const firstOfEarliestMonth = new Date(Date.UTC(earliestYear, earliestMonth - 1, 1, 0, 0, 0, 0))
@@ -703,9 +821,10 @@ export async function generateBulkDemandSlips(args: BulkArgs): Promise<BulkResul
         const previousBalance = await computePreviousBalance(tx, schoolId, studentId, firstOfEarliestMonth)
         const assignmentSubtotal = roundMoney(items.reduce((s, i) => s + i.amount, 0))
         const transportSubtotal = roundMoney(transportFees.reduce((s, i) => s + i.amount, 0))
-        const subtotal = roundMoney(assignmentSubtotal + transportSubtotal)
+        const hostelSubtotal = roundMoney(hostelFees.reduce((s, i) => s + i.amount, 0))
+        const subtotal = roundMoney(assignmentSubtotal + transportSubtotal + hostelSubtotal)
         const totalAmount = roundMoney(subtotal + previousBalance)
-        preview.push({ studentId, itemCount: items.length + transportFees.length, subtotal, previousBalance, totalAmount })
+        preview.push({ studentId, itemCount: items.length + transportFees.length + hostelFees.length, subtotal, previousBalance, totalAmount })
         total = roundMoney(total + totalAmount)
         success += 1
       }

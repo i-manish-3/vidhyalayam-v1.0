@@ -1,7 +1,6 @@
 'use client'
 
 import { useMemo, useRef, useState, Fragment } from 'react'
-import { useRouter } from 'next/navigation'
 import Papa from 'papaparse'
 import { api } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
@@ -25,7 +24,6 @@ import {
 import {
   BULK_TEMPLATE_COLUMNS,
   QUICK_TEMPLATE_COLUMNS,
-  ADVANCED_EXTRA_COLUMNS,
   type RawRow,
   type RowDiagnostic,
   type NormalizedRow,
@@ -117,7 +115,6 @@ const SAMPLE_ROWS: Array<Partial<Record<(typeof BULK_TEMPLATE_COLUMNS)[number], 
 ]
 
 export function BulkAdmissionPage() {
-  const router = useRouter()
   const { toast } = useToast()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -334,6 +331,11 @@ export function BulkAdmissionPage() {
       category: parsed.category ?? '',
       nationality: parsed.nationality,
       previousSchool: parsed.previousSchool ?? '',
+      // parsed drops the original sibling admission number (only the resolved
+      // id survives); the by-index raw row is used in practice so this is blank.
+      siblingAdmissionNumber: '',
+      routeName: parsed.transportRouteName ?? '',
+      stopName: parsed.transportStopName ?? '',
     }
   }
 
@@ -449,7 +451,7 @@ export function BulkAdmissionPage() {
                 <div>
                   <p className="font-semibold text-foreground">Optional (Advanced template only)</p>
                   <p className="text-muted-foreground mt-0.5">
-                    address, city, state, pincode, aadhaarNumber, bloodGroup, religion, category, nationality, previousSchool
+                    address, city, state, pincode, aadhaarNumber, bloodGroup, religion, category, nationality, previousSchool, siblingAdmissionNumber, routeName, stopName
                   </p>
                 </div>
               </div>
@@ -462,6 +464,8 @@ export function BulkAdmissionPage() {
                   <li>Siblings: use the same <code>fatherPhone</code> — they&apos;ll automatically share family ID and one parent login.</li>
                   <li>Migrating from another system: paste your old admission number into the <code>admissionNumber</code> column to keep it.</li>
                   <li>If <code>admissionNumber</code> is blank, one will be auto-generated (STD-{new Date().getFullYear()}-001, etc).</li>
+                  <li>Link to an already-enrolled sibling: put their admission number in <code>siblingAdmissionNumber</code> (Advanced) — shares family ID and parent login.</li>
+                  <li>Transport: fill both <code>routeName</code> and <code>stopName</code> (Advanced) — the stop must have a fare configured for this year. Monthly transport fees are added automatically.</li>
                   <li>If no fee structure exists for a class+group, the student is still admitted — without fees. Set it up later and assign.</li>
                 </ul>
               </div>

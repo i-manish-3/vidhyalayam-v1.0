@@ -20,7 +20,7 @@
 
 import type { Prisma } from '@prisma/client'
 
-export type WindowScope = 'academic' | 'transport'
+export type WindowScope = 'academic' | 'transport' | 'hostel'
 
 export type WindowMode = 'preview' | 'commit'
 
@@ -48,6 +48,8 @@ export interface ApplyWindowArgs {
   assignmentId?: string
   /** Required when scope='transport'. */
   allocationId?: string
+  /** Required when scope='hostel'. */
+  hostelAllocationId?: string
   /** Last day of liability — items with dueDate strictly after are candidates. */
   effectiveTo: Date
   reason: WindowReason
@@ -104,6 +106,10 @@ export async function applyAssignmentWindow(args: ApplyWindowArgs): Promise<Wind
   if (scope === 'transport') {
     if (!args.allocationId) throw new Error('allocationId required for scope=transport')
     return applyTransportWindow(args, args.allocationId)
+  }
+  if (scope === 'hostel') {
+    if (!args.hostelAllocationId) throw new Error('hostelAllocationId required for scope=hostel')
+    return applyHostelWindow(args, args.hostelAllocationId)
   }
   // Exhaustive guard
   const _never: never = scope
@@ -387,8 +393,133 @@ async function applyTransportWindow(
   })
 }
 
-// ─── SHARED CANCELLATION RUNNER ────────────────────────────────────────────
+// ─── HOSTEL ──────────────────────────────────────────────────────────────
 
+async function applyHostelWindow(
+  args: ApplyWindowArgs,
+  hostelAllocationId: string,
+): Promise<WindowChangeResult> {
+  const { tx, schoolId, studentId, effectiveTo, reason } = args
+
+  const allocation = await tx.hostelAllocation.findFirst({
+    where: { id: hostelAllocationId, schoolId, studentId },
+    select: {
+      id: true,
+      academicYear: true,
+      isActive: true,
+      effectiveTo: true,
+      fareAmount: true,
+    },
+  })
+  if (!allocation) {
+    throw new Error('Hostel allocation not found or access denied')
+  }
+
+  // Hostel debits are NOT linked to assignmentItem. They're identified by
+  // sourceType='hostel' + studentId + dueDate falling AFTER effectiveTo.
+  // Each DEBIT has a 1:1 FeeCollection via feeCollectionId.
+  const candidates = await tx.studentFeeLedgerEntry.findMany({
+    where: {
+      schoolId,
+      studentId,
+      sourceType: 'hostel',
+      entryType: 'DEBIT',
+      deletedAt: null,
+      status: { not: 'cancelled' },
+      academicYear: allocation.academicYear,
+      OR: [{ dueDate: { gt: effectiveTo } }, { dueDate: null }],
+    },
+    select: {
+      id: true,
+      feeCollectionId: true,
+      feeHeadName: true,
+      installmentName: true,
+      debit: true,
+      dueDate: true,
+    },
+  })
+  const candidateItems = candidates.map((c) => ({
+    id: c.id,
+    feeHeadName: c.feeHeadName || 'Hostel Fee',
+    installmentName: c.installmentName,
+    amount: c.debit,
+    dueDate: c.dueDate,
+  }))
+  const debitToCollection = new Map(candidates.map((c) => [c.id, c.feeCollectionId]))
+
+  return runCancellation({
+    args,
+    candidates: candidateItems,
+    findAllocations: async (debitIds) => {
+      const allocSums = await tx.studentFeeLedgerAllocation.groupBy({
+        by: ['debitEntryId'],
+        where: {
+          deletedAt: null,
+          debitEntryId: { in: debitIds },
+          amount: { gt: 0 },
+        },
+        _sum: { amount: true },
+      })
+      return new Map(allocSums.map((r) => [r.debitEntryId, r._sum.amount || 0]))
+    },
+    cancelItem: async (debitIds) => {
+      await tx.studentFeeLedgerEntry.updateMany({
+        where: { id: { in: debitIds }, deletedAt: null },
+        data: {
+          status: 'cancelled',
+          deletedAt: new Date(),
+          notes: `Cancelled by window-close (${reason})`,
+        },
+      })
+      const collectionIds = debitIds
+        .map((id) => debitToCollection.get(id))
+        .filter((x): x is string => !!x)
+      if (collectionIds.length > 0) {
+        await tx.feeCollection.updateMany({
+          where: { id: { in: collectionIds }, deletedAt: null },
+          data: { deletedAt: new Date(), paymentStatus: 'cancelled' },
+        })
+      }
+      return debitIds
+    },
+    finalise: async (cancelledAmount) => {
+      const currentTo = allocation.effectiveTo
+      if (!currentTo || currentTo > effectiveTo) {
+        await tx.hostelAllocation.update({
+          where: { id: allocation.id },
+          data: {
+            effectiveTo,
+            isActive: false,
+            changeReason: reason,
+            withdrawnBy: args.performedBy || null,
+            withdrawalNotes: args.reasonNotes || null,
+            cascadeFromWithdrawal: !!args.cascadeFromWithdrawal,
+          },
+        })
+      }
+      await tx.feeAuditLog.create({
+        data: {
+          schoolId,
+          entityType: 'HostelAllocation',
+          entityId: allocation.id,
+          action: 'window_close',
+          studentId,
+          newValue: JSON.stringify({
+            effectiveTo: effectiveTo.toISOString(),
+            reason,
+            cancelledAmount,
+            studentId,
+            academicYear: allocation.academicYear,
+            cascadeFromWithdrawal: !!args.cascadeFromWithdrawal,
+          }),
+          userId: args.performedBy || null,
+        },
+      })
+    },
+  })
+}
+
+// ─── SHARED CANCELLATION RUNNER ────────────────────────────────────────────
 interface CancellationContext {
   args: ApplyWindowArgs
   candidates: Array<{

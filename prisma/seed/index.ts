@@ -531,6 +531,83 @@ async function seed() {
   }
   console.log(`✅ Created ${transportRouteDefs.length} transport routes with ${stopFaresCreated} stop fares`)
 
+  // Hostels — mirror of transport (Hostel -> Room -> Bed + per-year room fare).
+  // "Hostel Fee" is intentionally NOT a FeesHead — hostel billing is monthly
+  // FeeCollection rows tagged sourceType='hostel' in the ledger.
+  const HOSTEL_FEE_MONTHS = TRANSPORT_FEE_MONTHS
+  const HOSTEL_ACADEMIC_YEAR = TRANSPORT_ACADEMIC_YEAR
+  const hostelDefs = [
+    {
+      name: 'Boys Hostel A', type: 'boys', wardenName: 'Mr. Ramesh Gupta', wardenPhone: '+91-9912346001',
+      rooms: [
+        { roomNumber: '101', roomType: 'AC 2-seater', floor: '1', beds: 2, fare: 4500 },
+        { roomNumber: '102', roomType: 'Non-AC 4-seater', floor: '1', beds: 4, fare: 3000 },
+        { roomNumber: '201', roomType: 'AC 2-seater', floor: '2', beds: 2, fare: 4500 },
+      ],
+    },
+    {
+      name: 'Girls Hostel B', type: 'girls', wardenName: 'Mrs. Sunita Verma', wardenPhone: '+91-9912346002',
+      rooms: [
+        { roomNumber: 'G-01', roomType: 'AC 3-seater', floor: '1', beds: 3, fare: 4000 },
+        { roomNumber: 'G-02', roomType: 'Non-AC 4-seater', floor: '1', beds: 4, fare: 3000 },
+      ],
+    },
+  ]
+  let hostelRoomsCreated = 0
+  let hostelBedsCreated = 0
+  for (const h of hostelDefs) {
+    const hostel = await db.hostel.create({
+      data: {
+        schoolId: school.id,
+        name: h.name,
+        type: h.type,
+        academicYear: HOSTEL_ACADEMIC_YEAR,
+        feeMonths: JSON.stringify(HOSTEL_FEE_MONTHS),
+        wardenName: h.wardenName,
+        wardenPhone: h.wardenPhone,
+        isActive: true,
+      },
+    })
+    for (const r of h.rooms) {
+      const room = await db.hostelRoom.create({
+        data: {
+          schoolId: school.id,
+          hostelId: hostel.id,
+          roomNumber: r.roomNumber,
+          roomType: r.roomType,
+          floor: r.floor,
+          capacity: r.beds,
+          isActive: true,
+        },
+      })
+      hostelRoomsCreated++
+      for (let b = 1; b <= r.beds; b++) {
+        await db.hostelBed.create({
+          data: {
+            schoolId: school.id,
+            hostelId: hostel.id,
+            roomId: room.id,
+            bedNumber: `${r.roomNumber}-${b}`,
+            isActive: true,
+          },
+        })
+        hostelBedsCreated++
+      }
+      await db.hostelRoomFare.create({
+        data: {
+          schoolId: school.id,
+          hostelId: hostel.id,
+          roomId: room.id,
+          academicYear: HOSTEL_ACADEMIC_YEAR,
+          fare: r.fare,
+          feeMonths: JSON.stringify(HOSTEL_FEE_MONTHS),
+          isActive: true,
+        },
+      })
+    }
+  }
+  console.log(`✅ Created ${hostelDefs.length} hostels with ${hostelRoomsCreated} rooms and ${hostelBedsCreated} beds`)
+
   // Library books
   for (const b of [{ title: 'Mathematics for Class X', author: 'R.D. Sharma', cat: 'Mathematics' }, { title: 'Concepts of Physics', author: 'H.C. Verma', cat: 'Physics' }, { title: 'Modern ABC Chemistry', author: 'S.P. Jauhar', cat: 'Chemistry' }, { title: 'NCERT Biology XII', author: 'NCERT', cat: 'Biology' }, { title: 'Wren & Martin Grammar', author: 'P.C. Wren', cat: 'English' }, { title: 'Python Programming', author: 'Sumita Arora', cat: 'Computer Science' }]) {
     await db.libraryBook.create({ data: { schoolId: school.id, title: b.title, author: b.author, category: b.cat, quantity: 10, available: 8, shelfNumber: 'S1', price: 350, isActive: true } })
@@ -704,6 +781,13 @@ async function seed() {
     { code: 'transport:allocation:update', name: 'Modify Student Transport Allocation', module: 'transport', action: 'update' },
     { code: 'transport:delete', name: 'Delete Transport', module: 'transport', action: 'delete' },
     { code: 'transport:annual-setup', name: 'Annual Transport Setup', module: 'transport', action: 'update' },
+    // Hostel
+    { code: 'hostel:read', name: 'View Hostel', module: 'hostel', action: 'read' },
+    { code: 'hostel:create', name: 'Create Hostel', module: 'hostel', action: 'create' },
+    { code: 'hostel:update', name: 'Update Hostel', module: 'hostel', action: 'update' },
+    { code: 'hostel:allocation:update', name: 'Modify Student Hostel Allocation', module: 'hostel', action: 'update' },
+    { code: 'hostel:delete', name: 'Delete Hostel', module: 'hostel', action: 'delete' },
+    { code: 'hostel:annual-setup', name: 'Annual Hostel Setup', module: 'hostel', action: 'update' },
     // Library
     { code: 'library:read', name: 'View Library', module: 'library', action: 'read' },
     { code: 'library:create', name: 'Create Book', module: 'library', action: 'create' },
@@ -836,6 +920,16 @@ async function seed() {
       isSystem: true,
       permissionCodes: [
         'transport:read', 'student:read', 'attendance:read', 'notification:read',
+      ],
+    },
+    {
+      name: 'Hostel',
+      description: 'Warden / hostel staff — manage hostels, rooms, beds, and allocations',
+      color: '#0284c7',
+      isSystem: true,
+      permissionCodes: [
+        'hostel:read', 'hostel:create', 'hostel:update', 'hostel:allocation:update',
+        'student:read', 'notification:read',
       ],
     },
   ]

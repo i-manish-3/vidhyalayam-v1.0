@@ -52,6 +52,13 @@ export const ADVANCED_EXTRA_COLUMNS = [
   'category',
   'nationality',
   'previousSchool',
+  // Sibling linking — paste an already-enrolled student's admission number to
+  // attach this new student to that family (shared familyId + parent login).
+  'siblingAdmissionNumber',
+  // Transport — both must be filled together (or both blank). Must match an
+  // active route + a stop with a configured fare for the year.
+  'routeName',
+  'stopName',
 ] as const
 
 export const BULK_TEMPLATE_COLUMNS = [
@@ -93,6 +100,15 @@ export interface NormalizedRow {
   category: string | null
   nationality: string
   previousSchool: string | null
+  // Sibling linking to an existing enrolled student (null when not linked).
+  siblingStudentId: string | null
+  siblingFamilyId: string | null
+  // Transport (null when the row has no transport).
+  transportRouteId: string | null
+  transportRouteName: string | null
+  transportStopName: string | null
+  transportFare: number | null
+  transportFeeMonths: string[]
 }
 
 export interface RowDiagnostic {
@@ -101,6 +117,22 @@ export interface RowDiagnostic {
   errors: string[]
   warnings: string[]
   parsed: NormalizedRow | null
+}
+
+/** Resolved transport stop fare for a route+stop in the active year. */
+export interface TransportStopInfo {
+  routeId: string
+  routeName: string
+  stopName: string
+  fare: number
+  /** Billable month labels (e.g. ["Apr","May",…]) — JSON-decoded. */
+  feeMonths: string[]
+}
+
+/** Minimal existing-student shape needed to link a new admission to a sibling. */
+export interface SiblingStudentInfo {
+  studentId: string
+  familyId: string | null
 }
 
 export interface BulkLookups {
@@ -114,6 +146,20 @@ export interface BulkLookups {
   feesStructureKeys: Set<string>
   /** Existing Student.admissionNumber values for collision check on overrides. */
   existingAdmissionNumbers: Set<string>
+  /** "lower(routeName)|lower(stopName)" → resolved fare info for the active year. */
+  transportStopByRouteAndName: Map<string, TransportStopInfo>
+  /** lower(routeName) present ⇒ an active route with that name exists (for error messages). */
+  transportRouteNames: Set<string>
+  /** Student.admissionNumber → { studentId, familyId } for sibling linking. */
+  studentByAdmissionNumber: Map<string, SiblingStudentInfo>
+  /** Admission-window open instant (ms) or null when no window configured. */
+  admissionOpenAt: number | null
+  /** Admission-window close instant (ms) or null when no window configured. */
+  admissionCloseAt: number | null
+  /** Per-class application cap for the active year, or null when uncapped. */
+  maxApplicationsPerClass: number | null
+  /** classId → existing (non-deleted) admission count for the active year. */
+  admissionCountByClassId: Map<string, number>
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -163,6 +209,22 @@ function normalizePhone(raw: string): string | null {
   return PHONE_RE.test(digits) ? digits : null
 }
 
+/**
+ * Batch-level admission-window check. Returns an error message when admissions
+ * are currently closed, or null when open / no window configured. Both the
+ * validate and commit routes call this before processing any rows.
+ *
+ * `now` is injectable for testing; defaults to the current time.
+ */
+export function checkAdmissionWindow(lookups: BulkLookups, now: number = Date.now()): string | null {
+  if (lookups.admissionOpenAt !== null && lookups.admissionCloseAt !== null) {
+    if (now < lookups.admissionOpenAt || now > lookups.admissionCloseAt) {
+      return 'Admissions are currently closed. Please check the admission schedule or contact the school office.'
+    }
+  }
+  return null
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Row validation
 // ─────────────────────────────────────────────────────────────────────────────
@@ -173,9 +235,16 @@ export interface ValidateRowOptions {
   lookups: BulkLookups
   /** admissionNumbers already seen earlier in the same upload — used to detect duplicates inside the CSV. */
   seenOverrides: Set<string>
+  /**
+   * Running count of how many rows EARLIER in this upload were placed into each
+   * class (keyed by classId). Used so the per-class application cap accounts for
+   * the batch itself, not just rows already in the DB. validateRow mutates this:
+   * a row that passes class validation increments its class's tally.
+   */
+  classTally: Map<string, number>
 }
 
-export function validateRow({ row, index, lookups, seenOverrides }: ValidateRowOptions): RowDiagnostic {
+export function validateRow({ row, index, lookups, seenOverrides, classTally }: ValidateRowOptions): RowDiagnostic {
   const errors: string[] = []
   const warnings: string[] = []
 
@@ -202,6 +271,9 @@ export function validateRow({ row, index, lookups, seenOverrides }: ValidateRowO
   const category = s(row.category)
   const nationality = s(row.nationality) || 'Indian'
   const previousSchool = s(row.previousSchool)
+  const siblingAdmNumber = s(row.siblingAdmissionNumber)
+  const routeNameRaw = s(row.routeName)
+  const stopNameRaw = s(row.stopName)
 
   // firstName
   if (!firstName) errors.push('firstName is required')
@@ -236,6 +308,18 @@ export function validateRow({ row, index, lookups, seenOverrides }: ValidateRowO
       if (!sectionId) errors.push(`sectionName "${sectionNameRaw}" does not exist under class "${classNameRaw}"`)
     }
     // sectionName blank is allowed — single-admission route also treats it as optional.
+  }
+
+  // Per-class application cap — counts existing DB admissions for the year PLUS
+  // rows earlier in this same upload that target the class. Matches the
+  // single-admission route's maxApplicationsPerClass guard.
+  if (classId && lookups.maxApplicationsPerClass !== null) {
+    const already = (lookups.admissionCountByClassId.get(classId) ?? 0) + (classTally.get(classId) ?? 0)
+    if (already >= lookups.maxApplicationsPerClass) {
+      errors.push(
+        `Class "${classNameRaw}" has reached its application limit (${lookups.maxApplicationsPerClass}).`,
+      )
+    }
   }
 
   // feesGroupName
@@ -307,9 +391,56 @@ export function validateRow({ row, index, lookups, seenOverrides }: ValidateRowO
     errors.push('bloodGroup must be one of A+/A-/B+/B-/AB+/AB-/O+/O-')
   }
 
+  // siblingAdmissionNumber (optional) — must resolve to an existing student.
+  let siblingStudentId: string | null = null
+  let siblingFamilyId: string | null = null
+  if (siblingAdmNumber) {
+    const sibling = lookups.studentByAdmissionNumber.get(siblingAdmNumber)
+    if (!sibling) {
+      errors.push(`siblingAdmissionNumber "${siblingAdmNumber}" does not match any enrolled student`)
+    } else {
+      siblingStudentId = sibling.studentId
+      siblingFamilyId = sibling.familyId
+    }
+  }
+
+  // Transport (optional) — both routeName and stopName required together, and
+  // the stop must have a configured fare for the active year.
+  let transportRouteId: string | null = null
+  let transportRouteName: string | null = null
+  let transportStopName: string | null = null
+  let transportFare: number | null = null
+  let transportFeeMonths: string[] = []
+  if (routeNameRaw || stopNameRaw) {
+    if (!routeNameRaw || !stopNameRaw) {
+      errors.push('Transport needs both routeName and stopName, or leave both blank')
+    } else if (!lookups.transportRouteNames.has(routeNameRaw.toLowerCase())) {
+      errors.push(`routeName "${routeNameRaw}" does not exist in this school for this year`)
+    } else {
+      const info = lookups.transportStopByRouteAndName.get(
+        `${routeNameRaw.toLowerCase()}|${stopNameRaw.toLowerCase()}`,
+      )
+      if (!info) {
+        errors.push(
+          `stopName "${stopNameRaw}" has no fare configured on route "${routeNameRaw}" for this year`,
+        )
+      } else {
+        transportRouteId = info.routeId
+        transportRouteName = info.routeName
+        transportStopName = info.stopName
+        transportFare = info.fare
+        transportFeeMonths = info.feeMonths
+      }
+    }
+  }
+
   if (errors.length > 0) {
     return { index, status: 'invalid', errors, warnings, parsed: null }
   }
+
+  // Row is valid — reserve its class slot so later rows in this batch see the
+  // updated tally for the per-class cap. (classId is guaranteed set here.)
+  if (classId) classTally.set(classId, (classTally.get(classId) ?? 0) + 1)
 
   const parsed: NormalizedRow = {
     firstName: firstName.toUpperCase(),
@@ -339,6 +470,13 @@ export function validateRow({ row, index, lookups, seenOverrides }: ValidateRowO
     category: category || null,
     nationality,
     previousSchool: previousSchool || null,
+    siblingStudentId,
+    siblingFamilyId,
+    transportRouteId,
+    transportRouteName,
+    transportStopName,
+    transportFare,
+    transportFeeMonths,
   }
 
   return {

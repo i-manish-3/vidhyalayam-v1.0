@@ -75,6 +75,15 @@ export async function GET(request: NextRequest) {
       if (academicYearError) return apiError(400, academicYearError)
     }
 
+    // Student strength must be session-aware. A student's Class.classId /
+    // Section.sectionId pointer is overwritten on promotion, so counting via
+    // the direct `students` relation reports the CURRENT class for every
+    // session and breaks historical views. When a session is in scope we count
+    // StudentAcademicEnrollment rows for that academicYear instead. Fall back to
+    // the legacy current-pointer count only when no session is provided.
+    const countYear = assignmentAcademicYear || academicYear
+    const useEnrollmentCount = !!countYear && !validateAcademicYear(countYear)
+
     const classes = await db.class.findMany({
       where: {
         schoolId: user.schoolId,
@@ -169,6 +178,26 @@ export async function GET(request: NextRequest) {
       orderBy: { name: 'asc' },
     })
 
+    // Session-scoped strength: one enrollment row per student per academicYear
+    // (@@unique([studentId, academicYear])), so a plain groupBy count is exact
+    // and never double-counts. We intentionally do NOT filter by status — a
+    // student promoted out of a class still belonged to it for that session, so
+    // the historical strength stays accurate.
+    const enrollmentCountByClass = new Map<string, number>()
+    const enrollmentCountBySection = new Map<string, number>()
+    if (useEnrollmentCount && countYear) {
+      const grouped = await db.studentAcademicEnrollment.groupBy({
+        by: ['classId', 'sectionId'],
+        where: { schoolId: user.schoolId, academicYear: countYear, deletedAt: null },
+        _count: { _all: true },
+      })
+      for (const row of grouped) {
+        const count = row._count._all
+        enrollmentCountByClass.set(row.classId, (enrollmentCountByClass.get(row.classId) || 0) + count)
+        if (row.sectionId) enrollmentCountBySection.set(row.sectionId, count)
+      }
+    }
+
     // Transform: flatten classSubjects into a subjects array
     const classesWithSubjects = classes.map(cls => {
       const { classSubjects, classTeacherAssignments, ...classData } = cls
@@ -178,6 +207,11 @@ export async function GET(request: NextRequest) {
         const assignment = (classTeacherAssignments?.[0] || null) as unknown as ClassTeacherAssignmentWithTeacher | null
         return {
           ...sectionData,
+          _count: {
+            students: useEnrollmentCount
+              ? enrollmentCountBySection.get(section.id) || 0
+              : sectionData._count?.students ?? 0,
+          },
           classTeacherAssignment: assignment
             ? {
                 id: assignment.id,
@@ -191,6 +225,11 @@ export async function GET(request: NextRequest) {
       })
       return {
         ...classData,
+        _count: {
+          students: useEnrollmentCount
+            ? enrollmentCountByClass.get(cls.id) || 0
+            : classData._count?.students ?? 0,
+        },
         sections,
         classTeacherAssignment: classAssignment
           ? {

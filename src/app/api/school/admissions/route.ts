@@ -804,6 +804,10 @@ export async function POST(request: NextRequest) {
           hostelName: body.hostelName || null,
           hostelRoomNo: body.hostelRoomNo || null,
           hostelBedNo: body.hostelBedNo || null,
+          // Structured hostel snapshot (set when a bed is allocated below).
+          hostelId: body.hostelId || null,
+          hostelRoomId: body.hostelRoomId || null,
+          hostelBedId: body.hostelBedId || null,
           // Accounts Info
           bankAccountNumber: body.bankAccountNumber || null,
           ifscCode: body.ifscCode || null,
@@ -982,6 +986,117 @@ export async function POST(request: NextRequest) {
               createdBy: user.userId,
             })
           }
+        }
+      }
+
+      // Hostel allocation (optional) — symmetric to the transport block above.
+      // Triggered when the form supplies a structured hostelBedId. The fare is
+      // read from the year's HostelRoomFare; months are pro-rated by admission
+      // date unless chargeFullYearFees is set.
+      const hostelBedId = typeof body.hostelBedId === 'string' && body.hostelBedId.trim() ? body.hostelBedId.trim() : null
+      if (hostelBedId) {
+        const bed = await tx.hostelBed.findFirst({
+          where: { id: hostelBedId, schoolId: user.schoolId!, deletedAt: null, isActive: true },
+          select: { id: true, roomId: true, hostelId: true, bedNumber: true },
+        })
+        const roomFare = bed
+          ? await tx.hostelRoomFare.findFirst({
+              where: { schoolId: user.schoolId!, roomId: bed.roomId, academicYear: requestedAcademicYear, isActive: true },
+              select: { fare: true, feeMonths: true },
+            })
+          : null
+
+        if (bed && roomFare) {
+          const hostelFeeMonths = parseFeeMonths(roomFare.feeMonths)
+          const chargeFullYear = body.chargeFullYearFees === true
+          const admissionDate = adm.dateOfAdmission || new Date()
+          const effYM = admissionDate.getUTCFullYear() * 12 + admissionDate.getUTCMonth()
+          const [startYearStr] = (requestedAcademicYear || '').split('-')
+          const startYear = Number(startYearStr)
+          const AY_MONTHS = ['Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec','Jan','Feb','Mar']
+          const monthLabelToYM = (label: string): number | null => {
+            if (!Number.isFinite(startYear)) return null
+            const idx = AY_MONTHS.findIndex((m) => m.toLowerCase() === label.toLowerCase())
+            if (idx === -1) return null
+            const calMonth = idx <= 8 ? idx + 3 : idx - 9
+            const calYear = idx <= 8 ? startYear : startYear + 1
+            return calYear * 12 + calMonth
+          }
+          const billableHostelMonths = chargeFullYear
+            ? hostelFeeMonths
+            : hostelFeeMonths.filter((label) => {
+                const monthYM = monthLabelToYM(label)
+                return monthYM === null || monthYM >= effYM
+              })
+
+          const hostelAllocation = await tx.hostelAllocation.create({
+            data: {
+              schoolId: user.schoolId!,
+              studentId: student.id,
+              hostelId: bed.hostelId,
+              roomId: bed.roomId,
+              bedId: bed.id,
+              academicYear: requestedAcademicYear,
+              fareAmount: roomFare.fare,
+              feeMonths: JSON.stringify(billableHostelMonths),
+              isActive: true,
+              effectiveFrom: admissionDate,
+              changeReason: 'INITIAL',
+            },
+          })
+
+          if (roomFare.fare > 0 && billableHostelMonths.length > 0) {
+            for (const month of billableHostelMonths) {
+              const hostelCollection = await tx.feeCollection.create({
+                data: {
+                  schoolId: user.schoolId!,
+                  studentId: student.id,
+                  amount: roomFare.fare,
+                  paidAmount: 0,
+                  discount: 0,
+                  concession: 0,
+                  scholarship: 0,
+                  fine: 0,
+                  paymentStatus: 'unpaid',
+                  installmentName: month,
+                  feeHeadName: 'Hostel Fee',
+                  notes: `Hostel fee for bed ${bed.bedNumber} (${requestedAcademicYear})`,
+                },
+              })
+              await createFeeDebitLedgerEntry({
+                tx,
+                schoolId: user.schoolId!,
+                studentId: student.id,
+                academicYear: requestedAcademicYear,
+                feeCollectionId: hostelCollection.id,
+                sourceType: 'hostel',
+                sourceId: hostelCollection.id,
+                feeHeadName: 'Hostel Fee',
+                installmentName: month,
+                description: `Hostel Fee - ${month}`,
+                amount: roomFare.fare,
+                notes: `Hostel fee for bed ${bed.bedNumber} (${requestedAcademicYear})`,
+                createdBy: user.userId,
+              })
+            }
+          }
+
+          await tx.hostelEvent.create({
+            data: {
+              schoolId: user.schoolId!,
+              studentId: student.id,
+              academicYear: requestedAcademicYear,
+              eventType: 'CREATED',
+              toAllocationId: hostelAllocation.id,
+              toHostelId: bed.hostelId,
+              toRoom: bed.roomId,
+              toBed: bed.bedNumber,
+              effectiveDate: admissionDate,
+              cancelledAmount: 0,
+              performedBy: user.userId,
+              cascadeFromWithdrawal: false,
+            },
+          })
         }
       }
 

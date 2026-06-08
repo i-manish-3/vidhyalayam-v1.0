@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { requireRole, requirePermission } from '@/lib/api-auth'
 import { unauthorizedError, internalError, apiError, forbiddenError } from '@/lib/api-errors'
-import { validateRow, type RawRow, type RowDiagnostic } from '@/lib/bulk-admission'
+import { validateRow, checkAdmissionWindow, type RawRow, type RowDiagnostic } from '@/lib/bulk-admission'
 import { loadBulkAdmissionLookups } from '@/lib/bulk-admission-lookups'
 
 const ACADEMIC_YEAR_PATTERN = /^\d{4}-\d{4}$/
@@ -51,9 +51,15 @@ export async function POST(request: NextRequest) {
 
     const lookups = await loadBulkAdmissionLookups(user.schoolId, academicYear)
 
+    // Admission window applies to the whole batch — reject up front if closed,
+    // matching the single-admission route.
+    const windowError = checkAdmissionWindow(lookups)
+    if (windowError) return apiError(400, windowError)
+
     const seenOverrides = new Set<string>()
+    const classTally = new Map<string, number>()
     const diagnostics: RowDiagnostic[] = rows.map((row, index) =>
-      validateRow({ row, index, lookups, seenOverrides }),
+      validateRow({ row, index, lookups, seenOverrides, classTally }),
     )
 
     const counts = diagnostics.reduce(

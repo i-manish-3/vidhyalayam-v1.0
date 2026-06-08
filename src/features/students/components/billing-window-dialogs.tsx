@@ -26,7 +26,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
-import { AlertTriangle, Loader2, CheckCircle2, XCircle, Bus, FileX2, Undo2, Receipt } from 'lucide-react'
+import { AlertTriangle, Loader2, CheckCircle2, XCircle, Bus, FileX2, Undo2, Receipt, Building2 } from 'lucide-react'
 
 // ─── shared types ──────────────────────────────────────────────────────────
 
@@ -1275,5 +1275,491 @@ export function TransportHistorySection({ studentId, academicYear, refreshKey = 
         })}
       </ol>
     </div>
+  )
+}
+
+// ─── 5. Hostel dialogs ─────────────────────────────────────────────────────
+// Symmetric to the transport dialogs, but the allocation unit is a BED. The
+// picker cascades Hostel → Room → Bed; occupied beds are disabled.
+
+interface HostelBedOption {
+  id: string
+  bedNumber: string
+  occupied?: boolean
+}
+interface HostelRoomOption {
+  id: string
+  roomNumber: string
+  roomType: string | null
+  fare: number | null
+  beds: HostelBedOption[]
+}
+interface HostelOption {
+  id: string
+  name: string
+  type: string | null
+  rooms: HostelRoomOption[]
+}
+
+interface HostelPreview {
+  success: boolean
+  canCommit: boolean
+  blockers: string[]
+  billableMonths: string[]
+  droppedMonths: string[]
+  fare: number
+  totalAmount: number
+  academicYear: string
+  effectiveFrom: string
+}
+
+interface HostelWithdrawPreview {
+  success: boolean
+  canCommit: boolean
+  blockers: string[]
+  effectiveDate: string
+  cancelledItems: PreviewItem[]
+  cancelledAmount: number
+  requiresRefund: SkippedItem[]
+  totalRefundDue: number
+}
+
+interface AddHostelDialogProps {
+  open: boolean
+  onOpenChange: (v: boolean) => void
+  studentId: string
+  studentName: string
+  academicYear: string
+  onSuccess?: () => void
+}
+
+export function AddHostelDialog({
+  open,
+  onOpenChange,
+  studentId,
+  studentName,
+  academicYear,
+  onSuccess,
+}: AddHostelDialogProps) {
+  const { toast } = useToast()
+  const [hostels, setHostels] = useState<HostelOption[]>([])
+  const [hostelsLoading, setHostelsLoading] = useState(false)
+  const [hostelId, setHostelId] = useState('')
+  const [roomId, setRoomId] = useState('')
+  const [bedId, setBedId] = useState('')
+  const [effectiveFrom, setEffectiveFrom] = useState(todayISO())
+  const [reason, setReason] = useState('')
+  const [preview, setPreview] = useState<HostelPreview | null>(null)
+  const [previewLoading, setPreviewLoading] = useState(false)
+  const [previewError, setPreviewError] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+
+  const debouncedDate = useDebounced(effectiveFrom, 300)
+  const debouncedBed = useDebounced(bedId, 100)
+
+  useEffect(() => {
+    if (!open) {
+      setHostelId('')
+      setRoomId('')
+      setBedId('')
+      setEffectiveFrom(todayISO())
+      setReason('')
+      setPreview(null)
+      setPreviewError(null)
+    }
+  }, [open])
+
+  useEffect(() => {
+    if (!open) return
+    let cancelled = false
+    setHostelsLoading(true)
+    api
+      .get<{ hostels: HostelOption[] }>('/api/school/hostels', { academicYear })
+      .then((data) => { if (!cancelled) setHostels(data.hostels || []) })
+      .catch(() => { if (!cancelled) setHostels([]) })
+      .finally(() => { if (!cancelled) setHostelsLoading(false) })
+    return () => { cancelled = true }
+  }, [open, academicYear])
+
+  const roomsForHostel = useMemo<HostelRoomOption[]>(
+    () => hostels.find((h) => h.id === hostelId)?.rooms || [],
+    [hostels, hostelId],
+  )
+  const bedsForRoom = useMemo<HostelBedOption[]>(
+    () => roomsForHostel.find((r) => r.id === roomId)?.beds || [],
+    [roomsForHostel, roomId],
+  )
+
+  useEffect(() => { setRoomId(''); setBedId('') }, [hostelId])
+  useEffect(() => { setBedId('') }, [roomId])
+
+  useEffect(() => {
+    if (!open || !debouncedBed) {
+      setPreview(null)
+      return
+    }
+    let cancelled = false
+    setPreviewLoading(true)
+    setPreviewError(null)
+    api
+      .post<HostelPreview>(`/api/school/students/${studentId}/hostel/preview`, {
+        bedId: debouncedBed,
+        effectiveFrom: debouncedDate,
+      })
+      .then((data) => { if (!cancelled) setPreview(data) })
+      .catch((err) => {
+        if (!cancelled) {
+          setPreview(null)
+          setPreviewError(err instanceof Error ? err.message : 'Preview failed')
+        }
+      })
+      .finally(() => { if (!cancelled) setPreviewLoading(false) })
+    return () => { cancelled = true }
+  }, [open, studentId, debouncedBed, debouncedDate])
+
+  const handleSubmit = async () => {
+    if (!preview?.canCommit) return
+    setSubmitting(true)
+    try {
+      await api.post(`/api/school/students/${studentId}/hostel`, {
+        bedId,
+        effectiveFrom,
+        reason: reason.trim() || undefined,
+      })
+      toast({
+        title: 'Hostel added',
+        description: `${studentName} allocated a bed. ${preview.billableMonths.length} month(s) billed.`,
+      })
+      onOpenChange(false)
+      onSuccess?.()
+    } catch (err) {
+      toast({
+        title: "Couldn't add hostel",
+        description: err instanceof Error ? err.message : 'Please try again.',
+        variant: 'destructive',
+      })
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-xl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Building2 className="size-4" /> Add Hostel
+          </DialogTitle>
+          <DialogDescription>
+            Allocate a hostel bed to {studentName}. Months prior to the effective date will be skipped automatically.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="grid gap-3 py-2">
+          <div>
+            <Label htmlFor="ah-hostel">Hostel</Label>
+            <Select value={hostelId} onValueChange={setHostelId} disabled={hostelsLoading || hostels.length === 0}>
+              <SelectTrigger id="ah-hostel">
+                <SelectValue placeholder={hostelsLoading ? 'Loading hostels…' : 'Select a hostel'} />
+              </SelectTrigger>
+              <SelectContent>
+                {hostels.map((h) => (
+                  <SelectItem key={h.id} value={h.id}>
+                    {h.name} {h.type ? `(${h.type})` : ''}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label htmlFor="ah-room">Room</Label>
+              <Select value={roomId} onValueChange={setRoomId} disabled={!hostelId || roomsForHostel.length === 0}>
+                <SelectTrigger id="ah-room">
+                  <SelectValue placeholder={hostelId ? 'Select room' : 'Pick a hostel first'} />
+                </SelectTrigger>
+                <SelectContent>
+                  {roomsForHostel.map((r) => (
+                    <SelectItem key={r.id} value={r.id}>
+                      {r.roomNumber}{r.roomType ? ` · ${r.roomType}` : ''}{r.fare != null ? ` — ${formatINR(r.fare)}` : ''}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="ah-bed">Bed</Label>
+              <Select value={bedId} onValueChange={setBedId} disabled={!roomId || bedsForRoom.length === 0}>
+                <SelectTrigger id="ah-bed">
+                  <SelectValue placeholder={roomId ? 'Select bed' : 'Pick a room first'} />
+                </SelectTrigger>
+                <SelectContent>
+                  {bedsForRoom.map((b) => (
+                    <SelectItem key={b.id} value={b.id} disabled={b.occupied}>
+                      {b.bedNumber}{b.occupied ? ' (occupied)' : ''}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div>
+            <Label htmlFor="ah-effdate">Effective From</Label>
+            <Input id="ah-effdate" type="date" value={effectiveFrom} onChange={(e) => setEffectiveFrom(e.target.value)} />
+          </div>
+          <div>
+            <Label htmlFor="ah-reason">Reason (optional)</Label>
+            <Input id="ah-reason" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Mid-year hostel opt-in" />
+          </div>
+
+          <HostelPreviewPanel loading={previewLoading} error={previewError} preview={preview} />
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>Cancel</Button>
+          <Button onClick={handleSubmit} disabled={submitting || previewLoading || !preview?.canCommit}>
+            {submitting && <Loader2 className="size-4 animate-spin" />}
+            Add Hostel
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function HostelPreviewPanel({
+  loading,
+  error,
+  preview,
+}: {
+  loading: boolean
+  error: string | null
+  preview: HostelPreview | null
+}) {
+  if (loading && !preview) {
+    return (
+      <div className="rounded-md border bg-muted/30 p-4 text-sm text-muted-foreground flex items-center gap-2">
+        <Loader2 className="size-3.5 animate-spin" /> Calculating fare…
+      </div>
+    )
+  }
+  if (error) {
+    return (
+      <div className="rounded-md border border-destructive/50 bg-destructive/5 p-3 text-sm text-destructive">{error}</div>
+    )
+  }
+  if (!preview) return null
+  return (
+    <div className="rounded-md border bg-muted/20 p-3 text-sm">
+      <div className="font-medium flex items-center gap-2 mb-2">
+        <CheckCircle2 className={preview.canCommit ? 'size-4 text-emerald-600' : 'size-4 text-amber-600'} />
+        Fare preview
+      </div>
+      {preview.blockers.length > 0 && (
+        <div className="mb-2 rounded border border-amber-300 bg-amber-50 p-2 dark:bg-amber-950/30">
+          <ul className="list-disc list-inside text-xs text-amber-900 dark:text-amber-200 space-y-0.5">
+            {preview.blockers.map((b) => <li key={b}>{b}</li>)}
+          </ul>
+        </div>
+      )}
+      {preview.canCommit && (
+        <>
+          <div className="grid grid-cols-3 gap-3 text-xs">
+            <div>
+              <div className="text-muted-foreground">Per-month</div>
+              <div className="font-semibold tabular-nums">{formatINR(preview.fare)}</div>
+            </div>
+            <div>
+              <div className="text-muted-foreground">Months</div>
+              <div className="font-semibold">{preview.billableMonths.length}</div>
+            </div>
+            <div>
+              <div className="text-muted-foreground">Total</div>
+              <div className="font-semibold tabular-nums">{formatINR(preview.totalAmount)}</div>
+            </div>
+          </div>
+          <div className="mt-2 text-[11px] text-muted-foreground">
+            <span className="font-medium">Billing:</span>{' '}
+            {preview.billableMonths.join(', ') || '—'}
+            {preview.droppedMonths.length > 0 && (
+              <>
+                {' · '}
+                <span className="line-through opacity-70">{preview.droppedMonths.join(', ')}</span>
+              </>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+interface DiscontinueHostelDialogProps {
+  open: boolean
+  onOpenChange: (v: boolean) => void
+  studentId: string
+  studentName: string
+  onSuccess?: () => void
+}
+
+export function DiscontinueHostelDialog({
+  open,
+  onOpenChange,
+  studentId,
+  studentName,
+  onSuccess,
+}: DiscontinueHostelDialogProps) {
+  const { toast } = useToast()
+  const [effectiveDate, setEffectiveDate] = useState(todayISO())
+  const [reason, setReason] = useState('')
+  const [preview, setPreview] = useState<HostelWithdrawPreview | null>(null)
+  const [previewLoading, setPreviewLoading] = useState(false)
+  const [previewError, setPreviewError] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+
+  const debouncedDate = useDebounced(effectiveDate, 300)
+
+  useEffect(() => {
+    if (!open) {
+      setEffectiveDate(todayISO())
+      setReason('')
+      setPreview(null)
+      setPreviewError(null)
+    }
+  }, [open])
+
+  useEffect(() => {
+    if (!open || !debouncedDate) return
+    let cancelled = false
+    setPreviewLoading(true)
+    setPreviewError(null)
+    api
+      .post<HostelWithdrawPreview>(`/api/school/students/${studentId}/hostel/withdraw/preview`, {
+        effectiveDate: debouncedDate,
+      })
+      .then((data) => { if (!cancelled) setPreview(data) })
+      .catch((err) => {
+        if (!cancelled) {
+          setPreview(null)
+          setPreviewError(err instanceof Error ? err.message : 'Preview failed')
+        }
+      })
+      .finally(() => { if (!cancelled) setPreviewLoading(false) })
+    return () => { cancelled = true }
+  }, [open, studentId, debouncedDate])
+
+  const handleSubmit = async () => {
+    if (!preview?.canCommit) return
+    setSubmitting(true)
+    try {
+      await api.post(`/api/school/students/${studentId}/hostel/withdraw`, {
+        effectiveDate,
+        reason: reason.trim() || undefined,
+      })
+      toast({
+        title: 'Hostel discontinued',
+        description: `${preview.cancelledItems.length} month(s) cancelled${
+          preview.totalRefundDue > 0 ? `, ${formatINR(preview.totalRefundDue)} flagged for refund` : ''
+        }.`,
+      })
+      onOpenChange(false)
+      onSuccess?.()
+    } catch (err) {
+      toast({
+        title: "Couldn't discontinue hostel",
+        description: err instanceof Error ? err.message : 'Please try again.',
+        variant: 'destructive',
+      })
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-xl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Building2 className="size-4" /> Discontinue Hostel
+          </DialogTitle>
+          <DialogDescription>
+            Stop hostel billing for {studentName} from the effective date forward. The student remains enrolled.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="grid gap-3 py-2">
+          <div>
+            <Label htmlFor="dh-effdate">Effective Date</Label>
+            <Input id="dh-effdate" type="date" value={effectiveDate} onChange={(e) => setEffectiveDate(e.target.value)} />
+          </div>
+          <div>
+            <Label htmlFor="dh-reason">Reason (optional)</Label>
+            <Input id="dh-reason" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Shifted to day-scholar" />
+          </div>
+
+          {previewLoading && !preview && (
+            <div className="rounded-md border bg-muted/30 p-4 text-sm text-muted-foreground flex items-center gap-2">
+              <Loader2 className="size-3.5 animate-spin" /> Calculating impact…
+            </div>
+          )}
+          {previewError && (
+            <div className="rounded-md border border-destructive/50 bg-destructive/5 p-3 text-sm text-destructive">{previewError}</div>
+          )}
+          {preview && !preview.canCommit && (
+            <div className="rounded-md border border-amber-300 bg-amber-50 p-3 dark:bg-amber-950/30">
+              <ul className="list-disc list-inside text-xs text-amber-900 dark:text-amber-200">
+                {preview.blockers.map((b) => <li key={b}>{b}</li>)}
+              </ul>
+            </div>
+          )}
+          {preview && preview.canCommit && (
+            <div className="rounded-md border bg-muted/20 p-3 text-sm">
+              <div className="font-medium flex items-center gap-2 mb-2">
+                <CheckCircle2 className="size-4 text-emerald-600" />
+                Impact preview
+              </div>
+              {preview.cancelledItems.length === 0 && preview.requiresRefund.length === 0 && (
+                <div className="text-muted-foreground text-xs">
+                  No future months to cancel — hostel will be marked closed without billing changes.
+                </div>
+              )}
+              {preview.cancelledItems.length > 0 && (
+                <div className="mb-2">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-medium text-muted-foreground">
+                      Cancelling {preview.cancelledItems.length} month(s)
+                    </span>
+                    <Badge variant="secondary">{formatINR(preview.cancelledAmount)}</Badge>
+                  </div>
+                  <ItemTable items={preview.cancelledItems} />
+                </div>
+              )}
+              {preview.requiresRefund.length > 0 && (
+                <div className="mt-3 rounded border border-amber-300 bg-amber-50 p-2 dark:bg-amber-950/30">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-medium text-amber-900 dark:text-amber-200 flex items-center gap-1.5">
+                      <AlertTriangle className="size-3.5" />
+                      {preview.requiresRefund.length} paid month(s) require manual refund
+                    </span>
+                    <Badge variant="outline" className="border-amber-400 text-amber-900 dark:text-amber-200">
+                      {formatINR(preview.totalRefundDue)}
+                    </Badge>
+                  </div>
+                  <ItemTable items={preview.requiresRefund} showPaid />
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>Cancel</Button>
+          <Button variant="destructive" onClick={handleSubmit} disabled={submitting || previewLoading || !preview?.canCommit}>
+            {submitting && <Loader2 className="size-4 animate-spin" />}
+            Discontinue
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

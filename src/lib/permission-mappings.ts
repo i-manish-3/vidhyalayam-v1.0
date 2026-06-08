@@ -19,6 +19,7 @@ const MODULE_PERMISSION_MAP: Record<string, string[]> = {
   'students': ['student:read', 'student:create'],
   'student-detail': ['student:read'],
   'edit-student': ['student:read', 'student:update'],
+  'alumni': ['student:read'],
 
   // People
   'teachers': ['teacher:read', 'teacher:create'],
@@ -96,6 +97,10 @@ const MODULE_PERMISSION_MAP: Record<string, string[]> = {
   'transport-annual-setup': ['transport:annual-setup'],
   'drivers': ['transport:read', 'transport:create'],
   'add-driver': ['transport:create'],
+  'hostel': ['hostel:read', 'hostel:create'],
+  'add-hostel': ['hostel:create'],
+  'edit-hostel': ['hostel:update'],
+  'hostel-annual-setup': ['hostel:annual-setup'],
   'library': ['library:read', 'library:create'],
   'inventory': ['inventory:read', 'inventory:create'],
   'petty-cash': ['petty_cash:read', 'petty_cash:create'],

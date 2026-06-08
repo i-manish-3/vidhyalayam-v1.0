@@ -59,6 +59,7 @@ import {
   FileSpreadsheet,
   ScanLine,
   RadioTower,
+  Building2,
 } from 'lucide-react'
 
 export interface MenuChild {
@@ -107,6 +108,7 @@ export const MENUS: Record<string, MenuItem[]> = {
         { label: 'Add New Admission', page: 'admission-form', icon: UserPlus },
         { label: 'Bulk Admission', page: 'bulk-admission', icon: Upload },
         { label: 'Student List', page: 'students', icon: Users },
+        { label: 'Alumni', page: 'alumni', icon: GraduationCap },
       ],
     },
     {
@@ -222,6 +224,16 @@ export const MENUS: Record<string, MenuItem[]> = {
             { label: 'Driver Directory', page: 'drivers', icon: UserCheck },
           ],
         },
+      ],
+    },
+    {
+      label: 'Hostel',
+      page: 'hostel',
+      icon: Building2,
+      children: [
+        { label: 'Add Hostel', page: 'add-hostel', icon: PlusCircle },
+        { label: 'Hostel List', page: 'hostel', icon: Building2 },
+        { label: 'Annual Setup', page: 'hostel-annual-setup', icon: RefreshCw },
       ],
     },
     { label: 'Library', page: 'library', icon: Library },
@@ -381,6 +393,16 @@ export const MENUS: Record<string, MenuItem[]> = {
             { label: 'Driver Directory', page: 'drivers', icon: UserCheck },
           ],
         },
+      ],
+    },
+    {
+      label: 'Hostel',
+      page: 'hostel',
+      icon: Building2,
+      children: [
+        { label: 'Add Hostel', page: 'add-hostel', icon: PlusCircle },
+        { label: 'Hostel List', page: 'hostel', icon: Building2 },
+        { label: 'Annual Setup', page: 'hostel-annual-setup', icon: RefreshCw },
       ],
     },
     { label: 'Library', page: 'library', icon: Library },

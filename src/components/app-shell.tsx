@@ -61,6 +61,7 @@ function PastYearGlobalBanner() {
 const SEARCH_ITEMS: { label: string; page: PageName; keywords: string[] }[] = [
   { label: 'Dashboard', page: 'dashboard', keywords: ['home', 'overview', 'main'] },
   { label: 'Students', page: 'students', keywords: ['learner', 'pupil', 'admission'] },
+  { label: 'Alumni', page: 'alumni', keywords: ['passout', 'pass out', 'graduate', 'ex-student', 'tc', 'transfer certificate', 'left', 'withdrawn', 'old students'] },
   { label: 'Teachers', page: 'teachers', keywords: ['staff', 'faculty', 'educator'] },
   { label: 'Add Teacher', page: 'add-teacher', keywords: ['new teacher', 'create teacher', 'add faculty', 'add educator'] },
   { label: 'Parents', page: 'parents', keywords: ['mother', 'father'] },

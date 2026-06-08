@@ -25,6 +25,8 @@ import {
   WithdrawStudentDialog,
   AddTransportDialog,
   DiscontinueTransportDialog,
+  AddHostelDialog,
+  DiscontinueHostelDialog,
   ReverseWithdrawalDialog,
   WithdrawalStatusBanner,
   TransportHistorySection,
@@ -72,6 +74,7 @@ import {
   ShieldCheck,
   ShieldX,
   X,
+  Building2,
 } from 'lucide-react'
 
 // ============================================
@@ -240,6 +243,19 @@ interface StudentData {
     fareAmount: number
     isActive: boolean
     route: { id: string; routeName: string; routeNumber: string | null; startPoint: string | null; endPoint: string | null } | null
+  }>
+  hostelAllocations?: Array<{
+    id: string
+    studentId: string
+    hostelId: string
+    roomId: string
+    bedId: string
+    academicYear: string
+    fareAmount: number
+    isActive: boolean
+    hostel: { id: string; name: string; type: string | null } | null
+    room: { id: string; roomNumber: string; roomType: string | null } | null
+    bed: { id: string; bedNumber: string } | null
   }>
   academicYearContext?: {
     requestedAcademicYear: string | null
@@ -940,6 +956,7 @@ export function StudentDetailPage({ studentId }: { studentId: string }) {
   const canReverseTC = hasPermission(PERMISSIONS.STUDENT_WITHDRAW_REVERSE)
   const canIssueRefund = hasPermission(PERMISSIONS.FEES_REFUND)
   const canManageTransport = hasPermission(PERMISSIONS.TRANSPORT_ALLOCATION_UPDATE)
+  const canManageHostel = hasPermission(PERMISSIONS.HOSTEL_ALLOCATION_UPDATE)
   const canVerifyDocs = hasPermission(PERMISSIONS.ADMISSION_APPROVE)
   const canManageDocs = hasPermission(PERMISSIONS.ADMISSION_UPDATE)
   const currentSchool = useAppStore((s) => s.currentSchool)
@@ -961,6 +978,8 @@ export function StudentDetailPage({ studentId }: { studentId: string }) {
   const [withdrawOpen, setWithdrawOpen] = useState(false)
   const [addTransportOpen, setAddTransportOpen] = useState(false)
   const [discontinueTransportOpen, setDiscontinueTransportOpen] = useState(false)
+  const [addHostelOpen, setAddHostelOpen] = useState(false)
+  const [discontinueHostelOpen, setDiscontinueHostelOpen] = useState(false)
   const [reverseWithdrawOpen, setReverseWithdrawOpen] = useState(false)
   const [refundDialog, setRefundDialog] = useState<{ withdrawalId: string } | null>(null)
   const [billingRefreshKey, setBillingRefreshKey] = useState(0)
@@ -1287,6 +1306,12 @@ export function StudentDetailPage({ studentId }: { studentId: string }) {
   const transportAlloc = yearTransportAlloc || fallbackTransportAlloc
   const hasTransport = !!transportAlloc || !!a?.transportRouteId
 
+  const yearHostelAlloc = viewingYear
+    ? student.hostelAllocations?.find((h) => h.isActive && h.academicYear === viewingYear) || null
+    : null
+  const hostelAlloc = yearHostelAlloc || (!yearHostelAlloc ? student.hostelAllocations?.find((h) => h.isActive) || null : null)
+  const hasHostel = !!hostelAlloc
+
   return (
     <div className="space-y-3">
       {/* Print stylesheet: visible only at print time. Hides app chrome, shows the form. */}
@@ -1459,6 +1484,27 @@ export function StudentDetailPage({ studentId }: { studentId: string }) {
                       className="h-8 w-full justify-start gap-2"
                     >
                       <Bus className="size-3.5" /> Add Transport
+                    </Button>
+                  )
+                )}
+                {canManageHostel && (
+                  hasHostel ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setDiscontinueHostelOpen(true)}
+                      className="h-8 w-full justify-start gap-2"
+                    >
+                      <Building2 className="size-3.5" /> Discontinue Hostel
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setAddHostelOpen(true)}
+                      className="h-8 w-full justify-start gap-2"
+                    >
+                      <Building2 className="size-3.5" /> Add Hostel
                     </Button>
                   )
                 )}
@@ -1637,7 +1683,7 @@ export function StudentDetailPage({ studentId }: { studentId: string }) {
               )}
             </SectionCard>
 
-            {(hasTransport || a?.hostelName) && (
+            {(hasTransport || hasHostel || a?.hostelName) && (
               <SectionCard title="Transport & Hostel" icon={Bus}>
                 <div className="space-y-4">
                   {hasTransport && (
@@ -1663,7 +1709,24 @@ export function StudentDetailPage({ studentId }: { studentId: string }) {
                       )}
                     </div>
                   )}
-                  {a?.hostelName && (
+                  {hasHostel ? (
+                    <div>
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Hostel</p>
+                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                        <InfoRow label="Hostel" value={hostelAlloc?.hostel?.name} icon={Home} />
+                        <InfoRow label="Room No" value={hostelAlloc?.room?.roomNumber} />
+                        <InfoRow label="Bed No" value={hostelAlloc?.bed?.bedNumber} />
+                        {hostelAlloc?.room?.roomType && <InfoRow label="Room Type" value={hostelAlloc.room.roomType} />}
+                        {hostelAlloc?.fareAmount != null && <InfoRow label="Fare" value={formatCurrency(hostelAlloc.fareAmount)} icon={Banknote} />}
+                        {hostelAlloc?.academicYear && <InfoRow label="Session" value={hostelAlloc.academicYear} icon={CalendarDays} />}
+                      </div>
+                      {hostelAlloc && viewingYear && hostelAlloc.academicYear !== viewingYear && (
+                        <p className="mt-2 text-[11px] text-muted-foreground">
+                          No hostel allocation for <strong>{viewingYear}</strong>. Showing latest active allocation from <strong>{hostelAlloc.academicYear}</strong>.
+                        </p>
+                      )}
+                    </div>
+                  ) : a?.hostelName && (
                     <div>
                       <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Hostel</p>
                       <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
@@ -1960,6 +2023,27 @@ export function StudentDetailPage({ studentId }: { studentId: string }) {
       <DiscontinueTransportDialog
         open={discontinueTransportOpen}
         onOpenChange={setDiscontinueTransportOpen}
+        studentId={studentId}
+        studentName={fullName}
+        onSuccess={() => {
+          setBillingRefreshKey((k) => k + 1)
+          fetchStudent(studentId, viewYear || undefined)
+        }}
+      />
+      <AddHostelDialog
+        open={addHostelOpen}
+        onOpenChange={setAddHostelOpen}
+        studentId={studentId}
+        studentName={fullName}
+        academicYear={viewingYear || ''}
+        onSuccess={() => {
+          setBillingRefreshKey((k) => k + 1)
+          fetchStudent(studentId, viewYear || undefined)
+        }}
+      />
+      <DiscontinueHostelDialog
+        open={discontinueHostelOpen}
+        onOpenChange={setDiscontinueHostelOpen}
         studentId={studentId}
         studentName={fullName}
         onSuccess={() => {

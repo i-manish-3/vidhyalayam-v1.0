@@ -29,6 +29,7 @@ const PRIMARY_ROLE_COMPATIBILITY: Record<string, string[]> = {
 
 const STAFF_PERMISSION_ROLES = new Set([
   'Transport',
+  'Hostel',
   'Accountant',
   'Sr. Accountant',
   'Librarian',
@@ -137,6 +138,13 @@ export const DEFAULT_ROLE_TEMPLATES: RoleTemplate[] = [
     color: '#06b6d4',
     isSystem: true,
     permissionCodes: ['transport:read', 'transport:create', 'transport:update'],
+  },
+  {
+    name: 'Hostel',
+    description: 'Manages hostels, rooms, beds, and student allocations',
+    color: '#0ea5e9',
+    isSystem: true,
+    permissionCodes: ['hostel:read', 'hostel:create', 'hostel:update'],
   },
   {
     name: 'Accountant',

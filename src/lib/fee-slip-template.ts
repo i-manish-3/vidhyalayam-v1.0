@@ -241,8 +241,10 @@ export function buildSlipLines(
       if (a.bucket === 'prev_session' && a.academicYear !== b.academicYear) {
         return b.academicYear.localeCompare(a.academicYear)
       }
-      // Within each bucket: Transport first, then Tuition, then others
-      if (a.isTransport !== b.isTransport) return a.isTransport ? -1 : 1
+      // Within each bucket: Transport/Hostel first, then Tuition, then others
+      const aService = a.isTransport || /hostel/i.test(a.feeHeadName)
+      const bService = b.isTransport || /hostel/i.test(b.feeHeadName)
+      if (aService !== bService) return aService ? -1 : 1
       const aTuition = /tuition/i.test(a.feeHeadName)
       const bTuition = /tuition/i.test(b.feeHeadName)
       if (aTuition !== bTuition) return aTuition ? -1 : 1
@@ -253,9 +255,10 @@ export function buildSlipLines(
       const periodList = months.length > 0 ? months.join(', ') : ''
       const prefix = bucketLabel[group.bucket]
 
-      // Only show "Previous Dues" labels for Transport and Tuition fees
+      // Only show "Previous Dues" labels for Transport, Hostel, and Tuition fees
       const isTuition = /tuition/i.test(group.feeHeadName)
-      const shouldShowPreviousLabel = group.isTransport || isTuition
+      const isHostel = /hostel/i.test(group.feeHeadName)
+      const shouldShowPreviousLabel = group.isTransport || isHostel || isTuition
 
       let label: string
       if (!prefix) {
@@ -264,11 +267,14 @@ export function buildSlipLines(
       } else if (group.bucket === 'overdue_term') {
         // Never show "Previous Dues" prefix for term fees, even if overdue
         label = periodList ? `${group.feeHeadName} (${periodList})` : group.feeHeadName
-      } else if (!shouldShowPreviousLabel && (group.bucket === 'prev_month' || group.bucket === 'prev_session')) {
-        // For non-transport/non-tuition fees in prev_month/prev_session, show without prefix
+      } else if (!shouldShowPreviousLabel && group.bucket === 'prev_month') {
+        // For non-transport/non-tuition fees in prev_month, show without prefix
         label = periodList ? `${group.feeHeadName} (${periodList})` : group.feeHeadName
       } else {
-        // Show prefix for transport/tuition in prev_month/prev_session buckets
+        // Show the "Previous Session Dues" prefix + session year for EVERY head
+        // carried from a past session (Admission, Annual, Exam Qn included), and
+        // for transport/tuition in the prev_month bucket. This makes it explicit
+        // on the slip which session a carried-forward due belongs to.
         const monthPart = periodList ? ` (${periodList})` : ''
         const yearPart =
           group.bucket === 'prev_session' && group.academicYear ? ` — ${group.academicYear}` : ''

@@ -197,6 +197,13 @@ export const PERMISSIONS = {
   TRANSPORT_ALLOCATION_UPDATE: 'transport:allocation:update',
   TRANSPORT_DELETE: 'transport:delete',
 
+  // Hostel
+  HOSTEL_READ: 'hostel:read',
+  HOSTEL_CREATE: 'hostel:create',
+  HOSTEL_UPDATE: 'hostel:update',
+  HOSTEL_ALLOCATION_UPDATE: 'hostel:allocation:update',
+  HOSTEL_DELETE: 'hostel:delete',
+
   // Library
   LIBRARY_READ: 'library:read',
   LIBRARY_CREATE: 'library:create',

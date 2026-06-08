@@ -4,9 +4,9 @@ import { db } from '@/lib/db'
 import { requireRole, requirePermission } from '@/lib/api-auth'
 import { unauthorizedError, internalError, apiError, forbiddenError } from '@/lib/api-errors'
 import { hashPassword } from '@/lib/auth'
-import { assignStudentFeesFromStructure } from '@/lib/fees'
+import { assignStudentFeesFromStructure, createFeeDebitLedgerEntry } from '@/lib/fees'
 import { allocateSchoolNumber } from '@/lib/admission-numbering'
-import { validateRow, type RawRow, type NormalizedRow } from '@/lib/bulk-admission'
+import { validateRow, checkAdmissionWindow, type RawRow, type NormalizedRow } from '@/lib/bulk-admission'
 import { loadBulkAdmissionLookups } from '@/lib/bulk-admission-lookups'
 
 const ACADEMIC_YEAR_PATTERN = /^\d{4}-\d{4}$/
@@ -63,12 +63,20 @@ export async function POST(request: NextRequest) {
     // is caught here rather than silently inserted with stale ids.
     const lookups = await loadBulkAdmissionLookups(user.schoolId, academicYear)
 
+    // Admission window may have closed between validate and commit — re-check.
+    const windowError = checkAdmissionWindow(lookups)
+    if (windowError) return apiError(400, windowError)
+
     // First pass: re-validate every row. Anything invalid is rejected outright.
     // Inside-batch admission-number duplicates are also caught here.
+    // NOTE: per-class cap re-checks against the *current* DB count plus this
+    // chunk's tally. The client commits in chunks, so the cap is enforced
+    // chunk-by-chunk against the live count (which grows as prior chunks land).
     const seenOverrides = new Set<string>()
+    const classTally = new Map<string, number>()
     const validated: Array<{ index: number; parsed: NormalizedRow } | { index: number; reason: string }> = rows.map(
       (row, index) => {
-        const d = validateRow({ row, index, lookups, seenOverrides })
+        const d = validateRow({ row, index, lookups, seenOverrides, classTally })
         if (d.status === 'invalid' || !d.parsed) {
           return { index, reason: d.errors.join('; ') || 'Validation failed' }
         }
@@ -78,6 +86,9 @@ export async function POST(request: NextRequest) {
 
     // Pre-compute familyId per fatherPhone group, so siblings in the same upload
     // get the same familyId without needing to look at each other in the DB.
+    // This is the FALLBACK grouping — a row that explicitly links to an existing
+    // student via siblingAdmissionNumber adopts that family's id instead (handled
+    // inside the per-row transaction below).
     const familyIdByFatherPhone = new Map<string, string>()
     for (const item of validated) {
       if ('parsed' in item) {
@@ -107,11 +118,35 @@ export async function POST(request: NextRequest) {
 
       const { index, parsed } = item
       try {
-        const familyId = familyIdByFatherPhone.get(parsed.fatherPhone)!
         const dob = new Date(parsed.dateOfBirth)
         const now = new Date()
 
         const createdInTx = await db.$transaction(async (tx) => {
+          // Resolve familyId. A row that links to an existing student adopts
+          // that student's family (minting + backfilling one if the sibling
+          // predates familyId). Otherwise fall back to the in-batch
+          // fatherPhone grouping. siblingId is recorded when an existing
+          // student was linked.
+          let familyId: string
+          let linkedSiblingId: string | null = null
+          if (parsed.siblingStudentId) {
+            linkedSiblingId = parsed.siblingStudentId
+            if (parsed.siblingFamilyId) {
+              familyId = parsed.siblingFamilyId
+            } else {
+              familyId = randomUUID()
+              await tx.student.update({
+                where: { id: parsed.siblingStudentId },
+                data: { familyId },
+              })
+              await tx.admission.updateMany({
+                where: { studentId: parsed.siblingStudentId },
+                data: { familyId },
+              })
+            }
+          } else {
+            familyId = familyIdByFatherPhone.get(parsed.fatherPhone)!
+          }
           // Allocate admission/registration numbers inside the tx so the
           // counter increment is part of the same atomic unit. If a row in
           // the CSV provided an explicit admissionNumber override, use that
@@ -160,6 +195,7 @@ export async function POST(request: NextRequest) {
               previousSchool: parsed.previousSchool,
               feesGroupId: parsed.feesGroupId,
               familyId,
+              siblingId: linkedSiblingId,
               appliedDate: now,
               admittedBy: userId,
               admittedAt: now,
@@ -190,6 +226,7 @@ export async function POST(request: NextRequest) {
               previousSchool: adm.previousSchool,
               rollNumber: parsed.rollNumber,
               familyId,
+              siblingId: linkedSiblingId,
               admissionStatus: 'admitted',
               classId: adm.classId,
               sectionId: adm.sectionId,
@@ -235,6 +272,69 @@ export async function POST(request: NextRequest) {
               chargeFullYear: chargeFullYearFees,
             })
             feesAssigned = true
+          }
+
+          // 5b. Transport allocation + monthly transport fee (best-effort).
+          //     Pro-rates by join month unless the batch full-year toggle is on,
+          //     mirroring the single-admission route.
+          if (parsed.transportRouteId && parsed.transportStopName) {
+            const fare = parsed.transportFare ?? 0
+            const billableFeeMonths = chargeFullYearFees
+              ? parsed.transportFeeMonths
+              : filterBillableMonths(parsed.transportFeeMonths, academicYear, now)
+
+            await tx.transportAllocation.create({
+              data: {
+                schoolId,
+                studentId: student.id,
+                routeId: parsed.transportRouteId,
+                academicYear,
+                pickupPoint: parsed.transportStopName,
+                dropPoint: null,
+                stopName: parsed.transportStopName,
+                fareAmount: fare,
+                feeMonths: JSON.stringify(billableFeeMonths),
+                isActive: true,
+                effectiveFrom: now,
+                changeReason: 'INITIAL',
+              },
+            })
+
+            if (fare > 0 && billableFeeMonths.length > 0) {
+              for (const month of billableFeeMonths) {
+                const transportCollection = await tx.feeCollection.create({
+                  data: {
+                    schoolId,
+                    studentId: student.id,
+                    amount: fare,
+                    paidAmount: 0,
+                    discount: 0,
+                    concession: 0,
+                    scholarship: 0,
+                    fine: 0,
+                    paymentStatus: 'unpaid',
+                    installmentName: month,
+                    feeHeadName: 'Transport Fee',
+                    notes: `Transport fee for ${parsed.transportStopName} (${academicYear})`,
+                  },
+                })
+                await createFeeDebitLedgerEntry({
+                  tx,
+                  schoolId,
+                  studentId: student.id,
+                  academicYear,
+                  feeCollectionId: transportCollection.id,
+                  sourceType: 'transport',
+                  sourceId: transportCollection.id,
+                  feeHeadName: 'Transport Fee',
+                  installmentName: month,
+                  description: `Transport Fee - ${month}`,
+                  amount: fare,
+                  notes: `Transport fee for ${parsed.transportStopName} (${academicYear})`,
+                  createdBy: userId,
+                })
+              }
+            }
           }
 
           // 6. Father parent + StudentParent link
@@ -365,6 +465,33 @@ export async function POST(request: NextRequest) {
     console.error('Bulk admission commit error:', error)
     return internalError('committing the bulk admission')
   }
+}
+
+const AY_MONTHS = ['Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar']
+
+/**
+ * Drop transport months that fall strictly before the student's join month.
+ * Same rule as tuition pro-rating in assignStudentFeesFromStructure and the
+ * single-admission route. Unrecognized month labels are kept (fail-open).
+ */
+function filterBillableMonths(feeMonths: string[], academicYear: string, admissionDate: Date): string[] {
+  const [startYearStr] = (academicYear || '').split('-')
+  const startYear = Number(startYearStr)
+  if (!Number.isFinite(startYear)) return feeMonths
+
+  const effYM = admissionDate.getUTCFullYear() * 12 + admissionDate.getUTCMonth()
+  const monthLabelToYM = (label: string): number | null => {
+    const idx = AY_MONTHS.findIndex((m) => m.toLowerCase() === label.toLowerCase())
+    if (idx === -1) return null
+    const calMonth = idx <= 8 ? idx + 3 : idx - 9
+    const calYear = idx <= 8 ? startYear : startYear + 1
+    return calYear * 12 + calMonth
+  }
+
+  return feeMonths.filter((label) => {
+    const monthYM = monthLabelToYM(label)
+    return monthYM === null || monthYM >= effYM
+  })
 }
 
 function formatTransactionError(err: unknown): string {
