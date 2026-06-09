@@ -34,13 +34,11 @@ import {
   LockOpen,
   AlertTriangle,
   Info,
-  Palette as PaletteIcon,
   CalendarClock,
   ChevronRight,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
-import { findSchoolThemePalette } from '@/lib/theme-palettes'
 import { validatePassword, validatePasswordMatch } from '@/lib/validators'
 
 interface SchoolDetail {
@@ -60,7 +58,6 @@ interface SchoolDetail {
   status: string
   trialEndsAt?: string
   onboardingDate?: string
-  primaryColor?: string
   features?: string
   favicon?: string
   createdAt: string
@@ -211,7 +208,6 @@ export function SchoolDetailPage({ schoolId }: { schoolId: string }) {
   }
 
   const locationLine = [school.city, school.state].filter(Boolean).join(', ')
-  const palette = school.primaryColor ? findSchoolThemePalette(school.primaryColor) : null
 
   return (
     <div className="space-y-6">
@@ -354,19 +350,6 @@ export function SchoolDetailPage({ schoolId }: { schoolId: string }) {
                   <DetailItem icon={BookOpen} label="Board" value={school.board} />
                   <DetailItem icon={Calendar} label="Academic Year" value={school.academicYear} />
                   <DetailItem icon={Shield} label="Status" value={statusBadge(school.status)} />
-                  {palette ? (
-                    <DetailItem
-                      icon={PaletteIcon}
-                      label="Color Palette"
-                      value={
-                        <span className="flex items-center gap-2">
-                          <span className="size-3.5 rounded-full border" style={{ backgroundColor: school.primaryColor }} />
-                          {palette.name}
-                          <span className="text-muted-foreground text-xs">{school.primaryColor}</span>
-                        </span>
-                      }
-                    />
-                  ) : null}
                 </div>
 
                 <div className="rounded-xl border bg-muted/30 p-4">

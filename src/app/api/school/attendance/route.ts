@@ -3,8 +3,32 @@ import { db } from '@/lib/db'
 import { requirePermission, requireRole } from '@/lib/api-auth'
 import { unauthorizedError, internalError, apiError } from '@/lib/api-errors'
 import { isSchoolTeachingDay } from '@/lib/academic-calendar'
+import { notificationService } from '@/lib/notifications'
 
 const ACADEMIC_YEAR_PATTERN = /^\d{4}-\d{4}$/
+
+// Notify guardians of students marked absent. Isolated + best-effort: failures
+// are logged and never affect the attendance save.
+async function notifyAbsenteesSafe(
+  schoolId: string,
+  absentStudentIds: string[],
+  dateLabel: string,
+  createdBy: string,
+): Promise<void> {
+  for (const studentId of absentStudentIds) {
+    try {
+      await notificationService.triggerEvent({
+        schoolId,
+        eventType: 'ATTENDANCE_ABSENT',
+        studentId,
+        createdBy,
+        metadata: { status: 'absent', date: dateLabel },
+      })
+    } catch (err) {
+      console.error('[notif] ATTENDANCE_ABSENT trigger failed:', err instanceof Error ? err.message : err)
+    }
+  }
+}
 
 async function resolveAcademicYear(schoolId: string, value: string | null, requireActive = false) {
   const school = await db.school.findUnique({
@@ -369,6 +393,14 @@ export async function POST(request: NextRequest) {
         return upserted
       })
       results.push(attendance)
+    }
+
+    // Alert guardians of newly-absent students (best-effort, non-blocking failure).
+    const absentStudentIds = records
+      .filter((r: { status: string }) => r.status === 'absent')
+      .map((r: { studentId: string }) => r.studentId)
+    if (absentStudentIds.length > 0) {
+      await notifyAbsenteesSafe(user.schoolId, absentStudentIds, date, user.userId)
     }
 
     return NextResponse.json({

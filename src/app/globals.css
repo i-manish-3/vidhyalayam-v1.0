@@ -57,9 +57,9 @@
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.208 0.042 266);
 
-  /* Emerald accent — primary brand color */
-  --primary: oklch(0.69 0.15 160);
-  --primary-foreground: oklch(0.98 0.01 160);
+  /* Turquoise accent — single brand color for the whole app */
+  --primary: #19A797;
+  --primary-foreground: #f0fdfa;
 
   /* Slate neutral shades */
   --secondary: oklch(0.968 0.007 248);
@@ -78,7 +78,7 @@
   /* Borders & Input */
   --border: oklch(0.929 0.013 256);
   --input: oklch(0.929 0.013 256);
-  --ring: oklch(0.61 0.16 160);
+  --ring: #19A797;
 
   /* Brand gradient tokens — palette-aware, derived from the live theme vars.
      They reference --primary / --sidebar / --button-primary so every palette
@@ -92,22 +92,22 @@
   --gradient-page: linear-gradient(160deg, color-mix(in oklab, var(--primary), white 95%) 0%, color-mix(in oklab, var(--primary), white 90%) 55%, color-mix(in oklab, var(--primary), white 96%) 100%);
   --shadow-premium: 0 1px 2px 0 oklch(0.2 0.04 266 / 0.04), 0 4px 16px -4px oklch(0.2 0.04 266 / 0.10);
 
-  /* Chart palette — emerald/teal family */
-  --chart-1: oklch(0.696 0.17 163);
-  --chart-2: oklch(0.657 0.137 175);
-  --chart-3: oklch(0.765 0.177 163);
-  --chart-4: oklch(0.733 0.14 177);
-  --chart-5: oklch(0.508 0.118 166);
+  /* Chart palette — turquoise family */
+  --chart-1: #19A797;
+  --chart-2: #2dd4bf;
+  --chart-3: #5eead4;
+  --chart-4: #0d9488;
+  --chart-5: #14887A;
 
-  /* Sidebar — dark slate with emerald accents */
+  /* Sidebar — flat single-tone turquoise */
   --sidebar: var(--primary);
   --sidebar-foreground: var(--primary-foreground);
   --sidebar-primary: var(--primary-foreground);
   --sidebar-primary-foreground: var(--primary);
-  --sidebar-accent: oklch(0.59 0.145 160);
+  --sidebar-accent: #19A797;
   --sidebar-accent-foreground: var(--primary-foreground);
-  --sidebar-border: oklch(0.58 0.14 160);
-  --sidebar-ring: oklch(0.61 0.16 160);
+  --sidebar-border: #19A797;
+  --sidebar-ring: #19A797;
 }
 
 .dark {

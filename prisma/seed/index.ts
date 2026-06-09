@@ -30,7 +30,7 @@ async function seed() {
       name: 'Delhi Public School', address: 'Mathura Road, New Delhi', city: 'New Delhi', state: 'Delhi', pincode: '110003', country: 'India',
       contactPhone: '+91-11-24362489', contactEmail: 'info@dpsdelhi.in', website: 'https://dpsdelhi.in',
       academicYear: '2026-2027', board: 'CBSE', timezone: 'Asia/Kolkata', currency: 'INR',
-      subdomain: 'dps-delhi', status: 'active', onboardingDate: new Date('2024-04-01'), primaryColor: '#8c8f97',
+      subdomain: 'dps-delhi', status: 'active', onboardingDate: new Date('2024-04-01'),
     },
   })
   const school2 = await db.school.create({
@@ -357,7 +357,7 @@ async function seed() {
     const hra = basic * 0.2; const da = basic * 0.1; const ta = 3000; const medical = 2000; const special = 5000
     const gross = basic + hra + da + ta + medical + special
     const pf = basic * 0.12; const esi = basic * 0.0175; const net = gross - pf - esi
-    await db.salaryStructure.create({ data: { schoolId: school.id, teacherId: teacher.id, basicSalary: basic, hra, da, ta, medicalAllowance: medical, specialAllowance: special, pf, esi, grossSalary: gross, netSalary: net, effectiveFrom: new Date('2026-04-01') } })
+    await db.salaryStructure.create({ data: { schoolId: school.id, staffType: 'teacher', staffId: teacher.id, basicSalary: basic, hra, da, ta, medicalAllowance: medical, specialAllowance: special, pf, esi, grossSalary: gross, netSalary: net, standardDays: 30, effectiveFrom: new Date('2026-04-01') } })
   }
   console.log(`✅ Created ${teachers.length} teachers with salary structures`)
 
@@ -712,34 +712,6 @@ async function seed() {
   }
   console.log(`✅ Created ${announcements.length} announcements`)
 
-  // Petty cash
-  const pettyCashEntries = [
-    { amount: 500, type: 'debit', category: 'Stationery', description: 'Pens, notebooks, markers for staff room', approvalStatus: 'approved' },
-    { amount: 1200, type: 'debit', category: 'Utilities', description: 'Electricity meter recharge', approvalStatus: 'approved' },
-    { amount: 800, type: 'debit', category: 'Maintenance', description: 'Plumbing repair in girls washroom', approvalStatus: 'approved' },
-    { amount: 350, type: 'debit', category: 'Transport', description: 'Auto fare for sports equipment delivery', approvalStatus: 'pending' },
-    { amount: 10000, type: 'credit', category: 'Fee Counter', description: 'Cash deposit from fee counter', approvalStatus: 'approved' },
-    { amount: 600, type: 'debit', category: 'Refreshments', description: 'Tea and snacks for staff meeting', approvalStatus: 'approved' },
-    { amount: 4500, type: 'debit', category: 'Stationery', description: 'Photocopy paper bulk order', approvalStatus: 'approved' },
-    { amount: 300, type: 'debit', category: 'Maintenance', description: 'Whiteboard markers replacement', approvalStatus: 'pending' },
-  ]
-  for (const e of pettyCashEntries) {
-    await db.pettyCashEntry.create({
-      data: {
-        schoolId: school.id,
-        amount: e.amount,
-        type: e.type,
-        category: e.category,
-        description: e.description,
-        createdBy: schoolAdmin.id,
-        approvalStatus: e.approvalStatus,
-        approvedBy: e.approvalStatus === 'approved' ? schoolAdmin.id : null,
-        date: new Date(),
-      },
-    })
-  }
-  console.log(`✅ Created ${pettyCashEntries.length} petty cash entries`)
-
   // Support tickets
   await db.supportTicket.create({ data: { schoolId: school.id, userId: schoolAdmin.id, subject: 'Cannot generate fee receipt', description: 'Fee receipt failing for some students.', category: 'technical', priority: 'high', status: 'open' } })
 
@@ -874,20 +846,23 @@ async function seed() {
     { code: 'inventory:update', name: 'Update Item', module: 'inventory', action: 'update' },
     { code: 'inventory:delete', name: 'Delete Item', module: 'inventory', action: 'delete' },
     { code: 'inventory:sell', name: 'Sell Inventory to Students', module: 'inventory', action: 'create' },
-    // Petty Cash
-    { code: 'petty_cash:read', name: 'View Petty Cash', module: 'petty_cash', action: 'read' },
-    { code: 'petty_cash:create', name: 'Create Entry', module: 'petty_cash', action: 'create' },
-    { code: 'petty_cash:approve', name: 'Approve Entry', module: 'petty_cash', action: 'update' },
-    { code: 'petty_cash:delete', name: 'Delete Entry', module: 'petty_cash', action: 'delete' },
     // Notifications
     { code: 'notification:read', name: 'View Notifications', module: 'notifications', action: 'read' },
     { code: 'notification:create', name: 'Create Notification', module: 'notifications', action: 'create' },
     { code: 'notification:delete', name: 'Delete Notification', module: 'notifications', action: 'delete' },
+    { code: 'notification:send', name: 'Send Bulk Notifications', module: 'notifications', action: 'create' },
+    { code: 'notification:manage', name: 'Manage Notifications', module: 'notifications', action: 'update' },
+    { code: 'notification:retry', name: 'Retry Failed Notifications', module: 'notifications', action: 'update' },
+    { code: 'notification:template:manage', name: 'Manage Notification Templates', module: 'notifications', action: 'update' },
+    { code: 'notification:preference:manage', name: 'Manage Notification Preferences', module: 'notifications', action: 'update' },
     // Announcements
     { code: 'announcement:read', name: 'View Announcements', module: 'announcements', action: 'read' },
     { code: 'announcement:create', name: 'Create Announcement', module: 'announcements', action: 'create' },
     { code: 'announcement:update', name: 'Update Announcement', module: 'announcements', action: 'update' },
     { code: 'announcement:delete', name: 'Delete Announcement', module: 'announcements', action: 'delete' },
+    { code: 'announcement:publish', name: 'Publish Announcement', module: 'announcements', action: 'create' },
+    { code: 'announcement:schedule', name: 'Schedule Announcement', module: 'announcements', action: 'update' },
+    { code: 'announcement:view_analytics', name: 'View Announcement Analytics', module: 'announcements', action: 'read' },
     // Classes
     { code: 'class:read', name: 'View Classes', module: 'classes', action: 'read' },
     { code: 'class:create', name: 'Create Class', module: 'classes', action: 'create' },
@@ -985,7 +960,7 @@ async function seed() {
         'student:read', 'attendance:read', 'attendance:mark',
         'fees:read', 'fees:collect', 'fees:refund', 'salary:read',
         'transport:read', 'library:read', 'inventory:read',
-        'petty_cash:read', 'notification:read', 'announcement:read',
+        'notification:read', 'announcement:read',
       ],
     },
     {

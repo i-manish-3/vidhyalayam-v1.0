@@ -10,10 +10,37 @@ import {
   recordStudentLedgerWaiver,
 } from '@/lib/fees'
 import { logFeeTransaction, extractAuditContext } from '@/lib/audit'
+import { notificationService } from '@/lib/notifications'
 
 // Retry configuration for concurrent payment scenarios
 const PAYMENT_RETRY_ATTEMPTS = 3
 const PAYMENT_RETRY_DELAY_MS = 100
+
+// Fire a FEE_SUBMITTED notification to the student's guardians. Fully isolated:
+// never throws, never blocks the payment response in a meaningful way (the
+// in-app write is fast; external channels are enqueued).
+async function notifyFeeSubmittedSafe(
+  schoolId: string,
+  studentId: string,
+  receiptNo: string,
+  amount: number,
+  createdBy: string,
+): Promise<void> {
+  try {
+    await notificationService.triggerEvent({
+      schoolId,
+      eventType: 'FEE_SUBMITTED',
+      studentId,
+      createdBy,
+      metadata: {
+        amount: amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+        receiptNo,
+      },
+    })
+  } catch (err) {
+    console.error('[notif] FEE_SUBMITTED trigger failed:', err instanceof Error ? err.message : err)
+  }
+}
 
 function isRetryableError(error: unknown): boolean {
   if (error instanceof Prisma.PrismaClientKnownRequestError) {
@@ -768,6 +795,7 @@ export async function POST(request: NextRequest) {
             }
           })
 
+          await notifyFeeSubmittedSafe(user.schoolId!, studentId, result.receiptNumber, result.appliedAmount, user.userId)
           return NextResponse.json(result, { status: 201 })
         } catch (error) {
           lastError = error

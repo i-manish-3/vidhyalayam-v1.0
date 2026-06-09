@@ -70,7 +70,6 @@ export async function GET(
       trialEndsAt: school.trialEndsAt,
       onboardingDate: school.onboardingDate,
       favicon: school.favicon,
-      primaryColor: school.primaryColor,
       features: school.features,
       createdAt: school.createdAt,
       updatedAt: school.updatedAt,
@@ -135,7 +134,6 @@ export async function PATCH(
       board,
       academicYear,
       status,
-      primaryColor,
       features,
       timezone,
       currency,
@@ -201,7 +199,6 @@ export async function PATCH(
         }
       }
     }
-    if (primaryColor !== undefined) updateData.primaryColor = primaryColor
     if (features !== undefined) updateData.features = features
     if (timezone !== undefined) updateData.timezone = timezone
     if (currency !== undefined) updateData.currency = currency

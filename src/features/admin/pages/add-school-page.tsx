@@ -20,8 +20,6 @@ import {
   ShieldCheck,
   CheckCircle2,
   XCircle,
-  Palette,
-  Type,
   CalendarDays,
   MapPin,
   UserCog,
@@ -35,7 +33,6 @@ import {
   validatePhone10,
   validatePincode,
   validateWebsite,
-  validateHexColor,
   validatePassword,
   validatePasswordMatch,
   validateName,
@@ -51,15 +48,11 @@ import {
   type Permission,
 } from './schools-page'
 
-const FONTS = ['system', 'Inter', 'Roboto', 'Poppins', 'Open Sans']
-
 type FormState = {
   name: string
   board: string
   academicYear: string
   status: string
-  primaryColor: string
-  dashboardFont: string
   address: string
   city: string
   state: string
@@ -80,8 +73,6 @@ const initialForm: FormState = {
   board: 'CBSE',
   academicYear: '2025-2026',
   status: 'trial',
-  primaryColor: '#10B981',
-  dashboardFont: 'system',
   address: '',
   city: '',
   state: '',
@@ -134,7 +125,6 @@ export function AddSchoolPage() {
   const errors = {
     name: validateRequired(form.name, 'School name'),
     academicYear: validateAcademicYear(form.academicYear, true),
-    primaryColor: validateHexColor(form.primaryColor, true),
     pincode: validatePincode(form.pincode, false),
     contactPhone: validatePhone10(form.contactPhone, false),
     contactEmail: validateEmail(form.contactEmail, false),
@@ -355,70 +345,6 @@ export function AddSchoolPage() {
                   </div>
                 </div>
               )}
-            </section>
-
-            {/* ---------- Branding ---------- */}
-            <section className="rounded-lg border bg-muted/30 p-3">
-              <h3 className="text-sm font-semibold mb-3 flex items-center gap-2 text-foreground">
-                <div className="size-6 rounded-md bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center">
-                  <Palette className="size-3.5" />
-                </div>
-                Branding
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
-                <div className="space-y-1.5">
-                  <Label className="flex items-center gap-1.5">
-                    <Palette className="size-3.5" />
-                    Primary Color
-                  </Label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="color"
-                      value={/^#[0-9A-Fa-f]{6}$/.test(form.primaryColor) ? form.primaryColor : '#10B981'}
-                      onChange={(e) =>
-                        setForm((f) => ({ ...f, primaryColor: e.target.value.toUpperCase() }))
-                      }
-                      className="h-9 w-12 rounded-md border border-input bg-background cursor-pointer"
-                    />
-                    <Input
-                      value={form.primaryColor}
-                      onChange={(e) => {
-                        const v = e.target.value.toUpperCase()
-                        if (/^#[0-9A-F]{0,6}$/.test(v) || v === '') {
-                          setForm((f) => ({ ...f, primaryColor: v }))
-                        }
-                      }}
-                      maxLength={7}
-                      placeholder="#10B981"
-                      className={cn('h-9 font-mono', showErr(errors.primaryColor, form.primaryColor) && 'border-destructive focus-visible:ring-destructive/30')}
-                    />
-                  </div>
-                  {showErr(errors.primaryColor, form.primaryColor) && (
-                    <p className="text-xs text-destructive">{errors.primaryColor}</p>
-                  )}
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="flex items-center gap-1.5">
-                    <Type className="size-3.5" />
-                    Dashboard Font
-                  </Label>
-                  <Select
-                    value={form.dashboardFont}
-                    onValueChange={(v) => setForm((f) => ({ ...f, dashboardFont: v }))}
-                  >
-                    <SelectTrigger className="h-9">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {FONTS.map((font) => (
-                        <SelectItem key={font} value={font}>
-                          {font === 'system' ? 'System Default' : font}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
             </section>
 
             {/* ---------- Contact & Address ---------- */}

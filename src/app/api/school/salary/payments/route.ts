@@ -1,41 +1,43 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { requireRole, requirePermission } from '@/lib/api-auth'
-import { unauthorizedError, notFoundError, internalError, apiError } from '@/lib/api-errors'
+import { requirePermission } from '@/lib/api-auth'
+import { notFoundError, internalError, apiError } from '@/lib/api-errors'
+import { resolveStaff, resolveStaffMap, isStaffType, staffKey } from '@/lib/salary/staff-resolver'
+import { computePayslip } from '@/lib/salary/compute'
+import { logSalaryEvent, extractSalaryAuditContext } from '@/lib/salary/audit'
 
 // GET /api/school/salary/payments - List salary payments
 export async function GET(request: NextRequest) {
   try {
-    const user = requireRole(request, ['SCHOOL_ADMIN', 'STAFF'])
+    const user = await requirePermission(request, 'salary:read')
     if (!user || !user.schoolId) {
-      return unauthorizedError()
+      return apiError(403, "You don't have permission to view salary payments.")
     }
 
     const { searchParams } = new URL(request.url)
-    const teacherId = searchParams.get('teacherId') || ''
+    const staffType = searchParams.get('staffType') || ''
+    const staffId = searchParams.get('staffId') || ''
     const month = searchParams.get('month') || ''
     const year = searchParams.get('year') || ''
     const paymentStatus = searchParams.get('paymentStatus') || ''
-    const page = parseInt(searchParams.get('page') || '1')
-    const limit = parseInt(searchParams.get('limit') || '20')
+    const payrollRunId = searchParams.get('payrollRunId') || ''
+    const page = Math.max(parseInt(searchParams.get('page') || '1'), 1)
+    const limit = Math.min(Math.max(parseInt(searchParams.get('limit') || '20'), 1), 100)
     const skip = (page - 1) * limit
 
     const where: Record<string, unknown> = {
       schoolId: user.schoolId,
     }
-    if (teacherId) where.teacherId = teacherId
+    if (isStaffType(staffType)) where.staffType = staffType
+    if (staffId) where.staffId = staffId
     if (month) where.month = parseInt(month)
     if (year) where.year = parseInt(year)
     if (paymentStatus) where.paymentStatus = paymentStatus
+    if (payrollRunId) where.payrollRunId = payrollRunId
 
     const [payments, total] = await Promise.all([
       db.salaryPayment.findMany({
         where,
-        include: {
-          teacher: {
-            select: { id: true, firstName: true, lastName: true, employeeId: true },
-          },
-        },
         orderBy: [{ year: 'desc' }, { month: 'desc' }],
         skip,
         take: limit,
@@ -43,8 +45,18 @@ export async function GET(request: NextRequest) {
       db.salaryPayment.count({ where }),
     ])
 
+    const staffMap = await resolveStaffMap(
+      db,
+      user.schoolId,
+      payments.map((p: { staffType: string; staffId: string }) => ({ staffType: p.staffType, staffId: p.staffId }))
+    )
+    const withStaff = payments.map((p: { staffType: string; staffId: string }) => ({
+      ...p,
+      staff: staffMap.get(staffKey(p.staffType, p.staffId)) || null,
+    }))
+
     return NextResponse.json({
-      payments,
+      payments: withStaff,
       pagination: {
         page,
         limit,
@@ -58,7 +70,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST /api/school/salary/payments - Generate/process salary payment
+// POST /api/school/salary/payments - Generate/process a single salary payment
 export async function POST(request: NextRequest) {
   try {
     const user = await requirePermission(request, 'salary:pay')
@@ -68,126 +80,158 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json()
     const {
-      teacherId,
+      staffType,
+      staffId,
       month,
       year,
       paymentMethod,
       transactionRef,
+      lopDays,
       action, // 'generate' or 'process'
     } = body
 
-    if (!teacherId || !month || !year) {
-      return apiError(400, 'Please select a teacher, month, and year to generate the salary payment.')
+    if (!isStaffType(staffType) || !staffId || !month || !year) {
+      return apiError(400, 'Please select a staff member, month, and year to generate the salary payment.')
     }
 
-    // Verify teacher belongs to this school
-    const teacher = await db.teacher.findFirst({
-      where: { id: teacherId, schoolId: user.schoolId, deletedAt: null },
-    })
-    if (!teacher) {
-      return notFoundError('Teacher')
+    const monthNum = parseInt(String(month))
+    const yearNum = parseInt(String(year))
+
+    const staff = await resolveStaff(db, user.schoolId, staffType, staffId)
+    if (!staff) {
+      return notFoundError('Staff member')
     }
 
-    // Check if payment already exists for this month/year
     const existingPayment = await db.salaryPayment.findUnique({
       where: {
-        schoolId_teacherId_month_year: {
+        schoolId_staffType_staffId_month_year: {
           schoolId: user.schoolId,
-          teacherId,
-          month: parseInt(month),
-          year: parseInt(year),
+          staffType,
+          staffId,
+          month: monthNum,
+          year: yearNum,
         },
       },
     })
 
     if (existingPayment && action !== 'process') {
       return NextResponse.json(
-        { message: 'This teacher\'s salary has already been processed for this month. You can view it in the salary payments list.', payment: existingPayment },
+        {
+          message:
+            "This staff member's salary has already been processed for this month. You can view it in the salary payments list.",
+          payment: existingPayment,
+        },
         { status: 400 }
       )
     }
 
-    // Get salary structure
-    const salaryStructure = await db.salaryStructure.findUnique({
-      where: { teacherId },
-    })
-    if (!salaryStructure) {
-      return apiError(400, 'This teacher doesn\'t have a salary structure yet. Please create one before processing payments.')
+    if (existingPayment && action === 'process' && existingPayment.paymentStatus === 'paid') {
+      return apiError(409, 'This payslip has already been paid.')
     }
 
-    // Check for approved advance deductions for this month
+    const salaryStructure = await db.salaryStructure.findFirst({
+      where: { schoolId: user.schoolId, staffType, staffId, deletedAt: null },
+    })
+    if (!salaryStructure) {
+      return apiError(
+        400,
+        "This staff member doesn't have a salary structure yet. Please create one before processing payments."
+      )
+    }
+
+    // Approved advances scheduled for deduction this month
     const advanceDeduction = await db.advanceRequest.aggregate({
       where: {
         schoolId: user.schoolId,
-        teacherId,
+        staffType,
+        staffId,
         approvalStatus: 'approved',
-        deductionMonth: parseInt(month),
-        deductionYear: parseInt(year),
+        deductionMonth: monthNum,
+        deductionYear: yearNum,
       },
       _sum: { amount: true },
     })
-
     const advanceDed = advanceDeduction._sum.amount || 0
 
-    const grossEarnings = salaryStructure.grossSalary
-    const totalDeductions = salaryStructure.pf + salaryStructure.esi + salaryStructure.tax + salaryStructure.otherDeductions + advanceDed
-    const netPayable = grossEarnings - totalDeductions
-
-    if (existingPayment && action === 'process') {
-      // Process (mark as paid)
-      const updated = await db.salaryPayment.update({
-        where: { id: existingPayment.id },
-        data: {
-          paymentStatus: 'paid',
-          paymentDate: new Date(),
-          paymentMethod: paymentMethod || 'bank_transfer',
-          transactionRef,
-          advanceDeduction: advanceDed,
-          totalDeductions,
-          netPayable,
-        },
-        include: {
-          teacher: {
-            select: { id: true, firstName: true, lastName: true, employeeId: true },
-          },
-        },
-      })
-      return NextResponse.json(updated)
-    }
-
-    // Generate new salary payment
-    const payment = await db.salaryPayment.create({
-      data: {
-        schoolId: user.schoolId,
-        teacherId,
-        salaryStructureId: salaryStructure.id,
-        month: parseInt(month),
-        year: parseInt(year),
-        basicSalary: salaryStructure.basicSalary,
-        hra: salaryStructure.hra,
-        da: salaryStructure.da,
-        ta: salaryStructure.ta,
-        medicalAllowance: salaryStructure.medicalAllowance,
-        specialAllowance: salaryStructure.specialAllowance,
-        grossEarnings,
-        pf: salaryStructure.pf,
-        esi: salaryStructure.esi,
-        tax: salaryStructure.tax,
-        advanceDeduction: advanceDed,
-        otherDeductions: salaryStructure.otherDeductions,
-        totalDeductions,
-        netPayable,
-        paymentStatus: 'pending',
-        generatedOn: new Date(),
-      },
-      include: {
-        teacher: {
-          select: { id: true, firstName: true, lastName: true, employeeId: true },
-        },
-      },
+    const effectiveLopDays = lopDays !== undefined ? Number(lopDays) : existingPayment?.lopDays || 0
+    const slip = computePayslip({
+      structure: salaryStructure,
+      lopDays: effectiveLopDays,
+      advanceDeduction: advanceDed,
     })
 
-    return NextResponse.json(payment, { status: 201 })
+    const auditContext = extractSalaryAuditContext(request, user.userId)
+
+    if (existingPayment && action === 'process') {
+      const updated = await db.$transaction(async (tx: typeof db) => {
+        const result = await tx.salaryPayment.update({
+          where: { id: existingPayment.id },
+          data: {
+            paymentStatus: 'paid',
+            paymentDate: new Date(),
+            paymentMethod: paymentMethod || 'bank_transfer',
+            transactionRef,
+            advanceDeduction: slip.advanceDeduction,
+            lopDays: slip.lopDays,
+            paidDays: slip.paidDays,
+            lopDeduction: slip.lopDeduction,
+            totalDeductions: slip.totalDeductions,
+            netPayable: slip.netPayable,
+          },
+        })
+        await logSalaryEvent(tx, user.schoolId!, 'SalaryPayment', result.id, 'paid', existingPayment, result, {
+          ...auditContext,
+          staffType,
+          staffId,
+          diffSummary: `Marked salary paid for ${staff.fullName} (${monthNum}/${yearNum}), net ${slip.netPayable}`,
+          metadata: { month: monthNum, year: yearNum, paymentMethod: paymentMethod || 'bank_transfer' },
+        })
+        return result
+      })
+      return NextResponse.json({ ...updated, staff })
+    }
+
+    const payment = await db.$transaction(async (tx: typeof db) => {
+      const created = await tx.salaryPayment.create({
+        data: {
+          schoolId: user.schoolId!,
+          staffType,
+          staffId,
+          salaryStructureId: salaryStructure.id,
+          month: monthNum,
+          year: yearNum,
+          basicSalary: slip.basicSalary,
+          hra: slip.hra,
+          da: slip.da,
+          ta: slip.ta,
+          medicalAllowance: slip.medicalAllowance,
+          specialAllowance: slip.specialAllowance,
+          grossEarnings: slip.grossEarnings,
+          pf: slip.pf,
+          esi: slip.esi,
+          tax: slip.tax,
+          advanceDeduction: slip.advanceDeduction,
+          lopDays: slip.lopDays,
+          paidDays: slip.paidDays,
+          lopDeduction: slip.lopDeduction,
+          otherDeductions: slip.otherDeductions,
+          totalDeductions: slip.totalDeductions,
+          netPayable: slip.netPayable,
+          paymentStatus: 'pending',
+          generatedOn: new Date(),
+        },
+      })
+      await logSalaryEvent(tx, user.schoolId!, 'SalaryPayment', created.id, 'generated', null, created, {
+        ...auditContext,
+        staffType,
+        staffId,
+        diffSummary: `Generated salary payslip for ${staff.fullName} (${monthNum}/${yearNum}), net ${slip.netPayable}`,
+        metadata: { month: monthNum, year: yearNum },
+      })
+      return created
+    })
+
+    return NextResponse.json({ ...payment, staff }, { status: 201 })
   } catch (error) {
     console.error('Create salary payment error:', error)
     return internalError('processing the salary payment')

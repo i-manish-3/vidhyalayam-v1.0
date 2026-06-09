@@ -1,5 +1,8 @@
 import type { CSSProperties } from 'react'
 
+// Single fixed brand palette for the whole app: Turquoise.
+// Flat single-tone navbar — primary, accent, border and ring are all the exact
+// same #19A797 so the sidebar shows no shading whatsoever.
 export interface ThemePalette {
   id: string
   name: string
@@ -11,245 +14,15 @@ export interface ThemePalette {
   chart: [string, string, string, string, string]
 }
 
-export interface DashboardFontOption {
-  id: string
-  name: string
-  description: string
-  stack: string
-}
-
-export const DASHBOARD_FONT_OPTIONS: DashboardFontOption[] = [
-  {
-    id: 'system',
-    name: 'System',
-    description: 'Clean default interface font',
-    stack: 'var(--font-geist-sans), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-  },
-  {
-    id: 'segoe',
-    name: 'Segoe UI',
-    description: 'Soft and familiar dashboard style',
-    stack: '"Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif',
-  },
-  {
-    id: 'arial',
-    name: 'Arial',
-    description: 'Compact and highly readable',
-    stack: 'Arial, Helvetica, sans-serif',
-  },
-  {
-    id: 'verdana',
-    name: 'Verdana',
-    description: 'Wide spacing for dense screens',
-    stack: 'Verdana, Geneva, sans-serif',
-  },
-  {
-    id: 'trebuchet',
-    name: 'Trebuchet',
-    description: 'Friendly school dashboard feel',
-    stack: '"Trebuchet MS", "Segoe UI", sans-serif',
-  },
-  {
-    id: 'georgia',
-    name: 'Georgia',
-    description: 'Formal serif style',
-    stack: 'Georgia, "Times New Roman", serif',
-  },
-]
-
-export const DEFAULT_DASHBOARD_FONT = DASHBOARD_FONT_OPTIONS[0]
-
-export const SCHOOL_THEME_PALETTES: ThemePalette[] = [
-  {
-    // Vidhyalayam Classic — the premium deep-navy → indigo house theme.
-    // First entry, so it is also DEFAULT_SCHOOL_THEME for schools without a saved color.
-    id: 'vidhyalayam-classic',
-    name: 'Vidhyalayam Classic',
-    primary: '#0F0E47',
-    foreground: '#ffffff',
-    ring: '#272757',
-    sidebarAccent: '#505081',
-    sidebarBorder: '#272757',
-    chart: ['#0F0E47', '#272757', '#505081', '#8686AC', '#3A3A6B'],
-  },
-  {
-    id: 'white',
-    name: 'White',
-    primary: '#ffffff',
-    foreground: '#0f172a',
-    ring: '#94a3b8',
-    sidebarAccent: '#f1f5f9',
-    sidebarBorder: '#e2e8f0',
-    chart: ['#0f172a', '#64748b', '#94a3b8', '#cbd5e1', '#e2e8f0'],
-  },
-  {
-    id: 'emerald',
-    name: 'Emerald',
-    primary: '#10b981',
-    foreground: '#f0fdf4',
-    ring: '#059669',
-    sidebarAccent: '#059669',
-    sidebarBorder: '#047857',
-    chart: ['#10b981', '#14b8a6', '#34d399', '#2dd4bf', '#059669'],
-  },
-  {
-    id: 'teal',
-    name: 'Teal',
-    primary: '#0d9488',
-    foreground: '#f0fdfa',
-    ring: '#0f766e',
-    sidebarAccent: '#0f766e',
-    sidebarBorder: '#115e59',
-    chart: ['#0d9488', '#06b6d4', '#2dd4bf', '#22d3ee', '#0f766e'],
-  },
-  {
-    // Flat single-tone navbar: primary, accent, border and ring are all the
-    // exact same #19A797 so the sidebar shows no shading whatsoever.
-    id: 'turquoise',
-    name: 'Turquoise',
-    primary: '#19A797',
-    foreground: '#f0fdfa',
-    ring: '#19A797',
-    sidebarAccent: '#19A797',
-    sidebarBorder: '#19A797',
-    chart: ['#19A797', '#2dd4bf', '#5eead4', '#0d9488', '#14887A'],
-  },
-  {
-    id: 'blue',
-    name: 'Blue',
-    primary: '#2563eb',
-    foreground: '#eff6ff',
-    ring: '#1d4ed8',
-    sidebarAccent: '#1d4ed8',
-    sidebarBorder: '#1e40af',
-    chart: ['#2563eb', '#38bdf8', '#60a5fa', '#0ea5e9', '#1d4ed8'],
-  },
-  {
-    id: 'sky',
-    name: 'Sky',
-    primary: '#0284c7',
-    foreground: '#f0f9ff',
-    ring: '#0369a1',
-    sidebarAccent: '#0369a1',
-    sidebarBorder: '#075985',
-    chart: ['#0284c7', '#06b6d4', '#38bdf8', '#67e8f9', '#0369a1'],
-  },
-  {
-    id: 'indigo',
-    name: 'Indigo',
-    primary: '#4f46e5',
-    foreground: '#eef2ff',
-    ring: '#4338ca',
-    sidebarAccent: '#4338ca',
-    sidebarBorder: '#3730a3',
-    chart: ['#4f46e5', '#8b5cf6', '#818cf8', '#a78bfa', '#4338ca'],
-  },
-  {
-    id: 'violet',
-    name: 'Violet',
-    primary: '#7c3aed',
-    foreground: '#f5f3ff',
-    ring: '#6d28d9',
-    sidebarAccent: '#6d28d9',
-    sidebarBorder: '#5b21b6',
-    chart: ['#7c3aed', '#a855f7', '#8b5cf6', '#c084fc', '#6d28d9'],
-  },
-  {
-    id: 'purple',
-    name: 'Purple',
-    primary: '#9333ea',
-    foreground: '#faf5ff',
-    ring: '#7e22ce',
-    sidebarAccent: '#7e22ce',
-    sidebarBorder: '#6b21a8',
-    chart: ['#9333ea', '#d946ef', '#a855f7', '#e879f9', '#7e22ce'],
-  },
-  {
-    id: 'rose',
-    name: 'Rose',
-    primary: '#e11d48',
-    foreground: '#fff1f2',
-    ring: '#be123c',
-    sidebarAccent: '#be123c',
-    sidebarBorder: '#9f1239',
-    chart: ['#e11d48', '#f97316', '#fb7185', '#fb923c', '#be123c'],
-  },
-  {
-    id: 'pink',
-    name: 'Pink',
-    primary: '#db2777',
-    foreground: '#fdf2f8',
-    ring: '#be185d',
-    sidebarAccent: '#be185d',
-    sidebarBorder: '#9d174d',
-    chart: ['#db2777', '#f43f5e', '#ec4899', '#fb7185', '#be185d'],
-  },
-  {
-    id: 'amber',
-    name: 'Amber',
-    primary: '#d97706',
-    foreground: '#fffbeb',
-    ring: '#b45309',
-    sidebarAccent: '#b45309',
-    sidebarBorder: '#92400e',
-    chart: ['#d97706', '#f59e0b', '#fbbf24', '#f97316', '#b45309'],
-  },
-  {
-    id: 'orange',
-    name: 'Orange',
-    primary: '#ea580c',
-    foreground: '#fff7ed',
-    ring: '#c2410c',
-    sidebarAccent: '#c2410c',
-    sidebarBorder: '#9a3412',
-    chart: ['#ea580c', '#f59e0b', '#fb923c', '#fbbf24', '#c2410c'],
-  },
-  {
-    id: 'lime',
-    name: 'Lime',
-    primary: '#65a30d',
-    foreground: '#f7fee7',
-    ring: '#4d7c0f',
-    sidebarAccent: '#4d7c0f',
-    sidebarBorder: '#3f6212',
-    chart: ['#65a30d', '#84cc16', '#a3e635', '#22c55e', '#4d7c0f'],
-  },
-  {
-    id: 'cyan',
-    name: 'Cyan',
-    primary: '#0891b2',
-    foreground: '#ecfeff',
-    ring: '#0e7490',
-    sidebarAccent: '#0e7490',
-    sidebarBorder: '#155e75',
-    chart: ['#0891b2', '#14b8a6', '#22d3ee', '#2dd4bf', '#0e7490'],
-  },
-  {
-    id: 'slate',
-    name: 'Slate',
-    primary: '#475569',
-    foreground: '#f8fafc',
-    ring: '#334155',
-    sidebarAccent: '#334155',
-    sidebarBorder: '#1e293b',
-    chart: ['#475569', '#64748b', '#94a3b8', '#0f766e', '#334155'],
-  },
-]
-
-export const DEFAULT_SCHOOL_THEME = SCHOOL_THEME_PALETTES[0]
-
-// Dedicated palette for the SUPER_ADMIN role — Vidhyalayam Classic (deep navy → indigo).
-// Kept separate from SCHOOL_THEME_PALETTES so schools can't pick it from their settings,
-// but mirrors the "Vidhyalayam Classic" house theme used by the rest of the app.
-export const SUPER_ADMIN_THEME_PALETTE: ThemePalette = {
-  id: 'super-admin-vidhyalayam-classic',
-  name: 'Super Admin Vidhyalayam Classic',
-  primary: '#0F0E47',
-  foreground: '#ffffff',
-  ring: '#272757',
-  sidebarAccent: '#505081',
-  sidebarBorder: '#272757',
-  chart: ['#0F0E47', '#272757', '#505081', '#8686AC', '#3A3A6B'],
+export const TURQUOISE_THEME: ThemePalette = {
+  id: 'turquoise',
+  name: 'Turquoise',
+  primary: '#19A797',
+  foreground: '#f0fdfa',
+  ring: '#19A797',
+  sidebarAccent: '#19A797',
+  sidebarBorder: '#19A797',
+  chart: ['#19A797', '#2dd4bf', '#5eead4', '#0d9488', '#14887A'],
 }
 
 export const SCHOOL_THEME_VARIABLE_NAMES = [
@@ -276,27 +49,7 @@ export const SCHOOL_THEME_VARIABLE_NAMES = [
   '--scrollbar-thumb-hover',
 ] as const
 
-export function findSchoolThemePalette(primaryColor?: string | null) {
-  if (!primaryColor) return DEFAULT_SCHOOL_THEME
-  const normalized = primaryColor.toLowerCase()
-  return SCHOOL_THEME_PALETTES.find((palette) => palette.primary.toLowerCase() === normalized) || {
-    ...DEFAULT_SCHOOL_THEME,
-    id: 'custom',
-    name: 'Custom',
-    primary: primaryColor,
-    ring: primaryColor,
-    sidebarAccent: primaryColor,
-    sidebarBorder: primaryColor,
-    chart: [primaryColor, DEFAULT_SCHOOL_THEME.chart[1], DEFAULT_SCHOOL_THEME.chart[2], DEFAULT_SCHOOL_THEME.chart[3], primaryColor],
-  }
-}
-
 function paletteToCssVars(palette: ThemePalette): CSSProperties {
-  const isWhitePalette = palette.primary.toLowerCase() === '#ffffff'
-  const buttonPrimary = isWhitePalette ? '#0f172a' : palette.primary
-  const buttonPrimaryForeground = isWhitePalette ? '#ffffff' : palette.foreground
-  const buttonPrimaryHover = isWhitePalette ? '#1e293b' : palette.sidebarAccent
-
   return {
     '--primary': palette.primary,
     '--primary-foreground': palette.foreground,
@@ -314,27 +67,17 @@ function paletteToCssVars(palette: ThemePalette): CSSProperties {
     '--chart-3': palette.chart[2],
     '--chart-4': palette.chart[3],
     '--chart-5': palette.chart[4],
-    '--button-primary': buttonPrimary,
-    '--button-primary-foreground': buttonPrimaryForeground,
-    '--button-primary-hover': buttonPrimaryHover,
-    '--scrollbar-thumb': buttonPrimary,
-    '--scrollbar-thumb-hover': buttonPrimaryHover,
+    '--button-primary': palette.primary,
+    '--button-primary-foreground': palette.foreground,
+    '--button-primary-hover': palette.sidebarAccent,
+    '--scrollbar-thumb': palette.primary,
+    '--scrollbar-thumb-hover': palette.sidebarAccent,
   } as CSSProperties
 }
 
-export function getSchoolThemeVariables(primaryColor?: string | null, isDarkTheme = false): CSSProperties | undefined {
+// Turquoise theme overrides for light mode. Dark mode falls through to the
+// platform defaults baked into globals.css.
+export function getThemeVariables(isDarkTheme = false): CSSProperties | undefined {
   if (isDarkTheme) return undefined
-  return paletteToCssVars(findSchoolThemePalette(primaryColor))
-}
-
-// Theme overrides for the SUPER_ADMIN role in light mode.
-// Dark mode falls through to the platform defaults in globals.css.
-export function getSuperAdminThemeVariables(isDarkTheme = false): CSSProperties | undefined {
-  if (isDarkTheme) return undefined
-  return paletteToCssVars(SUPER_ADMIN_THEME_PALETTE)
-}
-
-export function findDashboardFont(fontId?: string | null) {
-  if (!fontId) return DEFAULT_DASHBOARD_FONT
-  return DASHBOARD_FONT_OPTIONS.find((font) => font.id === fontId) || DEFAULT_DASHBOARD_FONT
+  return paletteToCssVars(TURQUOISE_THEME)
 }

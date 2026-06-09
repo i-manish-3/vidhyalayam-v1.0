@@ -20,7 +20,7 @@ export async function GET(
       where: { id, deletedAt: null },
       include: {
         school: {
-          select: { id: true, name: true, primaryColor: true },
+          select: { id: true, name: true },
         },
         permissions: {
           include: {
@@ -57,7 +57,6 @@ export async function GET(
       school: role.school ? {
         id: role.school.id,
         name: role.school.name,
-        primaryColor: role.school.primaryColor,
       } : null,
       users: role.userRoles.map((ur) => ({
         id: ur.user.id,
@@ -180,7 +179,7 @@ export async function PUT(
       where: { id },
       include: {
         school: {
-          select: { id: true, name: true, primaryColor: true },
+          select: { id: true, name: true },
         },
         permissions: {
           include: {
@@ -215,7 +214,6 @@ export async function PUT(
       school: updatedRole!.school ? {
         id: updatedRole!.school.id,
         name: updatedRole!.school.name,
-        primaryColor: updatedRole!.school.primaryColor,
       } : null,
       users: updatedRole!.userRoles.map((ur) => ({
         id: ur.user.id,

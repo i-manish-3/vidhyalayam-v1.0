@@ -63,11 +63,48 @@ async function main() {
   console.log(`✅ Created ${issuesCreated} book issues`)
 
   // ============================================
-  // SALARY PAYMENTS — Apr 2026 + May 2026 paid for every teacher with a structure
+  // SALARY STRUCTURES for non-teaching staff + drivers (teachers seeded in core)
+  // ============================================
+  const buildStructure = (basic: number) => {
+    const hra = Math.round(basic * 0.2)
+    const da = Math.round(basic * 0.1)
+    const ta = 2500
+    const medical = 1500
+    const special = 3000
+    const gross = basic + hra + da + ta + medical + special
+    const pf = Math.round(basic * 0.12)
+    const esi = Math.round(basic * 0.0175)
+    const net = gross - pf - esi
+    return { basicSalary: basic, hra, da, ta, medicalAllowance: medical, specialAllowance: special, pf, esi, grossSalary: gross, netSalary: net }
+  }
+
+  const staffMembers = await db.staff.findMany({ where: { schoolId: school.id, deletedAt: null }, take: 5 })
+  const drivers = await db.driver.findMany({ where: { schoolId: school.id, deletedAt: null }, take: 3 })
+
+  let staffStructuresCreated = 0
+  for (const m of staffMembers) {
+    const existing = await db.salaryStructure.findFirst({ where: { schoolId: school.id, staffType: 'staff', staffId: m.id } })
+    if (existing) continue
+    await db.salaryStructure.create({
+      data: { schoolId: school.id, staffType: 'staff', staffId: m.id, ...buildStructure(18000), standardDays: 30, effectiveFrom: new Date('2026-04-01') },
+    })
+    staffStructuresCreated++
+  }
+  for (const d of drivers) {
+    const existing = await db.salaryStructure.findFirst({ where: { schoolId: school.id, staffType: 'driver', staffId: d.id } })
+    if (existing) continue
+    await db.salaryStructure.create({
+      data: { schoolId: school.id, staffType: 'driver', staffId: d.id, ...buildStructure(15000), standardDays: 30, effectiveFrom: new Date('2026-04-01') },
+    })
+    staffStructuresCreated++
+  }
+  console.log(`✅ Created ${staffStructuresCreated} staff/driver salary structures`)
+
+  // ============================================
+  // SALARY PAYMENTS — Apr 2026 + May 2026 paid for every staff with a structure
   // ============================================
   const structures = await db.salaryStructure.findMany({
-    where: { schoolId: school.id, isActive: true },
-    include: { teacher: true },
+    where: { schoolId: school.id, isActive: true, deletedAt: null },
   })
 
   const payMonths: Array<{ month: number; year: number; date: Date }> = [
@@ -79,14 +116,15 @@ async function main() {
   for (const struct of structures) {
     for (const pm of payMonths) {
       const existing = await db.salaryPayment.findFirst({
-        where: { schoolId: school.id, teacherId: struct.teacherId, month: pm.month, year: pm.year },
+        where: { schoolId: school.id, staffType: struct.staffType, staffId: struct.staffId, month: pm.month, year: pm.year },
       })
       if (existing) continue
       const totalDeductions = (struct.pf || 0) + (struct.esi || 0) + (struct.tax || 0) + (struct.otherDeductions || 0)
       await db.salaryPayment.create({
         data: {
           schoolId: school.id,
-          teacherId: struct.teacherId,
+          staffType: struct.staffType,
+          staffId: struct.staffId,
           salaryStructureId: struct.id,
           month: pm.month,
           year: pm.year,
@@ -103,10 +141,11 @@ async function main() {
           otherDeductions: struct.otherDeductions,
           totalDeductions,
           netPayable: struct.netSalary,
+          paidDays: struct.standardDays,
           paymentStatus: 'paid',
           paymentDate: pm.date,
-          paymentMethod: 'BANK_TRANSFER',
-          transactionRef: `SAL-${pm.year}-${String(pm.month).padStart(2, '0')}-${struct.teacherId.slice(-4)}`,
+          paymentMethod: 'bank_transfer',
+          transactionRef: `SAL-${pm.year}-${String(pm.month).padStart(2, '0')}-${struct.staffId.slice(-4)}`,
           generatedOn: pm.date,
         },
       })
@@ -116,18 +155,19 @@ async function main() {
   console.log(`✅ Created ${salaryPaymentsCreated} salary payments`)
 
   // ============================================
-  // ADVANCE REQUESTS — one approved advance for first 2 teachers
+  // ADVANCE REQUESTS — one approved advance for first 2 staff with a structure
   // ============================================
   let advancesCreated = 0
   for (const struct of structures.slice(0, 2)) {
     const existing = await db.advanceRequest.findFirst({
-      where: { schoolId: school.id, teacherId: struct.teacherId, approvalStatus: 'approved' },
+      where: { schoolId: school.id, staffType: struct.staffType, staffId: struct.staffId, approvalStatus: 'approved' },
     })
     if (existing) continue
     await db.advanceRequest.create({
       data: {
         schoolId: school.id,
-        teacherId: struct.teacherId,
+        staffType: struct.staffType,
+        staffId: struct.staffId,
         amount: 10000,
         reason: 'Medical emergency — family treatment',
         requestDate: new Date('2026-05-15'),

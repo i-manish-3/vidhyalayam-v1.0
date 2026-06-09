@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { requireRole, requirePermission } from '@/lib/api-auth'
-import { unauthorizedError, notFoundError, internalError, apiError } from '@/lib/api-errors'
+import { requirePermission } from '@/lib/api-auth'
+import { notFoundError, internalError, apiError } from '@/lib/api-errors'
+import { logSalaryEvent, extractSalaryAuditContext } from '@/lib/salary/audit'
 
 // PATCH /api/school/salary/advance/[id] - Approve/reject advance
 export async function PATCH(
@@ -34,15 +35,26 @@ export async function PATCH(
       return apiError(400, 'This advance request has already been processed. No further changes can be made.')
     }
 
-    const updated = await db.advanceRequest.update({
-      where: { id },
-      data: {
-        approvalStatus,
-        approvedBy: user.userId,
-        approvedAt: new Date(),
-        deductionMonth: approvalStatus === 'approved' ? (deductionMonth || advanceRequest.deductionMonth) : undefined,
-        deductionYear: approvalStatus === 'approved' ? (deductionYear || advanceRequest.deductionYear) : undefined,
-      },
+    const auditContext = extractSalaryAuditContext(request, user.userId)
+
+    const updated = await db.$transaction(async (tx: typeof db) => {
+      const result = await tx.advanceRequest.update({
+        where: { id },
+        data: {
+          approvalStatus,
+          approvedBy: user.userId,
+          approvedAt: new Date(),
+          deductionMonth: approvalStatus === 'approved' ? (deductionMonth || advanceRequest.deductionMonth) : undefined,
+          deductionYear: approvalStatus === 'approved' ? (deductionYear || advanceRequest.deductionYear) : undefined,
+        },
+      })
+      await logSalaryEvent(tx, user.schoolId!, 'AdvanceRequest', result.id, approvalStatus, advanceRequest, result, {
+        ...auditContext,
+        staffType: advanceRequest.staffType,
+        staffId: advanceRequest.staffId,
+        diffSummary: `Advance request ${approvalStatus} (amount ${advanceRequest.amount})`,
+      })
+      return result
     })
 
     return NextResponse.json(updated)

@@ -80,3 +80,40 @@ export async function getDemandSlipJobStatus(runId: string) {
     failedReason: job.failedReason,
   }
 }
+
+// ============================================
+// NOTIFICATION DELIVERY QUEUE
+// ============================================
+// External-channel (EMAIL / WHATSAPP / SMS / ...) delivery for a single
+// notification recipient. IN_APP is written synchronously by the service and
+// never enqueued. Mirrors the demand-slip queue conventions.
+export const notificationQueue = new Queue('notification-delivery', {
+  connection: redisConnection,
+  defaultJobOptions: {
+    attempts: 3,
+    backoff: { type: 'exponential', delay: 2000 },
+    removeOnComplete: { age: 24 * 3600, count: 5000 },
+    removeOnFail: { age: 7 * 24 * 3600 },
+  },
+})
+
+export interface NotificationDeliveryJobData {
+  notificationId: string
+  schoolId: string | null
+  userId: string
+  channel: 'EMAIL' | 'SMS' | 'WHATSAPP' | 'WEB_PUSH' | 'MOBILE_PUSH'
+  title: string
+  body: string
+  actionUrl?: string | null
+}
+
+/** Returns true if a Redis-backed queue is available; false means sync fallback. */
+export function isQueueEnabled(): boolean {
+  return Boolean(process.env.REDIS_HOST || process.env.USE_QUEUE)
+}
+
+export async function enqueueNotificationDelivery(data: NotificationDeliveryJobData, opts?: { delayMs?: number }) {
+  return notificationQueue.add('deliver', data, {
+    delay: opts?.delayMs,
+  })
+}

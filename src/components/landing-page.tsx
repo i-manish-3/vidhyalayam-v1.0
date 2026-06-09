@@ -257,7 +257,6 @@ const MODULES = [
   { icon: BookOpen, name: 'Exam Management', desc: 'Scheduling, grading & report cards' },
   { icon: Calendar, name: 'Timetable Scheduling', desc: 'Smart class & teacher scheduling' },
   { icon: MessageSquare, name: 'Communication', desc: 'Messaging & announcement platform' },
-  { icon: Wallet, name: 'Petty Cash', desc: 'Track small expenses & reimbursements' },
   { icon: Users, name: 'Parent Portal', desc: 'Real-time access for parents' },
 ]
 
@@ -301,7 +300,7 @@ const ICON_MAP: Record<string, React.ElementType> = {
 const DEFAULT_CORE_FEATURES = [
   'Student & Teacher Management', 'Smart Attendance Tracking', 'Fee Collection & Receipts',
   'Exam & Timetable Management', 'Parent & Student Portals', 'Transport & Library Modules',
-  'Notifications & Announcements', 'Inventory & Petty Cash', 'Role-Based Access Control',
+  'Notifications & Announcements', 'Inventory Management', 'Role-Based Access Control',
   'Reports & Analytics', 'Free Data Migration & Setup', 'Dedicated Onboarding Support',
 ]
 

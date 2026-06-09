@@ -1,15 +1,12 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
-import type { CSSProperties } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Banknote, CalendarCheck, Check, ChevronRight, Hash, ImagePlus, Loader2, Palette, Save, School, Sparkles, Type, Users, X } from 'lucide-react'
+import { Banknote, ChevronRight, Hash, ImagePlus, Loader2, Palette, Save, School, Sparkles, X } from 'lucide-react'
 import { api } from '@/lib/api'
 import { compressImage } from '@/lib/image-compress'
 import { useAppStore, type School as SchoolInfo } from '@/lib/store'
 import { useEffectiveRole } from '@/hooks/use-effective-role'
-import { DASHBOARD_FONT_OPTIONS, SCHOOL_THEME_PALETTES, findDashboardFont, findSchoolThemePalette } from '@/lib/theme-palettes'
-import { cn } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -63,10 +60,6 @@ export function SettingsPage() {
   const faviconInputRef = useRef<HTMLInputElement>(null)
   const printHeaderInputRef = useRef<HTMLInputElement>(null)
   const principalSignatureInputRef = useRef<HTMLInputElement>(null)
-  const currentPalette = useMemo(
-    () => findSchoolThemePalette(currentSchool?.primaryColor),
-    [currentSchool?.primaryColor]
-  )
   const [schoolName, setSchoolName] = useState(currentSchool?.name || '')
   const [schoolLogo, setSchoolLogo] = useState(currentSchool?.logo || '')
   const [schoolFavicon, setSchoolFavicon] = useState(currentSchool?.favicon || '')
@@ -76,8 +69,6 @@ export function SettingsPage() {
   const [affiliationNumber, setAffiliationNumber] = useState(currentSchool?.affiliationNumber || '')
   const [establishedYear, setEstablishedYear] = useState(currentSchool?.establishedYear || '')
   const [principalSignature, setPrincipalSignature] = useState(currentSchool?.principalSignature || '')
-  const [selectedColor, setSelectedColor] = useState(currentPalette.primary)
-  const [selectedFont, setSelectedFont] = useState(findDashboardFont(currentSchool?.dashboardFont).id)
   const [saving, setSaving] = useState(false)
   const [admissionSettings, setAdmissionSettings] = useState<AdmissionSettings>(DEFAULT_ADMISSION_SETTINGS)
   const [admissionSamples, setAdmissionSamples] = useState({ admissionNumber: 'STD-2026-001', registrationNumber: 'REG-2026-001', employeeId: 'EMP-0001' })
@@ -96,10 +87,7 @@ export function SettingsPage() {
     setAffiliationNumber(currentSchool.affiliationNumber || '')
     setEstablishedYear(currentSchool.establishedYear || '')
     setPrincipalSignature(currentSchool.principalSignature || '')
-    setSelectedColor(findSchoolThemePalette(currentSchool.primaryColor).primary)
-    setSelectedFont(findDashboardFont(currentSchool.dashboardFont).id)
   }, [
-    currentSchool?.dashboardFont,
     currentSchool?.favicon,
     currentSchool?.affiliationNumber,
     currentSchool?.establishedYear,
@@ -107,7 +95,6 @@ export function SettingsPage() {
     currentSchool?.principalSignature,
     currentSchool?.printHeader,
     currentSchool?.name,
-    currentSchool?.primaryColor,
     currentSchool?.registrationNumber,
     saving,
     currentSchool?.udiseNumber,
@@ -143,14 +130,6 @@ export function SettingsPage() {
     }
   }, [effectiveRole])
 
-  const selectedPalette = useMemo(
-    () => findSchoolThemePalette(selectedColor),
-    [selectedColor]
-  )
-  const selectedFontOption = useMemo(
-    () => findDashboardFont(selectedFont),
-    [selectedFont]
-  )
   const hasChanges =
     schoolName.trim() !== (currentSchool?.name || '') ||
     schoolLogo !== (currentSchool?.logo || '') ||
@@ -160,9 +139,7 @@ export function SettingsPage() {
     udiseNumber !== (currentSchool?.udiseNumber || '') ||
     affiliationNumber !== (currentSchool?.affiliationNumber || '') ||
     establishedYear !== (currentSchool?.establishedYear || '') ||
-    principalSignature !== (currentSchool?.principalSignature || '') ||
-    selectedColor.toLowerCase() !== (currentSchool?.primaryColor || currentPalette.primary).toLowerCase() ||
-    selectedFont !== findDashboardFont(currentSchool?.dashboardFont).id
+    principalSignature !== (currentSchool?.principalSignature || '')
 
   const readImageFile = async (
     file: File | undefined,
@@ -235,8 +212,6 @@ export function SettingsPage() {
         affiliationNumber,
         establishedYear,
         principalSignature,
-        primaryColor: selectedColor,
-        dashboardFont: selectedFont,
       })
       setCurrentSchool(res.school)
       setSchoolName(res.school.name)
@@ -810,176 +785,6 @@ export function SettingsPage() {
           <p className="text-xs text-muted-foreground">
             Available tokens: <span className="font-mono">{'{PREFIX}'}</span>, <span className="font-mono">{'{YEAR}'}</span>, <span className="font-mono">{'{YY}'}</span>, <span className="font-mono">{'{SEQ}'}</span>. Admission and registration also support <span className="font-mono">{'{CLASS}'}</span>.
           </p>
-        </CardContent>
-      </Card>
-
-      <Card className="gap-3 py-4">
-        <CardHeader>
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <span className="bg-brand-soft flex size-8 shrink-0 items-center justify-center rounded-lg text-white shadow-sm">
-                  <Palette className="size-4" />
-                </span>
-                School Color Palette
-              </CardTitle>
-              <CardDescription>
-                Selected palette and font apply to the logged-in school dashboard, top bar, menu bar, buttons, focus rings, and charts.
-              </CardDescription>
-            </div>
-            <Badge variant="secondary">{selectedPalette.name}</Badge>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-2 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-            {SCHOOL_THEME_PALETTES.map((palette) => {
-              const isSelected = selectedColor.toLowerCase() === palette.primary.toLowerCase()
-              return (
-                <button
-                  key={palette.id}
-                  type="button"
-                  onClick={() => setSelectedColor(palette.primary)}
-                  title={palette.name}
-                  className={cn(
-                    'group relative flex flex-col gap-1.5 overflow-hidden rounded-md border bg-card p-2 text-left shadow-sm transition-all hover:border-primary/60 hover:shadow-md',
-                    isSelected && 'border-primary ring-2 ring-primary/25'
-                  )}
-                >
-                  <div className="flex items-center gap-2">
-                    <span
-                      className="size-5 shrink-0 rounded-full border shadow-inner"
-                      style={{ backgroundImage: `linear-gradient(135deg, ${palette.primary}, ${palette.sidebarAccent})` }}
-                    />
-                    <span className="truncate text-xs font-medium">{palette.name}</span>
-                    {isSelected && (
-                      <Check className="ml-auto size-3.5 shrink-0 text-primary" />
-                    )}
-                  </div>
-                  <div className="flex h-2 overflow-hidden rounded-sm">
-                    {palette.chart.map((color) => (
-                      <span key={color} className="h-full flex-1" style={{ backgroundColor: color }} />
-                    ))}
-                  </div>
-                </button>
-              )
-            })}
-          </div>
-
-          <div className="space-y-3">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <h3 className="flex items-center gap-2 text-sm font-semibold">
-                  <Type className="size-4 text-primary" />
-                  Dashboard Font
-                </h3>
-                <p className="text-xs text-muted-foreground">Choose the font style used across the admin dashboard.</p>
-              </div>
-              <Badge variant="outline">{selectedFontOption.name}</Badge>
-            </div>
-            <div className="grid gap-2 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-              {DASHBOARD_FONT_OPTIONS.map((font) => {
-                const isSelected = selectedFont === font.id
-                return (
-                  <button
-                    key={font.id}
-                    type="button"
-                    onClick={() => setSelectedFont(font.id)}
-                    title={font.description}
-                    className={cn(
-                      'group relative flex flex-col gap-1 overflow-hidden rounded-md border bg-card p-2 text-left shadow-sm transition-all hover:border-primary/60 hover:shadow-md',
-                      isSelected && 'border-primary ring-2 ring-primary/25'
-                    )}
-                    style={{ fontFamily: font.stack }}
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="truncate text-xs font-medium">{font.name}</span>
-                      {isSelected && (
-                        <Check className="ml-auto size-3.5 shrink-0 text-primary" />
-                      )}
-                    </div>
-                    <p className="truncate text-sm font-bold tracking-tight">Aa Academic</p>
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <h3 className="flex items-center gap-2 text-sm font-semibold">
-                  <Sparkles className="size-4 text-primary" />
-                  Live Preview
-                </h3>
-                <p className="text-xs text-muted-foreground">See how the selected palette and font appear on the dashboard.</p>
-              </div>
-            </div>
-
-            <div className="grid gap-3 lg:grid-cols-[1fr_240px]">
-              <div
-                className="overflow-hidden rounded-lg border bg-card shadow-sm"
-                style={{
-                  '--preview-primary': selectedPalette.primary,
-                  '--preview-foreground': selectedPalette.foreground,
-                  '--preview-accent': selectedPalette.sidebarAccent,
-                  fontFamily: selectedFontOption.stack,
-                } as CSSProperties}
-              >
-                <div
-                  className="flex items-center justify-between px-3 py-2 text-xs font-medium"
-                  style={{ backgroundColor: 'var(--preview-primary)', color: 'var(--preview-foreground)' }}
-                >
-                  <div className="flex items-center gap-2">
-                    <School className="size-3.5" />
-                    <span className="truncate">{currentSchool?.name || 'School Dashboard'}</span>
-                  </div>
-                  <span className="rounded-full px-2 py-0.5 text-[10px]" style={{ backgroundColor: 'rgba(255,255,255,0.2)' }}>Admin</span>
-                </div>
-                <div className="grid grid-cols-3 gap-2 p-2">
-                  {[
-                    { label: 'Students', icon: Users, value: '1,248' },
-                    { label: 'Fees', icon: Banknote, value: '₹8.4L' },
-                    { label: 'Attendance', icon: CalendarCheck, value: '96%' },
-                  ].map(({ label, icon: Icon, value }, index) => (
-                    <div key={label} className="flex flex-col gap-1 rounded-md border bg-background p-2">
-                      <div
-                        className="flex size-6 items-center justify-center rounded-md text-white"
-                        style={{ backgroundColor: index === 0 ? 'var(--preview-primary)' : 'var(--preview-accent)' }}
-                      >
-                        <Icon className="size-3.5" />
-                      </div>
-                      <p className="text-xs font-semibold leading-tight">{label}</p>
-                      <p className="text-sm font-bold tracking-tight" style={{ color: 'var(--preview-primary)' }}>{value}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="overflow-hidden rounded-lg border border-primary/20 bg-primary/5 p-3">
-                <div className="flex items-center gap-2">
-                  <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground">
-                    <School className="size-4" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold">{currentSchool?.name || 'Current School'}</p>
-                    <p className="truncate text-[11px] text-muted-foreground">Dashboard theme</p>
-                  </div>
-                </div>
-                <div className="mt-3 space-y-1.5 text-xs">
-                  <div className="flex items-center gap-2 rounded-md border bg-background px-2 py-1.5">
-                    <span className="size-3.5 shrink-0 rounded-full border shadow-inner" style={{ backgroundColor: selectedColor }} />
-                    <span className="truncate font-medium">{selectedPalette.name}</span>
-                    <span className="ml-auto font-mono text-[10px] text-muted-foreground">{selectedColor.toUpperCase()}</span>
-                  </div>
-                  <div className="flex items-center gap-2 rounded-md border bg-background px-2 py-1.5" style={{ fontFamily: selectedFontOption.stack }}>
-                    <Type className="size-3.5 shrink-0 text-muted-foreground" />
-                    <span className="truncate font-medium">{selectedFontOption.name}</span>
-                    <span className="ml-auto text-[11px] font-bold tracking-tight">Aa</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
         </CardContent>
       </Card>
 

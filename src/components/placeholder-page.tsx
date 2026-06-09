@@ -31,7 +31,6 @@ const PAGE_ICONS: Record<string, React.ElementType> = {
   'transport': Bus,
   'library': Library,
   'inventory': Package,
-  'petty-cash': Wallet,
   'notifications': Bell,
   'announcements': Megaphone,
   'classes': Layers,

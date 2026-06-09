@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
         where,
         include: {
           school: {
-            select: { id: true, name: true, primaryColor: true },
+            select: { id: true, name: true },
           },
           _count: {
             select: { permissions: true, userRoles: true },
@@ -62,7 +62,6 @@ export async function GET(request: NextRequest) {
         school: role.school ? {
           id: role.school.id,
           name: role.school.name,
-          primaryColor: role.school.primaryColor,
         } : null,
       })),
       total,
@@ -125,7 +124,7 @@ export async function POST(request: NextRequest) {
       },
       include: {
         school: {
-          select: { id: true, name: true, primaryColor: true },
+          select: { id: true, name: true },
         },
         _count: {
           select: { permissions: true, userRoles: true },
@@ -147,7 +146,6 @@ export async function POST(request: NextRequest) {
         school: role.school ? {
           id: role.school.id,
           name: role.school.name,
-          primaryColor: role.school.primaryColor,
         } : null,
       },
       { status: 201 }

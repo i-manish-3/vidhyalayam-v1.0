@@ -89,8 +89,6 @@ model School {
   affiliationNumber String?
   establishedYear String?
   principalSignature String?
-  primaryColor   String?
-  dashboardFont  String?   @default("system")
   features       String? // JSON string of enabled features
   workingDays    String    @default("[\"Monday\",\"Tuesday\",\"Wednesday\",\"Thursday\",\"Friday\",\"Saturday\"]") // JSON array of weekday names this school operates on
   createdAt      DateTime  @default(now())
@@ -145,11 +143,12 @@ model School {
   inventoryStockMovements     InventoryStockMovement[]
   inventorySales              InventorySale[]
   inventorySaleReturns        InventorySaleReturn[]
-  pettyCash                   PettyCashEntry[]
   notifications               Notification[]
   salaryStructures            SalaryStructure[]
   salaryPayments              SalaryPayment[]
   advanceRequests             AdvanceRequest[]
+  payrollRuns                 PayrollRun[]
+  salaryAuditLogs             SalaryAuditLog[]
   announcements               Announcement[]
   supportTickets              SupportTicket[]
   admissions                  Admission[]
@@ -163,6 +162,8 @@ model School {
   feeDemandConfig             FeeDemandConfig?
   feeDemandRuns               FeeDemandRun[]
   feeNotifications            FeeNotification[]
+  notificationDeliveries      NotificationDelivery[]
+  notificationTemplates       NotificationTemplate[]
   idCardTemplates             IdCardTemplate[]
   idCardGenerationLogs        IdCardGenerationLog[]
 
@@ -731,9 +732,6 @@ model Teacher {
   school                  School                   @relation(fields: [schoolId], references: [id])
   timetables              Timetable[]
   classTeacherAssignments ClassTeacherAssignment[]
-  salaryStructure         SalaryStructure?
-  salaryPayments          SalaryPayment[]
-  advanceRequests         AdvanceRequest[]
 
   @@index([schoolId])
   @@index([schoolId, employeeId])
@@ -2136,39 +2134,44 @@ model ExamAuditLog {
 // ============================================
 
 model SalaryStructure {
-  id               String   @id @default(cuid())
+  id               String    @id @default(cuid())
   schoolId         String
-  teacherId        String   @unique
-  basicSalary      Float    @default(0)
-  hra              Float    @default(0)
-  da               Float    @default(0)
-  ta               Float    @default(0)
-  medicalAllowance Float    @default(0)
-  specialAllowance Float    @default(0)
-  pf               Float    @default(0)
-  esi              Float    @default(0)
-  tax              Float    @default(0)
-  otherDeductions  Float    @default(0)
-  grossSalary      Float    @default(0)
-  netSalary        Float    @default(0)
+  staffType        String // 'teacher' | 'staff' | 'driver'
+  staffId          String
+  basicSalary      Float     @default(0)
+  hra              Float     @default(0)
+  da               Float     @default(0)
+  ta               Float     @default(0)
+  medicalAllowance Float     @default(0)
+  specialAllowance Float     @default(0)
+  pf               Float     @default(0)
+  esi              Float     @default(0)
+  tax              Float     @default(0)
+  otherDeductions  Float     @default(0)
+  grossSalary      Float     @default(0)
+  netSalary        Float     @default(0)
+  standardDays     Float     @default(30) // Denominator for per-day LOP math
   effectiveFrom    DateTime
-  isActive         Boolean  @default(true)
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  isActive         Boolean   @default(true)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  deletedAt        DateTime?
 
   school   School          @relation(fields: [schoolId], references: [id])
-  teacher  Teacher         @relation(fields: [teacherId], references: [id])
   payments SalaryPayment[]
 
-  @@index([schoolId, teacherId])
+  @@unique([schoolId, staffType, staffId])
+  @@index([schoolId, staffType, staffId])
   @@index([schoolId])
 }
 
 model SalaryPayment {
   id                String    @id @default(cuid())
   schoolId          String
-  teacherId         String
+  staffType         String // 'teacher' | 'staff' | 'driver'
+  staffId           String
   salaryStructureId String?
+  payrollRunId      String?
   month             Int
   year              Int
   basicSalary       Float     @default(0)
@@ -2182,6 +2185,9 @@ model SalaryPayment {
   esi               Float     @default(0)
   tax               Float     @default(0)
   advanceDeduction  Float     @default(0)
+  lopDays           Float     @default(0)
+  paidDays          Float?
+  lopDeduction      Float     @default(0)
   otherDeductions   Float     @default(0)
   totalDeductions   Float     @default(0)
   netPayable        Float     @default(0)
@@ -2194,18 +2200,21 @@ model SalaryPayment {
   updatedAt         DateTime  @updatedAt
 
   school          School           @relation(fields: [schoolId], references: [id])
-  teacher         Teacher          @relation(fields: [teacherId], references: [id])
   salaryStructure SalaryStructure? @relation(fields: [salaryStructureId], references: [id])
+  payrollRun      PayrollRun?      @relation(fields: [payrollRunId], references: [id])
 
-  @@unique([schoolId, teacherId, month, year])
+  @@unique([schoolId, staffType, staffId, month, year])
   @@index([schoolId])
-  @@index([teacherId])
+  @@index([schoolId, staffType, staffId])
+  @@index([schoolId, year, month])
+  @@index([payrollRunId])
 }
 
 model AdvanceRequest {
   id             String    @id @default(cuid())
   schoolId       String
-  teacherId      String
+  staffType      String // 'teacher' | 'staff' | 'driver'
+  staffId        String
   amount         Float
   reason         String?
   requestDate    DateTime
@@ -2214,14 +2223,61 @@ model AdvanceRequest {
   approvedAt     DateTime?
   deductionMonth Int?
   deductionYear  Int?
+  deductedAmount Float     @default(0) // Amount already recovered via payslips
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
-  school  School  @relation(fields: [schoolId], references: [id])
-  teacher Teacher @relation(fields: [teacherId], references: [id])
+  school School @relation(fields: [schoolId], references: [id])
 
   @@index([schoolId])
-  @@index([teacherId])
+  @@index([schoolId, staffType, staffId])
+}
+
+model PayrollRun {
+  id          String    @id @default(cuid())
+  schoolId    String
+  month       Int
+  year        Int
+  status      String    @default("draft") // draft, generated, finalized
+  totalStaff  Int       @default(0)
+  totalGross  Float     @default(0)
+  totalNet    Float     @default(0)
+  generatedBy String?
+  finalizedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  school   School          @relation(fields: [schoolId], references: [id])
+  payments SalaryPayment[]
+
+  @@unique([schoolId, month, year])
+  @@index([schoolId])
+}
+
+model SalaryAuditLog {
+  id          String  @id @default(cuid())
+  schoolId    String
+  entityType  String // SalaryStructure, SalaryPayment, AdvanceRequest, PayrollRun
+  entityId    String
+  action      String // created, updated, deleted, paid, generated, finalized, approved, rejected
+  staffType   String?
+  staffId     String?
+  userId      String? // Who performed the action (scalar; resolved separately)
+  ipAddress   String?
+  userAgent   String?
+  oldValue    String? // JSON snapshot before change
+  newValue    String? // JSON snapshot after change
+  diffSummary String? // Human-readable summary
+  metadata    String? // JSON: additional context
+  createdAt   DateTime @default(now())
+
+  school School @relation(fields: [schoolId], references: [id])
+
+  @@index([schoolId])
+  @@index([entityType, entityId])
+  @@index([schoolId, staffType, staffId, createdAt])
+  @@index([schoolId, entityType, createdAt])
+  @@index([createdAt])
 }
 
 // ============================================
@@ -2858,30 +2914,6 @@ model InventorySaleReturn {
 }
 
 // ============================================
-// PETTY CASH
-// ============================================
-
-model PettyCashEntry {
-  id             String   @id @default(cuid())
-  schoolId       String
-  amount         Float
-  type           String // credit, debit
-  category       String?
-  description    String?
-  createdBy      String
-  approvedBy     String?
-  approvalStatus String   @default("pending") // pending, approved, rejected
-  // Admin created = auto approve, Teacher created = needs approval
-  date           DateTime
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  school School @relation(fields: [schoolId], references: [id])
-
-  @@index([schoolId])
-}
-
-// ============================================
 // NOTIFICATIONS & COMMUNICATION
 // ============================================
 
@@ -2896,12 +2928,32 @@ model Notification {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  school School? @relation(fields: [schoolId], references: [id])
+  // --- Advanced notification module (additive, all optional/defaulted) ---
+  priority       String    @default("normal") // low, normal, high, urgent
+  status         String    @default("sent") // queued, sent, delivered, failed
+  readAt         DateTime?
+  archivedAt     DateTime?
+  actionUrl      String?
+  module         String? // fees, attendance, exam, announcement, transport, library, system
+  entityId       String? // related domain entity (studentId, invoiceId, examId, ...)
+  recipientRole  String? // canonical User.role this targets (for role broadcasts)
+  channels       String[]  @default(["IN_APP"]) // IN_APP, EMAIL, SMS, WHATSAPP, WEB_PUSH, MOBILE_PUSH
+  expiresAt      DateTime?
+  createdBy      String? // userId of the actor/system that generated it
+  mandatory      Boolean   @default(false) // bypasses user channel preferences
+  metadata       Json?
+  announcementId String? // links a notification back to its source announcement
+
+  school    School?                 @relation(fields: [schoolId], references: [id])
+  deliveries NotificationDelivery[]
 
   @@index([schoolId])
   @@index([userId])
   @@index([userId, isRead, createdAt])
   @@index([schoolId, createdAt])
+  @@index([schoolId, recipientRole, createdAt])
+  @@index([userId, archivedAt, createdAt])
+  @@index([announcementId])
 }
 
 model Announcement {
@@ -2916,9 +2968,135 @@ model Announcement {
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
-  school School @relation(fields: [schoolId], references: [id])
+  // --- Advanced announcement module (additive, all optional/defaulted) ---
+  status         String    @default("draft") // draft, scheduled, processing, sent, partially_failed, failed, cancelled
+  scheduledAt    DateTime?
+  sentAt         DateTime?
+  channels       String[]  @default(["IN_APP"]) // IN_APP, EMAIL, SMS, WHATSAPP, WEB_PUSH, MOBILE_PUSH
+  richContent    String? // optional rich/markdown body
+  createdBy      String? // userId of the author
+  expiresAt      DateTime?
+  recipientCount Int       @default(0)
+  deliveredCount Int       @default(0)
+  failedCount    Int       @default(0)
+  attachments    Json?
+
+  school     School                  @relation(fields: [schoolId], references: [id])
+  targets    AnnouncementTarget[]
+  recipients AnnouncementRecipient[]
 
   @@index([schoolId])
+  @@index([schoolId, status, scheduledAt])
+}
+
+// ============================================
+// ADVANCED NOTIFICATION MODULE
+// ============================================
+
+// Generalized per-channel delivery log (the reusable cousin of FeeNotification).
+// One row per (notification, channel, recipient) delivery attempt.
+model NotificationDelivery {
+  id             String    @id @default(cuid())
+  schoolId       String?
+  notificationId String
+  userId         String?
+  channel        String // IN_APP, EMAIL, SMS, WHATSAPP, WEB_PUSH, MOBILE_PUSH
+  provider       String? // SMTP, META_CLOUD, BAILEYS, ...
+  recipient      String // email / phone / device token / userId
+  status         String    @default("pending") // pending, sent, delivered, read, failed, skipped
+  attempt        Int       @default(0)
+  providerMsgId  String?
+  errorMessage   String?
+  sentAt         DateTime?
+  deliveredAt    DateTime?
+  readAt         DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  school       School?      @relation(fields: [schoolId], references: [id])
+  notification Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+
+  @@index([schoolId])
+  @@index([notificationId])
+  @@index([userId])
+  @@index([status])
+  @@index([channel, status])
+  @@index([providerMsgId])
+}
+
+// Reusable message templates with {{variable}} interpolation.
+// schoolId = null means a system/global template; a school row overrides by key.
+model NotificationTemplate {
+  id        String   @id @default(cuid())
+  schoolId  String?
+  key       String // e.g. FEE_SUBMITTED, ATTENDANCE_MARKED, RESULT_PUBLISHED
+  module    String // fees, attendance, exam, announcement, system
+  channel   String   @default("IN_APP") // IN_APP, EMAIL, SMS, WHATSAPP, WEB_PUSH, MOBILE_PUSH
+  title     String
+  body      String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  school School? @relation(fields: [schoolId], references: [id])
+
+  @@unique([schoolId, key, channel])
+  @@index([module])
+  @@index([key])
+}
+
+// Per-user channel/category opt-in. Critical/mandatory notifications bypass these.
+model NotificationPreference {
+  id              String   @id @default(cuid())
+  schoolId        String?
+  userId          String
+  channel         String // IN_APP, EMAIL, SMS, WHATSAPP, WEB_PUSH, MOBILE_PUSH
+  category        String   @default("all") // 'all' or a module name (fees, attendance, ...)
+  enabled         Boolean  @default(true)
+  quietHoursStart Int? // 0-23 local hour, inclusive
+  quietHoursEnd   Int? // 0-23 local hour, exclusive
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([userId, channel, category])
+  @@index([schoolId])
+  @@index([userId])
+}
+
+// One row per audience selector attached to an announcement.
+model AnnouncementTarget {
+  id             String   @id @default(cuid())
+  announcementId String
+  schoolId       String
+  targetType     String // ALL, ROLE, CLASS, SECTION, STUDENT, PARENT, FEE_STATUS, TRANSPORT_ROUTE, HOSTEL, EXAM_GROUP, DEPARTMENT, CUSTOM
+  targetValue    Json? // role name, classId, [studentIds], fee status filter, etc.
+  createdAt      DateTime @default(now())
+
+  announcement Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+
+  @@index([announcementId])
+  @@index([schoolId])
+}
+
+// Materialized, deduped recipient list for an announcement (for delivery + analytics).
+model AnnouncementRecipient {
+  id             String    @id @default(cuid())
+  announcementId String
+  schoolId       String
+  userId         String
+  status         String    @default("pending") // pending, sent, delivered, read, failed
+  notificationId String? // the in-app notification created for this recipient
+  errorMessage   String?
+  sentAt         DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  announcement Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+
+  @@unique([announcementId, userId])
+  @@index([announcementId, status])
+  @@index([schoolId])
+  @@index([userId])
 }
 
 // ============================================

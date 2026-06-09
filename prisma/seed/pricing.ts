@@ -23,7 +23,7 @@ async function main() {
           'Parent & Student Portals',
           'Transport & Library Modules',
           'Notifications & Announcements',
-          'Inventory & Petty Cash',
+          'Inventory Management',
           'Role-Based Access Control',
           'Reports & Analytics',
           'Free Data Migration & Setup',

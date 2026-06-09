@@ -6,7 +6,7 @@ export type PageName =
   | 'students' | 'teachers' | 'add-teacher' | 'parents' | 'admission-form' | 'student-detail' | 'bulk-admission' | 'alumni'
   | 'attendance' | 'mark-attendance' | 'view-attendance' | 'attendance-audit-log' | 'attendance-reports' | 'attendance-kiosk' | 'rfid-devices' | 'student-rfid-cards' | 'rfid-card-assign' | 'rfid-audit'
   | 'fees-heads' | 'fees-groups' | 'fees-structures' | 'fee-collections' | 'fee-change-group' | 'fee-demand-config' | 'fee-demand-slips' | 'fee-audit-log' | 'fee-reports'
-  | 'salary' | 'salary-structure' | 'salary-payments' | 'salary-advance'
+  | 'salary' | 'salary-structure' | 'salary-payments' | 'salary-advance' | 'salary-payroll' | 'salary-reports'
   | 'timetable' | 'exams' | 'exam-results'
   | 'exam-dashboard' | 'exam-paradigms' | 'exam-paradigm-edit' | 'exam-groups'
   | 'exam-list' | 'exam-create' | 'exam-edit' | 'exam-configure' | 'exam-schedule'
@@ -15,10 +15,10 @@ export type PageName =
   | 'exam-report-card-templates' | 'exam-report-card-template-edit'
   | 'exam-admit-cards'
   | 'exam-audit-log' | 'teacher-subject-assignments' | 'student-subject-mappings'
-  | 'transport' | 'add-transport-route' | 'edit-transport-route' | 'transport-annual-setup' | 'drivers' | 'add-driver' | 'library' | 'inventory' | 'petty-cash'
+  | 'transport' | 'add-transport-route' | 'edit-transport-route' | 'transport-annual-setup' | 'drivers' | 'add-driver' | 'library' | 'inventory'
   | 'hostel' | 'add-hostel' | 'edit-hostel' | 'hostel-annual-setup'
   | 'inventory-sell' | 'inventory-sales' | 'inventory-catalog' | 'inventory-reports'
-  | 'notifications' | 'announcements'
+  | 'notifications' | 'announcements' | 'announcement-compose' | 'notification-templates' | 'notification-preferences'
   | 'classes' | 'promote-student' | 'assign-roll-numbers' | 'subjects' | 'academic-years' | 'holidays' | 'add-subject' | 'add-class' | 'edit-class' | 'edit-subject'
   | 'settings' | 'support'
   | 'school-onboarding' | 'schools' | 'add-school' | 'edit-school' | 'school-detail' | 'analytics'
@@ -60,8 +60,6 @@ export interface School {
   contactEmail?: string
   website?: string
   status: string
-  primaryColor?: string
-  dashboardFont?: string
   academicYear?: string
   board?: string
   workingDays?: string
@@ -110,7 +108,28 @@ interface PageMemoryState {
   clearPageState: (key: string) => void
 }
 
-type AppStore = AuthState & NavigationState & SchoolState & AcademicYearContextState & PageMemoryState
+// Live notification state shared by the bell, the SSE stream hook, and the
+// inbox page so the unread badge stays consistent everywhere.
+export interface LiveNotification {
+  id: string
+  title: string
+  message: string
+  type: string
+  priority?: string
+  actionUrl?: string | null
+  createdAt: string
+}
+
+interface NotificationState {
+  unreadCount: number
+  latestNotifications: LiveNotification[]
+  setUnreadCount: (count: number) => void
+  resetUnread: () => void
+  prependNotification: (notification: LiveNotification) => void
+  setLatestNotifications: (notifications: LiveNotification[]) => void
+}
+
+type AppStore = AuthState & NavigationState & SchoolState & AcademicYearContextState & PageMemoryState & NotificationState
 
 // Avatars (and other potentially large base64 blobs) are stripped before
 // persisting to localStorage — a single 2 MB base64 image easily blows past
@@ -224,6 +243,18 @@ export const useAppStore = create<AppStore>((set) => ({
     delete next[key]
     return { pageState: next }
   }),
+
+  // Live notifications (not persisted — refreshed from the API on mount and
+  // kept current by the SSE stream).
+  unreadCount: 0,
+  latestNotifications: [],
+  setUnreadCount: (count) => set({ unreadCount: Math.max(0, count) }),
+  resetUnread: () => set({ unreadCount: 0 }),
+  prependNotification: (notification) => set((state) => ({
+    latestNotifications: [notification, ...state.latestNotifications.filter((n) => n.id !== notification.id)].slice(0, 20),
+    unreadCount: state.unreadCount + 1,
+  })),
+  setLatestNotifications: (notifications) => set({ latestNotifications: notifications.slice(0, 20) }),
 }))
 
 // Initialize from localStorage on client.

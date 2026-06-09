@@ -217,12 +217,6 @@ export const PERMISSIONS = {
   INVENTORY_UPDATE: 'inventory:update',
   INVENTORY_DELETE: 'inventory:delete',
 
-  // Petty Cash
-  PETTY_CASH_READ: 'petty_cash:read',
-  PETTY_CASH_CREATE: 'petty_cash:create',
-  PETTY_CASH_APPROVE: 'petty_cash:approve',
-  PETTY_CASH_DELETE: 'petty_cash:delete',
-
   // Notifications
   NOTIFICATION_READ: 'notification:read',
   NOTIFICATION_CREATE: 'notification:create',

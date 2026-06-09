@@ -184,7 +184,9 @@ export const MENUS: Record<string, MenuItem[]> = {
       children: [
         { label: 'Salary Structure', page: 'salary-structure', icon: FileText },
         { label: 'Salary Payments', page: 'salary-payments', icon: DollarSign },
+        { label: 'Run Payroll', page: 'salary-payroll', icon: Receipt },
         { label: 'Advance Requests', page: 'salary-advance', icon: TrendingUp },
+        { label: 'Reports', page: 'salary-reports', icon: BarChart3 },
       ],
     },
     {
@@ -250,7 +252,6 @@ export const MENUS: Record<string, MenuItem[]> = {
         { label: 'Reports', page: 'inventory-reports', icon: TrendingUp },
       ],
     },
-    { label: 'Petty Cash', page: 'petty-cash', icon: Wallet },
     {
       label: 'ID Cards',
       page: 'id-cards',
@@ -378,7 +379,11 @@ export const MENUS: Record<string, MenuItem[]> = {
       page: 'salary',
       icon: Wallet,
       children: [
+        { label: 'Salary Structure', page: 'salary-structure', icon: FileText },
         { label: 'Salary Payments', page: 'salary-payments', icon: DollarSign },
+        { label: 'Run Payroll', page: 'salary-payroll', icon: Receipt },
+        { label: 'Advance Requests', page: 'salary-advance', icon: TrendingUp },
+        { label: 'Reports', page: 'salary-reports', icon: BarChart3 },
       ],
     },
     {
@@ -430,7 +435,6 @@ export const MENUS: Record<string, MenuItem[]> = {
         { label: 'Reports', page: 'inventory-reports', icon: TrendingUp },
       ],
     },
-    { label: 'Petty Cash', page: 'petty-cash', icon: Wallet },
     { label: 'Notifications', page: 'notifications', icon: Bell },
     { label: 'Announcements', page: 'announcements', icon: Megaphone },
   ],

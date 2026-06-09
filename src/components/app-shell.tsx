@@ -7,7 +7,7 @@ import { useTheme } from 'next-themes'
 import { useAppStore, type PageName, type User as StoreUser } from '@/lib/store'
 import { AppSidebar, MENUS } from './app-sidebar'
 import { isPageVisible } from '@/lib/permission-mappings'
-import { SCHOOL_THEME_VARIABLE_NAMES, findDashboardFont, getSchoolThemeVariables, getSuperAdminThemeVariables } from '@/lib/theme-palettes'
+import { SCHOOL_THEME_VARIABLE_NAMES, getThemeVariables } from '@/lib/theme-palettes'
 import { api } from '@/lib/api'
 import { compressImage } from '@/lib/image-compress'
 import { useToast } from '@/hooks/use-toast'
@@ -26,10 +26,11 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { Sun, Moon, Bell, LogOut, User, PanelLeftOpen, Search, ArrowRight, Lock, Sunrise, Sunset, MoonStar, ImagePlus, Trash2 } from 'lucide-react'
+import { Sun, Moon, LogOut, User, PanelLeftOpen, Search, ArrowRight, Lock, Sunrise, Sunset, MoonStar, ImagePlus, Trash2 } from 'lucide-react'
 import { AcademicYearSwitcher } from '@/components/academic-year-switcher'
 import { ImpersonationBanner } from '@/components/super-admin/impersonation-banner'
 import { resolveMigratedUrl } from '@/lib/migrated-routes'
+import { NotificationBell } from '@/components/notifications/notification-bell'
 
 function PastYearGlobalBanner() {
   const currentSchool = useAppStore((state) => state.currentSchool)
@@ -89,7 +90,6 @@ const SEARCH_ITEMS: { label: string; page: PageName; keywords: string[] }[] = [
   { label: 'Add Driver', page: 'add-driver', keywords: ['new driver', 'create driver', 'add driver', 'register driver'] },
   { label: 'Library', page: 'library', keywords: ['book', 'issue', 'return', 'read'] },
   { label: 'Inventory', page: 'inventory', keywords: ['stock', 'item', 'asset', 'furniture'] },
-  { label: 'Petty Cash', page: 'petty-cash', keywords: ['expense', 'small payment', 'cash'] },
   { label: 'Notifications', page: 'notifications', keywords: ['alert', 'message', 'reminder'] },
   { label: 'Announcements', page: 'announcements', keywords: ['notice', 'broadcast', 'news'] },
   { label: 'Classes', page: 'classes', keywords: ['grade', 'standard', 'section'] },
@@ -409,7 +409,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const { user, currentSchool, logout, sidebarOpen, setSidebarOpen, sidebarCollapsed, toggleSidebarCollapse, isAuthenticated } = useAppStore()
   const { theme, setTheme, resolvedTheme } = useTheme()
   const { toast } = useToast()
-  const [unreadCount, setUnreadCount] = useState(0)
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -435,11 +434,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     setTimeout(() => { void logout() }, 200)
   }, [logout])
 
-  const handleBellClick = useCallback(() => {
-    setUnreadCount(0)
-    router.push('/notifications')
-  }, [router])
-
   // Prefer the custom permission role (e.g. "Accountant") for STAFF users so the
   // header shows their actual job role instead of the generic "Staff" label.
   const roleBadge = user?.role === 'STAFF' && user.assignedRoleName
@@ -451,14 +445,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const GreetingIcon = timeGreeting.Icon
   const isDarkTheme = resolvedTheme === 'dark' || theme === 'dark'
   const schoolThemeStyle = useMemo(
-    () => user?.role === 'SUPER_ADMIN'
-      ? getSuperAdminThemeVariables(isDarkTheme)
-      : getSchoolThemeVariables(currentSchool?.primaryColor, isDarkTheme),
-    [user?.role, currentSchool?.primaryColor, isDarkTheme]
-  )
-  const dashboardFont = useMemo(
-    () => findDashboardFont(currentSchool?.dashboardFont),
-    [currentSchool?.dashboardFont]
+    () => getThemeVariables(isDarkTheme),
+    [isDarkTheme]
   )
 
   useEffect(() => {
@@ -481,36 +469,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, [schoolThemeStyle])
 
   useEffect(() => {
-    document.body.style.fontFamily = dashboardFont.stack
-    document.documentElement.style.setProperty('--font-sans', dashboardFont.stack)
-
-    return () => {
-      document.body.style.removeProperty('font-family')
-      document.documentElement.style.removeProperty('--font-sans')
-    }
-  }, [dashboardFont.stack])
-
-  useEffect(() => {
     const interval = setInterval(() => {
       setCurrentHour(new Date().getHours())
     }, 60000)
     return () => clearInterval(interval)
   }, [])
-
-  useEffect(() => {
-    if (!isAuthenticated || !user?.id) return
-    const fetchUnread = async () => {
-      try {
-        const data = await api.get<{ unreadCount?: number }>('/api/school/notifications', { limit: '1' })
-        setUnreadCount(data.unreadCount || 0)
-      } catch {
-        // Silently ignore
-      }
-    }
-    fetchUnread()
-    const interval = setInterval(fetchUnread, 30000)
-    return () => clearInterval(interval)
-  }, [isAuthenticated, user?.id])
 
   const handleRequiredPasswordChange = async () => {
     if (!currentPassword || !newPassword || !confirmPassword) {
@@ -723,14 +686,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <div className="flex items-center gap-1.5">
           <AcademicYearSwitcher />
 
-          <Button variant="ghost" size="icon" className="size-9 relative text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground dark:text-sidebar-foreground dark:hover:bg-sidebar-accent dark:hover:text-sidebar-foreground" onClick={handleBellClick}>
-            <Bell className="size-[18px]" />
-            {unreadCount > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 flex size-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
-                {unreadCount > 9 ? '9+' : unreadCount}
-              </span>
-            )}
-          </Button>
+          <NotificationBell />
 
           <Button
             variant="ghost"

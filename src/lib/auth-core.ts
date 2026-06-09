@@ -258,7 +258,6 @@ export function toAuthUserJson(user: NonNullable<LoginUser>) {
           name: user.school.name,
           logo: user.school.logo,
           status: user.school.status,
-          primaryColor: user.school.primaryColor,
           academicYear: user.school.academicYear,
         }
       : null,

@@ -90,6 +90,8 @@ const MODULE_PERMISSION_MAP: Record<string, string[]> = {
   'salary-structure': ['salary:read'],
   'salary-payments': ['salary:read', 'salary:pay'],
   'salary-advance': ['salary:read', 'salary:advance'],
+  'salary-payroll': ['salary:read', 'salary:pay'],
+  'salary-reports': ['salary:read'],
 
   // Resources
   'transport': ['transport:read', 'transport:create'],
@@ -107,11 +109,13 @@ const MODULE_PERMISSION_MAP: Record<string, string[]> = {
   'inventory-sales': ['inventory:read'],
   'inventory-catalog': ['inventory:read', 'inventory:create'],
   'inventory-reports': ['inventory:read'],
-  'petty-cash': ['petty_cash:read', 'petty_cash:create'],
 
   // Communication
   'notifications': ['notification:read'],
   'announcements': ['announcement:read', 'announcement:create'],
+  'announcement-compose': ['announcement:create', 'announcement:publish', 'announcement:schedule'],
+  'notification-templates': ['notification:template:manage'],
+  'notification-preferences': ['notification:read'],
 
   // Student ID Cards
   'id-cards': ['idcard:read', 'idcard:generate', 'idcard:print'],

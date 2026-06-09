@@ -102,7 +102,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'student:*', 'teacher:*', 'parent:*',
     'attendance:*', 'fees:*', 'salary:*',
     'timetable:*', 'exam:*', 'transport:*',
-    'library:*', 'inventory:*', 'petty_cash:*',
+    'library:*', 'inventory:*',
     'notification:*', 'announcement:*',
   ],
   TEACHER: [

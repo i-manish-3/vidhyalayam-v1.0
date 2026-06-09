@@ -9,132 +9,233 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
 import { PlusCircle, Wallet } from 'lucide-react'
+import { StaffPicker, type PickableStaff } from '@/features/salary/components/staff-picker'
 
-interface Teacher {
-  id: string
-  firstName: string
-  lastName: string
+interface ResolvedStaff {
+  fullName: string
+  employeeId: string | null
+  roleLabel: string
 }
 
-interface SalaryAdvance {
+interface AdvanceRequest {
   id: string
-  teacherId: string
-  teacher?: Teacher
+  staffType: string
+  staffId: string
+  staff?: ResolvedStaff | null
   amount: number
+  reason?: string | null
   requestDate: string
-  status: 'PENDING' | 'APPROVED' | 'REJECTED'
-  deductionMonth?: string
+  approvalStatus: 'pending' | 'approved' | 'rejected'
+  deductionMonth?: number | null
+  deductionYear?: number | null
 }
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+const money = (n: number | undefined) => `₹${(n || 0).toLocaleString('en-IN')}`
 
 export function SalaryAdvancePage() {
   const { toast } = useToast()
-  const [advances, setAdvances] = useState<SalaryAdvance[]>([])
-  const [teachers, setTeachers] = useState<Teacher[]>([])
+  const [requests, setRequests] = useState<AdvanceRequest[]>([])
   const [loading, setLoading] = useState(true)
   const [showRequest, setShowRequest] = useState(false)
-  const [form, setForm] = useState({ teacherId: '', amount: '', deductionMonth: '' })
+  const [saving, setSaving] = useState(false)
+  const [picked, setPicked] = useState<PickableStaff | null>(null)
+  const [form, setForm] = useState({
+    amount: '',
+    reason: '',
+    deductionMonth: String(new Date().getMonth() + 1),
+    deductionYear: String(new Date().getFullYear()),
+  })
 
   const fetchData = useCallback(async () => {
     try {
-      const [advRes, teachRes] = await Promise.all([
-        api.get<{ advances: SalaryAdvance[] }>('/api/school/salary/advance'),
-        api.get<{ teachers: Teacher[] }>('/api/school/teachers'),
-      ])
-      setAdvances(advRes.advances || [])
-      setTeachers(teachRes.teachers || [])
+      const res = await api.get<{ requests: AdvanceRequest[] }>('/api/school/salary/advance')
+      setRequests(res.requests || [])
     } catch {
-      toast({ title: 'Couldn\'t Load Advances', description: 'We couldn\'t load the salary advances. Please refresh the page.', variant: 'destructive' })
-    } finally { setLoading(false) }
+      toast({
+        title: "Couldn't Load Advances",
+        description: "We couldn't load the salary advances. Please refresh the page.",
+        variant: 'destructive',
+      })
+    } finally {
+      setLoading(false)
+    }
   }, [toast])
 
-  useEffect(() => { fetchData() }, [fetchData])
+  useEffect(() => {
+    fetchData()
+  }, [fetchData])
 
   const handleRequest = async () => {
+    if (!picked) return
+    setSaving(true)
     try {
       await api.post('/api/school/salary/advance', {
-        teacherId: form.teacherId,
+        staffType: picked.staffType,
+        staffId: picked.id,
         amount: Number(form.amount),
-        deductionMonth: form.deductionMonth || undefined,
+        reason: form.reason || undefined,
+        deductionMonth: Number(form.deductionMonth),
+        deductionYear: Number(form.deductionYear),
       })
-      toast({ title: 'Success', description: 'Advance request submitted' })
+      toast({ title: 'Submitted', description: 'Advance request submitted.' })
       setShowRequest(false)
-      setForm({ teacherId: '', amount: '', deductionMonth: '' })
+      setPicked(null)
+      setForm((f) => ({ ...f, amount: '', reason: '' }))
       fetchData()
     } catch (err) {
-      toast({ title: 'Something Went Wrong', description: err instanceof Error ? err.message : 'Something went wrong. Please try again.', variant: 'destructive' })
+      toast({
+        title: 'Something Went Wrong',
+        description: err instanceof Error ? err.message : 'Please try again.',
+        variant: 'destructive',
+      })
+    } finally {
+      setSaving(false)
     }
   }
 
-  const handleStatusChange = async (id: string, status: 'APPROVED' | 'REJECTED') => {
+  const handleStatusChange = async (id: string, approvalStatus: 'approved' | 'rejected') => {
     try {
-      await api.patch(`/api/school/salary/advance/${id}`, { status })
-      toast({ title: 'Success', description: `Advance ${status.toLowerCase()}` })
+      await api.patch(`/api/school/salary/advance/${id}`, { approvalStatus })
+      toast({ title: 'Updated', description: `Advance ${approvalStatus}.` })
       fetchData()
     } catch (err) {
-      toast({ title: 'Something Went Wrong', description: err instanceof Error ? err.message : 'Something went wrong. Please try again.', variant: 'destructive' })
+      toast({
+        title: 'Something Went Wrong',
+        description: err instanceof Error ? err.message : 'Please try again.',
+        variant: 'destructive',
+      })
     }
   }
 
   const statusBadge = (status: string) => {
     const map: Record<string, string> = {
-      PENDING: 'bg-amber-100 text-amber-800 hover:bg-amber-100',
-      APPROVED: 'bg-emerald-100 text-emerald-800 hover:bg-emerald-100',
-      REJECTED: 'bg-red-100 text-red-800 hover:bg-red-100',
+      pending: 'bg-amber-100 text-amber-800 hover:bg-amber-100',
+      approved: 'bg-emerald-100 text-emerald-800 hover:bg-emerald-100',
+      rejected: 'bg-red-100 text-red-800 hover:bg-red-100',
     }
-    return <Badge className={map[status] || ''}>{status.charAt(0) + status.slice(1).toLowerCase()}</Badge>
+    return <Badge className={map[status] || ''}>{status.charAt(0).toUpperCase() + status.slice(1)}</Badge>
   }
 
-  const columns: Column<SalaryAdvance>[] = [
-    { key: 'teacher', label: 'Teacher', render: (a: SalaryAdvance) => a.teacher ? `${a.teacher.firstName} ${a.teacher.lastName}` : '-' },
-    { key: 'amount', label: 'Amount', render: (a: SalaryAdvance) => `₹${a.amount?.toLocaleString() || 0}` },
-    { key: 'requestDate', label: 'Request Date', render: (a: SalaryAdvance) => a.requestDate ? new Date(a.requestDate).toLocaleDateString() : '-' },
-    { key: 'status', label: 'Status', render: (a: SalaryAdvance) => statusBadge(a.status) },
-    { key: 'deductionMonth', label: 'Deduction Month', render: (a: SalaryAdvance) => a.deductionMonth || '-' },
+  const columns: Column<AdvanceRequest>[] = [
+    {
+      key: 'staff',
+      label: 'Staff Member',
+      render: (a) => (
+        <div className="flex flex-col">
+          <span className="font-medium">{a.staff?.fullName || 'Unknown'}</span>
+          <span className="text-xs text-muted-foreground">
+            {a.staff?.roleLabel}
+            {a.staff?.employeeId ? ` · ${a.staff.employeeId}` : ''}
+          </span>
+        </div>
+      ),
+    },
+    { key: 'amount', label: 'Amount', render: (a) => <span className="font-semibold">{money(a.amount)}</span> },
+    { key: 'requestDate', label: 'Requested', render: (a) => (a.requestDate ? new Date(a.requestDate).toLocaleDateString('en-IN') : '-') },
+    { key: 'approvalStatus', label: 'Status', render: (a) => statusBadge(a.approvalStatus) },
+    {
+      key: 'deduction',
+      label: 'Deduction',
+      render: (a) => (a.deductionMonth ? `${MONTHS[a.deductionMonth - 1] || ''} ${a.deductionYear || ''}` : '-'),
+    },
   ]
 
-  const actions = (a: SalaryAdvance): ActionItem[] => {
-    const items: ActionItem[] = [{ label: 'View Details', onClick: () => {} }]
-    if (a.status === 'PENDING') {
-      items.push({ label: 'Approve', onClick: () => handleStatusChange(a.id, 'APPROVED') })
-      items.push({ label: 'Reject', onClick: () => handleStatusChange(a.id, 'REJECTED'), variant: 'destructive' })
-    }
-    return items
+  const actions = (a: AdvanceRequest): ActionItem[] => {
+    if (a.approvalStatus !== 'pending') return []
+    return [
+      { label: 'Approve', onClick: () => handleStatusChange(a.id, 'approved') },
+      { label: 'Reject', onClick: () => handleStatusChange(a.id, 'rejected'), variant: 'destructive' },
+    ]
   }
 
   if (loading) return <LoadingState />
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Salary Advance" description={`${advances.length} advance records`} action={{ label: 'Request Advance', icon: PlusCircle, onClick: () => setShowRequest(true) }} />
+      <PageHeader
+        title="Salary Advances"
+        description={`${requests.length} advance records`}
+        action={{ label: 'Request Advance', icon: PlusCircle, onClick: () => setShowRequest(true) }}
+      />
 
-      {advances.length === 0 ? (
-        <EmptyState icon={Wallet} title="No Salary Advances" description="Request salary advances for teachers." action={{ label: 'Request Advance', onClick: () => setShowRequest(true) }} />
+      {requests.length === 0 ? (
+        <EmptyState
+          icon={Wallet}
+          title="No Salary Advances"
+          description="Request salary advances for any teacher, staff member, or driver."
+          action={{ label: 'Request Advance', onClick: () => setShowRequest(true) }}
+        />
       ) : (
-        <DataTable columns={columns} data={advances} searchKey="teacherId" searchPlaceholder="Search advances..." actions={actions} />
+        <DataTable
+          columns={columns}
+          data={requests}
+          searchKey="staffId"
+          searchPlaceholder="Search advances..."
+          actions={actions}
+        />
       )}
 
       <Dialog open={showRequest} onOpenChange={setShowRequest}>
         <DialogContent className="max-w-md">
-          <DialogHeader><DialogTitle>Request Salary Advance</DialogTitle></DialogHeader>
-          <div className="grid gap-4 py-4">
+          <DialogHeader>
+            <DialogTitle>Request Salary Advance</DialogTitle>
+            <DialogDescription>The approved amount is recovered from the chosen month&apos;s payslip.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-2">
             <div className="space-y-2">
-              <Label>Teacher</Label>
-              <Select value={form.teacherId} onValueChange={v => setForm(f => ({ ...f, teacherId: v }))}>
-                <SelectTrigger><SelectValue placeholder="Select teacher" /></SelectTrigger>
-                <SelectContent>
-                  {teachers.map(t => <SelectItem key={t.id} value={t.id}>{t.firstName} {t.lastName}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <Label>Staff Member</Label>
+              <StaffPicker value={picked ? { staffType: picked.staffType, staffId: picked.id } : undefined} onChange={setPicked} />
             </div>
-            <div className="space-y-2"><Label>Amount</Label><Input type="number" value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} placeholder="Enter advance amount" /></div>
-            <div className="space-y-2"><Label>Deduction Month</Label><Input type="month" value={form.deductionMonth} onChange={e => setForm(f => ({ ...f, deductionMonth: e.target.value }))} /></div>
-            <p className="text-xs text-muted-foreground">Advance is limited to max 50% of net salary. Requests between 5th–25th only.</p>
+            <div className="space-y-2">
+              <Label>Amount</Label>
+              <Input
+                type="number"
+                min="0"
+                value={form.amount}
+                onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))}
+                placeholder="Enter advance amount"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Recover In Month</Label>
+                <Select value={form.deductionMonth} onValueChange={(v) => setForm((f) => ({ ...f, deductionMonth: v }))}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {MONTHS.map((m, i) => (
+                      <SelectItem key={i} value={String(i + 1)}>
+                        {m}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Year</Label>
+                <Input
+                  type="number"
+                  value={form.deductionYear}
+                  onChange={(e) => setForm((f) => ({ ...f, deductionYear: e.target.value }))}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Reason (optional)</Label>
+              <Input value={form.reason} onChange={(e) => setForm((f) => ({ ...f, reason: e.target.value }))} />
+            </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowRequest(false)}>Cancel</Button>
-            <Button onClick={handleRequest} disabled={!form.teacherId || !form.amount}>Submit Request</Button>
+            <Button variant="outline" onClick={() => setShowRequest(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleRequest} disabled={saving || !picked || !form.amount}>
+              Submit Request
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

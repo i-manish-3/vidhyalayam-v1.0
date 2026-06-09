@@ -24,8 +24,6 @@ export async function PATCH(req: NextRequest) {
     const affiliationNumber = typeof body.affiliationNumber === 'string' ? body.affiliationNumber.trim() : body.affiliationNumber === null ? null : undefined
     const establishedYear = typeof body.establishedYear === 'string' ? body.establishedYear.trim() : body.establishedYear === null ? null : undefined
     const principalSignature = typeof body.principalSignature === 'string' ? body.principalSignature.trim() : body.principalSignature === null ? null : undefined
-    const primaryColor = typeof body.primaryColor === 'string' ? body.primaryColor.trim() : undefined
-    const dashboardFont = typeof body.dashboardFont === 'string' ? body.dashboardFont.trim() : undefined
 
     let workingDays: string | undefined
     if (Array.isArray(body.workingDays)) {
@@ -38,13 +36,7 @@ export async function PATCH(req: NextRequest) {
     if (name !== undefined && !name) {
       return apiError(400, 'Please enter a school name.')
     }
-    if (primaryColor !== undefined && !/^#[0-9a-fA-F]{6}$/.test(primaryColor)) {
-      return apiError(400, 'Please select a valid theme color.')
-    }
-    if (dashboardFont !== undefined && !['system', 'segoe', 'arial', 'verdana', 'trebuchet', 'georgia'].includes(dashboardFont)) {
-      return apiError(400, 'Please select a valid dashboard font.')
-    }
-    if (name === undefined && logo === undefined && favicon === undefined && printHeader === undefined && registrationNumber === undefined && udiseNumber === undefined && affiliationNumber === undefined && establishedYear === undefined && principalSignature === undefined && primaryColor === undefined && dashboardFont === undefined && workingDays === undefined) {
+    if (name === undefined && logo === undefined && favicon === undefined && printHeader === undefined && registrationNumber === undefined && udiseNumber === undefined && affiliationNumber === undefined && establishedYear === undefined && principalSignature === undefined && workingDays === undefined) {
       return apiError(400, 'Please provide at least one branding update.')
     }
 
@@ -99,8 +91,6 @@ export async function PATCH(req: NextRequest) {
         ...(affiliationNumber !== undefined ? { affiliationNumber } : {}),
         ...(establishedYear !== undefined ? { establishedYear } : {}),
         ...(principalSignatureUpload.url !== undefined ? { principalSignature: principalSignatureUpload.url } : {}),
-        ...(primaryColor !== undefined ? { primaryColor } : {}),
-        ...(dashboardFont !== undefined ? { dashboardFont } : {}),
         ...(workingDays !== undefined ? { workingDays } : {}),
       },
       select: {
@@ -115,8 +105,6 @@ export async function PATCH(req: NextRequest) {
         establishedYear: true,
         principalSignature: true,
         status: true,
-        primaryColor: true,
-        dashboardFont: true,
         academicYear: true,
         board: true,
         address: true,

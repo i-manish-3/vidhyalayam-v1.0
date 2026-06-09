@@ -2,6 +2,30 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { requireRole, requirePermission } from '@/lib/api-auth'
 import { unauthorizedError, internalError, apiError } from '@/lib/api-errors'
+import { notificationService, type NotificationChannel } from '@/lib/notifications'
+
+// Build the additive advanced filters shared by both visibility branches.
+function buildExtraFilters(searchParams: URLSearchParams): Record<string, unknown> {
+  const filters: Record<string, unknown> = {}
+  const type = searchParams.get('type')
+  const priority = searchParams.get('priority')
+  const moduleName = searchParams.get('module')
+  const search = searchParams.get('search')
+  const isReadFilter = searchParams.get('isRead') || ''
+  if (type) filters.type = type
+  if (priority) filters.priority = priority
+  if (moduleName) filters.module = moduleName
+  if (isReadFilter !== '') filters.isRead = isReadFilter === 'true'
+  // Hide archived unless explicitly requested.
+  if (searchParams.get('includeArchived') !== 'true') filters.archivedAt = null
+  if (search) {
+    filters.OR = [
+      { title: { contains: search, mode: 'insensitive' } },
+      { message: { contains: search, mode: 'insensitive' } },
+    ]
+  }
+  return filters
+}
 
 // GET /api/school/notifications - List notifications
 export async function GET(request: NextRequest) {
@@ -12,11 +36,19 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url)
-    const type = searchParams.get('type') || ''
-    const isReadFilter = searchParams.get('isRead') || ''
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '20')
     const skip = (page - 1) * limit
+
+    // Advanced filters (type, priority, module, search, isRead, includeArchived).
+    // `search` arrives as an OR; merge it under AND so it doesn't clobber the
+    // scoping OR below.
+    const extra = buildExtraFilters(searchParams)
+    const { OR: searchOr, ...scalarExtra } = extra as { OR?: unknown[] } & Record<string, unknown>
+    const extraWhere = {
+      ...scalarExtra,
+      ...(searchOr ? { AND: [{ OR: searchOr }] } : {}),
+    }
 
     let notifications
     let total
@@ -31,10 +63,7 @@ export async function GET(request: NextRequest) {
         ],
       }
 
-      const typeFilter = type ? { type } : {}
-      const readFilter = isReadFilter !== '' ? { isRead: isReadFilter === 'true' } : {}
-
-      const where = { ...baseFilter, ...typeFilter, ...readFilter }
+      const where: Record<string, unknown> = { ...baseFilter, ...extraWhere }
 
       ;[notifications, total] = await Promise.all([
         db.notification.findMany({
@@ -69,10 +98,7 @@ export async function GET(request: NextRequest) {
         ],
       }
 
-      const typeFilter = type ? { type } : {}
-      const readFilter = isReadFilter !== '' ? { isRead: isReadFilter === 'true' } : {}
-
-      const where = { ...baseFilter, ...typeFilter, ...readFilter }
+      const where: Record<string, unknown> = { ...baseFilter, ...extraWhere }
 
       ;[notifications, total] = await Promise.all([
         db.notification.findMany({
@@ -121,7 +147,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { title, message, type, userId, schoolId } = body
+    const { title, message, type, userId, schoolId, priority, module: moduleName, entityId, channels, actionUrl, recipientRole, metadata, mandatory } = body
 
     if (!title || !message) {
       return apiError(400, 'Please enter both a title and the notification message.')
@@ -131,18 +157,40 @@ export async function POST(request: NextRequest) {
     // SCHOOL_ADMIN can only create for their own school
     const notificationSchoolId = user.role === 'SUPER_ADMIN'
       ? (schoolId || null)
-      : user.schoolId
+      : user.schoolId ?? null
 
-    const notification = await db.notification.create({
-      data: {
+    let notificationId: string | null
+    if (userId) {
+      // Targeted: per-user notification, published in real-time + external channels.
+      notificationId = await notificationService.createNotification({
         schoolId: notificationSchoolId,
-        userId: userId || null,
+        userId,
         title,
         message,
         type: type || 'info',
-      },
-    })
+        priority,
+        module: moduleName ?? null,
+        entityId: entityId ?? null,
+        recipientRole: recipientRole ?? null,
+        actionUrl: actionUrl ?? null,
+        channels: (channels as NotificationChannel[]) ?? undefined,
+        metadata: metadata ?? null,
+        mandatory: Boolean(mandatory),
+        createdBy: user.userId,
+      })
+    } else {
+      // Broadcast to everyone in the school (preserves legacy userId=null behavior).
+      notificationId = await notificationService.broadcastToSchool({
+        schoolId: notificationSchoolId,
+        title,
+        message,
+        type: type || 'info',
+        createdBy: user.userId,
+      })
+    }
 
+    if (!notificationId) return internalError('creating the notification')
+    const notification = await db.notification.findUnique({ where: { id: notificationId } })
     return NextResponse.json(notification, { status: 201 })
   } catch (error) {
     console.error('Create notification error:', error)
@@ -159,7 +207,8 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { markAllRead, notificationId } = body
+    const { markAllRead, notificationId, archive } = body
+    const now = new Date()
 
     if (markAllRead) {
       if (user.role === 'SUPER_ADMIN') {
@@ -171,7 +220,7 @@ export async function PATCH(request: NextRequest) {
               { userId: user.userId },
             ],
           },
-          data: { isRead: true },
+          data: { isRead: true, readAt: now },
         })
       } else {
         if (!user.schoolId) {
@@ -186,19 +235,30 @@ export async function PATCH(request: NextRequest) {
               { userId: user.userId },
             ],
           },
-          data: { isRead: true },
+          data: { isRead: true, readAt: now },
         })
       }
       return NextResponse.json({ success: true, message: 'All notifications marked as read' })
     }
 
     if (notificationId) {
-      // Mark a single notification as read
+      // Ownership guard: a user may only mutate their own (or school-broadcast) rows.
+      const target = await db.notification.findUnique({
+        where: { id: notificationId },
+        select: { userId: true, schoolId: true },
+      })
+      if (!target) return apiError(404, 'Notification not found.')
+      const ownsIt =
+        target.userId === user.userId ||
+        (target.userId === null &&
+          (user.role === 'SUPER_ADMIN' ? target.schoolId === null : target.schoolId === user.schoolId))
+      if (!ownsIt) return apiError(403, 'You can only update your own notifications.')
+
       await db.notification.update({
         where: { id: notificationId },
-        data: { isRead: true },
+        data: archive ? { archivedAt: now } : { isRead: true, readAt: now },
       })
-      return NextResponse.json({ success: true, message: 'Notification marked as read' })
+      return NextResponse.json({ success: true, message: archive ? 'Notification archived' : 'Notification marked as read' })
     }
 
     return apiError(400, 'Please select a notification to mark as read, or choose "Mark all as read".')

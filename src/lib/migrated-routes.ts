@@ -89,7 +89,6 @@ export const MIGRATED_PAGES: Partial<Record<PageName, (...args: string[]) => str
   'inventory-sales': () => '/inventory/sales',
   'inventory-catalog': () => '/inventory/catalog',
   'inventory-reports': () => '/inventory/reports',
-  'petty-cash': () => '/petty-cash',
   'salary': () => '/salary/structure',
   'salary-structure': () => '/salary/structure',
   'salary-payments': () => '/salary/payments',

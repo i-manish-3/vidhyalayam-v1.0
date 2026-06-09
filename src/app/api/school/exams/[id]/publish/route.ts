@@ -3,6 +3,36 @@ import { db } from '@/lib/db'
 import { requirePermission } from '@/lib/api-auth'
 import { unauthorizedError, internalError, apiError, notFoundError } from '@/lib/api-errors'
 import { logExamChange, extractExamAuditContext } from '@/lib/audit/exam-audit'
+import { notificationService } from '@/lib/notifications'
+
+// Notify guardians that results are published. Best-effort; isolated from the
+// publish transaction so a notification failure never unpublishes results.
+async function notifyResultsPublishedSafe(
+  schoolId: string,
+  examId: string,
+  examName: string,
+  createdBy: string,
+): Promise<void> {
+  try {
+    const results = await db.examResult.findMany({
+      where: { examId, schoolId, deletedAt: null },
+      select: { studentId: true },
+      distinct: ['studentId'],
+    })
+    for (const { studentId } of results) {
+      await notificationService.triggerEvent({
+        schoolId,
+        eventType: 'RESULT_PUBLISHED',
+        studentId,
+        createdBy,
+        actionUrl: `/exams/${examId}/results`,
+        metadata: { examName, studentName: '' },
+      })
+    }
+  } catch (err) {
+    console.error('[notif] RESULT_PUBLISHED trigger failed:', err instanceof Error ? err.message : err)
+  }
+}
 
 // POST /api/school/exams/[id]/publish
 //
@@ -59,6 +89,8 @@ export async function POST(
       )
       return saved
     })
+
+    await notifyResultsPublishedSafe(schoolId, examId, exam.name ?? 'the exam', user.userId)
 
     return NextResponse.json({
       exam: updated,

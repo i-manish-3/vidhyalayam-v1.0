@@ -60,7 +60,6 @@ import { Switch } from '@/components/ui/switch'
 interface SchoolInfo {
   id: string
   name: string
-  primaryColor?: string | null
 }
 
 interface RoleListItem {
