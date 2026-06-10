@@ -349,9 +349,9 @@ export const MENUS: Record<string, MenuItem[]> = {
   ],
   PARENT: [
     { label: 'Dashboard', page: 'dashboard', icon: LayoutDashboard },
-    { label: 'My Children', page: 'my-children', icon: Baby },
-    { label: 'Fee Details', page: 'fee-details', icon: Receipt },
-    { label: 'Attendance', page: 'my-attendance', icon: UserCheck },
+    { label: 'My Children', page: 'parent-children', icon: Baby },
+    { label: 'Fee Details', page: 'parent-fees', icon: Receipt },
+    { label: 'Attendance', page: 'parent-attendance', icon: UserCheck },
     { label: 'Notifications', page: 'notifications', icon: Bell },
   ],
   STAFF: [

@@ -137,6 +137,11 @@ const MODULE_PERMISSION_MAP: Record<string, string[]> = {
   'my-attendance': ['attendance:read'],
   'my-children': ['student:read'],
 
+  // Parent portal pages (PARENT role holds student:read / fees:read / attendance:read).
+  'parent-children': ['student:read'],
+  'parent-fees': ['fees:read'],
+  'parent-attendance': ['attendance:read'],
+
   // ID Card subpages not declared earlier in the map
   'id-card-template-new': ['idcard:template:create'],
   'id-card-showcase': ['idcard:read', 'idcard:template:create'],

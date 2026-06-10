@@ -48,6 +48,11 @@ export const MIGRATED_PAGES: Partial<Record<PageName, (...args: string[]) => str
   'add-teacher': () => '/teachers/new',
   'parents': () => '/parents',
   'my-children': () => '/parents',
+  // Parent portal (backed by /api/parent/*). Distinct keys so they don't collide
+  // with the admin pages that reuse `fee-details` / `my-attendance`.
+  'parent-children': () => '/my-children',
+  'parent-fees': (id?: string) => (id ? `/my-children/fees?studentId=${id}` : '/my-children/fees'),
+  'parent-attendance': (id?: string) => (id ? `/my-children/attendance?studentId=${id}` : '/my-children/attendance'),
   'staff': () => '/staff',
   'staff-create': () => '/staff/new',
   'staff-detail': (id?: string) => (id ? `/staff/${id}` : '/staff'),

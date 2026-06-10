@@ -174,7 +174,7 @@ export function ParentDashboard() {
       })
       return
     }
-    router.push(`/students/${child.id}`)
+    router.push(`/my-children/fees?studentId=${child.id}`)
   }
 
   if (loading) {
