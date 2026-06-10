@@ -31,9 +31,12 @@ export function useNotificationStream() {
     let cancelled = false
     ;(async () => {
       try {
+        // The bell dropdown is an unread-action queue: only seed unread rows so
+        // items the user already cleared don't reappear after a refresh. The
+        // unread badge still reflects the full count via `unreadCount` below.
         const res = await api.get<{ notifications: LiveNotification[]; unreadCount: number }>(
           '/api/school/notifications',
-          { limit: '20' },
+          { limit: '20', isRead: 'false' },
         )
         if (cancelled) return
         setUnreadCount(res.unreadCount || 0)
@@ -83,14 +86,26 @@ export function useNotificationStream() {
       }
     }
 
+    // Platform broadcast banners: bridge onto a window event so the banner hook
+    // can refresh without opening a second EventSource.
+    const onPlatform = () => {
+      try {
+        window.dispatchEvent(new Event('platform:announcement'))
+      } catch {
+        /* ignore */
+      }
+    }
+
     source.addEventListener('notification:new', onNew as EventListener)
     source.addEventListener('announcement:new', onNew as EventListener)
     source.addEventListener('notification:unread_count', onUnreadCount as EventListener)
+    source.addEventListener('platform:announcement', onPlatform as EventListener)
 
     return () => {
       source.removeEventListener('notification:new', onNew as EventListener)
       source.removeEventListener('announcement:new', onNew as EventListener)
       source.removeEventListener('notification:unread_count', onUnreadCount as EventListener)
+      source.removeEventListener('platform:announcement', onPlatform as EventListener)
       source.close()
       sourceRef.current = null
     }

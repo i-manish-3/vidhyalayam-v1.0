@@ -8,7 +8,6 @@ import { useAppStore, type LiveNotification } from '@/lib/store'
 import { useNotificationStream } from '@/hooks/use-notification-stream'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { cn } from '@/lib/utils'
 
 const PRIORITY_DOT: Record<string, string> = {
@@ -97,52 +96,86 @@ export function NotificationBell() {
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-80 p-0">
-        <div className="flex items-center justify-between border-b px-4 py-3">
-          <span className="text-sm font-semibold">Notifications</span>
+      <PopoverContent
+        align="end"
+        sideOffset={10}
+        className="w-[22rem] overflow-hidden rounded-xl border-border/60 p-0 shadow-xl shadow-black/10"
+      >
+        <div className="bg-brand-soft flex items-center justify-between gap-2 px-4 py-3 text-white">
+          <div className="flex items-center gap-2.5">
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-white/15 shadow-inner ring-1 ring-white/20">
+              <Bell className="size-4" />
+            </span>
+            <div className="flex flex-col leading-tight">
+              <span className="text-sm font-semibold">Notifications</span>
+              <span className="text-[11px] text-white/75">
+                {unreadCount > 0 ? `${unreadCount} unread` : 'All caught up'}
+              </span>
+            </div>
+          </div>
           {unreadCount > 0 && (
-            <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs" onClick={markAllRead}>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 gap-1 rounded-md px-2 text-[11px] font-medium text-white hover:bg-white/20 hover:text-white"
+              onClick={markAllRead}
+            >
               <BellOff className="size-3.5" /> Mark all read
             </Button>
           )}
         </div>
 
         {top.length === 0 ? (
-          <div className="flex flex-col items-center justify-center gap-2 px-4 py-10 text-center">
-            <Bell className="size-7 text-muted-foreground/50" />
-            <p className="text-sm text-muted-foreground">You&apos;re all caught up.</p>
+          <div className="flex flex-col items-center justify-center gap-3 px-4 py-12 text-center">
+            <span className="flex size-12 items-center justify-center rounded-full bg-muted/60 text-muted-foreground/60">
+              <Bell className="size-6" />
+            </span>
+            <div className="space-y-0.5">
+              <p className="text-sm font-medium">You&apos;re all caught up</p>
+              <p className="text-xs text-muted-foreground">New notifications will show up here.</p>
+            </div>
           </div>
         ) : (
-          <ScrollArea className="max-h-80">
-            <ul className="divide-y">
+          <div className="max-h-[22rem] overflow-y-auto overscroll-contain">
+            <ul className="divide-y divide-border/50">
               {top.map((n) => (
                 <li key={n.id}>
                   <button
                     type="button"
                     onClick={() => markRead(n)}
-                    className="flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/40"
+                    className="group flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/50"
                   >
-                    <span className={cn('mt-1.5 size-2 shrink-0 rounded-full', PRIORITY_DOT[n.priority || 'normal'])} />
-                    <span className="min-w-0 flex-1 space-y-0.5">
-                      <span className="block truncate text-sm font-medium">{n.title}</span>
-                      <span className="block line-clamp-2 text-xs text-muted-foreground">{n.message}</span>
-                      <span className="block text-[11px] text-muted-foreground/70">
+                    <span
+                      className={cn(
+                        'mt-1.5 size-2.5 shrink-0 rounded-full ring-4 ring-offset-0',
+                        PRIORITY_DOT[n.priority || 'normal'],
+                        'ring-[color-mix(in_oklab,currentColor_18%,transparent)]',
+                      )}
+                    />
+                    <span className="min-w-0 flex-1 space-y-1">
+                      <span className="block truncate text-sm font-semibold leading-snug">{n.title}</span>
+                      <span className="block line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+                        {n.message}
+                      </span>
+                      <span className="block text-[11px] font-medium text-muted-foreground/60">
                         {n.createdAt ? new Date(n.createdAt).toLocaleString() : ''}
                       </span>
                     </span>
-                    <Check className="mt-1 size-3.5 shrink-0 text-muted-foreground/50" />
+                    <span className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground/40 transition-colors group-hover:bg-primary/10 group-hover:text-primary">
+                      <Check className="size-3.5" />
+                    </span>
                   </button>
                 </li>
               ))}
             </ul>
-          </ScrollArea>
+          </div>
         )}
 
-        <div className="border-t p-2">
+        <div className="border-t border-border/60 bg-muted/30 p-2">
           <Button
             variant="ghost"
             size="sm"
-            className="w-full text-xs"
+            className="w-full text-xs font-medium text-primary hover:bg-primary/10 hover:text-primary"
             onClick={() => {
               setOpen(false)
               router.push('/notifications')

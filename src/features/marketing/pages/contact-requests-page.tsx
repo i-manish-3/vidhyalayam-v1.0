@@ -25,6 +25,15 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog'
 import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from '@/components/ui/pagination'
+import {
   Search,
   Phone,
   Mail,
@@ -38,8 +47,6 @@ import {
   Sparkles,
   Eye,
   Loader2,
-  ChevronLeft,
-  ChevronRight,
   Inbox,
   CheckCircle2,
   PhoneCall,
@@ -47,6 +54,7 @@ import {
   XCircle,
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
+import { cn } from '@/lib/utils'
 
 interface ContactRequest {
   id: string
@@ -108,6 +116,7 @@ interface ContactRequestsListState {
 }
 
 const CONTACT_REQUESTS_LIST_STATE_KEY = 'marketing:contact-requests:list'
+const PAGE_SIZE = 12
 
 export function ContactRequestsPage() {
   const { user } = useAppStore()
@@ -145,14 +154,14 @@ export function ContactRequestsPage() {
   const fetchContacts = useCallback(async () => {
     setIsLoading(true)
     try {
-      const params: Record<string, string> = { page: page.toString(), limit: '12' }
+      const params: Record<string, string> = { page: page.toString(), limit: String(PAGE_SIZE) }
       if (statusFilter !== 'all') params.status = statusFilter
       if (search) params.search = search
 
       const data = await api.get<{ contacts: ContactRequest[]; total: number; page: number; totalPages: number }>('/api/super-admin/contacts?' + new URLSearchParams(params).toString())
       setContacts(data.contacts)
       setTotal(data.total)
-      setTotalPages(data.totalPages)
+      setTotalPages(Math.max(1, data.totalPages || 1))
     } catch {
       toast({ title: "Couldn't Load Contact Requests", description: "We couldn't load the contact requests. Please refresh the page.", variant: 'destructive' })
     } finally {
@@ -181,8 +190,9 @@ export function ContactRequestsPage() {
   }
 
   const handlePageChange = (value: number) => {
-    setPage(value)
-    rememberListState({ page: value })
+    const nextPage = Math.min(Math.max(1, value), totalPages)
+    setPage(nextPage)
+    rememberListState({ page: nextPage })
   }
 
   const handleOpenDetail = (contact: ContactRequest) => {
@@ -215,20 +225,31 @@ export function ContactRequestsPage() {
   }
 
   const newCount = contacts.filter(c => c.status === 'new').length
+  const showingFrom = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1
+  const showingTo = Math.min(page * PAGE_SIZE, total)
+  const pageNumbers: (number | 'ellipsis-start' | 'ellipsis-end')[] = (() => {
+    if (totalPages <= 5) return Array.from({ length: totalPages }, (_, i) => i + 1)
+    if (page <= 3) return [1, 2, 3, 4, 'ellipsis-end', totalPages]
+    if (page >= totalPages - 2) return [1, 'ellipsis-start', totalPages - 3, totalPages - 2, totalPages - 1, totalPages]
+    return [1, 'ellipsis-start', page - 1, page, page + 1, 'ellipsis-end', totalPages]
+  })()
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Contact Requests</h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            Manage demo requests and inquiries from schools
-          </p>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-stretch gap-3">
+          <span aria-hidden className="bg-brand mt-0.5 w-1 shrink-0 self-stretch rounded-full" />
+          <div className="min-w-0">
+            <h1 className="text-xl font-bold tracking-tight">Contact Requests</h1>
+            <p className="mt-0.5 text-sm text-muted-foreground">
+              Manage demo requests and inquiries from schools
+            </p>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2">
           {newCount > 0 && (
-            <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-950/50 dark:text-blue-400 animate-pulse">
+            <Badge className="animate-pulse bg-blue-100 text-blue-700 dark:bg-blue-950/50 dark:text-blue-400">
               <Inbox className="size-3 mr-1" />
               {newCount} New
             </Badge>
@@ -238,30 +259,34 @@ export function ContactRequestsPage() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-          <Input
-            placeholder="Search by name, school, email, phone..."
-            className="pl-9"
-            value={search}
-            onChange={(e) => handleSearchChange(e.target.value)}
-          />
-        </div>
-        <Select value={statusFilter} onValueChange={handleStatusFilterChange}>
-          <SelectTrigger className="w-full sm:w-44">
-            <SelectValue placeholder="Filter by status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="new">New</SelectItem>
-            <SelectItem value="contacted">Contacted</SelectItem>
-            <SelectItem value="qualified">Qualified</SelectItem>
-            <SelectItem value="converted">Converted</SelectItem>
-            <SelectItem value="lost">Lost</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+      <Card className="py-0">
+        <CardContent className="p-3">
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Search by name, school, email, phone..."
+                className="h-9 pl-9"
+                value={search}
+                onChange={(e) => handleSearchChange(e.target.value)}
+              />
+            </div>
+            <Select value={statusFilter} onValueChange={handleStatusFilterChange}>
+              <SelectTrigger className="h-9 w-full sm:w-44">
+                <SelectValue placeholder="Filter by status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="new">New</SelectItem>
+                <SelectItem value="contacted">Contacted</SelectItem>
+                <SelectItem value="qualified">Qualified</SelectItem>
+                <SelectItem value="converted">Converted</SelectItem>
+                <SelectItem value="lost">Lost</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Contact Cards */}
       {isLoading ? (
@@ -269,10 +294,12 @@ export function ContactRequestsPage() {
           <Loader2 className="size-8 animate-spin text-muted-foreground" />
         </div>
       ) : contacts.length === 0 ? (
-        <div className="text-center py-20">
-          <Inbox className="size-12 text-muted-foreground/50 mx-auto" />
-          <p className="mt-4 text-muted-foreground">No contact requests found</p>
-        </div>
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-16">
+            <Inbox className="size-12 text-muted-foreground/50" />
+            <p className="mt-4 text-sm text-muted-foreground">No contact requests found</p>
+          </CardContent>
+        </Card>
       ) : (
         <div className="grid gap-4">
           <AnimatePresence>
@@ -291,11 +318,11 @@ export function ContactRequestsPage() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.3, delay: i * 0.05 }}
                 >
-                  <Card className="hover:border-emerald-300 dark:hover:border-emerald-700 transition-colors cursor-pointer" onClick={() => handleOpenDetail(contact)}>
-                    <CardContent className="p-4 sm:p-5">
+                  <Card className="overflow-hidden rounded-lg bg-card py-0 shadow-sm transition-colors hover:border-primary/40 cursor-pointer" onClick={() => handleOpenDetail(contact)}>
+                    <CardContent className="p-3 sm:p-4">
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                         <div className="flex items-start gap-3 flex-1 min-w-0">
-                          <div className="size-10 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white font-bold text-sm shrink-0">
+                          <div className="bg-brand-soft flex size-10 shrink-0 items-center justify-center rounded-lg text-sm font-bold text-white shadow-sm">
                             {contact.name.charAt(0)}
                           </div>
                           <div className="flex-1 min-w-0">
@@ -348,15 +375,56 @@ export function ContactRequestsPage() {
       )}
 
       {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-2">
-          <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => handlePageChange(page - 1)}>
-            <ChevronLeft className="size-4" />
-          </Button>
-          <span className="text-sm text-muted-foreground">Page {page} of {totalPages}</span>
-          <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => handlePageChange(page + 1)}>
-            <ChevronRight className="size-4" />
-          </Button>
+      {total > 0 && (
+        <div className="flex flex-col gap-3 rounded-lg border bg-card px-3 py-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-muted-foreground">
+            Showing {showingFrom} to {showingTo} of {total} requests
+          </p>
+          <Pagination className="mx-0 w-auto justify-start sm:justify-end">
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious
+                  href="#"
+                  className={cn('h-8', page <= 1 && 'pointer-events-none opacity-50')}
+                  aria-disabled={page <= 1}
+                  onClick={(event) => {
+                    event.preventDefault()
+                    if (page > 1) handlePageChange(page - 1)
+                  }}
+                />
+              </PaginationItem>
+              {pageNumbers.map((p, index) => (
+                <PaginationItem key={`${p}-${index}`}>
+                  {p === 'ellipsis-start' || p === 'ellipsis-end' ? (
+                    <PaginationEllipsis className="size-8" />
+                  ) : (
+                    <PaginationLink
+                      href="#"
+                      isActive={p === page}
+                      className="size-8 text-xs"
+                      onClick={(event) => {
+                        event.preventDefault()
+                        handlePageChange(p)
+                      }}
+                    >
+                      {p}
+                    </PaginationLink>
+                  )}
+                </PaginationItem>
+              ))}
+              <PaginationItem>
+                <PaginationNext
+                  href="#"
+                  className={cn('h-8', page >= totalPages && 'pointer-events-none opacity-50')}
+                  aria-disabled={page >= totalPages}
+                  onClick={(event) => {
+                    event.preventDefault()
+                    if (page < totalPages) handlePageChange(page + 1)
+                  }}
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
         </div>
       )}
 

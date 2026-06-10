@@ -6,6 +6,7 @@ import {
   schoolChannel,
   roleChannel,
   SYSTEM_CHANNEL,
+  PLATFORM_CHANNEL,
   type RealtimePayload,
 } from '@/lib/notifications/realtime'
 
@@ -25,7 +26,11 @@ export async function GET(request: NextRequest) {
     return new Response('Unauthorized', { status: 401 })
   }
 
-  const channels: string[] = [userChannel(user.userId)]
+  // Every authenticated session listens on PLATFORM_CHANNEL so platform-wide
+  // broadcast banners reach everyone with a single publish. That channel only
+  // ever carries platform-public payloads. SYSTEM_CHANNEL (SUPER_ADMIN-only) is
+  // kept separate so tenant/user-scoped system notifications never leak.
+  const channels: string[] = [userChannel(user.userId), PLATFORM_CHANNEL]
   if (user.role === 'SUPER_ADMIN') {
     channels.push(SYSTEM_CHANNEL)
   }

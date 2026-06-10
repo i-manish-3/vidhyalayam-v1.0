@@ -6,6 +6,7 @@ import { useRouter, usePathname } from 'next/navigation'
 import { useAppStore, type PageName } from '@/lib/store'
 import { isPageVisible } from '@/lib/permission-mappings'
 import { resolveMigratedUrl } from '@/lib/migrated-routes'
+import { usePlatformLogo } from '@/hooks/use-platform-branding'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -61,6 +62,8 @@ import {
   RadioTower,
   Building2,
   ShoppingCart,
+  DatabaseBackup,
+  Palette,
 } from 'lucide-react'
 
 export interface MenuChild {
@@ -86,6 +89,9 @@ export const MENUS: Record<string, MenuItem[]> = {
     { label: 'Permissions', page: 'super-admin-permissions', icon: Shield },
     { label: 'Roles', page: 'super-admin-roles', icon: ShieldCheck },
     { label: 'Contact Requests', page: 'contact-requests', icon: Mail },
+    { label: 'Broadcasts', page: 'platform-announcements', icon: Megaphone },
+    { label: 'Data Exports', page: 'tenant-exports', icon: DatabaseBackup },
+    { label: 'Branding', page: 'platform-branding', icon: Palette },
     {
       label: 'Landing Page',
       page: 'testimonials',
@@ -97,7 +103,6 @@ export const MENUS: Record<string, MenuItem[]> = {
       ],
     },
     { label: 'Support Tickets', page: 'support', icon: Headphones },
-    { label: 'Analytics', page: 'analytics', icon: BarChart3 },
   ],
   SCHOOL_ADMIN: [
     { label: 'Dashboard', page: 'dashboard', icon: LayoutDashboard },
@@ -294,6 +299,7 @@ export const MENUS: Record<string, MenuItem[]> = {
       ],
     },
     { label: 'Settings', page: 'settings', icon: Settings },
+    { label: 'Help & Support', page: 'support', icon: Headphones },
   ],
   TEACHER: [
     { label: 'Dashboard', page: 'dashboard', icon: LayoutDashboard },
@@ -511,16 +517,20 @@ export function AppSidebar() {
   const [flyoutMenu, setFlyoutMenu] = useState<string | null>(null)
   const [flyoutPos, setFlyoutPos] = useState({ top: 0, left: 0 })
   const flyoutTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const platformLogo = usePlatformLogo()
   const role = user?.role || 'SCHOOL_ADMIN' as const
   const isImpersonating = role === 'SUPER_ADMIN' && !!user?.impersonatingSchoolId
   const effectiveRole = isImpersonating ? 'SCHOOL_ADMIN' : role
-  const schoolDisplayName = role === 'SUPER_ADMIN' && !isImpersonating
+  const isPlatformView = role === 'SUPER_ADMIN' && !isImpersonating
+  const schoolDisplayName = isPlatformView
     ? 'Vidhyalayam'
     : currentSchool?.name || 'Vidhyalayam'
-  const schoolSubLabel = role === 'SUPER_ADMIN' && !isImpersonating
+  const schoolSubLabel = isPlatformView
     ? 'Platform Admin'
     : ''
-  const schoolLogo = (role === 'SUPER_ADMIN' && !isImpersonating) ? undefined : currentSchool?.logo
+  // In the platform (super-admin) view show the configurable platform logo;
+  // otherwise the school's own logo.
+  const schoolLogo = isPlatformView ? (platformLogo || undefined) : currentSchool?.logo
 
   const menus = useMemo(() => {
     const roleMenus = MENUS[effectiveRole] || MENUS.SCHOOL_ADMIN

@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "worker:demand-slips": "tsx src/workers/demand-slip-worker.ts",
     "worker:notifications": "tsx src/workers/notification-worker.ts",
+    "worker:exports": "tsx src/workers/export-worker.ts",
     "db:start": "bun run start-pg.mjs",
     "db:create": "bun run scripts/create-postgres-db.mjs",
     "setup": "cp .env.example .env && bun install && bun run db:push && bun run seed",

@@ -72,6 +72,9 @@ export function notFoundError(resource?: string): NextResponse {
     InventoryItem: 'inventory item',
     Notification: 'notification',
     Announcement: 'announcement',
+    PlatformAnnouncement: 'announcement',
+    SupportTicket: 'support ticket',
+    Export: 'export',
   }
   const friendlyName = resource ? (resourceNames[resource] || resource.toLowerCase()) : 'record'
   const msg = `We couldn't find this ${friendlyName}. It may have been removed or the link may be incorrect.`

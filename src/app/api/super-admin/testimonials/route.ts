@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
     if (user.role !== 'SUPER_ADMIN') return forbiddenError()
 
     const searchParams = request.nextUrl.searchParams
-    const search = searchParams.get('search')
+    const search = (searchParams.get('search') || '').trim()
 
     const where: Record<string, unknown> = {
       deletedAt: null,
@@ -19,9 +19,9 @@ export async function GET(request: NextRequest) {
 
     if (search) {
       where.OR = [
-        { name: { contains: search } },
-        { role: { contains: search } },
-        { quote: { contains: search } },
+        { name: { contains: search, mode: 'insensitive' } },
+        { role: { contains: search, mode: 'insensitive' } },
+        { quote: { contains: search, mode: 'insensitive' } },
       ]
     }
 

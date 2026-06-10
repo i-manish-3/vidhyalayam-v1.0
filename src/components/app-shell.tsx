@@ -29,6 +29,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Sun, Moon, LogOut, User, PanelLeftOpen, Search, ArrowRight, Lock, Sunrise, Sunset, MoonStar, ImagePlus, Trash2 } from 'lucide-react'
 import { AcademicYearSwitcher } from '@/components/academic-year-switcher'
 import { ImpersonationBanner } from '@/components/super-admin/impersonation-banner'
+import { PlatformAnnouncementBanner } from '@/components/super-admin/platform-announcement-banner'
 import { resolveMigratedUrl } from '@/lib/migrated-routes'
 import { NotificationBell } from '@/components/notifications/notification-bell'
 
@@ -742,6 +743,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <AppSidebar />
 
         <main className="flex-1 min-w-0 overflow-y-auto flex flex-col bg-brand-page">
+          <PlatformAnnouncementBanner />
           <ImpersonationBanner />
           <PastYearGlobalBanner />
           <div className="flex-1 p-4 lg:p-6">

@@ -10,12 +10,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Users } from 'lucide-react'
 
-interface Child {
+interface Student {
   id: string
   firstName: string
   lastName: string
+  rollNumber?: string
   class?: { name: string }
   section?: { name: string }
+}
+
+// A child is exposed as a StudentParent join row with the student nested under it.
+interface ChildLink {
+  id: string
+  relation?: string
+  student: Student
 }
 
 interface Parent {
@@ -25,7 +33,7 @@ interface Parent {
   phone: string
   email: string
   occupation?: string
-  children?: Child[]
+  children?: ChildLink[]
 }
 
 export function ParentsPage() {
@@ -76,15 +84,17 @@ export function ParentsPage() {
           <ScrollArea className="max-h-64">
             {selectedParent?.children && selectedParent.children.length > 0 ? (
               <div className="space-y-3 py-4">
-                {selectedParent.children.map(child => (
-                  <div key={child.id} className="flex items-center justify-between rounded-lg border p-3">
+                {selectedParent.children.map(link => (
+                  <div key={link.id} className="flex items-center justify-between rounded-lg border p-3">
                     <div>
-                      <p className="font-medium text-sm">{child.firstName} {child.lastName}</p>
+                      <p className="font-medium text-sm">{link.student.firstName} {link.student.lastName}</p>
                       <p className="text-xs text-muted-foreground">
-                        {child.class?.name || '-'} {child.section ? `• Section: ${child.section.name}` : ''}
+                        {link.student.class?.name || '-'}
+                        {link.student.section ? ` • Section: ${link.student.section.name}` : ''}
+                        {link.student.rollNumber ? ` • Roll: ${link.student.rollNumber}` : ''}
                       </p>
                     </div>
-                    <Badge variant="secondary">Student</Badge>
+                    <Badge variant="secondary">{link.relation || 'Student'}</Badge>
                   </div>
                 ))}
               </div>

@@ -14,6 +14,15 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { ToastAction } from '@/components/ui/toast'
 import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from '@/components/ui/pagination'
+import {
   Table,
   TableBody,
   TableCell,
@@ -45,8 +54,6 @@ import {
   Mail,
   GraduationCap,
   Users,
-  ChevronLeft,
-  ChevronRight,
   KeyRound,
   Eye as EyeIcon,
   EyeOff,
@@ -200,6 +207,7 @@ export function SchoolsPage() {
   const [deletingSchool, setDeletingSchool] = useState<SchoolListItem | null>(null)
   const [saving, setSaving] = useState(false)
   const [page, setPage] = useState(savedListState?.page ?? 1)
+  const [totalSchools, setTotalSchools] = useState(0)
   const [totalPages, setTotalPages] = useState(1)
   const pageSize = 10
   const [resetSchool, setResetSchool] = useState<SchoolListItem | null>(null)
@@ -234,7 +242,8 @@ export function SchoolsPage() {
 
       const res = await api.get<{ schools: SchoolListItem[]; pagination: { total: number; totalPages: number } }>('/api/super-admin/schools', params)
       setSchools(res.schools || [])
-      setTotalPages(res.pagination?.totalPages || 1)
+      setTotalSchools(res.pagination?.total || 0)
+      setTotalPages(Math.max(1, res.pagination?.totalPages || 1))
     } catch {
       toast({ title: "Couldn't Load Schools", description: "We couldn't load the schools. Please refresh the page.", variant: 'destructive' })
     } finally {
@@ -309,8 +318,9 @@ export function SchoolsPage() {
   }
 
   const handlePageChange = (value: number) => {
-    setPage(value)
-    rememberListState({ page: value })
+    const nextPage = Math.min(Math.max(1, value), totalPages)
+    setPage(nextPage)
+    rememberListState({ page: nextPage })
   }
 
   const handleImpersonate = async (school: SchoolListItem) => {
@@ -369,37 +379,47 @@ export function SchoolsPage() {
     return new Date(dateStr).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
   }
 
+  const showingFrom = totalSchools === 0 ? 0 : (page - 1) * pageSize + 1
+  const showingTo = Math.min(page * pageSize, totalSchools)
+  const pageNumbers: (number | 'ellipsis-start' | 'ellipsis-end')[] = (() => {
+    if (totalPages <= 5) return Array.from({ length: totalPages }, (_, i) => i + 1)
+    if (page <= 3) return [1, 2, 3, 4, 'ellipsis-end', totalPages]
+    if (page >= totalPages - 2) return [1, 'ellipsis-start', totalPages - 3, totalPages - 2, totalPages - 1, totalPages]
+    return [1, 'ellipsis-start', page - 1, page, page + 1, 'ellipsis-end', totalPages]
+  })()
+
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Schools</h1>
-            <p className="text-sm text-muted-foreground">Manage all registered schools on the platform</p>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-stretch gap-3">
+          <span aria-hidden className="bg-brand mt-0.5 w-1 shrink-0 self-stretch rounded-full" />
+          <div className="min-w-0">
+            <h1 className="text-xl font-bold tracking-tight">Schools</h1>
+            <p className="mt-0.5 text-sm text-muted-foreground">Manage all registered schools on the platform</p>
           </div>
         </div>
-        <Button onClick={() => router.push('/admin/schools/new')} className="gap-2">
+        <Button onClick={() => router.push('/admin/schools/new')} className="gap-2 shrink-0">
           <PlusCircle className="size-4" />
           Add School
         </Button>
       </div>
 
       {/* Filters */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex flex-col sm:flex-row gap-3">
+      <Card className="py-0">
+        <CardContent className="p-3">
+          <div className="flex flex-col gap-2 sm:flex-row">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 placeholder="Search schools by name, city, or email..."
                 value={search}
                 onChange={(e) => handleSearchChange(e.target.value)}
-                className="pl-9"
+                className="h-9 pl-9"
               />
             </div>
             <Select value={statusFilter} onValueChange={handleStatusFilterChange}>
-              <SelectTrigger className="w-full sm:w-[160px]">
+              <SelectTrigger className="h-9 w-full sm:w-[160px]">
                 <SelectValue placeholder="All Status" />
               </SelectTrigger>
               <SelectContent>
@@ -438,7 +458,7 @@ export function SchoolsPage() {
         </Card>
       ) : (
         <>
-          <div className="rounded-lg border overflow-hidden">
+          <div className="overflow-hidden rounded-lg border bg-card shadow-sm">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -599,36 +619,58 @@ export function SchoolsPage() {
                 })}
               </TableBody>
             </Table>
-          </div>
 
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-3 border-t px-3 py-3 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-sm text-muted-foreground">
-                Page {page} of {totalPages}
+                Showing {showingFrom} to {showingTo} of {totalSchools} schools
               </p>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handlePageChange(Math.max(1, page - 1))}
-                  disabled={page === 1}
-                >
-                  <ChevronLeft className="size-4" />
-                  Previous
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handlePageChange(Math.min(totalPages, page + 1))}
-                  disabled={page === totalPages}
-                >
-                  Next
-                  <ChevronRight className="size-4" />
-                </Button>
-              </div>
+              <Pagination className="mx-0 w-auto justify-start sm:justify-end">
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious
+                      href="#"
+                      className={cn('h-8', page <= 1 && 'pointer-events-none opacity-50')}
+                      aria-disabled={page <= 1}
+                      onClick={(event) => {
+                        event.preventDefault()
+                        if (page > 1) handlePageChange(page - 1)
+                      }}
+                    />
+                  </PaginationItem>
+                  {pageNumbers.map((p, index) => (
+                    <PaginationItem key={`${p}-${index}`}>
+                      {p === 'ellipsis-start' || p === 'ellipsis-end' ? (
+                        <PaginationEllipsis className="size-8" />
+                      ) : (
+                        <PaginationLink
+                          href="#"
+                          isActive={p === page}
+                          className="size-8 text-xs"
+                          onClick={(event) => {
+                            event.preventDefault()
+                            handlePageChange(p)
+                          }}
+                        >
+                          {p}
+                        </PaginationLink>
+                      )}
+                    </PaginationItem>
+                  ))}
+                  <PaginationItem>
+                    <PaginationNext
+                      href="#"
+                      className={cn('h-8', page >= totalPages && 'pointer-events-none opacity-50')}
+                      aria-disabled={page >= totalPages}
+                      onClick={(event) => {
+                        event.preventDefault()
+                        if (page < totalPages) handlePageChange(page + 1)
+                      }}
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
             </div>
-          )}
+          </div>
         </>
       )}
 

@@ -110,13 +110,13 @@ function AvatarInitial({ name, avatarUrl, size = 'sm' }: { name: string; avatarU
       <img
         src={avatarUrl}
         alt={name}
-        className={`${dimension} rounded-full object-cover shrink-0`}
+        className={`${dimension} shrink-0 rounded-lg object-cover`}
       />
     )
   }
 
   return (
-    <div className={`${dimension} rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white font-bold ${fontSize} shrink-0`}>
+    <div className={`bg-brand-soft flex ${dimension} shrink-0 items-center justify-center rounded-lg font-bold text-white shadow-sm ${fontSize}`}>
       {name.charAt(0).toUpperCase()}
     </div>
   )
@@ -154,10 +154,12 @@ export function TestimonialsPage() {
     setIsLoading(true)
     try {
       const params: Record<string, string> = {}
-      if (search) params.search = search
+      const trimmedSearch = search.trim()
+      if (trimmedSearch) params.search = trimmedSearch
 
       const data = await api.get<{ testimonials: Testimonial[]; total: number }>(
-        '/api/super-admin/testimonials?' + new URLSearchParams(params).toString()
+        '/api/super-admin/testimonials',
+        params
       )
       setTestimonials(data.testimonials)
       setTotal(data.total)
@@ -255,57 +257,88 @@ export function TestimonialsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Testimonials</h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            Manage testimonials displayed on the landing page
-          </p>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-stretch gap-3">
+          <span aria-hidden className="bg-brand mt-0.5 w-1 shrink-0 self-stretch rounded-full" />
+          <div className="min-w-0">
+            <h1 className="text-xl font-bold tracking-tight">Testimonials</h1>
+            <p className="mt-0.5 text-sm text-muted-foreground">
+              Manage testimonials displayed on the landing page
+            </p>
+          </div>
         </div>
         <Button
-          className="bg-emerald-600 hover:bg-emerald-700 text-white shrink-0"
+          className="gap-2 shrink-0"
           onClick={handleOpenAdd}
         >
-          <Plus className="size-4 mr-2" />
+          <Plus className="size-4" />
           Add Testimonial
         </Button>
       </div>
 
       {/* Stats Bar */}
-      <div className="grid grid-cols-3 gap-3">
-        <Card>
-          <CardContent className="p-4 text-center">
-            <p className="text-2xl font-bold">{total}</p>
-            <p className="text-xs text-muted-foreground mt-0.5">Total</p>
+      <div className="grid gap-3 sm:grid-cols-3">
+        <Card className="py-0">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Total Testimonials</p>
+                <p className="mt-1 text-2xl font-bold tracking-tight">{total}</p>
+                <p className="mt-1 text-xs text-muted-foreground">All testimonials</p>
+              </div>
+              <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-brand-soft text-white shadow-md shadow-primary/20">
+                <MessageSquareQuote className="size-5" />
+              </div>
+            </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="p-4 text-center">
-            <p className="text-2xl font-bold text-emerald-600">{activeCount}</p>
-            <p className="text-xs text-muted-foreground mt-0.5">Active</p>
+        <Card className="py-0">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Active</p>
+                <p className="mt-1 text-2xl font-bold tracking-tight">{activeCount}</p>
+                <p className="mt-1 text-xs text-muted-foreground">Visible on landing page</p>
+              </div>
+              <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-brand-soft text-white shadow-md shadow-primary/20">
+                <CheckCircle2 className="size-5" />
+              </div>
+            </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="p-4 text-center">
-            <p className="text-2xl font-bold text-muted-foreground">{inactiveCount}</p>
-            <p className="text-xs text-muted-foreground mt-0.5">Inactive</p>
+        <Card className="py-0">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Inactive</p>
+                <p className="mt-1 text-2xl font-bold tracking-tight">{inactiveCount}</p>
+                <p className="mt-1 text-xs text-muted-foreground">Hidden testimonials</p>
+              </div>
+              <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-brand-soft text-white shadow-md shadow-primary/20">
+                <XCircle className="size-5" />
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>
 
       {/* Search */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-        <Input
-          placeholder="Search by name, role, or quote..."
-          className="pl-9"
-          value={search}
-          onChange={(e) => {
-            setSearch(e.target.value)
-            setPageState(TESTIMONIALS_LIST_STATE_KEY, { search: e.target.value })
-          }}
-        />
-      </div>
+      <Card className="py-0">
+        <CardContent className="p-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Search by name, role, or quote..."
+              className="h-9 pl-9"
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value)
+                setPageState(TESTIMONIALS_LIST_STATE_KEY, { search: e.target.value })
+              }}
+            />
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Testimonials List */}
       {isLoading ? (
@@ -313,22 +346,24 @@ export function TestimonialsPage() {
           <Loader2 className="size-8 animate-spin text-muted-foreground" />
         </div>
       ) : testimonials.length === 0 ? (
-        <div className="text-center py-20">
-          <MessageSquareQuote className="size-12 text-muted-foreground/50 mx-auto" />
-          <p className="mt-4 text-muted-foreground font-medium">No testimonials yet</p>
-          <p className="text-sm text-muted-foreground/70 mt-1">
-            Add testimonials to showcase on the landing page
-          </p>
-          <Button
-            className="mt-4 bg-emerald-600 hover:bg-emerald-700 text-white"
-            onClick={handleOpenAdd}
-          >
-            <Plus className="size-4 mr-2" />
-            Add First Testimonial
-          </Button>
-        </div>
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+            <MessageSquareQuote className="size-12 text-muted-foreground/50" />
+            <p className="mt-4 font-medium text-muted-foreground">No testimonials yet</p>
+            <p className="mt-1 text-sm text-muted-foreground/70">
+              Add testimonials to showcase on the landing page
+            </p>
+            <Button
+              className="mt-4 gap-2"
+              onClick={handleOpenAdd}
+            >
+              <Plus className="size-4" />
+              Add First Testimonial
+            </Button>
+          </CardContent>
+        </Card>
       ) : (
-        <div className="grid gap-4">
+        <div className="grid gap-4 xl:grid-cols-2">
           <AnimatePresence>
             {testimonials.map((testimonial, i) => (
               <motion.div
@@ -338,8 +373,8 @@ export function TestimonialsPage() {
                 exit={{ opacity: 0, y: -10 }}
                 transition={{ duration: 0.3, delay: i * 0.05 }}
               >
-                <Card className="hover:border-emerald-300 dark:hover:border-emerald-700 transition-colors">
-                  <CardContent className="p-4 sm:p-5">
+                <Card className="overflow-hidden rounded-lg bg-card py-0 shadow-sm transition-colors hover:border-primary/40">
+                  <CardContent className="p-3 sm:p-4">
                     <div className="flex flex-col sm:flex-row gap-4">
                       {/* Avatar & Main Content */}
                       <div className="flex items-start gap-3 flex-1 min-w-0">
@@ -524,7 +559,7 @@ export function TestimonialsPage() {
             {/* Actions */}
             <div className="flex gap-2 pt-2">
               <Button
-                className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white"
+                className="flex-1"
                 onClick={handleSave}
                 disabled={isSaving}
               >

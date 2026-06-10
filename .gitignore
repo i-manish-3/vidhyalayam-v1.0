@@ -80,6 +80,7 @@ package-lock.json
 
 # Uploads & temp files
 upload/
+storage/
 daemon.sh
 server.pid
 server.sh

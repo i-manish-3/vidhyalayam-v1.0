@@ -166,6 +166,7 @@ model School {
   notificationTemplates       NotificationTemplate[]
   idCardTemplates             IdCardTemplate[]
   idCardGenerationLogs        IdCardGenerationLog[]
+  exportJobs                  ExportJob[]
 
   @@index([subdomain])
   @@index([status])
@@ -3474,5 +3475,86 @@ model IdCardGenerationLog {
 
   @@index([schoolId])
   @@index([templateId])
+  @@index([createdAt])
+}
+
+// ============================================
+// PLATFORM BROADCAST ANNOUNCEMENTS (super-admin → all schools/users)
+// Global, cross-tenant ops banners (maintenance windows, feature notices).
+// Distinct from the per-school Announcement model above.
+// ============================================
+
+model PlatformAnnouncement {
+  id          String    @id @default(cuid())
+  title       String
+  message     String
+  severity    String    @default("info") // info | warning | critical
+  status      String    @default("draft") // draft | active | archived
+  audience    String    @default("all") // all | school_admins | teachers | students | parents
+  dismissible Boolean   @default(true) // critical notices can be pinned (non-dismissible)
+  linkUrl     String? // optional CTA target
+  linkLabel   String? // optional CTA label
+  startsAt    DateTime? // null = visible immediately once active
+  expiresAt   DateTime? // null = visible until archived
+  createdBy   String? // SUPER_ADMIN user id
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  dismissals PlatformAnnouncementDismissal[]
+
+  @@index([status])
+  @@index([startsAt, expiresAt])
+}
+
+// Platform-wide branding set by super-admin. Singleton row (id = "singleton").
+// Currently just the product logo; used as the brand fallback in the super-admin
+// panel and on the login screen when there is no school-specific branding.
+model PlatformBranding {
+  id        String   @id @default("singleton")
+  logo      String? // stored image URL (storage key path or R2 URL)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Per-user dismissal record (cross-device). One row per (announcement, user).
+model PlatformAnnouncementDismissal {
+  id             String   @id @default(cuid())
+  announcementId String
+  userId         String
+  dismissedAt    DateTime @default(now())
+
+  announcement PlatformAnnouncement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+
+  @@unique([announcementId, userId])
+  @@index([userId])
+}
+
+// ============================================
+// TENANT DATA EXPORT (super-admin backup of one school's data)
+// A background job dumps every tenant-scoped table for a school into a single
+// compressed artifact. Export-only — no restore/import path.
+// ============================================
+
+model ExportJob {
+  id           String    @id @default(cuid())
+  schoolId     String
+  status       String    @default("pending") // pending | processing | completed | failed
+  format       String    @default("json.gz") // artifact format
+  filePath     String? // private storage path of the produced artifact
+  fileSize     Int? // bytes
+  tableCount   Int? // number of tables included
+  recordCount  Int? // total rows exported
+  error        String? // failure reason (user-friendly)
+  requestedBy  String? // super-admin user id
+  startedAt    DateTime?
+  completedAt  DateTime?
+  expiresAt    DateTime? // after this the artifact is purged and download 410s
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  @@index([schoolId])
+  @@index([status])
   @@index([createdAt])
 }

@@ -71,6 +71,7 @@ import {
   Eye,
   Info,
   HelpCircle,
+  Palette,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -1503,48 +1504,93 @@ export function SchoolRolesPage() {
 
       {/* Create Role Dialog */}
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Plus className="size-5" />
-              Create New Role
-            </DialogTitle>
-            <DialogDescription>
-              Create a custom role with specific permissions for your school.
-            </DialogDescription>
+        <DialogContent className="flex max-h-[92vh] flex-col overflow-hidden p-0 sm:max-w-lg">
+          <DialogHeader className="shrink-0 border-b bg-muted/30 px-5 py-4 text-left sm:px-6">
+            <div className="flex items-start gap-3">
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-brand-soft text-white shadow-sm">
+                <ShieldCheck className="size-5" />
+              </span>
+              <div className="min-w-0 space-y-1">
+                <DialogTitle className="text-xl font-semibold">Create new role</DialogTitle>
+                <DialogDescription className="text-sm">
+                  Create a custom role, then grant it permissions and assign users.
+                </DialogDescription>
+              </div>
+            </div>
           </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label htmlFor="new-role-name" className="text-xs font-medium">Role Name *</Label>
-              <Input
-                id="new-role-name"
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                placeholder="e.g., Department Head, Lab Assistant"
-                className="h-9"
-              />
+
+          <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-5 sm:px-6">
+            {/* Live preview */}
+            <div className="rounded-lg border bg-card p-4 shadow-sm">
+              <div className="flex items-center gap-3">
+                <div
+                  className="flex size-10 shrink-0 items-center justify-center rounded-lg ring-1 ring-inset ring-border"
+                  style={{ backgroundColor: `${newColor}20` }}
+                >
+                  <ShieldCheck className="size-5" style={{ color: newColor }} />
+                </div>
+                <div className="min-w-0 space-y-0.5">
+                  <h3 className="line-clamp-1 text-base font-semibold text-foreground">
+                    {newName.trim() || 'Role name preview'}
+                  </h3>
+                  <p className="line-clamp-2 text-sm text-muted-foreground">
+                    {newDescription.trim() || 'Your role description will appear here.'}
+                  </p>
+                </div>
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="new-role-desc" className="text-xs font-medium">Description</Label>
-              <Textarea
-                id="new-role-desc"
-                value={newDescription}
-                onChange={(e) => setNewDescription(e.target.value)}
-                placeholder="Describe what this role is for..."
-                className="min-h-[60px] resize-none"
-                rows={2}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label className="text-xs font-medium">Color</Label>
-              <div className="flex items-center gap-2 flex-wrap">
+
+            {/* Role details */}
+            <section className="space-y-4 rounded-lg border bg-card p-4 shadow-sm">
+              <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                <Pencil className="size-4 text-brand" />
+                Role details
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="new-role-name">
+                  Role name <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="new-role-name"
+                  value={newName}
+                  maxLength={50}
+                  onChange={(e) => setNewName(e.target.value)}
+                  placeholder="e.g., Department Head, Lab Assistant"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="new-role-desc">Description</Label>
+                <Textarea
+                  id="new-role-desc"
+                  value={newDescription}
+                  rows={3}
+                  onChange={(e) => setNewDescription(e.target.value)}
+                  placeholder="Describe what this role is for..."
+                  className="resize-none"
+                />
+              </div>
+            </section>
+
+            {/* Color */}
+            <section className="space-y-4 rounded-lg border bg-card p-4 shadow-sm">
+              <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                <Palette className="size-4 text-brand" />
+                Accent color
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
                 {PRESET_COLORS.map((color) => (
                   <button
                     key={color}
                     type="button"
                     onClick={() => setNewColor(color)}
-                    className={`size-7 rounded-md border-2 transition-all ${
-                      newColor === color ? 'border-foreground scale-110' : 'border-transparent hover:border-muted-foreground/30'
+                    aria-label={`Select color ${color}`}
+                    className={`size-8 rounded-md border-2 transition-all ${
+                      newColor === color
+                        ? 'border-foreground scale-110'
+                        : 'border-transparent hover:border-muted-foreground/30'
                     }`}
                     style={{ backgroundColor: color }}
                   />
@@ -1553,17 +1599,20 @@ export function SchoolRolesPage() {
                   type="color"
                   value={newColor}
                   onChange={(e) => setNewColor(e.target.value)}
-                  className="size-7 p-0 border-0 cursor-pointer rounded-md"
+                  className="size-8 cursor-pointer rounded-md border-0 p-0"
+                  aria-label="Custom color"
                 />
               </div>
-            </div>
+            </section>
           </div>
-          <DialogFooter className="gap-2">
+
+          <DialogFooter className="shrink-0 border-t bg-muted/20 px-5 py-4 sm:px-6">
             <Button variant="outline" onClick={() => setShowCreateDialog(false)} disabled={creating}>
               Cancel
             </Button>
             <Button onClick={handleCreateRole} disabled={creating || !newName.trim()}>
-              {creating ? 'Creating...' : 'Create Role'}
+              <Plus className="mr-2 size-4" />
+              {creating ? 'Creating...' : 'Create role'}
             </Button>
           </DialogFooter>
         </DialogContent>

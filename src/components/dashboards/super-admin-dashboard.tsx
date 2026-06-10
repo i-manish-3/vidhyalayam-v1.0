@@ -14,7 +14,7 @@ import {
   School, CheckCircle2, Clock, Users, Building2, GraduationCap,
   ArrowRight, ArrowUpRight, ArrowDownRight, AlertTriangle, LifeBuoy,
   Mail, ShieldCheck, KeyRound, Plus, TrendingUp,
-  Sparkles, Zap, type LucideIcon,
+  Zap, type LucideIcon,
 } from 'lucide-react'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -270,36 +270,7 @@ export function SuperAdminDashboard() {
 
   return (
     <div className="space-y-6">
-      {/* ── Header ─────────────────────────────────────────────────────── */}
-      <section className="overflow-hidden rounded-xl border bg-card shadow-sm">
-        <div className="p-3">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div className="space-y-2 lg:min-w-0 lg:flex-1">
-              <Badge variant="secondary" className="w-fit gap-2 bg-primary/10 text-primary hover:bg-primary/10">
-                <Sparkles className="size-3.5" />
-                <span>Super Admin</span>
-              </Badge>
-              <h1 className="text-lg font-semibold tracking-tight text-foreground/85 sm:text-xl">
-                Vidhyalayam Platform
-              </h1>
-              <p className="text-xs text-muted-foreground">
-                Real-time pulse across schools, trials, support, and admissions leads.
-              </p>
-            </div>
-            <div className="grid w-full gap-2 sm:grid-cols-2 lg:max-w-md lg:shrink-0">
-              <Button variant="outline" size="sm" className="h-9 justify-start gap-2" onClick={go('schools')}>
-                <Building2 className="size-3.5" />
-                All Schools
-              </Button>
-              <Button size="sm" className="h-9 justify-start gap-2" onClick={go('add-school')}>
-                <Plus className="size-3.5" />
-                Onboard School
-              </Button>
-            </div>
-          </div>
-        </div>
-      </section>
-
+      {/* ── Quick Actions ──────────────────────────────────────────────── */}
       <section className="overflow-hidden rounded-lg border bg-card shadow-sm">
         <div className="px-3.5 pt-2">
           <h2 className="flex items-center gap-2 text-sm font-semibold tracking-tight text-foreground/90">

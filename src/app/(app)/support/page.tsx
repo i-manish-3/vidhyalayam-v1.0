@@ -1,12 +1,13 @@
 'use client'
 
+import { useAppStore } from '@/lib/store'
 import { SupportPage } from '@/features/communications/pages/support-page'
-import { RoleGuard } from '@/components/shared'
+import { SupportRequestPage } from '@/features/communications/pages/support-request-page'
 
+// One route, two views: the platform owner manages every school's tickets; a
+// school user raises and tracks their own.
 export default function SupportRoute() {
-  return (
-    <RoleGuard role="SUPER_ADMIN">
-      <SupportPage />
-    </RoleGuard>
-  )
+  const role = useAppStore((s) => s.user?.role)
+  if (role === 'SUPER_ADMIN') return <SupportPage />
+  return <SupportRequestPage />
 }

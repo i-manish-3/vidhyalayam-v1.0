@@ -50,8 +50,8 @@ import {
   Users,
   Info,
   Pencil,
-  Sparkles,
   Layers,
+  Palette,
 } from 'lucide-react'
 import { Switch } from '@/components/ui/switch'
 
@@ -153,34 +153,34 @@ function DetailSkeleton() {
   )
 }
 
-function SummaryTile({
+function SummaryStat({
   label,
   value,
-  icon: Icon,
-  tone = 'primary',
+  note,
+  icon,
 }: {
   label: string
   value: string | number
+  note: string
   icon: ElementType
-  tone?: 'primary' | 'emerald' | 'amber' | 'sky'
 }) {
-  const toneClass = {
-    primary: 'bg-primary/10 text-primary',
-    emerald: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-300',
-    amber: 'bg-amber-500/10 text-amber-600 dark:text-amber-300',
-    sky: 'bg-sky-500/10 text-sky-600 dark:text-sky-300',
-  }[tone]
+  const Icon = icon
 
   return (
-    <div className="flex items-center gap-2 rounded-lg border bg-background/70 px-3 py-2">
-      <div className={`flex size-8 shrink-0 items-center justify-center rounded-md ${toneClass}`}>
-        <Icon className="size-4" />
-      </div>
-      <div className="min-w-0">
-        <p className="text-[11px] text-muted-foreground">{label}</p>
-        <p className="text-sm font-semibold text-foreground/85 tabular-nums">{value}</p>
-      </div>
-    </div>
+    <Card className="py-0">
+      <CardContent className="p-4">
+        <div className="flex items-center justify-between gap-4">
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-muted-foreground">{label}</p>
+            <p className="mt-1 text-2xl font-bold tracking-tight tabular-nums">{value}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{note}</p>
+          </div>
+          <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-brand-soft text-white shadow-md shadow-primary/20">
+            <Icon className="size-5" />
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   )
 }
 
@@ -493,6 +493,9 @@ export function SuperAdminRolesPage() {
     () => Object.values(allPermissions).reduce((sum, perms) => sum + perms.length, 0),
     [allPermissions]
   )
+  const roleGrantPercent = totalPermissions > 0
+    ? Math.round((grantedPermissionIds.size / totalPermissions) * 100)
+    : 0
 
   const groupedRoles = useMemo(() => {
     const grouped: Record<string, { school: SchoolInfo | null; roles: RoleListItem[] }> = {}
@@ -520,35 +523,31 @@ export function SuperAdminRolesPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <section className="overflow-hidden rounded-xl border bg-card shadow-sm">
-        <div className="p-4">
-          <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-            <div className="space-y-2">
-              <Badge variant="brand" className="w-fit gap-2">
-                <Sparkles className="size-3.5" />
-                Super Admin Control
-              </Badge>
-              <div>
-                <h1 className="text-xl font-semibold tracking-tight text-foreground/90">Roles Studio</h1>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Build school-level roles, tune permission bundles, and audit inherited access.
-                </p>
-              </div>
-            </div>
-            <div className="grid gap-2 sm:grid-cols-2 xl:w-[520px]">
-              <SummaryTile label="Roles" value={roles.length} icon={ShieldCheck} />
-              <SummaryTile label="System Roles" value={systemRoleCount} icon={Lock} tone="amber" />
-              <SummaryTile label="Assigned Users" value={assignedUsers} icon={Users} tone="sky" />
-              <SummaryTile label="Permission Types" value={totalPermissions} icon={Layers} tone="emerald" />
-            </div>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-stretch gap-3">
+          <span aria-hidden className="bg-brand mt-0.5 w-1 shrink-0 self-stretch rounded-full" />
+          <div className="min-w-0">
+            <h1 className="text-xl font-bold tracking-tight">Roles Studio</h1>
+            <p className="mt-0.5 text-sm text-muted-foreground">
+              Build school-level roles, tune permission bundles, and audit inherited access.
+            </p>
           </div>
         </div>
-      </section>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <SummaryStat label="Roles" value={roles.length} note="Across schools" icon={ShieldCheck} />
+        <SummaryStat label="System Roles" value={systemRoleCount} note="Protected roles" icon={Lock} />
+        <SummaryStat label="Assigned Users" value={assignedUsers} note="Role memberships" icon={Users} />
+        <SummaryStat label="Permission Types" value={totalPermissions} note="Available controls" icon={Layers} />
+      </div>
+
       {/* Filters */}
-      <section className="rounded-xl border bg-card p-3 shadow-sm">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+      <Card className="py-0">
+        <CardContent className="p-3">
+        <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
         <div className="relative flex-1">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder="Search roles..."
             value={roleSearch}
@@ -575,24 +574,31 @@ export function SuperAdminRolesPage() {
           Create Role
         </Button>
         </div>
-      </section>
+        </CardContent>
+      </Card>
 
-      {/* Two-panel layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left panel: Role List */}
-        <div className="lg:col-span-4 xl:col-span-3">
-          <Card className="h-full overflow-hidden rounded-xl shadow-sm">
-            <CardHeader className="border-b bg-muted/20 pb-3">
-              <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                <Shield className="size-4" />
-                Role Catalog
-                <Badge variant="secondary" className="ml-auto text-[10px]">
-                  {roles.length}
+      {/* Role browser + detail */}
+      <div className="space-y-6">
+        {/* Role browser */}
+        <div>
+          <Card className="h-full overflow-hidden rounded-lg bg-card py-0 shadow-sm">
+            <CardHeader className="border-b px-3 py-3">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+                    <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-brand-soft text-white shadow-sm">
+                      <Shield className="size-4" />
+                    </span>
+                    Browse Roles
+                  </CardTitle>
+                  <CardDescription className="mt-1 text-xs">
+                    {groupedRoles.length} school groups
+                  </CardDescription>
+                </div>
+                <Badge variant="secondary" className="text-[10px]">
+                  {roles.length} roles
                 </Badge>
-              </CardTitle>
-              <CardDescription className="text-xs">
-                Grouped by school for faster review.
-              </CardDescription>
+              </div>
             </CardHeader>
             <CardContent className="p-0">
               {loadingRoles ? (
@@ -605,44 +611,66 @@ export function SuperAdminRolesPage() {
                   </p>
                 </div>
               ) : (
-                <ScrollArea className="h-[calc(100vh-360px)] min-h-[300px]">
-                  <div className="space-y-4 px-3 pb-3">
+                <div className="quick-actions-scrollbar overflow-x-auto px-3 pb-3">
+                  <div className="flex min-w-max gap-3">
                     {groupedRoles.map((group) => (
-                      <div key={group.school?.id || '__no_school'}>
-                        <div className="flex items-center gap-2 mb-1.5 px-1">
-                          <School className="size-3 text-muted-foreground" />
-                          <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider truncate">
-                            {group.school?.name || 'Unknown School'}
-                          </span>
-                          <Badge variant="outline" className="text-[9px] ml-auto shrink-0">
-                            {group.roles.length}
-                          </Badge>
+                      <div key={group.school?.id || '__no_school'} className="w-[300px] shrink-0 overflow-hidden rounded-lg border bg-muted/20 lg:w-[340px]">
+                        <div className="flex items-center gap-2 border-b bg-card px-3 py-2">
+                          <div className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-brand-soft text-white shadow-sm">
+                            <School className="size-3.5" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-xs font-semibold text-foreground/90">
+                              {group.school?.name || 'Unknown School'}
+                            </p>
+                            <p className="text-[10px] text-muted-foreground">
+                              {group.roles.length} role{group.roles.length !== 1 ? 's' : ''}
+                            </p>
+                          </div>
                         </div>
-                        <div className="space-y-1">
+                        <div className="space-y-1 p-1.5">
                           {group.roles.map((role) => (
                             <button
                               key={role.id}
                               onClick={() => { setSelectedRoleId(role.id); setActiveTab('permissions') }}
-                              className={`w-full text-left rounded-lg border p-2.5 transition-all ${
+                              className={`group relative w-full overflow-hidden rounded-md border p-2.5 text-left transition-all ${
                                 selectedRoleId === role.id
                                   ? 'border-primary/40 bg-primary/10 shadow-sm'
-                                  : 'border-border/50 bg-background hover:border-primary/20 hover:bg-primary/[0.03]'
+                                  : 'border-transparent bg-card hover:border-primary/30 hover:bg-primary/[0.03]'
                               }`}
                             >
-                              <div className="flex items-center gap-2">
-                                <div
-                                  className="size-3 rounded-full shrink-0"
-                                  style={{ backgroundColor: role.color || '#6b7280' }}
-                                />
-                                <span className="text-sm font-medium truncate">{role.name}</span>
+                              <span
+                                aria-hidden
+                                className="absolute inset-y-2 left-0 w-1 rounded-r-full"
+                                style={{ backgroundColor: role.color || '#6b7280' }}
+                              />
+                              <div className="flex items-start gap-2 pl-2">
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="truncate text-sm font-medium">{role.name}</span>
+                                    {selectedRoleId === role.id && (
+                                      <Badge variant="outline" className="h-4 px-1.5 text-[9px]">
+                                        Selected
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                                    <Badge variant="secondary" className="h-5 px-1.5 text-[10px]">
+                                      {role.permissionCount} perms
+                                    </Badge>
+                                    <Badge variant="outline" className="h-5 px-1.5 text-[10px]">
+                                      {role.userCount} user{role.userCount !== 1 ? 's' : ''}
+                                    </Badge>
+                                  </div>
+                                </div>
                                 {role.isSystem && (
-                                  <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-4 ml-auto shrink-0">
+                                  <Badge variant="secondary" className="h-5 shrink-0 px-1.5 text-[9px]">
                                     <Lock className="size-2.5 mr-0.5" />
                                     System
                                   </Badge>
                                 )}
                               </div>
-                              <div className="flex items-center gap-2 mt-1 ml-5">
+                              <div className="hidden">
                                 <span className="text-[10px] text-muted-foreground">
                                   {role.permissionCount} perms
                                 </span>
@@ -657,18 +685,18 @@ export function SuperAdminRolesPage() {
                       </div>
                     ))}
                   </div>
-                </ScrollArea>
+                </div>
               )}
             </CardContent>
           </Card>
         </div>
 
-        {/* Right panel: Role Detail */}
-        <div className="lg:col-span-8 xl:col-span-9">
+        {/* Role Detail */}
+        <div>
           {!selectedRoleId ? (
-            <Card className="flex flex-col items-center justify-center py-20 text-center">
-              <div className="size-14 rounded-full bg-muted flex items-center justify-center mb-4">
-                <ShieldCheck className="size-7 text-muted-foreground/50" />
+            <Card className="flex flex-col items-center justify-center rounded-lg py-20 text-center shadow-sm">
+              <div className="mb-4 flex size-14 items-center justify-center rounded-xl bg-brand-soft text-white shadow-md shadow-primary/20">
+                <ShieldCheck className="size-7" />
               </div>
               <h3 className="text-lg font-semibold text-muted-foreground">Select a Role</h3>
               <p className="text-sm text-muted-foreground/70 mt-1 max-w-sm">
@@ -680,19 +708,16 @@ export function SuperAdminRolesPage() {
           ) : roleDetail ? (
             <div className="space-y-4">
               {/* Role info card */}
-              <Card>
-                <CardContent className="py-4">
-                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <Card className="overflow-hidden rounded-lg bg-card py-0 shadow-sm">
+                <CardContent className="p-0">
+                  <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex items-center gap-3">
-                      <div
-                        className="size-10 rounded-md flex items-center justify-center shrink-0"
-                        style={{ backgroundColor: `${roleDetail.color || '#6b7280'}20` }}
-                      >
-                        <ShieldCheck className="size-5" style={{ color: roleDetail.color || '#6b7280' }} />
+                      <div className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-brand-soft text-white shadow-md shadow-primary/20">
+                        <ShieldCheck className="size-7" />
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
-                          <h2 className="text-base font-semibold">{roleDetail.name}</h2>
+                          <h2 className="text-xl font-bold tracking-tight">{roleDetail.name}</h2>
                           {roleDetail.isSystem && (
                             <Badge variant="secondary" className="text-[10px] px-2 gap-1">
                               <Lock className="size-3" />
@@ -726,20 +751,18 @@ export function SuperAdminRolesPage() {
                       {!isPredefined && (
                         <Button
                           variant="destructive"
-                          size="sm"
-                          className="gap-1.5 h-8 text-xs"
+                          className="h-10 gap-2"
                           onClick={() => setShowDeleteDialog(true)}
                           disabled={roleDetail.users.length > 0}
                         >
-                          <Trash2 className="size-3.5" />
+                          <Trash2 className="size-4" />
                           Delete
                         </Button>
                       )}
                       <Button
                         onClick={handleSave}
                         disabled={!hasChanges || saving}
-                        className="gap-2 shrink-0"
-                        size="sm"
+                        className="h-10 gap-2 shrink-0"
                       >
                         <Save className="size-4" />
                         {saving ? 'Saving...' : 'Save Changes'}
@@ -747,12 +770,35 @@ export function SuperAdminRolesPage() {
                     </div>
                   </div>
 
+                  <div className="grid gap-3 border-t bg-muted/20 px-4 py-3 sm:grid-cols-3">
+                    <div className="rounded-lg border bg-card px-3 py-2">
+                      <p className="text-[11px] font-medium text-muted-foreground">Granted</p>
+                      <p className="mt-0.5 text-sm font-semibold">{roleDetail.permissions.length} permissions</p>
+                    </div>
+                    <div className="rounded-lg border bg-card px-3 py-2">
+                      <p className="text-[11px] font-medium text-muted-foreground">Assigned Users</p>
+                      <p className="mt-0.5 text-sm font-semibold">{roleDetail.users.length} users</p>
+                    </div>
+                    <div className="rounded-lg border bg-card px-3 py-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-[11px] font-medium text-muted-foreground">Coverage</p>
+                        <span className="text-xs font-semibold tabular-nums">{roleGrantPercent}%</span>
+                      </div>
+                      <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted">
+                        <div
+                          className="h-full rounded-full bg-primary transition-all duration-300"
+                          style={{ width: `${roleGrantPercent}%` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
                   {/* Unsaved changes indicator */}
                   {hasPermChanges && (
-                    <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 mt-3">
+                    <div className="mx-4 mb-4 mt-3 flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 dark:border-amber-800 dark:bg-amber-950/30">
                       <div className="size-2 rounded-full bg-amber-500 animate-pulse" />
                       <span className="text-xs font-medium text-amber-700 dark:text-amber-400">
-                        Unsaved permission changes — click &quot;Save Permissions&quot; to apply
+                        Unsaved permission changes. Click &quot;Save Changes&quot; to apply.
                       </span>
                     </div>
                   )}
@@ -764,22 +810,22 @@ export function SuperAdminRolesPage() {
                 <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800">
                   <Lock className="size-3.5 text-blue-500" />
                   <span className="text-xs font-medium text-blue-700 dark:text-blue-400">
-                    This is a predefined role — its name, description, and color cannot be changed, and it cannot be deleted. However, you can modify its permissions.
+                    This is a predefined role. Its name, description, and color cannot be changed, and it cannot be deleted. You can still modify its permissions.
                   </span>
                 </div>
               )}
 
               {/* Role edit fields — only for custom roles */}
               {!isPredefined && (
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                <Card className="overflow-hidden rounded-lg bg-card py-0 shadow-sm">
+                  <CardHeader className="border-b px-4 py-3">
+                    <CardTitle className="flex items-center gap-2 text-sm font-semibold">
                       <Pencil className="size-4" />
                       Role Details
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <CardContent className="space-y-4 p-4">
+                    <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
                       <div className="space-y-2">
                         <Label htmlFor="sa-role-name" className="text-xs font-medium">Role Name</Label>
                         <Input
@@ -791,15 +837,15 @@ export function SuperAdminRolesPage() {
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label className="text-xs font-medium">Color</Label>
-                        <div className="flex items-center gap-2 flex-wrap">
+                        <Label className="text-xs font-medium">Role Color</Label>
+                        <div className="flex items-center gap-2 flex-wrap rounded-lg border bg-muted/20 p-2">
                           {PRESET_COLORS.map((color) => (
                             <button
                               key={color}
                               type="button"
                               onClick={() => setEditColor(color)}
-                              className={`size-7 rounded-md border-2 transition-all ${
-                                editColor === color ? 'border-foreground scale-110' : 'border-transparent hover:border-muted-foreground/30'
+                              className={`size-8 rounded-lg border-2 shadow-sm transition-all ${
+                                editColor === color ? 'border-foreground scale-105 ring-2 ring-primary/20' : 'border-transparent hover:border-muted-foreground/30'
                               }`}
                               style={{ backgroundColor: color }}
                             />
@@ -808,7 +854,7 @@ export function SuperAdminRolesPage() {
                             type="color"
                             value={editColor || '#6b7280'}
                             onChange={(e) => setEditColor(e.target.value)}
-                            className="size-7 p-0 border-0 cursor-pointer rounded-md"
+                            className="size-8 cursor-pointer rounded-lg border-0 p-0"
                           />
                         </div>
                       </div>
@@ -840,7 +886,7 @@ export function SuperAdminRolesPage() {
 
               {/* Tabs: Permissions & Users */}
               <Tabs value={activeTab} onValueChange={setActiveTab}>
-                <TabsList className="grid w-full grid-cols-2">
+                <TabsList className="grid h-11 w-full grid-cols-2 rounded-lg border bg-card p-1 shadow-sm">
                   <TabsTrigger value="permissions" className="gap-1.5">
                     <ShieldCheck className="size-3.5" />
                     Permissions
@@ -852,56 +898,75 @@ export function SuperAdminRolesPage() {
                 </TabsList>
 
                 <TabsContent value="permissions" className="mt-4">
-                  <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-muted/50 border mb-3">
+                  <div className="mb-3 flex items-center gap-2 rounded-lg border bg-card px-3 py-2 shadow-sm">
                     <Info className="size-3.5 text-muted-foreground shrink-0" />
                     <span className="text-xs text-muted-foreground">
                       {isPredefined
-                        ? `Toggle permissions for this predefined role — changes are automatically inherited by all ${roleDetail.users.length} user${roleDetail.users.length !== 1 ? 's' : ''} assigned to this role`
+                        ? `Toggle permissions for this predefined role. Changes are automatically inherited by all ${roleDetail.users.length} user${roleDetail.users.length !== 1 ? 's' : ''} assigned to this role`
                         : `These permissions are automatically inherited by all ${roleDetail.users.length} user${roleDetail.users.length !== 1 ? 's' : ''} assigned to this role`
                       }
                     </span>
                   </div>
-                  <ScrollArea className="h-[calc(100vh-640px)] min-h-[200px]">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pr-1 pb-2">
+                  <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
                       {moduleNames.map((moduleName) => {
                         const perms = allPermissions[moduleName]
                         const permIds = perms.map((p) => p.id)
                         const grantedInModule = perms.filter((p) => grantedPermissionIds.has(p.id)).length
                         const allGranted = grantedInModule === perms.length
+                        const modulePercent = perms.length > 0
+                          ? Math.round((grantedInModule / perms.length) * 100)
+                          : 0
                         return (
-                          <Card key={moduleName} className="overflow-hidden">
-                            <CardHeader className="pb-2 pt-3 px-4">
-                              <div className="flex items-center gap-2">
-                                <div className="size-7 rounded-md flex items-center justify-center shrink-0 bg-primary/10">
-                                  <Shield className="size-3.5 text-primary" />
+                          <Card key={moduleName} className="overflow-hidden rounded-lg bg-card py-0 shadow-sm transition-colors hover:border-primary/30">
+                            <CardHeader className="border-b px-4 py-3">
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="flex min-w-0 items-center gap-3">
+                                  <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-brand-soft text-white shadow-sm">
+                                    <Shield className="size-5" />
+                                  </div>
+                                  <div className="min-w-0">
+                                    <CardTitle className="truncate text-sm font-semibold">{moduleName}</CardTitle>
+                                    <p className="mt-0.5 text-xs text-muted-foreground">
+                                      {grantedInModule} of {perms.length} permissions enabled
+                                    </p>
+                                  </div>
                                 </div>
-                                <CardTitle className="text-sm font-semibold truncate">{moduleName}</CardTitle>
-                                <Badge variant="secondary" className="text-[10px] ml-auto shrink-0">
-                                  {grantedInModule}/{perms.length}
-                                </Badge>
-                                <Switch
-                                  checked={allGranted}
-                                  onCheckedChange={(checked) => handleToggleModule(permIds, checked)}
-                                  className="shrink-0 scale-90"
+                                <div className="flex shrink-0 items-center gap-2">
+                                  <Badge variant="secondary" className="text-[10px]">
+                                    {modulePercent}%
+                                  </Badge>
+                                  <Switch
+                                    checked={allGranted}
+                                    onCheckedChange={(checked) => handleToggleModule(permIds, checked)}
+                                    className="shrink-0"
+                                  />
+                                </div>
+                              </div>
+                              <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted">
+                                <div
+                                  className="h-full rounded-full bg-primary transition-all duration-300"
+                                  style={{ width: `${modulePercent}%` }}
                                 />
                               </div>
                             </CardHeader>
-                            <CardContent className="px-4 pb-3 pt-0">
-                              <div className="space-y-0.5">
+                            <CardContent className="p-3">
+                              <div className="grid gap-1.5 sm:grid-cols-2">
                                 {perms.map((perm) => {
                                   const isGranted = grantedPermissionIds.has(perm.id)
                                   return (
                                     <div
                                       key={perm.id}
-                                      className="flex items-center justify-between w-full py-1.5 px-2 rounded-md transition-colors gap-2"
+                                      className={`flex min-h-10 w-full items-center justify-between gap-3 rounded-lg border px-3 py-2 transition-colors ${
+                                        isGranted ? 'bg-primary/5' : 'hover:bg-muted/40'
+                                      }`}
                                     >
-                                      <span className={`text-xs truncate flex-1 ${isGranted ? 'text-foreground font-medium' : 'text-muted-foreground'}`}>
+                                      <span className={`min-w-0 flex-1 text-sm ${isGranted ? 'text-foreground font-medium' : 'text-muted-foreground'}`}>
                                         {perm.name}
                                       </span>
                                       <Switch
                                         checked={isGranted}
                                         onCheckedChange={() => handleTogglePermission(perm.id)}
-                                        className="shrink-0 scale-90"
+                                        className="shrink-0"
                                       />
                                     </div>
                                   )
@@ -912,12 +977,11 @@ export function SuperAdminRolesPage() {
                         )
                       })}
                     </div>
-                  </ScrollArea>
                 </TabsContent>
 
                 <TabsContent value="users" className="mt-4">
                   {roleDetail.users.length === 0 ? (
-                    <Card className="flex flex-col items-center justify-center py-12 text-center">
+                    <Card className="flex flex-col items-center justify-center rounded-lg py-12 text-center shadow-sm">
                       <Users className="size-10 text-muted-foreground/30 mb-3" />
                       <h3 className="text-sm font-semibold text-muted-foreground">No Users Assigned</h3>
                       <p className="text-xs text-muted-foreground/70 mt-1">
@@ -925,9 +989,9 @@ export function SuperAdminRolesPage() {
                       </p>
                     </Card>
                   ) : (
-                    <Card>
-                      <CardHeader className="pb-3">
-                        <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                    <Card className="overflow-hidden rounded-lg bg-card py-0 shadow-sm">
+                      <CardHeader className="border-b px-4 py-3">
+                        <CardTitle className="flex items-center gap-2 text-sm font-semibold">
                           <Users className="size-4" />
                           Assigned Users
                           <Badge variant="secondary" className="text-[10px] ml-1">
@@ -940,9 +1004,9 @@ export function SuperAdminRolesPage() {
                           {roleDetail.users.map((roleUser) => (
                             <div
                               key={roleUser.id}
-                              className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/40"
+                              className="flex items-center gap-3 rounded-lg p-2 hover:bg-muted/40"
                             >
-                              <div className="size-8 rounded-full flex items-center justify-center shrink-0 bg-primary/10 text-primary text-[10px] font-medium">
+                              <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-brand-soft text-[10px] font-medium text-white shadow-sm">
                                 {roleUser.name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)}
                               </div>
                               <div className="flex-1 min-w-0">
@@ -967,63 +1031,119 @@ export function SuperAdminRolesPage() {
 
       {/* Create Role Dialog */}
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Plus className="size-5" />
-              Create New Role
-            </DialogTitle>
-            <DialogDescription>
-              Create a custom role for a specific school. You can assign permissions after creation.
-            </DialogDescription>
+        <DialogContent className="flex max-h-[92vh] flex-col overflow-hidden p-0 sm:max-w-lg">
+          <DialogHeader className="shrink-0 border-b bg-muted/30 px-5 py-4 text-left sm:px-6">
+            <div className="flex items-start gap-3">
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-brand-soft text-white shadow-sm">
+                <ShieldCheck className="size-5" />
+              </span>
+              <div className="min-w-0 space-y-1">
+                <DialogTitle className="text-xl font-semibold">Create new role</DialogTitle>
+                <DialogDescription className="text-sm">
+                  Create a custom role for a specific school. Assign permissions after creation.
+                </DialogDescription>
+              </div>
+            </div>
           </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label className="text-xs font-medium">School *</Label>
-              <Select value={newSchoolId} onValueChange={setNewSchoolId}>
-                <SelectTrigger className="h-9">
-                  <SelectValue placeholder="Select a school" />
-                </SelectTrigger>
-                <SelectContent>
-                  {schools.map((school) => (
-                    <SelectItem key={school.id} value={school.id}>
-                      {school.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+
+          <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-5 sm:px-6">
+            {/* Live preview */}
+            <div className="rounded-lg border bg-card p-4 shadow-sm">
+              <div className="flex items-center gap-3">
+                <div
+                  className="flex size-10 shrink-0 items-center justify-center rounded-lg ring-1 ring-inset ring-border"
+                  style={{ backgroundColor: `${newColor}20` }}
+                >
+                  <ShieldCheck className="size-5" style={{ color: newColor }} />
+                </div>
+                <div className="min-w-0 space-y-0.5">
+                  <h3 className="line-clamp-1 text-base font-semibold text-foreground">
+                    {newName.trim() || 'Role name preview'}
+                  </h3>
+                  <p className="line-clamp-2 text-sm text-muted-foreground">
+                    {newDescription.trim() || 'Your role description will appear here.'}
+                  </p>
+                </div>
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="sa-new-role-name" className="text-xs font-medium">Role Name *</Label>
-              <Input
-                id="sa-new-role-name"
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                placeholder="e.g., Department Head, Lab Assistant"
-                className="h-9"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="sa-new-role-desc" className="text-xs font-medium">Description</Label>
-              <Textarea
-                id="sa-new-role-desc"
-                value={newDescription}
-                onChange={(e) => setNewDescription(e.target.value)}
-                placeholder="Describe what this role is for..."
-                className="min-h-[60px] resize-none"
-                rows={2}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label className="text-xs font-medium">Color</Label>
-              <div className="flex items-center gap-2 flex-wrap">
+
+            {/* School */}
+            <section className="space-y-4 rounded-lg border bg-card p-4 shadow-sm">
+              <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                <School className="size-4 text-brand" />
+                School
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>
+                  School <span className="text-destructive">*</span>
+                </Label>
+                <Select value={newSchoolId} onValueChange={setNewSchoolId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a school" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {schools.map((school) => (
+                      <SelectItem key={school.id} value={school.id}>
+                        {school.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </section>
+
+            {/* Role details */}
+            <section className="space-y-4 rounded-lg border bg-card p-4 shadow-sm">
+              <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                <Pencil className="size-4 text-brand" />
+                Role details
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="sa-new-role-name">
+                  Role name <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="sa-new-role-name"
+                  value={newName}
+                  maxLength={50}
+                  onChange={(e) => setNewName(e.target.value)}
+                  placeholder="e.g., Department Head, Lab Assistant"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="sa-new-role-desc">Description</Label>
+                <Textarea
+                  id="sa-new-role-desc"
+                  value={newDescription}
+                  rows={3}
+                  onChange={(e) => setNewDescription(e.target.value)}
+                  placeholder="Describe what this role is for..."
+                  className="resize-none"
+                />
+              </div>
+            </section>
+
+            {/* Color */}
+            <section className="space-y-4 rounded-lg border bg-card p-4 shadow-sm">
+              <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                <Palette className="size-4 text-brand" />
+                Accent color
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
                 {PRESET_COLORS.map((color) => (
                   <button
                     key={color}
                     type="button"
                     onClick={() => setNewColor(color)}
-                    className={`size-7 rounded-md border-2 transition-all ${
-                      newColor === color ? 'border-foreground scale-110' : 'border-transparent hover:border-muted-foreground/30'
+                    aria-label={`Select color ${color}`}
+                    className={`size-8 rounded-md border-2 transition-all ${
+                      newColor === color
+                        ? 'border-foreground scale-110'
+                        : 'border-transparent hover:border-muted-foreground/30'
                     }`}
                     style={{ backgroundColor: color }}
                   />
@@ -1032,17 +1152,20 @@ export function SuperAdminRolesPage() {
                   type="color"
                   value={newColor}
                   onChange={(e) => setNewColor(e.target.value)}
-                  className="size-7 p-0 border-0 cursor-pointer rounded-md"
+                  className="size-8 cursor-pointer rounded-md border-0 p-0"
+                  aria-label="Custom color"
                 />
               </div>
-            </div>
+            </section>
           </div>
-          <DialogFooter className="gap-2">
+
+          <DialogFooter className="shrink-0 border-t bg-muted/20 px-5 py-4 sm:px-6">
             <Button variant="outline" onClick={() => setShowCreateDialog(false)} disabled={creating}>
               Cancel
             </Button>
             <Button onClick={handleCreateRole} disabled={creating || !newName.trim() || !newSchoolId}>
-              {creating ? 'Creating...' : 'Create Role'}
+              <Plus className="mr-2 size-4" />
+              {creating ? 'Creating...' : 'Create role'}
             </Button>
           </DialogFooter>
         </DialogContent>

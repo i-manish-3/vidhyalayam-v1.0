@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
 
     const searchParams = request.nextUrl.searchParams
     const type = searchParams.get('type')
-    const search = searchParams.get('search')
+    const search = (searchParams.get('search') || '').trim()
 
     if (!type || (type !== 'plan' && type !== 'addon')) {
       return apiError(400, 'Please specify whether you want to view plans or add-ons (use type=plan or type=addon).')
@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (search) {
-      where.name = { contains: search }
+      where.name = { contains: search, mode: 'insensitive' }
     }
 
     if (type === 'plan') {

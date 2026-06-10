@@ -33,7 +33,6 @@ import {
   Settings,
   ClipboardList,
   Clock,
-  Sparkles,
   Layers,
   type LucideIcon,
 } from 'lucide-react'
@@ -206,37 +205,36 @@ function getModuleBarBg(module: string): string {
   return MODULE_BAR_BG[module] || 'bg-gray-100 dark:bg-gray-950/60'
 }
 
-function SummaryTile({
+function SummaryStat({
   label,
   value,
-  icon: Icon,
-  tone = 'primary',
+  note,
+  icon,
 }: {
   label: string
   value: string | number
+  note: string
   icon: LucideIcon
-  tone?: 'primary' | 'emerald' | 'amber' | 'sky'
 }) {
-  const toneClass = {
-    primary: 'bg-primary/10 text-primary',
-    emerald: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-300',
-    amber: 'bg-amber-500/10 text-amber-600 dark:text-amber-300',
-    sky: 'bg-sky-500/10 text-sky-600 dark:text-sky-300',
-  }[tone]
+  const Icon = icon
 
   return (
-    <div className="flex items-center gap-2 rounded-lg border bg-background/70 px-3 py-2">
-      <div className={`flex size-8 shrink-0 items-center justify-center rounded-md ${toneClass}`}>
-        <Icon className="size-4" />
-      </div>
-      <div className="min-w-0">
-        <p className="text-[11px] text-muted-foreground">{label}</p>
-        <p className="text-sm font-semibold text-foreground/85 tabular-nums">{value}</p>
-      </div>
-    </div>
+    <Card className="py-0">
+      <CardContent className="p-4">
+        <div className="flex items-center justify-between gap-4">
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-muted-foreground">{label}</p>
+            <p className="mt-1 text-2xl font-bold tracking-tight tabular-nums">{value}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{note}</p>
+          </div>
+          <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-brand-soft text-white shadow-md shadow-primary/20">
+            <Icon className="size-5" />
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   )
 }
-
 // ─── Loading Skeletons ───────────────────────────────────────────────────────
 
 function SchoolListSkeleton() {
@@ -305,16 +303,16 @@ function SchoolListItem({
   return (
     <button
       onClick={onClick}
-      className={`w-full flex items-center gap-3 p-3 rounded-lg border text-left transition-all duration-150 ${
+      className={`flex w-full items-center gap-3 rounded-lg border p-3 text-left transition-all duration-150 ${
         isSelected
           ? 'border-primary/40 bg-primary/10 shadow-sm'
-          : 'border-border/50 bg-background hover:border-primary/20 hover:bg-primary/[0.03]'
+          : 'border-border/60 bg-card hover:border-primary/30 hover:bg-primary/[0.03]'
       }`}
     >
-      <div className={`size-9 rounded-md flex items-center justify-center shrink-0 ${
-        isSelected ? 'bg-primary/20' : 'bg-muted'
+      <div className={`flex size-9 shrink-0 items-center justify-center rounded-lg ${
+        isSelected ? 'bg-brand-soft text-white shadow-sm' : 'bg-muted text-muted-foreground'
       }`}>
-        <Building2 className={`size-4 ${isSelected ? 'text-primary' : 'text-muted-foreground'}`} />
+        <Building2 className="size-4" />
       </div>
       <div className="flex-1 min-w-0">
         <p className={`text-sm font-medium truncate ${isSelected ? 'text-primary' : ''}`}>
@@ -372,11 +370,11 @@ function ModulePermissionsCard({
   }
 
   return (
-    <Card className={`overflow-hidden border-l-4 ${borderColorClass} bg-card/95 transition-all hover:-translate-y-0.5 hover:shadow-md`}>
+    <Card className={`overflow-hidden rounded-lg border-l-4 ${borderColorClass} bg-card py-0 shadow-sm transition-colors hover:border-primary/30`}>
       <CardHeader className="px-4 pb-2 pt-4">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
-            <div className={`size-7 rounded-md flex items-center justify-center shrink-0 ${colorClass}`}>
+            <div className={`flex size-8 shrink-0 items-center justify-center rounded-lg ${colorClass}`}>
               <ModuleIcon module={moduleName} className="size-3.5" />
             </div>
             <CardTitle className="text-sm font-semibold truncate">{moduleName}</CardTitle>
@@ -406,7 +404,7 @@ function ModulePermissionsCard({
             return (
               <div
                 key={perm.id}
-                className={`flex items-center justify-between py-1 px-2 rounded-md transition-colors ${
+                className={`flex items-center justify-between rounded-md px-2 py-1.5 transition-colors ${
                   isGranted ? 'bg-primary/5 text-foreground' : 'hover:bg-muted/40'
                 }`}
               >
@@ -432,7 +430,7 @@ function ModulePermissionsCard({
           <Button
             variant="outline"
             size="sm"
-            className="h-6 text-[10px] px-2 flex-1"
+            className="h-8 flex-1 px-2 text-xs"
             onClick={handleSelectAll}
             disabled={allGranted}
           >
@@ -442,7 +440,7 @@ function ModulePermissionsCard({
           <Button
             variant="outline"
             size="sm"
-            className="h-6 text-[10px] px-2 flex-1"
+            className="h-8 flex-1 px-2 text-xs"
             onClick={handleDeselectAll}
             disabled={noneGranted}
           >
@@ -617,37 +615,31 @@ export function SuperAdminPermissionsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <section className="overflow-hidden rounded-xl border bg-card shadow-sm">
-        <div className="p-4">
-          <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-            <div className="space-y-2">
-              <Badge variant="brand" className="w-fit gap-2">
-                <Sparkles className="size-3.5" />
-                Super Admin Control
-              </Badge>
-              <div>
-                <h1 className="text-xl font-semibold tracking-tight text-foreground/90">School Access Matrix</h1>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Decide which platform modules every school can use before roles distribute access inside the school.
-                </p>
-              </div>
-            </div>
-            <div className="grid gap-2 sm:grid-cols-2 xl:w-[520px]">
-              <SummaryTile label="Schools" value={schools.length} icon={Building2} />
-              <SummaryTile label="Modules" value={moduleNames.length} icon={Layers} tone="sky" />
-              <SummaryTile label="Permission Types" value={totalPermissionCount} icon={ShieldCheck} tone="emerald" />
-              <SummaryTile label="Selected Grant" value={`${grantedPercent}%`} icon={CheckCircle2} tone="amber" />
-            </div>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-stretch gap-3">
+          <span aria-hidden className="bg-brand mt-0.5 w-1 shrink-0 self-stretch rounded-full" />
+          <div className="min-w-0">
+            <h1 className="text-xl font-bold tracking-tight">School Access Matrix</h1>
+            <p className="mt-0.5 text-sm text-muted-foreground">
+              Decide which platform modules every school can use before roles distribute access inside the school.
+            </p>
           </div>
         </div>
-      </section>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <SummaryStat label="Schools" value={schools.length} note="Registered schools" icon={Building2} />
+        <SummaryStat label="Modules" value={moduleNames.length} note="Permission groups" icon={Layers} />
+        <SummaryStat label="Permission Types" value={totalPermissionCount} note="Available controls" icon={ShieldCheck} />
+        <SummaryStat label="Selected Grant" value={`${grantedPercent}%`} note="Granted to selected school" icon={CheckCircle2} />
+      </div>
       {/* Two-panel layout */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left panel: School List */}
         <div className="lg:col-span-4 xl:col-span-3">
-          <Card className="h-full overflow-hidden rounded-xl shadow-sm">
-            <CardHeader className="border-b bg-muted/20 pb-3">
-              <CardTitle className="text-sm font-semibold flex items-center gap-2">
+          <Card className="h-full overflow-hidden rounded-lg bg-card py-0 shadow-sm">
+            <CardHeader className="border-b px-3 py-3">
+              <CardTitle className="flex items-center gap-2 text-sm font-semibold">
                 <Building2 className="size-4" />
                 Schools
                 <Badge variant="secondary" className="ml-auto text-[10px]">
@@ -658,12 +650,12 @@ export function SuperAdminPermissionsPage() {
                 Select a school to manage its enabled modules.
               </CardDescription>
               <div className="relative mt-2">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
+                <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   placeholder="Search schools..."
                   value={schoolSearch}
                   onChange={(e) => handleSchoolSearchChange(e.target.value)}
-                  className="pl-8 h-8 text-sm"
+                  className="h-9 pl-9 text-sm"
                 />
               </div>
             </CardHeader>
@@ -698,9 +690,9 @@ export function SuperAdminPermissionsPage() {
         {/* Right panel: Permission Management */}
         <div className="lg:col-span-8 xl:col-span-9">
           {!selectedSchoolId ? (
-            <Card className="flex flex-col items-center justify-center py-20 text-center">
-              <div className="size-14 rounded-full bg-muted flex items-center justify-center mb-4">
-                <ShieldCheck className="size-7 text-muted-foreground/50" />
+            <Card className="flex flex-col items-center justify-center rounded-lg py-20 text-center shadow-sm">
+              <div className="mb-4 flex size-14 items-center justify-center rounded-xl bg-brand-soft text-white shadow-md shadow-primary/20">
+                <ShieldCheck className="size-7" />
               </div>
               <h3 className="text-lg font-semibold text-muted-foreground">Select a School</h3>
               <p className="text-sm text-muted-foreground/70 mt-1 max-w-sm">
@@ -712,15 +704,15 @@ export function SuperAdminPermissionsPage() {
           ) : (
             <div className="space-y-4">
               {/* Summary bar */}
-              <Card className="overflow-hidden rounded-xl shadow-sm">
+              <Card className="overflow-hidden rounded-lg bg-card py-0 shadow-sm">
                 <CardContent className="p-4">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="size-10 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
-                        <Building2 className="size-5 text-primary" />
+                      <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-brand-soft text-white shadow-md shadow-primary/20">
+                        <Building2 className="size-5" />
                       </div>
                       <div>
-                        <h2 className="text-base font-semibold text-foreground/90">{selectedSchool?.name}</h2>
+                        <h2 className="text-base font-semibold tracking-tight text-foreground/90">{selectedSchool?.name}</h2>
                         <p className="mt-0.5 text-xs text-muted-foreground">
                           {grantedCount} of {totalPermissionCount} permissions granted
                         </p>
@@ -729,7 +721,7 @@ export function SuperAdminPermissionsPage() {
                     <div className="flex items-center gap-3">
                       {/* Progress bar */}
                       <div className="flex items-center gap-2">
-                        <div className="w-32 h-2 rounded-full bg-muted overflow-hidden">
+                        <div className="h-2 w-32 overflow-hidden rounded-full bg-muted">
                           <div
                             className="h-full bg-primary rounded-full transition-all duration-300"
                             style={{
@@ -761,7 +753,7 @@ export function SuperAdminPermissionsPage() {
                 <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
                   <div className="size-2 rounded-full bg-amber-500 animate-pulse" />
                   <span className="text-xs font-medium text-amber-700 dark:text-amber-400">
-                    Unsaved changes — click &quot;Save Changes&quot; to apply
+                    Unsaved changes. Click &quot;Save Changes&quot; to apply.
                   </span>
                 </div>
               )}

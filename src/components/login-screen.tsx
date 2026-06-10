@@ -7,6 +7,7 @@ import { motion, type Variants } from 'framer-motion'
 import { useAppStore } from '@/lib/store'
 import { api } from '@/lib/api'
 import { applySchoolBranding } from '@/lib/branding'
+import { usePlatformLogo } from '@/hooks/use-platform-branding'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -82,7 +83,9 @@ export function LoginScreen() {
   const [branding, setBranding] = useState<CachedBranding>(DEFAULT_BRANDING)
   const { login, setCurrentSchool, setPermissions } = useAppStore()
   const { toast } = useToast()
-  const brandImage = branding.logo || branding.favicon
+  const platformLogo = usePlatformLogo()
+  // School branding wins; fall back to the platform logo, then the icon.
+  const brandImage = branding.logo || branding.favicon || platformLogo
 
   useEffect(() => {
     const cachedBranding = readCachedBranding()

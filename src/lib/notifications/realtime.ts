@@ -22,6 +22,8 @@ export type RealtimeEvent =
   | 'announcement:new'
   | 'notification:bulk_progress'
   | 'notification:bulk_completed'
+  // Platform-wide ops banners (SUPER_ADMIN → everyone) on PLATFORM_CHANNEL.
+  | 'platform:announcement'
 
 export interface RealtimePayload {
   event: RealtimeEvent
@@ -40,8 +42,12 @@ export function schoolChannel(schoolId: string): string {
 export function roleChannel(schoolId: string, role: string): string {
   return `notif:role:${schoolId}:${role}`
 }
-// System-wide channel for SUPER_ADMIN (schoolId = null notifications).
+// System-wide channel for SUPER_ADMIN only (schoolId = null notifications).
+// NOTE: not every session subscribes here — keep tenant-scoped payloads off it.
 export const SYSTEM_CHANNEL = 'notif:system'
+// Platform broadcast channel — EVERY authenticated session subscribes. Only ever
+// carries platform-public ops banners (no tenant/user-scoped data).
+export const PLATFORM_CHANNEL = 'notif:platform'
 
 function redisEnabled(): boolean {
   return Boolean(process.env.REDIS_HOST || process.env.USE_QUEUE)
@@ -157,4 +163,11 @@ export function publishToSchool(schoolId: string, payload: RealtimePayload): Pro
 }
 export function publishToRole(schoolId: string, role: string, payload: RealtimePayload): Promise<void> {
   return publish([roleChannel(schoolId, role)], payload)
+}
+// Fan a platform-wide event out to every connected session (all users subscribe
+// to PLATFORM_CHANNEL via the SSE route). Used for platform broadcast banners.
+// Kept distinct from SYSTEM_CHANNEL so SUPER_ADMIN-only system notifications
+// never reach ordinary tenant users.
+export function publishToPlatform(payload: RealtimePayload): Promise<void> {
+  return publish([PLATFORM_CHANNEL], payload)
 }

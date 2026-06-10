@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { LifeBuoy } from 'lucide-react'
+import { STATUS_LABEL, isOpenStatus, type TicketStatus } from '@/lib/support-tickets'
 
 interface SupportTicket {
   id: string
@@ -46,7 +47,7 @@ export function SupportPage() {
   const handleResolve = async () => {
     if (!selectedTicket) return
     try {
-      await api.patch(`/api/super-admin/support-tickets`, { id: selectedTicket.id, status: 'RESOLVED', resolution })
+      await api.patch(`/api/super-admin/support-tickets`, { id: selectedTicket.id, status: 'resolved', resolution })
       toast({ title: 'Success', description: 'Ticket resolved' })
       setShowResolve(false)
       setSelectedTicket(null)
@@ -54,6 +55,16 @@ export function SupportPage() {
       fetchData()
     } catch (err) {
       toast({ title: "Couldn't Resolve Ticket", description: err instanceof Error ? err.message : "Something went wrong. Please try again.", variant: 'destructive' })
+    }
+  }
+
+  const setStatus = async (ticket: SupportTicket, status: TicketStatus) => {
+    try {
+      await api.patch(`/api/super-admin/support-tickets`, { id: ticket.id, status })
+      toast({ title: 'Updated', description: `Ticket marked ${STATUS_LABEL[status]}.` })
+      fetchData()
+    } catch (err) {
+      toast({ title: "Couldn't update ticket", description: err instanceof Error ? err.message : 'Please try again.', variant: 'destructive' })
     }
   }
 
@@ -69,12 +80,13 @@ export function SupportPage() {
 
   const statusBadge = (status: string) => {
     const colors: Record<string, string> = {
-      OPEN: 'bg-amber-100 text-amber-800 hover:bg-amber-100',
-      IN_PROGRESS: 'bg-teal-100 text-teal-800 hover:bg-teal-100',
-      RESOLVED: 'bg-emerald-100 text-emerald-800 hover:bg-emerald-100',
-      CLOSED: 'bg-gray-100 text-gray-800 hover:bg-gray-100',
+      open: 'bg-amber-100 text-amber-800 hover:bg-amber-100',
+      in_progress: 'bg-teal-100 text-teal-800 hover:bg-teal-100',
+      resolved: 'bg-emerald-100 text-emerald-800 hover:bg-emerald-100',
+      closed: 'bg-gray-100 text-gray-800 hover:bg-gray-100',
     }
-    return <Badge className={colors[status] || 'bg-gray-100 text-gray-800 hover:bg-gray-100'}>{status.replace('_', ' ')}</Badge>
+    const label = STATUS_LABEL[status as TicketStatus] || status
+    return <Badge className={colors[status] || 'bg-gray-100 text-gray-800 hover:bg-gray-100'}>{label}</Badge>
   }
 
   const columns: Column<SupportTicket>[] = [
@@ -86,9 +98,16 @@ export function SupportPage() {
   ]
 
   const actions = (t: SupportTicket): ActionItem[] => {
-    const items: ActionItem[] = [{ label: 'View Details', onClick: () => {} }]
-    if (t.status === 'OPEN' || t.status === 'IN_PROGRESS') {
+    const items: ActionItem[] = []
+    if (t.status === 'open') {
+      items.push({ label: 'Mark In Progress', onClick: () => void setStatus(t, 'in_progress') })
+    }
+    if (isOpenStatus(t.status)) {
       items.push({ label: 'Resolve', onClick: () => { setSelectedTicket(t); setShowResolve(true) } })
+    }
+    if (t.status === 'resolved') {
+      items.push({ label: 'Close', onClick: () => void setStatus(t, 'closed') })
+      items.push({ label: 'Reopen', onClick: () => void setStatus(t, 'open') })
     }
     return items
   }

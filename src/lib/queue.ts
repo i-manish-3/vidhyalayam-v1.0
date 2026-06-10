@@ -117,3 +117,28 @@ export async function enqueueNotificationDelivery(data: NotificationDeliveryJobD
     delay: opts?.delayMs,
   })
 }
+
+// ============================================
+// TENANT EXPORT QUEUE
+// ============================================
+// Dumps one school's full data into a compressed artifact in the background.
+// Mirrors the demand-slip queue conventions. When the queue is disabled the API
+// runs the export synchronously instead.
+export const exportQueue = new Queue('tenant-export', {
+  connection: redisConnection,
+  defaultJobOptions: {
+    attempts: 1, // a partial export is worse than a clean retry by the operator
+    removeOnComplete: { age: 24 * 3600, count: 500 },
+    removeOnFail: { age: 7 * 24 * 3600 },
+  },
+})
+
+export interface ExportJobData {
+  jobId: string
+  schoolId: string
+  requestedBy: string | null
+}
+
+export async function enqueueTenantExport(data: ExportJobData) {
+  return exportQueue.add('export', data, { jobId: data.jobId })
+}
