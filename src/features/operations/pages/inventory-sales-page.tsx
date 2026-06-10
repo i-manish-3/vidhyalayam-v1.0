@@ -148,7 +148,12 @@ export function InventorySalesPage() {
       <Dialog open={!!detail || detailLoading} onOpenChange={(o) => !o && setDetail(null)}>
         <DialogContent className="max-w-md">
           {detailLoading || !detail ? (
-            <div className="flex items-center justify-center py-10"><Loader2 className="size-5 animate-spin" /></div>
+            <>
+              <DialogHeader className="sr-only">
+                <DialogTitle>Loading receipt</DialogTitle>
+              </DialogHeader>
+              <div className="flex items-center justify-center py-10"><Loader2 className="size-5 animate-spin" /></div>
+            </>
           ) : (
             <>
               <DialogHeader>
