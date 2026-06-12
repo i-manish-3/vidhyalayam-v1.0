@@ -1,15 +1,16 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { PageHeader, LoadingState } from '@/components/shared'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { api } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
+import { PERMISSIONS, usePermissions } from '@/hooks/use-permissions'
 import { MarksGrid } from '@/features/exams/components/marks-grid'
 import { ExamInstructionsButton } from '@/features/exams/components/exam-instructions-button'
-import { Settings2, Calendar as CalIcon } from 'lucide-react'
+import { Settings2, ClipboardCheck, Lock, BookOpen } from 'lucide-react'
 
 interface ExamInfo {
   id: string
@@ -36,6 +37,7 @@ const STATUS_TONE: Record<string, string> = {
 export function MarksEntryPage({ examId }: Props) {
   const router = useRouter()
   const { toast } = useToast()
+  const { hasAnyPermission } = usePermissions()
   const [exam, setExam] = useState<ExamInfo | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -61,42 +63,64 @@ export function MarksEntryPage({ examId }: Props) {
   if (!exam) return null
 
   const statusTone = STATUS_TONE[exam.status] ?? STATUS_TONE.draft
+  const canManageExam = hasAnyPermission([
+    PERMISSIONS.EXAM_MANAGE,
+    'exam:configure',
+    'exam:schedule',
+  ])
 
   return (
     <div className="space-y-5">
       <PageHeader
         title={`Marks: ${exam.name}`}
-        description={`${exam.group.paradigm.name} · ${exam.group.name}`}
+        description={`${exam.group.paradigm.name} / ${exam.group.name}`}
         backAction={{ onClick: () => router.push('/exams/list') }}
-        secondaryAction={{
-          label: 'Configure',
-          icon: Settings2,
-          onClick: () => router.push(`/exams/${examId}/configure`),
-        }}
+        secondaryAction={canManageExam
+          ? {
+              label: 'Configure',
+              icon: Settings2,
+              onClick: () => router.push(`/exams/${examId}/configure`),
+            }
+          : undefined}
       />
 
-      <div className="flex items-center gap-3">
-        <Badge className={statusTone}>{exam.status.replace('_', ' ')}</Badge>
-        <Badge variant="outline">
-          {exam.subjectConfigs.length} subject{exam.subjectConfigs.length === 1 ? '' : 's'} configured
-        </Badge>
-        {exam.lockedAt && (
-          <Badge className="gap-1 bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200">
-            Exam is locked — marks cannot be changed
+      <div className="rounded-md border bg-background">
+        <div className="flex flex-wrap items-center gap-3 border-b px-4 py-3">
+          <Badge className={statusTone}>{exam.status.replace('_', ' ')}</Badge>
+          <Badge variant="outline" className="gap-1.5">
+            <BookOpen className="size-3" />
+            {exam.subjectConfigs.length} subject{exam.subjectConfigs.length === 1 ? '' : 's'}
           </Badge>
-        )}
-        <div className="ml-auto">
-          <ExamInstructionsButton />
+          <Badge variant="outline" className="gap-1.5">
+            <ClipboardCheck className="size-3" />
+            {exam.academicYear}
+          </Badge>
+          {exam.lockedAt && (
+            <Badge className="gap-1.5 bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200">
+              <Lock className="size-3" />
+              Locked
+            </Badge>
+          )}
+          <div className="ml-auto">
+            <ExamInstructionsButton />
+          </div>
+        </div>
+        <div className="px-4 py-3 text-sm text-muted-foreground">
+          {exam.group.paradigm.name} / {exam.group.name}
         </div>
       </div>
 
       {exam.subjectConfigs.length === 0 && (
         <div className="rounded-md border border-amber-500/30 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:bg-amber-950/20 dark:text-amber-200">
-          No subjects have been configured for this exam yet.{' '}
-          <Button variant="link" size="sm" className="h-auto p-0 text-sm" onClick={() => router.push(`/exams/${examId}/configure`)}>
-            Add them on the Configure page
-          </Button>{' '}
-          first.
+          No subjects have been configured for this exam yet.
+          {canManageExam && (
+            <>
+              {' '}
+              <Button variant="link" size="sm" className="h-auto p-0 text-sm" onClick={() => router.push(`/exams/${examId}/configure`)}>
+                Add subjects
+              </Button>
+            </>
+          )}
         </div>
       )}
 

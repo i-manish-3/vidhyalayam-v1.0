@@ -800,26 +800,12 @@ async function seed() {
     { code: 'timetable:update', name: 'Update Timetable', module: 'timetable', action: 'update' },
     { code: 'timetable:delete', name: 'Delete Timetable', module: 'timetable', action: 'delete' },
     // Exams
-    { code: 'exam:read', name: 'View Exams', module: 'exams', action: 'read' },
-    { code: 'exam:create', name: 'Create Exam', module: 'exams', action: 'create' },
-    { code: 'exam:update', name: 'Update Exam', module: 'exams', action: 'update' },
-    { code: 'exam:delete', name: 'Delete Exam', module: 'exams', action: 'delete' },
-    { code: 'exam:configure', name: 'Configure Exam Pattern', module: 'exams', action: 'update' },
-    { code: 'exam:schedule', name: 'Manage Exam Schedule', module: 'exams', action: 'update' },
-    { code: 'exam:marks:enter', name: 'Enter Marks', module: 'exams', action: 'create' },
-    { code: 'exam:marks:submit', name: 'Submit Marks', module: 'exams', action: 'update' },
-    { code: 'exam:marks:lock', name: 'Lock Marks', module: 'exams', action: 'update' },
-    { code: 'exam:marks:unlock', name: 'Unlock Marks', module: 'exams', action: 'update' },
-    { code: 'exam:result:compute', name: 'Compute Exam Results', module: 'exams', action: 'create' },
-    { code: 'exam:result:publish', name: 'Publish Exam Results', module: 'exams', action: 'update' },
-    { code: 'exam:result:view', name: 'View Exam Results', module: 'exams', action: 'read' },
-    { code: 'exam:gradescale:manage', name: 'Manage Grade Scales', module: 'exams', action: 'update' },
-    { code: 'exam:reportcard:manage', name: 'Manage Report Card Templates', module: 'exams', action: 'update' },
-    { code: 'exam:reportcard:download', name: 'Download Report Cards', module: 'exams', action: 'read' },
-    { code: 'exam:admitcard:download', name: 'Download Admit Cards', module: 'exams', action: 'read' },
-    { code: 'exam:audit:view', name: 'View Exam Audit Log', module: 'exams', action: 'read' },
-    // Legacy alias kept for back-compat with existing role templates / sidebar entries.
-    { code: 'exam:results', name: 'Manage Exam Results (legacy)', module: 'exams', action: 'update' },
+    { code: 'exam:view', name: 'View Exams', module: 'exams', action: 'read' },
+    { code: 'exam:manage', name: 'Manage Exams', module: 'exams', action: 'update' },
+    { code: 'exam:marks', name: 'Enter Marks', module: 'exams', action: 'update' },
+    { code: 'exam:results', name: 'View & Compute Results', module: 'exams', action: 'read' },
+    { code: 'exam:publish', name: 'Publish Results', module: 'exams', action: 'update' },
+    { code: 'exam:audit', name: 'View Exam Audit', module: 'exams', action: 'read' },
     // Transport
     { code: 'transport:read', name: 'View Transport', module: 'transport', action: 'read' },
     { code: 'transport:create', name: 'Create Transport', module: 'transport', action: 'create' },
@@ -925,8 +911,7 @@ async function seed() {
       permissionCodes: [
         'student:read', 'attendance:read', 'attendance:mark', 'attendance:update',
         'timetable:read',
-        'exam:read', 'exam:update', 'exam:results',
-        'exam:marks:enter', 'exam:marks:submit', 'exam:result:view',
+        'exam:view', 'exam:marks',
         'library:read', 'salary:read', 'notification:read',
         'class:read', 'subject:read', 'holiday:read',
       ],
@@ -938,7 +923,7 @@ async function seed() {
       isSystem: true,
       permissionCodes: [
         'attendance:read', 'fees:read', 'timetable:read',
-        'exam:read', 'exam:result:view', 'library:read', 'notification:read', 'holiday:read',
+        'exam:view', 'library:read', 'notification:read', 'holiday:read',
       ],
     },
     {
@@ -948,7 +933,7 @@ async function seed() {
       isSystem: true,
       permissionCodes: [
         'student:read', 'attendance:read', 'fees:read',
-        'notification:read', 'exam:read', 'exam:result:view', 'holiday:read',
+        'notification:read', 'exam:view', 'holiday:read',
       ],
     },
     {

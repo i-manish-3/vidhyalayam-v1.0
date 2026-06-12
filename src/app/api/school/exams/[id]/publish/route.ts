@@ -57,11 +57,43 @@ export async function POST(
       return apiError(409, 'This exam result is already published.')
     }
 
-    const resultCount = await db.examResult.count({
+const resultCount = await db.examResult.count({
       where: { examId, schoolId: user.schoolId, deletedAt: null },
     })
     if (resultCount === 0) {
       return apiError(400, 'No computed results to publish. Compute results first.')
+    }
+
+    const examClasses = await db.examClass.findMany({
+      where: { examId },
+      select: { classId: true, sectionIds: true },
+    })
+    const studentScopes = examClasses.map((scope) => ({
+      classId: scope.classId,
+      sectionIds: scope.sectionIds ? JSON.parse(scope.sectionIds) as string[] : null,
+    }))
+    const eligibleStudentCount = studentScopes.length
+      ? await db.student.count({
+          where: {
+            schoolId: user.schoolId,
+            deletedAt: null,
+            isActive: true,
+            OR: studentScopes.map((scope) => ({
+              classId: scope.classId,
+              ...(scope.sectionIds?.length ? { sectionId: { in: scope.sectionIds } } : {}),
+            })),
+          },
+        })
+      : 0
+
+    if (eligibleStudentCount === 0) {
+      return apiError(400, 'No active students are attached to this exam.')
+    }
+    if (resultCount < eligibleStudentCount) {
+      return apiError(
+        409,
+        `Only ${resultCount} of ${eligibleStudentCount} student results are computed. Compute results for all students before publishing.`,
+      )
     }
 
     const schoolId = user.schoolId

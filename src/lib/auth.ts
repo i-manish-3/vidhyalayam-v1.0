@@ -108,19 +108,19 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
   TEACHER: [
     'school:read',
     'student:read', 'attendance:*',
-    'timetable:read', 'exam:read', 'exam:update',
+    'timetable:read', 'exam:view', 'exam:marks',
     'library:read', 'salary:read', 'notification:read',
     'advance:request',
   ],
   STUDENT: [
     'school:read',
     'attendance:read', 'fees:read', 'timetable:read',
-    'exam:read', 'library:read', 'notification:read',
+    'exam:view', 'library:read', 'notification:read',
   ],
   PARENT: [
     'school:read',
     'student:read', 'attendance:read', 'fees:read',
-    'notification:read', 'exam:read',
+    'notification:read', 'exam:view',
   ],
 }
 

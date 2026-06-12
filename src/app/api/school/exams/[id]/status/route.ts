@@ -60,6 +60,10 @@ export async function POST(
       }
     }
 
+    if (nextStatus === 'result_published') {
+      return apiError(409, 'Use the Publish Results action so result completeness is checked before publishing.')
+    }
+
     const schoolId = user.schoolId
     const auditCtx = extractExamAuditContext(request, user.userId)
 

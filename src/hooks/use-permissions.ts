@@ -184,11 +184,12 @@ export const PERMISSIONS = {
   TIMETABLE_DELETE: 'timetable:delete',
 
   // Exams
-  EXAM_READ: 'exam:read',
-  EXAM_CREATE: 'exam:create',
-  EXAM_UPDATE: 'exam:update',
-  EXAM_DELETE: 'exam:delete',
+  EXAM_VIEW: 'exam:view',
+  EXAM_MANAGE: 'exam:manage',
+  EXAM_MARKS: 'exam:marks',
   EXAM_RESULTS: 'exam:results',
+  EXAM_PUBLISH: 'exam:publish',
+  EXAM_AUDIT: 'exam:audit',
 
   // Transport
   TRANSPORT_READ: 'transport:read',

@@ -1,62 +1,70 @@
 import { PrismaClient } from '@prisma/client'
 
-// One-shot upsert: adds the new exam:* permission catalog rows, grants them to
-// every existing school via SchoolPermission, and links them to each school's
-// "School Admin" role plus a sensible Teacher subset. Idempotent — safe to
-// re-run on any dev DB that was seeded before the exam module landed.
-//
-// Mirrors scripts/seed-id-card-permissions.ts.
 const db = new PrismaClient()
 
 const EXAM_PERMISSIONS = [
-  { code: 'exam:configure', name: 'Configure Exam Pattern', module: 'exams', action: 'update' },
-  { code: 'exam:schedule', name: 'Manage Exam Schedule', module: 'exams', action: 'update' },
-  { code: 'exam:marks:enter', name: 'Enter Marks', module: 'exams', action: 'create' },
-  { code: 'exam:marks:submit', name: 'Submit Marks', module: 'exams', action: 'update' },
-  { code: 'exam:marks:lock', name: 'Lock Marks', module: 'exams', action: 'update' },
-  { code: 'exam:marks:unlock', name: 'Unlock Marks', module: 'exams', action: 'update' },
-  { code: 'exam:result:compute', name: 'Compute Exam Results', module: 'exams', action: 'create' },
-  { code: 'exam:result:publish', name: 'Publish Exam Results', module: 'exams', action: 'update' },
-  { code: 'exam:result:view', name: 'View Exam Results', module: 'exams', action: 'read' },
-  { code: 'exam:gradescale:manage', name: 'Manage Grade Scales', module: 'exams', action: 'update' },
-  { code: 'exam:reportcard:manage', name: 'Manage Report Card Templates', module: 'exams', action: 'update' },
-  { code: 'exam:reportcard:download', name: 'Download Report Cards', module: 'exams', action: 'read' },
-  { code: 'exam:admitcard:download', name: 'Download Admit Cards', module: 'exams', action: 'read' },
-  { code: 'exam:audit:view', name: 'View Exam Audit Log', module: 'exams', action: 'read' },
+  { code: 'exam:view', name: 'View Exams', module: 'exams', action: 'read' },
+  { code: 'exam:manage', name: 'Manage Exams', module: 'exams', action: 'update' },
+  { code: 'exam:marks', name: 'Enter Marks', module: 'exams', action: 'update' },
+  { code: 'exam:results', name: 'View & Compute Results', module: 'exams', action: 'read' },
+  { code: 'exam:publish', name: 'Publish Results', module: 'exams', action: 'update' },
+  { code: 'exam:audit', name: 'View Exam Audit', module: 'exams', action: 'read' },
 ]
 
-// Subset granted to Teacher role (everything else stays admin-only).
-const TEACHER_PERMISSION_CODES = new Set([
+const LEGACY_EXAM_PERMISSION_CODES = [
+  'exam:read',
+  'exam:create',
+  'exam:update',
+  'exam:delete',
+  'exam:configure',
+  'exam:schedule',
   'exam:marks:enter',
   'exam:marks:submit',
+  'exam:marks:lock',
+  'exam:marks:unlock',
+  'exam:result:compute',
+  'exam:result:publish',
   'exam:result:view',
+  'exam:gradescale:manage',
+  'exam:reportcard:manage',
+  'exam:reportcard:download',
   'exam:admitcard:download',
-])
+  'exam:audit:view',
+]
+
+const TEACHER_PERMISSION_CODES = new Set(['exam:view', 'exam:marks'])
 
 async function main() {
   const created: { code: string; id: string }[] = []
-  for (const p of EXAM_PERMISSIONS) {
+  for (const permission of EXAM_PERMISSIONS) {
     const rec = await db.permission.upsert({
-      where: { code: p.code },
-      update: { name: p.name, module: p.module, action: p.action, isActive: true },
-      create: { ...p, isActive: true },
+      where: { code: permission.code },
+      update: {
+        name: permission.name,
+        module: permission.module,
+        action: permission.action,
+        isActive: true,
+      },
+      create: { ...permission, isActive: true },
     })
     created.push({ code: rec.code, id: rec.id })
   }
-  console.log(`Upserted ${created.length} exam permissions`)
+
+  await db.permission.updateMany({
+    where: { code: { in: LEGACY_EXAM_PERMISSION_CODES } },
+    data: { isActive: false },
+  })
 
   const schools = await db.school.findMany({ where: { deletedAt: null } })
-  console.log(`Found ${schools.length} schools`)
-
   const someAdmin = await db.user.findFirst({ where: { role: 'SUPER_ADMIN' } })
   const grantedBy = someAdmin?.id ?? 'system'
 
   for (const school of schools) {
-    for (const perm of created) {
+    for (const permission of created) {
       await db.schoolPermission.upsert({
-        where: { schoolId_permissionId: { schoolId: school.id, permissionId: perm.id } },
+        where: { schoolId_permissionId: { schoolId: school.id, permissionId: permission.id } },
         update: {},
-        create: { schoolId: school.id, permissionId: perm.id, grantedBy },
+        create: { schoolId: school.id, permissionId: permission.id, grantedBy },
       })
     }
 
@@ -64,11 +72,11 @@ async function main() {
       where: { schoolId: school.id, name: 'School Admin', deletedAt: null },
     })
     if (adminRole) {
-      for (const perm of created) {
+      for (const permission of created) {
         await db.rolePermission.upsert({
-          where: { roleId_permissionId: { roleId: adminRole.id, permissionId: perm.id } },
+          where: { roleId_permissionId: { roleId: adminRole.id, permissionId: permission.id } },
           update: {},
-          create: { roleId: adminRole.id, permissionId: perm.id },
+          create: { roleId: adminRole.id, permissionId: permission.id },
         })
       }
     }
@@ -77,22 +85,23 @@ async function main() {
       where: { schoolId: school.id, name: 'Teacher', deletedAt: null },
     })
     if (teacherRole) {
-      for (const perm of created) {
-        if (!TEACHER_PERMISSION_CODES.has(perm.code)) continue
+      for (const permission of created) {
+        if (!TEACHER_PERMISSION_CODES.has(permission.code)) continue
         await db.rolePermission.upsert({
-          where: { roleId_permissionId: { roleId: teacherRole.id, permissionId: perm.id } },
+          where: { roleId_permissionId: { roleId: teacherRole.id, permissionId: permission.id } },
           update: {},
-          create: { roleId: teacherRole.id, permissionId: perm.id },
+          create: { roleId: teacherRole.id, permissionId: permission.id },
         })
       }
     }
   }
-  console.log('Granted exam permissions to schools + School Admin role; subset to Teacher role')
+
+  console.log(`Upserted ${created.length} simple exam permissions and migrated ${schools.length} school(s).`)
 }
 
 main()
-  .catch((e) => {
-    console.error(e)
+  .catch((error) => {
+    console.error(error)
     process.exit(1)
   })
   .finally(async () => {

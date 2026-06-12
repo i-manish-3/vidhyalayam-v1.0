@@ -204,6 +204,7 @@ export function computeSubjectSummary(
   let totalObtained = 0
   let graceApplied = 0
   let anyAbsent = false
+  let componentFailed = false
   const componentBreakdown: Record<string, { obtained: number; max: number }> = {}
 
   for (const comp of config.components) {
@@ -228,7 +229,14 @@ export function computeSubjectSummary(
 
     const numeric = entry.numericValue ?? 0
     totalObtained += numeric
+    graceApplied += entry.graceMarks ?? 0
+    if (comp.passingMarks > 0 && numeric < comp.passingMarks) {
+      componentFailed = true
+    }
     componentBreakdown[comp.name] = { obtained: numeric, max: comp.maxMarks }
+  }
+  if (config.components.length > 0 && graceApplied > 0) {
+    totalObtained += graceApplied
   }
 
   // For components-less configs: config-level entry
@@ -263,10 +271,9 @@ export function computeSubjectSummary(
   }
 
   // Grace marks logic
-  if (passingRule.allowGrace && passingRule.graceMax > 0 && config.graceMarksMax > 0) {
-    const pct = totalMax > 0 ? (totalObtained / totalMax) * 100 : 0
-    if (pct < passingRule.perSubject) {
-      const needed = Math.ceil((passingRule.perSubject / 100) * totalMax - totalObtained)
+  if (passingRule.allowGrace && passingRule.graceMax > 0 && config.graceMarksMax > 0 && graceApplied === 0) {
+    if (totalObtained < config.passingMarks) {
+      const needed = Math.ceil(config.passingMarks - totalObtained)
       const maxAvailable = Math.min(config.graceMarksMax, passingRule.graceMax)
       if (needed <= maxAvailable) {
         graceApplied = needed
@@ -276,7 +283,7 @@ export function computeSubjectSummary(
   }
 
   const pct = totalMax > 0 ? (totalObtained / totalMax) * 100 : 0
-  const passed = pct >= passingRule.perSubject
+  const passed = totalObtained >= config.passingMarks && !componentFailed
 
   return {
     subjectId: config.subjectId,
@@ -296,6 +303,7 @@ export function computeSubjectSummaries(
   configs: SubjectConfigDef[],
   marksByConfig: Map<string, MarksEntryDef[]>,
   passingRule: PassingRule,
+  studentIdsByConfig?: Map<string, string[]>,
 ): Map<string, SubjectSummary[]> {
   // Group summaries by studentId → SubjectSummary[]
   const byStudent = new Map<string, SubjectSummary[]>()
@@ -307,6 +315,9 @@ export function computeSubjectSummaries(
       const arr = marksByStudent.get(m.studentId) ?? []
       arr.push(m)
       marksByStudent.set(m.studentId, arr)
+    }
+    for (const studentId of studentIdsByConfig?.get(config.id) ?? []) {
+      if (!marksByStudent.has(studentId)) marksByStudent.set(studentId, [])
     }
     for (const [studentId, studentMarks] of marksByStudent) {
       const summary = computeSubjectSummary(config, studentMarks, passingRule)
@@ -343,7 +354,7 @@ export function computeExamResult(
   let status: ExamResultShape['status']
   if (absentCount === totalSubjects) {
     status = 'absent'
-  } else if (failedSubjects.length === 0 || pct >= passingRule.overall) {
+  } else if (failedSubjects.length === 0 && pct >= passingRule.overall) {
     status = 'pass'
   } else if (failedSubjects.length < totalSubjects) {
     status = 'partial'

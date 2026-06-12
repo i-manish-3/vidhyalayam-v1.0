@@ -3,18 +3,6 @@ import { verifyAccessToken, JWTPayload } from './auth'
 import { ACCESS_COOKIE } from './cookies'
 import { db } from '@/lib/db'
 
-// Auth state lives in the HttpOnly `erp_access` cookie for the web app.
-// JavaScript on the page can't read this cookie, so an XSS bug can't exfiltrate
-// it the way it could have with localStorage. The browser attaches it
-// automatically on every same-origin request as long as fetch uses
-// `credentials: 'include'`.
-//
-// Native clients (the React Native / Expo mobile app) can't use HttpOnly
-// cookies, so they send the access token in an `Authorization: Bearer <token>`
-// header instead. We check the cookie FIRST (web, the common case) and only
-// fall back to the header when no cookie is present. This single change lets
-// every existing API route serve the mobile app unchanged — token issuance for
-// mobile lives in /api/mobile/auth/*, but every data route flows through here.
 export function getAuthUser(request: NextRequest): JWTPayload | null {
   const cookieToken = request.cookies.get(ACCESS_COOKIE)?.value
   const token = cookieToken ?? getBearerToken(request)
@@ -22,13 +10,36 @@ export function getAuthUser(request: NextRequest): JWTPayload | null {
   return verifyAccessToken(token)
 }
 
-// Extract a bearer token from the Authorization header, if present and
-// well-formed. Case-insensitive on the "Bearer" scheme per RFC 6750.
 function getBearerToken(request: NextRequest): string | null {
   const header = request.headers.get('authorization')
   if (!header) return null
   const match = /^Bearer\s+(.+)$/i.exec(header.trim())
   return match ? match[1].trim() : null
+}
+
+const PERMISSION_ALIASES: Record<string, string[]> = {
+  'exam:read': ['exam:view'],
+  'exam:create': ['exam:manage'],
+  'exam:update': ['exam:manage'],
+  'exam:delete': ['exam:manage'],
+  'exam:configure': ['exam:manage'],
+  'exam:schedule': ['exam:manage'],
+  'exam:gradescale:manage': ['exam:manage'],
+  'exam:reportcard:manage': ['exam:manage'],
+  'exam:admitcard:download': ['exam:view'],
+  'exam:reportcard:download': ['exam:results'],
+  'exam:marks:enter': ['exam:marks'],
+  'exam:marks:submit': ['exam:marks'],
+  'exam:marks:lock': ['exam:manage'],
+  'exam:marks:unlock': ['exam:manage'],
+  'exam:result:view': ['exam:results'],
+  'exam:result:compute': ['exam:results'],
+  'exam:result:publish': ['exam:publish'],
+  'exam:audit:view': ['exam:audit'],
+}
+
+function expandPermissionCodes(permissionCode: string): string[] {
+  return [permissionCode, ...(PERMISSION_ALIASES[permissionCode] ?? [])]
 }
 
 export function getSchoolId(request: NextRequest): string | null {
@@ -43,49 +54,37 @@ export function requireAuth(request: NextRequest): JWTPayload | null {
 export function requireRole(request: NextRequest, roles: string[]): JWTPayload | null {
   const user = getAuthUser(request)
   if (!user) return null
-  // SUPER_ADMIN sits above the school role hierarchy — they pass any role check.
-  // This is consistent with requirePermission (line 48) which already short-circuits
-  // for SUPER_ADMIN. School-scoped routes still gate on `!user.schoolId` afterward,
-  // so a real SUPER_ADMIN with no impersonation active still gets 401 from
-  // school-scoped routes — only an impersonating SUPER_ADMIN gets through.
   if (user.role === 'SUPER_ADMIN') return user
   if (!roles.includes(user.role)) return null
   return user
 }
 
-/**
- * Check if the authenticated user has a specific permission.
- * - SUPER_ADMIN: always has all permissions
- * - SCHOOL_ADMIN: check if the permission exists in SchoolPermission for their school
- * - Other roles: check via UserRole → RolePermission → Permission (purely role-based)
- * 
- * Returns the user payload if authorized, or null if not.
- */
 export async function requirePermission(
   request: NextRequest,
-  permissionCode: string
+  permissionCode: string,
 ): Promise<JWTPayload | null> {
   const user = getAuthUser(request)
   if (!user) return null
+  return (await hasPermission(user, permissionCode)) ? user : null
+}
 
-  // SUPER_ADMIN always has all permissions
-  if (user.role === 'SUPER_ADMIN') return user
+export async function hasPermission(user: JWTPayload, permissionCode: string): Promise<boolean> {
+  if (user.role === 'SUPER_ADMIN') return true
+  const permissionCodes = expandPermissionCodes(permissionCode)
 
-  // For SCHOOL_ADMIN, check SchoolPermission table
   if (user.role === 'SCHOOL_ADMIN') {
-    if (!user.schoolId) return null
+    if (!user.schoolId) return false
 
     const schoolPerm = await db.schoolPermission.findFirst({
       where: {
         schoolId: user.schoolId,
-        permission: { code: permissionCode, isActive: true },
+        permission: { code: { in: permissionCodes }, isActive: true },
       },
+      select: { id: true },
     })
-    return schoolPerm ? user : null
+    return Boolean(schoolPerm)
   }
 
-  // For other roles: purely role-based check via UserRole → RolePermission → Permission
-  // When a user is assigned to a role, they automatically inherit ALL permissions from that role.
   const rolePermission = await db.userRole.findFirst({
     where: {
       userId: user.userId,
@@ -95,39 +94,42 @@ export async function requirePermission(
         isActive: true,
         permissions: {
           some: {
-            permission: { code: permissionCode, isActive: true },
+            permission: { code: { in: permissionCodes }, isActive: true },
           },
         },
       },
     },
+    select: { id: true },
   })
-  if (rolePermission) return user
+
+  return Boolean(rolePermission)
+}
+
+export async function requireAnyPermission(
+  request: NextRequest,
+  permissionCodes: string[],
+): Promise<JWTPayload | null> {
+  const user = getAuthUser(request)
+  if (!user) return null
+
+  for (const code of permissionCodes) {
+    if (await hasPermission(user, code)) return user
+  }
 
   return null
 }
 
-/**
- * Get all permission codes for a given user.
- * Used by the frontend to determine UI visibility.
- * - SUPER_ADMIN: returns ['*']
- * - SCHOOL_ADMIN: returns permissions from SchoolPermission for their school
- * - Others: collect ALL permission codes from the user's assigned roles (purely role-based)
- */
 export async function getUserPermissions(userId: string, role: string, schoolId?: string): Promise<string[]> {
-  // SUPER_ADMIN has all permissions
   if (role === 'SUPER_ADMIN') return ['*']
 
-  // SCHOOL_ADMIN: get permissions from SchoolPermission
   if (role === 'SCHOOL_ADMIN' && schoolId) {
     const schoolPerms = await db.schoolPermission.findMany({
       where: { schoolId, permission: { isActive: true } },
       include: { permission: { select: { code: true } } },
     })
-    return schoolPerms.map(sp => sp.permission.code)
+    return schoolPerms.map((sp) => sp.permission.code)
   }
 
-  // Other roles: collect ALL permission codes from assigned roles
-  // Flow: User → UserRole → Role → RolePermission → Permission
   const userRoles = await db.userRole.findMany({
     where: {
       userId,
@@ -154,9 +156,9 @@ export async function getUserPermissions(userId: string, role: string, schoolId?
   })
 
   const permissionCodes = new Set<string>()
-  for (const ur of userRoles) {
-    for (const rp of ur.role.permissions) {
-      permissionCodes.add(rp.permission.code)
+  for (const userRole of userRoles) {
+    for (const rolePermission of userRole.role.permissions) {
+      permissionCodes.add(rolePermission.permission.code)
     }
   }
 

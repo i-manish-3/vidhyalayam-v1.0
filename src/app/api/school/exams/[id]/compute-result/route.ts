@@ -29,7 +29,10 @@ export async function POST(
 
     const exam = await db.exam.findFirst({
       where: { id: examId, schoolId: user.schoolId, deletedAt: null },
-      include: { group: { include: { paradigm: true } } },
+      include: {
+        examClasses: true,
+        group: { include: { paradigm: true } },
+      },
     })
     if (!exam) return notFoundError('Exam')
 
@@ -63,34 +66,49 @@ export async function POST(
     })
     const subjectNameMap = new Map(subjects.map((s) => [s.id, s.name]))
 
+    const examClassScopes = exam.examClasses
+      .filter((scope) => !bodyClassIds || bodyClassIds.includes(scope.classId))
+      .map((scope) => ({
+        classId: scope.classId,
+        sectionIds: scope.sectionIds ? JSON.parse(scope.sectionIds) as string[] : null,
+      }))
+
+    if (examClassScopes.length === 0) {
+      return apiError(400, 'No exam classes matched the selected scope.')
+    }
+
+    const studentScopeWhere = bodyStudentIds
+      ? { id: { in: bodyStudentIds } }
+      : {
+          OR: examClassScopes.map((scope) => ({
+            classId: scope.classId,
+            ...(scope.sectionIds?.length ? { sectionId: { in: scope.sectionIds } } : {}),
+          })),
+        }
+
+    const students = await db.student.findMany({
+      where: {
+        schoolId: user.schoolId,
+        deletedAt: null,
+        isActive: true,
+        ...studentScopeWhere,
+      },
+      select: { id: true, classId: true, sectionId: true },
+    })
+    const studentIdsToCompute = students.map((student) => student.id)
+
+    if (studentIdsToCompute.length === 0) {
+      return apiError(400, 'No students found for this exam scope.')
+    }
+
     // Load marks for these configs
     const marks = await db.marksEntry.findMany({
       where: {
         examId,
         subjectConfigId: { in: subjectConfigs.map((c) => c.id) },
-        deletedAt: null,
-        ...(bodyStudentIds ? { studentId: { in: bodyStudentIds } } : {}),
-      },
-    })
-
-    // Resolve student set (those who have any marks OR are in the requested class)
-    const studentIdsFromMarks = new Set(marks.map((m) => m.studentId))
-    const studentIdsToCompute = bodyStudentIds
-      ? Array.from(new Set(bodyStudentIds))
-      : Array.from(studentIdsFromMarks)
-
-    if (studentIdsToCompute.length === 0) {
-      return apiError(400, 'No students found with marks to compute. Enter marks first.')
-    }
-
-    // Resolve students with their class/section for ranking later
-    const students = await db.student.findMany({
-      where: {
-        id: { in: studentIdsToCompute },
-        schoolId: user.schoolId,
+        studentId: { in: studentIdsToCompute },
         deletedAt: null,
       },
-      select: { id: true, classId: true, sectionId: true },
     })
 
     // Load grade scale — prefer default for this paradigm/school
@@ -161,8 +179,21 @@ export async function POST(
       marksByConfig.set(m.subjectConfigId, arr)
     }
 
+    const studentIdsByConfig = new Map<string, string[]>()
+    for (const config of subjectConfigs) {
+      studentIdsByConfig.set(
+        config.id,
+        students
+          .filter((student) =>
+            student.classId === config.classId &&
+            (!config.sectionId || student.sectionId === config.sectionId),
+          )
+          .map((student) => student.id),
+      )
+    }
+
     // Compute summaries per student
-    const summariesByStudent = computeSubjectSummaries(configDefs, marksByConfig, passingRule)
+    const summariesByStudent = computeSubjectSummaries(configDefs, marksByConfig, passingRule, studentIdsByConfig)
 
     // Compute exam results per student
     const examResults = studentIdsToCompute.map((studentId) => {

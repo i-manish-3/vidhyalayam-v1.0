@@ -164,7 +164,7 @@ const STAGES: ReadonlyArray<StageDef> = [
   {
     num: 8,
     title: 'Publish to Parents',
-    who: 'Principal / school admin (requires exam:result:publish)',
+    who: 'Principal / school admin (requires exam:publish)',
     where: 'Results page → Publish button',
     frequency: 'When results are reviewed and ready',
     icon: Send,
@@ -180,7 +180,7 @@ const STAGES: ReadonlyArray<StageDef> = [
   {
     num: 9,
     title: 'Print Report Cards',
-    who: 'School admin / class teacher (requires exam:reportcard:download)',
+    who: 'School admin / results role (requires exam:results)',
     where: 'Results page → Print report cards',
     frequency: 'After publish',
     icon: Printer,
