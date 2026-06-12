@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { requireRole } from '@/lib/api-auth'
 import { unauthorizedError, internalError } from '@/lib/api-errors'
-import { getTeachingDays } from '@/lib/academic-calendar'
 import { computePercent } from '@/lib/attendance-report-utils'
 
 // GET /api/student/attendance - Get attendance for the logged-in student
@@ -62,42 +61,34 @@ async function getAttendanceForStudent(schoolId: string, studentId: string, mont
   today.setHours(23, 59, 59, 999)
   const endDate = endOfMonth > today ? today : endOfMonth
 
-  const school = await db.school.findUnique({
-    where: { id: schoolId },
-    select: { academicYear: true },
+  // Only finalized attendance is visible — un-finalized auto-default rows stay
+  // hidden until the teacher finalizes. Denominator = finalized days only (no
+  // implicit-absent), since finalize requires every student to be marked.
+  const attendance = await db.attendance.findMany({
+    where: {
+      schoolId,
+      studentId,
+      date: { gte: startDate, lte: endDate },
+      finalized: true,
+    },
+    orderBy: { date: 'asc' },
   })
-  const academicYear = school?.academicYear || ''
 
-  const [attendance, teachingDays] = await Promise.all([
-    db.attendance.findMany({
-      where: {
-        schoolId,
-        studentId,
-        date: { gte: startDate, lte: endDate },
-      },
-      orderBy: { date: 'asc' },
-    }),
-    academicYear ? getTeachingDays(schoolId, academicYear, startDate, endDate) : Promise.resolve([]),
-  ])
-
-  const totalTeachingDays = teachingDays.length
   const present = attendance.filter(a => a.status === 'present').length
-  const markedAbsent = attendance.filter(a => a.status === 'absent').length
+  const absent = attendance.filter(a => a.status === 'absent').length
   const leave = attendance.filter(a => a.status === 'leave').length
   const late = attendance.filter(a => a.status === 'late').length
   const halfDay = attendance.filter(a => a.status === 'half_day').length
-  const markedDays = present + markedAbsent + leave + late + halfDay
-  const implicitAbsent = Math.max(0, totalTeachingDays - markedDays)
-  const absent = markedAbsent + implicitAbsent
+  const finalizedDays = present + absent + leave + late + halfDay
 
   const summary = {
-    total: totalTeachingDays,
+    total: finalizedDays,
     present,
     absent,
     leave,
     late,
     halfDay,
-    percentage: Math.round(computePercent(present, totalTeachingDays)),
+    percentage: Math.round(computePercent(present, finalizedDays)),
   }
 
   return NextResponse.json({

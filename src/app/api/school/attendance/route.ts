@@ -7,25 +7,36 @@ import { notificationService } from '@/lib/notifications'
 
 const ACADEMIC_YEAR_PATTERN = /^\d{4}-\d{4}$/
 
-// Notify guardians of students marked absent. Isolated + best-effort: failures
-// are logged and never affect the attendance save.
-async function notifyAbsenteesSafe(
+// Human-readable status label for the notification body.
+const STATUS_LABELS: Record<string, string> = {
+  present: 'Present',
+  absent: 'Absent',
+  leave: 'Leave',
+  late: 'Late',
+  half_day: 'Half Day',
+}
+
+// Notify guardians whenever their child's attendance is marked (present / absent
+// / leave / …). The student's name is filled in by the trigger layer. Absent
+// uses a higher-priority "Absence Alert"; everything else a normal update.
+// Isolated + best-effort: failures are logged and never affect the save.
+async function notifyAttendanceMarkedSafe(
   schoolId: string,
-  absentStudentIds: string[],
+  marked: Array<{ studentId: string; status: string }>,
   dateLabel: string,
   createdBy: string,
 ): Promise<void> {
-  for (const studentId of absentStudentIds) {
+  for (const { studentId, status } of marked) {
     try {
       await notificationService.triggerEvent({
         schoolId,
-        eventType: 'ATTENDANCE_ABSENT',
+        eventType: status === 'absent' ? 'ATTENDANCE_ABSENT' : 'ATTENDANCE_MARKED',
         studentId,
         createdBy,
-        metadata: { status: 'absent', date: dateLabel },
+        metadata: { status: STATUS_LABELS[status] || status, date: dateLabel },
       })
     } catch (err) {
-      console.error('[notif] ATTENDANCE_ABSENT trigger failed:', err instanceof Error ? err.message : err)
+      console.error('[notif] attendance trigger failed:', err instanceof Error ? err.message : err)
     }
   }
 }
@@ -98,12 +109,18 @@ export async function GET(request: NextRequest) {
       if (sectionId) studentFilter.sectionId = sectionId
     }
 
+    // finalizedOnly: consumer-facing views (e.g. View Attendance) pass this so
+    // un-finalized auto-default rows stay hidden until the teacher finalizes.
+    // The marking page omits it — it must see un-finalized rows to edit them.
+    const finalizedOnly = searchParams.get('finalizedOnly') === 'true'
+
     const attendanceWhere: Record<string, unknown> = {
       schoolId: user.schoolId,
       date: attendanceDate,
       student: studentFilter,
     }
     if (academicYear) attendanceWhere.academicYear = academicYear
+    if (finalizedOnly) attendanceWhere.finalized = true
 
     const [records, total] = await Promise.all([
       db.attendance.findMany({
@@ -297,7 +314,7 @@ export async function POST(request: NextRequest) {
     // its own small transaction so that the read-of-existing → upsert → optional
     // change-log entry stay atomic. Per-student tx keeps total tx duration tiny
     // even for large classes (vs. one big tx that could exceed default timeout).
-    const results: Awaited<ReturnType<typeof db.attendance.upsert>>[] = []
+    const savedStudentIds: string[] = []
     for (const record of records) {
       const { studentId, status, remarks } = record
 
@@ -316,7 +333,7 @@ export async function POST(request: NextRequest) {
       })
       if (!student) continue
 
-      const attendance = await db.$transaction(async (tx) => {
+      await db.$transaction(async (tx) => {
         const existing = await tx.attendance.findUnique({
           where: {
             schoolId_studentId_date: {
@@ -343,10 +360,10 @@ export async function POST(request: NextRequest) {
         // the ones the teacher touched. Without this guard, every Save would
         // silently overwrite 'rfid_kiosk' / 'auto_default' → 'manual'.
         if (isNoOp) {
-          return existing
+          return
         }
 
-        const upserted = await tx.attendance.upsert({
+        await tx.attendance.upsert({
           where: {
             schoolId_studentId_date: {
               schoolId: user.schoolId!,
@@ -389,23 +406,16 @@ export async function POST(request: NextRequest) {
             },
           })
         }
-
-        return upserted
       })
-      results.push(attendance)
+      savedStudentIds.push(studentId)
     }
 
-    // Alert guardians of newly-absent students (best-effort, non-blocking failure).
-    const absentStudentIds = records
-      .filter((r: { status: string }) => r.status === 'absent')
-      .map((r: { studentId: string }) => r.studentId)
-    if (absentStudentIds.length > 0) {
-      await notifyAbsenteesSafe(user.schoolId, absentStudentIds, date, user.userId)
-    }
+    // Parents are NOT notified on save — only when the teacher finalizes the
+    // day's attendance (see PATCH). Saving can happen many times while editing.
 
     return NextResponse.json({
-      message: `Attendance has been saved for ${results.length} students.`,
-      count: results.length,
+      message: `Attendance has been saved for ${savedStudentIds.length} students.`,
+      count: savedStudentIds.length,
       feeWarnings: feeWarnings.length > 0 ? feeWarnings : undefined,
     })
   } catch (error) {
@@ -501,7 +511,7 @@ export async function PATCH(request: NextRequest) {
         academicYear,
         studentId: { in: studentIds },
       },
-      select: { studentId: true, finalized: true },
+      select: { studentId: true, finalized: true, status: true },
     })
     if (existingAttendance.length === 0) {
       return apiError(400, 'No attendance records found for this class and date.')
@@ -557,6 +567,18 @@ export async function PATCH(request: NextRequest) {
 
       return updated
     })
+
+    // Notify guardians ONLY on finalize — once the teacher confirms the day's
+    // attendance, each guardian gets their child's status (present / absent /
+    // leave) with the student's name. Reopen sends nothing. Best-effort.
+    if (action === 'finalize') {
+      const toNotify = existingAttendance
+        .filter((a) => a.status === 'present' || a.status === 'absent' || a.status === 'leave')
+        .map((a) => ({ studentId: a.studentId, status: a.status }))
+      if (toNotify.length > 0) {
+        await notifyAttendanceMarkedSafe(user.schoolId, toNotify, date, user.userId)
+      }
+    }
 
     return NextResponse.json({
       message: action === 'finalize'

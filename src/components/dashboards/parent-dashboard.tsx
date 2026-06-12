@@ -1,14 +1,14 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Separator } from '@/components/ui/separator'
-import { StatsCard } from '@/components/shared'
+import { Progress } from '@/components/ui/progress'
+import { LoadingState } from '@/components/shared'
 import { useAppStore } from '@/lib/store'
 import { api } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
@@ -19,24 +19,40 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog'
 import {
+  ArrowRight,
+  Award,
   Baby,
-  IndianRupee,
+  CalendarCheck,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   ClipboardList,
-  Lock,
   Eye,
   EyeOff,
   GraduationCap,
-  Phone,
+  IndianRupee,
   Loader2,
-  ShieldOff,
-  AlertTriangle,
+  Lock,
   Megaphone,
+  Phone,
+  Receipt,
+  School,
+  ShieldOff,
+  Sparkles,
+  UserRound,
+  UsersRound,
+  type LucideIcon,
 } from 'lucide-react'
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden'
 
-// ============================================
-// Types
-// ============================================
+const SIBLING_ACCENTS = [
+  'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-500/10 dark:text-sky-300 dark:border-sky-500/20',
+  'bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-500/10 dark:text-violet-300 dark:border-violet-500/20',
+  'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/20',
+  'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/20',
+  'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-500/10 dark:text-rose-300 dark:border-rose-500/20',
+  'bg-cyan-50 text-cyan-700 border-cyan-200 dark:bg-cyan-500/10 dark:text-cyan-300 dark:border-cyan-500/20',
+]
 
 interface ParentDashboardData {
   role: string
@@ -83,9 +99,95 @@ interface ChildInfo {
   academicYear: string | null
 }
 
-// ============================================
-// Main Component
-// ============================================
+function formatCurrency(amount: number) {
+  return `Rs. ${amount.toLocaleString('en-IN')}`
+}
+
+function formatShortDate(value: string) {
+  return new Date(value).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })
+}
+
+function getInitials(name: string) {
+  return name
+    .split(' ')
+    .filter(Boolean)
+    .map((part) => part[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase()
+}
+
+function clampPercent(value: number) {
+  if (!Number.isFinite(value)) return 0
+  return Math.max(0, Math.min(100, Math.round(value)))
+}
+
+function StatTile({
+  title,
+  value,
+  description,
+  icon: Icon,
+  tone,
+}: {
+  title: string
+  value: string | number
+  description: string
+  icon: LucideIcon
+  tone: 'sky' | 'emerald' | 'amber' | 'rose'
+}) {
+  const toneMap = {
+    sky: 'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-500/10 dark:text-sky-300 dark:border-sky-500/20',
+    emerald: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/20',
+    amber: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/20',
+    rose: 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-500/10 dark:text-rose-300 dark:border-rose-500/20',
+  }
+
+  return (
+    <Card className="overflow-hidden">
+      <CardContent className="p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{title}</p>
+            <p className="mt-2 truncate text-2xl font-bold tracking-tight">{value}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{description}</p>
+          </div>
+          <div className={`flex size-11 shrink-0 items-center justify-center rounded-xl border ${toneMap[tone]}`}>
+            <Icon className="size-5" />
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+function QuickAction({
+  label,
+  description,
+  icon: Icon,
+  onClick,
+}: {
+  label: string
+  description: string
+  icon: LucideIcon
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="group flex w-full items-center gap-3 rounded-xl border bg-card p-3 text-left transition hover:border-primary/40 hover:bg-primary/5"
+    >
+      <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+        <Icon className="size-4" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-semibold">{label}</span>
+        <span className="block truncate text-xs text-muted-foreground">{description}</span>
+      </span>
+      <ArrowRight className="size-4 shrink-0 text-muted-foreground transition group-hover:translate-x-0.5 group-hover:text-primary" />
+    </button>
+  )
+}
 
 export function ParentDashboard() {
   const router = useRouter()
@@ -96,26 +198,25 @@ export function ParentDashboard() {
   const [children, setChildren] = useState<ChildInfo[]>([])
   const [loading, setLoading] = useState(true)
 
-  // Password change state
   const [showPasswordDialog, setShowPasswordDialog] = useState(false)
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [showCurrentPwd, setShowCurrentPwd] = useState(false)
   const [showNewPwd, setShowNewPwd] = useState(false)
+  const [showConfirmPwd, setShowConfirmPwd] = useState(false)
   const [changingPassword, setChangingPassword] = useState(false)
+  const [focusChildIndex, setFocusChildIndex] = useState(0)
 
-  // Fetch dashboard data
   const fetchDashboard = useCallback(async () => {
     try {
       const data = await api.get<ParentDashboardData>('/api/school/dashboard', undefined, { skipLogoutOn401: true })
       setDashboardData(data)
     } catch {
-      // Dashboard fetch failed
+      // Dashboard fetch failed. Child data still renders from the parent endpoint.
     }
   }, [])
 
-  // Fetch children
   const fetchChildren = useCallback(async () => {
     try {
       const data = await api.get<{ children: ChildInfo[] }>('/api/parent/children', undefined, { skipLogoutOn401: true })
@@ -134,7 +235,6 @@ export function ParentDashboard() {
     init()
   }, [fetchDashboard, fetchChildren])
 
-  // Password change handler
   const handleChangePassword = async () => {
     if (!currentPassword || !newPassword || !confirmPassword) {
       toast({ title: 'Missing Information', description: 'Please fill in all the fields to change your password.', variant: 'destructive' })
@@ -145,7 +245,7 @@ export function ParentDashboard() {
       return
     }
     if (newPassword !== confirmPassword) {
-      toast({ title: 'Passwords Don\'t Match', description: "The passwords you entered don't match. Please type the same password in both fields.", variant: 'destructive' })
+      toast({ title: "Passwords Don't Match", description: "The passwords you entered don't match. Please type the same password in both fields.", variant: 'destructive' })
       return
     }
 
@@ -164,235 +264,271 @@ export function ParentDashboard() {
     }
   }
 
-  // View child details
-  const handleViewChild = (child: ChildInfo) => {
-    if (!child.isActive) {
-      toast({
-        title: 'Access Restricted',
-        description: 'This student\'s account has been disabled by the school. Please contact the school administration.',
-        variant: 'destructive',
-      })
-      return
+  const activeChildren = useMemo(() => children.filter((child) => child.isActive), [children])
+  const attendanceByStudentId = useMemo(() => {
+    const map = new Map<string, number>()
+    for (const child of dashboardData?.children || []) {
+      map.set(child.id, child.attendancePercent)
+      map.set(child.studentId, child.attendancePercent)
     }
-    router.push(`/my-children/fees?studentId=${child.id}`)
-  }
+    return map
+  }, [dashboardData?.children])
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="size-8 animate-spin rounded-full border-3 border-primary border-t-transparent" />
-      </div>
-    )
-  }
+  if (loading) return <LoadingState />
 
-  const activeChildren = children.filter(c => c.isActive)
-  const disabledChildren = children.filter(c => !c.isActive)
   const stats = dashboardData?.stats
   const announcements = dashboardData?.announcements || []
-  const formatCurrency = (amount: number) => `₹${amount.toLocaleString('en-IN')}`
+  const totalChildren = stats?.totalChildren || children.length
+  const totalActiveChildren = stats?.activeChildren || activeChildren.length
+  const totalPendingFees = stats?.totalPendingFees || 0
+  const averageAttendance = clampPercent(stats?.attendancePercent || 0)
+  const firstName = user?.name?.trim().split(/\s+/)[0] || 'Parent'
+  const focusChildren = activeChildren.length > 0 ? activeChildren : children
+  const normalizedFocusIndex = focusChildren.length > 0 ? focusChildIndex % focusChildren.length : 0
+  const primaryChild = focusChildren[normalizedFocusIndex]
+  const primaryAttendance = primaryChild ? clampPercent(attendanceByStudentId.get(primaryChild.id) ?? averageAttendance) : 0
+  const activePercent = totalChildren > 0 ? clampPercent((totalActiveChildren / totalChildren) * 100) : 0
+  const today = new Date().toLocaleDateString('en-IN', { weekday: 'long', day: '2-digit', month: 'long' })
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Parent Dashboard</h1>
-          <p className="text-sm text-muted-foreground mt-1">Welcome, {user?.name}!</p>
-        </div>
-        <Button variant="outline" onClick={() => setShowPasswordDialog(true)} className="gap-2 shrink-0">
-          <Lock className="size-4" /> Change Password
-        </Button>
-      </div>
-
-      {/* Stats */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatsCard title="My Children" value={stats?.totalChildren || children.length} icon={Baby} description="total linked" />
-        <StatsCard title="Active" value={stats?.activeChildren || activeChildren.length} icon={GraduationCap} description="currently active" />
-        <StatsCard title="Pending Fees" value={stats?.totalPendingFees ? formatCurrency(stats.totalPendingFees) : '₹0'} icon={IndianRupee} description="total outstanding" />
-        <StatsCard title="Attendance" value={`${stats?.attendancePercent || 0}%`} icon={ClipboardList} description="average attendance" />
-      </div>
-
-      {/* Active Children List */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">My Children</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {children.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              <Baby className="size-12 mx-auto mb-3 opacity-30" />
-              <p className="text-sm">No children found linked to your account.</p>
-              <p className="text-xs mt-1">Please contact the school administration.</p>
+      <section className="overflow-hidden rounded-2xl border bg-card shadow-sm">
+        <div className="grid gap-6 p-5 sm:p-6 lg:grid-cols-[1.35fr_0.65fr] lg:p-7">
+          <div className="min-w-0">
+            <div className="inline-flex items-center gap-2 rounded-full border bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
+              <Sparkles className="size-3.5" />
+              {today}
             </div>
-          ) : (
-            <div className="space-y-4">
-              {activeChildren.map((child) => (
-                <div key={child.id} className="flex items-center gap-4 p-4 rounded-lg bg-muted/30 border">
-                  <div className="flex size-12 items-center justify-center rounded-full bg-primary/10 text-lg font-bold text-primary shrink-0">
-                    {child.profileImage ? (
-                      <img src={child.profileImage} alt={child.fullName} className="size-full rounded-full object-cover" />
-                    ) : (
-                      child.fullName.split(' ').map(n => n[0]).join('').slice(0, 2)
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold">{child.fullName}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {child.className && <span>{child.className}</span>}
-                      {child.sectionName && <span> - {child.sectionName}</span>}
-                      {child.rollNumber && <span> • Roll: {child.rollNumber}</span>}
-                    </p>
-                    <div className="flex items-center gap-3 mt-1.5">
-                      {child.admissionNumber && (
-                        <Badge variant="outline" className="font-mono text-[10px]">{child.admissionNumber}</Badge>
-                      )}
-                      <Badge className="bg-primary/10 text-primary hover:bg-primary/10 text-[10px]">
-                        {child.admissionStatus || 'Admitted'}
-                      </Badge>
-                      {child.gender && <span className="text-xs text-muted-foreground">{child.gender}</span>}
-                    </div>
-                  </div>
-                  <Button variant="outline" size="sm" onClick={() => handleViewChild(child)}>
-                    View Details
-                  </Button>
-                </div>
-              ))}
+            <h1 className="mt-4 text-2xl font-extrabold tracking-tight sm:text-3xl">
+              Good to see you, {firstName}
+            </h1>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">
+              Keep an eye on your children&apos;s attendance, fee status, and school updates from one calm parent workspace.
+            </p>
+            <div className="mt-5 flex flex-wrap gap-2">
+              <Button onClick={() => router.push('/my-children')}>
+                <UsersRound className="mr-2 size-4" />
+                View Children
+              </Button>
+              <Button variant="outline" onClick={() => router.push('/my-children/fees')}>
+                <Receipt className="mr-2 size-4" />
+                Fee Details
+              </Button>
+              <Button variant="outline" onClick={() => setShowPasswordDialog(true)}>
+                <Lock className="mr-2 size-4" />
+                Change Password
+              </Button>
+            </div>
+          </div>
 
-              {/* Disabled children section */}
-              {disabledChildren.length > 0 && (
-                <>
-                  <Separator />
-                  <div className="pt-2">
-                    <div className="flex items-center gap-2 mb-3">
-                      <ShieldOff className="size-4 text-destructive" />
-                      <p className="text-sm font-medium text-destructive">Disabled Students</p>
-                      <Badge variant="secondary" className="text-[10px] bg-destructive/10 text-destructive">
-                        {disabledChildren.length}
-                      </Badge>
-                    </div>
-                    <div className="space-y-3">
-                      {disabledChildren.map((child) => (
-                        <div key={child.id} className="flex items-center gap-4 p-4 rounded-lg border border-destructive/30 bg-destructive/5 dark:bg-destructive/5 dark:border-destructive/20 opacity-75">
-                          <div className="flex size-12 items-center justify-center rounded-full bg-destructive/10 text-lg font-bold text-destructive shrink-0">
-                            {child.profileImage ? (
-                              <img src={child.profileImage} alt={child.fullName} className="size-full rounded-full object-cover grayscale" />
-                            ) : (
-                              child.fullName.split(' ').map(n => n[0]).join('').slice(0, 2)
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold text-destructive line-through decoration-destructive/50">{child.fullName}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {child.className && <span>{child.className}</span>}
-                              {child.sectionName && <span> - {child.sectionName}</span>}
-                            </p>
-                            <div className="flex items-center gap-3 mt-1.5">
-                              {child.admissionNumber && (
-                                <Badge variant="outline" className="font-mono text-[10px] border-destructive/30 text-destructive">{child.admissionNumber}</Badge>
-                              )}
-                              <Badge className="bg-destructive/10 text-destructive hover:bg-destructive/10 text-[10px] gap-1">
-                                <ShieldOff className="size-3" /> Disabled
-                              </Badge>
-                            </div>
-                          </div>
-                          <div className="flex flex-col items-end gap-1">
-                            <Button variant="ghost" size="sm" disabled className="text-muted-foreground cursor-not-allowed">
-                              View Details
-                            </Button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="flex items-center gap-2 mt-3 rounded-md bg-amber-500/5 dark:bg-amber-500/10 border border-amber-500/20 dark:border-amber-500/10 p-3">
-                      <AlertTriangle className="size-4 text-amber-600 dark:text-amber-400 shrink-0" />
-                      <div className="text-xs">
-                        <p className="font-medium text-amber-700 dark:text-amber-400">Access Restricted</p>
-                        <p className="text-amber-600 dark:text-amber-500">These students have been disabled by the school. You cannot view their details, attendance, or fee information. Please contact the school administration for assistance.</p>
-                      </div>
-                    </div>
-                  </div>
-                </>
+          <div className="self-center rounded-2xl border bg-muted/25 p-4">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Child Focus</p>
+              {focusChildren.length > 1 ? (
+                <Badge variant="outline" className="gap-1.5">
+                  <UsersRound className="size-3.5" />
+                  {normalizedFocusIndex + 1}/{focusChildren.length}
+                </Badge>
+              ) : primaryChild?.isActive ? (
+                <Badge className="gap-1.5">
+                  <CheckCircle2 className="size-3.5" />
+                  Active
+                </Badge>
+              ) : (
+                primaryChild && (
+                  <Badge variant="destructive" className="gap-1.5">
+                    <ShieldOff className="size-3.5" />
+                    Disabled
+                  </Badge>
+                )
               )}
             </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Announcements + Account Info */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        {announcements.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2">
-                <Megaphone className="size-4" /> Announcements
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {announcements.map((a) => (
-                  <div key={a.id} className="flex items-start gap-2 p-2 rounded-md bg-muted/30">
-                    <Badge variant={a.priority === 'urgent' ? 'destructive' : a.priority === 'high' ? 'default' : 'secondary'} className="text-[10px] shrink-0">
-                      {a.priority}
-                    </Badge>
-                    <div className="min-w-0">
-                      <p className="text-xs font-medium truncate">{a.title}</p>
-                      <p className="text-[10px] text-muted-foreground">{new Date(a.createdAt).toLocaleDateString()}</p>
-                    </div>
+            {primaryChild ? (
+              <div className={`relative mt-4 space-y-4 ${focusChildren.length > 1 ? 'px-9' : ''}`}>
+                {focusChildren.length > 1 && (
+                  <>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      aria-label="Previous child"
+                      className="absolute left-0 top-1/2 size-8 -translate-y-1/2 rounded-full bg-background/95 shadow-sm"
+                      onClick={() => setFocusChildIndex((index) => (index - 1 + focusChildren.length) % focusChildren.length)}
+                    >
+                      <ChevronLeft className="size-4" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      aria-label="Next child"
+                      className="absolute right-0 top-1/2 size-8 -translate-y-1/2 rounded-full bg-background/95 shadow-sm"
+                      onClick={() => setFocusChildIndex((index) => (index + 1) % focusChildren.length)}
+                    >
+                      <ChevronRight className="size-4" />
+                    </Button>
+                  </>
+                )}
+                <div className="flex items-center gap-3">
+                  <div className={`flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-full border text-lg font-bold ${SIBLING_ACCENTS[normalizedFocusIndex % SIBLING_ACCENTS.length]}`}>
+                    {primaryChild.profileImage ? (
+                      <img src={primaryChild.profileImage} alt={primaryChild.fullName} className="size-full object-cover" />
+                    ) : (
+                      getInitials(primaryChild.fullName)
+                    )}
                   </div>
-                ))}
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-base font-bold leading-tight">{primaryChild.fullName}</p>
+                    <p className="mt-1 truncate text-xs text-muted-foreground">
+                      {primaryChild.className || 'Class not assigned'}
+                      {primaryChild.sectionName ? ` - ${primaryChild.sectionName}` : ''}
+                      {primaryChild.rollNumber ? ` - Roll ${primaryChild.rollNumber}` : ''}
+                    </p>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-medium text-muted-foreground">Attendance</span>
+                    <span className="font-semibold">{primaryAttendance}%</span>
+                  </div>
+                  <Progress value={primaryAttendance} />
+                </div>
+                <Button
+                  size="sm"
+                  className="w-full"
+                  disabled={!primaryChild.isActive}
+                  onClick={() => router.push(`/my-children/attendance?studentId=${primaryChild.id}`)}
+                >
+                  <CalendarCheck className="mr-2 size-4" />
+                  View Attendance
+                </Button>
               </div>
-            </CardContent>
-          </Card>
-        )}
+            ) : (
+              <div className="mt-4 rounded-xl border border-dashed p-5 text-center">
+                <Baby className="mx-auto size-9 text-muted-foreground/40" />
+                <p className="mt-3 text-sm font-medium">No children linked</p>
+                <p className="mt-1 text-xs text-muted-foreground">Please contact the school office to connect your account.</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
+
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatTile title="Linked Children" value={totalChildren} icon={Baby} description="Students connected to you" tone="sky" />
+        <StatTile title="Active Students" value={totalActiveChildren} icon={GraduationCap} description={`${activePercent}% currently active`} tone="emerald" />
+        <StatTile title="Pending Fees" value={formatCurrency(totalPendingFees)} icon={IndianRupee} description={totalPendingFees > 0 ? 'Outstanding balance' : 'Nothing due'} tone={totalPendingFees > 0 ? 'rose' : 'emerald'} />
+        <StatTile title="Attendance" value={`${averageAttendance}%`} icon={ClipboardList} description="Average across children" tone="amber" />
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-3">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Quick Actions</CardTitle>
+            <CardDescription>Common parent tasks</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <QuickAction label="Attendance" description="Review daily attendance" icon={CalendarCheck} onClick={() => router.push('/my-children/attendance')} />
+            <QuickAction label="Fee Details" description="Check dues and receipts" icon={Receipt} onClick={() => router.push('/my-children/fees')} />
+            <QuickAction label="Exams" description="Admit cards and report cards" icon={Award} onClick={() => router.push('/my-children/exams')} />
+            <QuickAction label="My Children" description="Open student profiles" icon={UsersRound} onClick={() => router.push('/my-children')} />
+          </CardContent>
+        </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Account Information</CardTitle>
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <Megaphone className="size-5 text-primary" />
+              Announcements
+            </CardTitle>
+            <CardDescription>Latest school updates</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <p className="text-muted-foreground text-xs">Login ID (Phone Number)</p>
-                <p className="font-medium font-mono">{user?.phone || '--'}</p>
+            {announcements.length === 0 ? (
+              <div className="rounded-xl border border-dashed p-5 text-center">
+                <Megaphone className="mx-auto size-8 text-muted-foreground/40" />
+                <p className="mt-3 text-sm font-medium">No announcements right now</p>
+                <p className="mt-1 text-xs text-muted-foreground">New updates from school administration will appear here.</p>
               </div>
-              <div>
-                <p className="text-muted-foreground text-xs">Name</p>
-                <p className="font-medium">{user?.name}</p>
+            ) : (
+              <div className="space-y-3">
+                {announcements.slice(0, 4).map((announcement) => (
+                  <div key={announcement.id} className="rounded-xl border bg-card p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <Badge variant={announcement.priority === 'urgent' ? 'destructive' : announcement.priority === 'high' ? 'default' : 'secondary'} className="text-[10px]">
+                        {announcement.priority}
+                      </Badge>
+                      <span className="shrink-0 text-xs text-muted-foreground">{formatShortDate(announcement.createdAt)}</span>
+                    </div>
+                    <p className="mt-3 line-clamp-2 text-sm font-semibold">{announcement.title}</p>
+                  </div>
+                ))}
               </div>
-              <div>
-                <p className="text-muted-foreground text-xs">School</p>
-                <p className="font-medium">{user?.schoolId ? 'Assigned' : '--'}</p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Account</CardTitle>
+            <CardDescription>Parent login and school link</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-3 text-sm">
+              <div className="flex items-center gap-3">
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                  <Phone className="size-4" />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-xs text-muted-foreground">Login ID</p>
+                  <p className="truncate font-medium">{user?.phone || '--'}</p>
+                </div>
               </div>
-              <div>
-                <p className="text-muted-foreground text-xs">Default Password</p>
-                <p className="font-medium">parent123</p>
+              <div className="flex items-center gap-3">
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                  <UserRound className="size-4" />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-xs text-muted-foreground">Name</p>
+                  <p className="truncate font-medium">{user?.name || '--'}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                  <School className="size-4" />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-xs text-muted-foreground">School</p>
+                  <p className="truncate font-medium">{user?.schoolId ? 'Assigned' : '--'}</p>
+                </div>
               </div>
             </div>
-            <Separator className="my-4" />
-            <div className="flex items-center gap-2 rounded-md bg-amber-500/5 dark:bg-amber-500/10 border border-amber-500/20 dark:border-amber-500/10 p-3">
-              <Lock className="size-4 text-amber-600 dark:text-amber-400 shrink-0" />
-              <div className="text-sm">
-                <p className="font-medium text-amber-700 dark:text-amber-400">Change your default password</p>
-                <p className="text-xs text-amber-600 dark:text-amber-500">For security, please change your password from the default &quot;parent123&quot;</p>
+
+            <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-3">
+              <div className="flex items-start gap-2">
+                <Lock className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-amber-700 dark:text-amber-300">Keep your account secure</p>
+                  <p className="mt-1 text-xs leading-5 text-amber-700/80 dark:text-amber-300/80">If you still use the default password, update it now.</p>
+                </div>
               </div>
-              <Button variant="outline" size="sm" className="ml-auto shrink-0" onClick={() => setShowPasswordDialog(true)}>
-                Change
+              <Button variant="outline" size="sm" className="mt-3 w-full" onClick={() => setShowPasswordDialog(true)}>
+                Change Password
               </Button>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Change Password Dialog */}
       <Dialog open={showPasswordDialog} onOpenChange={setShowPasswordDialog}>
-        <DialogContent className="sm:max-w-md" onInteractOutside={(e) => e.preventDefault()} onPointerDownOutside={(e) => e.preventDefault()}>
+        <DialogContent className="sm:max-w-md">
           <VisuallyHidden>
             <DialogTitle>Change Password</DialogTitle>
           </VisuallyHidden>
           <DialogDescription className="sr-only">Change your account password</DialogDescription>
           <div className="space-y-4">
             <div className="flex items-center gap-3">
-              <div className="size-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+              <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/10">
                 <Lock className="size-5 text-primary" />
               </div>
               <div>
@@ -403,19 +539,22 @@ export function ParentDashboard() {
 
             <div className="space-y-3">
               <div className="space-y-2">
-                <Label>Current Password</Label>
+                <Label htmlFor="current-password">Current Password</Label>
                 <div className="relative">
                   <Input
+                    id="current-password"
                     type={showCurrentPwd ? 'text' : 'password'}
                     placeholder="Enter current password"
                     value={currentPassword}
-                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    onChange={(event) => setCurrentPassword(event.target.value)}
+                    className="pr-10"
                   />
                   <Button
+                    type="button"
                     variant="ghost"
                     size="icon"
-                    className="absolute right-1 top-1/2 -translate-y-1/2 size-7"
-                    onClick={() => setShowCurrentPwd(!showCurrentPwd)}
+                    className="absolute right-1 top-1/2 size-7 -translate-y-1/2"
+                    onClick={() => setShowCurrentPwd((value) => !value)}
                   >
                     {showCurrentPwd ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
                   </Button>
@@ -423,19 +562,22 @@ export function ParentDashboard() {
               </div>
 
               <div className="space-y-2">
-                <Label>New Password</Label>
+                <Label htmlFor="new-password">New Password</Label>
                 <div className="relative">
                   <Input
+                    id="new-password"
                     type={showNewPwd ? 'text' : 'password'}
-                    placeholder="Enter new password (min 6 characters)"
+                    placeholder="Enter new password"
                     value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
+                    onChange={(event) => setNewPassword(event.target.value)}
+                    className="pr-10"
                   />
                   <Button
+                    type="button"
                     variant="ghost"
                     size="icon"
-                    className="absolute right-1 top-1/2 -translate-y-1/2 size-7"
-                    onClick={() => setShowNewPwd(!showNewPwd)}
+                    className="absolute right-1 top-1/2 size-7 -translate-y-1/2"
+                    onClick={() => setShowNewPwd((value) => !value)}
                   >
                     {showNewPwd ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
                   </Button>
@@ -443,13 +585,26 @@ export function ParentDashboard() {
               </div>
 
               <div className="space-y-2">
-                <Label>Confirm New Password</Label>
-                <Input
-                  type="password"
-                  placeholder="Confirm new password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                />
+                <Label htmlFor="confirm-password">Confirm New Password</Label>
+                <div className="relative">
+                  <Input
+                    id="confirm-password"
+                    type={showConfirmPwd ? 'text' : 'password'}
+                    placeholder="Confirm new password"
+                    value={confirmPassword}
+                    onChange={(event) => setConfirmPassword(event.target.value)}
+                    className="pr-10"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-1 top-1/2 size-7 -translate-y-1/2"
+                    onClick={() => setShowConfirmPwd((value) => !value)}
+                  >
+                    {showConfirmPwd ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                  </Button>
+                </div>
               </div>
             </div>
 
@@ -458,7 +613,7 @@ export function ParentDashboard() {
               <Button onClick={handleChangePassword} disabled={changingPassword}>
                 {changingPassword ? (
                   <>
-                    <Loader2 className="size-4 animate-spin mr-2" />
+                    <Loader2 className="mr-2 size-4 animate-spin" />
                     Changing...
                   </>
                 ) : (

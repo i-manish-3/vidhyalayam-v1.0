@@ -45,11 +45,6 @@ export async function GET(request: NextRequest) {
     const [teachers, total] = await Promise.all([
       db.teacher.findMany({
         where,
-        include: {
-          salaryStructure: {
-            select: { id: true, grossSalary: true, netSalary: true },
-          },
-        },
         orderBy: [{ firstName: 'asc' }],
         skip,
         take: limit,
@@ -57,23 +52,36 @@ export async function GET(request: NextRequest) {
       db.teacher.count({ where }),
     ])
     const userIds = teachers.map((teacher) => teacher.userId).filter(Boolean) as string[]
+    const teacherIds = teachers.map((teacher) => teacher.id)
+
+    // SalaryStructure has no Prisma relation to Teacher — it's linked by
+    // (staffType, staffId). Fetch matching rows separately and attach.
     const linkedUsers = userIds.length
       ? await db.user.findMany({
           where: { id: { in: userIds } },
           select: { id: true, phone: true, email: true, isActive: true },
         })
       : []
+    const salaryStructures = teacherIds.length
+      ? await db.salaryStructure.findMany({
+          where: { schoolId: user.schoolId, staffType: 'teacher', staffId: { in: teacherIds } },
+          select: { id: true, staffId: true, grossSalary: true, netSalary: true },
+        })
+      : []
     const userById = new Map(linkedUsers.map((linkedUser) => [linkedUser.id, linkedUser]))
+    const salaryByStaffId = new Map(salaryStructures.map((sal) => [sal.staffId, sal]))
 
     return NextResponse.json({
       teachers: teachers.map((t) => {
         const linkedUser = t.userId ? userById.get(t.userId) : null
+        const salary = salaryByStaffId.get(t.id) ?? null
         return {
           ...t,
           phone: linkedUser?.phone ?? null,
           email: linkedUser?.email ?? null,
           isActive: t.isActive && (linkedUser?.isActive ?? true),
           fullName: `${t.firstName} ${t.lastName}`,
+          salaryStructure: salary ? { id: salary.id, grossSalary: salary.grossSalary, netSalary: salary.netSalary } : null,
         }
       }),
       pagination: {

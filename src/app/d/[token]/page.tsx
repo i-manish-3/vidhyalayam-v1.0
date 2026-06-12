@@ -1,11 +1,6 @@
 import { db } from '@/lib/db'
 import { SlipPrintButton } from './print-button'
-import {
-  buildSlipHtml,
-  buildSlipLines,
-  sortPeriods,
-  type SlipInputLine,
-} from '@/lib/fee-slip-template'
+import { buildDemandSlipDoc } from '@/lib/fee-slip-render'
 
 interface PageProps {
   params: Promise<{ token: string }>
@@ -70,114 +65,9 @@ export default async function PublicDemandSlipPage({ params }: PageProps) {
     )
   }
 
-  // Pull every unpaid debit dated strictly before the slip month — these
-  // become the "Previous Month Dues" / "Previous Dues" / "Previous Session
-  // Dues" rows in the rendered slip.
-  const month = slip.billingMonth
-  const year = slip.billingYear
-  let previousDues: Array<{
-    feeHeadName: string
-    installmentName: string | null
-    academicYear: string | null
-    isTransport: boolean
-    dueDate: string | null
-    balanceAmount: number
-  }> = []
-  if (month && year) {
-    const firstOfSlipMonth = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0, 0))
-    const debits = await db.studentFeeLedgerEntry.findMany({
-      where: {
-        schoolId: slip.schoolId,
-        studentId: slip.studentId,
-        entryType: 'DEBIT',
-        deletedAt: null,
-        status: { not: 'cancelled' },
-        transactionDate: { lt: firstOfSlipMonth },
-        balanceAmount: { gt: 0 },
-      },
-      select: {
-        feeHeadName: true,
-        installmentName: true,
-        academicYear: true,
-        sourceType: true,
-        dueDate: true,
-        balanceAmount: true,
-      },
-      orderBy: { transactionDate: 'asc' },
-    })
-    previousDues = debits.map((d) => ({
-      feeHeadName: d.feeHeadName || 'Fee',
-      installmentName: d.installmentName,
-      academicYear: d.academicYear,
-      isTransport:
-        d.sourceType === 'transport' || (d.feeHeadName || '').toLowerCase().includes('transport'),
-      dueDate: d.dueDate ? d.dueDate.toISOString() : null,
-      balanceAmount: d.balanceAmount,
-    }))
-  }
-
-  // Build buckets via the same engine the receipt uses.
-  const invoiceDate = slip.invoiceDate || new Date()
-  const currentAY =
-    slip.lines.find((l) => l.assignmentItem?.assignment?.academicYear)?.assignmentItem?.assignment
-      ?.academicYear || ''
-  const inputs: SlipInputLine[] = [
-    ...slip.lines.map((line) => ({
-      feeHeadName: line.feeHeadName || 'Fee',
-      installmentName: line.installmentName || null,
-      academicYear: line.assignmentItem?.assignment?.academicYear || null,
-      isTransport: (line.feeHeadName || '').toLowerCase().includes('transport'),
-      dueDate: line.dueDate ? line.dueDate.toISOString() : null,
-      paid: 0,
-      due: line.totalAmount,
-    })),
-    ...previousDues.map((prev) => ({
-      feeHeadName: prev.feeHeadName,
-      installmentName: prev.installmentName,
-      academicYear: prev.academicYear,
-      isTransport: prev.isTransport,
-      dueDate: prev.dueDate,
-      paid: 0,
-      due: prev.balanceAmount,
-    })),
-  ]
-  const bucketed = buildSlipLines(inputs, currentAY, invoiceDate)
-
-  const feeMonths = sortPeriods(
-    Array.from(
-      new Set(
-        slip.lines
-          .map((l) => l.installmentName)
-          .filter((s): s is string => !!s)
-      )
-    )
-  )
-
-  const father = slip.student.parentLinks?.find((p) => p.parent?.fatherName)?.parent || null
-  const mother = slip.student.parentLinks?.find((p) => p.parent?.motherName)?.parent || null
-
-  const amountDue = (slip.totalAmount || 0) - (slip.paidAmount || 0)
-
-  const html = buildSlipHtml({
-    variant: 'demand',
-    mode: 'single',
-    school: slip.school,
-    student: slip.student,
-    fatherName: father?.fatherName || null,
-    phone: father?.phone || mother?.phone || null,
-    academicYear: currentAY || `${year}`,
-    feeMonths,
-    slipNumber: slip.invoiceNumber,
-    slipDate: invoiceDate,
-    lines: bucketed,
-    subtotal: slip.subtotal,
-    previousBalance: slip.previousBalance,
-    totalDemanded: slip.totalAmount,
-    paidSoFar: slip.paidAmount,
-    amountDue,
-    dueDate: slip.dueDate ?? null,
-    notes: slip.notes,
-  })
+  // Demand-slip rendering (previous-dues lookup, bucketing, layout) lives in the
+  // shared helper so the parent portal and this public page stay identical.
+  const html = await buildDemandSlipDoc(slip)
 
   return (
     <div className="min-h-screen bg-gray-100 print:bg-white">

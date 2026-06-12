@@ -14,22 +14,22 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const studentId = searchParams.get('studentId') || ''
 
-    // Find parent record
-    const parent = await db.parent.findFirst({
-      where: { schoolId: user.schoolId, userId: user.userId, deletedAt: null },
-      include: {
-        children: {
-          where: { student: { isActive: true } },
-          select: { studentId: true },
-        },
+    // Active children across ALL of this user's parent records. A parent with
+    // multiple children often has one Parent row per child (same userId), so we
+    // must union them — otherwise the second/third sibling 401s and logs the
+    // user out.
+    const links = await db.studentParent.findMany({
+      where: {
+        parent: { schoolId: user.schoolId, userId: user.userId, deletedAt: null },
+        student: { isActive: true },
       },
+      select: { studentId: true },
     })
+    const childIds = Array.from(new Set(links.map((l) => l.studentId)))
 
-    if (!parent) {
+    if (childIds.length === 0) {
       return NextResponse.json({ fees: [], summary: { total: 0, paid: 0, pending: 0 } })
     }
-
-    const childIds = parent.children.map(c => c.studentId)
 
     // If specific student requested, verify it belongs to this parent
     if (studentId && !childIds.includes(studentId)) {

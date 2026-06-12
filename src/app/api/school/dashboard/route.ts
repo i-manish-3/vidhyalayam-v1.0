@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { requireRole, getUserPermissions } from '@/lib/api-auth'
 import { unauthorizedError, internalError } from '@/lib/api-errors'
-import { getTeachingDays, getAcademicYearStart, startOfDay, isSchoolTeachingDay } from '@/lib/academic-calendar'
+import { getAcademicYearStart, startOfDay, isSchoolTeachingDay } from '@/lib/academic-calendar'
 import { computePercent } from '@/lib/attendance-report-utils'
 
 // Returns attendance percentage for a single student over the academic year
@@ -17,20 +17,32 @@ async function computeStudentAttendancePercent(
   const today = startOfDay(new Date())
   if (start > today) return 0
 
-  const [present, teachingDays] = await Promise.all([
+  // Only FINALIZED attendance counts — un-finalized auto-default rows are
+  // ignored. Denominator = finalized days for this student (finalize requires
+  // all students marked, so it's the true count of confirmed days).
+  const [present, finalizedDays] = await Promise.all([
     db.attendance.count({
       where: {
         schoolId,
         studentId,
         academicYear,
         status: 'present',
+        finalized: true,
         date: { gte: start, lte: today },
       },
     }),
-    getTeachingDays(schoolId, academicYear, start, today),
+    db.attendance.count({
+      where: {
+        schoolId,
+        studentId,
+        academicYear,
+        finalized: true,
+        date: { gte: start, lte: today },
+      },
+    }),
   ])
 
-  return Math.round(computePercent(present, teachingDays.length))
+  return Math.round(computePercent(present, finalizedDays))
 }
 
 // GET /api/school/dashboard - Dashboard stats (role-aware)
@@ -480,31 +492,39 @@ async function getStudentDashboard(schoolId: string, userId: string) {
 // PARENT DASHBOARD
 // ============================================
 async function getParentDashboard(schoolId: string, userId: string) {
-  const parent = await db.parent.findFirst({
-    where: { schoolId, userId, deletedAt: null },
+  // Union children across ALL of this user's parent records — a parent with
+  // several kids usually has one Parent row per child (same userId), so a single
+  // findFirst would undercount siblings in the stats.
+  const links = await db.studentParent.findMany({
+    where: { parent: { schoolId, userId, deletedAt: null } },
     include: {
-      children: {
+      student: {
         include: {
-          student: {
-            include: {
-              class: { select: { name: true } },
-              section: { select: { name: true } },
-            },
-          },
+          class: { select: { name: true } },
+          section: { select: { name: true } },
         },
       },
     },
   })
 
-  if (!parent) {
+  // Dedup (a student may be linked through more than one parent row).
+  const seen = new Set<string>()
+  const children = links.filter((l) => {
+    if (seen.has(l.studentId)) return false
+    seen.add(l.studentId)
+    return true
+  })
+
+  if (children.length === 0) {
     return NextResponse.json({
       role: 'PARENT',
-      stats: { totalChildren: 0, activeChildren: 0 },
+      stats: { totalChildren: 0, activeChildren: 0, totalPendingFees: 0, attendancePercent: 0 },
       children: [],
+      announcements: [],
     })
   }
 
-  const activeChildren = parent.children.filter(c => c.student.isActive)
+  const activeChildren = children.filter(c => c.student.isActive)
   const childIds = activeChildren.map(c => c.studentId)
 
   // School academic year drives teaching-days lookup for attendance %.
@@ -555,9 +575,9 @@ async function getParentDashboard(schoolId: string, userId: string) {
 
   return NextResponse.json({
     role: 'PARENT',
-    parentId: parent.id,
+    parentId: links[0].parentId,
     stats: {
-      totalChildren: parent.children.length,
+      totalChildren: children.length,
       activeChildren: activeChildren.length,
       totalPendingFees,
       attendancePercent: overallPercent,

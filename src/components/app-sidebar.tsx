@@ -150,6 +150,7 @@ export const MENUS: Record<string, MenuItem[]> = {
           children: [
             { label: 'Mark Attendance', page: 'mark-attendance', icon: ClipboardCheck },
             { label: 'View Attendance', page: 'view-attendance', icon: ClipboardList },
+            { label: 'Employee Attendance', page: 'employee-attendance', icon: UsersRound },
             { label: 'RFID Kiosk', page: 'attendance-kiosk', icon: ScanLine },
             { label: 'Assign Cards', page: 'rfid-card-assign', icon: CreditCard },
             { label: 'Reader Devices', page: 'rfid-devices', icon: RadioTower },
@@ -311,6 +312,7 @@ export const MENUS: Record<string, MenuItem[]> = {
       children: [
         { label: 'Mark Attendance', page: 'mark-attendance', icon: ClipboardCheck },
         { label: 'View Attendance', page: 'view-attendance', icon: ClipboardList },
+        { label: 'Employee Attendance', page: 'employee-attendance', icon: UsersRound },
         { label: 'RFID Kiosk', page: 'attendance-kiosk', icon: ScanLine },
         { label: 'Reports', page: 'attendance-reports', icon: BarChart3 },
       ],
@@ -352,6 +354,7 @@ export const MENUS: Record<string, MenuItem[]> = {
     { label: 'My Children', page: 'parent-children', icon: Baby },
     { label: 'Fee Details', page: 'parent-fees', icon: Receipt },
     { label: 'Attendance', page: 'parent-attendance', icon: UserCheck },
+    { label: 'Exams', page: 'parent-exams', icon: Award },
     { label: 'Notifications', page: 'notifications', icon: Bell },
   ],
   STAFF: [
@@ -364,6 +367,7 @@ export const MENUS: Record<string, MenuItem[]> = {
       children: [
         { label: 'Mark Attendance', page: 'mark-attendance', icon: ClipboardCheck },
         { label: 'View Attendance', page: 'view-attendance', icon: ClipboardList },
+        { label: 'Employee Attendance', page: 'employee-attendance', icon: UsersRound },
       ],
     },
     {

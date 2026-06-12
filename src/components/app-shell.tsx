@@ -70,6 +70,7 @@ const SEARCH_ITEMS: { label: string; page: PageName; keywords: string[] }[] = [
   { label: 'New Admission Form', page: 'admission-form', keywords: ['apply', 'enroll form', 'register student'] },
   { label: 'Mark Attendance', page: 'mark-attendance', keywords: ['present', 'absent', 'daily', 'mark attendance'] },
   { label: 'View Attendance', page: 'view-attendance', keywords: ['attendance report', 'view attendance', 'attendance records'] },
+  { label: 'Employee Attendance', page: 'employee-attendance', keywords: ['teacher attendance', 'staff attendance', 'employee present absent'] },
   { label: 'Attendance Audit Log', page: 'attendance-audit-log', keywords: ['audit', 'finalize', 'reopen', 'log', 'history', 'attendance audit'] },
   { label: 'Attendance Reports', page: 'attendance-reports', keywords: ['report', 'monthly', 'summary', 'calendar', 'defaulters', 'analytics', 'percentage'] },
   { label: 'Fee Heads', page: 'fees-heads', keywords: ['fee type', 'tuition', 'charge'] },

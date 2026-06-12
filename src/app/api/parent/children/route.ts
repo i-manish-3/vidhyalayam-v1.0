@@ -47,6 +47,15 @@ export async function GET(request: NextRequest) {
         dateOfBirth: true,
         gender: true,
         bloodGroup: true,
+        category: true,
+        religion: true,
+        nationality: true,
+        motherTongue: true,
+        address: true,
+        city: true,
+        state: true,
+        pincode: true,
+        admissionDate: true,
         profileImage: true,
         admissionStatus: true,
         isActive: true,
@@ -65,6 +74,9 @@ export async function GET(request: NextRequest) {
       },
     })
 
+    const addressParts = (s: { address: string | null; city: string | null; state: string | null; pincode: string | null }) =>
+      [s.address, s.city, s.state, s.pincode].filter(Boolean).join(', ') || null
+
     const children = students.map(s => ({
       id: s.id,
       admissionNumber: s.admissionNumber,
@@ -75,12 +87,22 @@ export async function GET(request: NextRequest) {
       dateOfBirth: s.dateOfBirth,
       gender: s.gender,
       bloodGroup: s.bloodGroup,
+      category: s.category,
+      religion: s.religion,
+      nationality: s.nationality,
+      motherTongue: s.motherTongue,
+      address: addressParts(s),
+      admissionDate: s.admissionDate,
       profileImage: s.profileImage,
       admissionStatus: s.admissionStatus,
       isActive: s.isActive,
       className: s.class?.name || null,
       sectionName: s.section?.name || null,
       academicYear: s.admission?.academicYear || null,
+      fatherName: s.admission?.fatherName || null,
+      fatherPhone: s.admission?.fatherPhone || null,
+      motherName: s.admission?.motherName || null,
+      motherPhone: s.admission?.motherPhone || null,
     }))
 
     return NextResponse.json({ children })

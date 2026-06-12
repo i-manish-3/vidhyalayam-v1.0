@@ -30,7 +30,16 @@ function writeCached(logo: string | null) {
 }
 
 export function usePlatformLogo(): string | null {
-  const [logo, setLogo] = useState<string | null>(() => readCached())
+  // Start null so the first client render matches the server (which has no
+  // localStorage). Reading the cached value here would cause a hydration
+  // mismatch; we hydrate it in the effect below, after mount.
+  const [logo, setLogo] = useState<string | null>(null)
+
+  // Paint the cached logo immediately after mount (before the network resolves).
+  useEffect(() => {
+    const cached = readCached()
+    if (cached) setLogo(cached)
+  }, [])
 
   useEffect(() => {
     let cancelled = false

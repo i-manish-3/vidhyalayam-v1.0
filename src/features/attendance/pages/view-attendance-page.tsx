@@ -334,7 +334,7 @@ export function ViewAttendancePage() {
         return
       }
 
-      const params: Record<string, string> = { date, academicYear }
+      const params: Record<string, string> = { date, academicYear, finalizedOnly: 'true' }
       if (classId) params.classId = classId
       // Only include sectionId if the class has sections and one is selected
       if (sectionId && !classHasNoSections) params.sectionId = sectionId

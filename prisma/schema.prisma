@@ -43,6 +43,8 @@ model User {
   userPermissions     UserPermission[]
   markedAttendance    Attendance[]          @relation("markedByUser")
   finalizedAttendance Attendance[]          @relation("finalizedByUser")
+  markedEmployeeAttendance    EmployeeAttendance[] @relation("employeeAttendanceMarker")
+  finalizedEmployeeAttendance EmployeeAttendance[] @relation("employeeAttendanceFinalizer")
   attendanceAuditLogs AttendanceAuditLog[]  @relation("attendanceAuditActor")
   attendanceChanges   AttendanceChangeLog[] @relation("attendanceChanger")
   loginEvents         LoginEvent[]
@@ -119,6 +121,7 @@ model School {
   studentFeeRefunds           StudentFeeRefund[]
   transportEvents             TransportEvent[]
   attendance                  Attendance[]
+  employeeAttendance          EmployeeAttendance[]
   attendanceAuditLogs         AttendanceAuditLog[]
   attendanceChanges           AttendanceChangeLog[]
   studentCards                StudentCard[]
@@ -1440,6 +1443,35 @@ model Attendance {
   @@unique([schoolId, studentId, date])
   @@index([schoolId])
   @@index([studentId])
+  @@index([academicYear])
+  @@index([date])
+  @@index([schoolId, date])
+}
+
+model EmployeeAttendance {
+  id           String    @id @default(cuid())
+  schoolId     String
+  staffType    String // teacher | staff
+  staffId      String
+  academicYear String    @default("2025-2026")
+  date         DateTime
+  status       String // present, absent, leave
+  remarks      String?
+  markedBy     String?
+  markedSource String    @default("manual")
+  finalized    Boolean   @default(false)
+  finalizedAt  DateTime?
+  finalizedBy  String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  school          School @relation(fields: [schoolId], references: [id])
+  markedByUser    User?  @relation("employeeAttendanceMarker", fields: [markedBy], references: [id])
+  finalizedByUser User?  @relation("employeeAttendanceFinalizer", fields: [finalizedBy], references: [id])
+
+  @@unique([schoolId, staffType, staffId, date])
+  @@index([schoolId])
+  @@index([staffType, staffId])
   @@index([academicYear])
   @@index([date])
   @@index([schoolId, date])

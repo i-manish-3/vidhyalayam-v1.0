@@ -11,6 +11,12 @@ import {
 } from '@/lib/fees'
 import { logFeeTransaction, extractAuditContext } from '@/lib/audit'
 import { notificationService } from '@/lib/notifications'
+import {
+  encodeNotesTail,
+  decodeNotesTail,
+  type RecordedPaymentSplit,
+  type PersistedSlipLine,
+} from '@/lib/fee-notes-tail'
 
 // Retry configuration for concurrent payment scenarios
 const PAYMENT_RETRY_ATTEMPTS = 3
@@ -89,109 +95,9 @@ function extractAcademicYear(value?: string | null) {
   return value?.match(/\d{4}-\d{4}/)?.[0] || null
 }
 
-// Structured audit payloads are stashed as JSON tails on the ledger entry's
-// `notes` column using distinct delimiters so the human-readable part of
-// notes stays intact. Encoding order is fixed: `<base> ||SLIP=... ||SPLITS=...`
-// so the decoder can strip them right-to-left without ambiguity. Older rows
-// simply have no tail and parse with all fields null.
-const SLIP_DELIMITER = '||SLIP='
-const SPLITS_DELIMITER = '||SPLITS='
-
-interface RecordedPaymentSplit {
-  paymentMethod: string
-  amount: number
-  transactionRef?: string | null
-  remarks?: string | null
-}
-
-// Snapshot of one slip line at collection time — what was billed, paid, and
-// left due on this specific receipt. Persisting this lets the history view
-// reproduce the exact slip the cashier saw, including ticked items that
-// received zero allocation because the payment didn't cover them.
-interface PersistedSlipLine {
-  feeHeadName: string
-  installmentName: string | null
-  academicYear: string | null
-  isTransport: boolean
-  dueDate: string | null   // ISO string; used by the history view to flag
-                           // overdue term heads (Admission, Exam, Annual…)
-  paid: number
-  due: number
-}
-
-function encodeNotesTail(
-  baseNotes: string | null | undefined,
-  slipLines: PersistedSlipLine[] | null | undefined,
-  splits: RecordedPaymentSplit[] | null | undefined,
-): string | null {
-  let s = (baseNotes || '').trim()
-  if (slipLines && slipLines.length > 0) {
-    s = `${s}${s ? ' ' : ''}${SLIP_DELIMITER}${JSON.stringify(slipLines)}`
-  }
-  if (splits && splits.length > 0) {
-    s = `${s}${s ? ' ' : ''}${SPLITS_DELIMITER}${JSON.stringify(splits)}`
-  }
-  return s || null
-}
-
-function decodeNotesTail(value: string | null | undefined): {
-  notes: string | null
-  splits: RecordedPaymentSplit[] | null
-  slipLines: PersistedSlipLine[] | null
-} {
-  if (!value) return { notes: null, splits: null, slipLines: null }
-  let remaining = value
-
-  // Right-to-left: splits was appended last, so peel it off first.
-  let splits: RecordedPaymentSplit[] | null = null
-  const splitsIdx = remaining.lastIndexOf(SPLITS_DELIMITER)
-  if (splitsIdx !== -1) {
-    const tail = remaining.slice(splitsIdx + SPLITS_DELIMITER.length).trim()
-    try {
-      const parsed = JSON.parse(tail)
-      if (Array.isArray(parsed)) {
-        splits = parsed
-          .filter((s) => s && typeof s === 'object' && typeof s.paymentMethod === 'string' && Number.isFinite(Number(s.amount)))
-          .map((s) => ({
-            paymentMethod: String(s.paymentMethod),
-            amount: roundMoney(Number(s.amount)),
-            transactionRef: s.transactionRef ? String(s.transactionRef) : null,
-            remarks: s.remarks ? String(s.remarks) : null,
-          }))
-      }
-    } catch {
-      splits = null
-    }
-    remaining = remaining.slice(0, splitsIdx).trim()
-  }
-
-  let slipLines: PersistedSlipLine[] | null = null
-  const slipIdx = remaining.lastIndexOf(SLIP_DELIMITER)
-  if (slipIdx !== -1) {
-    const tail = remaining.slice(slipIdx + SLIP_DELIMITER.length).trim()
-    try {
-      const parsed = JSON.parse(tail)
-      if (Array.isArray(parsed)) {
-        slipLines = parsed
-          .filter((l) => l && typeof l === 'object' && typeof l.feeHeadName === 'string')
-          .map((l) => ({
-            feeHeadName: String(l.feeHeadName),
-            installmentName: l.installmentName ? String(l.installmentName) : null,
-            academicYear: l.academicYear ? String(l.academicYear) : null,
-            isTransport: !!l.isTransport,
-            dueDate: l.dueDate ? String(l.dueDate) : null,
-            paid: roundMoney(Number(l.paid) || 0),
-            due: roundMoney(Number(l.due) || 0),
-          }))
-      }
-    } catch {
-      slipLines = null
-    }
-    remaining = remaining.slice(0, slipIdx).trim()
-  }
-
-  return { notes: remaining || null, splits, slipLines }
-}
+// Notes-tail encode/decode + the SLIP/SPLITS delimiters and snapshot types now
+// live in `@/lib/fee-notes-tail` so the parent receipt renderer can decode the
+// same persisted slip snapshot. Imported above.
 
 function sanitizeIncomingSplits(value: unknown): RecordedPaymentSplit[] | null {
   if (!Array.isArray(value)) return null

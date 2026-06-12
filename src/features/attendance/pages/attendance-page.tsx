@@ -139,6 +139,36 @@ function getTodayString(): string {
   return toLocalDateString(new Date())
 }
 
+type NonTeachingHoliday = { date: string; endDate: string | null; name: string }
+type NonTeachingInfo =
+  | { reason: 'non-working-day'; weekdayName: string; label: string }
+  | { reason: 'holiday'; label: string; name: string }
+  | null
+
+const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+
+// Single source of truth for "is this date a non-teaching day?" — used both to
+// hide the marking UI AND to skip the auto-default-absent initialize call, so a
+// holiday can never be silently overridden with absent rows. Mirrors the backend
+// rule (weekly off via workingDays, then declared holidays by date range).
+function computeNonTeaching(date: string, workingDays: string[], holidays: NonTeachingHoliday[]): NonTeachingInfo {
+  if (!date) return null
+  const [y, m, d] = date.split('-').map(Number)
+  const dt = new Date(y, m - 1, d)
+  const weekdayName = WEEKDAY_NAMES[dt.getDay()]
+  if (!workingDays.includes(weekdayName)) {
+    return { reason: 'non-working-day', weekdayName, label: `${weekdayName} is a weekly holiday. Attendance is not required.` }
+  }
+  for (const h of holidays) {
+    const start = h.date.slice(0, 10)
+    const end = (h.endDate || h.date).slice(0, 10)
+    if (date >= start && date <= end) {
+      return { reason: 'holiday', label: h.name, name: h.name }
+    }
+  }
+  return null
+}
+
 function formatShortDate(dateStr: string): string {
   const date = new Date(dateStr + 'T00:00:00')
   return date.toLocaleDateString('en-IN', { weekday: 'short', month: 'short', day: 'numeric' })
@@ -319,7 +349,12 @@ export function AttendancePage() {
       const todayStr = getTodayString()
       const isPastOrToday = date <= todayStr
       const hasGap = studentList.length > existing.length
-      if (hasGap && !finalized && isPastOrToday) {
+      // Never auto-default-absent on a non-teaching day (declared holiday or
+      // weekly off). The page already knows this from the loaded calendar; the
+      // backend also rejects it, but guarding here avoids relying on the two
+      // staying perfectly in sync and prevents a holiday being overridden.
+      const nonTeaching = computeNonTeaching(date, workingDays, holidays)
+      if (hasGap && !finalized && isPastOrToday && !nonTeaching) {
         try {
           const initParams: Record<string, string> = { date, classId, academicYear }
           if (effectiveSectionId) initParams.sectionId = effectiveSectionId
@@ -356,7 +391,7 @@ export function AttendancePage() {
     } finally {
       setLoading(false)
     }
-  }, [academicYear, classId, effectiveSectionId, date, classHasNoSections, toast])
+  }, [academicYear, classId, effectiveSectionId, date, classHasNoSections, workingDays, holidays, toast])
 
   useEffect(() => {
     if (classId && date && (effectiveSectionId || classHasNoSections)) fetchAttendanceData()
@@ -576,24 +611,12 @@ export function AttendancePage() {
   const isFutureDate = date > todayStr
   const canReopenFinalizedAttendance = effectiveRole === 'SCHOOL_ADMIN' || canReopen
 
-  // Non-teaching day check (weekly off / declared holiday). Mirrors backend rule.
-  const nonTeachingInfo = useMemo(() => {
-    if (!date) return null
-    const [y, m, d] = date.split('-').map(Number)
-    const dt = new Date(y, m - 1, d)
-    const weekdayName = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][dt.getDay()]
-    if (!workingDays.includes(weekdayName)) {
-      return { reason: 'non-working-day' as const, weekdayName, label: `${weekdayName} is a weekly holiday. Attendance is not required.` }
-    }
-    for (const h of holidays) {
-      const start = h.date.slice(0, 10)
-      const end = (h.endDate || h.date).slice(0, 10)
-      if (date >= start && date <= end) {
-        return { reason: 'holiday' as const, label: h.name, name: h.name }
-      }
-    }
-    return null
-  }, [date, workingDays, holidays])
+  // Non-teaching day check (weekly off / declared holiday). Shares one helper
+  // with the auto-default-absent guard so the UI and the data logic can't drift.
+  const nonTeachingInfo = useMemo(
+    () => computeNonTeaching(date, workingDays, holidays),
+    [date, workingDays, holidays],
+  )
 
   const isNonTeachingDay = nonTeachingInfo !== null
   const markingBlocked = isFutureDate || isNonTeachingDay

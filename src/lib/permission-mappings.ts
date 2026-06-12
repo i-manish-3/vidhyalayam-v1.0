@@ -40,6 +40,7 @@ const MODULE_PERMISSION_MAP: Record<string, string[]> = {
   'attendance': ['attendance:read', 'attendance:mark'],
   'mark-attendance': ['attendance:mark'],
   'view-attendance': ['attendance:read'],
+  'employee-attendance': ['attendance:mark', 'attendance:read'],
   'attendance-audit-log': ['attendance:audit:view'],
   'attendance-reports': ['attendance:report:view'],
   'attendance-kiosk': ['attendance:mark'],
@@ -141,6 +142,7 @@ const MODULE_PERMISSION_MAP: Record<string, string[]> = {
   'parent-children': ['student:read'],
   'parent-fees': ['fees:read'],
   'parent-attendance': ['attendance:read'],
+  'parent-exams': ['student:read', 'exam:read', 'exam:result:view'],
 
   // ID Card subpages not declared earlier in the map
   'id-card-template-new': ['idcard:template:create'],

@@ -41,28 +41,28 @@ function PrintAdmitCardsContent() {
   const examId = params?.examId ?? ''
   const studentIdsParam = searchParams.get('students') || ''
   const action = (searchParams.get('action') as 'print' | 'download') || 'print'
+  const scope = searchParams.get('scope') === 'parent' ? 'parent' : 'school'
 
   const [data, setData] = useState<GenerateResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const printedOnce = useRef(false)
+  const studentIds = studentIdsParam.split(',').map((s) => s.trim()).filter(Boolean)
+  const validationError = !examId
+    ? 'Missing exam ID.'
+    : !studentIdsParam || studentIds.length === 0
+      ? 'Please select at least one student.'
+      : null
 
   useEffect(() => {
-    if (!examId || !studentIdsParam) {
-      setError('Missing exam ID or student selection.')
-      setLoading(false)
-      return
-    }
-    const studentIds = studentIdsParam.split(',').map((s) => s.trim()).filter(Boolean)
-    if (studentIds.length === 0) {
-      setError('Please select at least one student.')
-      setLoading(false)
-      return
-    }
+    if (validationError) return
     let cancelled = false
-    setLoading(true)
+    const endpoint = scope === 'parent'
+      ? `/api/parent/exams/${examId}/admit-card/generate`
+      : `/api/school/exams/${examId}/admit-cards/generate`
+
     api
-      .post<GenerateResponse>(`/api/school/exams/${examId}/admit-cards/generate`, {
+      .post<GenerateResponse>(endpoint, {
         studentIds,
         action,
       })
@@ -78,7 +78,7 @@ function PrintAdmitCardsContent() {
     return () => {
       cancelled = true
     }
-  }, [examId, studentIdsParam, action])
+  }, [examId, studentIdsParam, action, scope, validationError])
 
   useEffect(() => {
     if (!data || printedOnce.current) return
@@ -88,7 +88,7 @@ function PrintAdmitCardsContent() {
     return () => clearTimeout(t)
   }, [data, action])
 
-  if (loading) {
+  if (!validationError && loading) {
     return (
       <div className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">
         <Loader2 className="mr-2 size-4 animate-spin" /> Loading admit cards…
@@ -96,14 +96,14 @@ function PrintAdmitCardsContent() {
     )
   }
 
-  if (error || !data) {
+  if (validationError || error || !data) {
     return (
       <div className="flex min-h-screen items-center justify-center p-6">
         <div className="flex max-w-md items-start gap-2 rounded-md border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive">
           <AlertTriangle className="mt-0.5 size-4 shrink-0" />
           <div>
             <p className="font-semibold">Couldn&apos;t load admit cards</p>
-            <p className="mt-0.5 text-xs">{error || 'Data unavailable.'}</p>
+            <p className="mt-0.5 text-xs">{validationError || error || 'Data unavailable.'}</p>
           </div>
         </div>
       </div>

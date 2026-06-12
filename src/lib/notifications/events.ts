@@ -1,3 +1,4 @@
+import { db } from '@/lib/db'
 import { renderTemplate, type TemplateVars } from './templates'
 import { notifyParentOfStudent } from './parent-ward'
 import { notifyRole, notifyClassSection, sendBulk, type NotificationTarget } from './service'
@@ -107,12 +108,25 @@ export async function triggerEvent(args: TriggerEventArgs): Promise<TriggerEvent
       return { ok: false, sent: 0 }
     }
 
+    // For parent_of_student events, resolve the student's name up-front and feed
+    // it into the template vars so `{{studentName}}` renders in the title/body
+    // (the template is rendered here, before notifyParentOfStudent runs). The
+    // caller can still override it by passing studentName in metadata.
+    const vars: TemplateVars = { ...(args.metadata ?? {}) }
+    if (config.audience === 'parent_of_student' && args.studentId && !vars.studentName) {
+      const student = await db.student.findFirst({
+        where: { id: args.studentId, schoolId: args.schoolId, deletedAt: null },
+        select: { firstName: true, lastName: true },
+      })
+      if (student) vars.studentName = `${student.firstName} ${student.lastName}`.trim()
+    }
+
     const channel = (args.channels?.[0] ?? 'IN_APP') as string
     const rendered = await renderTemplate({
       schoolId: args.schoolId,
       key: config.templateKey,
       channel: 'IN_APP', // template text is channel-agnostic for foundation
-      vars: args.metadata ?? {},
+      vars,
       fallback: config.fallback,
     })
     void channel
@@ -125,7 +139,7 @@ export async function triggerEvent(args: TriggerEventArgs): Promise<TriggerEvent
       module: config.module,
       actionUrl: args.actionUrl ?? null,
       channels: args.channels ?? config.channels ?? (['IN_APP'] as NotificationChannel[]),
-      metadata: args.metadata as Record<string, unknown> | undefined,
+      metadata: vars as Record<string, unknown>,
       mandatory: args.mandatory,
       createdBy: args.createdBy ?? null,
     }
