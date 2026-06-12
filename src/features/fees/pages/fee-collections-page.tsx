@@ -24,6 +24,7 @@ import {
   Bus,
   CalendarDays,
   ChevronDown,
+  Home,
   MessageCircle,
   Printer,
   PlusCircle,
@@ -54,6 +55,7 @@ import {
 
 type PaymentStatus = 'PAID' | 'PARTIAL' | 'UNPAID'
 type PaymentMethod = 'CASH' | 'ONLINE' | 'CHEQUE' | 'UPI' | 'SPLIT'
+type CollectionCategory = 'fees' | 'transport' | 'hostel'
 
 interface Student {
   id: string
@@ -103,7 +105,7 @@ interface FeeCollectionItem {
   receiptNumber?: string | null
   academicYear?: string | null
   feesGroupName?: string | null
-  source?: 'fees' | 'transport'
+  source?: 'fees' | 'transport' | 'hostel'
 }
 
 interface TransportInfo {
@@ -117,6 +119,24 @@ interface TransportInfo {
   stopName?: string | null
   pickupPoint?: string | null
   dropPoint?: string | null
+  fareAmount: number
+  academicYear?: string | null
+}
+
+interface HostelInfo {
+  id: string
+  hostelId: string
+  hostelName: string
+  hostelType?: string | null
+  wardenName?: string | null
+  wardenPhone?: string | null
+  roomId: string
+  roomNumber?: string | null
+  roomType?: string | null
+  floor?: string | null
+  capacity?: number | null
+  bedId: string
+  bedNumber?: string | null
   fareAmount: number
   academicYear?: string | null
 }
@@ -137,6 +157,7 @@ interface ReceiptSummary {
     label: string
     months: string[]
     paid: number          // paid in this transaction (incl. discount applied to this row)
+    discount: number
     due: number           // remaining balance for this row AFTER this transaction
   }>
   totalPaid: number
@@ -233,6 +254,16 @@ function itemPeriod(item: FeeCollectionItem) {
 
 function isTransportItem(item: FeeCollectionItem) {
   return item.source === 'transport' || (item.feeHeadName || '').toLowerCase().includes('transport')
+}
+
+function isHostelItem(item: FeeCollectionItem) {
+  return item.source === 'hostel' || (item.feeHeadName || '').toLowerCase().includes('hostel')
+}
+
+function collectionCategory(item: FeeCollectionItem): CollectionCategory {
+  if (isTransportItem(item)) return 'transport'
+  if (isHostelItem(item)) return 'hostel'
+  return 'fees'
 }
 
 function academicYearKey(value?: string | null) {
@@ -343,8 +374,8 @@ function buildSlipInputsFromItems(
   return slipInputs
 }
 
-function periodSelectionKey(period: string, transport = false, itemAcademicYear?: string | null) {
-  return `${transport ? 'transport' : 'fees'}:${academicYearKey(itemAcademicYear)}:${normalizedPeriod(period)}`
+function periodSelectionKey(period: string, category: CollectionCategory = 'fees', itemAcademicYear?: string | null) {
+  return `${category}:${academicYearKey(itemAcademicYear)}:${normalizedPeriod(period)}`
 }
 
 function sameStringSet(a: string[], b: string[]) {
@@ -354,7 +385,7 @@ function sameStringSet(a: string[], b: string[]) {
 }
 
 function collectionSelectionKey(item: FeeCollectionItem) {
-  return periodSelectionKey(itemPeriod(item), isTransportItem(item), item.academicYear)
+  return periodSelectionKey(itemPeriod(item), collectionCategory(item), item.academicYear)
 }
 
 function receiptPeriodLabel(item: FeeCollectionItem, currentAcademicYear: string) {
@@ -408,7 +439,8 @@ function isDueOnOrBefore(item: FeeCollectionItem, asOfDateStart: Date) {
 //   1. Non-monthly heads first (Admission, Exam, Term, Registration, …) — they
 //      carry no month context, so they front-load before any month is touched.
 //   2. Then walk monthly items month-by-month (Apr → May → … → Mar).
-//   3. Within the same month, transport is filled before monthly tuition.
+//   3. Within the same month, service fees are filled before monthly tuition:
+//      transport, then hostel, then academic monthly heads.
 //   4. Due date is the final tiebreaker.
 function allocationSortKey(item: FeeCollectionItem): [number, number, number, string] {
   const period = itemPeriod(item)
@@ -416,8 +448,8 @@ function allocationSortKey(item: FeeCollectionItem): [number, number, number, st
   const isMonthly = monthIndex !== Number.MAX_SAFE_INTEGER
   // Tier 0 = non-monthly head (admission / exam / etc.), Tier 1 = monthly bucket.
   const tier = isMonthly ? 1 : 0
-  // Within a month: transport (0) before monthly tuition (1).
-  const withinMonth = item.source === 'transport' ? 0 : 1
+  // Within a month: transport (0), hostel (1), then monthly tuition/other (2).
+  const withinMonth = isTransportItem(item) ? 0 : isHostelItem(item) ? 1 : 2
   return [tier, monthIndex, withinMonth, item.dueDate || '']
 }
 
@@ -483,6 +515,8 @@ export function FeeCollectionsPage() {
   const [receiptHistory, setReceiptHistory] = useState<ReceiptHistoryRow[]>([])
   const [transportInfo, setTransportInfo] = useState<TransportInfo | null>(null)
   const [transportDetailsOpen, setTransportDetailsOpen] = useState(false)
+  const [hostelInfo, setHostelInfo] = useState<HostelInfo | null>(null)
+  const [hostelDetailsOpen, setHostelDetailsOpen] = useState(false)
   const [selectedCollectionIds, setSelectedCollectionIds] = useState<string[]>([])
   const [search, setSearch] = useState(savedListState?.search ?? '')
   const [paymentDate, setPaymentDate] = useState(() => todayLocalIso())
@@ -574,7 +608,7 @@ export function FeeCollectionsPage() {
   const fetchStudentCollections = useCallback(async (studentId: string) => {
     try {
       const [currentData, arrearsData] = await Promise.all([
-        api.get<{ collections: FeeCollectionItem[]; receiptHistory?: ReceiptHistoryRow[]; transportInfo?: TransportInfo | null }>(
+        api.get<{ collections: FeeCollectionItem[]; receiptHistory?: ReceiptHistoryRow[]; transportInfo?: TransportInfo | null; hostelInfo?: HostelInfo | null }>(
           '/api/school/fees/collections',
           { studentId, academicYear, limit: '300' }
         ),
@@ -591,6 +625,7 @@ export function FeeCollectionsPage() {
       setAllStudentCollections(mergedItems)
       setReceiptHistory(currentData.receiptHistory || [])
       setTransportInfo(currentData.transportInfo || null)
+      setHostelInfo(currentData.hostelInfo || null)
 
       // Auto-select rules (cashier can override):
       //   1. Previous-AY dues (any kind, any status except PAID).
@@ -647,6 +682,7 @@ export function FeeCollectionsPage() {
       setAllStudentCollections([])
       setReceiptHistory([])
       setTransportInfo(null)
+      setHostelInfo(null)
       setSelectedCollectionIds([])
       setAutoSelectedCollectionIds([])
       setSelectedPeriods([])
@@ -733,19 +769,27 @@ export function FeeCollectionsPage() {
     [receiptHistory]
   )
   const academicItems = useMemo(
-    () => studentCollections.filter((item) => !isTransportItem(item)),
+    () => studentCollections.filter((item) => collectionCategory(item) === 'fees'),
     [studentCollections]
   )
   const transportItems = useMemo(
     () => studentCollections.filter(isTransportItem),
     [studentCollections]
   )
+  const hostelItems = useMemo(
+    () => studentCollections.filter(isHostelItem),
+    [studentCollections]
+  )
   const allAcademicItems = useMemo(
-    () => allStudentCollections.filter((item) => !isTransportItem(item)),
+    () => allStudentCollections.filter((item) => collectionCategory(item) === 'fees'),
     [allStudentCollections]
   )
   const allTransportItems = useMemo(
     () => allStudentCollections.filter(isTransportItem),
+    [allStudentCollections]
+  )
+  const allHostelItems = useMemo(
+    () => allStudentCollections.filter(isHostelItem),
     [allStudentCollections]
   )
   const currentTransportItems = useMemo(
@@ -755,6 +799,14 @@ export function FeeCollectionsPage() {
   const currentAllTransportItems = useMemo(
     () => allTransportItems.filter((item) => item.academicYear === academicYear),
     [academicYear, allTransportItems]
+  )
+  const currentHostelItems = useMemo(
+    () => hostelItems.filter((item) => item.academicYear === academicYear),
+    [academicYear, hostelItems]
+  )
+  const currentAllHostelItems = useMemo(
+    () => allHostelItems.filter((item) => item.academicYear === academicYear),
+    [academicYear, allHostelItems]
   )
   const visibleStudentCollections = useMemo(() => {
     if (selectedPeriods.length === 0) return []
@@ -962,15 +1014,17 @@ export function FeeCollectionsPage() {
       periods: string[]
       amount: number
       isTransport: boolean
+      isHostel: boolean
     }>()
     for (const item of selectedItems) {
       const head = (item.feeHeadName || 'Fee').trim() || 'Fee'
       const itemAy = academicYearKey(item.academicYear)
       const bucket = classify(item)
       const transport = isTransportItem(item)
+      const hostel = isHostelItem(item)
       // Term collapses per head; monthly/prev_session keep AY in the key so
       // a "Tuition 2024-2025" row never merges with the current AY.
-      const key = `${bucket}|${head}|${transport ? 't' : 'f'}|${bucket === 'prev_session' ? itemAy : ''}`
+      const key = `${bucket}|${head}|${transport ? 't' : hostel ? 'h' : 'f'}|${bucket === 'prev_session' ? itemAy : ''}`
       const period = itemPeriod(item)
       const group = groups.get(key) || {
         key,
@@ -980,6 +1034,7 @@ export function FeeCollectionsPage() {
         periods: [],
         amount: 0,
         isTransport: transport,
+        isHostel: hostel,
       }
       if (period && !group.periods.includes(period)) group.periods.push(period)
       group.amount += remainingAmount(item)
@@ -994,9 +1049,11 @@ export function FeeCollectionsPage() {
         if (a.bucket === 'prev_session' && a.academicYear !== b.academicYear) {
           return b.academicYear.localeCompare(a.academicYear)
         }
-        // Within the same bucket, transport before tuition (matches allocation
+        // Within the same bucket, service fees before tuition (matches allocation
         // order so the cashier's eye scan matches the slip).
-        if (a.isTransport !== b.isTransport) return a.isTransport ? -1 : 1
+        const aServiceRank = a.isTransport ? 0 : a.isHostel ? 1 : 2
+        const bServiceRank = b.isTransport ? 0 : b.isHostel ? 1 : 2
+        if (aServiceRank !== bServiceRank) return aServiceRank - bServiceRank
         const aTuition = /tuition/i.test(a.feeHeadName)
         const bTuition = /tuition/i.test(b.feeHeadName)
         if (aTuition !== bTuition) return aTuition ? -1 : 1
@@ -1006,9 +1063,9 @@ export function FeeCollectionsPage() {
         const periodList = group.periods.length > 0 ? group.periods.join(', ') : ''
         const prefix = bucketLabel[group.bucket]
 
-        // Only show "Previous Dues" labels for Transport and Tuition fees
+        // Only show "Previous Dues" labels for Transport, Hostel, and Tuition fees
         const isTuition = /tuition/i.test(group.feeHeadName)
-        const shouldShowPreviousLabel = group.isTransport || isTuition
+        const shouldShowPreviousLabel = group.isTransport || group.isHostel || isTuition
 
         let label: string
         if (!prefix) {
@@ -1057,12 +1114,21 @@ export function FeeCollectionsPage() {
     )
   }
 
-  const togglePeriod = (period: string, transport = false, itemAcademicYear: string | null = academicYear) => {
-    const source = transport ? transportItems : academicItems
+  const togglePeriod = (
+    period: string,
+    category: CollectionCategory = 'fees',
+    itemAcademicYear: string | null = academicYear,
+  ) => {
+    const source =
+      category === 'transport'
+        ? transportItems
+        : category === 'hostel'
+          ? hostelItems
+          : academicItems
     const ids = source
       .filter((item) => matchesPeriod(item, period) && academicYearKey(item.academicYear) === academicYearKey(itemAcademicYear))
       .map((item) => item.id)
-    const periodKey = periodSelectionKey(period, transport, itemAcademicYear)
+    const periodKey = periodSelectionKey(period, category, itemAcademicYear)
     const isSelected = selectedPeriods.includes(periodKey)
 
     setSelectedPeriods((current) =>
@@ -1110,6 +1176,8 @@ export function FeeCollectionsPage() {
     setSelectedStudent(student)
     setTransportInfo(null)
     setTransportDetailsOpen(false)
+    setHostelInfo(null)
+    setHostelDetailsOpen(false)
     setSelectedCollectionIds([])
     setAutoSelectedCollectionIds([])
     setSelectedPeriods([])
@@ -1481,6 +1549,8 @@ export function FeeCollectionsPage() {
                   setReceiptHistory([])
                   setTransportInfo(null)
                   setTransportDetailsOpen(false)
+                  setHostelInfo(null)
+                  setHostelDetailsOpen(false)
                   setSelectedCollectionIds([])
                   setAutoSelectedCollectionIds([])
                   setSelectedPeriods([])
@@ -1658,7 +1728,7 @@ export function FeeCollectionsPage() {
                       </div>
                       <div className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
                         {otherTermOptions.map((option) => {
-                          const checked = selectedPeriods.includes(periodSelectionKey(option.period, false, option.academicYear))
+                          const checked = selectedPeriods.includes(periodSelectionKey(option.period, 'fees', option.academicYear))
                           const allItemsForOption = currentAllOtherTermItems.filter(
                             (item) =>
                               matchesPeriod(item, option.period) &&
@@ -1679,7 +1749,7 @@ export function FeeCollectionsPage() {
                               <Checkbox
                                 checked={checked || isSettled}
                                 disabled={isSettled}
-                                onCheckedChange={() => togglePeriod(option.period, false, option.academicYear || null)}
+                                onCheckedChange={() => togglePeriod(option.period, 'fees', option.academicYear || null)}
                               />
                               <span className="truncate">{option.period}</span>
                               {state && (
@@ -1724,7 +1794,7 @@ export function FeeCollectionsPage() {
                         const monthItems = currentMonthItems.filter((item) => matchesPeriod(item, month))
                         const allMonthItems = currentAllMonthItems.filter((item) => matchesPeriod(item, month))
                         const monthState = periodPaymentState(allMonthItems)
-                        const checked = selectedPeriods.includes(periodSelectionKey(month, false, academicYear))
+                        const checked = selectedPeriods.includes(periodSelectionKey(month, 'fees', academicYear))
                         const isSettled = monthState === 'paid'
                         const monthAmount = monthItems.reduce((sum, item) => sum + remainingAmount(item), 0)
                         const hasFee = allMonthItems.length > 0
@@ -1747,7 +1817,7 @@ export function FeeCollectionsPage() {
                               <Checkbox
                                 checked={checked || isSettled}
                                 disabled={!hasFee || isSettled}
-                                onCheckedChange={() => togglePeriod(month, false, academicYear)}
+                                onCheckedChange={() => togglePeriod(month, 'fees', academicYear)}
                               />
                               <span className="font-medium">{month}</span>
                               {isCurrentCal && hasFee && !isSettled && (
@@ -1778,6 +1848,147 @@ export function FeeCollectionsPage() {
                   </div>
                 </CardContent>
               </Card>
+
+              {/* Hostel */}
+              {currentAllHostelItems.length > 0 && (
+                <Card className="!gap-0 overflow-hidden !py-0 shadow-sm">
+                  <CardHeader className="border-b bg-muted/30 px-3 !py-2">
+                    <CardTitle className="flex items-center justify-between gap-3 text-sm">
+                      <span className="flex items-center gap-2">
+                        <Home className="size-4 text-primary" />
+                        Hostel
+                      </span>
+                      <div className="flex items-center gap-1.5">
+                        {(hostelInfo?.fareAmount || currentAllHostelItems[0]?.amount) && (
+                          <Badge variant="secondary" className="bg-primary/10 text-[10px] text-primary hover:bg-primary/10">
+                            Monthly - {money(hostelInfo?.fareAmount || currentAllHostelItems[0]?.amount || 0)}
+                          </Badge>
+                        )}
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 gap-1 px-1.5 text-[10px] text-muted-foreground hover:text-foreground"
+                          aria-expanded={hostelDetailsOpen}
+                          onClick={() => setHostelDetailsOpen((open) => !open)}
+                        >
+                          Details
+                          <ChevronDown className={cn('size-3 transition-transform', hostelDetailsOpen && 'rotate-180')} />
+                        </Button>
+                      </div>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2.5 px-3 py-2.5">
+                    {hostelDetailsOpen && (
+                      <div className="grid gap-2 rounded-md border bg-muted/30 p-2.5 text-xs sm:grid-cols-2">
+                        <div>
+                          <span className="text-muted-foreground">Hostel:</span>
+                          <span className="ml-1 font-medium">
+                            {hostelInfo?.hostelName || 'Assigned Hostel'}
+                            {hostelInfo?.hostelType ? ` (${hostelInfo.hostelType})` : ''}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Room:</span>
+                          <span className="ml-1 font-medium">
+                            {hostelInfo?.roomNumber || '-'}
+                            {hostelInfo?.roomType ? ` - ${hostelInfo.roomType}` : ''}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Bed:</span>
+                          <span className="ml-1 font-medium">{hostelInfo?.bedNumber || '-'}</span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Session:</span>
+                          <span className="ml-1 font-medium">{hostelInfo?.academicYear || academicYear}</span>
+                        </div>
+                        {hostelInfo?.floor && (
+                          <div>
+                            <span className="text-muted-foreground">Floor:</span>
+                            <span className="ml-1 font-medium">{hostelInfo.floor}</span>
+                          </div>
+                        )}
+                        {hostelInfo?.capacity != null && (
+                          <div>
+                            <span className="text-muted-foreground">Room Capacity:</span>
+                            <span className="ml-1 font-medium">{hostelInfo.capacity}</span>
+                          </div>
+                        )}
+                        {hostelInfo?.wardenName && (
+                          <div>
+                            <span className="text-muted-foreground">Warden:</span>
+                            <span className="ml-1 font-medium">{hostelInfo.wardenName}</span>
+                          </div>
+                        )}
+                        {hostelInfo?.wardenPhone && (
+                          <div>
+                            <span className="text-muted-foreground">Warden Phone:</span>
+                            <span className="ml-1 font-medium">{hostelInfo.wardenPhone}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-4 lg:grid-cols-6">
+                      {MONTHS.map((month) => {
+                        const monthItems = currentHostelItems.filter((item) => matchesPeriod(item, month))
+                        const allMonthItems = currentAllHostelItems.filter((item) => matchesPeriod(item, month))
+                        const monthState = periodPaymentState(allMonthItems)
+                        const monthKey = periodSelectionKey(month, 'hostel', academicYear)
+                        const checked = selectedPeriods.includes(monthKey)
+                        const isSettled = monthState === 'paid'
+                        const monthAmount = monthItems.reduce((sum, item) => sum + remainingAmount(item), 0)
+                        const hasFee = allMonthItems.length > 0
+                        const sampleItem = allMonthItems[0]
+                        const isOverdue = !!sampleItem && itemIsBeforeToday(sampleItem) && (monthState === 'unpaid' || monthState === 'partial')
+                        const isCurrentCal = !!sampleItem && itemIsCurrentCalendarMonth(sampleItem)
+                        return (
+                          <label
+                            key={month}
+                            className={cn(
+                              'flex cursor-pointer flex-col gap-0.5 rounded-md border bg-card px-2 py-1.5 text-xs transition-all hover:border-primary/40 hover:bg-primary/5',
+                              checked && 'border-primary bg-primary/10 ring-1 ring-primary/20',
+                              isOverdue && !checked && 'border-red-300 bg-red-50/70 text-red-900 hover:border-red-400 hover:bg-red-50 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-200',
+                              isCurrentCal && !checked && !isOverdue && 'border-primary/40 bg-primary/5',
+                              isSettled && 'cursor-default border-emerald-300 bg-emerald-100 text-emerald-900 hover:border-emerald-300 dark:bg-emerald-500/20 dark:text-emerald-200',
+                              !hasFee && 'cursor-default bg-muted/40 text-muted-foreground hover:border-border hover:bg-muted/40'
+                            )}
+                          >
+                            <div className="flex w-full items-center gap-1.5">
+                              <Checkbox
+                                checked={checked || isSettled}
+                                disabled={!hasFee || isSettled}
+                                onCheckedChange={() => togglePeriod(month, 'hostel', academicYear)}
+                              />
+                              <span className="font-medium">{month}</span>
+                              {isCurrentCal && hasFee && !isSettled && (
+                                <span className="rounded bg-primary/15 px-1 py-px text-[9px] font-semibold uppercase leading-none tracking-wide text-primary">Now</span>
+                              )}
+                              {monthState && (
+                                <span
+                                  className={cn(
+                                    'ml-auto inline-block size-1.5 rounded-full',
+                                    monthState === 'paid' && 'bg-emerald-500',
+                                    monthState === 'partial' && 'bg-amber-500',
+                                    monthState === 'unpaid' && (isOverdue ? 'bg-red-500' : 'bg-slate-400')
+                                  )}
+                                  title={isOverdue ? `Overdue - ${periodStateLabel(monthState)}` : periodStateLabel(monthState)}
+                                />
+                              )}
+                            </div>
+                            <div className={cn(
+                              'text-[10px] tabular-nums',
+                              isOverdue ? 'font-semibold text-red-700 dark:text-red-300' : 'text-muted-foreground'
+                            )}>
+                              {!hasFee ? 'No fee' : isSettled ? 'Paid' : isOverdue ? `Due - ${money(monthAmount)}` : money(monthAmount)}
+                            </div>
+                          </label>
+                        )
+                      })}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
 
               {/* Transport */}
               {currentAllTransportItems.length > 0 && (
@@ -1841,7 +2052,7 @@ export function FeeCollectionsPage() {
                         const monthItems = currentTransportItems.filter((item) => matchesPeriod(item, month))
                         const allMonthItems = currentAllTransportItems.filter((item) => matchesPeriod(item, month))
                         const monthState = periodPaymentState(allMonthItems)
-                        const monthKey = periodSelectionKey(month, true, academicYear)
+                        const monthKey = periodSelectionKey(month, 'transport', academicYear)
                         const checked = selectedPeriods.includes(monthKey)
                         const isSettled = monthState === 'paid'
                         const monthAmount = monthItems.reduce((sum, item) => sum + remainingAmount(item), 0)
@@ -1865,7 +2076,7 @@ export function FeeCollectionsPage() {
                               <Checkbox
                                 checked={checked || isSettled}
                                 disabled={!hasFee || isSettled}
-                                onCheckedChange={() => togglePeriod(month, true, academicYear)}
+                                onCheckedChange={() => togglePeriod(month, 'transport', academicYear)}
                               />
                               <span className="font-medium">{month}</span>
                               {isCurrentCal && hasFee && !isSettled && (

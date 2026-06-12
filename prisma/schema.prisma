@@ -38,22 +38,22 @@ model User {
   updatedAt             DateTime  @updatedAt
   deletedAt             DateTime?
 
-  school              School?               @relation(fields: [schoolId], references: [id])
-  userRoles           UserRole[]
-  userPermissions     UserPermission[]
-  markedAttendance    Attendance[]          @relation("markedByUser")
-  finalizedAttendance Attendance[]          @relation("finalizedByUser")
-  markedEmployeeAttendance    EmployeeAttendance[] @relation("employeeAttendanceMarker")
-  finalizedEmployeeAttendance EmployeeAttendance[] @relation("employeeAttendanceFinalizer")
-  attendanceAuditLogs AttendanceAuditLog[]  @relation("attendanceAuditActor")
-  attendanceChanges   AttendanceChangeLog[] @relation("attendanceChanger")
-  loginEvents         LoginEvent[]
-  accountLockout      AccountLockout?
-  passwordResetTokens PasswordResetToken[]
-  feeAuditLogs        FeeAuditLog[]
-  feeConfigAuditLogs  FeeConfigAuditLog[]
-  rfidCardsAssigned   StudentCard[]         @relation("rfidCardsAssigned")
-  rfidCardsRevoked    StudentCard[]         @relation("rfidCardsRevoked")
+  school                      School?               @relation(fields: [schoolId], references: [id])
+  userRoles                   UserRole[]
+  userPermissions             UserPermission[]
+  markedAttendance            Attendance[]          @relation("markedByUser")
+  finalizedAttendance         Attendance[]          @relation("finalizedByUser")
+  markedEmployeeAttendance    EmployeeAttendance[]  @relation("employeeAttendanceMarker")
+  finalizedEmployeeAttendance EmployeeAttendance[]  @relation("employeeAttendanceFinalizer")
+  attendanceAuditLogs         AttendanceAuditLog[]  @relation("attendanceAuditActor")
+  attendanceChanges           AttendanceChangeLog[] @relation("attendanceChanger")
+  loginEvents                 LoginEvent[]
+  accountLockout              AccountLockout?
+  passwordResetTokens         PasswordResetToken[]
+  feeAuditLogs                FeeAuditLog[]
+  feeConfigAuditLogs          FeeConfigAuditLog[]
+  rfidCardsAssigned           StudentCard[]         @relation("rfidCardsAssigned")
+  rfidCardsRevoked            StudentCard[]         @relation("rfidCardsRevoked")
 
   @@index([schoolId])
   @@index([schoolId, employeeId])
@@ -65,37 +65,37 @@ model User {
 // ============================================
 
 model School {
-  id             String    @id @default(cuid())
-  name           String
-  logo           String?
-  address        String?
-  city           String?
-  state          String?
-  pincode        String?
-  country        String    @default("India")
-  contactPhone   String?
-  contactEmail   String?
-  website        String?
-  academicYear   String    @default("2025-2026")
-  board          String    @default("CBSE") // CBSE, ICSE, State
-  timezone       String    @default("Asia/Kolkata")
-  currency       String    @default("INR")
-  subdomain      String    @unique
-  status         String    @default("pending") // pending, active, suspended, trial
-  trialEndsAt    DateTime?
-  onboardingDate DateTime?
-  favicon        String?
-  printHeader    String? // Base64 banner image used as header on all printables (admission form, fee receipt, etc.)
+  id                 String    @id @default(cuid())
+  name               String
+  logo               String?
+  address            String?
+  city               String?
+  state              String?
+  pincode            String?
+  country            String    @default("India")
+  contactPhone       String?
+  contactEmail       String?
+  website            String?
+  academicYear       String    @default("2025-2026")
+  board              String    @default("CBSE") // CBSE, ICSE, State
+  timezone           String    @default("Asia/Kolkata")
+  currency           String    @default("INR")
+  subdomain          String    @unique
+  status             String    @default("pending") // pending, active, suspended, trial
+  trialEndsAt        DateTime?
+  onboardingDate     DateTime?
+  favicon            String?
+  printHeader        String? // Base64 banner image used as header on all printables (admission form, fee receipt, etc.)
   registrationNumber String?
-  udiseNumber     String?
-  affiliationNumber String?
-  establishedYear String?
+  udiseNumber        String?
+  affiliationNumber  String?
+  establishedYear    String?
   principalSignature String?
-  features       String? // JSON string of enabled features
-  workingDays    String    @default("[\"Monday\",\"Tuesday\",\"Wednesday\",\"Thursday\",\"Friday\",\"Saturday\"]") // JSON array of weekday names this school operates on
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-  deletedAt      DateTime?
+  features           String? // JSON string of enabled features
+  workingDays        String    @default("[\"Monday\",\"Tuesday\",\"Wednesday\",\"Thursday\",\"Friday\",\"Saturday\"]") // JSON array of weekday names this school operates on
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  deletedAt          DateTime?
 
   users                       User[]
   classes                     Class[]
@@ -127,6 +127,9 @@ model School {
   studentCards                StudentCard[]
   rfidDevices                 RfidDevice[]
   rfidTapLogs                 RfidTapLog[]
+  attendanceDevices           AttendanceDevice[]
+  attendanceCredentials       AttendanceCredential[]
+  attendanceDevicePunchLogs   AttendanceDevicePunchLog[]
   timetables                  Timetable[]
   periodConfigs               PeriodConfig[]
   exams                       Exam[]
@@ -1622,6 +1625,93 @@ model RfidTapLog {
   @@index([deviceId, tappedAt])
 }
 
+// Generic attendance devices. Used first for ZKTeco ADMS devices, but the
+// shape is provider-neutral so other biometric/RFID hardware can reuse it.
+model AttendanceDevice {
+  id          String    @id @default(cuid())
+  schoolId    String
+  provider    String // zkteco_adms
+  serialNo    String    @unique
+  name        String
+  location    String?
+  commKeyHash String?
+  isActive    Boolean   @default(true)
+  lastSeenAt  DateTime?
+  lastSeenIp  String?
+  createdBy   String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  school      School                     @relation(fields: [schoolId], references: [id])
+  credentials AttendanceCredential[]
+  punchLogs   AttendanceDevicePunchLog[]
+
+  @@index([schoolId, provider, isActive])
+  @@index([schoolId, deletedAt])
+}
+
+// Maps a hardware-side identity to a person in the ERP. For ZKTeco fingerprint
+// this stores the device PIN/user id, not the fingerprint template.
+model AttendanceCredential {
+  id              String    @id @default(cuid())
+  schoolId        String
+  deviceId        String?
+  provider        String // zkteco_adms | local_rfid
+  credentialType  String // zkteco_pin | zkteco_card_no | fingerprint | rfid_uid
+  credentialValue String
+  personType      String // student | teacher | staff
+  personId        String
+  academicYear    String?
+  isActive        Boolean   @default(true)
+  assignedAt      DateTime  @default(now())
+  assignedBy      String?
+  revokedAt       DateTime?
+  revokedBy       String?
+  revokeReason    String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  school School            @relation(fields: [schoolId], references: [id])
+  device AttendanceDevice? @relation(fields: [deviceId], references: [id])
+
+  @@unique([schoolId, provider, credentialType, credentialValue])
+  @@index([schoolId, personType, personId])
+  @@index([schoolId, provider, isActive])
+  @@index([deviceId])
+}
+
+// Append-only raw punch audit for ADMS/biometric devices. Idempotency is based
+// on (serialNo, deviceUserId, punchTime, verifyMode, punchStatus).
+model AttendanceDevicePunchLog {
+  id           String   @id @default(cuid())
+  schoolId     String
+  deviceId     String?
+  serialNo     String
+  provider     String // zkteco_adms
+  deviceUserId String
+  personType   String?
+  personId     String?
+  credentialId String?
+  punchTime    DateTime
+  verifyMode   String   @default("")
+  punchStatus  String   @default("")
+  workCode     String?
+  rawLine      String
+  result       String // marked | updated | duplicate | unknown_user | finalized | non_teaching | ignored
+  errorDetail  String?
+  createdAt    DateTime @default(now())
+
+  school School            @relation(fields: [schoolId], references: [id])
+  device AttendanceDevice? @relation(fields: [deviceId], references: [id])
+
+  @@unique([serialNo, deviceUserId, punchTime, verifyMode, punchStatus])
+  @@index([schoolId, punchTime])
+  @@index([schoolId, result, punchTime])
+  @@index([schoolId, personType, personId, punchTime])
+  @@index([deviceId, punchTime])
+}
+
 // ============================================
 // TIMETABLE
 // ============================================
@@ -1944,18 +2034,18 @@ model MarksEntry {
 // grade. Scope can narrow to a paradigm/group/class; null scopes mean "default
 // for this school".
 model GradeScale {
-  id           String    @id @default(cuid())
-  schoolId     String
-  name         String // "CBSE 9-point", "Coaching A-F", "State 5-point"
-  paradigmId   String?
-  examGroupId  String?
-  classId      String?
-  scaleType    String    @default("percentage") // percentage | marks | cgpa
-  isActive     Boolean   @default(true)
-  isDefault    Boolean   @default(false)
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  deletedAt    DateTime?
+  id          String    @id @default(cuid())
+  schoolId    String
+  name        String // "CBSE 9-point", "Coaching A-F", "State 5-point"
+  paradigmId  String?
+  examGroupId String?
+  classId     String?
+  scaleType   String    @default("percentage") // percentage | marks | cgpa
+  isActive    Boolean   @default(true)
+  isDefault   Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
 
   school School      @relation(fields: [schoolId], references: [id])
   bands  GradeBand[]
@@ -2288,7 +2378,7 @@ model PayrollRun {
 }
 
 model SalaryAuditLog {
-  id          String  @id @default(cuid())
+  id          String   @id @default(cuid())
   schoolId    String
   entityType  String // SalaryStructure, SalaryPayment, AdvanceRequest, PayrollRun
   entityId    String
@@ -2583,15 +2673,15 @@ model HostelRoom {
 }
 
 model HostelBed {
-  id         String    @id @default(cuid())
-  schoolId   String
-  hostelId   String
-  roomId     String
-  bedNumber  String
-  isActive   Boolean   @default(true)
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
-  deletedAt  DateTime?
+  id        String    @id @default(cuid())
+  schoolId  String
+  hostelId  String
+  roomId    String
+  bedNumber String
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
 
   room        HostelRoom         @relation(fields: [roomId], references: [id])
   allocations HostelAllocation[]
@@ -2977,7 +3067,7 @@ model Notification {
   metadata       Json?
   announcementId String? // links a notification back to its source announcement
 
-  school    School?                 @relation(fields: [schoolId], references: [id])
+  school     School?                @relation(fields: [schoolId], references: [id])
   deliveries NotificationDelivery[]
 
   @@index([schoolId])
@@ -3568,21 +3658,21 @@ model PlatformAnnouncementDismissal {
 // ============================================
 
 model ExportJob {
-  id           String    @id @default(cuid())
-  schoolId     String
-  status       String    @default("pending") // pending | processing | completed | failed
-  format       String    @default("json.gz") // artifact format
-  filePath     String? // private storage path of the produced artifact
-  fileSize     Int? // bytes
-  tableCount   Int? // number of tables included
-  recordCount  Int? // total rows exported
-  error        String? // failure reason (user-friendly)
-  requestedBy  String? // super-admin user id
-  startedAt    DateTime?
-  completedAt  DateTime?
-  expiresAt    DateTime? // after this the artifact is purged and download 410s
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  id          String    @id @default(cuid())
+  schoolId    String
+  status      String    @default("pending") // pending | processing | completed | failed
+  format      String    @default("json.gz") // artifact format
+  filePath    String? // private storage path of the produced artifact
+  fileSize    Int? // bytes
+  tableCount  Int? // number of tables included
+  recordCount Int? // total rows exported
+  error       String? // failure reason (user-friendly)
+  requestedBy String? // super-admin user id
+  startedAt   DateTime?
+  completedAt DateTime?
+  expiresAt   DateTime? // after this the artifact is purged and download 410s
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
 

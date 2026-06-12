@@ -177,6 +177,12 @@ async function ensureLedgerForExistingCollections(
       const invoiceLine = collection.assignmentItem?.invoiceLines[0]
       const collectionAcademicYear = collection.assignmentItem?.assignment?.academicYear || extractAcademicYear(collection.notes)
       const totalDebit = roundMoney(collection.amount + collection.fine)
+      const collectionHeadName = (collection.feeHeadName || '').toLowerCase()
+      const sourceType = collectionHeadName.includes('transport')
+        ? 'transport'
+        : collectionHeadName.includes('hostel')
+          ? 'hostel'
+          : 'migration'
       const carriedBalance = roundMoney(Math.max(
         0,
         totalDebit - collection.paidAmount - collection.discount - collection.concession - collection.scholarship
@@ -191,7 +197,7 @@ async function ensureLedgerForExistingCollections(
         invoiceId: collection.studentFeeInvoiceId || invoiceLine?.invoiceId,
         invoiceLineId: invoiceLine?.id,
         feeCollectionId: collection.id,
-        sourceType: collection.feeHeadName?.toLowerCase().includes('transport') ? 'transport' : 'migration',
+        sourceType,
         sourceId: collection.id,
         feeHeadName: collection.feeHeadName || 'Fee',
         installmentName: collection.installmentName,
@@ -254,7 +260,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const [entries, total, credits, transportAllocation] = await Promise.all([
+    const [entries, total, credits, transportAllocation, hostelAllocation] = await Promise.all([
       db.studentFeeLedgerEntry.findMany({
         where,
         include: {
@@ -346,15 +352,55 @@ export async function GET(request: NextRequest) {
             orderBy: { updatedAt: 'desc' },
           })
         : Promise.resolve(null),
+      studentId
+        ? db.hostelAllocation.findFirst({
+            where: {
+              schoolId: user.schoolId,
+              studentId,
+              isActive: true,
+              ...(academicYear ? { academicYear } : {}),
+            },
+            include: {
+              hostel: {
+                select: {
+                  id: true,
+                  name: true,
+                  type: true,
+                  wardenName: true,
+                  wardenPhone: true,
+                },
+              },
+              room: {
+                select: {
+                  id: true,
+                  roomNumber: true,
+                  roomType: true,
+                  floor: true,
+                  capacity: true,
+                },
+              },
+              bed: {
+                select: {
+                  id: true,
+                  bedNumber: true,
+                },
+              },
+            },
+            orderBy: { updatedAt: 'desc' },
+          })
+        : Promise.resolve(null),
     ])
 
     const normalizedCollections = entries.map((entry) => {
       const paidAmount = entry.feeCollection
         ? entry.feeCollection.paidAmount
         : roundMoney(entry.debit - entry.balanceAmount)
-      const source = (entry.feeHeadName || '').toLowerCase().includes('transport') || entry.sourceType === 'transport'
+      const headName = (entry.feeHeadName || '').toLowerCase()
+      const source = entry.sourceType === 'transport' || headName.includes('transport')
         ? 'transport'
-        : 'fees'
+        : entry.sourceType === 'hostel' || headName.includes('hostel')
+          ? 'hostel'
+          : 'fees'
 
       return {
         id: entry.feeCollectionId || entry.id,
@@ -539,6 +585,25 @@ export async function GET(request: NextRequest) {
             dropPoint: transportAllocation.dropPoint,
             fareAmount: transportAllocation.fareAmount,
             academicYear: transportAllocation.academicYear,
+          }
+        : null,
+      hostelInfo: hostelAllocation
+        ? {
+            id: hostelAllocation.id,
+            hostelId: hostelAllocation.hostelId,
+            hostelName: hostelAllocation.hostel?.name || 'Assigned Hostel',
+            hostelType: hostelAllocation.hostel?.type || null,
+            wardenName: hostelAllocation.hostel?.wardenName || null,
+            wardenPhone: hostelAllocation.hostel?.wardenPhone || null,
+            roomId: hostelAllocation.roomId,
+            roomNumber: hostelAllocation.room?.roomNumber || null,
+            roomType: hostelAllocation.room?.roomType || null,
+            floor: hostelAllocation.room?.floor || null,
+            capacity: hostelAllocation.room?.capacity ?? null,
+            bedId: hostelAllocation.bedId,
+            bedNumber: hostelAllocation.bed?.bedNumber || null,
+            fareAmount: hostelAllocation.fareAmount,
+            academicYear: hostelAllocation.academicYear,
           }
         : null,
       pagination: {

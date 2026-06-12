@@ -238,6 +238,48 @@ function formatAadhaar(value: string): string {
 interface ClassOption { id: string; name: string }
 interface SectionOption { id: string; name: string; classId: string }
 
+interface SiblingParentDetails {
+  student: {
+    address: string | null
+    city: string | null
+    state: string | null
+    pincode: string | null
+    country: string | null
+    village: string | null
+    postOffice: string | null
+    policeStation: string | null
+    wardNo: string | null
+    sameAsPermanent: boolean | null
+    localAddress: string | null
+    localCity: string | null
+    localState: string | null
+    localPincode: string | null
+    localCountry: string | null
+    localVillage: string | null
+    localPostOffice: string | null
+    localPoliceStation: string | null
+    localWardNo: string | null
+  }
+  father: {
+    name: string | null
+    phone: string | null
+    email: string | null
+    occupation: string | null
+    aadhaar: string | null
+    education: string | null
+    income: number | null
+  }
+  mother: {
+    name: string | null
+    phone: string | null
+    email: string | null
+    occupation: string | null
+    aadhaar: string | null
+    education: string | null
+    income: number | null
+  }
+}
+
 // ============================================
 // Form Interface
 // ============================================
@@ -499,7 +541,6 @@ export function EditStudentPage({ studentId }: { studentId: string }) {
       }
     }
     fetchData()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [studentId])
 
   const filteredSections = useMemo(
@@ -639,11 +680,101 @@ export function EditStudentPage({ studentId }: { studentId: string }) {
     }
   }, [])
 
-  const selectSibling = (sibling: typeof siblingResults[0]) => {
-    updateForm('siblingId', sibling.id)
-    setSiblingSearch('')
-    setSiblingResults([])
-    toast({ title: 'Sibling Linked', description: `Linked to ${sibling.firstName} ${sibling.lastName}` })
+  const copySiblingParentDetails = (details: SiblingParentDetails, siblingId: string) => {
+    const pick = (value: string | number | boolean | null | undefined, fallback: string | boolean) => {
+      if (typeof value === 'boolean') return value
+      if (typeof value === 'number') return String(value)
+      if (typeof value === 'string' && value.trim()) return value
+      return fallback
+    }
+
+    setForm(prev => {
+      if (!prev) return prev
+      const sameAsPermanent = typeof details.student.sameAsPermanent === 'boolean'
+        ? details.student.sameAsPermanent
+        : prev.sameAsPermanent
+
+      const next: EditForm = {
+        ...prev,
+        siblingId,
+        address: pick(details.student.address, prev.address) as string,
+        village: pick(details.student.village, prev.village) as string,
+        postOffice: pick(details.student.postOffice, prev.postOffice) as string,
+        policeStation: pick(details.student.policeStation, prev.policeStation) as string,
+        wardNo: pick(details.student.wardNo, prev.wardNo) as string,
+        city: pick(details.student.city, prev.city) as string,
+        state: pick(details.student.state, prev.state) as string,
+        pincode: pick(details.student.pincode, prev.pincode) as string,
+        country: pick(details.student.country, prev.country || 'India') as string,
+        sameAsPermanent,
+        localAddress: pick(details.student.localAddress, prev.localAddress) as string,
+        localVillage: pick(details.student.localVillage, prev.localVillage) as string,
+        localPostOffice: pick(details.student.localPostOffice, prev.localPostOffice) as string,
+        localPoliceStation: pick(details.student.localPoliceStation, prev.localPoliceStation) as string,
+        localWardNo: pick(details.student.localWardNo, prev.localWardNo) as string,
+        localCity: pick(details.student.localCity, prev.localCity) as string,
+        localState: pick(details.student.localState, prev.localState) as string,
+        localPincode: pick(details.student.localPincode, prev.localPincode) as string,
+        localCountry: pick(details.student.localCountry, prev.localCountry || 'India') as string,
+        fatherName: pick(details.father.name, prev.fatherName) as string,
+        fatherPhone: pick(details.father.phone, prev.fatherPhone) as string,
+        fatherEmail: pick(details.father.email, prev.fatherEmail) as string,
+        fatherOccupation: pick(details.father.occupation, prev.fatherOccupation) as string,
+        fatherAadhaar: details.father.aadhaar ? formatAadhaar(details.father.aadhaar) : prev.fatherAadhaar,
+        fatherEducation: pick(details.father.education, prev.fatherEducation) as string,
+        fatherIncome: pick(details.father.income, prev.fatherIncome) as string,
+        motherName: pick(details.mother.name, prev.motherName) as string,
+        motherPhone: pick(details.mother.phone, prev.motherPhone) as string,
+        motherEmail: pick(details.mother.email, prev.motherEmail) as string,
+        motherOccupation: pick(details.mother.occupation, prev.motherOccupation) as string,
+        motherAadhaar: details.mother.aadhaar ? formatAadhaar(details.mother.aadhaar) : prev.motherAadhaar,
+        motherEducation: pick(details.mother.education, prev.motherEducation) as string,
+        motherIncome: pick(details.mother.income, prev.motherIncome) as string,
+      }
+
+      if (sameAsPermanent) {
+        next.localAddress = next.address
+        next.localVillage = next.village
+        next.localPostOffice = next.postOffice
+        next.localPoliceStation = next.policeStation
+        next.localWardNo = next.wardNo
+        next.localCity = next.city
+        next.localState = next.state
+        next.localPincode = next.pincode
+        next.localCountry = next.country
+      }
+
+      return next
+    })
+  }
+
+  const selectSibling = async (sibling: typeof siblingResults[0]) => {
+    setSiblingSearching(true)
+    try {
+      const details = await api.get<SiblingParentDetails>(
+        `/api/school/students/${sibling.id}/parent-details`,
+        undefined,
+        { skipLogoutOn401: true },
+      )
+      copySiblingParentDetails(details, sibling.id)
+      setSiblingSearch('')
+      setSiblingResults([])
+      toast({
+        title: 'Sibling Linked',
+        description: `Parent details and address copied from ${sibling.firstName} ${sibling.lastName}.`,
+      })
+    } catch {
+      updateForm('siblingId', sibling.id)
+      setSiblingSearch('')
+      setSiblingResults([])
+      toast({
+        title: 'Sibling Linked',
+        description: `Linked to ${sibling.firstName} ${sibling.lastName}, but parent details could not be copied.`,
+        variant: 'destructive',
+      })
+    } finally {
+      setSiblingSearching(false)
+    }
   }
 
   // Document handlers

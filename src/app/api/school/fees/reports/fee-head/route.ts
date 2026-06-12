@@ -50,38 +50,80 @@ export async function GET(request: NextRequest) {
 
     // Pull every ledger entry tagged with this head. Bounded by school size ×
     // entries-per-head — safe to tally in JS.
-    const entries = await db.studentFeeLedgerEntry.findMany({
-      where: {
-        schoolId,
-        deletedAt: null,
-        feeHeadName: headName,
-        ...ayFilter,
-        ...(classIdFilter
-          ? { student: { classId: classIdFilter } }
-          : {}),
-      },
-      select: {
-        studentId: true,
-        entryType: true,
-        debit: true,
-        credit: true,
-        balanceAmount: true,
-        status: true,
-        transactionDate: true,
-        dueDate: true,
-        student: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            admissionNumber: true,
-            rollNumber: true,
-            class: { select: { id: true, name: true } },
-            section: { select: { id: true, name: true } },
+    const [entries, allocations] = await Promise.all([
+      db.studentFeeLedgerEntry.findMany({
+        where: {
+          schoolId,
+          deletedAt: null,
+          feeHeadName: headName,
+          ...ayFilter,
+          ...(classIdFilter
+            ? { student: { classId: classIdFilter } }
+            : {}),
+        },
+        select: {
+          studentId: true,
+          entryType: true,
+          debit: true,
+          credit: true,
+          balanceAmount: true,
+          status: true,
+          transactionDate: true,
+          dueDate: true,
+          student: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              admissionNumber: true,
+              rollNumber: true,
+              class: { select: { id: true, name: true } },
+              section: { select: { id: true, name: true } },
+            },
           },
         },
-      },
-    })
+      }),
+      db.studentFeeLedgerAllocation.findMany({
+        where: {
+          schoolId,
+          deletedAt: null,
+          ...(hasDateFilter ? { allocatedAt: collectionWindow } : {}),
+          creditEntry: {
+            entryType: 'CREDIT',
+            deletedAt: null,
+          },
+          debitEntry: {
+            schoolId,
+            deletedAt: null,
+            feeHeadName: headName,
+            ...ayFilter,
+            ...(classIdFilter
+              ? { student: { classId: classIdFilter } }
+              : {}),
+          },
+        },
+        select: {
+          amount: true,
+          allocatedAt: true,
+          debitEntry: {
+            select: {
+              studentId: true,
+              student: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                  admissionNumber: true,
+                  rollNumber: true,
+                  class: { select: { id: true, name: true } },
+                  section: { select: { id: true, name: true } },
+                },
+              },
+            },
+          },
+        },
+      }),
+    ])
 
     const inCollectionWindow = (d: Date) => {
       if (!hasDateFilter) return true
@@ -145,16 +187,51 @@ export async function GET(request: NextRequest) {
             sa.oldestDueDate = due
           }
         }
-      } else if (e.entryType === 'CREDIT' && inCollectionWindow(e.transactionDate)) {
-        totalCollected += e.credit
-        ca.collected += e.credit
-        sa.collected += e.credit
       } else if (e.entryType === 'REFUND' && inCollectionWindow(e.transactionDate)) {
         totalRefunded += e.debit
       }
 
       classMap.set(classId, ca)
       studentMap.set(e.studentId, sa)
+    }
+
+    for (const allocation of allocations) {
+      const debit = allocation.debitEntry
+      const student = debit.student
+      const cls = student.class
+      const classId = cls?.id ?? '__none__'
+      const className = cls?.name ?? 'Unassigned'
+      const amount = allocation.amount || 0
+
+      const ca = classMap.get(classId) ?? {
+        classId,
+        className,
+        billed: 0,
+        collected: 0,
+        outstanding: 0,
+        defaulterIds: new Set<string>(),
+        studentIds: new Set<string>(),
+      }
+      ca.studentIds.add(debit.studentId)
+      ca.collected += amount
+
+      const sa = studentMap.get(debit.studentId) ?? {
+        studentId: debit.studentId,
+        name: `${student.firstName} ${student.lastName}`.trim(),
+        admissionNumber: student.admissionNumber,
+        rollNumber: student.rollNumber,
+        class: student.class,
+        section: student.section,
+        billed: 0,
+        collected: 0,
+        outstanding: 0,
+        oldestDueDate: null as Date | null,
+      }
+      sa.collected += amount
+      totalCollected += amount
+
+      classMap.set(classId, ca)
+      studentMap.set(debit.studentId, sa)
     }
 
     const byClass = Array.from(classMap.values())
@@ -202,7 +279,13 @@ export async function GET(request: NextRequest) {
       const key = toMonthKey(e.transactionDate)
       const bucket = monthlyMap.get(key) ?? { billed: 0, collected: 0 }
       if (e.entryType === 'DEBIT' || e.entryType === 'FINE') bucket.billed += e.debit || 0
-      else if (e.entryType === 'CREDIT') bucket.collected += e.credit || 0
+      monthlyMap.set(key, bucket)
+    }
+    for (const allocation of allocations) {
+      if (allocation.allocatedAt < yearStart || allocation.allocatedAt >= ayEnd) continue
+      const key = toMonthKey(allocation.allocatedAt)
+      const bucket = monthlyMap.get(key) ?? { billed: 0, collected: 0 }
+      bucket.collected += allocation.amount || 0
       monthlyMap.set(key, bucket)
     }
     const monthlySeries = Array.from(monthlyMap.entries())

@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
@@ -33,6 +34,14 @@ interface SummaryData {
   }
   dailySeries: Array<{ date: string; amount: number; count: number }>
   monthlySeries: Array<{ month: string; billed: number; collected: number }>
+  serviceBreakdown: Array<{
+    service: 'fees' | 'transport' | 'hostel'
+    label: string
+    billed: number
+    collected: number
+    outstanding: number
+    collectionRate: number
+  }>
   paymentModeBreakdown: Array<{ method: string; amount: number; count: number }>
 }
 
@@ -49,21 +58,28 @@ export function SummaryTab({ startDate, endDate, academicYear }: SummaryTabProps
 
   useEffect(() => {
     let alive = true
-    setLoading(true)
-    setError(null)
-    const params = new URLSearchParams()
-    if (startDate) params.set('startDate', startDate)
-    if (endDate) params.set('endDate', endDate)
-    if (academicYear) params.set('academicYear', academicYear)
 
-    fetch(`/api/school/fees/reports/summary?${params}`, { credentials: 'include' })
-      .then(r => {
-        if (!r.ok) throw new Error('Failed to load summary')
-        return r.json()
-      })
-      .then(d => { if (alive) setData(d) })
-      .catch(e => { if (alive) setError(e.message) })
-      .finally(() => { if (alive) setLoading(false) })
+    const loadSummary = async () => {
+      setLoading(true)
+      setError(null)
+      const params = new URLSearchParams()
+      if (startDate) params.set('startDate', startDate)
+      if (endDate) params.set('endDate', endDate)
+      if (academicYear) params.set('academicYear', academicYear)
+
+      try {
+        const response = await fetch(`/api/school/fees/reports/summary?${params}`, { credentials: 'include' })
+        if (!response.ok) throw new Error('Failed to load summary')
+        const nextData = await response.json()
+        if (alive) setData(nextData)
+      } catch (error) {
+        if (alive) setError(error instanceof Error ? error.message : 'Failed to load summary')
+      } finally {
+        if (alive) setLoading(false)
+      }
+    }
+
+    void loadSummary()
 
     return () => { alive = false }
   }, [startDate, endDate, academicYear])
@@ -147,6 +163,63 @@ export function SummaryTab({ startDate, endDate, academicYear }: SummaryTabProps
           loading={loading}
         />
       </div>
+
+      {/* Service breakdown */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-semibold flex items-center gap-2">
+            <ReceiptText className="size-4 text-indigo-600" />
+            By Service
+          </CardTitle>
+          <p className="text-xs text-muted-foreground">
+            Academic year billing split across academic, transport, and hostel fees
+          </p>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-gray-50 hover:bg-gray-50">
+                  <TableHead className="text-xs">Service</TableHead>
+                  <TableHead className="text-xs text-right">Billed</TableHead>
+                  <TableHead className="text-xs text-right">Collected</TableHead>
+                  <TableHead className="text-xs text-right">Outstanding</TableHead>
+                  <TableHead className="text-xs text-right w-44">Collection Rate</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  Array.from({ length: 3 }).map((_, i) => (
+                    <TableRow key={i}><TableCell colSpan={5}><Skeleton className="h-7 w-full" /></TableCell></TableRow>
+                  ))
+                ) : data && (data.serviceBreakdown || []).length > 0 ? (
+                  data.serviceBreakdown.map(service => (
+                    <TableRow key={service.service} className="text-sm">
+                      <TableCell className="py-2 font-medium">{service.label}</TableCell>
+                      <TableCell className="py-2 text-right tabular-nums">{formatCurrency(service.billed)}</TableCell>
+                      <TableCell className="py-2 text-right tabular-nums text-emerald-700">
+                        {formatCurrency(service.collected)}
+                      </TableCell>
+                      <TableCell className={cn('py-2 text-right tabular-nums', service.outstanding > 0 ? 'text-amber-700 font-medium' : 'text-gray-400')}>
+                        {service.outstanding > 0 ? formatCurrency(service.outstanding) : '-'}
+                      </TableCell>
+                      <TableCell className="py-2">
+                        <ServiceProgress pct={service.collectionRate} />
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center text-sm text-muted-foreground py-10">
+                      No service-level data available
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Chart + Payment Mode */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
@@ -320,6 +393,24 @@ export function SummaryTab({ startDate, endDate, academicYear }: SummaryTabProps
           )}
         </CardContent>
       </Card>
+    </div>
+  )
+}
+
+function ServiceProgress({ pct }: { pct: number }) {
+  const clamped = Math.min(100, Math.max(0, pct))
+  const color =
+    clamped >= 90 ? 'bg-emerald-500'
+    : clamped >= 75 ? 'bg-blue-500'
+    : clamped >= 50 ? 'bg-amber-500'
+    : 'bg-red-500'
+
+  return (
+    <div className="flex items-center gap-2">
+      <div className="flex-1 h-2 rounded-full bg-gray-100 overflow-hidden">
+        <div className={cn('h-full rounded-full transition-all', color)} style={{ width: `${clamped}%` }} />
+      </div>
+      <span className="text-xs tabular-nums font-medium w-12 text-right">{pct.toFixed(0)}%</span>
     </div>
   )
 }

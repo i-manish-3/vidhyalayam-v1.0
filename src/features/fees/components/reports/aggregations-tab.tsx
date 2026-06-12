@@ -4,7 +4,6 @@ import React, { useEffect, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Layers, ReceiptText, TrendingDown, Grid3x3, ChevronRight } from 'lucide-react'
 import { formatCurrency } from '../audit-field-list'
@@ -31,6 +30,15 @@ interface HeadRow {
   collectionRate: number
 }
 
+interface ServiceRow {
+  service: 'fees' | 'transport' | 'hostel'
+  label: string
+  billed: number
+  collected: number
+  outstanding: number
+  collectionRate: number
+}
+
 interface MatrixCell {
   billed: number
   collected: number
@@ -45,6 +53,7 @@ interface MatrixData {
 
 interface Response {
   byClass: ClassRow[]
+  byService: ServiceRow[]
   byFeeHead: HeadRow[]
   matrix: MatrixData
   totals: { billed: number; collected: number; outstanding: number; refunded: number }
@@ -66,16 +75,24 @@ export function AggregationsTab({ academicYear, startDate, endDate }: Aggregatio
 
   useEffect(() => {
     let alive = true
-    setLoading(true)
-    const params = new URLSearchParams()
-    if (academicYear) params.set('academicYear', academicYear)
-    if (startDate) params.set('startDate', startDate)
-    if (endDate) params.set('endDate', endDate)
 
-    fetch(`/api/school/fees/reports/aggregations?${params}`, { credentials: 'include' })
-      .then(r => r.json())
-      .then(d => { if (alive) setData(d) })
-      .finally(() => { if (alive) setLoading(false) })
+    const loadAggregations = async () => {
+      setLoading(true)
+      const params = new URLSearchParams()
+      if (academicYear) params.set('academicYear', academicYear)
+      if (startDate) params.set('startDate', startDate)
+      if (endDate) params.set('endDate', endDate)
+
+      try {
+        const response = await fetch(`/api/school/fees/reports/aggregations?${params}`, { credentials: 'include' })
+        const nextData = await response.json()
+        if (alive) setData(nextData)
+      } finally {
+        if (alive) setLoading(false)
+      }
+    }
+
+    void loadAggregations()
 
     return () => { alive = false }
   }, [academicYear, startDate, endDate])
@@ -91,6 +108,61 @@ export function AggregationsTab({ academicYear, startDate, endDate }: Aggregatio
         <KpiCard label="Total Outstanding" value={loading ? '—' : formatCurrency(t!.outstanding)} tone="warning" loading={loading} />
         <KpiCard label="Total Refunded" value={loading ? '—' : formatCurrency(t!.refunded)} tone="danger" icon={TrendingDown} loading={loading} />
       </div>
+
+      {/* By Service */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-semibold flex items-center gap-2">
+            <ReceiptText className="size-4 text-indigo-600" />
+            By Service
+          </CardTitle>
+          <p className="text-xs text-muted-foreground">Academic, transport, and hostel fees shown separately</p>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-gray-50 hover:bg-gray-50">
+                  <TableHead className="text-xs">Service</TableHead>
+                  <TableHead className="text-xs text-right">Billed</TableHead>
+                  <TableHead className="text-xs text-right">Collected</TableHead>
+                  <TableHead className="text-xs text-right">Outstanding</TableHead>
+                  <TableHead className="text-xs text-right w-44">Collection Rate</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  Array.from({ length: 3 }).map((_, i) => (
+                    <TableRow key={i}><TableCell colSpan={5}><Skeleton className="h-7 w-full" /></TableCell></TableRow>
+                  ))
+                ) : data && (data.byService || []).length > 0 ? (
+                  data.byService.map(service => (
+                    <TableRow key={service.service} className="text-sm">
+                      <TableCell className="py-2 font-medium">{service.label}</TableCell>
+                      <TableCell className="py-2 text-right tabular-nums">{formatCurrency(service.billed)}</TableCell>
+                      <TableCell className="py-2 text-right tabular-nums text-emerald-700">
+                        {formatCurrency(service.collected)}
+                      </TableCell>
+                      <TableCell className={cn('py-2 text-right tabular-nums', service.outstanding > 0 ? 'text-amber-700 font-medium' : 'text-gray-400')}>
+                        {service.outstanding > 0 ? formatCurrency(service.outstanding) : '-'}
+                      </TableCell>
+                      <TableCell className="py-2">
+                        <ProgressBar pct={service.collectionRate} />
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center text-sm text-muted-foreground py-10">
+                      No service-level data available
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* By Class */}
       <Card>

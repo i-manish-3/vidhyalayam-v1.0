@@ -409,7 +409,8 @@ export async function ingestTap(input: TapInput): Promise<TapResult> {
       },
     })
 
-    return { code: (existing ? 'updated' : 'marked') as const }
+    const code: TapResultCode = existing ? 'updated' : 'marked'
+    return { code }
   })
 
   // Webhook taps: bump device lastSeenAt outside the transaction. Failing

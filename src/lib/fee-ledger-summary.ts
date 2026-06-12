@@ -1,6 +1,8 @@
 import { db } from '@/lib/db'
 
-export async function getFeeLedgerSummary(schoolId: string, studentIds?: string[]) {
+export async function getFeeLedgerSummary(schoolId: string, studentIds?: string[], academicYear?: string) {
+  const academicYearFilter = academicYear ? { academicYear } : {}
+
   const [debits, credits, overdueDebits] = await Promise.all([
     db.studentFeeLedgerEntry.aggregate({
       where: {
@@ -8,18 +10,23 @@ export async function getFeeLedgerSummary(schoolId: string, studentIds?: string[
         entryType: 'DEBIT',
         deletedAt: null,
         status: { not: 'cancelled' },
+        ...academicYearFilter,
         ...(studentIds ? { studentId: { in: studentIds } } : {}),
       },
       _sum: { debit: true, balanceAmount: true },
     }),
-    db.studentFeeLedgerEntry.aggregate({
+    db.studentFeeLedgerAllocation.aggregate({
       where: {
         schoolId,
-        entryType: 'CREDIT',
         deletedAt: null,
+        creditEntry: { entryType: 'CREDIT', deletedAt: null },
+        debitEntry: {
+          deletedAt: null,
+          ...academicYearFilter,
+        },
         ...(studentIds ? { studentId: { in: studentIds } } : {}),
       },
-      _sum: { credit: true },
+      _sum: { amount: true },
     }),
     db.studentFeeLedgerEntry.aggregate({
       where: {
@@ -29,6 +36,7 @@ export async function getFeeLedgerSummary(schoolId: string, studentIds?: string[
         status: { in: ['open', 'partial'] },
         balanceAmount: { gt: 0 },
         dueDate: { lt: new Date() },
+        ...academicYearFilter,
         ...(studentIds ? { studentId: { in: studentIds } } : {}),
       },
       _sum: { balanceAmount: true },
@@ -37,7 +45,7 @@ export async function getFeeLedgerSummary(schoolId: string, studentIds?: string[
 
   const total = debits._sum.debit || 0
   const pending = debits._sum.balanceAmount || 0
-  const collected = credits._sum.credit || Math.max(0, total - pending)
+  const collected = credits._sum.amount || Math.max(0, total - pending)
 
   return {
     total,

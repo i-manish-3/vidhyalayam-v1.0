@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { api } from '@/lib/api'
 import { useAppStore } from '@/lib/store'
@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Loader2, PlusCircle, X } from 'lucide-react'
 
@@ -31,7 +32,6 @@ interface ApiHostel {
   feeMonths: string
   wardenName: string | null
   wardenPhone: string | null
-  address: string | null
   isActive: boolean
   rooms: ApiRoom[]
 }
@@ -51,6 +51,26 @@ interface NewRoom {
   capacity: string
   fare: string
 }
+const HOSTEL_TYPE_OPTIONS = [
+  { value: 'boys', label: 'Boys' },
+  { value: 'girls', label: 'Girls' },
+  { value: 'both', label: 'Both' },
+]
+
+function normalizeHostelType(value: string | null) {
+  if (value === 'mixed') return 'both'
+  return value || ''
+}
+
+interface StaffOption {
+  id: string
+  name: string
+  phone?: string | null
+  designation?: string | null
+  department?: string | null
+  isActive?: boolean
+  assignedRoles?: Array<{ id: string; name: string; color?: string | null }>
+}
 
 export function EditHostelPage() {
   const router = useRouter()
@@ -67,7 +87,9 @@ export function EditHostelPage() {
   const [type, setType] = useState('')
   const [wardenName, setWardenName] = useState('')
   const [wardenPhone, setWardenPhone] = useState('')
-  const [address, setAddress] = useState('')
+  const [selectedWardenId, setSelectedWardenId] = useState('')
+  const [staffOptions, setStaffOptions] = useState<StaffOption[]>([])
+  const [staffLoading, setStaffLoading] = useState(true)
   const [rooms, setRooms] = useState<RoomEdit[]>([])
   const [newRooms, setNewRooms] = useState<NewRoom[]>([])
   const [draft, setDraft] = useState<NewRoom>({ roomNumber: '', roomType: '', floor: '', capacity: '1', fare: '' })
@@ -78,10 +100,10 @@ export function EditHostelPage() {
       const res = await api.get<{ hostel: ApiHostel }>(`/api/school/hostels/${id}`, academicYear ? { academicYear } : undefined)
       const h = res.hostel
       setName(h.name)
-      setType(h.type || '')
+      setType(normalizeHostelType(h.type))
       setWardenName(h.wardenName || '')
       setWardenPhone(h.wardenPhone || '')
-      setAddress(h.address || '')
+      setSelectedWardenId('')
       setRooms(h.rooms.map((r) => ({
         id: r.id,
         roomNumber: r.roomNumber,
@@ -99,6 +121,57 @@ export function EditHostelPage() {
   }, [id, academicYear, toast])
 
   useEffect(() => { if (id) load() }, [id, load])
+
+  useEffect(() => {
+    let mounted = true
+    const loadStaff = async () => {
+      try {
+        setStaffLoading(true)
+        const data = await api.get<{ staff: StaffOption[] }>('/api/school/staff', undefined, { skipLogoutOn401: true })
+        if (!mounted) return
+        setStaffOptions(data.staff || [])
+      } catch {
+        if (mounted) setStaffOptions([])
+      } finally {
+        if (mounted) setStaffLoading(false)
+      }
+    }
+    loadStaff()
+    return () => {
+      mounted = false
+    }
+  }, [])
+
+  const hostelStaffOptions = useMemo(
+    () => staffOptions.filter((staff) =>
+      staff.isActive !== false &&
+      (staff.assignedRoles || []).some((role) => role.name.toLowerCase().includes('hostel'))
+    ),
+    [staffOptions]
+  )
+
+  useEffect(() => {
+    if (selectedWardenId || hostelStaffOptions.length === 0) return
+    if (!wardenName && !wardenPhone) return
+    const match = hostelStaffOptions.find((staff) =>
+      (!!wardenPhone && staff.phone === wardenPhone) ||
+      staff.name.toLowerCase() === wardenName.toLowerCase()
+    )
+    if (match) setSelectedWardenId(match.id)
+  }, [hostelStaffOptions, selectedWardenId, wardenName, wardenPhone])
+
+  const handleWardenSelect = (staffId: string) => {
+    if (staffId === 'none') {
+      setSelectedWardenId('')
+      setWardenName('')
+      setWardenPhone('')
+      return
+    }
+    const staff = hostelStaffOptions.find((item) => item.id === staffId)
+    setSelectedWardenId(staffId)
+    setWardenName(staff?.name || '')
+    setWardenPhone(staff?.phone || '')
+  }
 
   const updateRoom = (i: number, field: keyof RoomEdit, value: string) =>
     setRooms((c) => c.map((r, idx) => (idx === i ? { ...r, [field]: value } : r)))
@@ -135,7 +208,6 @@ export function EditHostelPage() {
         type: type.trim() || null,
         wardenName: wardenName.trim() || null,
         wardenPhone: wardenPhone.trim() || null,
-        address: address.trim() || null,
         rooms: roomsPayload,
       })
       toast({ title: 'Hostel updated' })
@@ -157,10 +229,42 @@ export function EditHostelPage() {
         <CardHeader><CardTitle>Hostel Details</CardTitle></CardHeader>
         <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="space-y-2"><Label>Name</Label><Input value={name} onChange={(e) => setName(e.target.value)} /></div>
-          <div className="space-y-2"><Label>Type</Label><Input value={type} onChange={(e) => setType(e.target.value)} /></div>
-          <div className="space-y-2"><Label>Warden Name</Label><Input value={wardenName} onChange={(e) => setWardenName(e.target.value)} /></div>
-          <div className="space-y-2"><Label>Warden Phone</Label><Input value={wardenPhone} onChange={(e) => setWardenPhone(e.target.value)} /></div>
-          <div className="space-y-2 sm:col-span-2"><Label>Address</Label><Input value={address} onChange={(e) => setAddress(e.target.value)} /></div>
+          <div className="space-y-2">
+            <Label>Type</Label>
+            <Select value={type} onValueChange={setType}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select hostel type" />
+              </SelectTrigger>
+              <SelectContent>
+                {HOSTEL_TYPE_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>Warden</Label>
+            <Select value={selectedWardenId || 'none'} onValueChange={handleWardenSelect} disabled={staffLoading}>
+              <SelectTrigger>
+                <SelectValue placeholder={staffLoading ? 'Loading hostel staff...' : 'Select hostel staff'} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">No warden</SelectItem>
+                {hostelStaffOptions.map((staff) => (
+                  <SelectItem key={staff.id} value={staff.id}>
+                    {staff.name}{staff.phone ? ` - ${staff.phone}` : ''}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {!staffLoading && hostelStaffOptions.length === 0 && (
+              <p className="text-xs text-muted-foreground">No active staff with Hostel role found.</p>
+            )}
+            {!selectedWardenId && wardenName && (
+              <p className="text-xs text-muted-foreground">Saved warden: {wardenName}{wardenPhone ? ` - ${wardenPhone}` : ''}</p>
+            )}
+          </div>
+          <div className="space-y-2"><Label>Warden Phone</Label><Input value={wardenPhone} readOnly className="bg-muted/50" /></div>
         </CardContent>
       </Card>
 

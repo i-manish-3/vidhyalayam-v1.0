@@ -38,10 +38,12 @@ export async function GET(request: NextRequest) {
     // Strategy: fetch ledger entries with student.class joined; tally in JS.
     // For ~thousands of entries this is acceptable; for millions, move to
     // a raw SQL query with GROUP BY class_id.
-    const entries = await db.studentFeeLedgerEntry.findMany({
+    const [entries, allocations] = await Promise.all([
+      db.studentFeeLedgerEntry.findMany({
       where: {
         schoolId,
         deletedAt: null,
+        entryType: { in: ['DEBIT', 'FINE', 'REFUND'] },
         ...ayFilter,
       },
       select: {
@@ -52,6 +54,7 @@ export async function GET(request: NextRequest) {
         status: true,
         transactionDate: true,
         feeHeadName: true,
+        sourceType: true,
         student: {
           select: {
             id: true,
@@ -60,11 +63,50 @@ export async function GET(request: NextRequest) {
           },
         },
       },
-    })
+      }),
+      db.studentFeeLedgerAllocation.findMany({
+        where: {
+          schoolId,
+          deletedAt: null,
+          ...(hasDateFilter ? { allocatedAt: collectionDateFilter } : {}),
+          creditEntry: {
+            entryType: 'CREDIT',
+            deletedAt: null,
+          },
+          debitEntry: {
+            schoolId,
+            deletedAt: null,
+            ...ayFilter,
+          },
+        },
+        select: {
+          amount: true,
+          debitEntry: {
+            select: {
+              feeHeadName: true,
+              sourceType: true,
+              student: {
+                select: {
+                  id: true,
+                  class: { select: { id: true, name: true } },
+                  section: { select: { id: true, name: true } },
+                },
+              },
+            },
+          },
+        },
+      }),
+    ])
 
     // Class aggregation
     const classMap = new Map<string, ClassAgg>()
     const headMap = new Map<string, HeadAgg>()
+    const serviceMap = new Map<ServiceKey, ServiceAgg>(
+      SERVICE_ORDER.map(key => [
+        key,
+        { key, label: SERVICE_LABELS[key], billed: 0, collected: 0, outstanding: 0 },
+      ])
+    )
     const studentSet = new Map<string, Set<string>>() // classId → set<studentId>
     // Class × Head pivot. Key = `${classId}::${headName}`, plus side tables
     // tracking which classIds/headNames appear (for stable axis ordering).
@@ -89,8 +131,6 @@ export async function GET(request: NextRequest) {
         if (e.status === 'open' || e.status === 'partial') {
           ca.outstanding += e.balanceAmount || 0
         }
-      } else if (e.entryType === 'CREDIT' && inCollectionWindow) {
-        ca.collected += e.credit
       } else if (e.entryType === 'REFUND' && inCollectionWindow) {
         ca.refunded += e.debit
       }
@@ -109,10 +149,20 @@ export async function GET(request: NextRequest) {
         if (e.status === 'open' || e.status === 'partial') {
           ha.outstanding += e.balanceAmount || 0
         }
-      } else if (e.entryType === 'CREDIT' && inCollectionWindow) {
-        ha.collected += e.credit
       }
       headMap.set(headName, ha)
+
+      // Service aggregation keeps hostel and transport separate from academic
+      // fees even when all three share the monthly ledger.
+      const serviceKey = getServiceKey(e.sourceType, e.feeHeadName)
+      const sa = serviceMap.get(serviceKey)!
+      if (e.entryType === 'DEBIT' || e.entryType === 'FINE') {
+        sa.billed += e.debit
+        if (e.status === 'open' || e.status === 'partial') {
+          sa.outstanding += e.balanceAmount || 0
+        }
+      }
+      serviceMap.set(serviceKey, sa)
 
       // Class × Head pivot — same DEBIT/CREDIT logic, keyed by (class, head).
       // REFUND/FINE roll into the head they reference (FINE adds to billed and
@@ -125,9 +175,40 @@ export async function GET(request: NextRequest) {
         if (e.status === 'open' || e.status === 'partial') {
           cell.outstanding += e.balanceAmount || 0
         }
-      } else if (e.entryType === 'CREDIT' && inCollectionWindow) {
-        cell.collected += e.credit
       }
+      matrixMap.set(cellKey, cell)
+    }
+
+    for (const allocation of allocations) {
+      const debit = allocation.debitEntry
+      const cls = debit.student.class
+      const classId = cls?.id ?? '__none__'
+      const className = cls?.name ?? 'Unassigned'
+      const amount = allocation.amount || 0
+      const headName = debit.feeHeadName || 'Other'
+
+      const ca = classMap.get(classId) ?? {
+        classId, className, billed: 0, collected: 0, outstanding: 0, refunded: 0,
+      }
+      ca.collected += amount
+      classMap.set(classId, ca)
+
+      const set = studentSet.get(classId) ?? new Set<string>()
+      set.add(debit.student.id)
+      studentSet.set(classId, set)
+
+      const ha = headMap.get(headName) ?? { name: headName, billed: 0, collected: 0, outstanding: 0 }
+      ha.collected += amount
+      headMap.set(headName, ha)
+
+      const serviceKey = getServiceKey(debit.sourceType, debit.feeHeadName)
+      const sa = serviceMap.get(serviceKey)!
+      sa.collected += amount
+      serviceMap.set(serviceKey, sa)
+
+      const cellKey = `${classId}::${headName}`
+      const cell = matrixMap.get(cellKey) ?? { billed: 0, collected: 0, outstanding: 0 }
+      cell.collected += amount
       matrixMap.set(cellKey, cell)
     }
 
@@ -154,6 +235,20 @@ export async function GET(request: NextRequest) {
         collectionRate: h.billed > 0 ? Number(((h.collected / h.billed) * 100).toFixed(1)) : 0,
       }))
       .sort((a, b) => b.billed - a.billed)
+
+    const byService = SERVICE_ORDER.map(key => {
+      const service = serviceMap.get(key)!
+      return {
+        service: service.key,
+        label: service.label,
+        billed: round2(service.billed),
+        collected: round2(service.collected),
+        outstanding: round2(service.outstanding),
+        collectionRate: service.billed > 0
+          ? Number(((service.collected / service.billed) * 100).toFixed(1))
+          : 0,
+      }
+    })
 
     // Grand totals
     const totals = byClass.reduce(
@@ -196,6 +291,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       generatedAt: new Date().toISOString(),
       byClass,
+      byService,
       byFeeHead,
       matrix: {
         classes: matrixClassAxis,
@@ -226,10 +322,37 @@ interface HeadAgg {
   outstanding: number
 }
 
+type ServiceKey = 'fees' | 'transport' | 'hostel'
+
+interface ServiceAgg {
+  key: ServiceKey
+  label: string
+  billed: number
+  collected: number
+  outstanding: number
+}
+
 interface MatrixCell {
   billed: number
   collected: number
   outstanding: number
+}
+
+const SERVICE_ORDER: ServiceKey[] = ['fees', 'transport', 'hostel']
+
+const SERVICE_LABELS: Record<ServiceKey, string> = {
+  fees: 'Academic Fees',
+  transport: 'Transport',
+  hostel: 'Hostel',
+}
+
+function getServiceKey(sourceType?: string | null, feeHeadName?: string | null): ServiceKey {
+  const source = (sourceType || '').toLowerCase()
+  const head = (feeHeadName || '').toLowerCase()
+
+  if (source === 'hostel' || head.includes('hostel')) return 'hostel'
+  if (source === 'transport' || head.includes('transport')) return 'transport'
+  return 'fees'
 }
 
 function round2(n: number): number {

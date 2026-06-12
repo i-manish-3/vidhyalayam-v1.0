@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
 import { useAppStore } from '@/lib/store'
@@ -13,6 +13,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Building2, Loader2, PlusCircle, X } from 'lucide-react'
 
@@ -24,7 +25,22 @@ interface RoomDraft {
   fare: string
 }
 
+interface StaffOption {
+  id: string
+  name: string
+  phone?: string | null
+  designation?: string | null
+  department?: string | null
+  isActive?: boolean
+  assignedRoles?: Array<{ id: string; name: string; color?: string | null }>
+}
+
 const FEE_MONTH_OPTIONS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+const HOSTEL_TYPE_OPTIONS = [
+  { value: 'boys', label: 'Boys' },
+  { value: 'girls', label: 'Girls' },
+  { value: 'both', label: 'Both' },
+]
 
 export function AddHostelPage() {
   const { toast } = useToast()
@@ -37,11 +53,54 @@ export function AddHostelPage() {
   const [type, setType] = useState('')
   const [wardenName, setWardenName] = useState('')
   const [wardenPhone, setWardenPhone] = useState('')
-  const [address, setAddress] = useState('')
+  const [selectedWardenId, setSelectedWardenId] = useState('')
+  const [staffOptions, setStaffOptions] = useState<StaffOption[]>([])
+  const [staffLoading, setStaffLoading] = useState(true)
   const [feeMonths, setFeeMonths] = useState<string[]>([])
   const [rooms, setRooms] = useState<RoomDraft[]>([])
   const [draft, setDraft] = useState<RoomDraft>({ roomNumber: '', roomType: '', floor: '', capacity: '1', fare: '' })
   const [submitting, setSubmitting] = useState(false)
+
+  useEffect(() => {
+    let mounted = true
+    const loadStaff = async () => {
+      try {
+        setStaffLoading(true)
+        const data = await api.get<{ staff: StaffOption[] }>('/api/school/staff', undefined, { skipLogoutOn401: true })
+        if (!mounted) return
+        setStaffOptions(data.staff || [])
+      } catch {
+        if (mounted) setStaffOptions([])
+      } finally {
+        if (mounted) setStaffLoading(false)
+      }
+    }
+    loadStaff()
+    return () => {
+      mounted = false
+    }
+  }, [])
+
+  const hostelStaffOptions = useMemo(
+    () => staffOptions.filter((staff) =>
+      staff.isActive !== false &&
+      (staff.assignedRoles || []).some((role) => role.name.toLowerCase().includes('hostel'))
+    ),
+    [staffOptions]
+  )
+
+  const handleWardenSelect = (staffId: string) => {
+    if (staffId === 'none') {
+      setSelectedWardenId('')
+      setWardenName('')
+      setWardenPhone('')
+      return
+    }
+    const staff = hostelStaffOptions.find((item) => item.id === staffId)
+    setSelectedWardenId(staffId)
+    setWardenName(staff?.name || '')
+    setWardenPhone(staff?.phone || '')
+  }
 
   const toggleFeeMonth = (month: string) =>
     setFeeMonths((c) => (c.includes(month) ? c.filter((m) => m !== month) : [...c, month]))
@@ -95,7 +154,6 @@ export function AddHostelPage() {
         feeMonths,
         wardenName: wardenName.trim() || null,
         wardenPhone: wardenPhone.trim() || null,
-        address: address.trim() || null,
         rooms: rooms.map((r) => ({
           roomNumber: r.roomNumber,
           roomType: r.roomType.trim() || null,
@@ -126,19 +184,39 @@ export function AddHostelPage() {
           </div>
           <div className="space-y-2">
             <Label>Type</Label>
-            <Input value={type} onChange={(e) => setType(e.target.value)} placeholder="boys / girls / mixed" />
+            <Select value={type} onValueChange={setType}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select hostel type" />
+              </SelectTrigger>
+              <SelectContent>
+                {HOSTEL_TYPE_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="space-y-2">
-            <Label>Warden Name</Label>
-            <Input value={wardenName} onChange={(e) => setWardenName(e.target.value)} placeholder="Warden name" />
+            <Label>Warden</Label>
+            <Select value={selectedWardenId || 'none'} onValueChange={handleWardenSelect} disabled={staffLoading}>
+              <SelectTrigger>
+                <SelectValue placeholder={staffLoading ? 'Loading hostel staff...' : 'Select hostel staff'} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">No warden</SelectItem>
+                {hostelStaffOptions.map((staff) => (
+                  <SelectItem key={staff.id} value={staff.id}>
+                    {staff.name}{staff.phone ? ` - ${staff.phone}` : ''}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {!staffLoading && hostelStaffOptions.length === 0 && (
+              <p className="text-xs text-muted-foreground">No active staff with Hostel role found.</p>
+            )}
           </div>
           <div className="space-y-2">
             <Label>Warden Phone</Label>
-            <Input value={wardenPhone} onChange={(e) => setWardenPhone(e.target.value)} placeholder="Phone" />
-          </div>
-          <div className="space-y-2 sm:col-span-2">
-            <Label>Address</Label>
-            <Input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Hostel address" />
+            <Input value={wardenPhone} readOnly placeholder="Selected staff phone" className="bg-muted/50" />
           </div>
         </CardContent>
       </Card>

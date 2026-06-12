@@ -42,9 +42,10 @@ export async function GET(request: NextRequest) {
     const seriesEnd = endParam ? new Date(endParam) : todayEnd
 
     const academicYearFilter = academicYear ? { academicYear } : {}
+    const debitAcademicYearFilter = academicYear ? { academicYear } : {}
 
     // ── KPIs ───────────────────────────────────────────────────────────
-    const ledgerSummary = await getFeeLedgerSummary(schoolId)
+    const ledgerSummary = await getFeeLedgerSummary(schoolId, undefined, academicYear)
 
     const [
       todayCredits,
@@ -55,27 +56,33 @@ export async function GET(request: NextRequest) {
       paymentMethodAgg,
       activeStudents,
     ] = await Promise.all([
-      db.studentFeeLedgerEntry.aggregate({
+      db.studentFeeLedgerAllocation.aggregate({
         where: {
-          schoolId, deletedAt: null, entryType: 'CREDIT',
-          transactionDate: { gte: todayStart, lt: todayEnd },
+          schoolId, deletedAt: null,
+          allocatedAt: { gte: todayStart, lt: todayEnd },
+          creditEntry: { entryType: 'CREDIT', deletedAt: null },
+          debitEntry: { deletedAt: null, ...debitAcademicYearFilter },
         },
-        _sum: { credit: true },
+        _sum: { amount: true },
         _count: { id: true },
       }),
-      db.studentFeeLedgerEntry.aggregate({
+      db.studentFeeLedgerAllocation.aggregate({
         where: {
-          schoolId, deletedAt: null, entryType: 'CREDIT',
-          transactionDate: { gte: monthStart, lt: todayEnd },
+          schoolId, deletedAt: null,
+          allocatedAt: { gte: monthStart, lt: todayEnd },
+          creditEntry: { entryType: 'CREDIT', deletedAt: null },
+          debitEntry: { deletedAt: null, ...debitAcademicYearFilter },
         },
-        _sum: { credit: true },
+        _sum: { amount: true },
       }),
-      db.studentFeeLedgerEntry.aggregate({
+      db.studentFeeLedgerAllocation.aggregate({
         where: {
-          schoolId, deletedAt: null, entryType: 'CREDIT',
-          transactionDate: { gte: yearStart, lt: todayEnd },
+          schoolId, deletedAt: null,
+          allocatedAt: { gte: yearStart, lt: todayEnd },
+          creditEntry: { entryType: 'CREDIT', deletedAt: null },
+          debitEntry: { deletedAt: null, ...debitAcademicYearFilter },
         },
-        _sum: { credit: true },
+        _sum: { amount: true },
       }),
       // Refunds are DEBIT entries with sourceType='refund'
       db.studentFeeLedgerEntry.aggregate({
@@ -93,15 +100,17 @@ export async function GET(request: NextRequest) {
         },
       }),
       // Payment method breakdown over [seriesStart, seriesEnd]
-      db.studentFeeLedgerEntry.groupBy({
-        by: ['paymentMethod'],
+      db.studentFeeLedgerAllocation.findMany({
         where: {
-          schoolId, deletedAt: null, entryType: 'CREDIT',
-          transactionDate: { gte: seriesStart, lt: seriesEnd },
-          ...academicYearFilter,
+          schoolId, deletedAt: null,
+          allocatedAt: { gte: seriesStart, lt: seriesEnd },
+          creditEntry: { entryType: 'CREDIT', deletedAt: null },
+          debitEntry: { deletedAt: null, ...debitAcademicYearFilter },
         },
-        _sum: { credit: true },
-        _count: { id: true },
+        select: {
+          amount: true,
+          creditEntry: { select: { paymentMethod: true } },
+        },
       }),
       db.student.count({ where: { schoolId, isActive: true, deletedAt: null } }),
     ])
@@ -110,13 +119,14 @@ export async function GET(request: NextRequest) {
     // Group by date(transactionDate) — Postgres supports raw queries, but
     // a single fetch + JS bucket is portable and the row count is tiny
     // (one receipt per ledger CREDIT, typically <few hundred per month).
-    const credits = await db.studentFeeLedgerEntry.findMany({
+    const credits = await db.studentFeeLedgerAllocation.findMany({
       where: {
-        schoolId, deletedAt: null, entryType: 'CREDIT',
-        transactionDate: { gte: seriesStart, lt: seriesEnd },
-        ...academicYearFilter,
+        schoolId, deletedAt: null,
+        allocatedAt: { gte: seriesStart, lt: seriesEnd },
+        creditEntry: { entryType: 'CREDIT', deletedAt: null },
+        debitEntry: { deletedAt: null, ...debitAcademicYearFilter },
       },
-      select: { transactionDate: true, credit: true },
+      select: { allocatedAt: true, amount: true },
     })
 
     const dailyMap = new Map<string, { amount: number; count: number }>()
@@ -125,9 +135,9 @@ export async function GET(request: NextRequest) {
       dailyMap.set(toDateKey(d), { amount: 0, count: 0 })
     }
     for (const row of credits) {
-      const key = toDateKey(row.transactionDate)
+      const key = toDateKey(row.allocatedAt)
       const bucket = dailyMap.get(key) ?? { amount: 0, count: 0 }
-      bucket.amount += row.credit || 0
+      bucket.amount += row.amount || 0
       bucket.count += 1
       dailyMap.set(key, bucket)
     }
@@ -135,11 +145,19 @@ export async function GET(request: NextRequest) {
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([date, v]) => ({ date, amount: round2(v.amount), count: v.count }))
 
-    const paymentModeBreakdown = paymentMethodAgg
-      .map(row => ({
-        method: row.paymentMethod || 'UNSPECIFIED',
-        amount: round2(row._sum.credit || 0),
-        count: row._count.id,
+    const paymentModeMap = new Map<string, { amount: number; count: number }>()
+    for (const row of paymentMethodAgg) {
+      const method = row.creditEntry.paymentMethod || 'UNSPECIFIED'
+      const bucket = paymentModeMap.get(method) ?? { amount: 0, count: 0 }
+      bucket.amount += row.amount || 0
+      bucket.count += 1
+      paymentModeMap.set(method, bucket)
+    }
+    const paymentModeBreakdown = Array.from(paymentModeMap.entries())
+      .map(([method, row]) => ({
+        method,
+        amount: round2(row.amount),
+        count: row.count,
       }))
       .sort((a, b) => b.amount - a.amount)
 
@@ -152,11 +170,38 @@ export async function GET(request: NextRequest) {
     const monthlyEntries = await db.studentFeeLedgerEntry.findMany({
       where: {
         schoolId, deletedAt: null,
-        entryType: { in: ['DEBIT', 'CREDIT', 'FINE'] },
+        entryType: { in: ['DEBIT', 'FINE'] },
         transactionDate: { gte: yearStart, lt: ayEndForTrend },
         ...academicYearFilter,
       },
-      select: { transactionDate: true, debit: true, credit: true, entryType: true },
+      select: {
+        transactionDate: true,
+        debit: true,
+        credit: true,
+        entryType: true,
+        balanceAmount: true,
+        status: true,
+        feeHeadName: true,
+        sourceType: true,
+      },
+    })
+    const monthlyAllocations = await db.studentFeeLedgerAllocation.findMany({
+      where: {
+        schoolId, deletedAt: null,
+        allocatedAt: { gte: yearStart, lt: ayEndForTrend },
+        creditEntry: { entryType: 'CREDIT', deletedAt: null },
+        debitEntry: { deletedAt: null, ...debitAcademicYearFilter },
+      },
+      select: {
+        amount: true,
+        allocatedAt: true,
+        debitEntry: {
+          select: {
+            sourceType: true,
+            feeHeadName: true,
+          },
+        },
+      },
     })
 
     const monthlyMap = new Map<string, { billed: number; collected: number }>()
@@ -170,7 +215,12 @@ export async function GET(request: NextRequest) {
       const key = toMonthKey(row.transactionDate)
       const bucket = monthlyMap.get(key) ?? { billed: 0, collected: 0 }
       if (row.entryType === 'DEBIT' || row.entryType === 'FINE') bucket.billed += row.debit || 0
-      else if (row.entryType === 'CREDIT') bucket.collected += row.credit || 0
+      monthlyMap.set(key, bucket)
+    }
+    for (const row of monthlyAllocations) {
+      const key = toMonthKey(row.allocatedAt)
+      const bucket = monthlyMap.get(key) ?? { billed: 0, collected: 0 }
+      bucket.collected += row.amount || 0
       monthlyMap.set(key, bucket)
     }
     const monthlySeries = Array.from(monthlyMap.entries())
@@ -181,6 +231,43 @@ export async function GET(request: NextRequest) {
         collected: round2(v.collected),
       }))
 
+    const serviceMap = new Map<ServiceKey, ServiceAgg>(
+      SERVICE_ORDER.map(key => [
+        key,
+        { key, label: SERVICE_LABELS[key], billed: 0, collected: 0, outstanding: 0 },
+      ])
+    )
+    for (const row of monthlyEntries) {
+      const serviceKey = getServiceKey(row.sourceType, row.feeHeadName)
+      const bucket = serviceMap.get(serviceKey)!
+      if (row.entryType === 'DEBIT' || row.entryType === 'FINE') {
+        bucket.billed += row.debit || 0
+        if (row.status === 'open' || row.status === 'partial') {
+          bucket.outstanding += row.balanceAmount || 0
+        }
+      }
+      serviceMap.set(serviceKey, bucket)
+    }
+    for (const row of monthlyAllocations) {
+      const serviceKey = getServiceKey(row.debitEntry.sourceType, row.debitEntry.feeHeadName)
+      const bucket = serviceMap.get(serviceKey)!
+      bucket.collected += row.amount || 0
+      serviceMap.set(serviceKey, bucket)
+    }
+    const serviceBreakdown = SERVICE_ORDER.map(key => {
+      const service = serviceMap.get(key)!
+      return {
+        service: service.key,
+        label: service.label,
+        billed: round2(service.billed),
+        collected: round2(service.collected),
+        outstanding: round2(service.outstanding),
+        collectionRate: service.billed > 0
+          ? Number(((service.collected / service.billed) * 100).toFixed(1))
+          : 0,
+      }
+    })
+
     return NextResponse.json({
       generatedAt: now.toISOString(),
       range: {
@@ -188,10 +275,10 @@ export async function GET(request: NextRequest) {
         endDate: seriesEnd.toISOString(),
       },
       kpis: {
-        todayCollected: round2(todayCredits._sum.credit || 0),
+        todayCollected: round2(todayCredits._sum.amount || 0),
         todayReceiptCount: todayReceipts,
-        monthCollected: round2(monthCredits._sum.credit || 0),
-        yearCollected: round2(yearCredits._sum.credit || 0),
+        monthCollected: round2(monthCredits._sum.amount || 0),
+        yearCollected: round2(yearCredits._sum.amount || 0),
         outstanding: round2(ledgerSummary.pending),
         overdue: round2(ledgerSummary.overdue),
         totalBilled: round2(ledgerSummary.total),
@@ -204,6 +291,7 @@ export async function GET(request: NextRequest) {
       },
       dailySeries,
       monthlySeries,
+      serviceBreakdown,
       paymentModeBreakdown,
     })
   } catch (error) {
@@ -218,6 +306,33 @@ function toDateKey(d: Date): string {
 
 function toMonthKey(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+}
+
+type ServiceKey = 'fees' | 'transport' | 'hostel'
+
+interface ServiceAgg {
+  key: ServiceKey
+  label: string
+  billed: number
+  collected: number
+  outstanding: number
+}
+
+const SERVICE_ORDER: ServiceKey[] = ['fees', 'transport', 'hostel']
+
+const SERVICE_LABELS: Record<ServiceKey, string> = {
+  fees: 'Academic Fees',
+  transport: 'Transport',
+  hostel: 'Hostel',
+}
+
+function getServiceKey(sourceType?: string | null, feeHeadName?: string | null): ServiceKey {
+  const source = (sourceType || '').toLowerCase()
+  const head = (feeHeadName || '').toLowerCase()
+
+  if (source === 'hostel' || head.includes('hostel')) return 'hostel'
+  if (source === 'transport' || head.includes('transport')) return 'transport'
+  return 'fees'
 }
 
 function round2(n: number): number {

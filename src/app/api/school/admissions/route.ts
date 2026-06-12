@@ -111,6 +111,16 @@ function parseFeeMonths(value: string | null | undefined): string[] {
   }
 }
 
+class HostelConflictError extends Error {
+  status: number
+
+  constructor(message: string, status = 409) {
+    super(message)
+    this.name = 'HostelConflictError'
+    this.status = status
+  }
+}
+
 // GET /api/school/admissions - List all admissions for the school
 export async function GET(request: NextRequest) {
   try {
@@ -573,6 +583,57 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    const requestedHostelId = typeof body.hostelId === 'string' && body.hostelId.trim() ? body.hostelId.trim() : null
+    const requestedHostelRoomId = typeof body.hostelRoomId === 'string' && body.hostelRoomId.trim() ? body.hostelRoomId.trim() : null
+    const requestedHostelBedId = typeof body.hostelBedId === 'string' && body.hostelBedId.trim() ? body.hostelBedId.trim() : null
+
+    if (requestedHostelId || requestedHostelRoomId || requestedHostelBedId) {
+      if (!requestedHostelId || !requestedHostelRoomId || !requestedHostelBedId) {
+        return apiError(400, 'Please select hostel, room, and bed, or leave hostel blank.')
+      }
+
+      const selectedHostelBed = await db.hostelBed.findFirst({
+        where: { id: requestedHostelBedId, schoolId: user.schoolId, deletedAt: null, isActive: true },
+        select: {
+          id: true,
+          roomId: true,
+          hostelId: true,
+          room: {
+            select: {
+              id: true,
+              isActive: true,
+              deletedAt: true,
+              hostel: { select: { id: true, isActive: true, deletedAt: true } },
+            },
+          },
+        },
+      })
+
+      if (!selectedHostelBed || selectedHostelBed.room?.deletedAt || selectedHostelBed.room?.isActive === false || selectedHostelBed.room?.hostel?.deletedAt || selectedHostelBed.room?.hostel?.isActive === false) {
+        return apiError(400, 'The selected hostel bed is no longer available. Please refresh hostel options and choose again.')
+      }
+
+      if (selectedHostelBed.hostelId !== requestedHostelId || selectedHostelBed.roomId !== requestedHostelRoomId) {
+        return apiError(400, 'The selected hostel, room, and bed do not match. Please choose the hostel bed again.')
+      }
+
+      const selectedRoomFare = await db.hostelRoomFare.findFirst({
+        where: { schoolId: user.schoolId, roomId: selectedHostelBed.roomId, academicYear: requestedAcademicYear, isActive: true },
+        select: { feeMonths: true },
+      })
+      if (!selectedRoomFare || parseFeeMonths(selectedRoomFare.feeMonths).length === 0) {
+        return apiError(400, 'The selected hostel room does not have a fee configured for this academic year. Please update hostel room fare details first.')
+      }
+
+      const occupiedBed = await db.hostelAllocation.findFirst({
+        where: { schoolId: user.schoolId, bedId: selectedHostelBed.id, academicYear: requestedAcademicYear, isActive: true },
+        select: { id: true },
+      })
+      if (occupiedBed) {
+        return apiError(409, 'That hostel bed is already occupied for this academic year. Please choose a different bed.')
+      }
+    }
+
     // Check admission window if settings exist
     const settings = await db.admissionSetting.findUnique({
       where: { schoolId: user.schoolId },
@@ -722,8 +783,8 @@ export async function POST(request: NextRequest) {
           admissionType: 'new',
           status: 'admitted',
           // Personal info
-          firstName: normName(body.firstName),
-          lastName: normName(body.lastName),
+          firstName: normName(body.firstName) || String(body.firstName).trim().toUpperCase(),
+          lastName: normName(body.lastName) || String(body.lastName).trim().toUpperCase(),
           dateOfBirth: body.dateOfBirth ? new Date(body.dateOfBirth) : null,
           dateOfAdmission: new Date(),
           gender: body.gender || null,
@@ -995,16 +1056,33 @@ export async function POST(request: NextRequest) {
       // date unless chargeFullYearFees is set.
       const hostelBedId = typeof body.hostelBedId === 'string' && body.hostelBedId.trim() ? body.hostelBedId.trim() : null
       if (hostelBedId) {
+        await tx.$queryRaw`SELECT id FROM "HostelBed" WHERE id = ${hostelBedId} FOR UPDATE`
+
         const bed = await tx.hostelBed.findFirst({
           where: { id: hostelBedId, schoolId: user.schoolId!, deletedAt: null, isActive: true },
           select: { id: true, roomId: true, hostelId: true, bedNumber: true },
         })
+        if (!bed) {
+          throw new HostelConflictError('The selected hostel bed is no longer available. Please choose another bed.', 400)
+        }
+
+        const bedConflict = await tx.hostelAllocation.findFirst({
+          where: { schoolId: user.schoolId!, bedId: hostelBedId, academicYear: requestedAcademicYear, isActive: true },
+          select: { id: true },
+        })
+        if (bedConflict) {
+          throw new HostelConflictError('That hostel bed is already occupied for this academic year. Please choose a different bed.')
+        }
+
         const roomFare = bed
           ? await tx.hostelRoomFare.findFirst({
               where: { schoolId: user.schoolId!, roomId: bed.roomId, academicYear: requestedAcademicYear, isActive: true },
               select: { fare: true, feeMonths: true },
             })
           : null
+        if (!roomFare) {
+          throw new HostelConflictError('The selected hostel room does not have a fee configured for this academic year. Please update hostel room fare details first.', 400)
+        }
 
         if (bed && roomFare) {
           const hostelFeeMonths = parseFeeMonths(roomFare.feeMonths)
@@ -1350,6 +1428,10 @@ export async function POST(request: NextRequest) {
         400,
         'This parent phone number already belongs to a non-parent user. Please use a separate parent account, or change the existing user profile type first.'
       )
+    }
+
+    if (error instanceof HostelConflictError) {
+      return apiError(error.status, error.message)
     }
 
     // P2002 = unique constraint violation. The schema-level

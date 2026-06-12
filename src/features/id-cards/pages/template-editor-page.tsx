@@ -14,7 +14,9 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Save, Sparkles, AlertTriangle, Copy, Code, IdCard } from 'lucide-react'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Save, Sparkles, AlertTriangle, Copy, Code, IdCard, Wand2, Palette } from 'lucide-react'
 import {
   IdCardHtmlRenderer,
   DEMO_HTML_CARD,
@@ -23,8 +25,18 @@ import {
 import { PresetGalleryDialog } from '../components/preset-gallery-dialog'
 import type { IdCardPreset } from '@/features/id-cards/presets'
 import { useAppStore } from '@/lib/store'
+import {
+  buildEasyTemplate,
+  DEFAULT_EASY_TEMPLATE_SETTINGS,
+  EASY_TEMPLATE_FIELDS,
+  EASY_TEMPLATE_PALETTES,
+  EASY_TEMPLATE_STYLES,
+  type EasyFieldKey,
+  type EasyTemplateSettings,
+} from '@/features/id-cards/easy-template-builder'
 
 type Side = 'front' | 'back'
+type EditorMode = 'easy' | 'advanced'
 
 interface DraftTemplate {
   name: string
@@ -139,21 +151,58 @@ export function TemplateEditorPage({ templateId }: { templateId?: string }) {
   const currentSchool = useAppStore((s) => s.currentSchool)
   const isNew = !templateId
 
-  const [draft, setDraft] = useState<DraftTemplate>(EMPTY_DRAFT)
+  const [draft, setDraft] = useState<DraftTemplate>(() => {
+    if (!isNew) return EMPTY_DRAFT
+    const easy = buildEasyTemplate(DEFAULT_EASY_TEMPLATE_SETTINGS)
+    return {
+      ...EMPTY_DRAFT,
+      orientation: DEFAULT_EASY_TEMPLATE_SETTINGS.orientation,
+      widthMm: DEFAULT_EASY_TEMPLATE_SETTINGS.widthMm,
+      heightMm: DEFAULT_EASY_TEMPLATE_SETTINGS.heightMm,
+      hasBackSide: DEFAULT_EASY_TEMPLATE_SETTINGS.hasBackSide,
+      frontHtml: easy.frontHtml,
+      frontCss: easy.frontCss,
+      backHtml: easy.backHtml,
+      backCss: easy.backCss,
+    }
+  })
   const [loading, setLoading] = useState(!isNew)
   const [saving, setSaving] = useState(false)
   const [side, setSide] = useState<Side>('front')
   const [legacyMode, setLegacyMode] = useState(false)
   const [galleryOpen, setGalleryOpen] = useState(false)
+  const [editorMode, setEditorMode] = useState<EditorMode>(isNew ? 'easy' : 'advanced')
+  const [easySettings, setEasySettings] = useState<EasyTemplateSettings>(DEFAULT_EASY_TEMPLATE_SETTINGS)
+
+  const applyEasySettings = useCallback((nextSettings: EasyTemplateSettings) => {
+    const easy = buildEasyTemplate(nextSettings)
+    setEasySettings(nextSettings)
+    setDraft((prev) => ({
+      ...prev,
+      orientation: nextSettings.orientation,
+      widthMm: nextSettings.widthMm,
+      heightMm: nextSettings.heightMm,
+      hasBackSide: nextSettings.hasBackSide,
+      frontHtml: easy.frontHtml,
+      frontCss: easy.frontCss,
+      backHtml: easy.backHtml,
+      backCss: easy.backCss,
+    }))
+    if (!nextSettings.hasBackSide) setSide('front')
+  }, [])
 
   useEffect(() => {
     if (isNew) return
-    setLoading(true)
-    api
-      .get<{ template: TemplateApiPayload }>(`/api/school/id-cards/templates/${templateId}`)
-      .then((res) => {
+    let alive = true
+
+    const loadTemplate = async () => {
+      setLoading(true)
+      try {
+        const res = await api.get<{ template: TemplateApiPayload }>(`/api/school/id-cards/templates/${templateId}`)
+        if (!alive) return
         const t = res.template
         setLegacyMode(t.templateMode === 'element')
+        setEditorMode('advanced')
         setDraft({
           name: t.name,
           description: t.description || '',
@@ -168,15 +217,21 @@ export function TemplateEditorPage({ templateId }: { templateId?: string }) {
           backHtml: t.backHtml || '',
           backCss: t.backCss || '',
         })
-      })
-      .catch((err) => {
+      } catch (err) {
+        if (!alive) return
         toast({
           variant: 'destructive',
           title: 'Could not load template',
           description: err instanceof Error ? err.message : 'Please try again.',
         })
-      })
-      .finally(() => setLoading(false))
+      } finally {
+        if (alive) setLoading(false)
+      }
+    }
+
+    void loadTemplate()
+
+    return () => { alive = false }
   }, [isNew, templateId, toast])
 
   const renderTpl: HtmlRenderTemplate = useMemo(
@@ -193,6 +248,15 @@ export function TemplateEditorPage({ templateId }: { templateId?: string }) {
   )
 
   const swapOrientation = () => {
+    if (editorMode === 'easy') {
+      applyEasySettings({
+        ...easySettings,
+        orientation: easySettings.orientation === 'portrait' ? 'landscape' : 'portrait',
+        widthMm: easySettings.heightMm,
+        heightMm: easySettings.widthMm,
+      })
+      return
+    }
     setDraft((prev) => ({
       ...prev,
       orientation: prev.orientation === 'portrait' ? 'landscape' : 'portrait',
@@ -215,6 +279,7 @@ export function TemplateEditorPage({ templateId }: { templateId?: string }) {
         backCss: preset.backCss || '',
       }))
       setLegacyMode(false)
+      setEditorMode('advanced')
       setGalleryOpen(false)
       toast({ title: 'Preset applied', description: `Loaded "${preset.name}" into the editor.` })
     },
@@ -289,7 +354,7 @@ export function TemplateEditorPage({ templateId }: { templateId?: string }) {
     <div className="space-y-4">
       <PageHeader
         title={isNew ? 'New ID Card Template' : 'Edit Template'}
-        description="Pick a preset or write HTML/CSS directly. The preview updates live as you type."
+        description="Use the easy designer for a clean printable card, or switch to HTML for full control."
         backAction={{ onClick: () => router.push('/id-cards/templates') }}
         action={{ label: saving ? 'Saving…' : 'Save Template', icon: Save, onClick: save }}
         secondaryAction={{
@@ -312,6 +377,30 @@ export function TemplateEditorPage({ templateId }: { templateId?: string }) {
         </div>
       )}
 
+      <Tabs value={editorMode} onValueChange={(value) => setEditorMode(value as EditorMode)} className="space-y-4">
+        <TabsList className="grid w-full grid-cols-2 sm:w-[360px]">
+          <TabsTrigger value="easy" className="gap-1.5">
+            <Wand2 className="size-3.5" />
+            Easy Designer
+          </TabsTrigger>
+          <TabsTrigger value="advanced" className="gap-1.5">
+            <Code className="size-3.5" />
+            Advanced HTML
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="easy" className="mt-0">
+          <EasyDesigner
+            draft={draft}
+            settings={easySettings}
+            onDraftChange={setDraft}
+            onSettingsChange={applyEasySettings}
+            renderTemplate={renderTpl}
+            currentSchoolLogo={currentSchool?.logo || null}
+          />
+        </TabsContent>
+
+        <TabsContent value="advanced" className="mt-0">
       <div className="grid gap-4 lg:grid-cols-[280px_1fr]">
         {/* LEFT — template settings + token reference */}
         <div className="space-y-3">
@@ -501,6 +590,8 @@ export function TemplateEditorPage({ templateId }: { templateId?: string }) {
           </Tabs>
         </div>
       </div>
+        </TabsContent>
+      </Tabs>
 
       <PresetGalleryDialog
         open={galleryOpen}
@@ -509,6 +600,274 @@ export function TemplateEditorPage({ templateId }: { templateId?: string }) {
       />
     </div>
   )
+}
+
+function EasyDesigner({
+  draft,
+  settings,
+  onDraftChange,
+  onSettingsChange,
+  renderTemplate,
+  currentSchoolLogo,
+}: {
+  draft: DraftTemplate
+  settings: EasyTemplateSettings
+  onDraftChange: (next: DraftTemplate | ((prev: DraftTemplate) => DraftTemplate)) => void
+  onSettingsChange: (next: EasyTemplateSettings) => void
+  renderTemplate: HtmlRenderTemplate
+  currentSchoolLogo: string | null
+}) {
+  const updateSettings = (patch: Partial<EasyTemplateSettings>) => {
+    onSettingsChange({ ...settings, ...patch })
+  }
+
+  const updateField = (field: EasyFieldKey, checked: boolean) => {
+    onSettingsChange({
+      ...settings,
+      fields: { ...settings.fields, [field]: checked },
+    })
+  }
+
+  const setSizePreset = (preset: string) => {
+    if (preset === 'portrait') {
+      updateSettings({ orientation: 'portrait', widthMm: 54, heightMm: 86 })
+      return
+    }
+    if (preset === 'landscape') {
+      updateSettings({ orientation: 'landscape', widthMm: 86, heightMm: 54 })
+      return
+    }
+    updateSettings({ orientation: 'portrait', widthMm: 86, heightMm: 135 })
+  }
+
+  const previewScale = getDesignerPreviewScale(settings.widthMm, settings.heightMm)
+  const backPreviewScale = Math.max(0.58, previewScale * 0.78)
+  const selectedFieldCount = EASY_TEMPLATE_FIELDS.filter((field) => settings.fields[field.key]).length
+  const isSmallCardCrowded = settings.heightMm <= 90 && selectedFieldCount > 5 && !settings.hasBackSide
+
+  return (
+    <div className="grid gap-4 xl:grid-cols-[360px_1fr]">
+      <div className="space-y-3">
+        <Card>
+          <CardContent className="space-y-3 p-3">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+              <div className="space-y-1">
+                <Label className="text-[11px]">Template name</Label>
+                <Input
+                  value={draft.name}
+                  onChange={(event) => onDraftChange((prev) => ({ ...prev, name: event.target.value }))}
+                  className="h-8 text-xs"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[11px]">Card size</Label>
+                <Select
+                  value={settings.widthMm === 86 && settings.heightMm === 54 ? 'landscape' : settings.widthMm === 86 ? 'large' : 'portrait'}
+                  onValueChange={setSizePreset}
+                >
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="portrait">CR80 Portrait - 54 x 86 mm</SelectItem>
+                    <SelectItem value="landscape">CR80 Landscape - 86 x 54 mm</SelectItem>
+                    <SelectItem value="large">Large Portrait - 86 x 135 mm</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-[11px]">Description</Label>
+              <Textarea
+                value={draft.description}
+                onChange={(event) => onDraftChange((prev) => ({ ...prev, description: event.target.value }))}
+                className="min-h-[48px] text-xs"
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="space-y-3 p-3">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase text-muted-foreground">
+              <Wand2 className="size-3.5" />
+              Layout
+            </div>
+            <div className="grid gap-2">
+              {EASY_TEMPLATE_STYLES.map((style) => (
+                <button
+                  key={style.id}
+                  type="button"
+                  onClick={() => updateSettings({ styleId: style.id })}
+                  className={[
+                    'rounded-md border p-2 text-left transition hover:border-primary/50',
+                    settings.styleId === style.id ? 'border-primary bg-primary/5' : 'border-border',
+                  ].join(' ')}
+                >
+                  <div className="text-xs font-semibold">{style.name}</div>
+                  <div className="mt-0.5 text-[11px] leading-snug text-muted-foreground">{style.description}</div>
+                </button>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="space-y-3 p-3">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase text-muted-foreground">
+              <Palette className="size-3.5" />
+              Color
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {EASY_TEMPLATE_PALETTES.map((palette) => (
+                <button
+                  key={palette.id}
+                  type="button"
+                  onClick={() => updateSettings({ paletteId: palette.id })}
+                  className={[
+                    'flex items-center gap-2 rounded-md border p-2 text-left text-xs transition hover:border-primary/50',
+                    settings.paletteId === palette.id ? 'border-primary bg-primary/5' : 'border-border',
+                  ].join(' ')}
+                >
+                  <span
+                    className="size-5 rounded-full border"
+                    style={{ background: palette.primary, borderColor: palette.accent }}
+                  />
+                  <span className="font-medium">{palette.name}</span>
+                </button>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="space-y-3">
+        <Card>
+          <CardContent className="grid gap-4 p-3 lg:grid-cols-[1fr_260px]">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-xs font-semibold uppercase text-muted-foreground">Card fields</div>
+                  <div className="text-[11px] text-muted-foreground">Tick only the details you want on the card.</div>
+                </div>
+                <Badge variant="secondary" className="font-mono text-[10px]">
+                  {settings.widthMm}x{settings.heightMm}mm
+                </Badge>
+              </div>
+
+              <div className="grid gap-2 sm:grid-cols-2">
+                {EASY_TEMPLATE_FIELDS.map((field) => (
+                  <label
+                    key={field.key}
+                    className="flex items-center gap-2 rounded-md border p-2 text-xs"
+                  >
+                    <Checkbox
+                      checked={settings.fields[field.key]}
+                      onCheckedChange={(checked) => updateField(field.key, checked === true)}
+                    />
+                    <span className="font-medium">{field.label}</span>
+                  </label>
+                ))}
+              </div>
+
+              {isSmallCardCrowded && (
+                <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-[11px] text-amber-900">
+                  Too many fields on one small side can crowd the card. Enable Back side or remove long fields like Address.
+                </div>
+              )}
+
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                <label className="flex items-center gap-2 rounded-md border p-2 text-xs">
+                  <Checkbox
+                    checked={settings.photoShape === 'circle'}
+                    onCheckedChange={(checked) => updateSettings({ photoShape: checked ? 'circle' : 'rounded' })}
+                  />
+                  <span className="font-medium">Round photo</span>
+                </label>
+                <label className="flex items-center gap-2 rounded-md border p-2 text-xs">
+                  <Checkbox
+                    checked={settings.showSignature}
+                    onCheckedChange={(checked) => updateSettings({ showSignature: checked === true })}
+                  />
+                  <span className="font-medium">Signature</span>
+                </label>
+                <label className="flex items-center gap-2 rounded-md border p-2 text-xs">
+                  <Checkbox
+                    checked={settings.showQr}
+                    onCheckedChange={(checked) => updateSettings({ showQr: checked === true })}
+                  />
+                  <span className="font-medium">QR box</span>
+                </label>
+                <label className="flex items-center gap-2 rounded-md border p-2 text-xs">
+                  <Checkbox
+                    checked={settings.hasBackSide}
+                    onCheckedChange={(checked) => updateSettings({ hasBackSide: checked === true })}
+                  />
+                  <span className="font-medium">Back side</span>
+                </label>
+              </div>
+
+              <div className="flex items-center justify-between rounded-md border p-2">
+                <Label className="text-xs">Default template</Label>
+                <Switch
+                  checked={draft.isDefault}
+                  onCheckedChange={(checked) => onDraftChange((prev) => ({ ...prev, isDefault: checked }))}
+                />
+              </div>
+              <div className="flex items-center justify-between rounded-md border p-2">
+                <Label className="text-xs">Active</Label>
+                <Switch
+                  checked={draft.isActive}
+                  onCheckedChange={(checked) => onDraftChange((prev) => ({ ...prev, isActive: checked }))}
+                />
+              </div>
+            </div>
+
+            <div className="rounded-md border bg-slate-100 p-3">
+              <div className="mb-2 flex items-center justify-between text-[11px] font-semibold uppercase text-muted-foreground">
+                <span>Live Preview</span>
+                <IdCard className="size-3.5" />
+              </div>
+              <div className="flex min-h-[430px] items-center justify-center overflow-hidden rounded-md border border-dashed border-slate-300 bg-white p-4 shadow-inner">
+                <div className="pointer-events-none">
+                  <IdCardHtmlRenderer
+                    template={renderTemplate}
+                    card={DEMO_HTML_CARD}
+                    schoolLogo={currentSchoolLogo}
+                    scale={previewScale}
+                    side="front"
+                  />
+                </div>
+              </div>
+              {settings.hasBackSide && (
+                <div className="mt-3 flex justify-center">
+                  <div className="pointer-events-none">
+                    <IdCardHtmlRenderer
+                      template={renderTemplate}
+                      card={DEMO_HTML_CARD}
+                      schoolLogo={currentSchoolLogo}
+                      scale={backPreviewScale}
+                      side="back"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  )
+}
+
+function getDesignerPreviewScale(widthMm: number, heightMm: number) {
+  const maxWidthPx = 220
+  const maxHeightPx = 390
+  const mmToPx = 3.78
+  const fitWidth = maxWidthPx / (widthMm * mmToPx)
+  const fitHeight = maxHeightPx / (heightMm * mmToPx)
+  return Math.min(1.55, Math.max(0.72, Math.min(fitWidth, fitHeight)))
 }
 
 function NumberField({

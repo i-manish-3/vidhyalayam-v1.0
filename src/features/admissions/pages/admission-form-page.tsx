@@ -223,6 +223,9 @@ interface WizardForm {
   hostelName: string
   hostelRoomNo: string
   hostelBedNo: string
+  hostelId: string
+  hostelRoomId: string
+  hostelBedId: string
   // Step 3: Sibling
   siblingId: string
   // Step 4: Accounts Info
@@ -309,6 +312,9 @@ const DEFAULT_FORM: WizardForm = {
   hostelName: '',
   hostelRoomNo: '',
   hostelBedNo: '',
+  hostelId: '',
+  hostelRoomId: '',
+  hostelBedId: '',
   siblingId: '',
   bankAccountNumber: '',
   ifscCode: '',
@@ -367,6 +373,26 @@ interface SectionOption { id: string; name: string; classId: string }
 interface TransportRouteStopOption { name: string; fare?: number }
 interface TransportRouteOption { id: string; routeName: string; stops?: string | null; feeMonths?: string | null }
 interface FeesGroupOption { id: string; name: string }
+interface HostelBedOption { id: string; bedNumber: string; isActive?: boolean; occupied?: boolean }
+interface HostelRoomOption {
+  id: string
+  roomNumber: string
+  roomType?: string | null
+  floor?: string | null
+  capacity: number
+  isActive?: boolean
+  fare?: number | null
+  feeMonths?: string | null
+  occupiedCount?: number
+  beds?: HostelBedOption[]
+}
+interface HostelOption {
+  id: string
+  name: string
+  type?: string | null
+  isActive?: boolean
+  rooms?: HostelRoomOption[]
+}
 
 function parseTransportStops(value: string | null | undefined): TransportRouteStopOption[] {
   if (!value) return []
@@ -448,6 +474,7 @@ export function AdmissionFormPage() {
   const [classes, setClasses] = useState<ClassOption[]>([])
   const [sections, setSections] = useState<SectionOption[]>([])
   const [transportRoutes, setTransportRoutes] = useState<TransportRouteOption[]>([])
+  const [hostels, setHostels] = useState<HostelOption[]>([])
   const [feesGroups, setFeesGroups] = useState<FeesGroupOption[]>([])
   const [availableAcademicYears, setAvailableAcademicYears] = useState<string[]>([])
   const [currentAcademicYear, setCurrentAcademicYear] = useState<string>('')
@@ -652,6 +679,52 @@ export function AdmissionFormPage() {
     }
   }, [form.academicYear])
 
+  useEffect(() => {
+    let mounted = true
+
+    const fetchHostels = async () => {
+      if (!form.academicYear) {
+        setHostels([])
+        return
+      }
+
+      try {
+        const data = await api.get<{ hostels: HostelOption[] }>(
+          '/api/school/hostels',
+          { academicYear: form.academicYear },
+          { skipLogoutOn401: true }
+        )
+        if (!mounted) return
+        const list = data.hostels || []
+        setHostels(list)
+        setForm((prev) => {
+          if (!prev.hostelId) return prev
+          const hostel = list.find((h) => h.id === prev.hostelId)
+          const room = hostel?.rooms?.find((r) => r.id === prev.hostelRoomId)
+          const bed = room?.beds?.find((b) => b.id === prev.hostelBedId && !b.occupied)
+          if (hostel && room && bed) return prev
+          return {
+            ...prev,
+            hostelId: '',
+            hostelRoomId: '',
+            hostelBedId: '',
+            hostelName: '',
+            hostelRoomNo: '',
+            hostelBedNo: '',
+          }
+        })
+      } catch {
+        if (mounted) setHostels([])
+      }
+    }
+
+    fetchHostels()
+
+    return () => {
+      mounted = false
+    }
+  }, [form.academicYear])
+
   const filteredSections = useMemo(
     () => form.classId ? sections.filter(s => s.classId === form.classId) : [],
     [form.classId, sections]
@@ -665,6 +738,31 @@ export function AdmissionFormPage() {
   const selectedTransportStops = useMemo(
     () => parseTransportStops(selectedTransportRoute?.stops),
     [selectedTransportRoute?.stops]
+  )
+
+  const selectedHostel = useMemo(
+    () => hostels.find((hostel) => hostel.id === form.hostelId),
+    [form.hostelId, hostels]
+  )
+
+  const selectedHostelRooms = useMemo(
+    () => (selectedHostel?.rooms || []).filter((room) => room.isActive !== false),
+    [selectedHostel?.rooms]
+  )
+
+  const selectedHostelRoom = useMemo(
+    () => selectedHostelRooms.find((room) => room.id === form.hostelRoomId),
+    [form.hostelRoomId, selectedHostelRooms]
+  )
+
+  const selectedHostelBeds = useMemo(
+    () => (selectedHostelRoom?.beds || []).filter((bed) => bed.isActive !== false && !bed.occupied),
+    [selectedHostelRoom?.beds]
+  )
+
+  const selectedHostelBed = useMemo(
+    () => selectedHostelRoom?.beds?.find((bed) => bed.id === form.hostelBedId),
+    [form.hostelBedId, selectedHostelRoom?.beds]
   )
 
   // Sibling search handler
@@ -1023,6 +1121,12 @@ export function AdmissionFormPage() {
       case 'classId':
         if (!v) return 'Please select a class'
         return null
+      case 'hostelRoomId':
+        if (form.hostelId && !v) return 'Please select a hostel room'
+        return null
+      case 'hostelBedId':
+        if ((form.hostelId || form.hostelRoomId) && !v) return 'Please select a hostel bed'
+        return null
       // Step 4
       case 'feesGroupId':
         if (!v) return 'Please select a fee group'
@@ -1050,7 +1154,7 @@ export function AdmissionFormPage() {
     const fieldsPerStep: Record<number, (keyof WizardForm)[]> = {
       1: ['academicYear', 'firstName', 'lastName', 'dateOfBirth', 'gender', 'aadhaarNumber', 'penNumber', 'samagraId', 'apaarId', 'udiseId', 'heightCm', 'weightKg'],
       2: ['motherName', 'motherPhone', 'motherEmail', 'motherAadhaar', 'motherIncome', 'fatherName', 'fatherPhone', 'fatherEmail', 'fatherAadhaar', 'fatherIncome', 'address', 'pincode', 'localPincode'],
-      3: ['classId'],
+      3: ['classId', 'hostelRoomId', 'hostelBedId'],
       4: ['bankAccountNumber', 'ifscCode', 'feesGroupId'],
       5: [],
       6: ['termsAccepted'],
@@ -1068,7 +1172,7 @@ export function AdmissionFormPage() {
     const fieldsPerStep: Record<number, (keyof WizardForm)[]> = {
       1: ['academicYear', 'firstName', 'lastName', 'dateOfBirth', 'gender', 'aadhaarNumber', 'penNumber', 'samagraId', 'apaarId', 'udiseId', 'heightCm', 'weightKg'],
       2: ['motherName', 'motherPhone', 'motherEmail', 'motherAadhaar', 'motherIncome', 'fatherName', 'fatherPhone', 'fatherEmail', 'fatherAadhaar', 'fatherIncome', 'address', 'pincode', 'localPincode'],
-      3: ['classId'],
+      3: ['classId', 'hostelRoomId', 'hostelBedId'],
       4: ['bankAccountNumber', 'ifscCode', 'feesGroupId'],
       5: [],
       6: ['termsAccepted'],
@@ -1126,6 +1230,12 @@ export function AdmissionFormPage() {
     motherIncome: form.motherIncome ? parseFloat(form.motherIncome) : null,
     fatherIncome: form.fatherIncome ? parseFloat(form.fatherIncome) : null,
     siblingId: form.siblingId || null,
+    hostelId: form.hostelId || null,
+    hostelRoomId: form.hostelRoomId || null,
+    hostelBedId: form.hostelBedId || null,
+    hostelName: selectedHostel?.name || form.hostelName || null,
+    hostelRoomNo: selectedHostelRoom?.roomNumber || form.hostelRoomNo || null,
+    hostelBedNo: selectedHostelBed?.bedNumber || form.hostelBedNo || null,
     annualIncome: form.fatherIncome ? parseFloat(form.fatherIncome) : null,
     documents: Object.entries(documentUploads)
       .filter(([, v]) => v.uploaded && v.fileDataUrl)
@@ -1962,18 +2072,137 @@ export function AdmissionFormPage() {
       <FormSection title="Hostel Details" icon={Home}>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="space-y-2">
-          <Label>Hostel Name</Label>
-          <Input value={form.hostelName} onChange={e => updateForm('hostelName', e.target.value)} placeholder="Hostel name" />
+          <Label>Hostel</Label>
+          <Select
+            value={form.hostelId || 'none'}
+            onValueChange={(v) => {
+              if (v === 'none') {
+                setForm(prev => ({
+                  ...prev,
+                  hostelId: '',
+                  hostelRoomId: '',
+                  hostelBedId: '',
+                  hostelName: '',
+                  hostelRoomNo: '',
+                  hostelBedNo: '',
+                }))
+                setFieldErrors(prev => {
+                  const next = { ...prev }
+                  delete next.hostelRoomId
+                  delete next.hostelBedId
+                  return next
+                })
+                return
+              }
+              const hostel = hostels.find(h => h.id === v)
+              setForm(prev => ({
+                ...prev,
+                hostelId: v,
+                hostelRoomId: '',
+                hostelBedId: '',
+                hostelName: hostel?.name || '',
+                hostelRoomNo: '',
+                hostelBedNo: '',
+              }))
+              setFieldErrors(prev => {
+                const next = { ...prev }
+                delete next.hostelRoomId
+                delete next.hostelBedId
+                return next
+              })
+            }}
+            disabled={!form.academicYear || hostels.length === 0}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder={
+                !form.academicYear
+                  ? 'Select academic year first'
+                  : hostels.length === 0
+                    ? 'No hostels for this year'
+                    : 'Select hostel'
+              } />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">No Hostel</SelectItem>
+              {hostels.map(hostel => (
+                <SelectItem key={hostel.id} value={hostel.id} disabled={hostel.isActive === false}>
+                  {hostel.name}{hostel.type ? ` (${hostel.type})` : ''}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         <div className="space-y-2">
-          <Label>Room No</Label>
-          <Input value={form.hostelRoomNo} onChange={e => updateForm('hostelRoomNo', e.target.value)} placeholder="Room number" />
+          <Label>Room</Label>
+          <Select
+            value={form.hostelRoomId}
+            onValueChange={(v) => {
+              const room = selectedHostelRooms.find(r => r.id === v)
+              setForm(prev => ({
+                ...prev,
+                hostelRoomId: v,
+                hostelBedId: '',
+                hostelRoomNo: room?.roomNumber || '',
+                hostelBedNo: '',
+              }))
+              setFieldErrors(prev => {
+                const next = { ...prev }
+                delete next.hostelBedId
+                return next
+              })
+              handleBlur('hostelRoomId', v)
+            }}
+            disabled={!form.hostelId || selectedHostelRooms.length === 0}
+          >
+            <SelectTrigger className={ec('hostelRoomId')}>
+              <SelectValue placeholder={form.hostelId ? 'Select room' : 'Select hostel first'} />
+            </SelectTrigger>
+            <SelectContent>
+              {selectedHostelRooms.map(room => {
+                const availableBeds = (room.beds || []).filter(bed => bed.isActive !== false && !bed.occupied).length
+                return (
+                  <SelectItem key={room.id} value={room.id} disabled={room.fare == null || availableBeds === 0}>
+                    Room {room.roomNumber}
+                    {room.roomType ? ` - ${room.roomType}` : ''}
+                    {room.fare != null ? ` - Rs. ${room.fare.toLocaleString('en-IN')}` : ' - No fare'}
+                    {` - ${availableBeds}/${room.capacity} beds`}
+                  </SelectItem>
+                )
+              })}
+            </SelectContent>
+          </Select>
+          <FieldError message={touched.hostelRoomId ? fieldErrors.hostelRoomId : null} />
         </div>
         <div className="space-y-2">
-          <Label>Bed No</Label>
-          <Input value={form.hostelBedNo} onChange={e => updateForm('hostelBedNo', e.target.value)} placeholder="Bed number" />
+          <Label>Bed</Label>
+          <Select
+            value={form.hostelBedId}
+            onValueChange={(v) => {
+              const bed = selectedHostelBeds.find(b => b.id === v)
+              setForm(prev => ({
+                ...prev,
+                hostelBedId: v,
+                hostelBedNo: bed?.bedNumber || '',
+              }))
+              handleBlur('hostelBedId', v)
+            }}
+            disabled={!form.hostelRoomId || selectedHostelBeds.length === 0}
+          >
+            <SelectTrigger className={ec('hostelBedId')}>
+              <SelectValue placeholder={form.hostelRoomId ? 'Select bed' : 'Select room first'} />
+            </SelectTrigger>
+            <SelectContent>
+              {selectedHostelBeds.map(bed => (
+                <SelectItem key={bed.id} value={bed.id}>Bed {bed.bedNumber}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <FieldError message={touched.hostelBedId ? fieldErrors.hostelBedId : null} />
         </div>
       </div>
+      {selectedHostelRoom && selectedHostelBeds.length === 0 && (
+        <p className="text-xs text-destructive">No beds are available in this room for the selected academic year.</p>
+      )}
       </FormSection>
     </div>
     )
@@ -2332,12 +2561,19 @@ export function AdmissionFormPage() {
                 </div>
               </>
             )}
-            {(selectedRoute || form.hostelName) && (
+            {(selectedRoute || selectedHostel) && (
               <>
                 <Separator />
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-y-2 gap-x-4">
                   {selectedRoute && <div><span className="text-muted-foreground">Transport:</span> {selectedRoute.routeName}</div>}
-                  {form.hostelName && <div><span className="text-muted-foreground">Hostel:</span> {form.hostelName} {form.hostelRoomNo && `(Room ${form.hostelRoomNo})`}</div>}
+                  {selectedHostel && (
+                    <div>
+                      <span className="text-muted-foreground">Hostel:</span> {selectedHostel.name}
+                      {selectedHostelRoom?.roomNumber && ` (Room ${selectedHostelRoom.roomNumber}`}
+                      {selectedHostelBed?.bedNumber && `, Bed ${selectedHostelBed.bedNumber}`}
+                      {selectedHostelRoom?.roomNumber && ')'}
+                    </div>
+                  )}
                 </div>
               </>
             )}
