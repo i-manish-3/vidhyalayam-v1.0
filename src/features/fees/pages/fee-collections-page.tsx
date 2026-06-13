@@ -2131,7 +2131,7 @@ export function FeeCollectionsPage() {
                       Tick a month or term above to show its fee heads here.
                     </div>
                   ) : (
-                    <div className="grid gap-0.5 md:grid-cols-2 lg:grid-cols-3">
+                    <div className="grid gap-0.5 md:grid-cols-2">
                       {visibleCollectionItems.map((item) => {
                         const checked = selectedCollectionIds.includes(item.id)
                         const preview = checked ? allocationPreview.get(item.id) : undefined
