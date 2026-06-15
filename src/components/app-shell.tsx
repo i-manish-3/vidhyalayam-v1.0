@@ -27,7 +27,35 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { Sun, Moon, LogOut, User, PanelLeftOpen, Search, ArrowRight, Lock, Sunrise, Sunset, MoonStar, ImagePlus, Trash2, ChevronDown, GraduationCap, BookOpen, Coins, CalendarCheck, Package, UserPlus } from 'lucide-react'
+import {
+  Sun,
+  Moon,
+  LogOut,
+  User,
+  PanelLeftOpen,
+  Search,
+  ArrowRight,
+  Lock,
+  Sunrise,
+  Sunset,
+  MoonStar,
+  ImagePlus,
+  Trash2,
+  ChevronDown,
+  GraduationCap,
+  BookOpen,
+  Coins,
+  CalendarCheck,
+  Package,
+  UserPlus,
+  ReceiptText,
+  BarChart2,
+  IndianRupee,
+  Bus,
+  Building2,
+  UserRound,
+  Users,
+} from 'lucide-react'
 import { AcademicYearSwitcher } from '@/components/academic-year-switcher'
 import { ImpersonationBanner } from '@/components/super-admin/impersonation-banner'
 import { PlatformAnnouncementBanner } from '@/components/super-admin/platform-announcement-banner'
@@ -466,12 +494,22 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         icon: CalendarCheck,
         isDropdown: true,
         children: [
-          { label: 'Student Attendance', page: 'mark-attendance', href: '/attendance/mark' },
-          { label: 'Staff Attendance', page: 'employee-attendance', href: '/attendance/staff' },
+          { label: 'Student', page: 'mark-attendance', href: '/attendance/mark', icon: UserRound },
+          { label: 'Staff', page: 'employee-attendance', href: '/attendance/staff', icon: Users },
         ].filter(child => isPageVisible(child.page, permissions, role, permissionsLoaded)),
       },
       { label: 'Inventory', page: 'inventory', href: '/inventory', icon: Package },
       { label: 'Admission', page: 'admission-form', href: '/students/admit', icon: UserPlus },
+      {
+        label: 'Account Reports',
+        icon: BarChart2,
+        isDropdown: true,
+        children: [
+          { label: 'Fee Reports', page: 'fee-reports', href: '/fees/reports', icon: IndianRupee },
+          { label: 'Transport Reports', page: 'transport', href: '/transport/routes', icon: Bus },
+          { label: 'Hostel Reports', page: 'hostel', href: '/hostel/hostels', icon: Building2 },
+        ].filter(child => isPageVisible(child.page, permissions, role, permissionsLoaded)),
+      },
     ].filter(item => {
       if (item.isDropdown) {
         return item.children && item.children.length > 0
@@ -772,16 +810,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           {/* Sticky Quick Access Menubar */}
           {visibleItems.length > 0 && (
             <div className="sticky top-0 z-20 shrink-0 flex items-center h-10 px-4 lg:px-6 bg-card/90 backdrop-blur-md border-b border-border/40 shadow-sm overflow-x-auto no-scrollbar">
-              {/* Invisible SVG definition for the icon gradient */}
-              <svg className="absolute w-0 h-0 pointer-events-none" width="0" height="0">
-                <defs>
-                  <linearGradient id="menu-icon-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stopColor="var(--primary)" />
-                    <stop offset="100%" stopColor="var(--chart-2, var(--primary))" />
-                  </linearGradient>
-                </defs>
-              </svg>
-
               <div className="flex items-center gap-2 sm:gap-4 text-[13px] font-medium py-1">
                 {visibleItems.map((item) => {
                   if (item.isDropdown) {
@@ -795,12 +823,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                               isDropdownActive ? 'bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary font-semibold' : ''
                             }`}
                           >
-                            <item.icon
-                              className="size-4 shrink-0 transition-transform duration-200 group-hover:scale-110"
-                              stroke="url(#menu-icon-gradient)"
-                              fill="url(#menu-icon-gradient)"
-                              fillOpacity={0.2}
-                            />
+                             <item.icon
+                               className="size-4 shrink-0"
+                               stroke="currentColor"
+                               fill="none"
+                             />
                             <span>{item.label}</span>
                             <ChevronDown className="size-3.5 opacity-60 transition-transform duration-200 group-data-[state=open]:rotate-180" />
                           </button>
@@ -808,14 +835,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                         <DropdownMenuContent align="start" className="min-w-[170px]">
                           {item.children.map((child) => {
                             const isChildActive = pathname === child.href || pathname.startsWith(child.href + '/')
+                            const ChildIcon = child.icon
                             return (
                               <DropdownMenuItem key={child.label} asChild>
                                 <Link
                                   href={child.href}
-                                  className={`w-full cursor-pointer flex items-center ${
+                                  className={`w-full cursor-pointer flex items-center gap-2 ${
                                     isChildActive ? 'bg-accent font-semibold text-primary' : ''
                                   }`}
                                 >
+                                  {ChildIcon && <ChildIcon className="size-4 shrink-0" />}
                                   {child.label}
                                 </Link>
                               </DropdownMenuItem>
@@ -835,12 +864,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                         isActive ? 'bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary font-semibold' : ''
                       }`}
                     >
-                      <item.icon
-                        className="size-4 shrink-0 transition-transform duration-200 group-hover:scale-110"
-                        stroke="url(#menu-icon-gradient)"
-                        fill="url(#menu-icon-gradient)"
-                        fillOpacity={0.2}
-                      />
+                       <item.icon
+                         className="size-4 shrink-0"
+                         stroke="currentColor"
+                         fill="none"
+                       />
                       <span>{item.label}</span>
                     </Link>
                   )

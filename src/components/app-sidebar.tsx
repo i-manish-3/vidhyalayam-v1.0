@@ -671,18 +671,11 @@ export function AppSidebar() {
               <span className="min-w-0 flex-1 truncate text-left">{item.label}</span>
               <ChevronDown className={cn('size-4 shrink-0 transition-transform', isOpen && 'rotate-180')} />
             </button>
-            <div
-              className={cn(
-                'grid transition-[grid-template-rows,opacity] duration-200 ease-out',
-                isOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
-              )}
-            >
-              <div className="min-h-0 overflow-hidden">
-                <div className="mt-1 space-y-1 rounded-lg bg-sidebar-foreground/[0.04] p-1">
-                  {renderExpandedItems(item.children || [], depth + 1, itemKey)}
-                </div>
+            {isOpen && (
+              <div className="mt-1 space-y-1 rounded-md border border-white/30 ml-2 p-1 bg-white/5">
+                {renderExpandedItems(item.children || [], depth + 1, itemKey)}
               </div>
-            </div>
+            )}
           </div>
         )
       }
