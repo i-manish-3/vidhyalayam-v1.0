@@ -251,6 +251,9 @@ function studentName(student: Student | null) {
 }
 
 function itemPeriod(item: FeeCollectionItem) {
+  // Inventory dues have no month/term, so they carry no period label — this
+  // keeps them showing as plain "Inventory Purchase" (no "(General)" suffix).
+  if (isInventoryItem(item)) return ''
   return item.installment || item.installmentName || 'General'
 }
 
@@ -263,7 +266,8 @@ function isHostelItem(item: FeeCollectionItem) {
 }
 
 function isInventoryItem(item: FeeCollectionItem) {
-  return item.source === 'inventory' || (item.feeHeadName || '').toLowerCase().includes('store purchase')
+  const head = (item.feeHeadName || '').toLowerCase()
+  return item.source === 'inventory' || head.includes('inventory purchase') || head.includes('store purchase')
 }
 
 function collectionCategory(item: FeeCollectionItem): CollectionCategory {
@@ -1824,7 +1828,7 @@ export function FeeCollectionsPage() {
                       <div className="grid gap-1.5">
                         {inventoryItems.map((item) => {
                           const checked = selectedCollectionIds.includes(item.id)
-                          const detail = (item.description || item.feeHeadName || 'Store Purchase').replace(/^Store Purchase\s*/i, '')
+                          const detail = (item.description || item.feeHeadName || 'Inventory Purchase').replace(/^(Inventory|Store) Purchase\s*/i, '')
                           return (
                             <label
                               key={item.ledgerEntryId || item.id}
@@ -1835,7 +1839,7 @@ export function FeeCollectionsPage() {
                             >
                               <Checkbox checked={checked} onCheckedChange={() => toggleInventoryDue(item)} />
                               <span className="min-w-0 flex-1 truncate" title={detail}>
-                                <span className="font-medium">Store Purchase</span>
+                                <span className="font-medium">Inventory Purchase</span>
                                 {detail && <span className="ml-1 text-muted-foreground">{detail}</span>}
                               </span>
                               <span className="ml-auto shrink-0 font-semibold tabular-nums">{money(remainingAmount(item))}</span>

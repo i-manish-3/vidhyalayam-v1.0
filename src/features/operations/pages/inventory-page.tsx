@@ -10,12 +10,13 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Switch } from '@/components/ui/switch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
-import { PlusCircle, Package, MoreVertical, Pencil, Trash2, PackagePlus, AlertTriangle, ShoppingCart, Search, ChevronDown, ChevronRight, X } from 'lucide-react'
+import { PlusCircle, Package, MoreVertical, Pencil, Trash2, PackagePlus, AlertTriangle, ShoppingCart, Search, ChevronDown, ChevronRight, X, Boxes, Tags, MapPin } from 'lucide-react'
 
 interface Variant {
   id: string
@@ -291,56 +292,102 @@ export function InventoryPage() {
 
       {/* Add / Edit dialog */}
       <Dialog open={showForm} onOpenChange={setShowForm}>
-        <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
-          <DialogHeader><DialogTitle>{editingId ? 'Edit Item' : 'Add Inventory Item'}</DialogTitle></DialogHeader>
-          <div className="grid gap-4 py-2">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2"><Label>Item Name *</Label><Input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="e.g. School Shirt" /></div>
-              <div className="space-y-2"><Label>Item Code / SKU</Label><Input value={form.sku} onChange={(e) => setForm((f) => ({ ...f, sku: e.target.value }))} /></div>
-              <div className="space-y-2">
-                <Label>Category</Label>
-                <Select value={form.categoryId} onValueChange={(v) => setForm((f) => ({ ...f, categoryId: v }))}>
-                  <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-                  <SelectContent>{categories.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
-                </Select>
+        <DialogContent className="flex max-h-[92svh] flex-col gap-0 overflow-hidden p-0 sm:max-w-3xl">
+          <DialogHeader className="shrink-0 border-b bg-muted/30 px-5 py-4 pr-12 text-left sm:px-6">
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-md border bg-background text-primary">
+                <PackagePlus className="size-5" />
               </div>
-              <div className="space-y-2"><Label>Unit</Label><Input value={form.unit} onChange={(e) => setForm((f) => ({ ...f, unit: e.target.value }))} /></div>
-              <div className="space-y-2">
-                <Label>Condition</Label>
-                <Select value={form.condition} onValueChange={(v) => setForm((f) => ({ ...f, condition: v }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{CONDITIONS.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-                </Select>
+              <div className="min-w-0 space-y-1">
+                <DialogTitle>{editingId ? 'Edit Inventory Item' : 'Add Inventory Item'}</DialogTitle>
+                <DialogDescription>Add the item details, opening stock, and pricing used by store sales.</DialogDescription>
               </div>
-              <div className="space-y-2"><Label>Location</Label><Input value={form.location} onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))} /></div>
             </div>
+          </DialogHeader>
+          <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6">
+            <div className="space-y-6">
+              <section className="space-y-4">
+                <div className="flex items-center gap-2 text-sm font-semibold">
+                  <Tags className="size-4 text-primary" />
+                  Item details
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label htmlFor="inventory-name">Item name *</Label>
+                    <Input id="inventory-name" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="e.g. School Shirt" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="inventory-sku">Item code / SKU</Label>
+                    <Input id="inventory-sku" value={form.sku} onChange={(e) => setForm((f) => ({ ...f, sku: e.target.value }))} placeholder="e.g. SHIRT-WHITE" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Category</Label>
+                    <Select value={form.categoryId} onValueChange={(v) => setForm((f) => ({ ...f, categoryId: v }))}>
+                      <SelectTrigger className="w-full"><SelectValue placeholder="Select category" /></SelectTrigger>
+                      <SelectContent>{categories.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="inventory-unit">Unit</Label>
+                    <Input id="inventory-unit" value={form.unit} onChange={(e) => setForm((f) => ({ ...f, unit: e.target.value }))} placeholder="pcs" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Condition</Label>
+                    <Select value={form.condition} onValueChange={(v) => setForm((f) => ({ ...f, condition: v }))}>
+                      <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                      <SelectContent>{CONDITIONS.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label htmlFor="inventory-location">Location</Label>
+                    <div className="relative">
+                      <MapPin className="absolute left-3 top-2.5 size-4 text-muted-foreground" />
+                      <Input id="inventory-location" className="pl-9" value={form.location} onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))} placeholder="e.g. Store room A" />
+                    </div>
+                  </div>
+                </div>
+              </section>
 
-            <label className="flex items-center gap-2 text-sm">
-              <Checkbox checked={form.isSellable} onCheckedChange={(c) => setForm((f) => ({ ...f, isSellable: !!c }))} />
-              Sellable to students (appears in the Sell screen)
-            </label>
+              <section className="grid gap-3 sm:grid-cols-2">
+                <div className="flex items-center justify-between gap-4 rounded-md border bg-background p-4">
+                  <div className="space-y-1">
+                    <div className="text-sm font-medium">Sellable item</div>
+                    <p className="text-xs text-muted-foreground">Show this item in Sell to Student.</p>
+                  </div>
+                  <Switch checked={form.isSellable} onCheckedChange={(c) => setForm((f) => ({ ...f, isSellable: c }))} aria-label="Toggle sellable item" />
+                </div>
+                <div className="flex items-center justify-between gap-4 rounded-md border bg-background p-4">
+                  <div className="space-y-1">
+                    <div className="text-sm font-medium">Variants</div>
+                    <p className="text-xs text-muted-foreground">Use for sizes, classes, or editions.</p>
+                  </div>
+                  <Switch
+                    checked={form.hasVariants}
+                    onCheckedChange={(c) => setForm((f) => ({
+                      ...f,
+                      hasVariants: c,
+                      variantLabel: c ? f.variantLabel : '',
+                      variants: c ? (f.variants.length ? f.variants : [emptyVariant()]) : [f.variants[0] || emptyVariant()],
+                    }))}
+                    aria-label="Toggle item variants"
+                  />
+                </div>
+              </section>
 
-            <div className="rounded-md border p-3">
-              <label className="flex items-center gap-2 text-sm font-medium">
-                <Checkbox
-                  checked={form.hasVariants}
-                  onCheckedChange={(c) => setForm((f) => ({
-                    ...f,
-                    hasVariants: !!c,
-                    variants: f.variants.length ? f.variants : [emptyVariant()],
-                  }))}
-                />
-                This item has sizes / classes (e.g. shirt sizes, per-class book sets)
-              </label>
+              <section className="space-y-4 rounded-md border bg-muted/20 p-4">
+                <div className="flex items-center gap-2 text-sm font-semibold">
+                  <Boxes className="size-4 text-primary" />
+                  Stock and pricing
+                </div>
 
               {form.hasVariants && (
-                <div className="mt-3 space-y-2">
+                <div className="max-w-sm space-y-2">
                   <Label>Variant type *</Label>
                   <Input className="max-w-xs" value={form.variantLabel} onChange={(e) => setForm((f) => ({ ...f, variantLabel: e.target.value }))} placeholder="e.g. Size, Class" />
                 </div>
               )}
 
-              <div className="mt-3 overflow-x-auto">
+              <div className="-mx-1 overflow-x-auto rounded-md border bg-background">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -377,11 +424,12 @@ export function InventoryPage() {
                 <Button variant="outline" size="sm" className="mt-2" onClick={addVariantRow}><PlusCircle className="mr-1 size-4" />Add {form.variantLabel.trim() || 'variant'}</Button>
               )}
               {editingId && <p className="mt-2 text-xs text-muted-foreground">Changing a stock figure here records a recount adjustment. Use Adjust Stock for restocking.</p>}
+              </section>
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="shrink-0 border-t bg-background px-5 py-4 sm:px-6">
             <Button variant="outline" onClick={() => setShowForm(false)}>Cancel</Button>
-            <Button onClick={handleSave} disabled={saving || !form.name.trim()}>{editingId ? 'Save' : 'Add Item'}</Button>
+            <Button onClick={handleSave} disabled={saving || !form.name.trim()}>{saving ? 'Saving...' : editingId ? 'Save changes' : 'Add item'}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

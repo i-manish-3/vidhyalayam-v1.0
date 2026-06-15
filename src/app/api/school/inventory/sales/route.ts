@@ -1,8 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { Prisma } from '@prisma/client'
 import { db } from '@/lib/db'
 import { requireRole, requirePermission } from '@/lib/api-auth'
 import { unauthorizedError, internalError, apiError, forbiddenError } from '@/lib/api-errors'
 import { createFeeDebitLedgerEntry, recordStudentLedgerPayment, nextSequentialReceiptNumber } from '@/lib/fees'
+
+// Receipt numbers are a shared sequence; concurrent sales can briefly collide on
+// the unique (schoolId, receiptNumber) key. Retry transparently on P2002.
+const SALE_RETRY_ATTEMPTS = 3
+const SALE_RETRY_DELAY_MS = 100
+function isReceiptCollision(error: unknown): boolean {
+  return error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002'
+}
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
 
 // A store sale collects money from a student, so we accept either the granular
 // `inventory:sell` permission or the broader `fees:collect` an accountant/admin
@@ -124,7 +136,7 @@ export async function POST(request: NextRequest) {
     const school = await db.school.findUnique({ where: { id: schoolId }, select: { academicYear: true } })
     const academicYear = school?.academicYear || null
 
-    const result = await db.$transaction(async (tx) => {
+    const runSale = () => db.$transaction(async (tx) => {
       // Lock + validate each variant, compute line totals.
       const priced: Array<{ itemId: string; variantId: string; itemName: string; variantLabel: string | null; quantity: number; unitPrice: number; lineTotal: number; newQty: number }> = []
       for (const line of lines) {
@@ -192,8 +204,8 @@ export async function POST(request: NextRequest) {
       const debit = await createFeeDebitLedgerEntry({
         tx, schoolId, studentId, academicYear,
         sourceType: 'inventory', sourceId: sale.id,
-        feeHeadName: 'Store Purchase',
-        description: `Store Purchase (${receiptNumber}): ${itemSummary}`.slice(0, 500),
+        feeHeadName: 'Inventory Purchase',
+        description: `Inventory Purchase (${receiptNumber}): ${itemSummary}`.slice(0, 500),
         amount: totalAmount,
         dueDate: new Date(),
         notes,
@@ -205,7 +217,7 @@ export async function POST(request: NextRequest) {
       const payment = collected > 0
         ? await recordStudentLedgerPayment({
             tx, schoolId, studentId, amount: collected, paymentMethod, receiptNumber, academicYear,
-            notes: `Store purchase ${receiptNumber}`, receivedBy: user.userId,
+            notes: `Inventory purchase ${receiptNumber}`, receivedBy: user.userId,
             targets: debit ? [{ debitEntryId: debit.id, amount: collected }] : undefined,
           })
         : null
@@ -218,7 +230,20 @@ export async function POST(request: NextRequest) {
       return { saleId: sale.id, receiptNumber, subtotal, discount, totalAmount, amountPaid: collected, dueAmount: round2(totalAmount - collected), dueStatus, itemCount: priced.length }
     })
 
-    return NextResponse.json({ success: true, ...result }, { status: 201 })
+    let lastError: unknown = null
+    for (let attempt = 0; attempt < SALE_RETRY_ATTEMPTS; attempt++) {
+      try {
+        const result = await runSale()
+        return NextResponse.json({ success: true, ...result }, { status: 201 })
+      } catch (error) {
+        // Business validation errors must surface immediately — never retried.
+        if (error instanceof SaleError) return apiError(error.status, error.message)
+        lastError = error
+        if (!isReceiptCollision(error) || attempt === SALE_RETRY_ATTEMPTS - 1) throw error
+        await sleep(SALE_RETRY_DELAY_MS * Math.pow(2, attempt))
+      }
+    }
+    throw lastError instanceof Error ? lastError : new Error('Sale failed after retries')
   } catch (error) {
     if (error instanceof SaleError) return apiError(error.status, error.message)
     console.error('Create inventory sale error:', error)

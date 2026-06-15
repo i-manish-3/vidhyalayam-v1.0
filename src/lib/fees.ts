@@ -126,11 +126,15 @@ export function generateReceiptNumber() {
 // Old `RCP-…` format payments are skipped (treated as 0) so a fresh sequence
 // begins from 1 the first time this is called for any school.
 export async function nextSequentialReceiptNumber(tx: FeeTx, schoolId: string): Promise<string> {
-  const receipts = await tx.studentFeePayment.findMany({
-    where: { schoolId },
-    select: { receiptNumber: true },
-  })
-  const maxNum = receipts
+  // Receipt numbers are a single shared sequence across fee payments AND
+  // inventory sales. An "on due" inventory sale records no StudentFeePayment,
+  // so we must also consider InventorySale receipts — otherwise the next sale
+  // recomputes the same number and collides on InventorySale's unique key.
+  const [payments, sales] = await Promise.all([
+    tx.studentFeePayment.findMany({ where: { schoolId }, select: { receiptNumber: true } }),
+    tx.inventorySale.findMany({ where: { schoolId }, select: { receiptNumber: true } }),
+  ])
+  const maxNum = [...payments, ...sales]
     .map((r) => parseInt(r.receiptNumber, 10))
     .filter((n) => Number.isFinite(n))
     .reduce((m, n) => (n > m ? n : m), 0)
