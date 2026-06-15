@@ -488,7 +488,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return [
       { label: 'Student List', page: 'students', href: '/students', icon: GraduationCap },
       { label: 'Class List', page: 'classes', href: '/academics/classes', icon: BookOpen },
-      { label: 'Collect Fees', page: 'fee-collections', href: '/fees/collections', icon: Coins },
+      { label: 'Collect Fees', page: 'fee-collections', href: '/fees/collections', icon: IndianRupee },
       {
         label: 'Attendance',
         icon: CalendarCheck,
