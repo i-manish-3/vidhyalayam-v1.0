@@ -77,23 +77,21 @@ export async function POST(
       return apiError(400, 'No exam classes matched the selected scope.')
     }
 
-    const studentScopeWhere = bodyStudentIds
-      ? { id: { in: bodyStudentIds } }
-      : {
-          OR: examClassScopes.map((scope) => ({
-            classId: scope.classId,
-            ...(scope.sectionIds?.length ? { sectionId: { in: scope.sectionIds } } : {}),
-          })),
-        }
+    const examStudentScopeWhere = {
+      OR: examClassScopes.map((scope) => ({
+        classId: scope.classId,
+        ...(scope.sectionIds?.length ? { sectionId: { in: scope.sectionIds } } : {}),
+      })),
+    }
 
     const students = await db.student.findMany({
       where: {
         schoolId: user.schoolId,
         deletedAt: null,
         isActive: true,
-        ...studentScopeWhere,
+        ...(bodyStudentIds ? { id: { in: bodyStudentIds }, AND: [examStudentScopeWhere] } : examStudentScopeWhere),
       },
-      select: { id: true, classId: true, sectionId: true },
+      select: { id: true, classId: true, sectionId: true, admissionDate: true },
     })
     const studentIdsToCompute = students.map((student) => student.id)
 
@@ -111,19 +109,27 @@ export async function POST(
       },
     })
 
-    // Load grade scale — prefer default for this paradigm/school
-    const gradeScale = await db.gradeScale.findFirst({
-      where: {
-        schoolId: user.schoolId,
-        deletedAt: null,
-        isActive: true,
-        OR: [
-          { paradigmId: exam.group.paradigmId },
-          { paradigmId: null, isDefault: true },
-        ],
-      },
-      include: { bands: { orderBy: { sequence: 'asc' } } },
-    })
+    // Load grade scale: paradigm-specific wins, then the school default.
+    const gradeScale =
+      (await db.gradeScale.findFirst({
+        where: {
+          schoolId: user.schoolId,
+          deletedAt: null,
+          isActive: true,
+          paradigmId: exam.group.paradigmId,
+        },
+        include: { bands: { orderBy: { sequence: 'asc' } } },
+      })) ??
+      (await db.gradeScale.findFirst({
+        where: {
+          schoolId: user.schoolId,
+          deletedAt: null,
+          isActive: true,
+          paradigmId: null,
+          isDefault: true,
+        },
+        include: { bands: { orderBy: { sequence: 'asc' } } },
+      }))
     if (!gradeScale) {
       return apiError(400, 'No grade scale configured. Create one on the Grade Scales page first.')
     }
@@ -179,17 +185,126 @@ export async function POST(
       marksByConfig.set(m.subjectConfigId, arr)
     }
 
+    const mappings = await db.studentSubjectMapping.findMany({
+      where: {
+        schoolId: user.schoolId,
+        academicYear: exam.academicYear,
+        studentId: { in: studentIdsToCompute },
+        deletedAt: null,
+      },
+    })
+    const mappingsByStudent = new Map<string, typeof mappings>()
+    for (const mapping of mappings) {
+      const arr = mappingsByStudent.get(mapping.studentId) ?? []
+      arr.push(mapping)
+      mappingsByStudent.set(mapping.studentId, arr)
+    }
+
+    const examStartTime = exam.startDate ? new Date(exam.startDate).getTime() : null
+    const examEndTime = exam.endDate
+      ? new Date(exam.endDate).getTime()
+      : examStartTime
+
+    const mappingIsActive = (mapping: typeof mappings[number]) => {
+      const from = mapping.effectiveFrom?.getTime() ?? null
+      const to = mapping.effectiveTo?.getTime() ?? null
+      if (examEndTime && from && from > examEndTime) return false
+      if (examStartTime && to && to < examStartTime) return false
+      return true
+    }
+
+    const configAppliesToStudent = (
+      config: typeof subjectConfigs[number],
+      student: typeof students[number],
+    ) => {
+      const activeMappings = (mappingsByStudent.get(student.id) ?? []).filter(mappingIsActive)
+
+      if (
+        activeMappings.some(
+          (mapping) =>
+            mapping.mappingType === 'replacing_compulsory' &&
+            mapping.replacesSubjectId === config.subjectId,
+        )
+      ) {
+        return false
+      }
+
+      if (config.isOptional || config.isAdditional) {
+        return activeMappings.some(
+          (mapping) =>
+            mapping.subjectId === config.subjectId &&
+            ['optional', 'additional', 'replacing_compulsory'].includes(mapping.mappingType),
+        )
+      }
+
+      return true
+    }
+
     const studentIdsByConfig = new Map<string, string[]>()
+    for (const student of students) {
+      const bestConfigBySubject = new Map<string, typeof subjectConfigs[number]>()
+      for (const config of subjectConfigs) {
+        if (student.classId !== config.classId) continue
+        if (config.sectionId && student.sectionId !== config.sectionId) continue
+
+        const previous = bestConfigBySubject.get(config.subjectId)
+        const isExactSection = config.sectionId !== null && config.sectionId === student.sectionId
+        const previousIsExactSection = previous?.sectionId !== null && previous?.sectionId === student.sectionId
+        if (!previous || (isExactSection && !previousIsExactSection)) {
+          bestConfigBySubject.set(config.subjectId, config)
+        }
+      }
+
+      for (const config of bestConfigBySubject.values()) {
+        if (!configAppliesToStudent(config, student)) continue
+        const ids = studentIdsByConfig.get(config.id) ?? []
+        ids.push(student.id)
+        studentIdsByConfig.set(config.id, ids)
+      }
+    }
+
+    const studentLookupForApplicability = new Map(students.map((student) => [student.id, student]))
     for (const config of subjectConfigs) {
-      studentIdsByConfig.set(
-        config.id,
-        students
-          .filter((student) =>
-            student.classId === config.classId &&
-            (!config.sectionId || student.sectionId === config.sectionId),
-          )
-          .map((student) => student.id),
-      )
+      const ids = studentIdsByConfig.get(config.id) ?? []
+      if (ids.length === 0) continue
+
+      const configMarks = marksByConfig.get(config.id) ?? []
+      for (const studentId of ids) {
+        const student = studentLookupForApplicability.get(studentId)
+        const admissionDate = student?.admissionDate ?? null
+        const isLateAdmission =
+          examStartTime !== null &&
+          admissionDate !== null &&
+          admissionDate.getTime() > examStartTime
+
+        if (!isLateAdmission) continue
+        if (configMarks.some((mark) => mark.studentId === studentId)) continue
+
+        if (config.components.length > 0) {
+          for (const component of config.components) {
+            configMarks.push({
+              studentId,
+              subjectConfigId: config.id,
+              componentId: component.id,
+              numericValue: null,
+              gradeValue: null,
+              status: 'not_applicable',
+              graceMarks: 0,
+            })
+          }
+        } else {
+          configMarks.push({
+            studentId,
+            subjectConfigId: config.id,
+            componentId: null,
+            numericValue: null,
+            gradeValue: null,
+            status: 'not_applicable',
+            graceMarks: 0,
+          })
+        }
+      }
+      marksByConfig.set(config.id, configMarks)
     }
 
     // Compute summaries per student

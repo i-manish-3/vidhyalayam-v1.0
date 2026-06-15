@@ -7,7 +7,7 @@ import { apiError, internalError } from '@/lib/api-errors'
  * GET /api/school/fees/reports/outstanding
  *
  * Returns students with open balances bucketed by aging.
- * Source of truth: StudentFeeLedgerEntry where entryType='DEBIT',
+ * Source of truth: StudentFeeLedgerEntry where entryType in ('DEBIT', 'FINE'),
  * status in (open, partial), balanceAmount > 0.
  *
  * Query params:
@@ -15,7 +15,7 @@ import { apiError, internalError } from '@/lib/api-errors'
  *   sectionId      — filter by section
  *   academicYear   — filter by AY
  *   minAmount      — only show students owing at least this
- *   bucket         — '0_30' | '31_60' | '61_90' | '90_plus' | 'all'
+ *   bucket         — 'overdue' | 'not_due' | 'b0_30' | 'b31_60' | 'b61_90' | 'b90_plus' | 'all'
  *   search         — match against student name or admission number
  *   page, limit    — pagination
  */
@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
     const sectionId = searchParams.get('sectionId') || undefined
     const academicYear = searchParams.get('academicYear') || undefined
     const minAmount = Number(searchParams.get('minAmount')) || 0
-    const bucket = searchParams.get('bucket') || 'all'
+    const bucket = searchParams.get('bucket') || 'overdue'
     const search = searchParams.get('search')?.trim() || undefined
     const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10))
     const limit = Math.min(200, Math.max(1, parseInt(searchParams.get('limit') || '50', 10)))
@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
       where: {
         schoolId,
         deletedAt: null,
-        entryType: 'DEBIT',
+        entryType: { in: ['DEBIT', 'FINE'] },
         status: { in: ['open', 'partial'] },
         balanceAmount: { gt: 0 },
         ...(academicYear ? { academicYear } : {}),
@@ -61,7 +61,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         rows: [],
         pagination: { page, limit, total: 0, totalPages: 0 },
-        totals: { studentCount: 0, outstanding: 0, buckets: emptyBuckets() },
+        totals: { studentCount: 0, outstanding: 0, overdue: 0, buckets: emptyBuckets() },
       })
     }
 
@@ -137,6 +137,7 @@ export async function GET(request: NextRequest) {
         class: s.class,
         section: s.section,
         totalOutstanding: round2(bk.total),
+        overdueOutstanding: round2(overdueTotal(bk)),
         buckets: {
           notDue: round2(bk.notDue),
           b0_30: round2(bk.b0_30),
@@ -153,26 +154,29 @@ export async function GET(request: NextRequest) {
     if (minAmount > 0) {
       rows = rows.filter(r => r.totalOutstanding >= minAmount)
     }
-    if (bucket !== 'all') {
-      const bucketKey = bucket as keyof typeof rows[0]['buckets']
-      rows = rows.filter(r => (r.buckets[bucketKey] || 0) > 0)
+    if (bucket === 'overdue') {
+      rows = rows.filter(r => r.overdueOutstanding > 0)
+    } else if (bucket !== 'all') {
+      rows = rows.filter(r => (r.buckets[toBucketKey(bucket)] || 0) > 0)
     }
 
     // Sort: largest outstanding first
-    rows.sort((a, b) => b.totalOutstanding - a.totalOutstanding)
+    rows.sort((a, b) => b.overdueOutstanding - a.overdueOutstanding || b.totalOutstanding - a.totalOutstanding)
 
     // Totals (computed BEFORE pagination so the summary matches the filtered set)
     const totals = rows.reduce((acc, r) => {
       acc.outstanding += r.totalOutstanding
+      acc.overdue += r.overdueOutstanding
       acc.buckets.notDue += r.buckets.notDue
       acc.buckets.b0_30 += r.buckets.b0_30
       acc.buckets.b31_60 += r.buckets.b31_60
       acc.buckets.b61_90 += r.buckets.b61_90
       acc.buckets.b90_plus += r.buckets.b90_plus
       return acc
-    }, { studentCount: rows.length, outstanding: 0, buckets: emptyBuckets() })
+    }, { studentCount: rows.length, outstanding: 0, overdue: 0, buckets: emptyBuckets() })
 
     totals.outstanding = round2(totals.outstanding)
+    totals.overdue = round2(totals.overdue)
     const bucketKeys = Object.keys(totals.buckets) as Array<keyof typeof totals.buckets>
     bucketKeys.forEach(k => {
       totals.buckets[k] = round2(totals.buckets[k])
@@ -209,6 +213,20 @@ function createBuckets(): StudentBuckets {
 
 function emptyBuckets() {
   return { notDue: 0, b0_30: 0, b31_60: 0, b61_90: 0, b90_plus: 0 }
+}
+
+function overdueTotal(buckets: StudentBuckets): number {
+  return buckets.b0_30 + buckets.b31_60 + buckets.b61_90 + buckets.b90_plus
+}
+
+function toBucketKey(bucket: string): keyof ReturnType<typeof emptyBuckets> {
+  if (bucket === '0_30') return 'b0_30'
+  if (bucket === '31_60') return 'b31_60'
+  if (bucket === '61_90') return 'b61_90'
+  if (bucket === '90_plus') return 'b90_plus'
+  if (bucket === 'not_due' || bucket === 'notDue') return 'notDue'
+  if (bucket === 'b0_30' || bucket === 'b31_60' || bucket === 'b61_90' || bucket === 'b90_plus') return bucket
+  return 'b0_30'
 }
 
 function stripTime(d: Date): Date {

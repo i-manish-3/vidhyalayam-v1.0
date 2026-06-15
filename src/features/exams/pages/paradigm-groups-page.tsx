@@ -1,5 +1,7 @@
 'use client'
 
+/* eslint-disable react-hooks/set-state-in-effect */
+
 import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { PageHeader, LoadingState, EmptyState } from '@/components/shared'

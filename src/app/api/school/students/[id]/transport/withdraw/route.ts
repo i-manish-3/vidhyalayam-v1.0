@@ -56,6 +56,7 @@ export async function POST(
     if (!effectiveDate) return apiError(400, 'effectiveDate is required (YYYY-MM-DD)')
 
     const reasonNotes = typeof body.reason === 'string' ? body.reason.trim() || null : null
+    const refundEligible = body.refundEligible === true
 
     const student = await db.student.findFirst({
       where: { id: studentId, schoolId: user.schoolId, deletedAt: null },
@@ -137,8 +138,9 @@ export async function POST(
       effectiveDate: effectiveDate.toISOString(),
       cancelledItems: result.cancelledItems,
       cancelledAmount: result.cancelledAmount,
-      requiresRefund: result.skippedDueToAllocations,
-      totalRefundDue: result.totalRefundable,
+      refundEligible,
+      requiresRefund: refundEligible ? result.skippedDueToAllocations : [],
+      totalRefundDue: refundEligible ? result.totalRefundable : 0,
     })
   } catch (error) {
     if (error instanceof ConcurrentWithdrawalError) {

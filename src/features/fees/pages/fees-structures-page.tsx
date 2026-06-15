@@ -543,7 +543,7 @@ export function FeesStructuresPage() {
     }))
   }
 
-  const updateClassStructureRow = (index: number, field: 'period' | 'amount' | 'dueDate' | 'lateFee', value: string) => {
+  const updateClassStructureRow = (index: number, field: 'period' | 'amount' | 'dueDate', value: string) => {
     setClassStructureRows((prev) =>
       prev.map((row, i) => (i === index ? { ...row, [field]: value } : row))
     )
@@ -603,7 +603,6 @@ export function FeesStructuresPage() {
         period: row.period.trim(),
         amount: Number(row.amount),
         dueDate: row.dueDate || undefined,
-        lateFee: row.lateFee ? Number(row.lateFee) : 0,
         frequency: row.frequency,
       }))
 
@@ -674,7 +673,7 @@ export function FeesStructuresPage() {
   }
 
   // Update installment row
-  const updateInstallmentRow = (index: number, field: 'period' | 'amount' | 'dueDate' | 'lateFee', value: string) => {
+  const updateInstallmentRow = (index: number, field: 'period' | 'amount' | 'dueDate', value: string) => {
     setInstallmentRows((prev) =>
       prev.map((row, i) => (i === index ? { ...row, [field]: value } : row))
     )
@@ -735,7 +734,6 @@ export function FeesStructuresPage() {
         period: row.period.trim(),
         amount: Number(row.amount),
         dueDate: row.dueDate || undefined,
-        lateFee: row.lateFee ? Number(row.lateFee) : 0,
         frequency: row.frequency,
       }))
 
@@ -1108,18 +1106,17 @@ export function FeesStructuresPage() {
                                   </div>
                                 </div>
                                 <div className="overflow-x-auto">
-                                  <div className="min-w-[760px] space-y-1.5">
-                                    <div className="grid grid-cols-[120px_minmax(160px,1fr)_minmax(160px,1fr)_minmax(160px,1fr)_32px] gap-2 px-1 text-xs font-medium text-muted-foreground">
+                                  <div className="min-w-[600px] space-y-1.5">
+                                    <div className="grid grid-cols-[120px_minmax(160px,1fr)_minmax(160px,1fr)_32px] gap-2 px-1 text-xs font-medium text-muted-foreground">
                                       <span>Period</span>
                                       <span>Amount</span>
                                       <span>Due Date</span>
-                                      <span>Late Fee</span>
                                       <span />
                                     </div>
                                   {rows.map((row) => {
                                     const globalIdx = classStructureRows.indexOf(row)
                                     return (
-                                      <div key={`${row.feeHeadId}-${row.period}-${globalIdx}`} className="grid grid-cols-[120px_minmax(160px,1fr)_minmax(160px,1fr)_minmax(160px,1fr)_32px] items-center gap-2">
+                                      <div key={`${row.feeHeadId}-${row.period}-${globalIdx}`} className="grid grid-cols-[120px_minmax(160px,1fr)_minmax(160px,1fr)_32px] items-center gap-2">
                                         <div>
                                           {isCustomPeriodFrequency(row.frequency) ? (
                                             <Input
@@ -1149,15 +1146,6 @@ export function FeesStructuresPage() {
                                             showQuickActions={false}
                                             placeholder="Due date"
                                             triggerClassName="h-8 w-full"
-                                          />
-                                        </div>
-                                        <div>
-                                          <Input
-                                            type="number"
-                                            placeholder="Late fee"
-                                            value={row.lateFee}
-                                            onChange={(event) => updateClassStructureRow(globalIdx, 'lateFee', event.target.value)}
-                                            className="h-8"
                                           />
                                         </div>
                                         <Button
@@ -1677,7 +1665,7 @@ export function FeesStructuresPage() {
                                 return (
                                   <div
                                     key={`${feeHeadId}-${rIdx}`}
-                                    className="grid grid-cols-[110px_1fr_1fr_1fr_32px] gap-2 items-center"
+                                    className="grid grid-cols-[110px_1fr_1fr_32px] gap-2 items-center"
                                   >
                                     {isCustomPeriodFrequency(row.frequency) ? (
                                       <Input
@@ -1709,15 +1697,6 @@ export function FeesStructuresPage() {
                                       placeholder="Due"
                                       triggerClassName="h-8 w-full text-sm"
                                     />
-                                    <Input
-                                      type="number"
-                                      placeholder="Late fee"
-                                      value={row.lateFee}
-                                      onChange={(e) =>
-                                        updateInstallmentRow(globalIdx, 'lateFee', e.target.value)
-                                      }
-                                      className="h-8 text-sm"
-                                    />
                                     <Button
                                       type="button"
                                       variant="ghost"
@@ -1744,7 +1723,7 @@ export function FeesStructuresPage() {
                 </ScrollArea>
                 <div className="flex items-center gap-1 text-xs text-muted-foreground">
                   <Calendar className="size-3" />
-                  Columns: Period, Amount, Due Date, Late Fee
+                  Columns: Period, Amount, Due Date
                 </div>
               </div>
             )}

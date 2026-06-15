@@ -105,6 +105,50 @@ interface TimetableListState {
 }
 
 const TIMETABLE_LIST_STATE_KEY = 'academics:timetable:list'
+const TIME_OPTIONS = buildTimeOptions()
+const DURATION_OPTIONS = [10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 75, 90]
+
+function buildTimeOptions() {
+  const options: string[] = []
+  for (let minutes = 6 * 60; minutes <= 18 * 60; minutes += 5) {
+    options.push(minutesToTime(minutes))
+  }
+  return options
+}
+
+function timeToMinutes(value: string) {
+  const [hours, minutes] = value.split(':').map(Number)
+  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return 0
+  return hours * 60 + minutes
+}
+
+function minutesToTime(value: number) {
+  const minutesInDay = 24 * 60
+  const normalized = ((value % minutesInDay) + minutesInDay) % minutesInDay
+  const hours = Math.floor(normalized / 60)
+  const minutes = normalized % 60
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`
+}
+
+function durationBetween(startTime: string, endTime: string) {
+  const diff = timeToMinutes(endTime) - timeToMinutes(startTime)
+  return diff > 0 ? diff : 40
+}
+
+function withStartTime(period: PeriodConfig, startTime: string) {
+  return {
+    ...period,
+    startTime,
+    endTime: minutesToTime(timeToMinutes(startTime) + durationBetween(period.startTime, period.endTime)),
+  }
+}
+
+function withDuration(period: PeriodConfig, duration: number) {
+  return {
+    ...period,
+    endTime: minutesToTime(timeToMinutes(period.startTime) + duration),
+  }
+}
 
 // ─── Main Component ──────────────────────────────────────────────────────────
 
@@ -158,6 +202,12 @@ export function TimetablePage() {
   // Period config form
   const [periodForm, setPeriodForm] = useState<PeriodConfig[]>([])
   const [savingPeriods, setSavingPeriods] = useState(false)
+  const sortedPeriodForm = useMemo(
+    () => [...periodForm]
+      .map((periodConfig, formIndex) => ({ periodConfig, formIndex }))
+      .sort((a, b) => a.periodConfig.period - b.periodConfig.period),
+    [periodForm]
+  )
 
   // Subject color map
   const subjectColorMap = useMemo(() => {
@@ -184,7 +234,7 @@ export function TimetablePage() {
         api.get<{ classes: ClassOption[] }>('/api/school/classes').catch(() => ({ classes: [] })),
         api.get<{ sections: SectionOption[] }>('/api/school/sections').catch(() => ({ sections: [] })),
         api.get<{ subjects: SubjectOption[] }>('/api/school/subjects').catch(() => ({ subjects: [] })),
-        api.get<{ teachers: TeacherOption[] }>('/api/school/teachers', { limit: 500 }).catch(() => ({ teachers: [] })),
+        api.get<{ teachers: TeacherOption[] }>('/api/school/teachers', { limit: '500' }).catch(() => ({ teachers: [] })),
         api.get<{ periods: PeriodConfig[] }>('/api/school/period-config').catch(() => ({ periods: [] })),
       ])
       setEntries(ttRes.entries || [])
@@ -836,44 +886,67 @@ export function TimetablePage() {
           </DialogHeader>
           <div className="themed-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4 pr-6">
             <div className="space-y-3">
-              {periodForm.sort((a, b) => a.period - b.period).map((p, idx) => (
+              {sortedPeriodForm.map(({ periodConfig: p, formIndex }, idx) => (
                 <div key={idx} className={cn(
                   'flex flex-col gap-3 p-3 rounded-lg border sm:flex-row sm:items-center',
                   p.isBreak ? 'bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800' : 'bg-background'
                 )}>
                   <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-muted text-xs font-bold text-muted-foreground">{idx + 1}</span>
-                  <div className="grid flex-1 gap-3 sm:grid-cols-2 lg:grid-cols-[1.2fr_1fr_1fr_0.9fr]">
+                  <div className="grid flex-1 gap-3 sm:grid-cols-2 lg:grid-cols-[1.2fr_1fr_0.9fr_0.8fr_0.9fr]">
                     <div className="space-y-1">
                       <Label className="text-[10px] text-muted-foreground">Label</Label>
                       <Input
                         value={p.label}
-                        onChange={e => setPeriodForm(prev => prev.map((pp, i) => i === idx ? { ...pp, label: e.target.value } : pp))}
+                        onChange={e => setPeriodForm(prev => prev.map((pp, i) => i === formIndex ? { ...pp, label: e.target.value } : pp))}
                         className="h-8 text-xs"
                       />
                     </div>
                     <div className="space-y-1">
                       <Label className="text-[10px] text-muted-foreground">Start</Label>
-                      <Input
-                        type="time"
+                      <Select
                         value={p.startTime}
-                        onChange={e => setPeriodForm(prev => prev.map((pp, i) => i === idx ? { ...pp, startTime: e.target.value } : pp))}
-                        className="h-8 text-xs"
-                      />
+                        onValueChange={value => setPeriodForm(prev => prev.map((pp, i) => i === formIndex ? withStartTime(pp, value) : pp))}
+                      >
+                        <SelectTrigger className="h-8 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-72">
+                          {(TIME_OPTIONS.includes(p.startTime) ? TIME_OPTIONS : [p.startTime, ...TIME_OPTIONS]).map(time => (
+                            <SelectItem key={time} value={time}>{time}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-muted-foreground">Duration</Label>
+                      <Select
+                        value={String(durationBetween(p.startTime, p.endTime))}
+                        onValueChange={value => setPeriodForm(prev => prev.map((pp, i) => i === formIndex ? withDuration(pp, Number(value)) : pp))}
+                      >
+                        <SelectTrigger className="h-8 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {(DURATION_OPTIONS.includes(durationBetween(p.startTime, p.endTime))
+                            ? DURATION_OPTIONS
+                            : [durationBetween(p.startTime, p.endTime), ...DURATION_OPTIONS]
+                          ).map(minutes => (
+                            <SelectItem key={minutes} value={String(minutes)}>{minutes} min</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div className="space-y-1">
                       <Label className="text-[10px] text-muted-foreground">End</Label>
-                      <Input
-                        type="time"
-                        value={p.endTime}
-                        onChange={e => setPeriodForm(prev => prev.map((pp, i) => i === idx ? { ...pp, endTime: e.target.value } : pp))}
-                        className="h-8 text-xs"
-                      />
+                      <div className="flex h-8 items-center rounded-md border bg-muted/40 px-3 text-xs font-medium tabular-nums text-muted-foreground">
+                        {p.endTime}
+                      </div>
                     </div>
                     <div className="space-y-1">
                       <Label className="text-[10px] text-muted-foreground">Type</Label>
                       <Select
                         value={!p.isBreak ? 'period' : p.label.toLowerCase().includes('lunch') ? 'lunch' : 'break'}
-                        onValueChange={v => setPeriodForm(prev => prev.map((pp, i) => i === idx ? {
+                        onValueChange={v => setPeriodForm(prev => prev.map((pp, i) => i === formIndex ? {
                           ...pp,
                           isBreak: v !== 'period',
                           label: v === 'lunch' ? 'Lunch Break' : v === 'break' ? 'Break' : pp.label,
@@ -894,7 +967,7 @@ export function TimetablePage() {
                     variant="ghost"
                     size="icon"
                     className="size-8 shrink-0 self-end text-muted-foreground hover:text-destructive sm:self-auto"
-                    onClick={() => setPeriodForm(prev => prev.filter((_, i) => i !== idx))}
+                    onClick={() => setPeriodForm(prev => prev.filter((_, i) => i !== formIndex))}
                   >
                     <X className="size-3.5" />
                   </Button>
@@ -905,12 +978,15 @@ export function TimetablePage() {
                 size="sm"
                 className="w-full gap-2"
                 onClick={() => {
-                  const lastPeriod = periodForm.length > 0 ? Math.max(...periodForm.map(p => p.period)) : 0
+                  const sorted = [...periodForm].sort((a, b) => a.period - b.period)
+                  const lastConfig = sorted[sorted.length - 1]
+                  const lastPeriod = lastConfig?.period ?? 0
+                  const startTime = lastConfig?.endTime ?? '08:00'
                   setPeriodForm(prev => [...prev, {
                     id: '',
                     period: lastPeriod + 1,
-                    startTime: '08:00',
-                    endTime: '08:40',
+                    startTime,
+                    endTime: minutesToTime(timeToMinutes(startTime) + 40),
                     label: `Period ${prev.filter(p => !p.isBreak).length + 1}`,
                     isBreak: false,
                   }])

@@ -53,19 +53,27 @@ export async function POST(
     const passingRule = parsePassingRule(paradigm.passingRule)
     const paradigmAgg = parseAggregationRule(paradigm.aggregationRule)
 
-    // Load grade scale (paradigm-scoped or default)
-    const gradeScale = await db.gradeScale.findFirst({
-      where: {
-        schoolId: user.schoolId,
-        deletedAt: null,
-        isActive: true,
-        OR: [
-          { paradigmId },
-          { paradigmId: null, isDefault: true },
-        ],
-      },
-      include: { bands: { orderBy: { sequence: 'asc' } } },
-    })
+    // Load grade scale: paradigm-specific wins, then the school default.
+    const gradeScale =
+      (await db.gradeScale.findFirst({
+        where: {
+          schoolId: user.schoolId,
+          deletedAt: null,
+          isActive: true,
+          paradigmId,
+        },
+        include: { bands: { orderBy: { sequence: 'asc' } } },
+      })) ??
+      (await db.gradeScale.findFirst({
+        where: {
+          schoolId: user.schoolId,
+          deletedAt: null,
+          isActive: true,
+          paradigmId: null,
+          isDefault: true,
+        },
+        include: { bands: { orderBy: { sequence: 'asc' } } },
+      }))
     if (!gradeScale) {
       return apiError(400, 'No grade scale configured. Create one on the Grade Scales page first.')
     }
@@ -86,12 +94,29 @@ export async function POST(
       return apiError(400, 'No exams found under this paradigm.')
     }
 
+    let scopedStudentIds = bodyStudentIds
+    if (bodyClassIds) {
+      const scopedStudents = await db.student.findMany({
+        where: {
+          schoolId: user.schoolId,
+          deletedAt: null,
+          classId: { in: bodyClassIds },
+          ...(bodyStudentIds ? { id: { in: bodyStudentIds } } : {}),
+        },
+        select: { id: true },
+      })
+      scopedStudentIds = scopedStudents.map((student) => student.id)
+      if (scopedStudentIds.length === 0) {
+        return apiError(400, 'No students found for the selected final-result scope.')
+      }
+    }
+
     const examResults = await db.examResult.findMany({
       where: {
         schoolId: user.schoolId,
         examId: { in: examIds },
         deletedAt: null,
-        ...(bodyStudentIds ? { studentId: { in: bodyStudentIds } } : {}),
+        ...(scopedStudentIds ? { studentId: { in: scopedStudentIds } } : {}),
       },
     })
 
@@ -106,7 +131,6 @@ export async function POST(
         id: { in: studentIdsToCompute },
         schoolId: user.schoolId,
         deletedAt: null,
-        ...(bodyClassIds ? { classId: { in: bodyClassIds } } : {}),
       },
       select: { id: true, classId: true, sectionId: true, admissionStatus: true },
     })

@@ -1,5 +1,7 @@
 'use client'
 
+/* eslint-disable react-hooks/set-state-in-effect */
+
 /**
  * Billing-window dialogs: TC issuance, transport add, transport discontinue.
  *
@@ -26,7 +28,9 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
-import { AlertTriangle, Loader2, CheckCircle2, XCircle, Bus, FileX2, Undo2, Receipt, Building2 } from 'lucide-react'
+import { Checkbox } from '@/components/ui/checkbox'
+import { DatePicker } from '@/components/date-picker'
+import { AlertTriangle, Loader2, CheckCircle2, XCircle, Bus, FileX2, Undo2, Receipt, Building2, CalendarDays, FileText } from 'lucide-react'
 
 // ─── shared types ──────────────────────────────────────────────────────────
 
@@ -47,6 +51,7 @@ interface WithdrawPreview {
   effectiveDate: string
   academicYear: string
   reason: string
+  refundEligible: boolean
   cancelledItems: PreviewItem[]
   cancelledAmount: number
   requiresRefund: SkippedItem[]
@@ -73,6 +78,7 @@ interface TransportWithdrawPreview {
   blockers: string[]
   allocationId?: string
   stopName?: string
+  refundEligible?: boolean
   effectiveDate: string
   cancelledItems: PreviewItem[]
   cancelledAmount: number
@@ -169,6 +175,7 @@ export function WithdrawStudentDialog({ open, onOpenChange, studentId, studentNa
       .post<WithdrawPreview>(`/api/school/students/${studentId}/withdraw/preview`, {
         effectiveDate: debouncedDate,
         reason: debouncedReason,
+        refundEligible,
       })
       .then((data) => {
         if (cancelled) return
@@ -185,7 +192,7 @@ export function WithdrawStudentDialog({ open, onOpenChange, studentId, studentNa
     return () => {
       cancelled = true
     }
-  }, [open, studentId, debouncedDate, debouncedReason])
+  }, [open, studentId, debouncedDate, debouncedReason, refundEligible])
 
   const handleSubmit = async () => {
     if (!preview) return
@@ -217,29 +224,46 @@ export function WithdrawStudentDialog({ open, onOpenChange, studentId, studentNa
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <FileX2 className="size-4" /> Issue Transfer Certificate
-          </DialogTitle>
-          <DialogDescription>
-            Withdraw {studentName} from the school. Future-dated unpaid fees will be cancelled. Already-paid future
-            fees are flagged for manual refund.
-          </DialogDescription>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
+        <DialogHeader className="space-y-3">
+          <div className="flex items-start gap-3">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-destructive/10 text-destructive">
+              <FileX2 className="size-5" />
+            </div>
+            <div className="min-w-0 space-y-1">
+              <DialogTitle>Issue Transfer Certificate</DialogTitle>
+              <DialogDescription>
+                Withdraw {studentName} from the school and review billing impact before confirming.
+              </DialogDescription>
+            </div>
+          </div>
+          <div className="rounded-md border border-destructive/25 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+              <span>This will close active academic assignments and mark the student as withdrawn or transferred.</span>
+            </div>
+          </div>
         </DialogHeader>
 
-        <div className="grid gap-3 py-2">
-          <div className="grid grid-cols-2 gap-3">
-            <div>
+        <div className="grid gap-4 py-2 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+          <div className="space-y-4">
+            <div className="rounded-md border bg-background p-4">
+              <div className="mb-3 flex items-center gap-2 text-sm font-medium">
+                <CalendarDays className="size-4 text-muted-foreground" />
+                Certificate details
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+            <div className="space-y-1.5">
               <Label htmlFor="wd-effdate">Effective Date</Label>
-              <Input
-                id="wd-effdate"
-                type="date"
+              <DatePicker
                 value={effectiveDate}
-                onChange={(e) => setEffectiveDate(e.target.value)}
+                onChange={setEffectiveDate}
+                disableFuture
+                placeholder="Select TC date"
+                triggerClassName="w-full"
               />
             </div>
-            <div>
+            <div className="space-y-1.5">
               <Label htmlFor="wd-reason">Reason</Label>
               <Select value={reason} onValueChange={(v) => setReason(v as typeof reason)}>
                 <SelectTrigger id="wd-reason">
@@ -254,47 +278,57 @@ export function WithdrawStudentDialog({ open, onOpenChange, studentId, studentNa
                 </SelectContent>
               </Select>
             </div>
-          </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label htmlFor="wd-tc">TC Number (optional)</Label>
+            <div className="space-y-1.5 sm:col-span-2 lg:col-span-1">
+              <Label htmlFor="wd-tc">TC Number</Label>
               <Input
                 id="wd-tc"
                 value={transferCertNo}
                 onChange={(e) => setTransferCertNo(e.target.value)}
-                placeholder="e.g. TC/2025/0123"
+                placeholder="e.g. TC/2026/0123"
               />
             </div>
-            <div className="flex items-end gap-2 pb-2">
-              <input
-                id="wd-refund"
-                type="checkbox"
-                checked={refundEligible}
-                onChange={(e) => setRefundEligible(e.target.checked)}
-                className="size-4 rounded border-input"
-              />
-              <Label htmlFor="wd-refund" className="text-sm font-normal">
-                Eligible for refund of paid fees
-              </Label>
+              </div>
             </div>
-          </div>
 
-          <div>
-            <Label htmlFor="wd-notes">Notes (required for backdated TCs)</Label>
+            <div className="rounded-md border bg-background p-4">
+              <div className="mb-3 flex items-center gap-2 text-sm font-medium">
+                <Receipt className="size-4 text-muted-foreground" />
+                Refund handling
+              </div>
+              <label htmlFor="wd-refund" className="flex cursor-pointer items-start gap-3 rounded-md border bg-muted/20 p-3">
+              <Checkbox
+                id="wd-refund"
+                checked={refundEligible}
+                onCheckedChange={(checked) => setRefundEligible(checked === true)}
+                className="mt-0.5"
+              />
+              <span className="grid gap-1 text-sm">
+                <span className="font-medium">Mark paid future fees as refund eligible</span>
+                <span className="text-xs text-muted-foreground">Paid future items stay intact and appear in refund follow-up.</span>
+              </span>
+              </label>
+            </div>
+
+          <div className="rounded-md border bg-background p-4">
+            <div className="mb-3 flex items-center gap-2 text-sm font-medium">
+              <FileText className="size-4 text-muted-foreground" />
+              Notes
+            </div>
             <Textarea
               id="wd-notes"
-              rows={2}
+              rows={4}
               value={reasonNotes}
               onChange={(e) => setReasonNotes(e.target.value)}
-              placeholder="Reason for withdrawal, parent communication, etc."
+              placeholder="Reason for withdrawal, parent communication, approval reference..."
             />
+            </div>
           </div>
 
           <PreviewPanel loading={previewLoading} error={previewError} preview={preview} />
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="border-t pt-4">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
             Cancel
           </Button>
@@ -304,7 +338,7 @@ export function WithdrawStudentDialog({ open, onOpenChange, studentId, studentNa
             disabled={submitting || previewLoading || !preview || !!previewError}
           >
             {submitting && <Loader2 className="size-4 animate-spin" />}
-            Confirm Withdrawal
+            Issue Transfer Certificate
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -323,55 +357,86 @@ function PreviewPanel({
 }) {
   if (loading && !preview) {
     return (
-      <div className="rounded-md border bg-muted/30 p-4 text-sm text-muted-foreground flex items-center gap-2">
+      <div className="flex min-h-64 items-center justify-center rounded-md border bg-muted/20 p-6 text-sm text-muted-foreground">
         <Loader2 className="size-3.5 animate-spin" /> Calculating impact…
       </div>
     )
   }
   if (error) {
     return (
-      <div className="rounded-md border border-destructive/50 bg-destructive/5 p-3 text-sm text-destructive flex items-start gap-2">
-        <XCircle className="size-4 mt-0.5 shrink-0" />
+      <div className="flex items-start gap-3 rounded-md border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
+        <XCircle className="mt-0.5 size-5 shrink-0" />
         <div>
           <div className="font-medium">Preview failed</div>
-          <div className="text-xs mt-0.5">{error}</div>
+          <div className="mt-1 text-xs">{error}</div>
         </div>
       </div>
     )
   }
-  if (!preview) return null
+  if (!preview) {
+    return (
+      <div className="flex min-h-64 items-center justify-center rounded-md border bg-muted/20 p-6 text-center text-sm text-muted-foreground">
+        Select an effective date to preview billing and allocation impact.
+      </div>
+    )
+  }
 
   const { cancelledItems, cancelledAmount, requiresRefund, totalRefundDue } = preview
   const empty = cancelledItems.length === 0 && requiresRefund.length === 0
 
   return (
-    <div className="rounded-md border bg-muted/20 p-3 text-sm">
-      <div className="font-medium flex items-center gap-2 mb-2">
-        <CheckCircle2 className="size-4 text-emerald-600" />
-        Impact preview
+    <div className="space-y-4 rounded-md border bg-background p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <CheckCircle2 className="size-4 text-emerald-600" />
+            Impact preview
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">Academic year {preview.academicYear}</p>
+        </div>
+        {loading && (
+          <Badge variant="outline" className="gap-1">
+            <Loader2 className="size-3 animate-spin" />
+            Updating
+          </Badge>
+        )}
+      </div>
+      <div className="grid gap-2 sm:grid-cols-2">
+        <ImpactMetric label="Unpaid items cancelled" value={String(cancelledItems.length)} />
+        <ImpactMetric label="Cancelled amount" value={formatINR(cancelledAmount)} />
+        <ImpactMetric label="Refund follow-up" value={String(requiresRefund.length)} />
+        <ImpactMetric label="Refund due" value={formatINR(totalRefundDue)} tone={totalRefundDue > 0 ? 'warning' : 'default'} />
+      </div>
+      <div className="grid gap-2 sm:grid-cols-2">
+        <div className="rounded-md border bg-muted/20 p-3">
+          <div className="text-xs text-muted-foreground">Academic assignments closed</div>
+          <div className="mt-1 text-lg font-semibold tabular-nums">{preview.academicAssignmentsClosed}</div>
+        </div>
+        <div className="rounded-md border bg-muted/20 p-3">
+          <div className="text-xs text-muted-foreground">Transport allocations closed</div>
+          <div className="mt-1 text-lg font-semibold tabular-nums">{preview.transportAllocationsClosed}</div>
+        </div>
       </div>
       {empty && (
-        <div className="text-muted-foreground text-xs">
-          No future-dated unpaid items to cancel. The student will be marked withdrawn but no billing changes.
+        <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-200">
+          No future-dated billing changes are required for this TC.
         </div>
       )}
       {cancelledItems.length > 0 && (
-        <div className="mb-2">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-xs font-medium text-muted-foreground">
-              Cancelling {cancelledItems.length} unpaid item(s)
-            </span>
+        <div className="space-y-2">
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-sm font-medium">Unpaid items to cancel</span>
             <Badge variant="secondary">{formatINR(cancelledAmount)}</Badge>
           </div>
           <ItemTable items={cancelledItems} />
         </div>
       )}
       {requiresRefund.length > 0 && (
-        <div className="mt-3 rounded border border-amber-300 bg-amber-50 p-2 dark:bg-amber-950/30">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-xs font-medium text-amber-900 dark:text-amber-200 flex items-center gap-1.5">
-              <AlertTriangle className="size-3.5" />
-              {requiresRefund.length} paid item(s) require manual refund
+        <div className="space-y-2 rounded-md border border-amber-300 bg-amber-50 p-3 dark:bg-amber-950/30">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="flex items-center gap-1.5 text-sm font-medium text-amber-900 dark:text-amber-200">
+              <AlertTriangle className="size-4" />
+              Paid items need refund review
             </span>
             <Badge variant="outline" className="border-amber-400 text-amber-900 dark:text-amber-200">
               {formatINR(totalRefundDue)}
@@ -380,9 +445,30 @@ function PreviewPanel({
           <ItemTable items={requiresRefund} showPaid />
         </div>
       )}
-      <div className="mt-2 text-[11px] text-muted-foreground">
-        Closes {preview.academicAssignmentsClosed} academic assignment(s) and {preview.transportAllocationsClosed} transport
-        allocation(s) for AY {preview.academicYear}.
+    </div>
+  )
+}
+
+function ImpactMetric({
+  label,
+  value,
+  tone = 'default',
+}: {
+  label: string
+  value: string
+  tone?: 'default' | 'warning'
+}) {
+  return (
+    <div className="rounded-md border bg-muted/20 p-3">
+      <div className="text-xs text-muted-foreground">{label}</div>
+      <div
+        className={
+          tone === 'warning'
+            ? 'mt-1 font-semibold text-amber-700 dark:text-amber-300'
+            : 'mt-1 font-semibold tabular-nums'
+        }
+      >
+        {value}
       </div>
     </div>
   )
@@ -390,24 +476,24 @@ function PreviewPanel({
 
 function ItemTable({ items, showPaid = false }: { items: Array<PreviewItem | SkippedItem>; showPaid?: boolean }) {
   return (
-    <div className="max-h-40 overflow-auto rounded border bg-background">
+    <div className="max-h-48 overflow-auto rounded-md border bg-background">
       <table className="w-full text-xs">
-        <thead className="sticky top-0 bg-muted/60 text-muted-foreground">
+        <thead className="sticky top-0 bg-muted text-muted-foreground">
           <tr>
-            <th className="text-left px-2 py-1 font-medium">Head</th>
-            <th className="text-left px-2 py-1 font-medium">Period</th>
-            <th className="text-right px-2 py-1 font-medium">Amount</th>
-            {showPaid && <th className="text-right px-2 py-1 font-medium">Paid</th>}
+            <th className="px-3 py-2 text-left font-medium">Head</th>
+            <th className="px-3 py-2 text-left font-medium">Period</th>
+            <th className="px-3 py-2 text-right font-medium">Amount</th>
+            {showPaid && <th className="px-3 py-2 text-right font-medium">Paid</th>}
           </tr>
         </thead>
         <tbody>
           {items.map((item) => (
             <tr key={item.itemId} className="border-t">
-              <td className="px-2 py-1">{item.feeHeadName}</td>
+              <td className="px-3 py-2 font-medium">{item.feeHeadName}</td>
               <td className="px-2 py-1 text-muted-foreground">{item.installmentName || '—'}</td>
-              <td className="px-2 py-1 text-right tabular-nums">{formatINR(item.amount)}</td>
+              <td className="px-3 py-2 text-right tabular-nums">{formatINR(item.amount)}</td>
               {showPaid && 'paidAmount' in item && (
-                <td className="px-2 py-1 text-right tabular-nums text-amber-700 dark:text-amber-400">
+                <td className="px-3 py-2 text-right tabular-nums text-amber-700 dark:text-amber-400">
                   {formatINR(item.paidAmount)}
                 </td>
               )}
@@ -569,21 +655,36 @@ export function AddTransportDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-xl">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Bus className="size-4" /> Add Transport
-          </DialogTitle>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
+        <DialogHeader className="space-y-3">
+          <div className="flex items-start gap-3">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+              <Bus className="size-5" />
+            </div>
+            <div className="min-w-0 space-y-1">
+              <DialogTitle>Add Transport</DialogTitle>
           <DialogDescription>
             Allocate a transport route to {studentName}. Months prior to the effective date will be skipped automatically.
-          </DialogDescription>
+            </DialogDescription>
+            </div>
+          </div>
+          <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
+            Months before the effective date are skipped automatically for academic year {academicYear}.
+          </div>
         </DialogHeader>
 
-        <div className="grid gap-3 py-2">
-          <div>
+        <div className="grid gap-4 py-2 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
+          <div className="space-y-4">
+            <div className="rounded-md border bg-background p-4">
+              <div className="mb-3 flex items-center gap-2 text-sm font-medium">
+                <Bus className="size-4 text-muted-foreground" />
+                Route details
+              </div>
+              <div className="space-y-3">
+          <div className="min-w-0 space-y-1.5">
             <Label htmlFor="at-route">Route</Label>
             <Select value={routeId} onValueChange={setRouteId} disabled={routesLoading || routes.length === 0}>
-              <SelectTrigger id="at-route">
+              <SelectTrigger id="at-route" className="w-full min-w-0 [&_[data-slot=select-value]]:truncate">
                 <SelectValue placeholder={routesLoading ? 'Loading routes…' : 'Select a route'} />
               </SelectTrigger>
               <SelectContent>
@@ -595,11 +696,10 @@ export function AddTransportDialog({
               </SelectContent>
             </Select>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
+          <div className="min-w-0 space-y-1.5">
               <Label htmlFor="at-stop">Stop</Label>
               <Select value={stopName} onValueChange={setStopName} disabled={!routeId || stopsForRoute.length === 0}>
-                <SelectTrigger id="at-stop">
+                <SelectTrigger id="at-stop" className="w-full min-w-0 [&_[data-slot=select-value]]:truncate">
                   <SelectValue placeholder={routeId ? 'Select stop' : 'Pick a route first'} />
                 </SelectTrigger>
                 <SelectContent>
@@ -610,31 +710,42 @@ export function AddTransportDialog({
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-            <div>
-              <Label htmlFor="at-effdate">Effective From</Label>
-              <Input
-                id="at-effdate"
-                type="date"
-                value={effectiveFrom}
-                onChange={(e) => setEffectiveFrom(e.target.value)}
-              />
-            </div>
           </div>
-          <div>
-            <Label htmlFor="at-reason">Reason (optional)</Label>
-            <Input
-              id="at-reason"
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              placeholder="e.g. Mid-year transport opt-in"
-            />
+              </div>
+            </div>
+
+            <div className="rounded-md border bg-background p-4">
+              <div className="mb-3 flex items-center gap-2 text-sm font-medium">
+                <CalendarDays className="size-4 text-muted-foreground" />
+                Billing start
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+                <div className="space-y-1.5">
+                  <Label htmlFor="at-effdate">Effective From</Label>
+                  <DatePicker
+                    value={effectiveFrom}
+                    onChange={setEffectiveFrom}
+                    placeholder="Select start date"
+                    triggerClassName="w-full"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="at-reason">Reason</Label>
+                  <Input
+                    id="at-reason"
+                    value={reason}
+                    onChange={(e) => setReason(e.target.value)}
+                    placeholder="e.g. Mid-year transport opt-in"
+                  />
+                </div>
+              </div>
+            </div>
           </div>
 
           <TransportPreviewPanel loading={previewLoading} error={previewError} preview={preview} />
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="border-t pt-4">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
             Cancel
           </Button>
@@ -662,27 +773,37 @@ function TransportPreviewPanel({
 }) {
   if (loading && !preview) {
     return (
-      <div className="rounded-md border bg-muted/30 p-4 text-sm text-muted-foreground flex items-center gap-2">
+      <div className="flex min-h-64 items-center justify-center rounded-md border bg-muted/20 p-6 text-sm text-muted-foreground">
         <Loader2 className="size-3.5 animate-spin" /> Calculating fare…
       </div>
     )
   }
   if (error) {
     return (
-      <div className="rounded-md border border-destructive/50 bg-destructive/5 p-3 text-sm text-destructive">
-        {error}
+      <div className="flex items-start gap-3 rounded-md border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
+        <XCircle className="mt-0.5 size-5 shrink-0" />
+        <div>
+          <div className="font-medium">Preview failed</div>
+          <div className="mt-1 text-xs">{error}</div>
+        </div>
       </div>
     )
   }
-  if (!preview) return null
+  if (!preview) {
+    return (
+      <div className="flex min-h-64 items-center justify-center rounded-md border bg-muted/20 p-6 text-center text-sm text-muted-foreground">
+        Select a route and stop to preview transport billing.
+      </div>
+    )
+  }
   return (
-    <div className="rounded-md border bg-muted/20 p-3 text-sm">
-      <div className="font-medium flex items-center gap-2 mb-2">
+    <div className="space-y-4 rounded-md border bg-background p-4 text-sm">
+      <div className="flex items-center gap-2 font-medium">
         <CheckCircle2 className={preview.canCommit ? 'size-4 text-emerald-600' : 'size-4 text-amber-600'} />
         Fare preview
       </div>
       {preview.blockers.length > 0 && (
-        <div className="mb-2 rounded border border-amber-300 bg-amber-50 p-2 dark:bg-amber-950/30">
+        <div className="rounded-md border border-amber-300 bg-amber-50 p-3 dark:bg-amber-950/30">
           <ul className="list-disc list-inside text-xs text-amber-900 dark:text-amber-200 space-y-0.5">
             {preview.blockers.map((b) => <li key={b}>{b}</li>)}
           </ul>
@@ -690,21 +811,12 @@ function TransportPreviewPanel({
       )}
       {preview.canCommit && (
         <>
-          <div className="grid grid-cols-3 gap-3 text-xs">
-            <div>
-              <div className="text-muted-foreground">Per-month</div>
-              <div className="font-semibold tabular-nums">{formatINR(preview.fare)}</div>
-            </div>
-            <div>
-              <div className="text-muted-foreground">Months</div>
-              <div className="font-semibold">{preview.billableMonths.length}</div>
-            </div>
-            <div>
-              <div className="text-muted-foreground">Total</div>
-              <div className="font-semibold tabular-nums">{formatINR(preview.totalAmount)}</div>
-            </div>
+          <div className="grid gap-2 sm:grid-cols-3">
+            <ImpactMetric label="Per month" value={formatINR(preview.fare)} />
+            <ImpactMetric label="Billable months" value={String(preview.billableMonths.length)} />
+            <ImpactMetric label="Total" value={formatINR(preview.totalAmount)} />
           </div>
-          <div className="mt-2 text-[11px] text-muted-foreground">
+          <div className="rounded-md border bg-muted/20 p-3 text-xs text-muted-foreground">
             <span className="font-medium">Billing:</span>{' '}
             {preview.billableMonths.join(', ') || '—'}
             {preview.droppedMonths.length > 0 && (
@@ -740,6 +852,7 @@ export function DiscontinueTransportDialog({
   const { toast } = useToast()
   const [effectiveDate, setEffectiveDate] = useState(todayISO())
   const [reason, setReason] = useState('')
+  const [refundEligible, setRefundEligible] = useState(false)
   const [preview, setPreview] = useState<TransportWithdrawPreview | null>(null)
   const [previewLoading, setPreviewLoading] = useState(false)
   const [previewError, setPreviewError] = useState<string | null>(null)
@@ -751,6 +864,7 @@ export function DiscontinueTransportDialog({
     if (!open) {
       setEffectiveDate(todayISO())
       setReason('')
+      setRefundEligible(false)
       setPreview(null)
       setPreviewError(null)
     }
@@ -764,6 +878,7 @@ export function DiscontinueTransportDialog({
     api
       .post<TransportWithdrawPreview>(`/api/school/students/${studentId}/transport/withdraw/preview`, {
         effectiveDate: debouncedDate,
+        refundEligible,
       })
       .then((data) => {
         if (!cancelled) setPreview(data)
@@ -780,7 +895,7 @@ export function DiscontinueTransportDialog({
     return () => {
       cancelled = true
     }
-  }, [open, studentId, debouncedDate])
+  }, [open, studentId, debouncedDate, refundEligible])
 
   const handleSubmit = async () => {
     if (!preview?.canCommit) return
@@ -789,6 +904,7 @@ export function DiscontinueTransportDialog({
       await api.post(`/api/school/students/${studentId}/transport/withdraw`, {
         effectiveDate,
         reason: reason.trim() || undefined,
+        refundEligible,
       })
       toast({
         title: 'Transport discontinued',
@@ -811,44 +927,98 @@ export function DiscontinueTransportDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-xl">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Bus className="size-4" /> Discontinue Transport
-          </DialogTitle>
-          <DialogDescription>
-            Stop transport billing for {studentName} from the effective date forward. The student remains enrolled.
-          </DialogDescription>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
+        <DialogHeader className="space-y-3">
+          <div className="flex items-start gap-3">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-destructive/10 text-destructive">
+              <Bus className="size-5" />
+            </div>
+            <div className="min-w-0 space-y-1">
+              <DialogTitle>Discontinue Transport</DialogTitle>
+              <DialogDescription>
+                Stop transport billing for {studentName} from the effective date forward. The student remains enrolled.
+              </DialogDescription>
+            </div>
+          </div>
+          <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+              <span>Future unpaid transport months will be cancelled. Paid future months stay intact and can be marked for refund review.</span>
+            </div>
+          </div>
         </DialogHeader>
 
-        <div className="grid gap-3 py-2">
-          <div>
-            <Label htmlFor="dt-effdate">Effective Date</Label>
-            <Input
-              id="dt-effdate"
-              type="date"
-              value={effectiveDate}
-              onChange={(e) => setEffectiveDate(e.target.value)}
-            />
-          </div>
-          <div>
-            <Label htmlFor="dt-reason">Reason (optional)</Label>
-            <Input
-              id="dt-reason"
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              placeholder="e.g. Family moved closer to school"
-            />
+        <div className="grid gap-4 py-2 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+          <div className="space-y-4">
+            <div className="rounded-md border bg-background p-4">
+              <div className="mb-3 flex items-center gap-2 text-sm font-medium">
+                <CalendarDays className="size-4 text-muted-foreground" />
+                Discontinue details
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+                <div className="space-y-1.5">
+                  <Label htmlFor="dt-effdate">Effective Date</Label>
+                  <DatePicker
+                    value={effectiveDate}
+                    onChange={setEffectiveDate}
+                    placeholder="Select discontinue date"
+                    triggerClassName="w-full"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="dt-reason">Reason</Label>
+                  <Input
+                    id="dt-reason"
+                    value={reason}
+                    onChange={(e) => setReason(e.target.value)}
+                    placeholder="e.g. Family moved closer to school"
+                  />
+                </div>
+              </div>
+              <label htmlFor="dt-refund" className="mt-4 flex cursor-pointer items-start gap-3 rounded-md border bg-muted/20 p-3">
+                <Checkbox
+                  id="dt-refund"
+                  checked={refundEligible}
+                  onCheckedChange={(checked) => setRefundEligible(checked === true)}
+                  className="mt-0.5"
+                />
+                <span className="grid gap-1 text-sm">
+                  <span className="font-medium">Mark paid future transport fees as refund eligible</span>
+                  <span className="text-xs text-muted-foreground">Paid future months stay intact and appear in refund follow-up.</span>
+                </span>
+              </label>
+            </div>
           </div>
 
+          <div className="space-y-4 rounded-md border bg-background p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <CheckCircle2 className="size-4 text-emerald-600" />
+                  Impact preview
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">Transport billing changes from selected date.</p>
+              </div>
+              {previewLoading && preview && (
+                <Badge variant="outline" className="gap-1">
+                  <Loader2 className="size-3 animate-spin" />
+                  Updating
+                </Badge>
+              )}
+            </div>
+
           {previewLoading && !preview && (
-            <div className="rounded-md border bg-muted/30 p-4 text-sm text-muted-foreground flex items-center gap-2">
+            <div className="flex min-h-48 items-center justify-center rounded-md border bg-muted/20 p-6 text-sm text-muted-foreground">
               <Loader2 className="size-3.5 animate-spin" /> Calculating impact…
             </div>
           )}
           {previewError && (
-            <div className="rounded-md border border-destructive/50 bg-destructive/5 p-3 text-sm text-destructive">
-              {previewError}
+            <div className="flex items-start gap-3 rounded-md border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
+              <XCircle className="mt-0.5 size-5 shrink-0" />
+              <div>
+                <div className="font-medium">Preview failed</div>
+                <div className="mt-1 text-xs">{previewError}</div>
+              </div>
             </div>
           )}
           {preview && !preview.canCommit && (
@@ -859,33 +1029,33 @@ export function DiscontinueTransportDialog({
             </div>
           )}
           {preview && preview.canCommit && (
-            <div className="rounded-md border bg-muted/20 p-3 text-sm">
-              <div className="font-medium flex items-center gap-2 mb-2">
-                <CheckCircle2 className="size-4 text-emerald-600" />
-                Impact preview
+            <div className="space-y-4">
+              <div className="grid gap-2 sm:grid-cols-2">
+                <ImpactMetric label="Months cancelled" value={String(preview.cancelledItems.length)} />
+                <ImpactMetric label="Cancelled amount" value={formatINR(preview.cancelledAmount)} />
+                <ImpactMetric label="Refund follow-up" value={String(preview.requiresRefund.length)} />
+                <ImpactMetric label="Refund due" value={formatINR(preview.totalRefundDue)} tone={preview.totalRefundDue > 0 ? 'warning' : 'default'} />
               </div>
               {preview.cancelledItems.length === 0 && preview.requiresRefund.length === 0 && (
-                <div className="text-muted-foreground text-xs">
+                <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-200">
                   No future months to cancel — transport will be marked closed without billing changes.
                 </div>
               )}
               {preview.cancelledItems.length > 0 && (
-                <div className="mb-2">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs font-medium text-muted-foreground">
-                      Cancelling {preview.cancelledItems.length} month(s)
-                    </span>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-sm font-medium">Future unpaid months to cancel</span>
                     <Badge variant="secondary">{formatINR(preview.cancelledAmount)}</Badge>
                   </div>
                   <ItemTable items={preview.cancelledItems} />
                 </div>
               )}
               {preview.requiresRefund.length > 0 && (
-                <div className="mt-3 rounded border border-amber-300 bg-amber-50 p-2 dark:bg-amber-950/30">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs font-medium text-amber-900 dark:text-amber-200 flex items-center gap-1.5">
-                      <AlertTriangle className="size-3.5" />
-                      {preview.requiresRefund.length} paid month(s) require manual refund
+                <div className="space-y-2 rounded-md border border-amber-300 bg-amber-50 p-3 dark:bg-amber-950/30">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="flex items-center gap-1.5 text-sm font-medium text-amber-900 dark:text-amber-200">
+                      <AlertTriangle className="size-4" />
+                      Paid months need refund review
                     </span>
                     <Badge variant="outline" className="border-amber-400 text-amber-900 dark:text-amber-200">
                       {formatINR(preview.totalRefundDue)}
@@ -896,9 +1066,10 @@ export function DiscontinueTransportDialog({
               )}
             </div>
           )}
+          </div>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="border-t pt-4">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
             Cancel
           </Button>
@@ -908,7 +1079,7 @@ export function DiscontinueTransportDialog({
             disabled={submitting || previewLoading || !preview?.canCommit}
           >
             {submitting && <Loader2 className="size-4 animate-spin" />}
-            Discontinue
+            Discontinue Transport
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -976,10 +1147,10 @@ export function ReverseWithdrawalDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Undo2 className="size-4" /> Reverse Withdrawal
+      <DialogContent className="sm:max-w-xl">
+        <DialogHeader className="space-y-3">
+          <DialogTitle className="flex items-center gap-2 text-emerald-700 dark:text-emerald-300">
+            <Undo2 className="size-5" /> Reverse Withdrawal
           </DialogTitle>
           <DialogDescription>
             Restore {studentName} to active status. Cancelled fee items remain cancelled — re-bill them via the
@@ -987,26 +1158,44 @@ export function ReverseWithdrawalDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid gap-3 py-2">
-          <div>
-            <Label htmlFor="rv-notes">Reason for reversal (required)</Label>
+        <div className="space-y-4 py-2">
+          <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+              <div>
+                <div className="font-medium">Billing will not be rebuilt automatically</div>
+                <p className="mt-1 text-xs">
+                  Cancelled fee items remain cancelled. Re-bill through fee assignment if the student should be charged again.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-md border bg-background p-4">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <Label htmlFor="rv-notes">Reason for reversal</Label>
+              <Badge variant={notes.trim() ? 'secondary' : 'outline'}>Required</Badge>
+            </div>
             <Textarea
               id="rv-notes"
-              rows={3}
+              rows={4}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="e.g. TC issued in error — wrong student selected"
             />
+            <p className="mt-2 text-xs text-muted-foreground">
+              This note is stored with the reversal audit trail.
+            </p>
           </div>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="border-t pt-4">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
             Cancel
           </Button>
           <Button onClick={handleSubmit} disabled={submitting || !notes.trim()}>
             {submitting && <Loader2 className="size-4 animate-spin" />}
-            Reverse
+            Reverse Withdrawal
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -1317,6 +1506,7 @@ interface HostelWithdrawPreview {
   success: boolean
   canCommit: boolean
   blockers: string[]
+  refundEligible?: boolean
   effectiveDate: string
   cancelledItems: PreviewItem[]
   cancelledAmount: number
@@ -1389,6 +1579,9 @@ export function AddHostelDialog({
     () => roomsForHostel.find((r) => r.id === roomId)?.beds || [],
     [roomsForHostel, roomId],
   )
+  const selectedHostel = useMemo(() => hostels.find((h) => h.id === hostelId) || null, [hostels, hostelId])
+  const selectedRoom = useMemo(() => roomsForHostel.find((r) => r.id === roomId) || null, [roomsForHostel, roomId])
+  const selectedBed = useMemo(() => bedsForRoom.find((b) => b.id === bedId) || null, [bedsForRoom, bedId])
 
   useEffect(() => { setRoomId(''); setBedId('') }, [hostelId])
   useEffect(() => { setBedId('') }, [roomId])
@@ -1445,21 +1638,36 @@ export function AddHostelDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-xl">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Building2 className="size-4" /> Add Hostel
-          </DialogTitle>
-          <DialogDescription>
-            Allocate a hostel bed to {studentName}. Months prior to the effective date will be skipped automatically.
-          </DialogDescription>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
+        <DialogHeader className="space-y-3">
+          <div className="flex items-start gap-3">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+              <Building2 className="size-5" />
+            </div>
+            <div className="min-w-0 space-y-1">
+              <DialogTitle>Add Hostel</DialogTitle>
+              <DialogDescription>
+                Allocate a hostel bed to {studentName}. Months prior to the effective date will be skipped automatically.
+              </DialogDescription>
+            </div>
+          </div>
+          <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
+            Months before the effective date are skipped automatically for academic year {academicYear}.
+          </div>
         </DialogHeader>
 
-        <div className="grid gap-3 py-2">
-          <div>
+        <div className="grid gap-4 py-2 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
+          <div className="space-y-4">
+            <div className="rounded-md border bg-background p-4">
+              <div className="mb-3 flex items-center gap-2 text-sm font-medium">
+                <Building2 className="size-4 text-muted-foreground" />
+                Accommodation details
+              </div>
+              <div className="space-y-3">
+                <div className="min-w-0 space-y-1.5">
             <Label htmlFor="ah-hostel">Hostel</Label>
             <Select value={hostelId} onValueChange={setHostelId} disabled={hostelsLoading || hostels.length === 0}>
-              <SelectTrigger id="ah-hostel">
+              <SelectTrigger id="ah-hostel" className="w-full min-w-0 [&_[data-slot=select-value]]:truncate">
                 <SelectValue placeholder={hostelsLoading ? 'Loading hostels…' : 'Select a hostel'} />
               </SelectTrigger>
               <SelectContent>
@@ -1471,11 +1679,11 @@ export function AddHostelDialog({
               </SelectContent>
             </Select>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="min-w-0 space-y-1.5">
               <Label htmlFor="ah-room">Room</Label>
               <Select value={roomId} onValueChange={setRoomId} disabled={!hostelId || roomsForHostel.length === 0}>
-                <SelectTrigger id="ah-room">
+                <SelectTrigger id="ah-room" className="w-full min-w-0 [&_[data-slot=select-value]]:truncate">
                   <SelectValue placeholder={hostelId ? 'Select room' : 'Pick a hostel first'} />
                 </SelectTrigger>
                 <SelectContent>
@@ -1487,10 +1695,10 @@ export function AddHostelDialog({
                 </SelectContent>
               </Select>
             </div>
-            <div>
+            <div className="min-w-0 space-y-1.5">
               <Label htmlFor="ah-bed">Bed</Label>
               <Select value={bedId} onValueChange={setBedId} disabled={!roomId || bedsForRoom.length === 0}>
-                <SelectTrigger id="ah-bed">
+                <SelectTrigger id="ah-bed" className="w-full min-w-0 [&_[data-slot=select-value]]:truncate">
                   <SelectValue placeholder={roomId ? 'Select bed' : 'Pick a room first'} />
                 </SelectTrigger>
                 <SelectContent>
@@ -1503,19 +1711,43 @@ export function AddHostelDialog({
               </Select>
             </div>
           </div>
-          <div>
-            <Label htmlFor="ah-effdate">Effective From</Label>
-            <Input id="ah-effdate" type="date" value={effectiveFrom} onChange={(e) => setEffectiveFrom(e.target.value)} />
-          </div>
-          <div>
-            <Label htmlFor="ah-reason">Reason (optional)</Label>
-            <Input id="ah-reason" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Mid-year hostel opt-in" />
+              </div>
+            </div>
+
+            <div className="rounded-md border bg-background p-4">
+              <div className="mb-3 flex items-center gap-2 text-sm font-medium">
+                <CalendarDays className="size-4 text-muted-foreground" />
+                Billing start
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+                <div className="space-y-1.5">
+                  <Label htmlFor="ah-effdate">Effective From</Label>
+                  <DatePicker
+                    value={effectiveFrom}
+                    onChange={setEffectiveFrom}
+                    placeholder="Select start date"
+                    triggerClassName="w-full"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="ah-reason">Reason</Label>
+                  <Input id="ah-reason" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Mid-year hostel opt-in" />
+                </div>
+              </div>
+            </div>
           </div>
 
-          <HostelPreviewPanel loading={previewLoading} error={previewError} preview={preview} />
+          <HostelPreviewPanel
+            loading={previewLoading}
+            error={previewError}
+            preview={preview}
+            hostelName={selectedHostel?.name}
+            roomLabel={selectedRoom ? `${selectedRoom.roomNumber}${selectedRoom.roomType ? ` - ${selectedRoom.roomType}` : ''}` : undefined}
+            bedLabel={selectedBed?.bedNumber}
+          />
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="border-t pt-4">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>Cancel</Button>
           <Button onClick={handleSubmit} disabled={submitting || previewLoading || !preview?.canCommit}>
             {submitting && <Loader2 className="size-4 animate-spin" />}
@@ -1531,30 +1763,64 @@ function HostelPreviewPanel({
   loading,
   error,
   preview,
+  hostelName,
+  roomLabel,
+  bedLabel,
 }: {
   loading: boolean
   error: string | null
   preview: HostelPreview | null
+  hostelName?: string
+  roomLabel?: string
+  bedLabel?: string
 }) {
   if (loading && !preview) {
     return (
-      <div className="rounded-md border bg-muted/30 p-4 text-sm text-muted-foreground flex items-center gap-2">
+      <div className="flex min-h-48 items-center justify-center rounded-md border bg-muted/20 p-6 text-sm text-muted-foreground">
         <Loader2 className="size-3.5 animate-spin" /> Calculating fare…
       </div>
     )
   }
   if (error) {
     return (
-      <div className="rounded-md border border-destructive/50 bg-destructive/5 p-3 text-sm text-destructive">{error}</div>
+      <div className="flex items-start gap-3 rounded-md border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
+        <XCircle className="mt-0.5 size-5 shrink-0" />
+        <div>
+          <div className="font-medium">Preview failed</div>
+          <div className="mt-1 text-xs">{error}</div>
+        </div>
+      </div>
     )
   }
-  if (!preview) return null
+  if (!preview) {
+    return (
+      <div className="flex min-h-64 items-center justify-center rounded-md border bg-muted/20 p-6 text-center text-sm text-muted-foreground">
+        Select a hostel, room, and available bed to preview billing.
+      </div>
+    )
+  }
   return (
-    <div className="rounded-md border bg-muted/20 p-3 text-sm">
-      <div className="font-medium flex items-center gap-2 mb-2">
+    <div className="space-y-4 rounded-md border bg-background p-4 text-sm">
+      <div className="flex items-center gap-2 font-medium">
         <CheckCircle2 className={preview.canCommit ? 'size-4 text-emerald-600' : 'size-4 text-amber-600'} />
         Fare preview
       </div>
+      {(hostelName || roomLabel || bedLabel) && (
+        <div className="grid gap-2 rounded-md border bg-muted/20 p-3 text-xs sm:grid-cols-3">
+          <div>
+            <div className="text-muted-foreground">Hostel</div>
+            <div className="mt-1 font-medium">{hostelName || '-'}</div>
+          </div>
+          <div>
+            <div className="text-muted-foreground">Room</div>
+            <div className="mt-1 font-medium">{roomLabel || '-'}</div>
+          </div>
+          <div>
+            <div className="text-muted-foreground">Bed</div>
+            <div className="mt-1 font-medium">{bedLabel || '-'}</div>
+          </div>
+        </div>
+      )}
       {preview.blockers.length > 0 && (
         <div className="mb-2 rounded border border-amber-300 bg-amber-50 p-2 dark:bg-amber-950/30">
           <ul className="list-disc list-inside text-xs text-amber-900 dark:text-amber-200 space-y-0.5">
@@ -1612,6 +1878,7 @@ export function DiscontinueHostelDialog({
   const { toast } = useToast()
   const [effectiveDate, setEffectiveDate] = useState(todayISO())
   const [reason, setReason] = useState('')
+  const [refundEligible, setRefundEligible] = useState(false)
   const [preview, setPreview] = useState<HostelWithdrawPreview | null>(null)
   const [previewLoading, setPreviewLoading] = useState(false)
   const [previewError, setPreviewError] = useState<string | null>(null)
@@ -1623,6 +1890,7 @@ export function DiscontinueHostelDialog({
     if (!open) {
       setEffectiveDate(todayISO())
       setReason('')
+      setRefundEligible(false)
       setPreview(null)
       setPreviewError(null)
     }
@@ -1636,6 +1904,7 @@ export function DiscontinueHostelDialog({
     api
       .post<HostelWithdrawPreview>(`/api/school/students/${studentId}/hostel/withdraw/preview`, {
         effectiveDate: debouncedDate,
+        refundEligible,
       })
       .then((data) => { if (!cancelled) setPreview(data) })
       .catch((err) => {
@@ -1646,7 +1915,7 @@ export function DiscontinueHostelDialog({
       })
       .finally(() => { if (!cancelled) setPreviewLoading(false) })
     return () => { cancelled = true }
-  }, [open, studentId, debouncedDate])
+  }, [open, studentId, debouncedDate, refundEligible])
 
   const handleSubmit = async () => {
     if (!preview?.canCommit) return
@@ -1655,6 +1924,7 @@ export function DiscontinueHostelDialog({
       await api.post(`/api/school/students/${studentId}/hostel/withdraw`, {
         effectiveDate,
         reason: reason.trim() || undefined,
+        refundEligible,
       })
       toast({
         title: 'Hostel discontinued',
@@ -1677,33 +1947,94 @@ export function DiscontinueHostelDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-xl">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Building2 className="size-4" /> Discontinue Hostel
-          </DialogTitle>
-          <DialogDescription>
-            Stop hostel billing for {studentName} from the effective date forward. The student remains enrolled.
-          </DialogDescription>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
+        <DialogHeader className="space-y-3">
+          <div className="flex items-start gap-3">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-destructive/10 text-destructive">
+              <Building2 className="size-5" />
+            </div>
+            <div className="min-w-0 space-y-1">
+              <DialogTitle>Discontinue Hostel</DialogTitle>
+              <DialogDescription>
+                Stop hostel billing for {studentName} from the effective date forward. The student remains enrolled.
+              </DialogDescription>
+            </div>
+          </div>
+          <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+              <span>Future unpaid hostel months will be cancelled. Paid future months stay intact and can be marked for refund review.</span>
+            </div>
+          </div>
         </DialogHeader>
 
-        <div className="grid gap-3 py-2">
-          <div>
-            <Label htmlFor="dh-effdate">Effective Date</Label>
-            <Input id="dh-effdate" type="date" value={effectiveDate} onChange={(e) => setEffectiveDate(e.target.value)} />
-          </div>
-          <div>
-            <Label htmlFor="dh-reason">Reason (optional)</Label>
-            <Input id="dh-reason" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Shifted to day-scholar" />
+        <div className="grid gap-4 py-2 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+          <div className="space-y-4">
+            <div className="rounded-md border bg-background p-4">
+              <div className="mb-3 flex items-center gap-2 text-sm font-medium">
+                <CalendarDays className="size-4 text-muted-foreground" />
+                Discontinue details
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+                <div className="space-y-1.5">
+                  <Label htmlFor="dh-effdate">Effective Date</Label>
+                  <DatePicker
+                    value={effectiveDate}
+                    onChange={setEffectiveDate}
+                    placeholder="Select discontinue date"
+                    triggerClassName="w-full"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="dh-reason">Reason</Label>
+                  <Input id="dh-reason" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Shifted to day-scholar" />
+                </div>
+              </div>
+              <label htmlFor="dh-refund" className="mt-4 flex cursor-pointer items-start gap-3 rounded-md border bg-muted/20 p-3">
+                <Checkbox
+                  id="dh-refund"
+                  checked={refundEligible}
+                  onCheckedChange={(checked) => setRefundEligible(checked === true)}
+                  className="mt-0.5"
+                />
+                <span className="grid gap-1 text-sm">
+                  <span className="font-medium">Mark paid future hostel fees as refund eligible</span>
+                  <span className="text-xs text-muted-foreground">Paid future months stay intact and appear in refund follow-up.</span>
+                </span>
+              </label>
+            </div>
           </div>
 
+          <div className="space-y-4 rounded-md border bg-background p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <CheckCircle2 className="size-4 text-emerald-600" />
+                  Impact preview
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">Hostel billing changes from selected date.</p>
+              </div>
+              {previewLoading && preview && (
+                <Badge variant="outline" className="gap-1">
+                  <Loader2 className="size-3 animate-spin" />
+                  Updating
+                </Badge>
+              )}
+            </div>
+
           {previewLoading && !preview && (
-            <div className="rounded-md border bg-muted/30 p-4 text-sm text-muted-foreground flex items-center gap-2">
+            <div className="flex min-h-48 items-center justify-center rounded-md border bg-muted/20 p-6 text-sm text-muted-foreground">
               <Loader2 className="size-3.5 animate-spin" /> Calculating impact…
             </div>
           )}
           {previewError && (
-            <div className="rounded-md border border-destructive/50 bg-destructive/5 p-3 text-sm text-destructive">{previewError}</div>
+            <div className="flex items-start gap-3 rounded-md border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
+              <XCircle className="mt-0.5 size-5 shrink-0" />
+              <div>
+                <div className="font-medium">Preview failed</div>
+                <div className="mt-1 text-xs">{previewError}</div>
+              </div>
+            </div>
           )}
           {preview && !preview.canCommit && (
             <div className="rounded-md border border-amber-300 bg-amber-50 p-3 dark:bg-amber-950/30">
@@ -1713,33 +2044,33 @@ export function DiscontinueHostelDialog({
             </div>
           )}
           {preview && preview.canCommit && (
-            <div className="rounded-md border bg-muted/20 p-3 text-sm">
-              <div className="font-medium flex items-center gap-2 mb-2">
-                <CheckCircle2 className="size-4 text-emerald-600" />
-                Impact preview
+            <div className="space-y-4">
+              <div className="grid gap-2 sm:grid-cols-2">
+                <ImpactMetric label="Months cancelled" value={String(preview.cancelledItems.length)} />
+                <ImpactMetric label="Cancelled amount" value={formatINR(preview.cancelledAmount)} />
+                <ImpactMetric label="Refund follow-up" value={String(preview.requiresRefund.length)} />
+                <ImpactMetric label="Refund due" value={formatINR(preview.totalRefundDue)} tone={preview.totalRefundDue > 0 ? 'warning' : 'default'} />
               </div>
               {preview.cancelledItems.length === 0 && preview.requiresRefund.length === 0 && (
-                <div className="text-muted-foreground text-xs">
+                <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-200">
                   No future months to cancel — hostel will be marked closed without billing changes.
                 </div>
               )}
               {preview.cancelledItems.length > 0 && (
-                <div className="mb-2">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs font-medium text-muted-foreground">
-                      Cancelling {preview.cancelledItems.length} month(s)
-                    </span>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-sm font-medium">Future unpaid months to cancel</span>
                     <Badge variant="secondary">{formatINR(preview.cancelledAmount)}</Badge>
                   </div>
                   <ItemTable items={preview.cancelledItems} />
                 </div>
               )}
               {preview.requiresRefund.length > 0 && (
-                <div className="mt-3 rounded border border-amber-300 bg-amber-50 p-2 dark:bg-amber-950/30">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs font-medium text-amber-900 dark:text-amber-200 flex items-center gap-1.5">
-                      <AlertTriangle className="size-3.5" />
-                      {preview.requiresRefund.length} paid month(s) require manual refund
+                <div className="space-y-2 rounded-md border border-amber-300 bg-amber-50 p-3 dark:bg-amber-950/30">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="flex items-center gap-1.5 text-sm font-medium text-amber-900 dark:text-amber-200">
+                      <AlertTriangle className="size-4" />
+                      Paid months need refund review
                     </span>
                     <Badge variant="outline" className="border-amber-400 text-amber-900 dark:text-amber-200">
                       {formatINR(preview.totalRefundDue)}
@@ -1750,13 +2081,14 @@ export function DiscontinueHostelDialog({
               )}
             </div>
           )}
+          </div>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="border-t pt-4">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>Cancel</Button>
           <Button variant="destructive" onClick={handleSubmit} disabled={submitting || previewLoading || !preview?.canCommit}>
             {submitting && <Loader2 className="size-4 animate-spin" />}
-            Discontinue
+            Discontinue Hostel
           </Button>
         </DialogFooter>
       </DialogContent>

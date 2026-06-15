@@ -355,7 +355,6 @@ export function AdmitCardPage({ examId }: Props) {
                         />
                         <div className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted text-xs">
                           {s.profileImage ? (
-                            // eslint-disable-next-line @next/next/no-img-element
                             <img src={s.profileImage} alt="" className="size-full object-cover" />
                           ) : (
                             <span className="font-medium uppercase">{s.firstName?.[0] || '?'}</span>

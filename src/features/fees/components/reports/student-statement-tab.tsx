@@ -39,6 +39,32 @@ interface Entry {
   status: string
 }
 
+interface FeePayment {
+  id: string
+  type: string
+  amount: number
+  receiptNumber: string | null
+  paymentMethod: string | null
+  date: string
+}
+
+interface FeeItem {
+  id: string
+  type: string
+  feeHeadName: string | null
+  installmentName: string | null
+  description: string
+  slipNumber: string | null
+  billed: number
+  paid: number
+  waived: number
+  pending: number
+  dueDate: string | null
+  billedDate: string
+  status: 'paid' | 'partial' | 'unpaid' | string
+  payments: FeePayment[]
+}
+
 interface StatementResponse {
   student: {
     id: string
@@ -50,6 +76,7 @@ interface StatementResponse {
   }
   summary: { billed: number; paid: number; waiver: number; refunded: number; outstanding: number }
   entries: Entry[]
+  feeItems: FeeItem[]
 }
 
 interface StudentStatementTabProps {
@@ -70,12 +97,11 @@ export function StudentStatementTab({ academicYear, initialStudentId, onStudentS
   // Debounced search
   useEffect(() => {
     if (!query || query.length < 2) {
-      setResults([])
       return
     }
     let alive = true
-    setSearching(true)
     const t = setTimeout(() => {
+      if (alive) setSearching(true)
       const params = new URLSearchParams({ q: query, limit: '15' })
       fetch(`/api/school/fees/demand-slips/students/search?${params}`, { credentials: 'include' })
         .then(r => r.json())
@@ -89,22 +115,24 @@ export function StudentStatementTab({ academicYear, initialStudentId, onStudentS
   // Load statement when student selected
   useEffect(() => {
     if (!selectedId) {
-      setStatement(null)
       return
     }
     let alive = true
-    setLoading(true)
-    const params = new URLSearchParams({ studentId: selectedId })
-    if (academicYear) params.set('academicYear', academicYear)
+    const loadStatement = async () => {
+      setLoading(true)
+      const params = new URLSearchParams({ studentId: selectedId })
+      if (academicYear) params.set('academicYear', academicYear)
 
-    fetch(`/api/school/fees/reports/student-statement?${params}`, { credentials: 'include' })
-      .then(r => {
-        if (!r.ok) throw new Error('Failed to load statement')
-        return r.json()
-      })
-      .then(d => { if (alive) setStatement(d) })
-      .catch(() => { if (alive) setStatement(null) })
-      .finally(() => { if (alive) setLoading(false) })
+      fetch(`/api/school/fees/reports/student-statement?${params}`, { credentials: 'include' })
+        .then(r => {
+          if (!r.ok) throw new Error('Failed to load statement')
+          return r.json()
+        })
+        .then(d => { if (alive) setStatement(d) })
+        .catch(() => { if (alive) setStatement(null) })
+        .finally(() => { if (alive) setLoading(false) })
+    }
+    void loadStatement()
 
     return () => { alive = false }
   }, [selectedId, academicYear])
@@ -120,15 +148,18 @@ export function StudentStatementTab({ academicYear, initialStudentId, onStudentS
 
   const handleExportCsv = () => {
     if (!statement) return
-    const headers = ['Date', 'Type', 'Description', 'Receipt', 'Debit', 'Credit', 'Balance']
-    const rows = statement.entries.map(e => [
-      new Date(e.date).toLocaleDateString('en-IN'),
-      e.type,
-      e.description,
-      e.receiptNumber || '',
-      e.debit > 0 ? e.debit : '',
-      e.credit > 0 ? e.credit : '',
-      e.balance,
+    const headers = ['Fee', 'Installment', 'Demand Slip', 'Due Date', 'Billed', 'Paid', 'Waived', 'Pending', 'Status', 'Paid By']
+    const rows = statement.feeItems.map(item => [
+      item.feeHeadName || item.description,
+      item.installmentName || '',
+      item.slipNumber || '',
+      item.dueDate ? new Date(item.dueDate).toLocaleDateString('en-IN') : '',
+      item.billed,
+      item.paid,
+      item.waived,
+      item.pending,
+      item.status,
+      item.payments.map(p => `${p.receiptNumber || 'Receipt'}: ${p.amount}`).join(' | '),
     ])
     const csv = [headers, ...rows].map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n')
     const blob = new Blob([csv], { type: 'text/csv' })
@@ -161,7 +192,7 @@ export function StudentStatementTab({ academicYear, initialStudentId, onStudentS
               placeholder="Search by name or admission number (min 2 chars)"
               className="pl-9 h-10"
             />
-            {results.length > 0 && (
+            {query.length >= 2 && results.length > 0 && (
               <div className="absolute z-10 left-0 right-0 mt-1 max-h-72 overflow-y-auto rounded-md border border-gray-200 bg-white shadow-lg">
                 {results.map(s => (
                   <button
@@ -231,28 +262,31 @@ export function StudentStatementTab({ academicYear, initialStudentId, onStudentS
               </CardContent>
             </Card>
 
-            {/* Ledger */}
-            <Card>
+            <FeeWiseStatusTable items={statement.feeItems || []} />
+
+            {/* Legacy ledger */}
+            {false && <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-semibold">Ledger Entries</CardTitle>
-                <p className="text-xs text-muted-foreground">Chronological account history with running balance</p>
+                <CardTitle className="text-sm font-semibold">Fee-wise Status</CardTitle>
+                <p className="text-xs text-muted-foreground">Demand slip, amount paid, pending balance, and receipt-wise payment split</p>
               </CardHeader>
               <CardContent className="p-0">
                 <div className="overflow-x-auto">
                   <Table>
                     <TableHeader>
                       <TableRow className="bg-gray-50 hover:bg-gray-50">
-                        <TableHead className="text-xs">Date</TableHead>
-                        <TableHead className="text-xs">Type</TableHead>
-                        <TableHead className="text-xs">Description</TableHead>
-                        <TableHead className="text-xs">Receipt</TableHead>
-                        <TableHead className="text-xs text-right">Debit</TableHead>
-                        <TableHead className="text-xs text-right">Credit</TableHead>
-                        <TableHead className="text-xs text-right">Balance</TableHead>
+                        <TableHead className="text-xs min-w-[180px]">Fee</TableHead>
+                        <TableHead className="text-xs">Demand Slip</TableHead>
+                        <TableHead className="text-xs">Due Date</TableHead>
+                        <TableHead className="text-xs text-right">Billed</TableHead>
+                        <TableHead className="text-xs text-right">Paid</TableHead>
+                        <TableHead className="text-xs text-right">Pending</TableHead>
+                        <TableHead className="text-xs min-w-[220px]">Paid By</TableHead>
+                        <TableHead className="text-xs">Status</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {statement.entries.length > 0 ? statement.entries.map(e => (
+                      {statement!.entries.length > 0 ? statement!.entries.map(e => (
                         <TableRow key={e.id} className="text-sm">
                           <TableCell className="py-2 text-xs whitespace-nowrap">
                             {new Date(e.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: '2-digit' })}
@@ -292,7 +326,7 @@ export function StudentStatementTab({ academicYear, initialStudentId, onStudentS
                   </Table>
                 </div>
               </CardContent>
-            </Card>
+            </Card>}
           </>
         ) : (
           <Card>
@@ -313,6 +347,113 @@ export function StudentStatementTab({ academicYear, initialStudentId, onStudentS
       )}
     </div>
   )
+}
+
+function FeeWiseStatusTable({ items }: { items: FeeItem[] }) {
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm font-semibold">Fee-wise Status</CardTitle>
+        <p className="text-xs text-muted-foreground">
+          Demand slip, amount paid, pending balance, and receipt-wise payment split
+        </p>
+      </CardHeader>
+      <CardContent className="p-0">
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-gray-50 hover:bg-gray-50">
+                <TableHead className="text-xs min-w-[180px]">Fee</TableHead>
+                <TableHead className="text-xs">Demand Slip</TableHead>
+                <TableHead className="text-xs">Due Date</TableHead>
+                <TableHead className="text-xs text-right">Billed</TableHead>
+                <TableHead className="text-xs text-right">Paid</TableHead>
+                <TableHead className="text-xs text-right">Pending</TableHead>
+                <TableHead className="text-xs min-w-[220px]">Paid By</TableHead>
+                <TableHead className="text-xs">Status</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {items.length > 0 ? items.map(item => (
+                <TableRow key={item.id} className="text-sm">
+                  <TableCell className="py-2">
+                    <div className="font-medium text-gray-900">{item.feeHeadName || item.description}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {item.installmentName || item.type}
+                      {item.waived > 0 ? ` · Waived ${formatCurrency(item.waived)}` : ''}
+                    </div>
+                  </TableCell>
+                  <TableCell className="py-2 text-xs font-mono text-muted-foreground whitespace-nowrap">
+                    {item.slipNumber || '—'}
+                  </TableCell>
+                  <TableCell className="py-2 text-xs whitespace-nowrap">
+                    {item.dueDate
+                      ? new Date(item.dueDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: '2-digit' })
+                      : '—'}
+                  </TableCell>
+                  <TableCell className="py-2 text-right tabular-nums">
+                    {formatCurrency(item.billed)}
+                  </TableCell>
+                  <TableCell className="py-2 text-right tabular-nums text-emerald-700">
+                    {item.paid > 0 ? formatCurrency(item.paid) : <span className="text-gray-300">—</span>}
+                  </TableCell>
+                  <TableCell className={cn('py-2 text-right tabular-nums font-semibold', item.pending > 0 ? 'text-amber-700' : 'text-emerald-700')}>
+                    {item.pending > 0 ? formatCurrency(item.pending) : 'Paid'}
+                  </TableCell>
+                  <TableCell className="py-2">
+                    <PaymentBreakdown payments={item.payments} />
+                  </TableCell>
+                  <TableCell className="py-2">
+                    <Badge variant="outline" className={cn('text-[10px] h-5 capitalize', statusBadge(item.status))}>
+                      {item.status}
+                    </Badge>
+                  </TableCell>
+                </TableRow>
+              )) : (
+                <TableRow>
+                  <TableCell colSpan={8} className="text-center text-sm text-muted-foreground py-10">
+                    No fee items for this student
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+function PaymentBreakdown({ payments }: { payments: FeePayment[] }) {
+  if (payments.length === 0) {
+    return <span className="text-xs text-muted-foreground italic">No payment</span>
+  }
+
+  return (
+    <div className="space-y-1">
+      {payments.map(payment => (
+        <div key={payment.id} className="text-xs">
+          <span className="font-mono text-gray-700">{payment.receiptNumber || 'Receipt'}</span>
+          <span className="text-muted-foreground"> · </span>
+          <span className={payment.type === 'CREDIT' ? 'text-emerald-700 font-medium' : 'text-purple-700 font-medium'}>
+            {formatCurrency(payment.amount)}
+          </span>
+          <span className="text-muted-foreground">
+            {' '}({payment.type === 'CREDIT' ? (payment.paymentMethod || 'Payment') : payment.type}, {new Date(payment.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })})
+          </span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function statusBadge(status: string): string {
+  switch (status) {
+    case 'paid': return 'bg-emerald-50 text-emerald-700 border-emerald-200'
+    case 'partial': return 'bg-amber-50 text-amber-700 border-amber-200'
+    case 'unpaid': return 'bg-red-50 text-red-700 border-red-200'
+    default: return 'bg-gray-100 text-gray-700 border-gray-300'
+  }
 }
 
 function typeBadge(type: string): string {

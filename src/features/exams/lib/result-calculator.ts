@@ -184,6 +184,20 @@ export function computeSubjectSummary(
 ): SubjectSummary {
   if (config.gradeOnly) {
     // Co-scholastic — find the grade from gradeValue entries. No numeric sum.
+    if (marks.length > 0 && marks.every((m) => m.status === 'not_applicable')) {
+      return {
+        subjectId: config.subjectId,
+        subjectName: config.subjectName,
+        totalMarks: 0,
+        obtainedMarks: 0,
+        percentage: 0,
+        grade: null,
+        gradePoint: null,
+        status: 'not_applicable',
+        componentsJson: null,
+        graceApplied: 0,
+      }
+    }
     const gradeEntry = marks.find((m) => m.gradeValue)
     return {
       subjectId: config.subjectId,
@@ -204,12 +218,22 @@ export function computeSubjectSummary(
   let totalObtained = 0
   let graceApplied = 0
   let anyAbsent = false
+  let anyApplicable = false
+  let anyNotApplicable = false
   let componentFailed = false
   const componentBreakdown: Record<string, { obtained: number; max: number }> = {}
 
   for (const comp of config.components) {
-    totalMax += comp.maxMarks
     const entry = marks.find((m) => m.componentId === comp.id)
+    if (entry?.status === 'not_applicable') {
+      anyNotApplicable = true
+      componentBreakdown[comp.name] = { obtained: 0, max: 0 }
+      continue
+    }
+
+    totalMax += comp.maxMarks
+    anyApplicable = true
+
     if (!entry) {
       totalObtained += 0
       componentBreakdown[comp.name] = { obtained: 0, max: comp.maxMarks }
@@ -218,11 +242,6 @@ export function computeSubjectSummary(
 
     if (entry.status === 'absent' || entry.status === 'medical_leave') {
       anyAbsent = true
-      componentBreakdown[comp.name] = { obtained: 0, max: comp.maxMarks }
-      continue
-    }
-
-    if (entry.status === 'not_applicable') {
       componentBreakdown[comp.name] = { obtained: 0, max: comp.maxMarks }
       continue
     }
@@ -242,16 +261,36 @@ export function computeSubjectSummary(
   // For components-less configs: config-level entry
   if (config.components.length === 0) {
     totalMax = config.totalMarks
+    anyApplicable = true
     const entry = marks.find((m) => m.componentId === null)
     if (entry) {
       if (entry.status === 'absent' || entry.status === 'medical_leave') {
         anyAbsent = true
+      } else if (entry.status === 'not_applicable') {
+        anyApplicable = false
+        anyNotApplicable = true
+        totalMax = 0
       } else if (entry.status !== 'not_applicable') {
         const numeric = entry.numericValue ?? 0
         totalObtained = numeric
         graceApplied = entry.graceMarks ?? 0
         totalObtained += graceApplied
       }
+    }
+  }
+
+  if (!anyApplicable && anyNotApplicable) {
+    return {
+      subjectId: config.subjectId,
+      subjectName: config.subjectName,
+      totalMarks: 0,
+      obtainedMarks: 0,
+      percentage: 0,
+      grade: null,
+      gradePoint: null,
+      status: 'not_applicable',
+      componentsJson: JSON.stringify(componentBreakdown),
+      graceApplied: 0,
     }
   }
 
@@ -339,20 +378,21 @@ export function computeExamResult(
   scale: GradeScaleDef,
   passingRule: PassingRule,
 ): ExamResultShape {
-  const totalMarks = summaries.reduce((s, sm) => s + sm.totalMarks, 0)
-  const obtainedMarks = summaries.reduce((s, sm) => s + sm.obtainedMarks, 0)
+  const applicableSummaries = summaries.filter((sm) => sm.status !== 'not_applicable')
+  const totalMarks = applicableSummaries.reduce((s, sm) => s + sm.totalMarks, 0)
+  const obtainedMarks = applicableSummaries.reduce((s, sm) => s + sm.obtainedMarks, 0)
   const pct = totalMarks > 0 ? (obtainedMarks / totalMarks) * 100 : 0
   const grade = resolveGrade(pct, scale)
 
-  const failedSubjects = summaries
+  const failedSubjects = applicableSummaries
     .filter((sm) => sm.status === 'fail')
     .map((sm) => ({ subjectId: sm.subjectId, subjectName: sm.subjectName, percentage: Math.round(sm.percentage * 100) / 100 }))
 
-  const absentCount = summaries.filter((sm) => sm.status === 'absent').length
-  const totalSubjects = summaries.length
+  const absentCount = applicableSummaries.filter((sm) => sm.status === 'absent').length
+  const totalSubjects = applicableSummaries.length
 
   let status: ExamResultShape['status']
-  if (absentCount === totalSubjects) {
+  if (totalSubjects === 0 || absentCount === totalSubjects) {
     status = 'absent'
   } else if (failedSubjects.length === 0 && pct >= passingRule.overall) {
     status = 'pass'

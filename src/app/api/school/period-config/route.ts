@@ -10,9 +10,10 @@ export async function GET(request: NextRequest) {
     if (!user || !user.schoolId) {
       return unauthorizedError()
     }
+    const schoolId = user.schoolId
 
     let configs = await db.periodConfig.findMany({
-      where: { schoolId: user.schoolId },
+      where: { schoolId },
       orderBy: { period: 'asc' },
     })
 
@@ -34,7 +35,7 @@ export async function GET(request: NextRequest) {
       configs = await Promise.all(
         defaults.map(d =>
           db.periodConfig.create({
-            data: { schoolId: user.schoolId, ...d },
+            data: { schoolId, ...d },
           })
         )
       )
@@ -54,6 +55,7 @@ export async function PUT(request: NextRequest) {
     if (!user || !user.schoolId) {
       return apiError(403, "You don't have permission to update period configuration.")
     }
+    const schoolId = user.schoolId
 
     const body = await request.json()
     const { periods } = body as {
@@ -65,13 +67,13 @@ export async function PUT(request: NextRequest) {
     }
 
     // Delete existing and recreate
-    await db.periodConfig.deleteMany({ where: { schoolId: user.schoolId } })
+    await db.periodConfig.deleteMany({ where: { schoolId } })
 
     const configs = await Promise.all(
       periods.map(p =>
         db.periodConfig.create({
           data: {
-            schoolId: user.schoolId,
+            schoolId,
             period: p.period,
             startTime: p.startTime,
             endTime: p.endTime,

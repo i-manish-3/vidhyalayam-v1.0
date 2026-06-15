@@ -31,6 +31,7 @@ export async function POST(
 
     const effectiveDate = parseEffectiveDate(body.effectiveDate)
     if (!effectiveDate) return apiError(400, 'effectiveDate is required (YYYY-MM-DD)')
+    const refundEligible = body.refundEligible === true
 
     const student = await db.student.findFirst({
       where: { id: studentId, schoolId: user.schoolId, deletedAt: null },
@@ -79,8 +80,9 @@ export async function POST(
       effectiveDate: effectiveDate.toISOString(),
       cancelledItems: result.cancelledItems,
       cancelledAmount: result.cancelledAmount,
-      requiresRefund: result.skippedDueToAllocations,
-      totalRefundDue: result.totalRefundable,
+      refundEligible,
+      requiresRefund: refundEligible ? result.skippedDueToAllocations : [],
+      totalRefundDue: refundEligible ? result.totalRefundable : 0,
     })
   } catch (error) {
     console.error('POST /students/[id]/hostel/withdraw/preview failed:', error)

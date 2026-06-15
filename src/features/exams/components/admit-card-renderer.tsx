@@ -11,6 +11,8 @@
 
 'use client'
 
+/* eslint-disable react-hooks/set-state-in-effect */
+
 import { useEffect, useState } from 'react'
 import QRCode from 'qrcode'
 import { cn } from '@/lib/utils'
@@ -54,7 +56,6 @@ export function AdmitCardRenderer({ data, className }: Props) {
         {/* Header */}
         <header className="flex items-center gap-3 border-b-2 border-gray-800 px-4 py-3">
           {school.logo ? (
-            // eslint-disable-next-line @next/next/no-img-element
             <img
               src={school.logo}
               alt=""
@@ -101,7 +102,6 @@ export function AdmitCardRenderer({ data, className }: Props) {
           <div className="flex shrink-0 flex-col items-center gap-2">
             <div className="flex size-24 items-center justify-center overflow-hidden border border-gray-400 bg-gray-50">
               {student.profileImage ? (
-                // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={student.profileImage}
                   alt=""
@@ -115,7 +115,6 @@ export function AdmitCardRenderer({ data, className }: Props) {
               )}
             </div>
             {qrDataUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
               <img src={qrDataUrl} alt="Verification QR" className="size-20" />
             ) : (
               <div className="size-20 border border-dashed border-gray-300" />
@@ -198,7 +197,6 @@ function Signature({ label, image }: { label: string; image?: string | null }) {
   return (
     <div className="flex flex-col items-center gap-1">
       {image ? (
-        // eslint-disable-next-line @next/next/no-img-element
         <img src={image} alt="" className="h-8 object-contain" crossOrigin="anonymous" />
       ) : (
         <div className="h-8" />

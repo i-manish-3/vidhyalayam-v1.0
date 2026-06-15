@@ -80,6 +80,7 @@ export async function POST(
       return apiError(400, `reason must be one of: ${VALID_REASONS.join(', ')}`)
     }
     const reasonNotes = typeof body.reasonNotes === 'string' ? body.reasonNotes.trim() || null : null
+    const refundEligible = body.refundEligible === true
 
     // Backdate guard: SCHOOL_ADMIN can backdate up to N days; older than that
     // requires SUPER_ADMIN + a non-empty note.
@@ -282,10 +283,12 @@ export async function POST(
         academicResults.reduce((s, r) => s + r.cancelledAmount, 0) +
         transportResults.reduce((s, r) => s + r.cancelledAmount, 0) +
         hostelResults.reduce((s, r) => s + r.cancelledAmount, 0)
-      const totalRefundDue =
+      const potentialRefundDue =
         academicResults.reduce((s, r) => s + r.totalRefundable, 0) +
         transportResults.reduce((s, r) => s + r.totalRefundable, 0) +
         hostelResults.reduce((s, r) => s + r.totalRefundable, 0)
+      const requiresRefund = refundEligible ? allSkipped : []
+      const totalRefundDue = refundEligible ? potentialRefundDue : 0
 
       // 4. Create the StudentWithdrawal row.
       const withdrawal = await tx.studentWithdrawal.create({
@@ -296,7 +299,7 @@ export async function POST(
           effectiveDate,
           reason,
           reasonNotes,
-          refundEligible: !!body.refundEligible,
+          refundEligible,
           cancelledItemsJson: JSON.stringify({
             academic: academicResults.map((r) => ({
               cancelledItems: r.cancelledItems,
@@ -340,7 +343,7 @@ export async function POST(
         reason,
         cancelledItems: allCancelled,
         cancelledAmount,
-        requiresRefund: allSkipped,
+        requiresRefund,
         totalRefundDue,
         academicAssignmentsClosed: academicResults.length,
         transportAllocationsClosed: transportResults.length,

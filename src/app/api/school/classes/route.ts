@@ -276,7 +276,7 @@ export async function POST(request: NextRequest) {
       return apiError(400, 'A class with this name already exists in your school. Please use a different name.')
     }
 
-    const namedSections = Array.isArray(sections)
+    const providedSections = Array.isArray(sections)
       ? sections
           .filter((section: SectionInput) => section.name?.trim())
           .map((section: SectionInput) => ({
@@ -284,15 +284,23 @@ export async function POST(request: NextRequest) {
             teacherId: section.teacherId?.trim() || null,
           }))
       : []
+
+    // Every class needs at least one section to enroll students into. If the user
+    // creates a class without specifying any section, default to a single
+    // Section "A" — and route the class-level teacher (if any) to it.
+    const defaultSectionTeacherId =
+      providedSections.length === 0 && typeof classTeacherId === 'string'
+        ? classTeacherId.trim() || null
+        : null
+    const namedSections =
+      providedSections.length > 0 ? providedSections : [{ name: 'A', teacherId: defaultSectionTeacherId }]
+
+    // The class teacher (when no sections were specified) is attached to the
+    // default Section "A" via classTeacherRows — no section-less class-level
+    // assignment is made.
     const classTeacherRows = namedSections.filter((section) => section.teacherId)
-    const classLevelTeacherId = namedSections.length === 0 && typeof classTeacherId === 'string'
-      ? classTeacherId.trim()
-      : ''
     const assignmentAcademicYear = typeof academicYear === 'string' ? academicYear.trim() : ''
-    const selectedClassTeacherIds = [
-      ...classTeacherRows.map((section) => section.teacherId as string),
-      ...(classLevelTeacherId ? [classLevelTeacherId] : []),
-    ]
+    const selectedClassTeacherIds = classTeacherRows.map((section) => section.teacherId as string)
 
     if (selectedClassTeacherIds.length > 0) {
       const academicYearError = validateAcademicYear(assignmentAcademicYear, true)
@@ -355,14 +363,12 @@ export async function POST(request: NextRequest) {
         data: {
           schoolId,
           name: name.trim(),
-          sections: namedSections.length
-            ? {
-                create: namedSections.map((section) => ({
-                  schoolId,
-                  name: section.name,
-                })),
-              }
-            : undefined,
+          sections: {
+            create: namedSections.map((section) => ({
+              schoolId,
+              name: section.name,
+            })),
+          },
           classSubjects: subjectIds?.length
             ? {
                 create: subjectIds.map((subjectId: string) => ({
@@ -396,18 +402,6 @@ export async function POST(request: NextRequest) {
             sectionId: sectionIdByName.get(section.name.toLowerCase()) as string,
             teacherId: section.teacherId as string,
           })),
-        })
-      }
-
-      if (classLevelTeacherId) {
-        await tx.classTeacherAssignment.create({
-          data: {
-            schoolId,
-            academicYear: assignmentAcademicYear,
-            classId: createdClass.id,
-            sectionId: null,
-            teacherId: classLevelTeacherId,
-          },
         })
       }
 

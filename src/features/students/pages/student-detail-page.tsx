@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, type MouseEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
 import { useAppStore } from '@/lib/store'
@@ -425,7 +425,7 @@ function PfRow({ label, value, span2 = false }: { label: string; value: string |
 
 function PfHeading({ children }: { children: React.ReactNode }) {
   return (
-    <h2 className="mt-6 mb-3 border-b-2 border-black pb-1 text-[13px] font-bold uppercase tracking-wide">
+    <h2 className="pf-heading mt-6 mb-3 border-b-2 border-black pb-1 text-[13px] font-bold uppercase tracking-wide">
       {children}
     </h2>
   )
@@ -437,6 +437,18 @@ function Cb({ on }: { on?: boolean }) {
 }
 function eqi(val: string | null | undefined, target: string): boolean {
   return !!val && val.trim().toUpperCase() === target.toUpperCase()
+}
+
+function hasPrintValue(value: string | number | boolean | null | undefined): boolean {
+  if (value == null) return false
+  if (typeof value === 'boolean') return true
+  return String(value).trim().length > 0
+}
+
+function printValue(value: string | number | boolean | null | undefined): string {
+  if (!hasPrintValue(value)) return ''
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No'
+  return String(value)
 }
 
 function PrintableAdmissionForm({
@@ -485,11 +497,14 @@ function PrintableAdmissionForm({
           permanentAddressLine={permanentAddressLine}
           localAddressLine={localAddressLine}
           className={className}
+          section={section}
+          rollNumber={rollNumber}
+          documents={documents}
         />
       ) : (
         <>
           <SchoolPrintHeader school={school} rightSlot={photoBox} />
-          <h2 className="mt-3 text-center text-base font-bold underline">STUDENT ADMISSION FORM</h2>
+          <h2 className="mt-3 text-center text-base font-bold underline">STUDENT APPLICATION / ADMISSION FORM</h2>
 
       <div className={cn('mt-3', school?.printHeader && 'flex items-start gap-3')}>
         <div className="grid flex-1 grid-cols-2 gap-x-6">
@@ -552,14 +567,19 @@ function PrintableAdmissionForm({
         <PfRow label="Ward No" value={a?.wardNo} />
       </div>
 
-      {a?.localAddress && !a.sameAsPermanent && (
-        <>
-          <PfHeading>3. Correspondence Address</PfHeading>
-          <div className="grid grid-cols-2 gap-x-6">
-            <PfRow label="Address" value={localAddressLine} span2 />
-          </div>
-        </>
-      )}
+      <PfHeading>3. Correspondence Address</PfHeading>
+      <div className="grid grid-cols-2 gap-x-6">
+        <PfRow label="Same as Permanent" value={a?.sameAsPermanent == null ? null : (a.sameAsPermanent ? 'Yes' : 'No')} />
+        <PfRow label="Address" value={localAddressLine || (a?.sameAsPermanent ? permanentAddressLine : null)} span2 />
+        <PfRow label="Village" value={a?.localVillage} />
+        <PfRow label="Post Office" value={a?.localPostOffice} />
+        <PfRow label="Police Station" value={a?.localPoliceStation} />
+        <PfRow label="Ward No" value={a?.localWardNo} />
+        <PfRow label="City" value={a?.localCity} />
+        <PfRow label="State" value={a?.localState} />
+        <PfRow label="Pincode" value={a?.localPincode} />
+        <PfRow label="Country" value={a?.localCountry} />
+      </div>
 
       <PfHeading>4. Parent / Guardian Details</PfHeading>
       <div className="grid grid-cols-2 gap-x-6">
@@ -603,51 +623,51 @@ function PrintableAdmissionForm({
         )
       })()}
 
-      {a?.previousSchool && (
-        <>
-          <PfHeading>6. Previous School Details</PfHeading>
-          <div className="grid grid-cols-2 gap-x-6">
-            <PfRow label="School Name" value={a.previousSchool} />
-            <PfRow label="Affiliated To" value={a.affiliatedTo} />
-            <PfRow label="Address" value={a.previousSchoolAddress} span2 />
-            <PfRow label="Previous Class" value={a.previousClass} />
-            <PfRow label="Result" value={a.previousResult} />
-            <PfRow label="TC Number" value={a.previousSchoolTC} />
-            <PfRow label="TC Date" value={formatDate(a.tcDate)} />
-          </div>
-        </>
-      )}
+      <PfHeading>6. Previous School Details</PfHeading>
+      <div className="grid grid-cols-2 gap-x-6">
+        <PfRow label="School Name" value={a?.previousSchool} />
+        <PfRow label="Affiliated To" value={a?.affiliatedTo} />
+        <PfRow label="Address" value={a?.previousSchoolAddress} span2 />
+        <PfRow label="Previous Class" value={a?.previousClass} />
+        <PfRow label="Result" value={a?.previousResult} />
+        <PfRow label="TC Number" value={a?.previousSchoolTC} />
+        <PfRow label="TC Date" value={formatDate(a?.tcDate)} />
+      </div>
 
       {(() => {
-        const transportRouteName = student.transportAllocations?.find((t) => t.isActive)?.route?.routeName
-          || student.transportAllocations?.[0]?.route?.routeName
-          || null
-        const hasTransport = !!transportRouteName || !!a?.transportRouteId || !!a?.transportStop
-        const hasHostel = !!a?.hostelName
-        if (!hasTransport && !hasHostel) return null
+        const transportAllocation = student.transportAllocations?.find((t) => t.isActive) || student.transportAllocations?.[0] || null
+        const hostelAllocation = student.hostelAllocations?.find((h) => h.isActive) || student.hostelAllocations?.[0] || null
+        const transportRouteName = transportAllocation?.route?.routeName || null
+        const transportStop = transportAllocation?.stopName || a?.transportStop || null
+        const hostelName = hostelAllocation?.hostel?.name || a?.hostelName || null
+        const hostelRoom = hostelAllocation?.room?.roomNumber || a?.hostelRoomNo || null
+        const hostelBed = hostelAllocation?.bed?.bedNumber || a?.hostelBedNo || null
+        const hasTransport = !!transportRouteName || !!a?.transportRouteId || !!transportStop
+        const hasHostel = !!hostelName || !!hostelRoom || !!hostelBed
         return (
           <>
             <PfHeading>7. Transport / Hostel</PfHeading>
             <div className="grid grid-cols-2 gap-x-6">
-              {hasTransport && <PfRow label="Transport Route" value={transportRouteName} />}
-              {a?.transportStop && <PfRow label="Pickup / Drop Stop" value={a.transportStop} />}
-              {a?.hostelName && <PfRow label="Hostel" value={a.hostelName} />}
-              {a?.hostelRoomNo && <PfRow label="Room No" value={a.hostelRoomNo} />}
-              {a?.hostelBedNo && <PfRow label="Bed No" value={a.hostelBedNo} />}
+              <PfRow label="Transport Required" value={hasTransport ? 'Yes' : 'No'} />
+              <PfRow label="Transport Route" value={transportRouteName} />
+              <PfRow label="Pickup / Drop Stop" value={transportStop} />
+              <PfRow label="Transport Fare" value={transportAllocation?.fareAmount != null ? formatCurrency(transportAllocation.fareAmount) : null} />
+              <PfRow label="Hostel Required" value={hasHostel ? 'Yes' : 'No'} />
+              <PfRow label="Hostel" value={hostelName} />
+              <PfRow label="Room No" value={hostelRoom} />
+              <PfRow label="Bed No" value={hostelBed} />
+              <PfRow label="Hostel Fare" value={hostelAllocation?.fareAmount != null ? formatCurrency(hostelAllocation.fareAmount) : null} />
             </div>
           </>
         )
       })()}
 
-      {(a?.bankAccountNumber || a?.ifscCode) && (
-        <>
-          <PfHeading>8. Bank Details</PfHeading>
-          <div className="grid grid-cols-2 gap-x-6">
-            <PfRow label="Account Number" value={a?.bankAccountNumber} />
-            <PfRow label="IFSC Code" value={a?.ifscCode} />
-          </div>
-        </>
-      )}
+      <PfHeading>8. Bank / Fee Details</PfHeading>
+      <div className="grid grid-cols-2 gap-x-6">
+        <PfRow label="Fees Group" value={a?.feesGroup?.name} />
+        <PfRow label="Account Number" value={a?.bankAccountNumber} />
+        <PfRow label="IFSC Code" value={a?.ifscCode} />
+      </div>
 
       <PfHeading>9. Documents Submitted</PfHeading>
       {documents.length > 0 ? (
@@ -662,12 +682,20 @@ function PrintableAdmissionForm({
         <p className="text-[12px] italic">No documents recorded.</p>
       )}
 
-      {a?.remarks && (
-        <>
-          <PfHeading>10. Remarks</PfHeading>
-          <p className="text-[12px] leading-relaxed">{a.remarks}</p>
-        </>
-      )}
+      <PfHeading>10. Remarks / Office Notes</PfHeading>
+      <p className="min-h-12 border border-gray-300 px-2 py-1 text-[12px] leading-relaxed">{a?.remarks || ''}</p>
+
+      <PfHeading>11. Declaration</PfHeading>
+      <div className="space-y-2 border border-black p-3 text-[12px] leading-relaxed">
+        <p>
+          I hereby declare that the information furnished in this application form is true and correct to the best of
+          my knowledge. I understand that the school may verify the submitted details and documents.
+        </p>
+        <p>
+          I agree to follow the rules, fee schedule, transport/hostel terms, and code of conduct prescribed by the
+          school from time to time.
+        </p>
+      </div>
 
       <div className="mt-16 grid grid-cols-3 gap-10 text-[11px]">
         <div className="border-t border-black pt-1 text-center">Parent / Guardian Signature</div>
@@ -692,6 +720,9 @@ function BrandedAdmissionFormBody({
   permanentAddressLine,
   localAddressLine,
   className,
+  section,
+  rollNumber,
+  documents,
 }: {
   student: StudentData
   admission: AdmissionData | null
@@ -700,6 +731,9 @@ function BrandedAdmissionFormBody({
   permanentAddressLine: string
   localAddressLine: string
   className: string | null
+  section: string | null
+  rollNumber: string | null
+  documents: AdmissionDocumentData[]
 }) {
   const fullName = `${student.firstName} ${student.lastName}`.trim()
   const dob = student.dateOfBirth ? new Date(student.dateOfBirth) : null
@@ -716,6 +750,49 @@ function BrandedAdmissionFormBody({
     ? student.siblings
     : (student.sibling ? [student.sibling] : [])
   const sibRowsToShow = Math.max(3, siblings.length)
+  const transportAllocation = student.transportAllocations?.find((t) => t.isActive) || student.transportAllocations?.[0] || null
+  const hostelAllocation = student.hostelAllocations?.find((h) => h.isActive) || student.hostelAllocations?.[0] || null
+  const filledDetails = ([
+    ['Admission No.', student.admissionNumber || a?.admissionNumber],
+    ['Registration No.', a?.registrationNumber],
+    ['Admission Status', student.admissionStatus || a?.status],
+    ['Academic Year', a?.academicYear],
+    ['Class', className],
+    ['Section', section],
+    ['Roll No.', rollNumber],
+    ['Medium', a?.mediumOfInstruction],
+    ['Applied Date', formatDate(a?.appliedDate)],
+    ['Date of Admission', formatDate(a?.dateOfAdmission)],
+    ['Blood Group', student.bloodGroup || a?.bloodGroup],
+    ['Nationality', a?.nationality],
+    ['Mother Tongue', a?.motherTongue],
+    ['Caste', a?.caste],
+    ['Aadhaar No.', student.aadhaarNumber || a?.aadhaarNumber],
+    ['PEN No.', a?.penNumber],
+    ['APAAR ID', a?.apaarId],
+    ['UDISE ID', a?.udiseId],
+    ['Samagra ID', a?.samagraId],
+    ['Height', a?.heightCm ? `${a.heightCm} cm` : null],
+    ['Weight', a?.weightKg ? `${a.weightKg} kg` : null],
+    ['Medical Conditions', a?.medicalConditions],
+    ['Fees Group', a?.feesGroup?.name],
+    ['Bank Account No.', a?.bankAccountNumber],
+    ['IFSC Code', a?.ifscCode],
+    ['Transport Route', transportAllocation?.route?.routeName],
+    ['Transport Stop', transportAllocation?.stopName || a?.transportStop],
+    ['Transport Fare', transportAllocation?.fareAmount ? formatCurrency(transportAllocation.fareAmount) : null],
+    ['Hostel', hostelAllocation?.hostel?.name || a?.hostelName],
+    ['Hostel Room', hostelAllocation?.room?.roomNumber || a?.hostelRoomNo],
+    ['Hostel Bed', hostelAllocation?.bed?.bedNumber || a?.hostelBedNo],
+    ['Hostel Fare', hostelAllocation?.fareAmount ? formatCurrency(hostelAllocation.fareAmount) : null],
+    ['Remarks', a?.remarks],
+  ] satisfies Array<[string, string | number | boolean | null | undefined]>).filter(
+    ([, value]) => hasPrintValue(value) && printValue(value) !== '--',
+  )
+  const filledDetailRows = Array.from({ length: Math.ceil(filledDetails.length / 2) }, (_, i) =>
+    filledDetails.slice(i * 2, i * 2 + 2),
+  )
+  const documentRows = documents.filter((d) => hasPrintValue(d.documentName))
 
   return (
     <>
@@ -745,11 +822,11 @@ function BrandedAdmissionFormBody({
             </td>
           </tr>
           <tr>
-            <td>CLASS to which admission sought : {className || ''}</td>
+            <td>CLASS to which admission sought : {[className, section ? `Sec. ${section}` : null].filter(Boolean).join(' - ')}</td>
             <td>Session : {a?.academicYear || ''}</td>
           </tr>
           <tr>
-            <td>PEN : {a?.penNumber || ''}</td>
+            <td>PEN : {a?.penNumber || ''}{rollNumber ? `    Roll No. : ${rollNumber}` : ''}</td>
             <td>APAAR ID : {a?.apaarId || ''}</td>
           </tr>
         </tbody>
@@ -921,6 +998,57 @@ function BrandedAdmissionFormBody({
         </tbody>
       </table>
 
+      {filledDetailRows.length > 0 && (
+        <table className="bf bf-avoid-break">
+          <tbody>
+            <tr><td colSpan={4} className="bf-head">14. FILLED ADMISSION / SCHOOL DETAILS :</td></tr>
+            {filledDetailRows.map((row, rowIndex) => (
+              <tr key={`filled-${rowIndex}`}>
+                {row.map(([label, value]) => (
+                  <td key={label} colSpan={row.length === 1 ? 4 : 2}>
+                    <span className="bf-label">{label} : </span>
+                    <span className="bf-value">{printValue(value)}</span>
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+
+      {documentRows.length > 0 && (
+        <table className="bf bf-avoid-break">
+          <tbody>
+            <tr><td colSpan={3} className="bf-head">15. DOCUMENTS SUBMITTED :</td></tr>
+            <tr>
+              <th className="bf-col">Document</th>
+              <th className="bf-col" style={{ width: '22%' }}>Status</th>
+              <th className="bf-col" style={{ width: '24%' }}>Uploaded On</th>
+            </tr>
+            {documentRows.map((doc) => (
+              <tr key={doc.id}>
+                <td>{doc.documentName}</td>
+                <td>{doc.verificationStatus || ''}</td>
+                <td>{formatDate(doc.uploadedAt)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+
+      <table className="bf bf-avoid-break">
+        <tbody>
+          <tr><td className="bf-head">16. DECLARATION :</td></tr>
+          <tr>
+            <td className="bf-tall">
+              I hereby declare that the information furnished in this application form is true and correct to the best
+              of my knowledge. I agree to follow the rules, fee schedule, transport/hostel terms, and code of conduct
+              prescribed by the school.
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
       <div className="bf-sign">
         <p className="text-[11px]">Date : ....................................</p>
         <p className="mt-1 text-[11px]">Place : ....................................</p>
@@ -983,6 +1111,12 @@ export function StudentDetailPage({ studentId }: { studentId: string }) {
   const [reverseWithdrawOpen, setReverseWithdrawOpen] = useState(false)
   const [refundDialog, setRefundDialog] = useState<{ withdrawalId: string } | null>(null)
   const [billingRefreshKey, setBillingRefreshKey] = useState(0)
+
+  const openWithdrawDialog = (event?: MouseEvent<HTMLButtonElement>) => {
+    event?.preventDefault()
+    event?.stopPropagation()
+    setWithdrawOpen(true)
+  }
 
   // Document verify/reject/delete/re-upload state
   const [docActionId, setDocActionId] = useState<string | null>(null) // disables all action buttons for the row being acted on
@@ -1311,6 +1445,9 @@ export function StudentDetailPage({ studentId }: { studentId: string }) {
     : null
   const hostelAlloc = yearHostelAlloc || (!yearHostelAlloc ? student.hostelAllocations?.find((h) => h.isActive) || null : null)
   const hasHostel = !!hostelAlloc
+  const admissionStatusKey = (student.admissionStatus || '').toLowerCase()
+  const isWithdrawnOrTransferred = admissionStatusKey === 'withdrawn' || admissionStatusKey === 'transferred'
+  const canUseStudentServices = !isWithdrawnOrTransferred
 
   return (
     <div className="space-y-3">
@@ -1321,28 +1458,51 @@ export function StudentDetailPage({ studentId }: { studentId: string }) {
              print dialog honors it. The form's own padding is a fallback so
              the margin band is always visible regardless of what the user
              picks in Chrome's print dialog (None/Default/Custom). */
-          @page { size: A4; margin: 6mm; }
+          @page { size: A4; margin: 8mm; }
           html, body { margin: 0 !important; padding: 0 !important; background: #fff !important; }
           body * { visibility: hidden !important; }
           #print-admission-form, #print-admission-form * { visibility: visible !important; }
           #print-admission-form {
-            position: absolute; left: 0; top: 0; width: 100%;
+            display: block !important;
+            position: static !important;
+            width: auto;
             box-sizing: border-box;
-            padding: 6mm;
+            padding: 0;
             color: #000; background: #fff;
             font-family: ui-sans-serif, system-ui, sans-serif;
-            line-height: 1.45;
+            line-height: 1.42;
           }
-          #print-admission-form .pf-row { page-break-inside: avoid; }
+          #print-admission-form ~ * { display: none !important; }
+          #print-admission-form .pf-row {
+            page-break-inside: avoid;
+            break-inside: avoid;
+            min-height: 20px;
+          }
+          #print-admission-form .pf-heading {
+            page-break-after: avoid;
+            break-after: avoid;
+            background: #f3f4f6;
+            border: 1px solid #111;
+            border-left: 4px solid #111;
+            padding: 4px 7px;
+            margin-top: 18px;
+            margin-bottom: 6px;
+          }
           #print-admission-form h2 { page-break-after: avoid; }
+          #print-admission-form ol, #print-admission-form p {
+            break-inside: avoid;
+          }
         }
 
         /* Branded admission form (banner uploaded) — table-style layout matching
            the school's printed letterhead admission form: tan section bars,
            bordered cells, visual checkboxes. */
-        #print-admission-form .bf { width: 100%; border-collapse: collapse; font-size: 11px; }
+        #print-admission-form { font-size: 11px; }
+        #print-admission-form .bf { width: 100%; border-collapse: collapse; font-size: 11px; page-break-inside: auto; }
         #print-admission-form .bf + .bf { margin-top: -1px; }
-        #print-admission-form .bf td, #print-admission-form .bf th { border: 1px solid #000; padding: 5px 7px; vertical-align: middle; color: #000; text-align: left; }
+        #print-admission-form .bf tr { page-break-inside: avoid; }
+        #print-admission-form .bf-avoid-break { page-break-inside: avoid; }
+        #print-admission-form .bf td, #print-admission-form .bf th { border: 1px solid #000; padding: 5px 7px; vertical-align: middle; color: #000; text-align: left; overflow-wrap: anywhere; }
         #print-admission-form .bf .bf-head { background: #e8c690; font-weight: 700; text-align: left; padding: 6px 8px; letter-spacing: 0.3px; }
         #print-admission-form .bf .bf-head-center { text-align: center; }
         #print-admission-form .bf .bf-col { background: #f4dfba; font-weight: 700; }
@@ -1353,6 +1513,8 @@ export function StudentDetailPage({ studentId }: { studentId: string }) {
         #print-admission-form .bf .bf-yn { width: 70px; text-align: center; white-space: nowrap; }
         #print-admission-form .bf .bf-tall { height: 50px; vertical-align: top; }
         #print-admission-form .bf .bf-small { font-size: 9px; color: #444; }
+        #print-admission-form .bf-label { font-weight: 700; color: #111; }
+        #print-admission-form .bf-value { font-weight: 600; color: #000; }
         #print-admission-form .bf-cb { display: inline-block; width: 11px; height: 11px; border: 1px solid #000; margin-right: 4px; vertical-align: -1px; text-align: center; line-height: 9px; font-size: 10px; background: #fff; }
         #print-admission-form .bf-cb-on::before { content: '✓'; font-weight: 700; }
         #print-admission-form .bf-pill { display: inline-block; min-width: 38px; border-bottom: 1px solid #000; padding: 0 6px; margin: 0 6px; text-align: center; }
@@ -1466,7 +1628,7 @@ export function StudentDetailPage({ studentId }: { studentId: string }) {
                     <Edit className="size-3.5" /> Edit Profile
                   </Button>
                 )}
-                {canManageTransport && (
+                {canManageTransport && canUseStudentServices && (
                   hasTransport ? (
                     <Button
                       variant="outline"
@@ -1487,7 +1649,7 @@ export function StudentDetailPage({ studentId }: { studentId: string }) {
                     </Button>
                   )
                 )}
-                {canManageHostel && (
+                {canManageHostel && canUseStudentServices && (
                   hasHostel ? (
                     <Button
                       variant="outline"
@@ -1516,16 +1678,17 @@ export function StudentDetailPage({ studentId }: { studentId: string }) {
                 >
                   <Printer className="size-3.5" /> Print Admission Form
                 </Button>
-                {canIssueTC && student.admissionStatus !== 'withdrawn' && student.admissionStatus !== 'transferred' && (
+                {canIssueTC && canUseStudentServices && (
                   <>
                     <Separator className="my-1" />
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setWithdrawOpen(true)}
+                      type="button"
+                      onClick={openWithdrawDialog}
                       className="h-8 w-full justify-start gap-2 border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive"
                     >
-                      <FileText className="size-3.5" /> Issue TC
+                      <FileText className="size-3.5" /> Issue Transfer Certificate
                     </Button>
                   </>
                 )}

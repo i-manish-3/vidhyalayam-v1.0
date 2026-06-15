@@ -68,6 +68,38 @@ function roundMoney(value: number) {
   return Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100
 }
 
+interface LedgerPaymentTarget {
+  debitEntryId: string | null
+  feeCollectionId: string | null
+  amount: number
+}
+
+async function resolveTargetAcademicYear(
+  tx: Prisma.TransactionClient,
+  schoolId: string,
+  studentId: string,
+  targets?: LedgerPaymentTarget[],
+): Promise<string | null> {
+  const clauses = (targets || []).flatMap((target) => [
+    ...(target.debitEntryId ? [{ id: target.debitEntryId }] : []),
+    ...(target.feeCollectionId ? [{ feeCollectionId: target.feeCollectionId }] : []),
+  ])
+  if (clauses.length === 0) return null
+
+  const entries = await tx.studentFeeLedgerEntry.findMany({
+    where: {
+      schoolId,
+      studentId,
+      deletedAt: null,
+      entryType: { in: ['DEBIT', 'FINE'] },
+      OR: clauses,
+    },
+    select: { academicYear: true },
+  })
+  const years = new Set(entries.map((entry) => entry.academicYear).filter((year): year is string => Boolean(year)))
+  return years.size === 1 ? Array.from(years)[0] : null
+}
+
 function ledgerStatus(balance: number, amount: number) {
   if (balance <= 0) return 'PAID'
   if (balance < amount) return 'PARTIAL'
@@ -683,7 +715,7 @@ export async function POST(request: NextRequest) {
                 feeCollectionId: payment.collectionId || payment.id || null,
                 amount: Number(payment.paidAmount ?? payment.amount ?? 0),
               }))
-              .filter((target: { amount: number; debitEntryId: string | null; feeCollectionId: string | null }) =>
+              .filter((target: LedgerPaymentTarget) =>
                 target.amount > 0 && (target.debitEntryId || target.feeCollectionId)
               )
 
@@ -695,9 +727,11 @@ export async function POST(request: NextRequest) {
                 feeCollectionId: payment.collectionId || payment.id || null,
                 amount: Number(payment.discount || 0),
               }))
-              .filter((target: { amount: number; debitEntryId: string | null; feeCollectionId: string | null }) =>
+              .filter((target: LedgerPaymentTarget) =>
                 target.amount > 0 && (target.debitEntryId || target.feeCollectionId)
               )
+            const paymentAcademicYear = await resolveTargetAcademicYear(tx, user.schoolId!, studentId, targets)
+            const discountAcademicYear = await resolveTargetAcademicYear(tx, user.schoolId!, studentId, discountTargets)
 
             const paymentResult = totalPaid > 0
               ? await recordStudentLedgerPayment({
@@ -711,6 +745,7 @@ export async function POST(request: NextRequest) {
                   paymentDate: paymentDateValue,
                   notes: notesWithSplits,
                   receivedBy: user.userId,
+                  academicYear: paymentAcademicYear,
                   targets,
                 })
               : null
@@ -726,6 +761,7 @@ export async function POST(request: NextRequest) {
                 paymentDate: paymentDateValue,
                 notes: notesWithSplits,
                 createdBy: user.userId,
+                academicYear: discountAcademicYear,
                 targets: discountTargets,
               })
             }
@@ -812,6 +848,8 @@ export async function POST(request: NextRequest) {
       try {
         const result = await db.$transaction(async (tx) => {
           const generatedReceipt = receiptNumber || (await nextSequentialReceiptNumber(tx, user.schoolId!))
+          const targets = target.debitEntryId || target.feeCollectionId ? [target] : undefined
+          const paymentAcademicYear = await resolveTargetAcademicYear(tx, user.schoolId!, studentId, targets)
           const paymentResult = paymentAmount > 0
             ? await recordStudentLedgerPayment({
                 tx,
@@ -824,7 +862,8 @@ export async function POST(request: NextRequest) {
                 paymentDate: paymentDateValue,
                 notes,
                 receivedBy: user.userId,
-                targets: target.debitEntryId || target.feeCollectionId ? [target] : undefined,
+                academicYear: paymentAcademicYear,
+                targets,
               })
             : null
 
@@ -844,9 +883,8 @@ export async function POST(request: NextRequest) {
               paymentDate: paymentDateValue,
               notes,
               createdBy: user.userId,
-              targets: target.debitEntryId || target.feeCollectionId
-                ? [{ ...target, amount: waiver.amount }]
-                : undefined,
+              academicYear: paymentAcademicYear,
+              targets: targets ? [{ ...target, amount: waiver.amount }] : undefined,
             })
           }
 

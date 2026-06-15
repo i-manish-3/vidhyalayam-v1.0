@@ -2,12 +2,13 @@ import { db } from '@/lib/db'
 
 export async function getFeeLedgerSummary(schoolId: string, studentIds?: string[], academicYear?: string) {
   const academicYearFilter = academicYear ? { academicYear } : {}
+  const billingEntryTypes = ['DEBIT', 'FINE']
 
   const [debits, credits, overdueDebits] = await Promise.all([
     db.studentFeeLedgerEntry.aggregate({
       where: {
         schoolId,
-        entryType: 'DEBIT',
+        entryType: { in: billingEntryTypes },
         deletedAt: null,
         status: { not: 'cancelled' },
         ...academicYearFilter,
@@ -31,7 +32,7 @@ export async function getFeeLedgerSummary(schoolId: string, studentIds?: string[
     db.studentFeeLedgerEntry.aggregate({
       where: {
         schoolId,
-        entryType: 'DEBIT',
+        entryType: { in: billingEntryTypes },
         deletedAt: null,
         status: { in: ['open', 'partial'] },
         balanceAmount: { gt: 0 },

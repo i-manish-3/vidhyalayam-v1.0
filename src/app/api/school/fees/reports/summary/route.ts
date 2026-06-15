@@ -33,12 +33,17 @@ export async function GET(request: NextRequest) {
 
     // Default range: last 30 days, ending today
     const now = new Date()
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-    const todayEnd = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000)
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
-    const yearStart = academicYearStart(academicYear) ?? new Date(now.getFullYear(), 3, 1) // Apr 1
+    const school = await db.school.findUnique({
+      where: { id: schoolId },
+      select: { timezone: true },
+    })
+    const timezone = school?.timezone || 'Asia/Kolkata'
+    const todayStart = startOfZonedDay(now, timezone)
+    const todayEnd = addZonedDays(todayStart, 1, timezone)
+    const monthStart = startOfZonedMonth(now, timezone)
+    const yearStart = academicYearStart(academicYear, timezone) ?? academicYearStartFor(now, timezone)
 
-    const seriesStart = startParam ? new Date(startParam) : new Date(todayStart.getTime() - 29 * 24 * 60 * 60 * 1000)
+    const seriesStart = startParam ? new Date(startParam) : addZonedDays(todayStart, -29, timezone)
     const seriesEnd = endParam ? new Date(endParam) : todayEnd
 
     const academicYearFilter = academicYear ? { academicYear } : {}
@@ -131,11 +136,11 @@ export async function GET(request: NextRequest) {
 
     const dailyMap = new Map<string, { amount: number; count: number }>()
     // Pre-seed every day in the range with zero so the chart shows gaps as zero, not absent
-    for (let d = new Date(seriesStart); d < seriesEnd; d.setDate(d.getDate() + 1)) {
-      dailyMap.set(toDateKey(d), { amount: 0, count: 0 })
+    for (let d = startOfZonedDay(seriesStart, timezone); d < seriesEnd; d = addZonedDays(d, 1, timezone)) {
+      dailyMap.set(toDateKey(d, timezone), { amount: 0, count: 0 })
     }
     for (const row of credits) {
-      const key = toDateKey(row.allocatedAt)
+      const key = toDateKey(row.allocatedAt, timezone)
       const bucket = dailyMap.get(key) ?? { amount: 0, count: 0 }
       bucket.amount += row.amount || 0
       bucket.count += 1
@@ -166,7 +171,7 @@ export async function GET(request: NextRequest) {
     // `now`. Pre-seeded so months with zero activity still render as bars.
     // Runs as two extra fetches (debits + credits) scoped to AY; row count
     // stays bounded by school size × ~12 months.
-    const ayEndForTrend = new Date(yearStart.getFullYear() + 1, yearStart.getMonth(), 1)
+    const ayEndForTrend = addZonedMonths(yearStart, 12, timezone)
     const monthlyEntries = await db.studentFeeLedgerEntry.findMany({
       where: {
         schoolId, deletedAt: null,
@@ -206,19 +211,19 @@ export async function GET(request: NextRequest) {
 
     const monthlyMap = new Map<string, { billed: number; collected: number }>()
     // Pre-seed every month from AY start up to current month inclusive
-    const cursor = new Date(yearStart)
+    let cursor = new Date(yearStart)
     while (cursor < ayEndForTrend && cursor <= now) {
-      monthlyMap.set(toMonthKey(cursor), { billed: 0, collected: 0 })
-      cursor.setMonth(cursor.getMonth() + 1)
+      monthlyMap.set(toMonthKey(cursor, timezone), { billed: 0, collected: 0 })
+      cursor = addZonedMonths(cursor, 1, timezone)
     }
     for (const row of monthlyEntries) {
-      const key = toMonthKey(row.transactionDate)
+      const key = toMonthKey(row.transactionDate, timezone)
       const bucket = monthlyMap.get(key) ?? { billed: 0, collected: 0 }
       if (row.entryType === 'DEBIT' || row.entryType === 'FINE') bucket.billed += row.debit || 0
       monthlyMap.set(key, bucket)
     }
     for (const row of monthlyAllocations) {
-      const key = toMonthKey(row.allocatedAt)
+      const key = toMonthKey(row.allocatedAt, timezone)
       const bucket = monthlyMap.get(key) ?? { billed: 0, collected: 0 }
       bucket.collected += row.amount || 0
       monthlyMap.set(key, bucket)
@@ -300,12 +305,14 @@ export async function GET(request: NextRequest) {
   }
 }
 
-function toDateKey(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+function toDateKey(d: Date, timezone: string): string {
+  const parts = getZonedParts(d, timezone)
+  return `${parts.year}-${String(parts.month).padStart(2, '0')}-${String(parts.day).padStart(2, '0')}`
 }
 
-function toMonthKey(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+function toMonthKey(d: Date, timezone: string): string {
+  const parts = getZonedParts(d, timezone)
+  return `${parts.year}-${String(parts.month).padStart(2, '0')}`
 }
 
 type ServiceKey = 'fees' | 'transport' | 'hostel'
@@ -339,10 +346,78 @@ function round2(n: number): number {
   return Math.round((n + Number.EPSILON) * 100) / 100
 }
 
-function academicYearStart(ay?: string): Date | null {
+function academicYearStart(ay?: string, timezone = 'Asia/Kolkata'): Date | null {
   if (!ay) return null
   const match = ay.match(/^(\d{4})-(\d{4})$/)
   if (!match) return null
   // Indian AY: April 1st of the start year
-  return new Date(parseInt(match[1], 10), 3, 1)
+  return zonedLocalTimeToUtc(parseInt(match[1], 10), 4, 1, timezone)
+}
+
+function academicYearStartFor(instant: Date, timezone: string): Date {
+  const parts = getZonedParts(instant, timezone)
+  const year = parts.month < 4 ? parts.year - 1 : parts.year
+  return zonedLocalTimeToUtc(year, 4, 1, timezone)
+}
+
+function startOfZonedDay(instant: Date, timezone: string): Date {
+  const parts = getZonedParts(instant, timezone)
+  return zonedLocalTimeToUtc(parts.year, parts.month, parts.day, timezone)
+}
+
+function startOfZonedMonth(instant: Date, timezone: string): Date {
+  const parts = getZonedParts(instant, timezone)
+  return zonedLocalTimeToUtc(parts.year, parts.month, 1, timezone)
+}
+
+function addZonedDays(instant: Date, days: number, timezone: string): Date {
+  const parts = getZonedParts(instant, timezone)
+  const shifted = new Date(Date.UTC(parts.year, parts.month - 1, parts.day + days))
+  return zonedLocalTimeToUtc(shifted.getUTCFullYear(), shifted.getUTCMonth() + 1, shifted.getUTCDate(), timezone)
+}
+
+function addZonedMonths(instant: Date, months: number, timezone: string): Date {
+  const parts = getZonedParts(instant, timezone)
+  const shifted = new Date(Date.UTC(parts.year, parts.month - 1 + months, parts.day))
+  return zonedLocalTimeToUtc(shifted.getUTCFullYear(), shifted.getUTCMonth() + 1, shifted.getUTCDate(), timezone)
+}
+
+function zonedLocalTimeToUtc(year: number, month: number, day: number, timezone: string): Date {
+  let utc = Date.UTC(year, month - 1, day, 0, 0, 0, 0)
+  for (let i = 0; i < 2; i += 1) {
+    utc = Date.UTC(year, month - 1, day, 0, 0, 0, 0) - getTimezoneOffsetMs(new Date(utc), timezone)
+  }
+  return new Date(utc)
+}
+
+function getTimezoneOffsetMs(instant: Date, timezone: string): number {
+  const parts = getZonedParts(instant, timezone, true)
+  const asUtc = Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second)
+  return asUtc - instant.getTime()
+}
+
+function getZonedParts(instant: Date, timezone: string, includeTime = false) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    ...(includeTime
+      ? {
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hourCycle: 'h23',
+        }
+      : {}),
+  }).formatToParts(instant)
+  const value = (type: Intl.DateTimeFormatPartTypes) => Number(parts.find(p => p.type === type)?.value || 0)
+  return {
+    year: value('year'),
+    month: value('month'),
+    day: value('day'),
+    hour: includeTime ? value('hour') : 0,
+    minute: includeTime ? value('minute') : 0,
+    second: includeTime ? value('second') : 0,
+  }
 }

@@ -131,17 +131,36 @@ export async function POST(request: NextRequest) {
         })
       }
 
-      const result = await db.$transaction((tx) =>
-        generateMonthlyDemandSlip(tx, {
-          schoolId: user.schoolId!,
-          studentId,
-          month,
-          year,
-          generatedBy,
-          force,
-          upToMonth,
-        })
-      )
+      // Retry on slip-number unique collisions (P2002): a concurrent generate or
+      // a force-regenerate freeing a slot can momentarily clash. Mirrors the bulk
+      // path's retry so a single manual generate doesn't surface a 500.
+      let result: Awaited<ReturnType<typeof generateMonthlyDemandSlip>> | null = null
+      let lastErr: unknown = null
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          result = await db.$transaction((tx) =>
+            generateMonthlyDemandSlip(tx, {
+              schoolId: user.schoolId!,
+              studentId,
+              month,
+              year,
+              generatedBy,
+              force,
+              upToMonth,
+            })
+          )
+          break
+        } catch (err) {
+          lastErr = err
+          if (err && typeof err === 'object' && (err as { code?: string }).code === 'P2002') {
+            continue
+          }
+          throw err
+        }
+      }
+      if (!result) {
+        throw lastErr instanceof Error ? lastErr : new Error('Slip generation failed after retries')
+      }
 
       return NextResponse.json({ scope: 'single', month, year, result })
     }

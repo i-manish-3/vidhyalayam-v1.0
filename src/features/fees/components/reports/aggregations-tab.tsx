@@ -70,6 +70,7 @@ interface AggregationsTabProps {
 export function AggregationsTab({ academicYear, startDate, endDate }: AggregationsTabProps) {
   const [data, setData] = useState<Response | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [matrixMetric, setMatrixMetric] = useState<MatrixMetric>('outstanding')
   const [detailHead, setDetailHead] = useState<string | null>(null)
 
@@ -78,6 +79,7 @@ export function AggregationsTab({ academicYear, startDate, endDate }: Aggregatio
 
     const loadAggregations = async () => {
       setLoading(true)
+      setError(null)
       const params = new URLSearchParams()
       if (academicYear) params.set('academicYear', academicYear)
       if (startDate) params.set('startDate', startDate)
@@ -85,8 +87,14 @@ export function AggregationsTab({ academicYear, startDate, endDate }: Aggregatio
 
       try {
         const response = await fetch(`/api/school/fees/reports/aggregations?${params}`, { credentials: 'include' })
+        if (!response.ok) throw new Error('Failed to load aggregations')
         const nextData = await response.json()
         if (alive) setData(nextData)
+      } catch (error) {
+        if (alive) {
+          setData(null)
+          setError(error instanceof Error ? error.message : 'Failed to load aggregations')
+        }
       } finally {
         if (alive) setLoading(false)
       }
@@ -98,6 +106,13 @@ export function AggregationsTab({ academicYear, startDate, endDate }: Aggregatio
   }, [academicYear, startDate, endDate])
 
   const t = data?.totals
+  if (!loading && !data) {
+    return (
+      <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+        {error || 'Could not load fee aggregations'}
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-4">

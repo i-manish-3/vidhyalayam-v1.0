@@ -63,6 +63,7 @@ export async function POST(
       return apiError(400, `reason must be one of: ${VALID_REASONS.join(', ')}`)
     }
     const reasonNotes = typeof body.reasonNotes === 'string' ? body.reasonNotes.trim() || null : null
+    const refundEligible = body.refundEligible === true
 
     const today = new Date()
     const ageDays = Math.floor((today.getTime() - effectiveDate.getTime()) / 86_400_000)
@@ -171,19 +172,22 @@ export async function POST(
       result.academicResults.reduce((s, r) => s + r.cancelledAmount, 0) +
       result.transportResults.reduce((s, r) => s + r.cancelledAmount, 0) +
       result.hostelResults.reduce((s, r) => s + r.cancelledAmount, 0)
-    const totalRefundDue =
+    const potentialRefundDue =
       result.academicResults.reduce((s, r) => s + r.totalRefundable, 0) +
       result.transportResults.reduce((s, r) => s + r.totalRefundable, 0) +
       result.hostelResults.reduce((s, r) => s + r.totalRefundable, 0)
+    const requiresRefund = refundEligible ? allSkipped : []
+    const totalRefundDue = refundEligible ? potentialRefundDue : 0
 
     return NextResponse.json({
       success: true,
       effectiveDate: effectiveDate.toISOString(),
       academicYear,
       reason,
+      refundEligible,
       cancelledItems: allCancelled,
       cancelledAmount,
-      requiresRefund: allSkipped,
+      requiresRefund,
       totalRefundDue,
       academicAssignmentsClosed: result.academicResults.length,
       transportAllocationsClosed: result.transportResults.length,

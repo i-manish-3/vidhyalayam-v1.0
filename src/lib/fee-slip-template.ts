@@ -189,7 +189,11 @@ export function buildSlipLines(
     const ay = (input.academicYear || '').trim()
     if (ay && ay < currentAcademicYear) return 'prev_session'
     const isMonthly = isMonthPeriod(input.installmentName || '')
-    if (!isMonthly && !input.isTransport) {
+    // Transport & hostel are recurring service fees, never term fees — keep them
+    // out of the term/overdue-term buckets even if an installment isn't a parsable
+    // month (matches how they're sorted/labelled below).
+    const isService = input.isTransport || /hostel/i.test(input.feeHeadName)
+    if (!isMonthly && !isService) {
       return isTermOverdue(input.dueDate) ? 'overdue_term' : 'term'
     }
     const ym = slipLineYearMonth(input.installmentName, input.academicYear)

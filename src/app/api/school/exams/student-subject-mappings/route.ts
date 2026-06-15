@@ -19,18 +19,29 @@ export async function GET(request: NextRequest) {
     const subjectId = searchParams.get('subjectId') ?? undefined
 
     // class scoping requires a join through Student.classId — we resolve via Student where if classId is given.
+    const classScopedStudentIds = classId
+      ? (
+          await db.student.findMany({
+            where: { classId, schoolId: user.schoolId, deletedAt: null },
+            select: { id: true },
+          })
+        ).map((student) => student.id)
+      : null
+
+    if (classScopedStudentIds && classScopedStudentIds.length === 0) {
+      return NextResponse.json({ mappings: [] })
+    }
+    if (classScopedStudentIds && studentId && !classScopedStudentIds.includes(studentId)) {
+      return NextResponse.json({ mappings: [] })
+    }
+
     const mappings = await db.studentSubjectMapping.findMany({
       where: {
         schoolId: user.schoolId,
         deletedAt: null,
-        ...(studentId ? { studentId } : {}),
+        ...(studentId ? { studentId } : classScopedStudentIds ? { studentId: { in: classScopedStudentIds } } : {}),
         ...(academicYear ? { academicYear } : {}),
         ...(subjectId ? { subjectId } : {}),
-        ...(classId
-          ? {
-              student: { is: { classId, schoolId: user.schoolId, deletedAt: null } },
-            }
-          : {}),
       },
       orderBy: [{ academicYear: 'desc' }, { studentId: 'asc' }],
     })

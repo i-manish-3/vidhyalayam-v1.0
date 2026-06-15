@@ -85,6 +85,13 @@ export function SummaryTab({ startDate, endDate, academicYear }: SummaryTabProps
   }, [startDate, endDate, academicYear])
 
   const k = data?.kpis
+  if (!loading && !data) {
+    return (
+      <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+        {error || 'Could not load fee summary'}
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-4">

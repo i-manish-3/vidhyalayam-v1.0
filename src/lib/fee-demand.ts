@@ -92,40 +92,39 @@ export async function nextSequentialDemandSlipNumber(
   // Use custom format or default
   const format = config?.slipNumberFormat || 'DS/{academicYear}/{month}/{sequence}'
 
-  // Replace template variables (except {sequence})
-  const prefix = format
+  // Fill every placeholder except {sequence}; the prefix is everything before it.
+  const filled = format
     .replace('{academicYear}', academicYear)
     .replace('{subdomain}', subdomain)
     .replace('{month}', monthAbbr)
     .replace('{year}', String(year))
-    .replace('/{sequence}', '/') // Remove sequence placeholder temporarily
+  const seqIdx = filled.indexOf('{sequence}')
+  const prefix = seqIdx >= 0 ? filled.slice(0, seqIdx) : filled
 
+  // Count against EVERY invoice that already carries this prefix — NOT just the
+  // live monthly-demand rows. The unique key is (schoolId, invoiceNumber) and is
+  // blind to isMonthlyDemand / deletedAt, so superseded force-regen rows (flipped
+  // to isMonthlyDemand:false) and soft-deleted rows still occupy their number.
+  // Filtering by isMonthlyDemand:true / billingMonth here made the sequence
+  // "forget" those numbers, so force-regenerating the highest-numbered slip in a
+  // month reused its number and tripped the unique constraint.
   const existing = await tx.studentFeeInvoice.findMany({
     where: {
       schoolId,
-      isMonthlyDemand: true,
-      billingMonth: month,
-      billingYear: year,
+      invoiceNumber: { startsWith: prefix },
     },
     select: { invoiceNumber: true },
   })
   const maxSeq = existing
     .map((row) => {
-      const tail = row.invoiceNumber.startsWith(prefix) ? row.invoiceNumber.slice(prefix.length) : ''
+      const tail = row.invoiceNumber.slice(prefix.length)
       const n = parseInt(tail, 10)
       return Number.isFinite(n) ? n : 0
     })
     .reduce((m, n) => (n > m ? n : m), 0)
 
   const sequence = String(maxSeq + 1).padStart(5, '0')
-
-  // Replace {sequence} in the original format
-  return format
-    .replace('{academicYear}', academicYear)
-    .replace('{subdomain}', subdomain)
-    .replace('{month}', monthAbbr)
-    .replace('{year}', String(year))
-    .replace('{sequence}', sequence)
+  return filled.replace('{sequence}', sequence)
 }
 
 export async function computePreviousBalance(
@@ -500,8 +499,28 @@ export async function generateMonthlyDemandSlip(
         notes: 'Superseded by force-regenerate',
       },
     })
+    // Transport & hostel debits are NOT recreated per slip — they're pre-existing
+    // monthly dues (created at allocation/admission) that this slip merely *links*.
+    // Detach them (don't cancel) so the regenerated slip can re-select and re-link
+    // them; cancelling would flip them to 'cancelled', drop them from
+    // selectDueTransportFees/selectDueHostelFees (which only pick open/partial),
+    // and permanently wipe the student's transport/hostel dues on a force-regen.
     await tx.studentFeeLedgerEntry.updateMany({
-      where: { invoiceId: existing.id, deletedAt: null },
+      where: {
+        invoiceId: existing.id,
+        deletedAt: null,
+        sourceType: { in: ['transport', 'hostel'] },
+      },
+      data: { invoiceId: null, invoiceLineId: null },
+    })
+    // The slip's own tuition/term debits (sourceType 'monthly_demand') ARE rebuilt
+    // below, so cancel them here.
+    await tx.studentFeeLedgerEntry.updateMany({
+      where: {
+        invoiceId: existing.id,
+        deletedAt: null,
+        sourceType: { notIn: ['transport', 'hostel'] },
+      },
       data: { status: 'cancelled' },
     })
   }

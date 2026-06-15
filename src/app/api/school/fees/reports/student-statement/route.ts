@@ -53,35 +53,18 @@ export async function GET(request: NextRequest) {
     if (startDate) dateRange.gte = new Date(startDate)
     if (endDate) dateRange.lt = new Date(endDate)
 
-    const entries = await db.studentFeeLedgerEntry.findMany({
-      where: {
-        schoolId,
-        studentId,
-        deletedAt: null,
-        ...(academicYear ? { academicYear } : {}),
-        ...(Object.keys(dateRange).length > 0 ? { transactionDate: dateRange } : {}),
-      },
-      orderBy: [{ transactionDate: 'asc' }, { createdAt: 'asc' }],
-      select: {
-        id: true,
-        academicYear: true,
-        entryType: true,
-        sourceType: true,
-        feeHeadName: true,
-        installmentName: true,
-        description: true,
-        debit: true,
-        credit: true,
-        balanceAmount: true,
-        dueDate: true,
-        transactionDate: true,
-        paymentMethod: true,
-        transactionRef: true,
-        receiptNumber: true,
-        status: true,
-        notes: true,
-      },
-    })
+    const entries = academicYear
+      ? await getAcademicYearStatementEntries(schoolId, studentId, academicYear, dateRange)
+      : await db.studentFeeLedgerEntry.findMany({
+          where: {
+            schoolId,
+            studentId,
+            deletedAt: null,
+            ...(Object.keys(dateRange).length > 0 ? { transactionDate: dateRange } : {}),
+          },
+          orderBy: [{ transactionDate: 'asc' }, { createdAt: 'asc' }],
+          select: statementEntrySelect,
+        })
 
     // Compute running balance as we walk forward. Debit = increases balance,
     // Credit / Refund (refund = debit-of-cash to balance student's account) =
@@ -133,9 +116,10 @@ export async function GET(request: NextRequest) {
 
     // Outstanding = current open balance on open/partial debits
     const openDebits = entries.filter(
-      e => e.entryType === 'DEBIT' && (e.status === 'open' || e.status === 'partial')
+      e => (e.entryType === 'DEBIT' || e.entryType === 'FINE') && (e.status === 'open' || e.status === 'partial')
     )
     const outstanding = openDebits.reduce((s, e) => s + (e.balanceAmount || 0), 0)
+    const feeItems = await getFeeItems(schoolId, studentId, academicYear, dateRange)
 
     return NextResponse.json({
       student: {
@@ -154,11 +138,229 @@ export async function GET(request: NextRequest) {
         outstanding: round2(outstanding),
       },
       entries: rows,
+      feeItems,
     })
   } catch (error) {
     console.error('Student statement error:', error)
     return internalError('loading student statement')
   }
+}
+
+async function getFeeItems(
+  schoolId: string,
+  studentId: string,
+  academicYear: string | undefined,
+  dateRange: { gte?: Date; lt?: Date },
+) {
+  const hasDateRange = Object.keys(dateRange).length > 0
+  const debits = await db.studentFeeLedgerEntry.findMany({
+    where: {
+      schoolId,
+      studentId,
+      deletedAt: null,
+      entryType: { in: ['DEBIT', 'FINE'] },
+      ...(academicYear ? { academicYear } : {}),
+      ...(hasDateRange ? { transactionDate: dateRange } : {}),
+    },
+    orderBy: [{ dueDate: 'asc' }, { transactionDate: 'asc' }, { createdAt: 'asc' }],
+    select: {
+      id: true,
+      academicYear: true,
+      entryType: true,
+      sourceType: true,
+      feeHeadName: true,
+      installmentName: true,
+      description: true,
+      debit: true,
+      balanceAmount: true,
+      dueDate: true,
+      transactionDate: true,
+      status: true,
+      invoice: { select: { id: true, invoiceNumber: true } },
+      debitAllocations: {
+        where: {
+          deletedAt: null,
+          creditEntry: {
+            deletedAt: null,
+            entryType: { in: ['CREDIT', 'WAIVER', 'ADJUSTMENT'] },
+            ...(hasDateRange ? { transactionDate: dateRange } : {}),
+          },
+        },
+        orderBy: [{ allocatedAt: 'asc' }, { createdAt: 'asc' }],
+        select: {
+          id: true,
+          amount: true,
+          allocatedAt: true,
+          receiptNumber: true,
+          creditEntry: {
+            select: {
+              id: true,
+              entryType: true,
+              paymentMethod: true,
+              receiptNumber: true,
+              transactionDate: true,
+            },
+          },
+        },
+      },
+    },
+  })
+
+  return debits.map((debit) => {
+    const payments = debit.debitAllocations.map((allocation) => ({
+      id: allocation.id,
+      type: allocation.creditEntry.entryType,
+      amount: round2(allocation.amount || 0),
+      receiptNumber: allocation.creditEntry.receiptNumber || allocation.receiptNumber,
+      paymentMethod: allocation.creditEntry.paymentMethod,
+      date: allocation.creditEntry.transactionDate.toISOString(),
+    }))
+    const paid = payments
+      .filter((payment) => payment.type === 'CREDIT')
+      .reduce((sum, payment) => sum + payment.amount, 0)
+    const waived = payments
+      .filter((payment) => payment.type === 'WAIVER' || payment.type === 'ADJUSTMENT')
+      .reduce((sum, payment) => sum + payment.amount, 0)
+    const pending = round2(debit.balanceAmount || 0)
+    return {
+      id: debit.id,
+      academicYear: debit.academicYear,
+      type: debit.entryType,
+      feeHeadName: debit.feeHeadName,
+      installmentName: debit.installmentName,
+      description: debit.description || buildDescription(debit),
+      slipNumber: debit.invoice?.invoiceNumber ?? null,
+      billed: round2(debit.debit || 0),
+      paid: round2(paid),
+      waived: round2(waived),
+      pending,
+      dueDate: debit.dueDate?.toISOString() ?? null,
+      billedDate: debit.transactionDate.toISOString(),
+      status: pending <= 0 ? 'paid' : paid > 0 || waived > 0 ? 'partial' : 'unpaid',
+      payments,
+    }
+  })
+}
+
+const statementEntrySelect = {
+  id: true,
+  academicYear: true,
+  entryType: true,
+  sourceType: true,
+  feeHeadName: true,
+  installmentName: true,
+  description: true,
+  debit: true,
+  credit: true,
+  balanceAmount: true,
+  dueDate: true,
+  transactionDate: true,
+  paymentMethod: true,
+  transactionRef: true,
+  receiptNumber: true,
+  status: true,
+  notes: true,
+  createdAt: true,
+} as const
+
+async function getAcademicYearStatementEntries(
+  schoolId: string,
+  studentId: string,
+  academicYear: string,
+  dateRange: { gte?: Date; lt?: Date },
+) {
+  const hasDateRange = Object.keys(dateRange).length > 0
+  const billEntries = await db.studentFeeLedgerEntry.findMany({
+    where: {
+      schoolId,
+      studentId,
+      deletedAt: null,
+      academicYear,
+      entryType: { in: ['DEBIT', 'FINE', 'REFUND'] },
+      ...(hasDateRange ? { transactionDate: dateRange } : {}),
+    },
+    select: statementEntrySelect,
+  })
+
+  const allocations = await db.studentFeeLedgerAllocation.findMany({
+    where: {
+      schoolId,
+      studentId,
+      deletedAt: null,
+      debitEntry: {
+        deletedAt: null,
+        academicYear,
+      },
+      creditEntry: {
+        deletedAt: null,
+        entryType: { in: ['CREDIT', 'WAIVER', 'ADJUSTMENT'] },
+        ...(hasDateRange ? { transactionDate: dateRange } : {}),
+      },
+    },
+    select: {
+      amount: true,
+      creditEntry: { select: statementEntrySelect },
+    },
+  })
+
+  const creditByEntry = new Map<string, StatementEntry>()
+  for (const allocation of allocations) {
+    const creditEntry = allocation.creditEntry
+    const existing = creditByEntry.get(creditEntry.id)
+    if (existing) {
+      existing.credit = round2(existing.credit + (allocation.amount || 0))
+      continue
+    }
+    creditByEntry.set(creditEntry.id, {
+      ...creditEntry,
+      credit: round2(allocation.amount || 0),
+      debit: 0,
+      balanceAmount: 0,
+      academicYear: creditEntry.academicYear || academicYear,
+    })
+  }
+
+  const allocatedCreditIds = Array.from(creditByEntry.keys())
+  const standaloneCredits = await db.studentFeeLedgerEntry.findMany({
+    where: {
+      schoolId,
+      studentId,
+      deletedAt: null,
+      academicYear,
+      entryType: { in: ['CREDIT', 'WAIVER', 'ADJUSTMENT'] },
+      id: allocatedCreditIds.length > 0 ? { notIn: allocatedCreditIds } : undefined,
+      ...(hasDateRange ? { transactionDate: dateRange } : {}),
+    },
+    select: statementEntrySelect,
+  })
+
+  return [...billEntries, ...Array.from(creditByEntry.values()), ...standaloneCredits]
+    .sort((a, b) => {
+      const dateDiff = a.transactionDate.getTime() - b.transactionDate.getTime()
+      if (dateDiff !== 0) return dateDiff
+      return a.createdAt.getTime() - b.createdAt.getTime()
+    })
+}
+
+interface StatementEntry {
+  id: string
+  academicYear: string | null
+  entryType: string
+  sourceType: string | null
+  feeHeadName: string | null
+  installmentName: string | null
+  description: string | null
+  debit: number
+  credit: number
+  balanceAmount: number
+  dueDate: Date | null
+  transactionDate: Date
+  paymentMethod: string | null
+  transactionRef: string | null
+  receiptNumber: string | null
+  status: string
+  notes: string | null
+  createdAt: Date
 }
 
 function buildDescription(e: any): string {

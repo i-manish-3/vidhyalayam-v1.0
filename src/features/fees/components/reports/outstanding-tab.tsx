@@ -22,6 +22,7 @@ interface Row {
   class: { id: string; name: string } | null
   section: { id: string; name: string } | null
   totalOutstanding: number
+  overdueOutstanding: number
   buckets: {
     notDue: number
     b0_30: number
@@ -39,6 +40,7 @@ interface Response {
   totals: {
     studentCount: number
     outstanding: number
+    overdue: number
     buckets: { notDue: number; b0_30: number; b31_60: number; b61_90: number; b90_plus: number }
   }
 }
@@ -54,7 +56,7 @@ interface OutstandingTabProps {
 }
 
 const ALL = '__all__'
-const OUTSTANDING_REPORT_LIST_STATE_KEY = 'fees:reports:outstanding:list'
+const OUTSTANDING_REPORT_LIST_STATE_KEY = 'fees:reports:outstanding:list:v2'
 
 interface OutstandingReportListState {
   classId?: string
@@ -75,7 +77,7 @@ export function OutstandingTab({ academicYear, classes, sections, onOpenStudent 
   // Filters
   const [classId, setClassId] = useState<string>(savedListState?.classId ?? '')
   const [sectionId, setSectionId] = useState<string>(savedListState?.sectionId ?? '')
-  const [bucket, setBucket] = useState<string>(savedListState?.bucket ?? 'all')
+  const [bucket, setBucket] = useState<string>(savedListState?.bucket ?? 'overdue')
   const [search, setSearch] = useState(savedListState?.search ?? '')
   const [searchInput, setSearchInput] = useState(savedListState?.searchInput ?? '')
   const [page, setPage] = useState(savedListState?.page ?? 1)
@@ -137,6 +139,13 @@ export function OutstandingTab({ academicYear, classes, sections, onOpenStudent 
   }, [academicYear, classId, sectionId, bucket, search, page])
 
   const t = data?.totals
+  if (!loading && !data) {
+    return (
+      <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+        {error || 'Could not load outstanding fees'}
+      </div>
+    )
+  }
 
   const rememberListState = (patch: Partial<OutstandingReportListState>) => {
     setPageState(OUTSTANDING_REPORT_LIST_STATE_KEY, {
@@ -187,9 +196,9 @@ export function OutstandingTab({ academicYear, classes, sections, onOpenStudent 
       {/* Summary band */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         <KpiCard
-          label="Defaulters"
+          label={bucket === 'overdue' ? 'Defaulters' : 'Students'}
           value={loading ? '—' : t!.studentCount.toLocaleString('en-IN')}
-          hint="Students with dues"
+          hint={bucket === 'overdue' ? 'Students past due date' : 'Students matching filter'}
           icon={AlertTriangle}
           tone="warning"
           loading={loading}
@@ -229,7 +238,7 @@ export function OutstandingTab({ academicYear, classes, sections, onOpenStudent 
               Outstanding by Student
               {data && (
                 <Badge variant="secondary" className="ml-1 font-normal">
-                  Total: {formatCurrency(t!.outstanding)}
+                  {bucket === 'overdue' ? 'Overdue' : 'Total'}: {formatCurrency(bucket === 'overdue' ? t!.overdue : t!.outstanding)}
                 </Badge>
               )}
             </CardTitle>
@@ -269,7 +278,9 @@ export function OutstandingTab({ academicYear, classes, sections, onOpenStudent 
             <Select value={bucket} onValueChange={handleBucketChange}>
               <SelectTrigger className="h-9 w-[150px]"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Any aging</SelectItem>
+                <SelectItem value="overdue">Defaulters</SelectItem>
+                <SelectItem value="all">All dues</SelectItem>
+                <SelectItem value="not_due">Not due</SelectItem>
                 <SelectItem value="b0_30">0-30 days</SelectItem>
                 <SelectItem value="b31_60">31-60 days</SelectItem>
                 <SelectItem value="b61_90">61-90 days</SelectItem>
@@ -287,6 +298,7 @@ export function OutstandingTab({ academicYear, classes, sections, onOpenStudent 
                   <TableHead className="text-xs">Student</TableHead>
                   <TableHead className="text-xs">Class</TableHead>
                   <TableHead className="text-xs text-right">Total Due</TableHead>
+                  <TableHead className="text-xs text-right">Overdue</TableHead>
                   <TableHead className="text-xs text-right">0-30</TableHead>
                   <TableHead className="text-xs text-right">31-60</TableHead>
                   <TableHead className="text-xs text-right">61-90</TableHead>
@@ -299,12 +311,12 @@ export function OutstandingTab({ academicYear, classes, sections, onOpenStudent 
                 {loading ? (
                   Array.from({ length: 5 }).map((_, i) => (
                     <TableRow key={i}>
-                      <TableCell colSpan={9}><Skeleton className="h-8 w-full" /></TableCell>
+                      <TableCell colSpan={10}><Skeleton className="h-8 w-full" /></TableCell>
                     </TableRow>
                   ))
                 ) : error ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center text-sm text-red-600 py-8">
+                    <TableCell colSpan={10} className="text-center text-sm text-red-600 py-8">
                       {error}
                     </TableCell>
                   </TableRow>
@@ -324,6 +336,9 @@ export function OutstandingTab({ academicYear, classes, sections, onOpenStudent 
                       </TableCell>
                       <TableCell className="py-2 text-right font-semibold tabular-nums">
                         {formatCurrency(r.totalOutstanding)}
+                      </TableCell>
+                      <TableCell className="py-2 text-right font-semibold tabular-nums text-amber-700">
+                        {r.overdueOutstanding > 0 ? formatCurrency(r.overdueOutstanding) : <span className="text-gray-300">â€”</span>}
                       </TableCell>
                       <BucketCell value={r.buckets.b0_30} tone="muted" />
                       <BucketCell value={r.buckets.b31_60} tone="warning" />
@@ -351,7 +366,7 @@ export function OutstandingTab({ academicYear, classes, sections, onOpenStudent 
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center text-sm text-muted-foreground py-12">
+                    <TableCell colSpan={10} className="text-center text-sm text-muted-foreground py-12">
                       No outstanding dues match these filters
                     </TableCell>
                   </TableRow>

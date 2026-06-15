@@ -478,7 +478,7 @@ async function applyLedgerCredit(input: LedgerCreditInput) {
           where: {
             schoolId,
             studentId,
-            entryType: 'DEBIT',
+            entryType: { in: ['DEBIT', 'FINE'] },
             deletedAt: null,
             status: { in: ['open', 'partial'] },
             balanceAmount: { gt: 0 },
@@ -496,7 +496,7 @@ async function applyLedgerCredit(input: LedgerCreditInput) {
       where: {
         schoolId,
         studentId,
-        entryType: 'DEBIT',
+        entryType: { in: ['DEBIT', 'FINE'] },
         deletedAt: null,
         status: { in: ['open', 'partial'] },
         balanceAmount: { gt: 0 },
