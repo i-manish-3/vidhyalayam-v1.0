@@ -6,6 +6,7 @@ import { api } from '@/lib/api'
 import { getCurrentAcademicYear } from '@/lib/academic-years'
 import { useAppStore } from '@/lib/store'
 import { useToast } from '@/hooks/use-toast'
+import { PageHeader } from '@/components/shared'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -33,6 +34,7 @@ import {
   BookOpen,
   Loader2,
   CheckCircle2,
+  List,
   Save,
   Trash2,
 } from 'lucide-react'
@@ -358,30 +360,23 @@ export function EditClassPage({ classId }: { classId: string }) {
 
   return (
     <div className="space-y-4">
-      {/* Header with back button */}
-      <div className="flex items-center gap-3">
-        <div className="flex-1 min-w-0">
-          <h1 className="text-xl font-bold tracking-tight">Edit Class</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            Update details for <span className="font-medium text-foreground">{classData.name}</span>
-          </p>
-        </div>
-        <div className="shrink-0">
-          <Button onClick={handleSave} disabled={!name.trim() || saving} className="gap-1.5 min-w-[120px]">
-            {saving ? (
-              <>
-                <Loader2 className="size-3.5 animate-spin" />
-                Saving...
-              </>
-            ) : (
-              <>
-                <Save className="size-3.5" />
-                Save Changes
-              </>
-            )}
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        title="Edit Class"
+        description={`Update details for ${classData.name}`}
+        action={{
+          label: saving ? 'Saving...' : 'Save Changes',
+          icon: saving ? Loader2 : Save,
+          iconClassName: saving ? 'animate-spin' : undefined,
+          onClick: handleSave,
+          disabled: !name.trim() || saving,
+        }}
+        secondaryAction={{
+          label: 'Class List',
+          icon: List,
+          onClick: () => router.push('/academics/classes'),
+          disabled: saving,
+        }}
+      />
 
       {/* ── Class Details Card ── */}
       <Card className="gap-0 overflow-hidden py-0 shadow-sm">

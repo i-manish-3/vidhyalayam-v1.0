@@ -854,11 +854,6 @@ export function EditStudentPage({ studentId }: { studentId: string }) {
       setCurrentTab(1)
       return
     }
-    if (!form.lastName.trim()) {
-      toast({ title: 'Missing Information', description: 'Please enter the last name.', variant: 'destructive' })
-      setCurrentTab(1)
-      return
-    }
 
     setSaving(true)
     try {
@@ -1101,7 +1096,7 @@ export function EditStudentPage({ studentId }: { studentId: string }) {
           <Input value={form.firstName} onChange={e => updateForm('firstName', e.target.value.toUpperCase())} placeholder="Enter first name" className="uppercase" />
         </div>
         <div className="space-y-2">
-          <Label>Last Name <span className="text-destructive">*</span></Label>
+          <Label>Last Name</Label>
           <Input value={form.lastName} onChange={e => updateForm('lastName', e.target.value.toUpperCase())} placeholder="Enter last name" className="uppercase" />
         </div>
       </div>

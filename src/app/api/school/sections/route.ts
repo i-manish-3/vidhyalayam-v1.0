@@ -71,34 +71,60 @@ export async function POST(request: NextRequest) {
       return apiError(400, 'At least one section must have a name.')
     }
 
-    // Check for duplicate section names within the same class
-    const sectionNames = validSections.map((s: { name: string }) => s.name.trim())
+    // Unique trimmed names requested (drop exact-duplicate names in the payload).
+    const requestedNames = Array.from(new Set(validSections.map((s: { name: string }) => s.name.trim())))
+
+    // Look up existing sections by name INCLUDING soft-deleted ones. The unique
+    // key (schoolId, classId, name) ignores deletedAt, so a soft-deleted section
+    // still occupies its name — a plain insert would trip the constraint and 500.
+    // Active matches are real duplicates (reject); soft-deleted matches are
+    // revived instead of re-created.
     const existingSections = await db.section.findMany({
       where: {
         classId,
         schoolId: user.schoolId,
-        deletedAt: null,
-        name: { in: sectionNames },
+        name: { in: requestedNames },
       },
-      select: { name: true },
+      select: { id: true, name: true, deletedAt: true },
     })
-    if (existingSections.length > 0) {
-      const dupNames = existingSections.map(s => s.name).join(', ')
+
+    const activeDup = existingSections.filter((s) => !s.deletedAt)
+    if (activeDup.length > 0) {
+      const dupNames = activeDup.map((s) => s.name).join(', ')
       return apiError(400, `Sections already exist: ${dupNames}. Please use different names.`)
     }
 
-    // Create sections
-    const created = await db.section.createMany({
-      data: validSections.map((s: { name: string }) => ({
-        schoolId: user.schoolId!,
-        classId,
-        name: s.name.trim(),
-      })),
+    const deletedByName = new Map(existingSections.map((s) => [s.name, s.id]))
+    const reviveIds = requestedNames
+      .map((name) => deletedByName.get(name))
+      .filter((id): id is string => !!id)
+    const toCreate = requestedNames.filter((name) => !deletedByName.has(name))
+
+    const count = await db.$transaction(async (tx) => {
+      let n = 0
+      if (reviveIds.length > 0) {
+        const revived = await tx.section.updateMany({
+          where: { id: { in: reviveIds } },
+          data: { deletedAt: null },
+        })
+        n += revived.count
+      }
+      if (toCreate.length > 0) {
+        const created = await tx.section.createMany({
+          data: toCreate.map((name) => ({
+            schoolId: user.schoolId!,
+            classId,
+            name,
+          })),
+        })
+        n += created.count
+      }
+      return n
     })
 
     return NextResponse.json({
-      message: `${created.count} section${created.count !== 1 ? 's' : ''} created successfully.`,
-      count: created.count,
+      message: `${count} section${count !== 1 ? 's' : ''} created successfully.`,
+      count,
     }, { status: 201 })
   } catch (error) {
     console.error('Create sections error:', error)

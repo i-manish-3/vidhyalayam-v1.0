@@ -53,6 +53,7 @@ import {
   ShieldOff,
   ShieldCheck,
   Loader2,
+  Download,
   Heart,
   Edit,
   User,
@@ -62,6 +63,7 @@ import {
   IdCard,
   CalendarDays,
   Bus,
+  Bed,
   Phone,
   ArrowUpDown,
   ArrowUp,
@@ -110,6 +112,9 @@ interface Student {
     profileImage: string | null
   } | null
   transportRouteName?: string | null
+  hostelName?: string | null
+  hostelRoomNumber?: string | null
+  hostelBedNumber?: string | null
   parentLinks?: Array<{
     id: string
     relation: string
@@ -146,6 +151,8 @@ interface StudentsListPageState {
   sectionFilter: string
   genderFilter: string
   statusFilter: string
+  transportFilter: string
+  hostelFilter: string
   searchQuery: string
   showFilters: boolean
   page: number
@@ -168,9 +175,22 @@ const STATUS_OPTIONS = [
   { value: 'disabled', label: 'Disabled' },
 ]
 
-const PAGE_SIZE_OPTIONS = [10, 25, 50, 100]
+const ALLOCATION_FILTER_OPTIONS = [
+  { value: 'with', label: 'With' },
+  { value: 'without', label: 'Without' },
+]
+
+const ALL_PAGE_SIZE = 0
+const PAGE_SIZE_OPTIONS = [
+  { value: 10, label: '10' },
+  { value: 25, label: '25' },
+  { value: 50, label: '50' },
+  { value: 100, label: '100' },
+  { value: ALL_PAGE_SIZE, label: 'All' },
+]
 
 const STUDENTS_LIST_STATE_KEY = 'students:list'
+const DEFAULT_STATUS_FILTER = 'active'
 
 // ============================================
 // Column configuration
@@ -187,6 +207,7 @@ type ColumnId =
   | 'adm'
   | 'admDate'
   | 'route'
+  | 'hostel'
   | 'phone'
   | 'gender'
   | 'dob'
@@ -222,6 +243,7 @@ const COLUMN_CONFIG: ColumnConfig[] = [
   { id: 'category', label: 'Category', icon: Tag, sortKey: 'category' },
   { id: 'aadhaar', label: 'Aadhaar No.', icon: Fingerprint, sortKey: 'aadhaar' },
   { id: 'route', label: 'Route', icon: Bus, defaultVisible: true },
+  { id: 'hostel', label: 'Hostel', icon: Bed },
   { id: 'phone', label: 'Phone', icon: Phone, defaultVisible: true },
   { id: 'status', label: 'Status', icon: Activity, sortKey: 'status' },
 ]
@@ -232,7 +254,9 @@ const DEFAULT_STUDENTS_LIST_STATE: StudentsListPageState = {
   classFilter: 'all',
   sectionFilter: 'all',
   genderFilter: 'all',
-  statusFilter: 'all',
+  statusFilter: DEFAULT_STATUS_FILTER,
+  transportFilter: 'all',
+  hostelFilter: 'all',
   searchQuery: '',
   showFilters: false,
   page: 1,
@@ -251,6 +275,11 @@ function formatDate(dateStr: string | null | undefined): string {
   } catch {
     return '--'
   }
+}
+
+function csvEscape(value: unknown): string {
+  const text = value == null ? '' : String(value)
+  return `"${text.replace(/"/g, '""')}"`
 }
 
 // ============================================
@@ -357,8 +386,9 @@ function Pagination({
   onPageSizeChange: (size: number) => void
 }) {
   const { page, limit, total, totalPages } = pagination
-  const from = total === 0 ? 0 : (page - 1) * limit + 1
-  const to = Math.min(page * limit, total)
+  const displayLimit = limit === ALL_PAGE_SIZE ? total : limit
+  const from = total === 0 ? 0 : (page - 1) * displayLimit + 1
+  const to = Math.min(page * displayLimit, total)
 
   // Generate page numbers with ellipsis (max 5 visible)
   const getPageNumbers = () => {
@@ -385,13 +415,15 @@ function Pagination({
     <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 border-t">
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <span>Rows per page:</span>
-        <Select value={String(limit)} onValueChange={(v) => onPageSizeChange(Number(v))}>
-          <SelectTrigger className="h-8 w-[70px] text-xs">
+        <Select value={limit === ALL_PAGE_SIZE ? 'all' : String(limit)} onValueChange={(v) => onPageSizeChange(v === 'all' ? ALL_PAGE_SIZE : Number(v))}>
+          <SelectTrigger className="h-8 w-[78px] text-xs">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {PAGE_SIZE_OPTIONS.map(size => (
-              <SelectItem key={size} value={String(size)}>{size}</SelectItem>
+            {PAGE_SIZE_OPTIONS.map(option => (
+              <SelectItem key={option.value} value={option.value === ALL_PAGE_SIZE ? 'all' : String(option.value)}>
+                {option.label}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -489,7 +521,13 @@ export function StudentsPage() {
   const currentSchoolAcademicYear = useAppStore((s) => s.currentSchool?.academicYear)
   const savedListState = useAppStore((s) => s.pageState[STUDENTS_LIST_STATE_KEY] as StudentsListPageState | undefined)
   const setPageState = useAppStore((s) => s.setPageState)
-  const initialListState = { ...DEFAULT_STUDENTS_LIST_STATE, ...savedListState }
+  const initialListState = {
+    ...DEFAULT_STUDENTS_LIST_STATE,
+    ...savedListState,
+    statusFilter: savedListState?.statusFilter === 'disabled'
+      ? savedListState.statusFilter
+      : DEFAULT_STATUS_FILTER,
+  }
   const { hasPermission } = usePermissions()
   const canAdmit = hasPermission(PERMISSIONS.ADMISSION_CREATE)
   const canEdit = hasPermission(PERMISSIONS.STUDENT_UPDATE)
@@ -498,6 +536,7 @@ export function StudentsPage() {
   // Data states
   const [students, setStudents] = useState<Student[]>([])
   const [loading, setLoading] = useState(true)
+  const [exporting, setExporting] = useState(false)
   const [classes, setClasses] = useState<ClassOption[]>([])
   const [sections, setSections] = useState<SectionOption[]>([])
   const [pagination, setPagination] = useState<PaginationInfo>({
@@ -512,8 +551,18 @@ export function StudentsPage() {
   const [sectionFilter, setSectionFilter] = useState(initialListState.sectionFilter)
   const [genderFilter, setGenderFilter] = useState(initialListState.genderFilter)
   const [statusFilter, setStatusFilter] = useState(initialListState.statusFilter)
+  const [transportFilter, setTransportFilter] = useState(initialListState.transportFilter)
+  const [hostelFilter, setHostelFilter] = useState(initialListState.hostelFilter)
   const [searchQuery, setSearchQuery] = useState(initialListState.searchQuery)
-  const [showFilters, setShowFilters] = useState(initialListState.showFilters || initialListState.classFilter !== 'all' || initialListState.sectionFilter !== 'all' || initialListState.genderFilter !== 'all' || initialListState.statusFilter !== 'all')
+  const [showFilters, setShowFilters] = useState(
+    initialListState.showFilters ||
+    initialListState.classFilter !== 'all' ||
+    initialListState.sectionFilter !== 'all' ||
+    initialListState.genderFilter !== 'all' ||
+    initialListState.statusFilter !== DEFAULT_STATUS_FILTER ||
+    initialListState.transportFilter !== 'all' ||
+    initialListState.hostelFilter !== 'all'
+  )
 
   // Debounced search
   const [debouncedSearch, setDebouncedSearch] = useState(initialListState.searchQuery)
@@ -561,6 +610,8 @@ export function StudentsPage() {
       sectionFilter,
       genderFilter,
       statusFilter,
+      transportFilter,
+      hostelFilter,
       searchQuery,
       showFilters,
       page: pagination.page,
@@ -568,7 +619,7 @@ export function StudentsPage() {
       visibleColumns,
       ...patch,
     })
-  }, [classFilter, genderFilter, pagination.limit, pagination.page, searchQuery, sectionFilter, setPageState, showFilters, statusFilter, visibleColumns])
+  }, [classFilter, genderFilter, hostelFilter, pagination.limit, pagination.page, searchQuery, sectionFilter, setPageState, showFilters, statusFilter, transportFilter, visibleColumns])
 
   const handleToggleColumn = useCallback((id: ColumnId) => {
     const config = COLUMN_CONFIG.find(c => c.id === id)
@@ -614,7 +665,7 @@ export function StudentsPage() {
     try {
       const params: Record<string, string> = {
         page: String(page),
-        limit: String(limit),
+        limit: limit === ALL_PAGE_SIZE ? 'all' : String(limit),
       }
       if (debouncedSearch) params.search = debouncedSearch
       if (classFilter !== 'all') params.classId = classFilter
@@ -622,6 +673,8 @@ export function StudentsPage() {
       if (genderFilter !== 'all') params.gender = genderFilter
       if (statusFilter === 'active') params.isActive = 'true'
       else if (statusFilter === 'disabled') params.isActive = 'false'
+      if (transportFilter !== 'all') params.transport = transportFilter
+      if (hostelFilter !== 'all') params.hostel = hostelFilter
       const resolvedYear = viewingAcademicYear || currentSchoolAcademicYear || ''
       if (resolvedYear) params.academicYear = resolvedYear
 
@@ -639,7 +692,107 @@ export function StudentsPage() {
     } finally {
       setLoading(false)
     }
-  }, [debouncedSearch, classFilter, sectionFilter, genderFilter, statusFilter, viewingAcademicYear, currentSchoolAcademicYear])
+  }, [debouncedSearch, classFilter, sectionFilter, genderFilter, statusFilter, transportFilter, hostelFilter, viewingAcademicYear, currentSchoolAcademicYear])
+
+  const handleExportCsv = useCallback(async () => {
+    setExporting(true)
+    try {
+      const params: Record<string, string> = {
+        page: '1',
+        limit: 'all',
+      }
+      const exportSearch = searchQuery.trim() || debouncedSearch
+      if (exportSearch) params.search = exportSearch
+      if (classFilter !== 'all') params.classId = classFilter
+      if (sectionFilter !== 'all') params.sectionId = sectionFilter
+      if (genderFilter !== 'all') params.gender = genderFilter
+      if (statusFilter === 'active') params.isActive = 'true'
+      else if (statusFilter === 'disabled') params.isActive = 'false'
+      if (transportFilter !== 'all') params.transport = transportFilter
+      if (hostelFilter !== 'all') params.hostel = hostelFilter
+      const resolvedYear = viewingAcademicYear || currentSchoolAcademicYear || ''
+      if (resolvedYear) params.academicYear = resolvedYear
+
+      const data = await api.get<{ students: Student[] }>('/api/school/students', params, { skipLogoutOn401: true })
+      const rows = sortStudents(Array.isArray(data?.students) ? data.students : [], sort)
+      const header = [
+        'Admission No',
+        'Registration No',
+        'Student Name',
+        "Father's Name",
+        "Mother's Name",
+        'Phone',
+        'Class',
+        'Section',
+        'Roll',
+        'Gender',
+        'Date of Birth',
+        'Admission Date',
+        'Category',
+        'Blood Group',
+        'Aadhaar No',
+        'Transport Route',
+        'Hostel',
+        'Hostel Room',
+        'Hostel Bed',
+        'Status',
+      ]
+      const csvRows = rows.map((student) => {
+        const fatherLink = student.parentLinks?.find((link) => link.relation === 'Father')
+        const phone = fatherLink?.parent.phone || student.parentLinks?.find((link) => link.parent.phone)?.parent.phone || ''
+        return [
+          student.admissionNumber,
+          student.admission?.registrationNumber,
+          student.fullName || `${student.firstName} ${student.lastName}`.trim(),
+          getFatherName(student),
+          getMotherName(student),
+          phone,
+          student.class?.name,
+          student.section?.name,
+          student.rollNumber,
+          student.gender,
+          formatDate(student.dateOfBirth),
+          formatDate(student.admission?.dateOfAdmission),
+          student.category,
+          student.bloodGroup,
+          student.aadhaarNumber,
+          student.transportRouteName,
+          student.hostelName,
+          student.hostelRoomNumber,
+          student.hostelBedNumber,
+          student.isActive ? 'Active' : 'Disabled',
+        ].map(csvEscape).join(',')
+      })
+      const csv = [header.map(csvEscape).join(','), ...csvRows].join('\n')
+      const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8;' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `students-${new Date().toISOString().slice(0, 10)}.csv`
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      URL.revokeObjectURL(url)
+      toast({ title: 'Export ready', description: `${rows.length} student${rows.length !== 1 ? 's' : ''} exported.` })
+    } catch {
+      toast({ title: 'Export failed', description: 'Could not export students. Please try again.', variant: 'destructive' })
+    } finally {
+      setExporting(false)
+    }
+  }, [
+    classFilter,
+    currentSchoolAcademicYear,
+    debouncedSearch,
+    genderFilter,
+    hostelFilter,
+    searchQuery,
+    sectionFilter,
+    sort,
+    statusFilter,
+    toast,
+    transportFilter,
+    viewingAcademicYear,
+  ])
 
   // Fetch stats separately (all students, no filters)
   const fetchStats = useCallback(async () => {
@@ -703,7 +856,7 @@ export function StudentsPage() {
     if (!loading || students.length > 0) {
       fetchStudents(1, pagination.limit)
     }
-  }, [debouncedSearch, classFilter, sectionFilter, genderFilter, statusFilter, viewingAcademicYear, currentSchoolAcademicYear])
+  }, [debouncedSearch, classFilter, sectionFilter, genderFilter, statusFilter, transportFilter, hostelFilter, viewingAcademicYear, currentSchoolAcademicYear])
 
   // Refresh the header stats card when the viewing year changes too — without
   // this, the counts (Total / Active / Disabled / This month) stay anchored to
@@ -779,6 +932,16 @@ export function StudentsPage() {
     rememberListState({ statusFilter: value, page: 1 })
   }
 
+  const handleTransportFilterChange = (value: string) => {
+    setTransportFilter(value)
+    rememberListState({ transportFilter: value, page: 1 })
+  }
+
+  const handleHostelFilterChange = (value: string) => {
+    setHostelFilter(value)
+    rememberListState({ hostelFilter: value, page: 1 })
+  }
+
   // ============================================
   // Toggle Student Active/Inactive
   // ============================================
@@ -825,18 +988,33 @@ export function StudentsPage() {
   // Filter Reset
   // ============================================
 
-  const hasActiveFilters = classFilter !== 'all' || sectionFilter !== 'all' || genderFilter !== 'all' || statusFilter !== 'all'
+  const hasActiveFilters =
+    classFilter !== 'all' ||
+    sectionFilter !== 'all' ||
+    genderFilter !== 'all' ||
+    statusFilter !== DEFAULT_STATUS_FILTER ||
+    transportFilter !== 'all' ||
+    hostelFilter !== 'all'
+  const studentListTitle = statusFilter === 'active'
+    ? 'Active Students'
+    : statusFilter === 'disabled'
+      ? 'Disabled Students'
+      : 'All Students'
 
   const clearFilters = () => {
     setClassFilter('all')
     setSectionFilter('all')
     setGenderFilter('all')
-    setStatusFilter('all')
+    setStatusFilter(DEFAULT_STATUS_FILTER)
+    setTransportFilter('all')
+    setHostelFilter('all')
     rememberListState({
       classFilter: 'all',
       sectionFilter: 'all',
       genderFilter: 'all',
-      statusFilter: 'all',
+      statusFilter: DEFAULT_STATUS_FILTER,
+      transportFilter: 'all',
+      hostelFilter: 'all',
       page: 1,
     })
   }
@@ -901,7 +1079,7 @@ export function StudentsPage() {
               <span className="bg-brand-soft flex size-7 shrink-0 items-center justify-center rounded-lg text-white shadow-sm">
                 <Users className="size-4" />
               </span>
-              All Students
+              {studentListTitle}
             </CardTitle>
             <div className="flex items-center gap-2">
               <div className="relative">
@@ -950,6 +1128,16 @@ export function StudentsPage() {
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleExportCsv}
+                disabled={exporting || pagination.total === 0}
+                className="gap-1 h-9"
+              >
+                {exporting ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
+                CSV
+              </Button>
               {hasActiveFilters && (
                 <Button
                   variant="ghost"
@@ -966,7 +1154,7 @@ export function StudentsPage() {
         <CardContent className="p-0">
           {/* Filter row */}
           {showFilters && (
-            <div className="px-4 pb-3 grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div className="px-4 pb-3 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">
               <Select value={classFilter} onValueChange={handleClassFilterChange}>
                 <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Class" /></SelectTrigger>
                 <SelectContent>
@@ -993,6 +1181,28 @@ export function StudentsPage() {
                 <SelectContent>
                   <SelectItem value="all">All Status</SelectItem>
                   {STATUS_OPTIONS.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Select value={transportFilter} onValueChange={handleTransportFilterChange}>
+                <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Transport" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Transport</SelectItem>
+                  {ALLOCATION_FILTER_OPTIONS.map(option => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label} Transport
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={hostelFilter} onValueChange={handleHostelFilterChange}>
+                <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Hostel" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Hostel</SelectItem>
+                  {ALLOCATION_FILTER_OPTIONS.map(option => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label} Hostel
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -1090,6 +1300,11 @@ export function StudentsPage() {
                     {isColumnVisible('route') && (
                       <TableHead>
                         <span className="flex items-center gap-1.5"><Bus className="size-3.5 text-muted-foreground" />Route</span>
+                      </TableHead>
+                    )}
+                    {isColumnVisible('hostel') && (
+                      <TableHead>
+                        <span className="flex items-center gap-1.5"><Bed className="size-3.5 text-muted-foreground" />Hostel</span>
                       </TableHead>
                     )}
                     {isColumnVisible('phone') && (
@@ -1243,6 +1458,26 @@ export function StudentsPage() {
                         {isColumnVisible('route') && (
                           <TableCell>
                             <span className="text-sm">{s.transportRouteName || '--'}</span>
+                          </TableCell>
+                        )}
+
+                        {/* Hostel */}
+                        {isColumnVisible('hostel') && (
+                          <TableCell>
+                            {s.hostelName ? (
+                              <div className="text-sm">
+                                <span>{s.hostelName}</span>
+                                {(s.hostelRoomNumber || s.hostelBedNumber) && (
+                                  <p className="text-xs text-muted-foreground">
+                                    {[s.hostelRoomNumber ? `Room ${s.hostelRoomNumber}` : null, s.hostelBedNumber ? `Bed ${s.hostelBedNumber}` : null]
+                                      .filter(Boolean)
+                                      .join(' / ')}
+                                  </p>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-sm">--</span>
+                            )}
                           </TableCell>
                         )}
 

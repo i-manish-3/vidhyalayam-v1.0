@@ -34,11 +34,15 @@ export async function GET(request: NextRequest) {
     const sectionId = searchParams.get('sectionId') || ''
     const gender = searchParams.get('gender') || ''
     const isActiveParam = searchParams.get('isActive') || ''
+    const transportFilter = searchParams.get('transport') || 'all'
+    const hostelFilter = searchParams.get('hostel') || 'all'
     const academicYear = await resolveAcademicYear(user.schoolId, searchParams.get('academicYear'))
     const page = parseInt(searchParams.get('page') || '1')
-    const limit = parseInt(searchParams.get('limit') || '20')
-    const skip = (page - 1) * limit
+    const limitParam = searchParams.get('limit') || '20'
+    const isAllLimit = limitParam === 'all' || limitParam === '0'
+    const requestedLimit = isAllLimit ? 0 : parseInt(limitParam, 10)
 
+    const andFilters: Record<string, unknown>[] = []
     const where: Record<string, unknown> = {
       schoolId: user.schoolId,
       deletedAt: null,
@@ -47,20 +51,18 @@ export async function GET(request: NextRequest) {
       const enrollmentFilter: Record<string, unknown> = { academicYear, deletedAt: null }
       if (classId) enrollmentFilter.classId = classId
       if (sectionId) enrollmentFilter.sectionId = sectionId
-      where.AND = [
-        {
-          OR: [
-            { academicEnrollments: { some: enrollmentFilter } },
-            {
-              admission: {
-                academicYear,
-                ...(classId ? { classId } : {}),
-                ...(sectionId ? { sectionId } : {}),
-              },
+      andFilters.push({
+        OR: [
+          { academicEnrollments: { some: enrollmentFilter } },
+          {
+            admission: {
+              academicYear,
+              ...(classId ? { classId } : {}),
+              ...(sectionId ? { sectionId } : {}),
             },
-          ],
-        },
-      ]
+          },
+        ],
+      })
     }
 
     if (search) {
@@ -98,46 +100,87 @@ export async function GET(request: NextRequest) {
     if (isActiveParam === 'true') where.isActive = true
     else if (isActiveParam === 'false') where.isActive = false
 
-    const [students, total] = await Promise.all([
-      db.student.findMany({
-        where,
-        include: {
-          class: { select: { id: true, name: true } },
-          section: { select: { id: true, name: true } },
-          admission: {
-            select: {
-              registrationNumber: true,
-              transportRouteId: true,
-              dateOfAdmission: true,
-              profileImage: true,
-            },
-          },
-          parentLinks: {
-            include: {
-              parent: {
-                select: { id: true, fatherName: true, motherName: true, phone: true },
-              },
-            },
-          },
-          ...(academicYear
-            ? {
-                academicEnrollments: {
-                  where: { academicYear, deletedAt: null },
-                  include: {
-                    class: { select: { id: true, name: true } },
-                    section: { select: { id: true, name: true } },
-                  },
-                  take: 1,
-                },
-              }
-            : {}),
+    if (transportFilter === 'with' || transportFilter === 'without') {
+      const allocations = await db.transportAllocation.findMany({
+        where: {
+          schoolId: user.schoolId,
+          isActive: true,
+          ...(academicYear ? { academicYear } : {}),
         },
-        orderBy: [{ createdAt: 'desc' }],
-        skip,
-        take: limit,
-      }),
-      db.student.count({ where }),
-    ])
+        select: { studentId: true },
+      })
+      const allocatedStudentIds = [...new Set(allocations.map((allocation) => allocation.studentId))]
+      andFilters.push({
+        id: transportFilter === 'with'
+          ? { in: allocatedStudentIds }
+          : { notIn: allocatedStudentIds },
+      })
+    }
+
+    if (hostelFilter === 'with' || hostelFilter === 'without') {
+      const allocations = await db.hostelAllocation.findMany({
+        where: {
+          schoolId: user.schoolId,
+          isActive: true,
+          ...(academicYear ? { academicYear } : {}),
+        },
+        select: { studentId: true },
+      })
+      const allocatedStudentIds = [...new Set(allocations.map((allocation) => allocation.studentId))]
+      andFilters.push({
+        id: hostelFilter === 'with'
+          ? { in: allocatedStudentIds }
+          : { notIn: allocatedStudentIds },
+      })
+    }
+
+    if (andFilters.length > 0) {
+      where.AND = andFilters
+    }
+
+    const total = await db.student.count({ where })
+    const limit = isAllLimit ? 0 : Number.isFinite(requestedLimit) && requestedLimit > 0 ? requestedLimit : 20
+    const effectiveLimit = isAllLimit ? Math.max(total, 1) : limit
+    const effectivePage = isAllLimit ? 1 : Math.max(page, 1)
+    const skip = isAllLimit ? 0 : (effectivePage - 1) * effectiveLimit
+
+    const students = await db.student.findMany({
+      where,
+      include: {
+        class: { select: { id: true, name: true } },
+        section: { select: { id: true, name: true } },
+        admission: {
+          select: {
+            registrationNumber: true,
+            transportRouteId: true,
+            dateOfAdmission: true,
+            profileImage: true,
+          },
+        },
+        parentLinks: {
+          include: {
+            parent: {
+              select: { id: true, fatherName: true, motherName: true, phone: true },
+            },
+          },
+        },
+        ...(academicYear
+          ? {
+              academicEnrollments: {
+                where: { academicYear, deletedAt: null },
+                include: {
+                  class: { select: { id: true, name: true } },
+                  section: { select: { id: true, name: true } },
+                },
+                take: 1,
+              },
+            }
+          : {}),
+      },
+      orderBy: [{ createdAt: 'desc' }],
+      skip,
+      take: effectiveLimit,
+    })
 
     // Resolve transport route names
     const transportRouteIds = [
@@ -157,6 +200,25 @@ export async function GET(request: NextRequest) {
       routeMap = Object.fromEntries(routes.map(r => [r.id, r.routeName]))
     }
 
+    const studentIds = students.map((student) => student.id)
+    const hostelAllocations = studentIds.length > 0
+      ? await db.hostelAllocation.findMany({
+          where: {
+            schoolId: user.schoolId,
+            studentId: { in: studentIds },
+            isActive: true,
+            ...(academicYear ? { academicYear } : {}),
+          },
+          include: {
+            hostel: { select: { name: true } },
+            room: { select: { roomNumber: true } },
+            bed: { select: { bedNumber: true } },
+          },
+          orderBy: { academicYear: 'desc' },
+        })
+      : []
+    const hostelMap = new Map(hostelAllocations.map((allocation) => [allocation.studentId, allocation]))
+
     return NextResponse.json({
       students: students.map((s) => {
         const enrollment = academicYear
@@ -174,13 +236,16 @@ export async function GET(request: NextRequest) {
           transportRouteName: s.admission?.transportRouteId
             ? routeMap[s.admission.transportRouteId] || null
             : null,
+          hostelName: hostelMap.get(s.id)?.hostel?.name || null,
+          hostelRoomNumber: hostelMap.get(s.id)?.room?.roomNumber || null,
+          hostelBedNumber: hostelMap.get(s.id)?.bed?.bedNumber || null,
         }
       }),
       pagination: {
-        page,
+        page: effectivePage,
         limit,
         total,
-        totalPages: Math.ceil(total / limit),
+        totalPages: isAllLimit ? 1 : Math.ceil(total / effectiveLimit),
       },
     })
   } catch (error) {

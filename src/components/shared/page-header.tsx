@@ -20,12 +20,16 @@ interface PageHeaderProps {
   action?: {
     label: string
     icon?: LucideIcon
+    iconClassName?: string
     onClick: () => void
+    disabled?: boolean
   }
   secondaryAction?: {
     label: string
     icon?: LucideIcon
+    iconClassName?: string
     onClick: () => void
+    disabled?: boolean
   }
   /**
    * Render an arbitrary node (e.g. a "How it works" guide button) to the LEFT
@@ -51,14 +55,14 @@ export function PageHeader({ title, description, titleClassName, action, seconda
         <div className="flex shrink-0 flex-wrap items-center gap-2">
           {extraActions}
           {action && (
-            <Button onClick={action.onClick} className="gap-2">
-              {action.icon && <action.icon className="size-4" />}
+            <Button onClick={action.onClick} disabled={action.disabled} className="gap-2">
+              {action.icon && <action.icon className={cn('size-4', action.iconClassName)} />}
               {action.label}
             </Button>
           )}
           {secondaryAction && (
-            <Button variant="outline" onClick={secondaryAction.onClick} className="gap-2">
-              {secondaryAction.icon && <secondaryAction.icon className="size-4" />}
+            <Button variant="outline" onClick={secondaryAction.onClick} disabled={secondaryAction.disabled} className="gap-2">
+              {secondaryAction.icon && <secondaryAction.icon className={cn('size-4', secondaryAction.iconClassName)} />}
               {secondaryAction.label}
             </Button>
           )}

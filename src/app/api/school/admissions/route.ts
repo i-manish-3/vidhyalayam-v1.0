@@ -383,13 +383,13 @@ export async function POST(request: NextRequest) {
       fieldErrors.firstName = 'Only letters and spaces allowed'
     }
 
-    // Required: lastName
-    if (!body.lastName || typeof body.lastName !== 'string' || !body.lastName.trim()) {
-      fieldErrors.lastName = 'Last name is required'
-    } else if (body.lastName.trim().length < 2) {
-      fieldErrors.lastName = 'Must be at least 2 characters'
-    } else if (!/^[a-zA-Z\s]+$/.test(body.lastName.trim())) {
-      fieldErrors.lastName = 'Only letters and spaces allowed'
+    // Optional: lastName — only validate format when something was entered.
+    if (typeof body.lastName === 'string' && body.lastName.trim()) {
+      if (body.lastName.trim().length < 2) {
+        fieldErrors.lastName = 'Must be at least 2 characters'
+      } else if (!/^[a-zA-Z\s]+$/.test(body.lastName.trim())) {
+        fieldErrors.lastName = 'Only letters and spaces allowed'
+      }
     }
 
     // Required: dateOfBirth

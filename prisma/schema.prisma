@@ -335,7 +335,7 @@ model Student {
   admissionNumber   String?   @unique
   rollNumber        String?
   firstName         String
-  lastName          String
+  lastName          String?
   dateOfBirth       DateTime?
   gender            String? // Male, Female, Other
   nationality       String?   @default("Indian")
@@ -446,7 +446,7 @@ model Admission {
 
   // Personal Info (Tab 1)
   firstName          String
-  lastName           String
+  lastName           String?
   dateOfBirth        DateTime?
   dateOfAdmission    DateTime? // Date of admission
   gender             String? // Boy, Girl, Other

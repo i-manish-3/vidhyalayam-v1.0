@@ -1004,7 +1004,7 @@ export function AdmissionFormPage() {
         if (!/^[a-zA-Z\s]+$/.test(v as string)) return 'Only letters and spaces allowed'
         return null
       case 'lastName':
-        if (!v) return 'Last name is required'
+        if (!v) return null
         if ((v as string).length < 2) return 'Must be at least 2 characters'
         if (!/^[a-zA-Z\s]+$/.test(v as string)) return 'Only letters and spaces allowed'
         return null
@@ -1475,7 +1475,7 @@ export function AdmissionFormPage() {
             <FieldError message={touched.firstName ? fieldErrors.firstName : null} />
           </div>
           <div className="space-y-2">
-            <Label>Last Name <span className="text-destructive">*</span></Label>
+            <Label>Last Name</Label>
             <Input value={form.lastName} onChange={e => updateForm('lastName', e.target.value.toUpperCase())} onBlur={() => handleBlur('lastName')} placeholder="Enter last name" className={`uppercase ${ec('lastName')}`} />
             <FieldError message={touched.lastName ? fieldErrors.lastName : null} />
           </div>

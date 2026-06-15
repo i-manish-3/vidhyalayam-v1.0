@@ -179,9 +179,8 @@ export function validateRow({ row, index, lookups, seenOverrides, classTally }: 
   else if (firstName.length < 2) errors.push('firstName must be at least 2 characters')
   else if (!NAME_RE.test(firstName)) errors.push('firstName: only letters and spaces allowed')
 
-  if (!lastName) errors.push('lastName is required')
-  else if (lastName.length < 2) errors.push('lastName must be at least 2 characters')
-  else if (!NAME_RE.test(lastName)) errors.push('lastName: only letters and spaces allowed')
+  if (lastName && lastName.length < 2) errors.push('lastName must be at least 2 characters')
+  if (lastName && !NAME_RE.test(lastName)) errors.push('lastName: only letters and spaces allowed')
 
   const dob = normalizeDate(dobRaw)
   if (!dobRaw) errors.push('dateOfBirth is required')
