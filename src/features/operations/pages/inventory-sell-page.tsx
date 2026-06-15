@@ -54,8 +54,11 @@ export function InventorySellPage() {
   const [cart, setCart] = useState<CartLine[]>([])
   const [discount, setDiscount] = useState('')
   const [paymentMethod, setPaymentMethod] = useState('cash')
+  // How much is settled at the counter: full now, part now, or nothing (on due).
+  const [paymentMode, setPaymentMode] = useState<'paid' | 'partial' | 'due'>('paid')
+  const [amountPaid, setAmountPaid] = useState('')
   const [submitting, setSubmitting] = useState(false)
-  const [lastReceipt, setLastReceipt] = useState<{ receiptNumber: string; total: number; saleId: string } | null>(null)
+  const [lastReceipt, setLastReceipt] = useState<{ receiptNumber: string; total: number; paid: number; due: number; saleId: string } | null>(null)
 
   const loadItems = useCallback(() => {
     api.get<{ items: SellableItem[] }>('/api/school/inventory', { sellable: '1', limit: '500' })
@@ -97,21 +100,38 @@ export function InventorySellPage() {
   const discountNum = Math.max(0, Math.min(Number(discount) || 0, subtotal))
   const total = subtotal - discountNum
 
+  // Amount collected now depends on the selected mode. For "partial" the cashier
+  // types it; for "due" it's zero; otherwise it's the whole total.
+  const collectNow = paymentMode === 'due'
+    ? 0
+    : paymentMode === 'partial'
+      ? Math.max(0, Math.min(Number(amountPaid) || 0, total))
+      : total
+  const dueNow = Math.max(0, total - collectNow)
+
   const handleCheckout = async () => {
     if (!student) { toast({ title: 'Select a student', variant: 'destructive' }); return }
     if (cart.length === 0) { toast({ title: 'Cart is empty', variant: 'destructive' }); return }
+    if (paymentMode === 'partial' && collectNow <= 0) { toast({ title: 'Enter an amount to collect', description: 'Or switch to "On due" to bill the whole amount.', variant: 'destructive' }); return }
     try {
       setSubmitting(true)
-      const res = await api.post<{ saleId: string; receiptNumber: string; totalAmount: number }>('/api/school/inventory/sales', {
+      const res = await api.post<{ saleId: string; receiptNumber: string; totalAmount: number; amountPaid: number; dueAmount: number }>('/api/school/inventory/sales', {
         studentId: student.id,
         items: cart.map((l) => ({ variantId: l.variantId, quantity: l.quantity })),
         discount: discountNum,
         paymentMethod,
+        paymentMode,
+        amountPaid: collectNow,
       })
-      toast({ title: 'Sale completed', description: `Receipt #${res.receiptNumber} · ${inr(res.totalAmount)} posted to ${student.firstName}'s account.` })
-      setLastReceipt({ receiptNumber: res.receiptNumber, total: res.totalAmount, saleId: res.saleId })
+      const desc = res.dueAmount > 0
+        ? `Receipt #${res.receiptNumber} · ${inr(res.amountPaid)} collected, ${inr(res.dueAmount)} added as a due on ${student.firstName}'s fee account.`
+        : `Receipt #${res.receiptNumber} · ${inr(res.totalAmount)} collected from ${student.firstName}.`
+      toast({ title: res.dueAmount > 0 ? 'Sale completed — billed to fees' : 'Sale completed', description: desc })
+      setLastReceipt({ receiptNumber: res.receiptNumber, total: res.totalAmount, paid: res.amountPaid, due: res.dueAmount, saleId: res.saleId })
       setCart([])
       setDiscount('')
+      setAmountPaid('')
+      setPaymentMode('paid')
       loadItems()
     } catch (err) {
       toast({ title: "Couldn't complete sale", description: err instanceof Error ? err.message : 'Try again.', variant: 'destructive' })
@@ -122,16 +142,25 @@ export function InventorySellPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Sell to Student" description="Sell store items to a student — the charge is collected and posted to their fee account with a receipt." />
+      <PageHeader title="Sell to Student" description="Sell store items to a student. Collect now, take part payment, or put it on due — unpaid amounts appear as a store due on the Collect Fee page." />
 
       {lastReceipt && (
-        <Card className="border-emerald-300 bg-emerald-50/50 dark:bg-emerald-950/10">
-          <CardContent className="flex items-center justify-between py-4">
+        <Card className={lastReceipt.due > 0 ? 'border-amber-300 bg-amber-50/50 dark:bg-amber-950/10' : 'border-emerald-300 bg-emerald-50/50 dark:bg-emerald-950/10'}>
+          <CardContent className="flex flex-wrap items-center justify-between gap-2 py-4">
             <div className="flex items-center gap-2 text-sm">
-              <Receipt className="size-4 text-emerald-600" />
-              Sale complete — Receipt <strong>#{lastReceipt.receiptNumber}</strong>, {inr(lastReceipt.total)}.
+              <Receipt className={`size-4 ${lastReceipt.due > 0 ? 'text-amber-600' : 'text-emerald-600'}`} />
+              {lastReceipt.due > 0 ? (
+                <span>Sale complete — Receipt <strong>#{lastReceipt.receiptNumber}</strong>. {inr(lastReceipt.paid)} collected, <strong>{inr(lastReceipt.due)} due</strong> on the student&apos;s fee account.</span>
+              ) : (
+                <span>Sale complete — Receipt <strong>#{lastReceipt.receiptNumber}</strong>, {inr(lastReceipt.total)} collected.</span>
+              )}
             </div>
-            <Button size="sm" variant="outline" onClick={() => router.push('/inventory/sales')}>View in Sales History</Button>
+            <div className="flex items-center gap-2">
+              {lastReceipt.due > 0 && (
+                <Button size="sm" variant="outline" onClick={() => router.push('/fees/collections')}>Go to Collect Fee</Button>
+              )}
+              <Button size="sm" variant="outline" onClick={() => router.push('/inventory/sales')}>View in Sales History</Button>
+            </div>
           </CardContent>
         </Card>
       )}
@@ -226,22 +255,65 @@ export function InventorySellPage() {
                 <Input type="number" min={0} className="h-8 w-28 text-right" value={discount} onChange={(e) => setDiscount(e.target.value)} placeholder="0" />
               </div>
               <div className="flex justify-between text-base font-semibold"><span>Total</span><span className="tabular-nums">{inr(total)}</span></div>
-              <div className="space-y-1">
-                <Label>Payment</Label>
-                <Select value={paymentMethod} onValueChange={setPaymentMethod}>
-                  <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="cash">Cash</SelectItem>
-                    <SelectItem value="bank">Bank / UPI</SelectItem>
-                    <SelectItem value="adjustment">Adjustment</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
             </div>
 
-            <Button className="w-full" onClick={handleCheckout} disabled={submitting || !student || cart.length === 0 || total <= 0}>
+            {/* Settlement mode: collect in full, collect part, or bill entirely to the fee account. */}
+            <div className="space-y-2 border-t pt-3">
+              <Label>Settlement</Label>
+              <div className="grid grid-cols-3 gap-1.5">
+                {([
+                  { key: 'paid', label: 'Collect now', hint: 'Pay in full' },
+                  { key: 'partial', label: 'Partial', hint: 'Part now' },
+                  { key: 'due', label: 'On due', hint: 'Bill to fees' },
+                ] as const).map((opt) => (
+                  <button
+                    key={opt.key}
+                    type="button"
+                    onClick={() => setPaymentMode(opt.key)}
+                    className={`flex flex-col items-center rounded-md border px-2 py-1.5 text-center transition ${paymentMode === opt.key ? 'border-primary bg-primary/10 ring-1 ring-primary/20' : 'hover:border-primary/40 hover:bg-primary/5'}`}
+                  >
+                    <span className="text-xs font-medium leading-tight">{opt.label}</span>
+                    <span className="text-[10px] text-muted-foreground">{opt.hint}</span>
+                  </button>
+                ))}
+              </div>
+
+              {paymentMode === 'partial' && (
+                <div className="flex items-center justify-between gap-2 text-sm">
+                  <span className="text-muted-foreground">Collect now</span>
+                  <Input type="number" min={0} max={total} className="h-8 w-28 text-right" value={amountPaid} onChange={(e) => setAmountPaid(e.target.value)} placeholder="0" />
+                </div>
+              )}
+
+              {dueNow > 0 && (
+                <div className="flex justify-between rounded-md bg-amber-50 px-2 py-1.5 text-sm dark:bg-amber-950/20">
+                  <span className="font-medium text-amber-800 dark:text-amber-300">Due (to fees)</span>
+                  <span className="font-semibold tabular-nums text-amber-800 dark:text-amber-300">{inr(dueNow)}</span>
+                </div>
+              )}
+
+              {paymentMode !== 'due' && (
+                <div className="space-y-1">
+                  <Label>Payment method</Label>
+                  <Select value={paymentMethod} onValueChange={setPaymentMethod}>
+                    <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="cash">Cash</SelectItem>
+                      <SelectItem value="bank">Bank / UPI</SelectItem>
+                      <SelectItem value="adjustment">Adjustment</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </div>
+
+            <Button className="w-full" onClick={handleCheckout} disabled={submitting || !student || cart.length === 0 || total <= 0 || (paymentMode === 'partial' && collectNow <= 0)}>
               {submitting ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Receipt className="mr-2 size-4" />}
-              Collect {inr(total)} &amp; Generate Receipt
+              {paymentMode === 'due'
+                ? `Bill ${inr(total)} to Fees`
+                : paymentMode === 'partial'
+                  ? `Collect ${inr(collectNow)} · ${inr(dueNow)} due`
+                  : `Collect ${inr(total)} & Generate Receipt`}
             </Button>
           </CardContent>
         </Card>

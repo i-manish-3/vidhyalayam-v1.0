@@ -30,6 +30,7 @@ import {
   PlusCircle,
   ReceiptText,
   Search,
+  ShoppingBag,
   Trash2,
   UserRound,
 } from 'lucide-react'
@@ -55,7 +56,7 @@ import {
 
 type PaymentStatus = 'PAID' | 'PARTIAL' | 'UNPAID'
 type PaymentMethod = 'CASH' | 'ONLINE' | 'CHEQUE' | 'UPI' | 'SPLIT'
-type CollectionCategory = 'fees' | 'transport' | 'hostel'
+type CollectionCategory = 'fees' | 'transport' | 'hostel' | 'inventory'
 
 interface Student {
   id: string
@@ -105,7 +106,8 @@ interface FeeCollectionItem {
   receiptNumber?: string | null
   academicYear?: string | null
   feesGroupName?: string | null
-  source?: 'fees' | 'transport' | 'hostel'
+  description?: string | null
+  source?: 'fees' | 'transport' | 'hostel' | 'inventory'
 }
 
 interface TransportInfo {
@@ -260,7 +262,12 @@ function isHostelItem(item: FeeCollectionItem) {
   return item.source === 'hostel' || (item.feeHeadName || '').toLowerCase().includes('hostel')
 }
 
+function isInventoryItem(item: FeeCollectionItem) {
+  return item.source === 'inventory' || (item.feeHeadName || '').toLowerCase().includes('store purchase')
+}
+
 function collectionCategory(item: FeeCollectionItem): CollectionCategory {
+  if (isInventoryItem(item)) return 'inventory'
   if (isTransportItem(item)) return 'transport'
   if (isHostelItem(item)) return 'hostel'
   return 'fees'
@@ -385,6 +392,11 @@ function sameStringSet(a: string[], b: string[]) {
 }
 
 function collectionSelectionKey(item: FeeCollectionItem) {
+  // Inventory dues aren't periodic — each store purchase is its own line, so we
+  // key it by the ledger entry id rather than a month/term bucket.
+  if (collectionCategory(item) === 'inventory') {
+    return `inventory:${item.ledgerEntryId || item.id}`
+  }
   return periodSelectionKey(itemPeriod(item), collectionCategory(item), item.academicYear)
 }
 
@@ -780,6 +792,10 @@ export function FeeCollectionsPage() {
     () => studentCollections.filter(isHostelItem),
     [studentCollections]
   )
+  const inventoryItems = useMemo(
+    () => studentCollections.filter(isInventoryItem),
+    [studentCollections]
+  )
   const allAcademicItems = useMemo(
     () => allStudentCollections.filter((item) => collectionCategory(item) === 'fees'),
     [allStudentCollections]
@@ -1111,6 +1127,19 @@ export function FeeCollectionsPage() {
   const toggleCollection = (id: string) => {
     setSelectedCollectionIds((current) =>
       current.includes(id) ? current.filter((item) => item !== id) : [...current, id]
+    )
+  }
+
+  // Store dues are individual ledger lines. Toggling one keeps the id-based and
+  // key-based selection (used by the receipt/visible list) in sync.
+  const toggleInventoryDue = (item: FeeCollectionItem) => {
+    const key = collectionSelectionKey(item)
+    const selected = selectedCollectionIds.includes(item.id)
+    setSelectedCollectionIds((current) =>
+      selected ? current.filter((id) => id !== item.id) : [...current, item.id]
+    )
+    setSelectedPeriods((current) =>
+      selected ? current.filter((k) => k !== key) : Array.from(new Set([...current, key]))
     )
   }
 
@@ -1776,6 +1805,40 @@ export function FeeCollectionsPage() {
                                   ? `Partial · ${money(option.amount)}`
                                   : money(option.amount)}
                               </span>
+                            </label>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {inventoryItems.length > 0 && (
+                    <div className="rounded-lg border border-primary/30 bg-primary/5 p-2.5">
+                      <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold">
+                        <ShoppingBag className="size-3.5 text-primary" />
+                        Store Dues
+                        <span className="text-[10px] font-normal text-muted-foreground">
+                          · items taken on due
+                        </span>
+                      </div>
+                      <div className="grid gap-1.5">
+                        {inventoryItems.map((item) => {
+                          const checked = selectedCollectionIds.includes(item.id)
+                          const detail = (item.description || item.feeHeadName || 'Store Purchase').replace(/^Store Purchase\s*/i, '')
+                          return (
+                            <label
+                              key={item.ledgerEntryId || item.id}
+                              className={cn(
+                                'flex cursor-pointer items-center gap-2 rounded-md border bg-card px-2 py-2 text-xs transition-all hover:border-primary/40 hover:bg-primary/5',
+                                checked && 'border-primary bg-primary/10 ring-1 ring-primary/20'
+                              )}
+                            >
+                              <Checkbox checked={checked} onCheckedChange={() => toggleInventoryDue(item)} />
+                              <span className="min-w-0 flex-1 truncate" title={detail}>
+                                <span className="font-medium">Store Purchase</span>
+                                {detail && <span className="ml-1 text-muted-foreground">{detail}</span>}
+                              </span>
+                              <span className="ml-auto shrink-0 font-semibold tabular-nums">{money(remainingAmount(item))}</span>
                             </label>
                           )
                         })}

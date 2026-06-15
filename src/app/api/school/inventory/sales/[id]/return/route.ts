@@ -72,6 +72,43 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         select: { id: true },
       })
 
+      // If the sale still carries an unpaid balance (sold on due / partial),
+      // the return first cancels what the student still owes — only the
+      // already-collected portion ever becomes a cash refund.
+      //
+      // We reduce both the principal (`debit`) and `balanceAmount` by the same
+      // amount so the ledger invariant `balance = debit − paidAllocations` holds
+      // (paid allocations are untouched by a return). The row is locked FOR
+      // UPDATE and its `version` bumped so a concurrent fee payment on the same
+      // debit (which uses optimistic version-locking) safely retries instead of
+      // losing this update.
+      let ledgerReduction = 0
+      const debitId = sale.ledgerDebitId
+      const debit = debitId
+        ? await (async () => {
+            await tx.$queryRaw`SELECT id FROM "StudentFeeLedgerEntry" WHERE id = ${debitId} FOR UPDATE`
+            return tx.studentFeeLedgerEntry.findFirst({
+              where: { id: debitId, schoolId, entryType: 'DEBIT', deletedAt: null },
+              select: { id: true, debit: true, balanceAmount: true, version: true },
+            })
+          })()
+        : null
+      if (debit && debit.balanceAmount > 0) {
+        ledgerReduction = Math.min(refundAmount, debit.balanceAmount)
+        const newBalance = round2(debit.balanceAmount - ledgerReduction)
+        const newDebit = round2(debit.debit - ledgerReduction)
+        await tx.studentFeeLedgerEntry.update({
+          where: { id: debit.id },
+          data: {
+            debit: newDebit,
+            balanceAmount: newBalance,
+            status: newBalance <= 0 ? 'settled' : newBalance < newDebit ? 'partial' : 'open',
+            version: { increment: 1 },
+          },
+        })
+      }
+      const cashRefund = round2(refundAmount - ledgerReduction)
+
       // If every line is now fully returned, flag the sale as voided-by-return.
       const refreshed = await tx.inventorySaleItem.findMany({ where: { saleId: sale.id }, select: { quantity: true, returnedQty: true } })
       const fullyReturned = refreshed.every((l) => l.returnedQty >= l.quantity)
@@ -82,18 +119,23 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       await tx.feeAuditLog.create({
         data: {
           schoolId, entityType: 'InventorySaleReturn', entityId: ret.id, action: 'created', studentId: sale.studentId, userId: user.userId,
-          newValue: JSON.stringify({ saleReceipt: sale.receiptNumber, refundAmount, items: returnedSnapshot }),
+          newValue: JSON.stringify({ saleReceipt: sale.receiptNumber, refundAmount, ledgerReduction, cashRefund, items: returnedSnapshot }),
         },
       })
 
-      return { returnId: ret.id, refundAmount, fullyReturned }
+      return { returnId: ret.id, refundAmount, ledgerReduction, cashRefund, fullyReturned }
     })
 
+    const parts = [`Returned items restocked.`]
+    if (result.ledgerReduction > 0) parts.push(`₹${result.ledgerReduction} cleared from the student's outstanding due.`)
+    if (result.cashRefund > 0) parts.push(`₹${result.cashRefund} refund due to the student (process as a manual cash refund).`)
     return NextResponse.json({
       success: true,
       refundAmount: result.refundAmount,
+      ledgerReduction: result.ledgerReduction,
+      cashRefund: result.cashRefund,
       fullyReturned: result.fullyReturned,
-      message: `Returned items restocked. ₹${result.refundAmount} refund due to the student (process as a manual cash refund).`,
+      message: parts.join(' '),
     })
   } catch (error) {
     console.error('Inventory sale return error:', error)

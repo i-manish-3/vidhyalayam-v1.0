@@ -428,11 +428,13 @@ export async function GET(request: NextRequest) {
         ? entry.feeCollection.paidAmount
         : roundMoney(entry.debit - entry.balanceAmount)
       const headName = (entry.feeHeadName || '').toLowerCase()
-      const source = entry.sourceType === 'transport' || headName.includes('transport')
-        ? 'transport'
-        : entry.sourceType === 'hostel' || headName.includes('hostel')
-          ? 'hostel'
-          : 'fees'
+      const source = entry.sourceType === 'inventory'
+        ? 'inventory'
+        : entry.sourceType === 'transport' || headName.includes('transport')
+          ? 'transport'
+          : entry.sourceType === 'hostel' || headName.includes('hostel')
+            ? 'hostel'
+            : 'fees'
 
       return {
         id: entry.feeCollectionId || entry.id,
@@ -442,6 +444,7 @@ export async function GET(request: NextRequest) {
         studentFeeAssignmentItemId: entry.assignmentItemId,
         studentFeeInvoiceId: entry.invoiceId,
         feeHeadName: entry.feeHeadName,
+        description: entry.description,
         installment: entry.installmentName,
         installmentName: entry.installmentName,
         amount: entry.feeCollection?.amount ?? entry.debit,

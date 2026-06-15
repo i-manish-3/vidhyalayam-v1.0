@@ -52,7 +52,27 @@ export async function GET(request: NextRequest) {
       db.inventorySale.count({ where }),
     ])
 
-    return NextResponse.json({ sales, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } })
+    // Reflect any later payments collected on the Collect Fee page: the linked
+    // ledger debit's live balance is the source of truth for what's still owed.
+    const debitIds = sales.map((s) => s.ledgerDebitId).filter((id): id is string => !!id)
+    const debits = debitIds.length > 0
+      ? await db.studentFeeLedgerEntry.findMany({
+          where: { id: { in: debitIds }, schoolId: user.schoolId },
+          select: { id: true, balanceAmount: true, deletedAt: true },
+        })
+      : []
+    const balanceByDebit = new Map(debits.map((d) => [d.id, d]))
+
+    const enriched = sales.map((s) => {
+      const debit = s.ledgerDebitId ? balanceByDebit.get(s.ledgerDebitId) : undefined
+      // A live, non-cancelled debit overrides the at-sale snapshot.
+      const outstanding = debit && !debit.deletedAt ? Math.max(0, debit.balanceAmount) : Math.max(0, s.totalAmount - s.amountPaid)
+      const livePaid = Math.round((s.totalAmount - outstanding + Number.EPSILON) * 100) / 100
+      const liveDueStatus = outstanding <= 0 ? 'paid' : livePaid > 0 ? 'partial' : 'due'
+      return { ...s, amountPaid: livePaid, dueStatus: liveDueStatus }
+    })
+
+    return NextResponse.json({ sales: enriched, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } })
   } catch (error) {
     console.error('List inventory sales error:', error)
     return internalError('listing inventory sales')
@@ -90,6 +110,14 @@ export async function POST(request: NextRequest) {
     const paymentMethod = typeof body.paymentMethod === 'string' && body.paymentMethod.trim() ? body.paymentMethod.trim() : 'cash'
     const notes = typeof body.notes === 'string' ? body.notes.trim() || null : null
 
+    // Payment mode controls how much is collected at the counter:
+    //   paid    → collect the full total now (default, legacy behaviour)
+    //   due     → collect nothing; the whole total becomes a fee-ledger due
+    //   partial → collect `amountPaid` now; the remainder becomes a due
+    const paymentMode = body.paymentMode === 'due' || body.paymentMode === 'partial' ? body.paymentMode : 'paid'
+    const requestedPaid = Number(body.amountPaid)
+    const hasRequestedPaid = Number.isFinite(requestedPaid) && requestedPaid >= 0
+
     const student = await db.student.findFirst({ where: { id: studentId, schoolId, deletedAt: null }, select: { id: true } })
     if (!student) return apiError(404, 'Student not found.')
 
@@ -125,11 +153,23 @@ export async function POST(request: NextRequest) {
       const totalAmount = round2(subtotal - discount)
       if (totalAmount <= 0) throw new SaleError(400, 'Sale total must be greater than zero.')
 
+      // Resolve how much is collected at the counter for this sale.
+      const collected = round2(
+        paymentMode === 'due'
+          ? 0
+          : paymentMode === 'partial'
+            ? Math.min(hasRequestedPaid ? requestedPaid : 0, totalAmount)
+            : totalAmount
+      )
+      if (paymentMode === 'partial' && collected <= 0) throw new SaleError(400, 'Enter an amount to collect, or choose "On due".')
+      const dueStatus = collected >= totalAmount ? 'paid' : collected > 0 ? 'partial' : 'due'
+
       const receiptNumber = await nextSequentialReceiptNumber(tx, schoolId)
 
       const sale = await tx.inventorySale.create({
         data: {
           schoolId, studentId, receiptNumber, subtotal, discount, totalAmount,
+          amountPaid: collected, dueStatus,
           paymentMethod, academicYear, status: 'completed', notes, soldBy: user.userId,
         },
         select: { id: true },
@@ -146,7 +186,8 @@ export async function POST(request: NextRequest) {
         })
       }
 
-      // Post the charge to the student ledger and immediately pay it.
+      // Post the charge to the student ledger. The debit is dated due today so
+      // any unpaid balance is immediately collectible on the Collect Fee page.
       const itemSummary = priced.map((p) => `${p.variantLabel ? `${p.itemName} (${p.variantLabel})` : p.itemName} ×${p.quantity}`).join(', ')
       const debit = await createFeeDebitLedgerEntry({
         tx, schoolId, studentId, academicYear,
@@ -154,22 +195,27 @@ export async function POST(request: NextRequest) {
         feeHeadName: 'Store Purchase',
         description: `Store Purchase (${receiptNumber}): ${itemSummary}`.slice(0, 500),
         amount: totalAmount,
+        dueDate: new Date(),
         notes,
         createdBy: user.userId,
       })
 
-      const payment = await recordStudentLedgerPayment({
-        tx, schoolId, studentId, amount: totalAmount, paymentMethod, receiptNumber, academicYear,
-        notes: `Store purchase ${receiptNumber}`, receivedBy: user.userId,
-        targets: debit ? [{ debitEntryId: debit.id, amount: totalAmount }] : undefined,
-      })
+      // Settle the collected portion now (if any). A pure-due sale records no
+      // payment and leaves the debit fully open.
+      const payment = collected > 0
+        ? await recordStudentLedgerPayment({
+            tx, schoolId, studentId, amount: collected, paymentMethod, receiptNumber, academicYear,
+            notes: `Store purchase ${receiptNumber}`, receivedBy: user.userId,
+            targets: debit ? [{ debitEntryId: debit.id, amount: collected }] : undefined,
+          })
+        : null
 
       await tx.inventorySale.update({
         where: { id: sale.id },
-        data: { ledgerDebitId: debit?.id || null, paymentId: payment.payment?.id || null },
+        data: { ledgerDebitId: debit?.id || null, paymentId: payment?.payment?.id || null },
       })
 
-      return { saleId: sale.id, receiptNumber, subtotal, discount, totalAmount, itemCount: priced.length }
+      return { saleId: sale.id, receiptNumber, subtotal, discount, totalAmount, amountPaid: collected, dueAmount: round2(totalAmount - collected), dueStatus, itemCount: priced.length }
     })
 
     return NextResponse.json({ success: true, ...result }, { status: 201 })

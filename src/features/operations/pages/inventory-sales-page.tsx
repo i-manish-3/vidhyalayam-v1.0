@@ -18,6 +18,8 @@ interface SaleListRow {
   receiptNumber: string
   saleDate: string
   totalAmount: number
+  amountPaid: number
+  dueStatus: string
   discount: number
   status: string
   paymentMethod: string
@@ -28,6 +30,15 @@ interface SaleDetail extends SaleListRow {
   subtotal: number
   notes: string | null
   student: { id: string; firstName: string; lastName: string; admissionNumber: string | null; rollNumber: string | null } | null
+}
+
+// Maps a sale's settlement state to a labelled badge.
+function dueBadge(s: { status: string; dueStatus?: string; totalAmount: number; amountPaid: number }): { label: string; cls: string } {
+  if (s.status === 'voided') return { label: 'Voided', cls: 'border-muted-foreground/30 text-muted-foreground' }
+  const due = Math.max(0, (s.totalAmount || 0) - (s.amountPaid || 0))
+  if (s.dueStatus === 'due' || (due > 0 && (s.amountPaid || 0) <= 0)) return { label: 'On Due', cls: 'border-amber-300 bg-amber-50 text-amber-700 dark:bg-amber-950/20 dark:text-amber-300' }
+  if (s.dueStatus === 'partial' || due > 0) return { label: 'Partial', cls: 'border-orange-300 bg-orange-50 text-orange-700 dark:bg-orange-950/20 dark:text-orange-300' }
+  return { label: 'Paid', cls: 'border-emerald-300 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-300' }
 }
 interface SchoolInfo { name: string; address: string | null; city: string | null; contactPhone: string | null }
 
@@ -135,8 +146,13 @@ export function InventorySalesPage() {
                   <TableCell>{fmtDate(s.saleDate)}</TableCell>
                   <TableCell>{s.student ? `${s.student.firstName} ${s.student.lastName}` : '—'}</TableCell>
                   <TableCell>{s.items.reduce((n, i) => n + i.quantity, 0)}</TableCell>
-                  <TableCell className="text-right tabular-nums">{inr(s.totalAmount)}</TableCell>
-                  <TableCell><Badge variant={s.status === 'voided' ? 'outline' : 'secondary'}>{s.status}</Badge></TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {inr(s.totalAmount)}
+                    {s.status !== 'voided' && s.totalAmount - s.amountPaid > 0 && (
+                      <span className="block text-[11px] font-normal text-amber-600">{inr(s.totalAmount - s.amountPaid)} due</span>
+                    )}
+                  </TableCell>
+                  <TableCell>{(() => { const b = dueBadge(s); return <Badge variant="outline" className={b.cls}>{b.label}</Badge> })()}</TableCell>
                   <TableCell><Button variant="ghost" size="sm" onClick={() => openReceipt(s.id)}><Receipt className="mr-1 size-4" />Receipt</Button></TableCell>
                 </TableRow>
               ))}
@@ -158,7 +174,7 @@ export function InventorySalesPage() {
             <>
               <DialogHeader>
                 <DialogTitle>Receipt #{detail.receiptNumber}</DialogTitle>
-                <DialogDescription>{fmtDate(detail.saleDate)} · {detail.status}</DialogDescription>
+                <DialogDescription>{fmtDate(detail.saleDate)} · {dueBadge(detail).label}</DialogDescription>
               </DialogHeader>
 
               <div id="inv-receipt" className="space-y-3 text-sm">
@@ -189,7 +205,13 @@ export function InventorySalesPage() {
                 <div className="space-y-1 border-t pt-2 text-xs">
                   <div className="flex justify-between"><span>Subtotal</span><span className="tabular-nums">{inr(detail.subtotal)}</span></div>
                   {detail.discount > 0 && <div className="flex justify-between"><span>Discount</span><span className="tabular-nums">− {inr(detail.discount)}</span></div>}
-                  <div className="flex justify-between text-sm font-semibold"><span>Total Paid</span><span className="tabular-nums">{inr(detail.totalAmount)}</span></div>
+                  <div className="flex justify-between text-sm font-semibold"><span>Total</span><span className="tabular-nums">{inr(detail.totalAmount)}</span></div>
+                  {detail.status !== 'voided' && (detail.totalAmount - detail.amountPaid > 0) && (
+                    <>
+                      <div className="flex justify-between"><span>Paid</span><span className="tabular-nums">{inr(detail.amountPaid)}</span></div>
+                      <div className="flex justify-between font-semibold text-amber-600"><span>Due (on fee account)</span><span className="tabular-nums">{inr(detail.totalAmount - detail.amountPaid)}</span></div>
+                    </>
+                  )}
                   <div className="flex justify-between"><span>Payment</span><span className="capitalize">{detail.paymentMethod}</span></div>
                 </div>
               </div>
