@@ -20,6 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { PageHeader } from '@/components/shared'
 import {
   Dialog,
   DialogContent,
@@ -470,34 +471,12 @@ export function TimetablePage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex min-w-0 items-start gap-3">
-          <div className="min-w-0">
-            <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
-              <Calendar className="size-6" />
-              Timetable
-            </h1>
-            <p className="mt-0.5 text-sm text-muted-foreground">
-              Manage weekly class schedules and period allocations
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          {canUpdate && (
-            <Button variant="outline" size="sm" onClick={openPeriodSettings} className="gap-2">
-              <Settings2 className="size-4" />
-              Period Settings
-            </Button>
-          )}
-          {canCreate && (
-            <Button size="sm" onClick={() => { resetForm(); setEditEntry(null); setShowAdd(true) }} className="gap-2">
-              <PlusCircle className="size-4" />
-              Add Entry
-            </Button>
-          )}
-        </div>
-      </div>
+      <PageHeader
+        title="Timetable"
+        description="Manage weekly class schedules and period allocations"
+        action={canCreate ? { label: 'Add Entry', icon: PlusCircle, onClick: () => { resetForm(); setEditEntry(null); setShowAdd(true) } } : undefined}
+        secondaryAction={canUpdate ? { label: 'Period Settings', icon: Settings2, onClick: openPeriodSettings } : undefined}
+      />
 
       {/* View Mode & Filters */}
       <Card>
