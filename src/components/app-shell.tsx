@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useRouter, usePathname } from 'next/navigation'
+import Link from 'next/link'
 import { useTheme } from 'next-themes'
 import { useAppStore, type PageName, type User as StoreUser } from '@/lib/store'
 import { AppSidebar, MENUS } from './app-sidebar'
@@ -26,7 +27,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { Sun, Moon, LogOut, User, PanelLeftOpen, Search, ArrowRight, Lock, Sunrise, Sunset, MoonStar, ImagePlus, Trash2 } from 'lucide-react'
+import { Sun, Moon, LogOut, User, PanelLeftOpen, Search, ArrowRight, Lock, Sunrise, Sunset, MoonStar, ImagePlus, Trash2, ChevronDown, GraduationCap, BookOpen, Coins, CalendarCheck, Package, UserPlus } from 'lucide-react'
 import { AcademicYearSwitcher } from '@/components/academic-year-switcher'
 import { ImpersonationBanner } from '@/components/super-admin/impersonation-banner'
 import { PlatformAnnouncementBanner } from '@/components/super-admin/platform-announcement-banner'
@@ -78,6 +79,7 @@ const SEARCH_ITEMS: { label: string; page: PageName; keywords: string[] }[] = [
   { label: 'Fee Groups', page: 'fees-groups', keywords: ['fee category', 'group fees'] },
   { label: 'Fee Structures', page: 'fees-structures', keywords: ['fee plan', 'class fees', 'amount'] },
   { label: 'Fee Collections', page: 'fee-collections', keywords: ['payment', 'collect', 'receipt', 'pay'] },
+  { label: 'Fee Receipts', page: 'fee-list', keywords: ['receipt', 'history', 'paid', 'list'] },
   { label: 'Fee Demand Slips', page: 'fee-demand-slips', keywords: ['monthly', 'invoice', 'slip', 'demand', 'generate'] },
   { label: 'Change Fee Group', page: 'fee-change-group', keywords: ['switch fee group', 'reassign fees', 'wrong fee group'] },
   { label: 'Salary Structure', page: 'salary-structure', keywords: ['pay scale', 'ctc', 'compensation'] },
@@ -409,7 +411,7 @@ function getTimeGreeting(hour: number) {
 export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
-  const { user, currentSchool, logout, sidebarOpen, setSidebarOpen, sidebarCollapsed, toggleSidebarCollapse, isAuthenticated } = useAppStore()
+  const { user, currentSchool, logout, sidebarOpen, setSidebarOpen, sidebarCollapsed, toggleSidebarCollapse, isAuthenticated, permissions, permissionsLoaded } = useAppStore()
   const { theme, setTheme, resolvedTheme } = useTheme()
   const { toast } = useToast()
   const [currentPassword, setCurrentPassword] = useState('')
@@ -451,6 +453,32 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     () => getThemeVariables(isDarkTheme),
     [isDarkTheme]
   )
+
+  const role = user?.role || 'SCHOOL_ADMIN'
+
+  const visibleItems = useMemo(() => {
+    return [
+      { label: 'Student List', page: 'students', href: '/students', icon: GraduationCap },
+      { label: 'Class List', page: 'classes', href: '/academics/classes', icon: BookOpen },
+      { label: 'Collect Fees', page: 'fee-collections', href: '/fees/collections', icon: Coins },
+      {
+        label: 'Attendance',
+        icon: CalendarCheck,
+        isDropdown: true,
+        children: [
+          { label: 'Student Attendance', page: 'mark-attendance', href: '/attendance/mark' },
+          { label: 'Staff Attendance', page: 'employee-attendance', href: '/attendance/staff' },
+        ].filter(child => isPageVisible(child.page, permissions, role, permissionsLoaded)),
+      },
+      { label: 'Inventory', page: 'inventory', href: '/inventory', icon: Package },
+      { label: 'Admission', page: 'admission-form', href: '/students/admit', icon: UserPlus },
+    ].filter(item => {
+      if (item.isDropdown) {
+        return item.children && item.children.length > 0
+      }
+      return isPageVisible(item.page, permissions, role, permissionsLoaded)
+    })
+  }, [permissions, role, permissionsLoaded])
 
   useEffect(() => {
     const root = document.documentElement
@@ -503,7 +531,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         try {
           localStorage.setItem('erp_user', JSON.stringify(slim))
         } catch {
-          // Non-fatal: the in-memory user is already updated.
         }
       }
       setCurrentPassword('')
@@ -547,7 +574,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           try {
             localStorage.setItem('erp_user', JSON.stringify(slim))
           } catch {
-            // Non-fatal
           }
         }
       }
@@ -579,7 +605,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           try {
             localStorage.setItem('erp_user', JSON.stringify(slim))
           } catch {
-            // Non-fatal
           }
         }
       }
@@ -613,7 +638,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           try {
             localStorage.setItem('erp_user', JSON.stringify(slim))
           } catch {
-            // Non-fatal
           }
         }
       }
@@ -745,6 +769,85 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <AppSidebar />
 
         <main className="flex-1 min-w-0 overflow-y-auto flex flex-col bg-brand-page">
+          {/* Sticky Quick Access Menubar */}
+          {visibleItems.length > 0 && (
+            <div className="sticky top-0 z-20 shrink-0 flex items-center h-10 px-4 lg:px-6 bg-card/90 backdrop-blur-md border-b border-border/40 shadow-sm overflow-x-auto no-scrollbar">
+              {/* Invisible SVG definition for the icon gradient */}
+              <svg className="absolute w-0 h-0 pointer-events-none" width="0" height="0">
+                <defs>
+                  <linearGradient id="menu-icon-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stopColor="var(--primary)" />
+                    <stop offset="100%" stopColor="var(--chart-2, var(--primary))" />
+                  </linearGradient>
+                </defs>
+              </svg>
+
+              <div className="flex items-center gap-2 sm:gap-4 text-[13px] font-medium py-1">
+                {visibleItems.map((item) => {
+                  if (item.isDropdown) {
+                    const isDropdownActive = item.children.some(child => pathname === child.href || pathname.startsWith(child.href + '/'))
+                    return (
+                      <DropdownMenu key={item.label}>
+                        <DropdownMenuTrigger asChild>
+                          <button
+                            type="button"
+                            className={`group flex items-center gap-1.5 py-1 px-2.5 rounded-md hover:bg-accent hover:text-foreground transition-all duration-200 text-muted-foreground/90 font-medium text-[13px] tracking-wide cursor-pointer ${
+                              isDropdownActive ? 'bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary font-semibold' : ''
+                            }`}
+                          >
+                            <item.icon
+                              className="size-4 shrink-0 transition-transform duration-200 group-hover:scale-110"
+                              stroke="url(#menu-icon-gradient)"
+                              fill="url(#menu-icon-gradient)"
+                              fillOpacity={0.2}
+                            />
+                            <span>{item.label}</span>
+                            <ChevronDown className="size-3.5 opacity-60 transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start" className="min-w-[170px]">
+                          {item.children.map((child) => {
+                            const isChildActive = pathname === child.href || pathname.startsWith(child.href + '/')
+                            return (
+                              <DropdownMenuItem key={child.label} asChild>
+                                <Link
+                                  href={child.href}
+                                  className={`w-full cursor-pointer flex items-center ${
+                                    isChildActive ? 'bg-accent font-semibold text-primary' : ''
+                                  }`}
+                                >
+                                  {child.label}
+                                </Link>
+                              </DropdownMenuItem>
+                            )
+                          })}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )
+                  }
+
+                  const isActive = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href + '/'))
+                  return (
+                    <Link
+                      key={item.label}
+                      href={item.href}
+                      className={`group flex items-center gap-1.5 py-1 px-2.5 rounded-md hover:bg-accent hover:text-foreground transition-all duration-200 text-muted-foreground/90 font-medium text-[13px] tracking-wide cursor-pointer ${
+                        isActive ? 'bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary font-semibold' : ''
+                      }`}
+                    >
+                      <item.icon
+                        className="size-4 shrink-0 transition-transform duration-200 group-hover:scale-110"
+                        stroke="url(#menu-icon-gradient)"
+                        fill="url(#menu-icon-gradient)"
+                        fillOpacity={0.2}
+                      />
+                      <span>{item.label}</span>
+                    </Link>
+                  )
+                })}
+              </div>
+            </div>
+          )}
           <PlatformAnnouncementBanner />
           <ImpersonationBanner />
           <PastYearGlobalBanner />

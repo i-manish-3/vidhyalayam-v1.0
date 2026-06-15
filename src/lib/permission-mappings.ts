@@ -86,6 +86,7 @@ const MODULE_PERMISSION_MAP: Record<string, string[]> = {
   'fee-demand-slips': ['fees:read'],
   'fee-audit-log': ['fees:read', 'fees:audit'],
   'fee-reports': ['fees:read'],
+  'fee-list': ['fees:read'],
 
   // Salary
   'salary': ['salary:read'],

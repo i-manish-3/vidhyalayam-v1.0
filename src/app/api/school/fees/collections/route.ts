@@ -272,6 +272,203 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '20')
     const skip = (page - 1) * limit
 
+    const listReceipts = searchParams.get('listReceipts') === 'true'
+    const search = searchParams.get('search') || ''
+
+    if (listReceipts) {
+      const where: Prisma.StudentFeeLedgerEntryWhereInput = {
+        schoolId: user.schoolId,
+        entryType: 'CREDIT',
+        deletedAt: null,
+        receiptNumber: { not: null },
+        ...(studentId ? { studentId } : {}),
+        ...(academicYear ? { academicYear } : {}),
+      }
+
+      if (search) {
+        where.OR = [
+          { receiptNumber: { contains: search, mode: 'insensitive' } },
+          {
+            student: {
+              OR: [
+                { firstName: { contains: search, mode: 'insensitive' } },
+                { lastName: { contains: search, mode: 'insensitive' } },
+              ]
+            }
+          }
+        ]
+      }
+
+      const [total, credits] = await Promise.all([
+        db.studentFeeLedgerEntry.count({ where }),
+        db.studentFeeLedgerEntry.findMany({
+          where,
+          include: {
+            student: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                rollNumber: true,
+                class: { select: { name: true } },
+                section: { select: { name: true } },
+              },
+            },
+            creditAllocations: {
+              where: { deletedAt: null },
+              include: {
+                debitEntry: {
+                  include: {
+                    feeCollection: true,
+                    debitAllocations: {
+                      where: { deletedAt: null },
+                      include: {
+                        creditEntry: {
+                          select: { id: true, transactionDate: true, createdAt: true },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          orderBy: [{ transactionDate: 'desc' }, { createdAt: 'desc' }],
+          skip,
+          take: limit,
+        })
+      ])
+
+      const collectorIds = Array.from(
+        new Set(
+          credits
+            .map((credit) => credit.createdBy)
+            .filter((id): id is string => !!id)
+        )
+      )
+      const collectors = collectorIds.length > 0
+        ? await db.user.findMany({
+            where: {
+              id: { in: collectorIds },
+              schoolId: user.schoolId,
+            },
+            select: { id: true, name: true, email: true },
+          })
+        : []
+      const collectorMap = new Map<string, { id: string; name: string }>()
+      for (const row of collectors) {
+        collectorMap.set(row.id, { id: row.id, name: row.name || row.email || 'Unknown' })
+      }
+
+      const receiptHistory = credits.map((credit) => {
+        const feePeriods = new Set<string>()
+        const transportPeriods = new Set<string>()
+        const hostelPeriods = new Set<string>()
+        const sessions = new Set<string>()
+        let discount = 0
+        let dues = 0
+
+        const lines: Array<{
+          feeHeadName: string
+          installmentName: string | null
+          academicYear: string | null
+          isTransport: boolean
+          dueDate: Date | null
+          paidInReceipt: number
+          balanceAfter: number
+        }> = []
+
+        for (const allocation of credit.creditAllocations) {
+          const debit = allocation.debitEntry
+          const period = debit.installmentName || debit.feeCollection?.installmentName || ''
+          const headName = (debit.feeHeadName || debit.feeCollection?.feeHeadName || '').toLowerCase()
+          if (period) {
+            if (headName.includes('transport')) {
+              transportPeriods.add(period)
+            } else if (headName.includes('hostel')) {
+              hostelPeriods.add(period)
+            } else {
+              feePeriods.add(period)
+            }
+          }
+          if (debit.academicYear) sessions.add(debit.academicYear)
+          discount += (debit.feeCollection?.discount || 0) + (debit.feeCollection?.concession || 0) + (debit.feeCollection?.scholarship || 0)
+          const laterAllocated = debit.debitAllocations
+            .filter((other) => {
+              if (other.creditEntryId === credit.id) return false
+              const otherTime = other.creditEntry?.transactionDate || other.allocatedAt || other.createdAt
+              const currentTime = credit.transactionDate
+              if (otherTime.getTime() !== currentTime.getTime()) return otherTime > currentTime
+              return other.createdAt > allocation.createdAt
+            })
+            .reduce((sum, other) => sum + other.amount, 0)
+          const balanceAfter = roundMoney(debit.balanceAmount + laterAllocated)
+          dues += debit.balanceAmount + laterAllocated
+
+          lines.push({
+            feeHeadName: debit.feeHeadName || debit.feeCollection?.feeHeadName || 'Fee',
+            installmentName: debit.installmentName || debit.feeCollection?.installmentName || null,
+            academicYear: debit.academicYear || null,
+            isTransport: headName.includes('transport'),
+            dueDate: debit.dueDate || debit.feeCollection?.dueDate || null,
+            paidInReceipt: roundMoney(allocation.amount),
+            balanceAfter,
+          })
+        }
+
+        const { notes: cleanNotes, splits, slipLines: persistedSlipLines } = decodeNotesTail(credit.notes)
+        const collectedBy = credit.createdBy ? (collectorMap.get(credit.createdBy) || null) : null
+
+        const usePersisted = persistedSlipLines && persistedSlipLines.length > 0
+        const responseLines = usePersisted
+          ? persistedSlipLines!.map((l) => ({
+              feeHeadName: l.feeHeadName,
+              installmentName: l.installmentName,
+              academicYear: l.academicYear,
+              isTransport: l.isTransport,
+              dueDate: l.dueDate ? new Date(l.dueDate) : null,
+              paidInReceipt: l.paid,
+              balanceAfter: l.due,
+            }))
+          : lines
+        const responseDues = usePersisted
+          ? roundMoney(persistedSlipLines!.reduce((sum, l) => sum + (l.due || 0), 0))
+          : roundMoney(dues)
+
+        return {
+          id: credit.id,
+          receiptNumber: stripReceiptPrefix(credit.receiptNumber),
+          studentName: credit.student ? `${credit.student.firstName} ${credit.student.lastName}`.trim() : '-',
+          className: credit.student?.class?.name || '-',
+          feeMonth: sortPeriods(Array.from(feePeriods)).join(', '),
+          transportMonth: sortPeriods(Array.from(transportPeriods)).join(', '),
+          hostelMonth: sortPeriods(Array.from(hostelPeriods)).join(', '),
+          date: credit.transactionDate,
+          submittedAt: credit.createdAt,
+          discount: roundMoney(discount),
+          paid: credit.credit,
+          dues: responseDues,
+          paymentMethod: credit.paymentMethod,
+          notes: cleanNotes,
+          splits,
+          collectedBy,
+          session: Array.from(sessions).sort().join(', ') || academicYear || null,
+          receiptId: credit.receiptNumber,
+          lines: responseLines,
+        }
+      })
+
+      return NextResponse.json({
+        receiptHistory,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit),
+        },
+      })
+    }
+
     await ensureLedgerForExistingCollections(user.schoolId, studentId || undefined, academicYear || undefined)
 
     const where: Prisma.StudentFeeLedgerEntryWhereInput = {
