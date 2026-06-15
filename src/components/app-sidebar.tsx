@@ -531,15 +531,6 @@ export function AppSidebar() {
   const schoolDisplayName = isPlatformView
     ? 'Vidhyalayam'
     : currentSchool?.name || 'Vidhyalayam'
-  
-  // Generate abbreviation: first letters of each word, max 4 letters
-  const schoolAbbreviation = schoolDisplayName
-    .split(/\s+/)
-    .slice(0, 4)
-    .map(word => word[0])
-    .join('')
-    .toUpperCase()
-  
   const schoolSubLabel = isPlatformView
     ? 'Platform Admin'
     : ''
@@ -752,18 +743,9 @@ export function AppSidebar() {
             </div>
             <div className={cn(
               'flex flex-col min-w-0 transition-[opacity,max-width] duration-300 ease-in-out',
-              isCollapsed ? 'opacity-0 max-w-0' : 'opacity-100 max-w-[180px]'
+              isCollapsed ? 'opacity-0 max-w-0' : 'opacity-100 max-w-[200px]'
             )}>
-              <TooltipProvider delayDuration={200}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span className="text-sm font-bold text-sidebar-foreground truncate">{schoolAbbreviation}</span>
-                  </TooltipTrigger>
-                  <TooltipContent side="right" className="text-sm max-w-xs">
-                    {schoolDisplayName}
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+              <span className="text-sm font-bold text-sidebar-foreground truncate">{schoolDisplayName}</span>
               {schoolSubLabel && (
                 <span className="text-[10px] text-sidebar-foreground/60 truncate">{schoolSubLabel}</span>
               )}
