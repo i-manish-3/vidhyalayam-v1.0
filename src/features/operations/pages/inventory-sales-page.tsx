@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { PageHeader, EmptyState, LoadingState } from '@/components/shared'
 import { api } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Receipt, Printer, Ban, Undo2, Loader2, IndianRupee } from 'lucide-react'
 
 interface SaleItem { id: string; itemName: string; variantLabel: string | null; quantity: number; unitPrice: number; lineTotal: number; returnedQty: number }
@@ -78,6 +79,14 @@ export function InventorySalesPage() {
   }, [toast])
 
   useEffect(() => { fetchSales() }, [fetchSales])
+
+  const stats = useMemo(() => {
+    const totalAmount = sales.reduce((sum, sale) => sum + sale.totalAmount, 0)
+    const collected = sales.reduce((sum, sale) => sum + sale.amountPaid, 0)
+    const due = sales.reduce((sum, sale) => sum + Math.max(0, sale.totalAmount - sale.amountPaid), 0)
+    const voided = sales.filter((sale) => sale.status === 'voided').length
+    return { count: sales.length, totalAmount, collected, due, voided }
+  }, [sales])
 
   const openReceipt = async (id: string) => {
     setDetailLoading(true)
@@ -158,13 +167,38 @@ export function InventorySalesPage() {
   if (loading) return <LoadingState />
 
   return (
-    <div className="space-y-6">
-      <PageHeader title="Sales History" description={`${sales.length} sale(s)`} />
+    <div className="space-y-4">
+      <PageHeader title="Sales History" description="Review store receipts, dues, returns, and voided sales." />
+
+      <div className="flex flex-wrap items-center gap-2 rounded-md border bg-background px-3 py-2 shadow-sm">
+        {[
+          { label: 'Sales', value: stats.count.toLocaleString('en-IN') },
+          { label: 'Total', value: inr(stats.totalAmount) },
+          { label: 'Collected', value: inr(stats.collected) },
+          { label: 'Due', value: inr(stats.due) },
+          { label: 'Voided', value: stats.voided.toLocaleString('en-IN') },
+        ].map((item) => (
+          <div key={item.label} className="flex items-center gap-2 rounded-md bg-muted/35 px-2.5 py-1.5 text-xs">
+            <span className="text-muted-foreground">{item.label}</span>
+            <span className="font-semibold tabular-nums">{item.value}</span>
+          </div>
+        ))}
+      </div>
 
       {sales.length === 0 ? (
         <EmptyState icon={Receipt} title="No sales yet" description="Sales made on the Sell screen will appear here." />
       ) : (
-        <div className="rounded-md border">
+        <Card className="gap-0 overflow-hidden py-0 shadow-sm">
+          <CardHeader className="border-b bg-muted/30 px-4 py-3">
+            <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+              <Receipt className="size-4 text-primary" />
+              Sales Records
+              <Badge variant="secondary" className="ml-auto text-xs">
+                {sales.length.toLocaleString('en-IN')} records
+              </Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
           <Table>
             <TableHeader>
               <TableRow>
@@ -205,7 +239,8 @@ export function InventorySalesPage() {
               ))}
             </TableBody>
           </Table>
-        </div>
+          </CardContent>
+        </Card>
       )}
 
       <Dialog open={!!detail || detailLoading} onOpenChange={(o) => !o && setDetail(null)}>

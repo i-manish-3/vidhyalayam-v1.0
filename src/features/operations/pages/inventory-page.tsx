@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, Fragment } from 'react'
+import { useState, useEffect, useCallback, Fragment, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { PageHeader, EmptyState, LoadingState } from '@/components/shared'
 import { api } from '@/lib/api'
@@ -16,7 +16,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
-import { PlusCircle, Package, MoreVertical, Pencil, Trash2, PackagePlus, AlertTriangle, ShoppingCart, Search, ChevronDown, ChevronRight, X, Boxes, Tags, MapPin } from 'lucide-react'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { PlusCircle, Package, MoreVertical, Pencil, Trash2, PackagePlus, AlertTriangle, ShoppingCart, Search, ChevronDown, ChevronRight, X, Boxes, Tags } from 'lucide-react'
 
 interface Variant {
   id: string
@@ -45,10 +46,9 @@ interface ApiItem {
 }
 interface CategoryOption { id: string; name: string }
 
-interface FormVariant { id?: string; label: string; sku: string; quantity: string; reorderLevel: string; unitPrice: string; sellingPrice: string }
+interface FormVariant { id?: string; label: string; sku: string; quantity: string; reorderLevel: string; sellingPrice: string }
 
-const CONDITIONS = ['New', 'Good', 'Fair', 'Poor', 'Damaged']
-const emptyVariant = (): FormVariant => ({ label: '', sku: '', quantity: '', reorderLevel: '', unitPrice: '', sellingPrice: '' })
+const emptyVariant = (): FormVariant => ({ label: '', sku: '', quantity: '', reorderLevel: '', sellingPrice: '' })
 const emptyForm = () => ({
   name: '', sku: '', categoryId: '', unit: 'pcs', isSellable: false, condition: 'New', location: '',
   hasVariants: false, variantLabel: '', variants: [emptyVariant()] as FormVariant[],
@@ -72,7 +72,7 @@ export function InventoryPage() {
   const [form, setForm] = useState(emptyForm())
   const [saving, setSaving] = useState(false)
   const [stockItem, setStockItem] = useState<ApiItem | null>(null)
-  const [stockForm, setStockForm] = useState({ variantId: '', type: 'IN', quantity: '', unitCost: '', reason: '' })
+  const [stockForm, setStockForm] = useState({ variantId: '', type: 'IN', quantity: '', reason: '' })
   const [deleteItem, setDeleteItem] = useState<ApiItem | null>(null)
 
   const fetchData = useCallback(async () => {
@@ -94,9 +94,21 @@ export function InventoryPage() {
 
   useEffect(() => { fetchData() }, [fetchData])
 
+  const stats = useMemo(() => {
+    const totalStock = items.reduce((sum, item) => sum + item.totalStock, 0)
+    const lowStock = items.filter((item) => item.isLowStock).length
+    const sellable = items.filter((item) => item.isSellable).length
+    const variants = items.reduce((sum, item) => sum + item.variants.length, 0)
+    return { total: items.length, totalStock, lowStock, sellable, variants }
+  }, [items])
+
   const toggleExpand = (id: string) => setExpanded((s) => {
     const next = new Set(s)
-    next.has(id) ? next.delete(id) : next.add(id)
+    if (next.has(id)) {
+      next.delete(id)
+    } else {
+      next.add(id)
+    }
     return next
   })
 
@@ -111,7 +123,7 @@ export function InventoryPage() {
       variants: (i.variants.length ? i.variants : [{ id: undefined, label: null, sku: null, quantity: 0, reorderLevel: 0, unitPrice: null, sellingPrice: null } as unknown as Variant]).map((v) => ({
         id: v.id, label: v.label || '', sku: v.sku || '',
         quantity: String(v.quantity), reorderLevel: String(v.reorderLevel),
-        unitPrice: v.unitPrice != null ? String(v.unitPrice) : '', sellingPrice: v.sellingPrice != null ? String(v.sellingPrice) : '',
+        sellingPrice: v.sellingPrice != null ? String(v.sellingPrice) : '',
       })),
     })
     setShowForm(true)
@@ -127,15 +139,14 @@ export function InventoryPage() {
     if (form.hasVariants && !form.variantLabel.trim()) { toast({ title: 'Name the variant type (e.g. Size or Class)', variant: 'destructive' }); return }
     if (form.hasVariants && form.variants.some((v) => !v.label.trim())) { toast({ title: `Each ${form.variantLabel.trim() || 'variant'} needs a label`, variant: 'destructive' }); return }
 
-    const num = (s: string) => s === '' ? null : Number(s)
     const variantsPayload = form.variants.map((v) => ({
       id: v.id,
       label: form.hasVariants ? v.label.trim() : null,
       sku: v.sku.trim() || null,
       quantity: Number(v.quantity) || 0,
       reorderLevel: Number(v.reorderLevel) || 0,
-      unitPrice: num(v.unitPrice),
-      sellingPrice: num(v.sellingPrice),
+      unitPrice: null,
+      sellingPrice: v.sellingPrice === '' ? null : Number(v.sellingPrice),
     }))
     const payload = {
       name: form.name.trim(), sku: form.sku.trim() || null,
@@ -162,7 +173,7 @@ export function InventoryPage() {
 
   const openStock = (i: ApiItem) => {
     setStockItem(i)
-    setStockForm({ variantId: i.variants[0]?.id || '', type: 'IN', quantity: '', unitCost: '', reason: '' })
+    setStockForm({ variantId: i.variants[0]?.id || '', type: 'IN', quantity: '', reason: '' })
   }
   const handleStock = async () => {
     if (!stockItem || !stockForm.variantId) return
@@ -170,7 +181,7 @@ export function InventoryPage() {
       await api.post(`/api/school/inventory/${stockItem.id}/stock`, {
         variantId: stockForm.variantId,
         type: stockForm.type, quantity: Number(stockForm.quantity),
-        unitCost: stockForm.unitCost === '' ? undefined : Number(stockForm.unitCost),
+        unitCost: undefined,
         reason: stockForm.reason.trim() || undefined,
       })
       toast({ title: 'Stock updated' })
@@ -196,28 +207,55 @@ export function InventoryPage() {
   if (loading) return <LoadingState />
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <PageHeader
         title="Inventory"
-        description={`${items.length} item(s)`}
+        description="Manage stock, variants, reorder levels, and sellable store items."
         action={{ label: 'Add Item', icon: PlusCircle, onClick: openAdd }}
         secondaryAction={{ label: 'Sell to Student', icon: ShoppingCart, onClick: () => router.push('/inventory/sell') }}
       />
 
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="relative max-w-xs flex-1">
+      <div className="flex flex-wrap items-center gap-2 rounded-md border bg-background px-3 py-2 shadow-sm">
+        {[
+          { label: 'Items', value: stats.total.toLocaleString('en-IN') },
+          { label: 'Units', value: stats.totalStock.toLocaleString('en-IN') },
+          { label: 'Low Stock', value: stats.lowStock.toLocaleString('en-IN') },
+          { label: 'Sellable', value: stats.sellable.toLocaleString('en-IN') },
+          { label: 'Variants', value: stats.variants.toLocaleString('en-IN') },
+        ].map((item) => (
+          <div key={item.label} className="flex items-center gap-2 rounded-md bg-muted/35 px-2.5 py-1.5 text-xs">
+            <span className="text-muted-foreground">{item.label}</span>
+            <span className="font-semibold tabular-nums">{item.value}</span>
+          </div>
+        ))}
+      </div>
+
+      <Card className="gap-0 py-0 shadow-sm">
+        <CardContent className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="relative w-full sm:max-w-md">
           <Search className="absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
           <Input className="pl-8" placeholder="Search items…" value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
         <label className="flex items-center gap-2 text-sm">
           <Checkbox checked={lowStockOnly} onCheckedChange={(c) => setLowStockOnly(!!c)} /> Low stock only
         </label>
-      </div>
+        </CardContent>
+      </Card>
 
       {items.length === 0 ? (
         <EmptyState icon={Package} title="No items" description="Add inventory items to track stock and sell to students." action={{ label: 'Add Item', onClick: openAdd }} />
       ) : (
-        <div className="rounded-md border">
+        <Card className="gap-0 overflow-hidden py-0 shadow-sm">
+          <CardHeader className="border-b bg-muted/30 px-4 py-3">
+            <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+              <Package className="size-4 text-primary" />
+              Inventory Items
+              <Badge variant="secondary" className="ml-auto text-xs">
+                {items.length.toLocaleString('en-IN')} records
+              </Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
           <Table>
             <TableHeader>
               <TableRow>
@@ -278,7 +316,7 @@ export function InventoryPage() {
                           {isLowVariant(v) && <Badge variant="outline" className="ml-2 border-amber-400 text-amber-700">Low</Badge>}
                         </TableCell>
                         <TableCell colSpan={2} className="py-1.5 text-xs text-muted-foreground">
-                          Cost {v.unitPrice != null ? `₹${v.unitPrice}` : '—'} · Sell {v.sellingPrice != null ? `₹${v.sellingPrice}` : '—'}
+                          Sell {v.sellingPrice != null ? `₹${v.sellingPrice}` : '—'}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -287,7 +325,8 @@ export function InventoryPage() {
               })}
             </TableBody>
           </Table>
-        </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* Add / Edit dialog */}
@@ -300,7 +339,7 @@ export function InventoryPage() {
               </div>
               <div className="min-w-0 space-y-1">
                 <DialogTitle>{editingId ? 'Edit Inventory Item' : 'Add Inventory Item'}</DialogTitle>
-                <DialogDescription>Add the item details, opening stock, and pricing used by store sales.</DialogDescription>
+                <DialogDescription>Add the item details, opening stock, and selling price used by store sales.</DialogDescription>
               </div>
             </div>
           </DialogHeader>
@@ -326,24 +365,6 @@ export function InventoryPage() {
                       <SelectTrigger className="w-full"><SelectValue placeholder="Select category" /></SelectTrigger>
                       <SelectContent>{categories.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
                     </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="inventory-unit">Unit</Label>
-                    <Input id="inventory-unit" value={form.unit} onChange={(e) => setForm((f) => ({ ...f, unit: e.target.value }))} placeholder="pcs" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Condition</Label>
-                    <Select value={form.condition} onValueChange={(v) => setForm((f) => ({ ...f, condition: v }))}>
-                      <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-                      <SelectContent>{CONDITIONS.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2 sm:col-span-2">
-                    <Label htmlFor="inventory-location">Location</Label>
-                    <div className="relative">
-                      <MapPin className="absolute left-3 top-2.5 size-4 text-muted-foreground" />
-                      <Input id="inventory-location" className="pl-9" value={form.location} onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))} placeholder="e.g. Store room A" />
-                    </div>
                   </div>
                 </div>
               </section>
@@ -394,8 +415,7 @@ export function InventoryPage() {
                       {form.hasVariants && <TableHead className="min-w-24">{form.variantLabel.trim() || 'Label'}</TableHead>}
                       <TableHead>{editingId ? 'Stock' : 'Opening Qty'}</TableHead>
                       <TableHead>Reorder</TableHead>
-                      <TableHead>Cost ₹</TableHead>
-                      <TableHead>Sell ₹</TableHead>
+                      <TableHead>Sell Price</TableHead>
                       {form.hasVariants && <TableHead className="w-8"></TableHead>}
                     </TableRow>
                   </TableHeader>
@@ -407,7 +427,6 @@ export function InventoryPage() {
                         )}
                         <TableCell className="py-1"><Input className="h-8 w-20" type="number" value={v.quantity} onChange={(e) => setVariant(idx, { quantity: e.target.value })} /></TableCell>
                         <TableCell className="py-1"><Input className="h-8 w-20" type="number" value={v.reorderLevel} onChange={(e) => setVariant(idx, { reorderLevel: e.target.value })} /></TableCell>
-                        <TableCell className="py-1"><Input className="h-8 w-24" type="number" value={v.unitPrice} onChange={(e) => setVariant(idx, { unitPrice: e.target.value })} /></TableCell>
                         <TableCell className="py-1"><Input className="h-8 w-24" type="number" value={v.sellingPrice} onChange={(e) => setVariant(idx, { sellingPrice: e.target.value })} /></TableCell>
                         {form.hasVariants && (
                           <TableCell className="py-1">
@@ -465,7 +484,6 @@ export function InventoryPage() {
               </Select>
             </div>
             <div className="space-y-2"><Label>{stockForm.type === 'ADJUST' ? 'New count' : 'Quantity'}</Label><Input type="number" value={stockForm.quantity} onChange={(e) => setStockForm((f) => ({ ...f, quantity: e.target.value }))} /></div>
-            {stockForm.type === 'IN' && <div className="space-y-2"><Label>Unit Cost (optional)</Label><Input type="number" value={stockForm.unitCost} onChange={(e) => setStockForm((f) => ({ ...f, unitCost: e.target.value }))} /></div>}
             <div className="space-y-2"><Label>Reason (optional)</Label><Input value={stockForm.reason} onChange={(e) => setStockForm((f) => ({ ...f, reason: e.target.value }))} /></div>
           </div>
           <DialogFooter>

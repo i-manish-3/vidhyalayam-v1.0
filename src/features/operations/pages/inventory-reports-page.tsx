@@ -5,10 +5,10 @@ import { PageHeader, LoadingState } from '@/components/shared'
 import { api } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { DatePicker } from '@/components/date-picker'
 import { Package, IndianRupee, TrendingUp, AlertTriangle } from 'lucide-react'
 
 interface ReportData {
@@ -47,26 +47,35 @@ export function InventoryReportsPage() {
   if (loading && !data) return <LoadingState />
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <PageHeader title="Inventory Reports" description="Stock valuation, low-stock alerts, and sales performance." />
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard icon={Package} label="Items / Units" value={`${data?.valuation.itemCount ?? 0} / ${data?.valuation.totalUnits ?? 0}`} />
         <StatCard icon={IndianRupee} label="Stock at Cost" value={inr(data?.valuation.costValue ?? 0)} />
         <StatCard icon={IndianRupee} label="Stock at Retail" value={inr(data?.valuation.retailValue ?? 0)} />
         <StatCard icon={TrendingUp} label="Potential Margin" value={inr(data?.valuation.potentialMargin ?? 0)} />
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Sales Summary</CardTitle>
+      <Card className="gap-0 py-0 shadow-sm">
+        <CardHeader className="border-b bg-muted/30 px-4 py-3">
+          <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+            <TrendingUp className="size-4 text-primary" />
+            Sales Summary
+          </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-4 p-4">
           <div className="flex flex-wrap items-end gap-3">
-            <div className="space-y-1"><Label className="text-xs">From</Label><Input type="date" className="h-8" value={from} onChange={(e) => setFrom(e.target.value)} /></div>
-            <div className="space-y-1"><Label className="text-xs">To</Label><Input type="date" className="h-8" value={to} onChange={(e) => setTo(e.target.value)} /></div>
+            <div className="space-y-1">
+              <Label className="text-xs">From</Label>
+              <DatePicker value={from} onChange={setFrom} triggerClassName="h-9 w-40" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">To</Label>
+              <DatePicker value={to} onChange={setTo} triggerClassName="h-9 w-40" />
+            </div>
           </div>
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-3">
             <StatCard label="Sales" value={String(data?.sales.count ?? 0)} />
             <StatCard label="Revenue" value={inr(data?.sales.revenue ?? 0)} />
             <StatCard label="Discounts given" value={inr(data?.sales.discount ?? 0)} />
@@ -74,10 +83,10 @@ export function InventoryReportsPage() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader><CardTitle className="flex items-center gap-2"><AlertTriangle className="size-4 text-amber-600" /> Low Stock</CardTitle></CardHeader>
-          <CardContent>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card className="gap-0 overflow-hidden py-0 shadow-sm">
+          <CardHeader className="border-b bg-muted/30 px-4 py-3"><CardTitle className="flex items-center gap-2 text-sm font-semibold"><AlertTriangle className="size-4 text-amber-600" /> Low Stock</CardTitle></CardHeader>
+          <CardContent className="p-4">
             {(data?.lowStock.length ?? 0) === 0 ? (
               <p className="text-sm text-muted-foreground">All items are above their reorder level.</p>
             ) : (
@@ -97,9 +106,9 @@ export function InventoryReportsPage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader><CardTitle className="flex items-center gap-2"><TrendingUp className="size-4" /> Top Sellers</CardTitle></CardHeader>
-          <CardContent>
+        <Card className="gap-0 overflow-hidden py-0 shadow-sm">
+          <CardHeader className="border-b bg-muted/30 px-4 py-3"><CardTitle className="flex items-center gap-2 text-sm font-semibold"><TrendingUp className="size-4 text-primary" /> Top Sellers</CardTitle></CardHeader>
+          <CardContent className="p-4">
             {(data?.topSellers.length ?? 0) === 0 ? (
               <p className="text-sm text-muted-foreground">No sales in this period.</p>
             ) : (
@@ -125,7 +134,7 @@ export function InventoryReportsPage() {
 
 function StatCard({ icon: Icon, label, value }: { icon?: React.ComponentType<{ className?: string }>; label: string; value: string }) {
   return (
-    <Card>
+    <Card className="gap-0 py-0 shadow-sm">
       <CardContent className="flex items-center gap-3 p-4">
         {Icon && <div className="rounded-md bg-primary/10 p-2 text-primary"><Icon className="size-5" /></div>}
         <div>

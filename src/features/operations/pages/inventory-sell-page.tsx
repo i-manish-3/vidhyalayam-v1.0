@@ -51,6 +51,7 @@ export function InventorySellPage() {
   const [student, setStudent] = useState<Student | null>(null)
 
   const [tiles, setTiles] = useState<Tile[]>([])
+  const [itemSearch, setItemSearch] = useState('')
   const [cart, setCart] = useState<CartLine[]>([])
   const [discount, setDiscount] = useState('')
   const [paymentMethod, setPaymentMethod] = useState('cash')
@@ -99,6 +100,11 @@ export function InventorySellPage() {
   const subtotal = useMemo(() => cart.reduce((s, l) => s + l.unitPrice * l.quantity, 0), [cart])
   const discountNum = Math.max(0, Math.min(Number(discount) || 0, subtotal))
   const total = subtotal - discountNum
+  const filteredTiles = useMemo(() => {
+    const query = itemSearch.trim().toLowerCase()
+    if (!query) return tiles
+    return tiles.filter((tile) => tile.name.toLowerCase().includes(query))
+  }, [itemSearch, tiles])
 
   // Amount collected now depends on the selected mode. For "partial" the cashier
   // types it; for "due" it's zero; otherwise it's the whole total.
@@ -141,7 +147,7 @@ export function InventorySellPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <PageHeader title="Sell to Student" description="Sell store items to a student. Collect now, take part payment, or put it on due — unpaid amounts become a store due, collected from Inventory → Sales (and also shown on the Collect Fee page if enabled in Settings)." />
 
       {lastReceipt && (
@@ -164,13 +170,30 @@ export function InventorySellPage() {
         </Card>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
+      <div className="grid gap-4 lg:grid-cols-[1fr_360px]">
         {/* Item picker */}
-        <Card>
-          <CardHeader><CardTitle>Items</CardTitle></CardHeader>
-          <CardContent>
+        <Card className="gap-0 overflow-hidden py-0 shadow-sm">
+          <CardHeader className="border-b bg-muted/30 px-4 py-3">
+            <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+              <ShoppingCart className="size-4 text-primary" />
+              Sellable Items
+              <Badge variant="secondary" className="ml-auto text-xs">
+                {filteredTiles.length.toLocaleString('en-IN')} records
+              </Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 p-4">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                className="h-9 pl-9"
+                placeholder="Search item..."
+                value={itemSearch}
+                onChange={(event) => setItemSearch(event.target.value)}
+              />
+            </div>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-              {tiles.map((tile) => {
+              {filteredTiles.map((tile) => {
                 const out = tile.available <= 0
                 return (
                   <button
@@ -178,7 +201,7 @@ export function InventorySellPage() {
                     type="button"
                     disabled={out}
                     onClick={() => addToCart(tile)}
-                    className="flex flex-col items-start rounded-md border p-3 text-left transition hover:border-primary disabled:opacity-50"
+                    className="flex min-h-28 flex-col items-start rounded-md border bg-background p-3 text-left transition hover:border-primary hover:bg-primary/5 disabled:opacity-50"
                   >
                     <span className="text-sm font-medium leading-tight">{tile.name}</span>
                     <span className="mt-1 text-sm font-semibold">{inr(tile.unitPrice)}</span>
@@ -187,14 +210,23 @@ export function InventorySellPage() {
                 )
               })}
               {tiles.length === 0 && <p className="col-span-full text-sm text-muted-foreground">No sellable items. Mark items as sellable in the Items screen.</p>}
+              {tiles.length > 0 && filteredTiles.length === 0 && <p className="col-span-full text-sm text-muted-foreground">No items match your search.</p>}
             </div>
           </CardContent>
         </Card>
 
         {/* Cart / checkout */}
-        <Card className="h-fit">
-          <CardHeader><CardTitle className="flex items-center gap-2"><ShoppingCart className="size-4" /> Cart</CardTitle></CardHeader>
-          <CardContent className="space-y-4">
+        <Card className="h-fit gap-0 overflow-hidden py-0 shadow-sm">
+          <CardHeader className="border-b bg-muted/30 px-4 py-3">
+            <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+              <ShoppingCart className="size-4 text-primary" />
+              Cart
+              <Badge variant="secondary" className="ml-auto text-xs">
+                {cart.length.toLocaleString('en-IN')} items
+              </Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4 p-4">
             {/* Student picker */}
             {student ? (
               <div className="flex items-center justify-between rounded-md border bg-muted/30 p-2 text-sm">
