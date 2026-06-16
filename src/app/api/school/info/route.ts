@@ -24,6 +24,7 @@ export async function PATCH(req: NextRequest) {
     const affiliationNumber = typeof body.affiliationNumber === 'string' ? body.affiliationNumber.trim() : body.affiliationNumber === null ? null : undefined
     const establishedYear = typeof body.establishedYear === 'string' ? body.establishedYear.trim() : body.establishedYear === null ? null : undefined
     const principalSignature = typeof body.principalSignature === 'string' ? body.principalSignature.trim() : body.principalSignature === null ? null : undefined
+    const inventoryDuesOnFeePage = typeof body.inventoryDuesOnFeePage === 'boolean' ? body.inventoryDuesOnFeePage : undefined
 
     let workingDays: string | undefined
     if (Array.isArray(body.workingDays)) {
@@ -36,7 +37,7 @@ export async function PATCH(req: NextRequest) {
     if (name !== undefined && !name) {
       return apiError(400, 'Please enter a school name.')
     }
-    if (name === undefined && logo === undefined && favicon === undefined && printHeader === undefined && registrationNumber === undefined && udiseNumber === undefined && affiliationNumber === undefined && establishedYear === undefined && principalSignature === undefined && workingDays === undefined) {
+    if (name === undefined && logo === undefined && favicon === undefined && printHeader === undefined && registrationNumber === undefined && udiseNumber === undefined && affiliationNumber === undefined && establishedYear === undefined && principalSignature === undefined && workingDays === undefined && inventoryDuesOnFeePage === undefined) {
       return apiError(400, 'Please provide at least one branding update.')
     }
 
@@ -92,6 +93,7 @@ export async function PATCH(req: NextRequest) {
         ...(establishedYear !== undefined ? { establishedYear } : {}),
         ...(principalSignatureUpload.url !== undefined ? { principalSignature: principalSignatureUpload.url } : {}),
         ...(workingDays !== undefined ? { workingDays } : {}),
+        ...(inventoryDuesOnFeePage !== undefined ? { inventoryDuesOnFeePage } : {}),
       },
       select: {
         id: true,
@@ -116,6 +118,7 @@ export async function PATCH(req: NextRequest) {
         contactEmail: true,
         website: true,
         workingDays: true,
+        inventoryDuesOnFeePage: true,
       },
     })
 

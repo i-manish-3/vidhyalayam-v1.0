@@ -119,6 +119,15 @@ function sortPeriods(periods: string[]) {
   })
 }
 
+function dayRange(dateKey: string): { gte: Date; lt: Date } | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) return null
+  const start = new Date(`${dateKey}T00:00:00.000Z`)
+  if (Number.isNaN(start.getTime())) return null
+  const end = new Date(start)
+  end.setUTCDate(end.getUTCDate() + 1)
+  return { gte: start, lt: end }
+}
+
 function stripReceiptPrefix(value?: string | null) {
   return (value || '-').replace(/^RCP-/, '')
 }
@@ -269,13 +278,18 @@ export async function GET(request: NextRequest) {
     const paymentStatus = searchParams.get('paymentStatus') || ''
     const academicYear = searchParams.get('academicYear') || ''
     const page = parseInt(searchParams.get('page') || '1')
-    const limit = parseInt(searchParams.get('limit') || '20')
-    const skip = (page - 1) * limit
+    const limitParam = searchParams.get('limit') || '20'
+    const fetchAll = limitParam === 'all'
+    const parsedLimit = parseInt(limitParam)
+    const limit = Number.isFinite(parsedLimit) && parsedLimit > 0 ? parsedLimit : 20
+    const skip = fetchAll ? 0 : (page - 1) * limit
 
     const listReceipts = searchParams.get('listReceipts') === 'true'
     const search = searchParams.get('search') || ''
+    const date = searchParams.get('date') || ''
 
     if (listReceipts) {
+      const selectedDayRange = date ? dayRange(date) : null
       const where: Prisma.StudentFeeLedgerEntryWhereInput = {
         schoolId: user.schoolId,
         entryType: 'CREDIT',
@@ -283,6 +297,7 @@ export async function GET(request: NextRequest) {
         receiptNumber: { not: null },
         ...(studentId ? { studentId } : {}),
         ...(academicYear ? { academicYear } : {}),
+        ...(selectedDayRange ? { transactionDate: selectedDayRange } : {}),
       }
 
       if (search) {
@@ -334,8 +349,7 @@ export async function GET(request: NextRequest) {
             },
           },
           orderBy: [{ transactionDate: 'desc' }, { createdAt: 'desc' }],
-          skip,
-          take: limit,
+          ...(fetchAll ? {} : { skip, take: limit }),
         })
       ])
 
@@ -462,14 +476,24 @@ export async function GET(request: NextRequest) {
         receiptHistory,
         pagination: {
           page,
-          limit,
+          limit: fetchAll ? total : limit,
           total,
-          totalPages: Math.ceil(total / limit),
+          totalPages: fetchAll ? 1 : Math.ceil(total / limit),
         },
       })
     }
 
     await ensureLedgerForExistingCollections(user.schoolId, studentId || undefined, academicYear || undefined)
+
+    // Inventory-sale dues live on the student ledger but are collected from
+    // Inventory → Sales by default. They only appear here when the school opts
+    // in. (Prisma's `not` also returns NULL sourceType rows, so regular fee
+    // debits are unaffected.)
+    const schoolDuesCfg = await db.school.findUnique({
+      where: { id: user.schoolId },
+      select: { inventoryDuesOnFeePage: true },
+    })
+    const showInventoryDues = schoolDuesCfg?.inventoryDuesOnFeePage ?? false
 
     const where: Prisma.StudentFeeLedgerEntryWhereInput = {
       schoolId: user.schoolId,
@@ -477,6 +501,7 @@ export async function GET(request: NextRequest) {
       deletedAt: null,
       ...(studentId ? { studentId } : {}),
       ...(academicYear ? { academicYear } : {}),
+      ...(showInventoryDues ? {} : { sourceType: { not: 'inventory' } }),
     }
     if (paymentStatus) {
       const status = paymentStatus.toLowerCase()
@@ -892,6 +917,33 @@ export async function POST(request: NextRequest) {
     })
     if (!student) {
       return apiError(404, 'We couldn\'t find this student\'s record. They may have been removed.')
+    }
+
+    // Defense-in-depth: when the school keeps store dues inside Inventory, block
+    // collecting an inventory-sourced debit from the Collect Fee page (these
+    // entries are already hidden from the GET list in that mode).
+    const candidateEntryIds = [
+      ...(typeof ledgerEntryId === 'string' ? [ledgerEntryId] : []),
+      ...(Array.isArray(payments)
+        ? payments
+            .map((p: { ledgerEntryId?: string }) => p?.ledgerEntryId)
+            .filter((x: unknown): x is string => typeof x === 'string')
+        : []),
+    ]
+    if (candidateEntryIds.length > 0) {
+      const schoolDuesCfg = await db.school.findUnique({
+        where: { id: user.schoolId },
+        select: { inventoryDuesOnFeePage: true },
+      })
+      if (!schoolDuesCfg?.inventoryDuesOnFeePage) {
+        const inventoryEntry = await db.studentFeeLedgerEntry.findFirst({
+          where: { id: { in: candidateEntryIds }, schoolId: user.schoolId, sourceType: 'inventory' },
+          select: { id: true },
+        })
+        if (inventoryEntry) {
+          return apiError(400, 'Store dues are collected from Inventory → Sales. To collect them here, turn on “Show store dues on the Collect Fee page” in Settings.')
+        }
+      }
     }
 
     await ensureLedgerForExistingCollections(user.schoolId, studentId)

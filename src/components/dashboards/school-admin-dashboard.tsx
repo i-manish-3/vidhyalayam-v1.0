@@ -4,21 +4,15 @@ import { useEffect, useState } from 'react'
 import {
   AlertCircle,
   ArrowRight,
-  Bell,
   BookOpen,
-  Bus,
   Cake,
   Calendar,
   CalendarCheck,
   GraduationCap,
   IndianRupee,
   Layers,
-  Megaphone,
-  PlusCircle,
-  Settings,
   TrendingUp,
   Users,
-  Zap,
 } from 'lucide-react'
 import {
   Area,
@@ -38,10 +32,7 @@ import { Badge } from '@/components/ui/badge'
 import { LoadingState } from '@/components/shared'
 import { api } from '@/lib/api'
 import { useRouter } from 'next/navigation'
-import { useAppStore, type PageName } from '@/lib/store'
-import { resolveMigratedUrl } from '@/lib/migrated-routes'
 import { usePermissions } from '@/hooks/use-permissions'
-import { isPageVisible } from '@/lib/permission-mappings'
 import { cn } from '@/lib/utils'
 
 const feeTrendData = [
@@ -110,9 +101,7 @@ export function SchoolAdminDashboard() {
   const [data, setData] = useState<DashboardData | null>(null)
   const [birthdays, setBirthdays] = useState<BirthdayPerson[]>([])
   const router = useRouter()
-  const { hasPermission, permissions } = usePermissions()
-  const role = useAppStore((s) => s.user?.role || '')
-  const permissionsLoaded = useAppStore((s) => s.permissionsLoaded)
+  const { hasPermission } = usePermissions()
 
   // Widget-level access. SCHOOL_ADMIN with full permissions sees everything;
   // custom STAFF roles only see widgets they have permissions for.
@@ -121,11 +110,6 @@ export function SchoolAdminDashboard() {
   const canSeeFees = hasPermission('fees:read')
   const canSeeAttendance = hasPermission('attendance:read')
   const canSeeClasses = hasPermission('class:read')
-
-  const navigatePage = (page: PageName) => {
-    const url = resolveMigratedUrl(page)
-    if (url) router.push(url)
-  }
 
   useEffect(() => {
     async function fetchData() {
@@ -241,49 +225,10 @@ export function SchoolAdminDashboard() {
     },
   ].filter(Boolean) as MetricItem[]
 
-  const quickActions: Array<{ label: string; page: PageName; icon: React.ElementType; iconClassName: string }> = ([
-    { label: 'Students', page: 'students', icon: GraduationCap, iconClassName: 'text-cyan-600 dark:text-cyan-300' },
-    { label: 'New Admission', page: 'admission-form', icon: PlusCircle, iconClassName: 'text-emerald-600 dark:text-emerald-300' },
-    { label: 'Classes', page: 'classes', icon: Layers, iconClassName: 'text-indigo-600 dark:text-indigo-300' },
-    { label: 'Attendance', page: 'mark-attendance', icon: CalendarCheck, iconClassName: 'text-amber-600 dark:text-amber-300' },
-    { label: 'Fees', page: 'fee-collections', icon: IndianRupee, iconClassName: 'text-green-600 dark:text-green-300' },
-    { label: 'Timetable', page: 'timetable', icon: Calendar, iconClassName: 'text-sky-600 dark:text-sky-300' },
-    { label: 'Exams', page: 'exams', icon: TrendingUp, iconClassName: 'text-blue-600 dark:text-blue-300' },
-    { label: 'Transport', page: 'transport', icon: Bus, iconClassName: 'text-violet-600 dark:text-violet-300' },
-    { label: 'Staff', page: 'staff', icon: Users, iconClassName: 'text-pink-600 dark:text-pink-300' },
-    { label: 'Announcements', page: 'announcements', icon: Megaphone, iconClassName: 'text-fuchsia-600 dark:text-fuchsia-300' },
-    { label: 'Alerts', page: 'notifications', icon: Bell, iconClassName: 'text-orange-500 dark:text-orange-300' },
-    { label: 'Settings', page: 'settings', icon: Settings, iconClassName: 'text-slate-600 dark:text-slate-300' },
-  ] as const).filter((action) => isPageVisible(action.page, permissions, role, permissionsLoaded))
-
   if (loading) return <LoadingState />
 
   return (
     <div className="space-y-6">
-      <section className="overflow-hidden rounded-lg border bg-card shadow-sm">
-        <div className="px-3.5 pt-2">
-          <h2 className="flex items-center gap-2 text-sm font-semibold tracking-tight text-foreground/90">
-            <Zap className="size-3.5 text-amber-500 fill-amber-500" />
-            Quick Actions
-          </h2>
-        </div>
-        <div className="quick-actions-scrollbar overflow-x-auto px-3.5 pb-2 pt-1.5">
-          <div className="flex min-w-max items-center gap-2.5">
-            {quickActions.map((action) => (
-              <button
-                key={action.label}
-                type="button"
-                onClick={() => navigatePage(action.page)}
-                className="inline-flex h-8 shrink-0 items-center gap-2 rounded-md border bg-background px-3 text-sm font-medium text-foreground/85 shadow-xs transition-colors hover:border-primary/40 hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
-              >
-                <action.icon className={cn('size-3.5', action.iconClassName)} />
-                <span>{action.label}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      </section>
-
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {metrics.map((metric) => (
           <Card key={metric.label} className="overflow-hidden py-0">
@@ -491,7 +436,6 @@ function TodaysBirthdaysCard({ people }: { people: BirthdayPerson[] }) {
               >
                 <div className="relative size-11 shrink-0 overflow-hidden rounded-full bg-primary/10 text-primary">
                   {person.profileImage ? (
-                    // eslint-disable-next-line @next/next/no-img-element
                     <img src={person.profileImage} alt="" className="size-full object-cover" />
                   ) : (
                     <div className="flex size-full items-center justify-center text-sm font-semibold">

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Banknote, ChevronRight, Hash, ImagePlus, Loader2, Palette, Save, School, Sparkles, X } from 'lucide-react'
+import { Banknote, ChevronRight, Hash, ImagePlus, Loader2, Package, Palette, Save, School, Sparkles, X } from 'lucide-react'
 import { api } from '@/lib/api'
 import { compressImage } from '@/lib/image-compress'
 import { useAppStore, type School as SchoolInfo } from '@/lib/store'
@@ -74,6 +74,8 @@ export function SettingsPage() {
   const [admissionSamples, setAdmissionSamples] = useState({ admissionNumber: 'STD-2026-001', registrationNumber: 'REG-2026-001', employeeId: 'EMP-0001' })
   const [settingsLoading, setSettingsLoading] = useState(true)
   const [settingsSaving, setSettingsSaving] = useState(false)
+  const [inventoryDuesOnFeePage, setInventoryDuesOnFeePage] = useState<boolean>(currentSchool?.inventoryDuesOnFeePage ?? false)
+  const [savingInventoryDues, setSavingInventoryDues] = useState(false)
 
   useEffect(() => {
     if (!currentSchool || saving) return
@@ -87,8 +89,10 @@ export function SettingsPage() {
     setAffiliationNumber(currentSchool.affiliationNumber || '')
     setEstablishedYear(currentSchool.establishedYear || '')
     setPrincipalSignature(currentSchool.principalSignature || '')
+    setInventoryDuesOnFeePage(currentSchool.inventoryDuesOnFeePage ?? false)
   }, [
     currentSchool?.favicon,
+    currentSchool?.inventoryDuesOnFeePage,
     currentSchool?.affiliationNumber,
     currentSchool?.establishedYear,
     currentSchool?.logo,
@@ -232,6 +236,31 @@ export function SettingsPage() {
       })
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleToggleInventoryDues = async (checked: boolean) => {
+    const previous = inventoryDuesOnFeePage
+    setInventoryDuesOnFeePage(checked) // optimistic
+    setSavingInventoryDues(true)
+    try {
+      const res = await api.patch<{ school: SchoolInfo }>('/api/school/info', { inventoryDuesOnFeePage: checked })
+      setCurrentSchool(res.school)
+      toast({
+        title: checked ? 'Store dues will show on Collect Fee' : 'Store dues kept inside Inventory',
+        description: checked
+          ? 'Unpaid inventory-sale dues now also appear on the Collect Fee page.'
+          : 'Unpaid inventory-sale dues are collected only from Inventory → Sales.',
+      })
+    } catch (err) {
+      setInventoryDuesOnFeePage(previous) // roll back
+      toast({
+        title: "Couldn't update setting",
+        description: err instanceof Error ? err.message : 'Please try again.',
+        variant: 'destructive',
+      })
+    } finally {
+      setSavingInventoryDues(false)
     }
   }
 
@@ -814,6 +843,43 @@ export function SettingsPage() {
             </div>
             <ChevronRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
           </button>
+        </CardContent>
+      </Card>
+
+      <Card className="gap-3 py-4">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <span className="bg-brand-soft flex size-8 shrink-0 items-center justify-center rounded-lg text-white shadow-sm">
+              <Package className="size-4" />
+            </span>
+            Store / Inventory
+          </CardTitle>
+          <CardDescription>
+            Control where unpaid dues from store (inventory) sales are collected.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-start justify-between gap-4 rounded-lg border bg-card p-3">
+            <div className="space-y-0.5">
+              <Label htmlFor="inventory-dues-on-fee-page" className="text-sm font-medium">
+                Show store dues on the Collect Fee page
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                When <strong>off</strong>, a partial/unpaid store sale stays a store due, collected from
+                {' '}<strong>Inventory → Sales</strong>. When <strong>on</strong>, the same due also appears on the
+                {' '}<strong>Collect Fee</strong> page and can be collected from either place (one shared balance).
+              </p>
+            </div>
+            <div className="flex items-center gap-2 pt-0.5">
+              {savingInventoryDues && <Loader2 className="size-4 animate-spin text-muted-foreground" />}
+              <Switch
+                id="inventory-dues-on-fee-page"
+                checked={inventoryDuesOnFeePage}
+                disabled={savingInventoryDues}
+                onCheckedChange={handleToggleInventoryDues}
+              />
+            </div>
+          </div>
         </CardContent>
       </Card>
     </div>

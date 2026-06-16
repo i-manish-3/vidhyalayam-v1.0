@@ -9,7 +9,6 @@ import { LoadingState, EmptyState } from '@/components/shared'
 import { useAppStore } from '@/lib/store'
 import { api } from '@/lib/api'
 import {
-  ArrowRight,
   BookOpen,
   Calendar,
   CheckCircle2,
@@ -18,7 +17,6 @@ import {
   GraduationCap,
   IndianRupee,
   Megaphone,
-  NotebookPen,
   School,
   Sparkles,
   UsersRound,
@@ -102,35 +100,6 @@ function StatTile({
         </div>
       </CardContent>
     </Card>
-  )
-}
-
-function QuickAction({
-  label,
-  description,
-  icon: Icon,
-  onClick,
-}: {
-  label: string
-  description: string
-  icon: typeof BookOpen
-  onClick: () => void
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="group flex w-full items-center gap-3 rounded-xl border bg-card p-3 text-left transition hover:border-primary/40 hover:bg-primary/5"
-    >
-      <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-        <Icon className="size-4" />
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-semibold">{label}</span>
-        <span className="block truncate text-xs text-muted-foreground">{description}</span>
-      </span>
-      <ArrowRight className="size-4 shrink-0 text-muted-foreground transition group-hover:translate-x-0.5 group-hover:text-primary" />
-    </button>
   )
 }
 
@@ -322,19 +291,6 @@ export function TeacherDashboard() {
         </Card>
 
         <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Quick Actions</CardTitle>
-              <CardDescription>Common teacher workflows</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <QuickAction label="Mark Attendance" description="Record present, absent, or leave" icon={ClipboardList} onClick={() => router.push('/attendance/mark')} />
-              <QuickAction label="Exam Marks" description="Open exam workspace" icon={NotebookPen} onClick={() => router.push('/exams')} />
-              <QuickAction label="Timetable" description="View your daily schedule" icon={Clock} onClick={() => router.push('/academics/timetable')} />
-              <QuickAction label="Attendance Reports" description="Review student attendance" icon={BookOpen} onClick={() => router.push('/attendance/reports')} />
-            </CardContent>
-          </Card>
-
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">Salary Snapshot</CardTitle>

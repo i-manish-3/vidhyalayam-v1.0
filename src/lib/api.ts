@@ -48,12 +48,14 @@ function setCachedData(url: string, data: unknown): void {
 }
 
 function shouldCache(url: string): boolean {
-  for (const endpoint of CACHEABLE_ENDPOINTS) {
-    if (url.includes(endpoint)) {
-      return true
-    }
-  }
-  return false
+  // Match ONLY the collection endpoint itself (optionally followed by a query
+  // string), never a sub-resource like `/api/school/hostels/{id}`. Detail/edit
+  // views must always read fresh data: `clearRelatedCache` only invalidates the
+  // collection keys, so caching a detail URL here (via a loose substring match)
+  // would leave it stale after an update — e.g. editing a hostel's fee months
+  // and seeing the old value on reopen.
+  const path = url.split('?')[0]
+  return CACHEABLE_ENDPOINTS.has(path)
 }
 
 function clearRelatedCache(path: string): void {

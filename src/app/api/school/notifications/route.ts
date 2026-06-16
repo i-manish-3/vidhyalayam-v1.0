@@ -16,8 +16,12 @@ function buildExtraFilters(searchParams: URLSearchParams): Record<string, unknow
   if (priority) filters.priority = priority
   if (moduleName) filters.module = moduleName
   if (isReadFilter !== '') filters.isRead = isReadFilter === 'true'
-  // Hide archived unless explicitly requested.
-  if (searchParams.get('includeArchived') !== 'true') filters.archivedAt = null
+  if (searchParams.get('archivedOnly') === 'true') {
+    filters.archivedAt = { not: null }
+  } else if (searchParams.get('includeArchived') !== 'true') {
+    // Hide archived unless explicitly requested.
+    filters.archivedAt = null
+  }
   if (search) {
     filters.OR = [
       { title: { contains: search, mode: 'insensitive' } },

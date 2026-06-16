@@ -10,7 +10,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Receipt, Printer, Ban, Undo2, Loader2 } from 'lucide-react'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Receipt, Printer, Ban, Undo2, Loader2, IndianRupee } from 'lucide-react'
 
 interface SaleItem { id: string; itemName: string; variantLabel: string | null; quantity: number; unitPrice: number; lineTotal: number; returnedQty: number }
 interface SaleListRow {
@@ -60,6 +61,11 @@ export function InventorySalesPage() {
   const [returnMode, setReturnMode] = useState(false)
   const [returnQty, setReturnQty] = useState<Record<string, string>>({})
   const [returning, setReturning] = useState(false)
+  // Collect-due dialog state.
+  const [collectFor, setCollectFor] = useState<SaleListRow | null>(null)
+  const [collectAmount, setCollectAmount] = useState('')
+  const [collectMethod, setCollectMethod] = useState('cash')
+  const [collecting, setCollecting] = useState(false)
 
   const fetchSales = useCallback(async () => {
     try {
@@ -117,6 +123,38 @@ export function InventorySalesPage() {
     } finally { setReturning(false) }
   }
 
+  const openCollect = (s: SaleListRow) => {
+    const due = Math.max(0, (s.totalAmount || 0) - (s.amountPaid || 0))
+    setCollectFor(s)
+    setCollectAmount(due > 0 ? String(due) : '')
+    setCollectMethod('cash')
+  }
+
+  const handleCollect = async () => {
+    if (!collectFor) return
+    const due = Math.max(0, (collectFor.totalAmount || 0) - (collectFor.amountPaid || 0))
+    const amount = Number(collectAmount)
+    if (!Number.isFinite(amount) || amount <= 0) { toast({ title: 'Enter an amount to collect', variant: 'destructive' }); return }
+    if (amount > due + 0.001) { toast({ title: 'Amount exceeds the due', description: `Only ${inr(due)} is outstanding.`, variant: 'destructive' }); return }
+    try {
+      setCollecting(true)
+      const r = await api.post<{ receiptNumber: string; collected: number; dueAmount: number }>(`/api/school/inventory/sales/${collectFor.id}/collect`, {
+        amount,
+        paymentMethod: collectMethod,
+      })
+      toast({
+        title: 'Payment collected',
+        description: `Receipt #${r.receiptNumber} · ${inr(r.collected)} collected${r.dueAmount > 0 ? `, ${inr(r.dueAmount)} still due` : ' — fully paid'}.`,
+      })
+      setCollectFor(null)
+      fetchSales()
+    } catch (err) {
+      toast({ title: "Couldn't collect", description: err instanceof Error ? err.message : 'Try again.', variant: 'destructive' })
+    } finally {
+      setCollecting(false)
+    }
+  }
+
   if (loading) return <LoadingState />
 
   return (
@@ -153,7 +191,16 @@ export function InventorySalesPage() {
                     )}
                   </TableCell>
                   <TableCell>{(() => { const b = dueBadge(s); return <Badge variant="outline" className={b.cls}>{b.label}</Badge> })()}</TableCell>
-                  <TableCell><Button variant="ghost" size="sm" onClick={() => openReceipt(s.id)}><Receipt className="mr-1 size-4" />Receipt</Button></TableCell>
+                  <TableCell>
+                    <div className="flex items-center justify-end gap-1">
+                      {s.status !== 'voided' && s.totalAmount - s.amountPaid > 0.001 && (
+                        <Button variant="outline" size="sm" onClick={() => openCollect(s)}>
+                          <IndianRupee className="mr-1 size-4" />Collect Due
+                        </Button>
+                      )}
+                      <Button variant="ghost" size="sm" onClick={() => openReceipt(s.id)}><Receipt className="mr-1 size-4" />Receipt</Button>
+                    </div>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -209,7 +256,7 @@ export function InventorySalesPage() {
                   {detail.status !== 'voided' && (detail.totalAmount - detail.amountPaid > 0) && (
                     <>
                       <div className="flex justify-between"><span>Paid</span><span className="tabular-nums">{inr(detail.amountPaid)}</span></div>
-                      <div className="flex justify-between font-semibold text-amber-600"><span>Due (on fee account)</span><span className="tabular-nums">{inr(detail.totalAmount - detail.amountPaid)}</span></div>
+                      <div className="flex justify-between font-semibold text-amber-600"><span>Due</span><span className="tabular-nums">{inr(detail.totalAmount - detail.amountPaid)}</span></div>
                     </>
                   )}
                   <div className="flex justify-between"><span>Payment</span><span className="capitalize">{detail.paymentMethod}</span></div>
@@ -246,6 +293,62 @@ export function InventorySalesPage() {
               </DialogFooter>
             </>
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!collectFor} onOpenChange={(o) => !o && setCollectFor(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Collect Store Due</DialogTitle>
+            <DialogDescription>
+              {collectFor && (
+                <>Receipt #{collectFor.receiptNumber} · {collectFor.student ? `${collectFor.student.firstName} ${collectFor.student.lastName}` : 'Student'}</>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+
+          {collectFor && (() => {
+            const due = Math.max(0, (collectFor.totalAmount || 0) - (collectFor.amountPaid || 0))
+            return (
+              <div className="space-y-3 text-sm">
+                <div className="flex justify-between rounded-md bg-muted/40 px-3 py-2">
+                  <span className="text-muted-foreground">Outstanding</span>
+                  <span className="font-semibold tabular-nums text-amber-700 dark:text-amber-300">{inr(due)}</span>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="collect-amount">Amount to collect</Label>
+                  <Input
+                    id="collect-amount"
+                    type="number"
+                    min={0}
+                    max={due}
+                    value={collectAmount}
+                    onChange={(e) => setCollectAmount(e.target.value)}
+                    placeholder="0"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Payment method</Label>
+                  <Select value={collectMethod} onValueChange={setCollectMethod}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="cash">Cash</SelectItem>
+                      <SelectItem value="bank">Bank / UPI</SelectItem>
+                      <SelectItem value="adjustment">Adjustment</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            )
+          })()}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCollectFor(null)} disabled={collecting}>Cancel</Button>
+            <Button onClick={handleCollect} disabled={collecting}>
+              {collecting ? <Loader2 className="mr-1 size-4 animate-spin" /> : <IndianRupee className="mr-1 size-4" />}
+              Collect
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

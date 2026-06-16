@@ -15,7 +15,7 @@ import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Building2, Loader2, PlusCircle, X } from 'lucide-react'
+import { Building2, List, Loader2, PlusCircle, X } from 'lucide-react'
 
 interface RoomDraft {
   roomNumber: string
@@ -173,7 +173,11 @@ export function AddHostelPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Add Hostel" description={`Create a hostel with rooms and beds for ${academicYear}.`} />
+      <PageHeader
+        title="Add Hostel"
+        description={`Create a hostel with rooms and beds for ${academicYear}.`}
+        secondaryAction={{ label: 'Hostel List', icon: List, onClick: () => router.push('/hostel/hostels') }}
+      />
 
       <Card>
         <CardHeader><CardTitle>Hostel Details</CardTitle></CardHeader>

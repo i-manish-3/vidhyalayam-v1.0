@@ -2,13 +2,13 @@
 
 import { useEffect, useState } from 'react'
 import type { Dispatch, SetStateAction } from 'react'
-import { useRouter } from 'next/navigation'
 import { AlertTriangle, CalendarDays, CheckCircle2, Info, Loader2, PauseCircle, Pencil, PlusCircle, RotateCcw, ShieldCheck, Trash2 } from 'lucide-react'
 import { api } from '@/lib/api'
 import { useAppStore } from '@/lib/store'
 import { useEffectiveRole } from '@/hooks/use-effective-role'
 import { getCurrentAcademicYear, type AcademicYear } from '@/lib/academic-years'
 import { useToast } from '@/hooks/use-toast'
+import { PageHeader } from '@/components/shared'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -81,7 +81,6 @@ function ImpactCounts({ preview }: { preview: AcademicYearImpactPreview }) {
 }
 
 export function AcademicYearsPage() {
-  const router = useRouter()
   const { toast } = useToast()
   const { currentSchool, setCurrentSchool, setViewingAcademicYear, user } = useAppStore()
   const effectiveRole = useEffectiveRole()
@@ -407,18 +406,18 @@ export function AcademicYearsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-        <div className="flex min-w-0 items-start gap-3">
-          <div className="min-w-0">
-            <h1 className="text-2xl font-bold tracking-tight">Academic Years</h1>
-            <p className="text-sm text-muted-foreground">Manage current, inactive, deleted, and restored academic sessions with impact review.</p>
-          </div>
-        </div>
-        {currentAcademicYear && (
-          <Badge className="self-start" variant="secondary">Current: {currentAcademicYear.name}</Badge>
-        )}
-      </div>
+    <div className="space-y-4">
+      <PageHeader
+        title="Academic Years"
+        description="Manage current, inactive, deleted, and restored academic sessions with impact review."
+        extraActions={
+          currentAcademicYear ? (
+            <Badge variant="secondary" className="rounded-md px-2.5 py-1 text-xs">
+              Current: {currentAcademicYear.name}
+            </Badge>
+          ) : null
+        }
+      />
 
       <Card>
         <CardHeader>

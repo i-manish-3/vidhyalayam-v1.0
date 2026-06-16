@@ -65,6 +65,7 @@ export interface School {
   academicYear?: string
   board?: string
   workingDays?: string
+  inventoryDuesOnFeePage?: boolean
 }
 
 interface AuthState {

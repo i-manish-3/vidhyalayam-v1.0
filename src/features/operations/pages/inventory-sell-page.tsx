@@ -124,9 +124,9 @@ export function InventorySellPage() {
         amountPaid: collectNow,
       })
       const desc = res.dueAmount > 0
-        ? `Receipt #${res.receiptNumber} · ${inr(res.amountPaid)} collected, ${inr(res.dueAmount)} added as a due on ${student.firstName}'s fee account.`
+        ? `Receipt #${res.receiptNumber} · ${inr(res.amountPaid)} collected, ${inr(res.dueAmount)} kept as a store due for ${student.firstName}. Collect it later from Inventory → Sales.`
         : `Receipt #${res.receiptNumber} · ${inr(res.totalAmount)} collected from ${student.firstName}.`
-      toast({ title: res.dueAmount > 0 ? 'Sale completed — billed to fees' : 'Sale completed', description: desc })
+      toast({ title: res.dueAmount > 0 ? 'Sale completed — store due pending' : 'Sale completed', description: desc })
       setLastReceipt({ receiptNumber: res.receiptNumber, total: res.totalAmount, paid: res.amountPaid, due: res.dueAmount, saleId: res.saleId })
       setCart([])
       setDiscount('')
@@ -142,7 +142,7 @@ export function InventorySellPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Sell to Student" description="Sell store items to a student. Collect now, take part payment, or put it on due — unpaid amounts appear as a store due on the Collect Fee page." />
+      <PageHeader title="Sell to Student" description="Sell store items to a student. Collect now, take part payment, or put it on due — unpaid amounts become a store due, collected from Inventory → Sales (and also shown on the Collect Fee page if enabled in Settings)." />
 
       {lastReceipt && (
         <Card className={lastReceipt.due > 0 ? 'border-amber-300 bg-amber-50/50 dark:bg-amber-950/10' : 'border-emerald-300 bg-emerald-50/50 dark:bg-emerald-950/10'}>
@@ -150,16 +150,15 @@ export function InventorySellPage() {
             <div className="flex items-center gap-2 text-sm">
               <Receipt className={`size-4 ${lastReceipt.due > 0 ? 'text-amber-600' : 'text-emerald-600'}`} />
               {lastReceipt.due > 0 ? (
-                <span>Sale complete — Receipt <strong>#{lastReceipt.receiptNumber}</strong>. {inr(lastReceipt.paid)} collected, <strong>{inr(lastReceipt.due)} due</strong> on the student&apos;s fee account.</span>
+                <span>Sale complete — Receipt <strong>#{lastReceipt.receiptNumber}</strong>. {inr(lastReceipt.paid)} collected, <strong>{inr(lastReceipt.due)} store due</strong> pending. Collect it from Inventory → Sales.</span>
               ) : (
                 <span>Sale complete — Receipt <strong>#{lastReceipt.receiptNumber}</strong>, {inr(lastReceipt.total)} collected.</span>
               )}
             </div>
             <div className="flex items-center gap-2">
-              {lastReceipt.due > 0 && (
-                <Button size="sm" variant="outline" onClick={() => router.push('/fees/collections')}>Go to Collect Fee</Button>
-              )}
-              <Button size="sm" variant="outline" onClick={() => router.push('/inventory/sales')}>View in Sales History</Button>
+              <Button size="sm" variant="outline" onClick={() => router.push('/inventory/sales')}>
+                {lastReceipt.due > 0 ? 'Collect in Sales' : 'View in Sales History'}
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -257,14 +256,14 @@ export function InventorySellPage() {
               <div className="flex justify-between text-base font-semibold"><span>Total</span><span className="tabular-nums">{inr(total)}</span></div>
             </div>
 
-            {/* Settlement mode: collect in full, collect part, or bill entirely to the fee account. */}
+            {/* Settlement mode: collect in full, collect part, or leave it all as a store due. */}
             <div className="space-y-2 border-t pt-3">
               <Label>Settlement</Label>
               <div className="grid grid-cols-3 gap-1.5">
                 {([
                   { key: 'paid', label: 'Collect now', hint: 'Pay in full' },
                   { key: 'partial', label: 'Partial', hint: 'Part now' },
-                  { key: 'due', label: 'On due', hint: 'Bill to fees' },
+                  { key: 'due', label: 'On due', hint: 'Store due' },
                 ] as const).map((opt) => (
                   <button
                     key={opt.key}
@@ -287,7 +286,7 @@ export function InventorySellPage() {
 
               {dueNow > 0 && (
                 <div className="flex justify-between rounded-md bg-amber-50 px-2 py-1.5 text-sm dark:bg-amber-950/20">
-                  <span className="font-medium text-amber-800 dark:text-amber-300">Due (to fees)</span>
+                  <span className="font-medium text-amber-800 dark:text-amber-300">Store due</span>
                   <span className="font-semibold tabular-nums text-amber-800 dark:text-amber-300">{inr(dueNow)}</span>
                 </div>
               )}
@@ -310,7 +309,7 @@ export function InventorySellPage() {
             <Button className="w-full" onClick={handleCheckout} disabled={submitting || !student || cart.length === 0 || total <= 0 || (paymentMode === 'partial' && collectNow <= 0)}>
               {submitting ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Receipt className="mr-2 size-4" />}
               {paymentMode === 'due'
-                ? `Bill ${inr(total)} to Fees`
+                ? `Put ${inr(total)} on Store Due`
                 : paymentMode === 'partial'
                   ? `Collect ${inr(collectNow)} · ${inr(dueNow)} due`
                   : `Collect ${inr(total)} & Generate Receipt`}

@@ -93,6 +93,7 @@ model School {
   principalSignature String?
   features           String? // JSON string of enabled features
   workingDays        String    @default("[\"Monday\",\"Tuesday\",\"Wednesday\",\"Thursday\",\"Friday\",\"Saturday\"]") // JSON array of weekday names this school operates on
+  inventoryDuesOnFeePage Boolean @default(false) // when true, unpaid inventory-sale dues also surface on the Collect Fee page; otherwise they are collected only from Inventory → Sales
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
   deletedAt          DateTime?

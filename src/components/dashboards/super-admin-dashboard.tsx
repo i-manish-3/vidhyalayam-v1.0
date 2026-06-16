@@ -13,8 +13,8 @@ import { cn } from '@/lib/utils'
 import {
   School, CheckCircle2, Clock, Users, Building2, GraduationCap,
   ArrowRight, ArrowUpRight, ArrowDownRight, AlertTriangle, LifeBuoy,
-  Mail, ShieldCheck, KeyRound, Plus, TrendingUp,
-  Zap, type LucideIcon,
+  Mail, TrendingUp,
+  type LucideIcon,
 } from 'lucide-react'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -191,25 +191,6 @@ function ActionTile({ title, count, description, icon: Icon, tone, onClick }: Ac
   )
 }
 
-interface QuickActionProps {
-  label: string
-  icon: LucideIcon
-  onClick: () => void
-}
-
-function QuickAction({ label, icon: Icon, onClick }: QuickActionProps) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="inline-flex h-8 shrink-0 items-center gap-2 rounded-md border bg-background px-3 text-sm font-medium text-foreground/85 shadow-xs transition-colors hover:border-primary/40 hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
-    >
-      <Icon className="size-3.5 text-primary" />
-      <span>{label}</span>
-    </button>
-  )
-}
-
 // ─── Main Component ──────────────────────────────────────────────────────────
 
 export function SuperAdminDashboard() {
@@ -270,26 +251,6 @@ export function SuperAdminDashboard() {
 
   return (
     <div className="space-y-6">
-      {/* ── Quick Actions ──────────────────────────────────────────────── */}
-      <section className="overflow-hidden rounded-lg border bg-card shadow-sm">
-        <div className="px-3.5 pt-2">
-          <h2 className="flex items-center gap-2 text-sm font-semibold tracking-tight text-foreground/90">
-            <Zap className="size-3.5 text-amber-500 fill-amber-500" />
-            Quick Actions
-          </h2>
-        </div>
-        <div className="quick-actions-scrollbar overflow-x-auto px-3.5 pb-2 pt-1.5">
-          <div className="flex min-w-max items-center gap-2.5">
-            <QuickAction label="Onboard School" icon={Plus} onClick={go('add-school')} />
-            <QuickAction label="All Schools" icon={Building2} onClick={go('schools')} />
-            <QuickAction label="Manage Roles" icon={ShieldCheck} onClick={go('super-admin-roles')} />
-            <QuickAction label="Permissions" icon={KeyRound} onClick={go('super-admin-permissions')} />
-            <QuickAction label="Support" icon={LifeBuoy} onClick={go('support')} />
-            <QuickAction label="Leads" icon={Mail} onClick={go('contact-requests')} />
-          </div>
-        </div>
-      </section>
-
       {/* ── Hero KPI grid ──────────────────────────────────────────────── */}
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <HeroStat

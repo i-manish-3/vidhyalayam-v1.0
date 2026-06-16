@@ -55,6 +55,7 @@ import {
   Building2,
   UserRound,
   Users,
+  type LucideIcon,
 } from 'lucide-react'
 import { AcademicYearSwitcher } from '@/components/academic-year-switcher'
 import { ImpersonationBanner } from '@/components/super-admin/impersonation-banner'
@@ -166,6 +167,23 @@ function getAllowedPagesForRole(role: string): Set<PageName> {
   }
   return pages
 }
+
+type StickyQuickMenuLink = {
+  type: 'link'
+  label: string
+  page: PageName
+  href: string
+  icon: LucideIcon
+}
+
+type StickyQuickMenuDropdown = {
+  type: 'dropdown'
+  label: string
+  icon: LucideIcon
+  children: StickyQuickMenuLink[]
+}
+
+type StickyQuickMenuItem = StickyQuickMenuLink | StickyQuickMenuDropdown
 
 function UniversalSearch() {
   const router = useRouter()
@@ -483,40 +501,49 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   )
 
   const role = user?.role || 'SCHOOL_ADMIN'
+  const isImpersonating = role === 'SUPER_ADMIN' && !!user?.impersonatingSchoolId
+  const effectiveRole = isImpersonating ? 'SCHOOL_ADMIN' : role
+  const allowedTopMenuPages = useMemo(() => getAllowedPagesForRole(effectiveRole), [effectiveRole])
+  const hideStickyQuickMenu = pathname === '/dashboard' && (role === 'PARENT' || (role === 'SUPER_ADMIN' && !isImpersonating))
 
   const visibleItems = useMemo(() => {
-    return [
-      { label: 'Student List', page: 'students', href: '/students', icon: GraduationCap },
-      { label: 'Class List', page: 'classes', href: '/academics/classes', icon: BookOpen },
-      { label: 'Collect Fees', page: 'fee-collections', href: '/fees/collections', icon: IndianRupee },
+    const attendanceChildren: StickyQuickMenuLink[] = [
+      { type: 'link', label: 'Student', page: 'mark-attendance', href: '/attendance/mark', icon: UserRound },
+      { type: 'link', label: 'Staff', page: 'employee-attendance', href: '/attendance/staff', icon: Users },
+    ]
+    const accountReportChildren: StickyQuickMenuLink[] = [
+      { type: 'link', label: 'Fee Reports', page: 'fee-reports', href: '/fees/reports', icon: IndianRupee },
+      { type: 'link', label: 'Transport Reports', page: 'transport', href: '/transport/routes', icon: Bus },
+      { type: 'link', label: 'Hostel Reports', page: 'hostel', href: '/hostel/hostels', icon: Building2 },
+    ]
+
+    const items: StickyQuickMenuItem[] = [
+      { type: 'link', label: 'Student List', page: 'students', href: '/students', icon: GraduationCap },
+      { type: 'link', label: 'Class List', page: 'classes', href: '/academics/classes', icon: BookOpen },
+      { type: 'link', label: 'Collect Fees', page: 'fee-collections', href: '/fees/collections', icon: IndianRupee },
       {
+        type: 'dropdown',
         label: 'Attendance',
         icon: CalendarCheck,
-        isDropdown: true,
-        children: [
-          { label: 'Student', page: 'mark-attendance', href: '/attendance/mark', icon: UserRound },
-          { label: 'Staff', page: 'employee-attendance', href: '/attendance/staff', icon: Users },
-        ].filter(child => isPageVisible(child.page, permissions, role, permissionsLoaded)),
+        children: attendanceChildren.filter(child => allowedTopMenuPages.has(child.page) && isPageVisible(child.page, permissions, effectiveRole, permissionsLoaded)),
       },
-      { label: 'Inventory', page: 'inventory', href: '/inventory', icon: Package },
-      { label: 'Admission', page: 'admission-form', href: '/students/admit', icon: UserPlus },
+      { type: 'link', label: 'Inventory', page: 'inventory', href: '/inventory', icon: Package },
+      { type: 'link', label: 'Admission', page: 'admission-form', href: '/students/admit', icon: UserPlus },
       {
+        type: 'dropdown',
         label: 'Account Reports',
         icon: BarChart2,
-        isDropdown: true,
-        children: [
-          { label: 'Fee Reports', page: 'fee-reports', href: '/fees/reports', icon: IndianRupee },
-          { label: 'Transport Reports', page: 'transport', href: '/transport/routes', icon: Bus },
-          { label: 'Hostel Reports', page: 'hostel', href: '/hostel/hostels', icon: Building2 },
-        ].filter(child => isPageVisible(child.page, permissions, role, permissionsLoaded)),
+        children: accountReportChildren.filter(child => allowedTopMenuPages.has(child.page) && isPageVisible(child.page, permissions, effectiveRole, permissionsLoaded)),
       },
-    ].filter(item => {
-      if (item.isDropdown) {
+    ]
+
+    return items.filter(item => {
+      if (item.type === 'dropdown') {
         return item.children && item.children.length > 0
       }
-      return isPageVisible(item.page, permissions, role, permissionsLoaded)
+      return allowedTopMenuPages.has(item.page) && isPageVisible(item.page, permissions, effectiveRole, permissionsLoaded)
     })
-  }, [permissions, role, permissionsLoaded])
+  }, [allowedTopMenuPages, effectiveRole, permissions, permissionsLoaded])
 
   useEffect(() => {
     const root = document.documentElement
@@ -808,11 +835,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
         <main className="flex-1 min-w-0 overflow-y-auto flex flex-col bg-brand-page">
           {/* Sticky Quick Access Menubar */}
-          {visibleItems.length > 0 && (
+          {!hideStickyQuickMenu && visibleItems.length > 0 && (
             <div className="sticky top-0 z-20 shrink-0 flex items-center h-10 px-4 lg:px-6 bg-card/90 backdrop-blur-md border-b border-border/40 shadow-sm overflow-x-auto no-scrollbar">
               <div className="flex items-center gap-2 sm:gap-4 text-[13px] font-medium py-1">
                 {visibleItems.map((item) => {
-                  if (item.isDropdown) {
+                  if (item.type === 'dropdown') {
                     const isDropdownActive = item.children.some(child => pathname === child.href || pathname.startsWith(child.href + '/'))
                     return (
                       <DropdownMenu key={item.label}>

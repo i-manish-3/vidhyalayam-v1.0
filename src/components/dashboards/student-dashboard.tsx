@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { StatsCard, LoadingState } from '@/components/shared'
 import { useAppStore } from '@/lib/store'
 import { api } from '@/lib/api'
-import { ClipboardList, IndianRupee, Award, Calendar, Clock, Megaphone } from 'lucide-react'
+import { ClipboardList, IndianRupee, Award, Calendar, Megaphone } from 'lucide-react'
 
 interface StudentDashboardData {
   role: string
@@ -148,22 +148,6 @@ export function StudentDashboard() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Quick Actions</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <Button variant="outline" className="w-full justify-start gap-3 h-11" onClick={() => router.push('/attendance/me')}>
-                <ClipboardList className="size-4 text-[var(--button-primary,var(--primary))]" /> My Attendance
-              </Button>
-              <Button variant="outline" className="w-full justify-start gap-3 h-11" onClick={() => router.push('/exams/results')}>
-                <Award className="size-4 text-[var(--button-primary,var(--primary))]" /> Exam Results
-              </Button>
-              <Button variant="outline" className="w-full justify-start gap-3 h-11" onClick={() => router.push('/academics/timetable')}>
-                <Clock className="size-4 text-[var(--button-primary,var(--primary))]" /> View Timetable
-              </Button>
-            </CardContent>
-          </Card>
         </div>
       </div>
     </div>

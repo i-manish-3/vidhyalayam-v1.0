@@ -405,30 +405,31 @@ export function ChangeFeeGroupPage() {
       <PageHeader
         title="Change Fee Group"
         description="Move an unpaid student to another fee group. Switch tabs to bill a pro-rated student for the full academic year instead."
+        extraActions={
+          <Select value={academicYear} onValueChange={setAcademicYear}>
+            <SelectTrigger id="change-fee-group-year" className="h-9 w-[180px]">
+              <SelectValue placeholder="Academic year" />
+            </SelectTrigger>
+            <SelectContent>
+              {academicYearOptions.map((year) => (
+                <SelectItem key={year.value} value={year.value}>
+                  {year.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        }
+        secondaryAction={{
+          label: loading ? 'Refreshing...' : 'Refresh',
+          icon: RefreshCw,
+          iconClassName: loading ? 'animate-spin' : undefined,
+          onClick: () => void fetchData(),
+          disabled: loading,
+        }}
       />
 
-      <div className="flex flex-wrap items-center justify-end gap-3">
-        <Select value={academicYear} onValueChange={setAcademicYear}>
-          <SelectTrigger id="change-fee-group-year" className="w-[200px]">
-            <SelectValue placeholder="Academic year" />
-          </SelectTrigger>
-          <SelectContent>
-            {academicYearOptions.map((year) => (
-              <SelectItem key={year.value} value={year.value}>
-                {year.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <Button variant="outline" onClick={() => void fetchData()} disabled={loading} className="gap-2">
-          <RefreshCw className={`size-4 ${loading ? 'animate-spin' : ''}`} />
-          Refresh
-        </Button>
-      </div>
-
       <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'change' | 'full-year' | 'assign')} className="gap-4">
-        <TabsList>
+        <TabsList className="grid h-auto w-full grid-cols-1 gap-1 p-1 sm:w-auto sm:grid-cols-3">
           <TabsTrigger value="change" className="gap-1.5">
             <RefreshCw className="size-3.5" />
             Change Fee Group
@@ -445,7 +446,7 @@ export function ChangeFeeGroupPage() {
 
         <TabsContent value="change">
           <div className="space-y-4">
-            <Alert className="border-amber-500/30 bg-amber-50 text-amber-900 dark:bg-amber-950/20 dark:text-amber-200">
+            <Alert className="border-amber-500/25 bg-amber-50/70 text-amber-900 dark:bg-amber-950/20 dark:text-amber-200">
               <ShieldAlert className="size-4" />
               <AlertTitle>Only unpaid assignments are shown</AlertTitle>
               <AlertDescription>
@@ -461,56 +462,66 @@ export function ChangeFeeGroupPage() {
               <SummaryTile label="Demand" value={money(stats.totalDemand)} icon={<WalletCards className="size-4" />} />
             </div>
 
-            <div className="rounded-md border bg-background">
-              <div className="border-b p-3">
-                <div className="relative">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    value={search}
-                    onChange={(event) => setSearch(event.target.value)}
-                    placeholder="Search student, admission no, class, or group"
-                    className="pl-9"
-                  />
+            <div className="overflow-hidden rounded-md border bg-background shadow-sm">
+              <div className="border-b bg-muted/30 p-3">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                  <div>
+                    <h2 className="text-sm font-semibold">Eligible Students</h2>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      {filteredAssignments.length} of {assignments.length} students shown
+                    </p>
+                  </div>
+                  <div className="relative lg:w-[360px]">
+                    <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      value={search}
+                      onChange={(event) => setSearch(event.target.value)}
+                      placeholder="Search student, admission no, class, or group"
+                      className="h-9 pl-9"
+                    />
+                  </div>
                 </div>
               </div>
-        {loading ? (
-          <LoadingState />
-        ) : assignments.length === 0 ? (
-          <div className="p-8">
-            <EmptyState
-              icon={FileCheck2}
-              title="No Eligible Students"
-              description="There are no students with an active fee assignment and zero collected payments for this academic year."
-            />
-          </div>
-        ) : filteredAssignments.length === 0 ? (
-          <div className="flex min-h-[220px] items-center justify-center p-6 text-center">
-            <div>
-              <Search className="mx-auto mb-3 size-8 text-muted-foreground" />
-              <p className="text-sm font-medium">No matching students</p>
-              <p className="mt-1 text-xs text-muted-foreground">Try another name, admission number, class, or fee group.</p>
-            </div>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="min-w-[240px]">Student</TableHead>
-                  <TableHead>Class</TableHead>
-                  <TableHead>Current Group</TableHead>
-                  <TableHead>Billing</TableHead>
-                  <TableHead className="text-right">Demand</TableHead>
-                  <TableHead className="text-right">Action</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredAssignments.map((assignment) => {
-                  const name = studentName(assignment)
-                  const canChange = assignment.availableGroups.length > 0
+              {loading ? (
+                <LoadingState />
+              ) : assignments.length === 0 ? (
+                <div className="p-8">
+                  <EmptyState
+                    icon={FileCheck2}
+                    title="No Eligible Students"
+                    description="There are no students with an active fee assignment and zero collected payments for this academic year."
+                  />
+                </div>
+              ) : filteredAssignments.length === 0 ? (
+                <div className="flex min-h-[220px] items-center justify-center p-6 text-center">
+                  <div>
+                    <Search className="mx-auto mb-3 size-8 text-muted-foreground" />
+                    <p className="text-sm font-medium">No matching students</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Try another name, admission number, class, or fee group.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-muted/20 hover:bg-muted/20">
+                        <TableHead className="min-w-[240px] px-4 py-2.5">Student</TableHead>
+                        <TableHead className="px-4 py-2.5">Class</TableHead>
+                        <TableHead className="px-4 py-2.5">Current Group</TableHead>
+                        <TableHead className="px-4 py-2.5">Billing</TableHead>
+                        <TableHead className="px-4 py-2.5 text-right">Demand</TableHead>
+                        <TableHead className="px-4 py-2.5 text-right">Action</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredAssignments.map((assignment) => {
+                        const name = studentName(assignment)
+                        const canChange = assignment.availableGroups.length > 0
 
-                  return (
-                    <TableRow key={assignment.id}>
+                        return (
+                          <TableRow key={assignment.id}>
                       <TableCell>
                         <div className="flex items-center gap-3">
                           <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted text-xs font-semibold">
@@ -557,20 +568,20 @@ export function ChangeFeeGroupPage() {
                           <p className="mt-1 text-right text-[11px] text-muted-foreground">No alternate structure</p>
                         )}
                       </TableCell>
-                    </TableRow>
-                  )
-                })}
-              </TableBody>
-            </Table>
-          </div>
-        )}
+                          </TableRow>
+                        )
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
             </div>
           </div>
         </TabsContent>
 
         <TabsContent value="full-year">
-        <div className="rounded-md border bg-background">
-          <div className="border-b p-3">
+        <div className="overflow-hidden rounded-md border bg-background shadow-sm">
+          <div className="border-b bg-muted/30 p-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
                 <h2 className="text-sm font-semibold">Assign Full Year Fees</h2>
@@ -600,13 +611,13 @@ export function ChangeFeeGroupPage() {
           ) : (
             <div className="overflow-x-auto">
               <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="min-w-[240px]">Student</TableHead>
-                    <TableHead>Class</TableHead>
-                    <TableHead>Fee Group</TableHead>
-                    <TableHead className="text-right">Current Demand</TableHead>
-                    <TableHead className="text-right">Action</TableHead>
+                  <TableHeader>
+                  <TableRow className="bg-muted/20 hover:bg-muted/20">
+                    <TableHead className="min-w-[240px] px-4 py-2.5">Student</TableHead>
+                    <TableHead className="px-4 py-2.5">Class</TableHead>
+                    <TableHead className="px-4 py-2.5">Fee Group</TableHead>
+                    <TableHead className="px-4 py-2.5 text-right">Current Demand</TableHead>
+                    <TableHead className="px-4 py-2.5 text-right">Action</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -656,7 +667,7 @@ export function ChangeFeeGroupPage() {
 
         <TabsContent value="assign">
           <div className="space-y-4">
-            <Alert>
+            <Alert className="border-primary/20 bg-primary/5">
               <UserPlus className="size-4" />
               <AlertTitle>Assign a fee group to students without a fee demand</AlertTitle>
               <AlertDescription>
@@ -666,14 +677,14 @@ export function ChangeFeeGroupPage() {
               </AlertDescription>
             </Alert>
 
-            <div className="rounded-md border bg-background">
-              <div className="grid gap-3 border-b p-3 md:grid-cols-[1fr_1fr_auto]">
+            <div className="overflow-hidden rounded-md border bg-background shadow-sm">
+              <div className="grid gap-3 border-b bg-muted/30 p-3 md:grid-cols-[1fr_1fr_auto]">
                 <div className="space-y-1">
                   <Label htmlFor="assign-class" className="text-xs text-muted-foreground">
                     Class
                   </Label>
                   <Select value={assignClassId} onValueChange={setAssignClassId}>
-                    <SelectTrigger id="assign-class">
+                      <SelectTrigger id="assign-class" className="h-9">
                       <SelectValue placeholder="Select a class" />
                     </SelectTrigger>
                     <SelectContent>
@@ -691,7 +702,7 @@ export function ChangeFeeGroupPage() {
                     Fee Group
                   </Label>
                   <Select value={assignGroupId} onValueChange={setAssignGroupId} disabled={!assignClassId}>
-                    <SelectTrigger id="assign-group">
+                      <SelectTrigger id="assign-group" className="h-9">
                       <SelectValue placeholder={assignClassId ? 'Select a fee group' : 'Pick a class first'} />
                     </SelectTrigger>
                     <SelectContent>
@@ -709,7 +720,7 @@ export function ChangeFeeGroupPage() {
                     variant="outline"
                     onClick={() => void fetchAssignData()}
                     disabled={!assignClassId || loadingUnassigned}
-                    className="gap-2"
+                    className="h-9 gap-2"
                   >
                     <RefreshCw className={`size-4 ${loadingUnassigned ? 'animate-spin' : ''}`} />
                     Refresh
@@ -731,7 +742,7 @@ export function ChangeFeeGroupPage() {
                 <LoadingState />
               ) : assignClassId && assignGroups.length === 0 ? (
                 <div className="p-6">
-                  <Alert className="border-amber-500/30 bg-amber-50 text-amber-900 dark:bg-amber-950/20 dark:text-amber-200">
+                  <Alert className="border-amber-500/25 bg-amber-50/70 text-amber-900 dark:bg-amber-950/20 dark:text-amber-200">
                     <AlertTriangle className="size-4" />
                     <AlertTitle>No fee structure for this class</AlertTitle>
                     <AlertDescription>
@@ -755,17 +766,17 @@ export function ChangeFeeGroupPage() {
                   <div className="overflow-x-auto">
                     <Table>
                       <TableHeader>
-                        <TableRow>
-                          <TableHead className="w-12">
+                        <TableRow className="bg-muted/20 hover:bg-muted/20">
+                          <TableHead className="w-12 px-4 py-2.5">
                             <Checkbox
                               checked={allStudentsSelected}
                               onCheckedChange={toggleAllStudents}
                               aria-label="Select all students"
                             />
                           </TableHead>
-                          <TableHead className="min-w-[240px]">Student</TableHead>
-                          <TableHead>Class</TableHead>
-                          <TableHead>Roll No</TableHead>
+                          <TableHead className="min-w-[240px] px-4 py-2.5">Student</TableHead>
+                          <TableHead className="px-4 py-2.5">Class</TableHead>
+                          <TableHead className="px-4 py-2.5">Roll No</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -988,10 +999,10 @@ export function ChangeFeeGroupPage() {
 
 function SummaryTile({ label, value, icon }: { label: string; value: string | number; icon: React.ReactNode }) {
   return (
-    <div className="rounded-md border bg-background p-3">
+    <div className="rounded-md border bg-background p-3 shadow-sm">
       <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
         <span>{label}</span>
-        {icon}
+        <span className="rounded-md bg-muted/50 p-1 text-primary">{icon}</span>
       </div>
       <p className="mt-1 truncate text-lg font-semibold">{value}</p>
     </div>
@@ -1004,7 +1015,7 @@ function AssignmentSummary({ assignment }: { assignment: EligibleAssignment }) {
   return (
     <div className="rounded-md border bg-muted/20 p-3">
       <div className="flex items-start gap-3">
-        <div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-background text-xs font-semibold">
+        <div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-background text-xs font-semibold shadow-sm">
           {initials(name)}
         </div>
         <div className="min-w-0 flex-1">

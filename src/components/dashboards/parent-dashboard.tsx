@@ -19,8 +19,6 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog'
 import {
-  ArrowRight,
-  Award,
   Baby,
   CalendarCheck,
   CheckCircle2,
@@ -157,35 +155,6 @@ function StatTile({
         </div>
       </CardContent>
     </Card>
-  )
-}
-
-function QuickAction({
-  label,
-  description,
-  icon: Icon,
-  onClick,
-}: {
-  label: string
-  description: string
-  icon: LucideIcon
-  onClick: () => void
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="group flex w-full items-center gap-3 rounded-xl border bg-card p-3 text-left transition hover:border-primary/40 hover:bg-primary/5"
-    >
-      <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-        <Icon className="size-4" />
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-semibold">{label}</span>
-        <span className="block truncate text-xs text-muted-foreground">{description}</span>
-      </span>
-      <ArrowRight className="size-4 shrink-0 text-muted-foreground transition group-hover:translate-x-0.5 group-hover:text-primary" />
-    </button>
   )
 }
 
@@ -422,19 +391,6 @@ export function ParentDashboard() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Quick Actions</CardTitle>
-            <CardDescription>Common parent tasks</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <QuickAction label="Attendance" description="Review daily attendance" icon={CalendarCheck} onClick={() => router.push('/my-children/attendance')} />
-            <QuickAction label="Fee Details" description="Check dues and receipts" icon={Receipt} onClick={() => router.push('/my-children/fees')} />
-            <QuickAction label="Exams" description="Admit cards and report cards" icon={Award} onClick={() => router.push('/my-children/exams')} />
-            <QuickAction label="My Children" description="Open student profiles" icon={UsersRound} onClick={() => router.push('/my-children')} />
-          </CardContent>
-        </Card>
-
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">

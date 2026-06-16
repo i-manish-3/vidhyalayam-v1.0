@@ -9,7 +9,7 @@ const SCHOOL_SELECT = {
   establishedYear: true, principalSignature: true,
   status: true,
   academicYear: true, board: true, city: true, state: true, country: true,
-  currency: true, workingDays: true,
+  currency: true, workingDays: true, inventoryDuesOnFeePage: true,
 } as const
 
 export async function GET(request: NextRequest) {

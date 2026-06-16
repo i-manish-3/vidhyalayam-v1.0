@@ -1,7 +1,7 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { PageHeader, EmptyState, LoadingState } from '@/components/shared'
+import { useCallback, useEffect, useMemo, useState, type ElementType } from 'react'
+import { PageHeader, LoadingState } from '@/components/shared'
 import { api } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
 import { Button } from '@/components/ui/button'
@@ -10,9 +10,15 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Card, CardContent } from '@/components/ui/card'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
-import { Separator } from '@/components/ui/separator'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import {
   AlertTriangle,
   CalendarClock,
@@ -57,31 +63,28 @@ const PRIORITY_OPTIONS = [
 ]
 
 const audienceMeta: Record<string, { label: string; className: string }> = {
-  all: { label: 'Everyone', className: 'bg-teal-50 text-teal-700 border-teal-200 hover:bg-teal-50' },
-  teachers: { label: 'Teachers', className: 'bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-50' },
-  students: { label: 'Students', className: 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-50' },
-  parents: { label: 'Parents', className: 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-50' },
-  staff: { label: 'Staff', className: 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-50' },
+  all: { label: 'Everyone', className: 'border-teal-200 bg-teal-50 text-teal-700' },
+  teachers: { label: 'Teachers', className: 'border-violet-200 bg-violet-50 text-violet-700' },
+  students: { label: 'Students', className: 'border-blue-200 bg-blue-50 text-blue-700' },
+  parents: { label: 'Parents', className: 'border-amber-200 bg-amber-50 text-amber-700' },
+  staff: { label: 'Staff', className: 'border-border bg-muted/40 text-muted-foreground' },
 }
 
-const priorityMeta: Record<string, { label: string; className: string; ring: string; iconClass: string }> = {
+const priorityMeta: Record<string, { label: string; className: string; iconClass: string }> = {
   normal: {
     label: 'Normal',
-    className: 'bg-slate-100 text-slate-700 hover:bg-slate-100',
-    ring: 'border-l-slate-300',
-    iconClass: 'bg-slate-100 text-slate-600',
+    className: 'border-border bg-muted/40 text-muted-foreground',
+    iconClass: 'bg-muted text-muted-foreground',
   },
   high: {
     label: 'High',
-    className: 'bg-amber-100 text-amber-800 hover:bg-amber-100',
-    ring: 'border-l-amber-500',
-    iconClass: 'bg-amber-100 text-amber-700',
+    className: 'border-amber-200 bg-amber-50 text-amber-700',
+    iconClass: 'bg-amber-50 text-amber-700',
   },
   urgent: {
     label: 'Urgent',
-    className: 'bg-red-100 text-red-800 hover:bg-red-100',
-    ring: 'border-l-red-500',
-    iconClass: 'bg-red-100 text-red-700',
+    className: 'border-red-200 bg-red-50 text-red-700',
+    iconClass: 'bg-red-50 text-red-700',
   },
 }
 
@@ -111,14 +114,15 @@ export function AnnouncementsPage() {
     }
   }, [toast])
 
-  useEffect(() => { void fetchData() }, [fetchData])
+  useEffect(() => {
+    void fetchData()
+  }, [fetchData])
 
   const filteredAnnouncements = useMemo(() => {
     const query = search.trim().toLowerCase()
     return announcements.filter((item) => {
-      const matchesQuery = !query
-        || item.title.toLowerCase().includes(query)
-        || item.content.toLowerCase().includes(query)
+      const matchesQuery =
+        !query || item.title.toLowerCase().includes(query) || item.content.toLowerCase().includes(query)
       const matchesAudience = audienceFilter === 'all_audiences' || item.audience === audienceFilter
       const matchesPriority = priorityFilter === 'all_priorities' || item.priority === priorityFilter
       return matchesQuery && matchesAudience && matchesPriority
@@ -160,76 +164,97 @@ export function AnnouncementsPage() {
   if (loading) return <LoadingState />
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       <PageHeader
         title="Announcements"
         description="Broadcast school updates to staff, students, and parents."
         action={{ label: 'New Announcement', icon: PlusCircle, onClick: () => setShowAdd(true) }}
       />
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard label="Total announcements" value={stats.total} icon={Megaphone} tone="blue" />
-        <MetricCard label="High priority" value={stats.important} icon={AlertTriangle} tone="amber" />
-        <MetricCard label="Targeted recipients" value={stats.recipients} icon={UsersRound} tone="violet" />
-        <MetricCard label="Delivered in-app" value={stats.delivered} icon={CheckCircle2} tone="emerald" />
+      <div className="flex flex-wrap items-center gap-2 rounded-md border bg-background px-3 py-2 shadow-sm">
+        {[
+          { label: 'Total', value: stats.total.toLocaleString('en-IN') },
+          { label: 'High Priority', value: stats.important.toLocaleString('en-IN') },
+          { label: 'Recipients', value: stats.recipients.toLocaleString('en-IN') },
+          { label: 'Delivered', value: stats.delivered.toLocaleString('en-IN') },
+        ].map((item) => (
+          <div key={item.label} className="flex items-center gap-2 rounded-md bg-muted/35 px-2.5 py-1.5 text-xs">
+            <span className="text-muted-foreground">{item.label}</span>
+            <span className="font-semibold tabular-nums">{item.value}</span>
+          </div>
+        ))}
       </div>
 
-      <div className="rounded-md border bg-card p-3">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-          <div className="relative min-w-[220px] flex-1">
-            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+      <Card className="gap-0 py-0 shadow-sm">
+        <CardContent className="grid gap-3 px-4 py-3 lg:grid-cols-[minmax(240px,1fr)_180px_170px]">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Search announcements..."
-              className="pl-9"
+              className="h-9 pl-9"
             />
           </div>
           <Select value={audienceFilter} onValueChange={setAudienceFilter}>
-            <SelectTrigger className="lg:w-[170px]">
+            <SelectTrigger className="h-9">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all_audiences">All audiences</SelectItem>
               {AUDIENCE_OPTIONS.map((item) => (
-                <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                <SelectItem key={item.value} value={item.value}>
+                  {item.label}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
           <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-            <SelectTrigger className="lg:w-[160px]">
+            <SelectTrigger className="h-9">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all_priorities">All priorities</SelectItem>
               {PRIORITY_OPTIONS.map((item) => (
-                <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                <SelectItem key={item.value} value={item.value}>
+                  {item.label}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
-      {announcements.length === 0 ? (
-        <EmptyState
-          icon={Megaphone}
-          title="No announcements yet"
-          description="Create your first announcement to broadcast important school updates."
-          action={{ label: 'New Announcement', onClick: () => setShowAdd(true) }}
-        />
-      ) : filteredAnnouncements.length === 0 ? (
-        <EmptyState
-          icon={Search}
-          title="No matching announcements"
-          description="Try changing your search or filters."
-        />
-      ) : (
-        <div className="grid gap-3 xl:grid-cols-2">
-          {filteredAnnouncements.map((announcement) => (
-            <AnnouncementCard key={announcement.id} announcement={announcement} />
-          ))}
-        </div>
-      )}
+      <Card className="gap-0 overflow-hidden py-0 shadow-sm">
+        <CardHeader className="border-b bg-muted/30 px-4 py-3">
+          <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+            <Megaphone className="size-4 text-primary" />
+            Announcement Board
+            <Badge variant="secondary" className="ml-auto text-xs">
+              {filteredAnnouncements.length.toLocaleString('en-IN')} records
+            </Badge>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          {announcements.length === 0 ? (
+            <InlineEmpty
+              icon={Megaphone}
+              title="No announcements yet"
+              description="Create your first announcement to broadcast important school updates."
+              actionLabel="New Announcement"
+              onAction={() => setShowAdd(true)}
+            />
+          ) : filteredAnnouncements.length === 0 ? (
+            <InlineEmpty icon={Search} title="No matching announcements" description="Try changing your search or filters." />
+          ) : (
+            <div className="divide-y">
+              {filteredAnnouncements.map((announcement) => (
+                <AnnouncementRow key={announcement.id} announcement={announcement} />
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <Dialog open={showAdd} onOpenChange={setShowAdd}>
         <DialogContent className="max-w-2xl">
@@ -238,20 +263,23 @@ export function AnnouncementsPage() {
               <Send className="size-4 text-primary" />
               New Announcement
             </DialogTitle>
+            <DialogDescription>Send a clear update to the selected audience.</DialogDescription>
           </DialogHeader>
 
           <div className="grid gap-4 py-2">
             <div className="space-y-2">
-              <Label>Title</Label>
+              <Label htmlFor="announcement-title">Title</Label>
               <Input
+                id="announcement-title"
                 value={form.title}
                 onChange={(event) => setForm((prev) => ({ ...prev, title: event.target.value }))}
                 placeholder="Example: Parent-teacher meeting on Friday"
               />
             </div>
             <div className="space-y-2">
-              <Label>Message</Label>
+              <Label htmlFor="announcement-message">Message</Label>
               <Textarea
+                id="announcement-message"
                 value={form.content}
                 onChange={(event) => setForm((prev) => ({ ...prev, content: event.target.value }))}
                 placeholder="Write the announcement clearly..."
@@ -264,22 +292,36 @@ export function AnnouncementsPage() {
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label>Audience</Label>
-                <Select value={form.audience} onValueChange={(value) => setForm((prev) => ({ ...prev, audience: value }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                <Select
+                  value={form.audience}
+                  onValueChange={(value) => setForm((prev) => ({ ...prev, audience: value }))}
+                >
+                  <SelectTrigger className="h-9">
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
                     {AUDIENCE_OPTIONS.map((item) => (
-                      <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                      <SelectItem key={item.value} value={item.value}>
+                        {item.label}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
                 <Label>Priority</Label>
-                <Select value={form.priority} onValueChange={(value) => setForm((prev) => ({ ...prev, priority: value }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                <Select
+                  value={form.priority}
+                  onValueChange={(value) => setForm((prev) => ({ ...prev, priority: value }))}
+                >
+                  <SelectTrigger className="h-9">
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
                     {PRIORITY_OPTIONS.map((item) => (
-                      <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                      <SelectItem key={item.value} value={item.value}>
+                        {item.label}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -288,9 +330,18 @@ export function AnnouncementsPage() {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAdd(false)}>Cancel</Button>
-            <Button onClick={handleAdd} disabled={!form.title.trim() || !form.content.trim() || creating}>
-              {creating ? 'Sending...' : 'Send Announcement'}
+            <Button variant="outline" onClick={() => setShowAdd(false)}>
+              Cancel
+            </Button>
+            <Button className="gap-2" onClick={handleAdd} disabled={!form.title.trim() || !form.content.trim() || creating}>
+              {creating ? (
+                'Sending...'
+              ) : (
+                <>
+                  <Send className="size-4" />
+                  Send Announcement
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -299,7 +350,7 @@ export function AnnouncementsPage() {
   )
 }
 
-function AnnouncementCard({ announcement }: { announcement: Announcement }) {
+function AnnouncementRow({ announcement }: { announcement: Announcement }) {
   const priority = priorityMeta[announcement.priority] || priorityMeta.normal
   const audience = audienceMeta[announcement.audience] || audienceMeta.all
   const deliveryTotal = Number(announcement.recipientCount || 0)
@@ -307,83 +358,80 @@ function AnnouncementCard({ announcement }: { announcement: Announcement }) {
   const deliveryRate = deliveryTotal > 0 ? Math.round((delivered / deliveryTotal) * 100) : null
 
   return (
-    <Card className={cn('border-l-4 transition hover:border-primary/40 hover:shadow-sm', priority.ring)}>
-      <CardContent className="p-4">
-        <div className="flex gap-3">
-          <div className={cn('flex size-10 shrink-0 items-center justify-center rounded-md', priority.iconClass)}>
-            {announcement.priority === 'urgent' ? <AlertTriangle className="size-5" /> : <Megaphone className="size-5" />}
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-start justify-between gap-2">
-              <h3 className="min-w-0 text-sm font-semibold leading-5 text-foreground">
-                {announcement.title}
-              </h3>
-              <div className="flex shrink-0 flex-wrap gap-1.5">
-                <Badge className={priority.className}>{priority.label}</Badge>
-                <Badge variant="outline" className={audience.className}>{audience.label}</Badge>
-              </div>
-            </div>
-
-            <p className="mt-2 line-clamp-3 text-sm leading-6 text-muted-foreground">
-              {announcement.content}
-            </p>
-
-            <Separator className="my-3" />
-
-            <div className="grid gap-2 text-xs text-muted-foreground sm:grid-cols-3">
-              <MetaItem icon={Clock3} label="Created" value={formatDateTime(announcement.createdAt)} />
-              <MetaItem
-                icon={CalendarClock}
-                label={announcement.sentAt ? 'Sent' : announcement.scheduledAt ? 'Scheduled' : 'Status'}
-                value={announcement.sentAt ? formatDateTime(announcement.sentAt) : announcement.scheduledAt ? formatDateTime(announcement.scheduledAt) : statusLabel(announcement.status)}
-              />
-              <MetaItem
-                icon={UserRoundCheck}
-                label="Delivery"
-                value={deliveryRate === null ? 'Pending' : `${delivered}/${deliveryTotal} (${deliveryRate}%)`}
-              />
-            </div>
-          </div>
+    <div className="flex items-start gap-3 px-4 py-3 transition-colors hover:bg-muted/30">
+      <span className={cn('flex size-9 shrink-0 items-center justify-center rounded-md', priority.iconClass)}>
+        {announcement.priority === 'urgent' ? <AlertTriangle className="size-4" /> : <Megaphone className="size-4" />}
+      </span>
+      <div className="min-w-0 flex-1 space-y-2">
+        <div className="flex flex-wrap items-start gap-2">
+          <h3 className="min-w-[180px] flex-1 text-sm font-semibold leading-5">{announcement.title}</h3>
+          <Badge variant="outline" className={priority.className}>
+            {priority.label}
+          </Badge>
+          <Badge variant="outline" className={audience.className}>
+            {audience.label}
+          </Badge>
         </div>
-      </CardContent>
-    </Card>
+
+        <p className="line-clamp-2 text-sm leading-6 text-muted-foreground">{announcement.content}</p>
+
+        <div className="grid gap-2 text-xs text-muted-foreground sm:grid-cols-3">
+          <MetaItem icon={Clock3} label="Created" value={formatDateTime(announcement.createdAt)} />
+          <MetaItem
+            icon={CalendarClock}
+            label={announcement.sentAt ? 'Sent' : announcement.scheduledAt ? 'Scheduled' : 'Status'}
+            value={
+              announcement.sentAt
+                ? formatDateTime(announcement.sentAt)
+                : announcement.scheduledAt
+                  ? formatDateTime(announcement.scheduledAt)
+                  : statusLabel(announcement.status)
+            }
+          />
+          <MetaItem
+            icon={UserRoundCheck}
+            label="Delivery"
+            value={deliveryRate === null ? 'Pending' : `${delivered}/${deliveryTotal} (${deliveryRate}%)`}
+          />
+        </div>
+      </div>
+    </div>
   )
 }
 
-function MetricCard({
-  label,
-  value,
+function InlineEmpty({
   icon: Icon,
-  tone,
+  title,
+  description,
+  actionLabel,
+  onAction,
 }: {
-  label: string
-  value: number
-  icon: React.ElementType
-  tone: 'blue' | 'amber' | 'violet' | 'emerald'
+  icon: ElementType
+  title: string
+  description: string
+  actionLabel?: string
+  onAction?: () => void
 }) {
-  const toneClass = {
-    blue: 'bg-blue-50 text-blue-700',
-    amber: 'bg-amber-50 text-amber-700',
-    violet: 'bg-violet-50 text-violet-700',
-    emerald: 'bg-emerald-50 text-emerald-700',
-  }[tone]
-
   return (
-    <Card>
-      <CardContent className="flex items-center justify-between gap-3 p-4">
-        <div>
-          <p className="text-xs font-medium text-muted-foreground">{label}</p>
-          <p className="mt-1 text-2xl font-semibold tabular-nums">{value.toLocaleString('en-IN')}</p>
-        </div>
-        <div className={cn('flex size-10 items-center justify-center rounded-md', toneClass)}>
-          <Icon className="size-5" />
-        </div>
-      </CardContent>
-    </Card>
+    <div className="flex flex-col items-center gap-3 px-4 py-12 text-center">
+      <span className="flex size-11 items-center justify-center rounded-md bg-primary/10 text-primary">
+        <Icon className="size-5" />
+      </span>
+      <div>
+        <h3 className="text-sm font-semibold">{title}</h3>
+        <p className="mt-1 max-w-sm text-sm text-muted-foreground">{description}</p>
+      </div>
+      {actionLabel && onAction && (
+        <Button size="sm" onClick={onAction}>
+          <PlusCircle className="size-4" />
+          {actionLabel}
+        </Button>
+      )}
+    </div>
   )
 }
 
-function MetaItem({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value: string }) {
+function MetaItem({ icon: Icon, label, value }: { icon: ElementType; label: string; value: string }) {
   return (
     <div className="flex min-w-0 items-center gap-2">
       <Icon className="size-3.5 shrink-0" />
@@ -405,5 +453,8 @@ function formatDateTime(value?: string | null) {
 
 function statusLabel(status?: string) {
   if (!status) return 'Sent'
-  return status.split('_').map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(' ')
+  return status
+    .split('_')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ')
 }

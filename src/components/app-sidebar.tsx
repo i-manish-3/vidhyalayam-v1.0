@@ -84,6 +84,22 @@ export interface MenuItem {
 
 type SidebarMenuEntry = MenuItem | MenuChild
 
+const PREFERRED_MENU_ORDER = new Map<string, number>([
+  ['Dashboard', 0],
+  ['Students', 1],
+  ['Academics', 2],
+  ['Fees', 3],
+  ['Transport', 4],
+  ['Hostel', 5],
+  ['Exams', 6],
+  ['Inventory', 7],
+  ['Teachers', 8],
+  ['Staff', 9],
+  ['Salary', 10],
+  ['Parents', 11],
+  ['Library', 12],
+])
+
 export const MENUS: Record<string, MenuItem[]> = {
   SUPER_ADMIN: [
     { label: 'Dashboard', page: 'dashboard', icon: LayoutDashboard },
@@ -500,6 +516,17 @@ function filterChildren(children: MenuChild[], permissions: string[], role: stri
     })
 }
 
+function orderTopLevelMenus(items: MenuItem[]): MenuItem[] {
+  return items
+    .map((item, index) => ({
+      item,
+      index,
+      order: PREFERRED_MENU_ORDER.get(item.label) ?? Number.MAX_SAFE_INTEGER,
+    }))
+    .sort((a, b) => a.order - b.order || a.index - b.index)
+    .map(({ item }) => item)
+}
+
 function getSidebarItemKey(item: SidebarMenuEntry, parentKey = ''): string {
   return `${parentKey}/${item.label}-${item.page}`
 }
@@ -546,7 +573,7 @@ export function AppSidebar() {
     if (!MENUS[effectiveRole]) {
       console.warn(`No menu configuration found for role: ${effectiveRole}, falling back to SCHOOL_ADMIN`)
     }
-    return roleMenus.filter(item => {
+    const visibleMenus = roleMenus.filter(item => {
       if (effectiveRole === 'SUPER_ADMIN') return true
       if (item.children && item.children.length > 0) {
         return collectPages(item).some(p => isPageVisible(p, permissions, effectiveRole, permissionsLoaded))
@@ -558,6 +585,8 @@ export function AppSidebar() {
       }
       return item
     })
+
+    return orderTopLevelMenus(visibleMenus)
   }, [effectiveRole, permissions, permissionsLoaded])
 
   const isCollapsed = sidebarCollapsed
