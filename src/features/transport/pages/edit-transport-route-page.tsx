@@ -49,16 +49,27 @@ interface TransportRouteStop {
   fare?: number
 }
 
-const FEE_MONTH_OPTIONS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+const FEE_MONTH_OPTIONS = ['Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar']
 const NO_DRIVER_VALUE = '__none__'
+
+function sortAcademicMonths(months: string[]): string[] {
+  return [...months].sort((a, b) => {
+    const ai = FEE_MONTH_OPTIONS.findIndex((month) => month.toLowerCase() === a.toLowerCase())
+    const bi = FEE_MONTH_OPTIONS.findIndex((month) => month.toLowerCase() === b.toLowerCase())
+    if (ai === -1 && bi === -1) return a.localeCompare(b)
+    if (ai === -1) return 1
+    if (bi === -1) return -1
+    return ai - bi
+  })
+}
 
 function parseFeeMonths(value: string | null | undefined): string[] {
   if (!value) return []
   try {
     const parsed = JSON.parse(value)
-    return Array.isArray(parsed) ? parsed.filter((month): month is string => typeof month === 'string' && !!month.trim()) : []
+    return Array.isArray(parsed) ? sortAcademicMonths(parsed.filter((month): month is string => typeof month === 'string' && !!month.trim())) : []
   } catch {
-    return value.split(',').map(month => month.trim()).filter(Boolean)
+    return sortAcademicMonths(value.split(',').map(month => month.trim()).filter(Boolean))
   }
 }
 
@@ -201,7 +212,7 @@ export function EditTransportRoutePage({ routeId }: { routeId: string }) {
     setFeeMonths((current) =>
       current.includes(month)
         ? current.filter((item) => item !== month)
-        : [...current, month]
+        : sortAcademicMonths([...current, month])
     )
   }
 

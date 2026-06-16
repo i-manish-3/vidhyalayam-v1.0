@@ -109,6 +109,43 @@ function formatINR(n: number): string {
   return n.toLocaleString('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 })
 }
 
+const AY_MONTHS = ['Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar']
+
+function sortAcademicMonths(months: string[]): string[] {
+  return [...months].sort((a, b) => {
+    const ai = AY_MONTHS.findIndex((month) => month.toLowerCase() === a.toLowerCase())
+    const bi = AY_MONTHS.findIndex((month) => month.toLowerCase() === b.toLowerCase())
+    if (ai === -1 && bi === -1) return a.localeCompare(b)
+    if (ai === -1) return 1
+    if (bi === -1) return -1
+    return ai - bi
+  })
+}
+
+function BillingMonthSequence({
+  billableMonths,
+  droppedMonths,
+}: {
+  billableMonths: string[]
+  droppedMonths: string[]
+}) {
+  const dropped = new Set(droppedMonths.map((month) => month.toLowerCase()))
+  const months = sortAcademicMonths(Array.from(new Set([...billableMonths, ...droppedMonths])))
+
+  if (months.length === 0) return <>-</>
+
+  return (
+    <>
+      {months.map((month, index) => (
+        <span key={month} className={dropped.has(month.toLowerCase()) ? 'line-through opacity-70' : undefined}>
+          {index > 0 ? ', ' : ''}
+          {month}
+        </span>
+      ))}
+    </>
+  )
+}
+
 function todayISO(): string {
   return new Date().toISOString().slice(0, 10)
 }
@@ -818,13 +855,7 @@ function TransportPreviewPanel({
           </div>
           <div className="rounded-md border bg-muted/20 p-3 text-xs text-muted-foreground">
             <span className="font-medium">Billing:</span>{' '}
-            {preview.billableMonths.join(', ') || '—'}
-            {preview.droppedMonths.length > 0 && (
-              <>
-                {' · '}
-                <span className="line-through opacity-70">{preview.droppedMonths.join(', ')}</span>
-              </>
-            )}
+            <BillingMonthSequence billableMonths={preview.billableMonths} droppedMonths={preview.droppedMonths} />
           </div>
         </>
       )}
@@ -1846,13 +1877,7 @@ function HostelPreviewPanel({
           </div>
           <div className="mt-2 text-[11px] text-muted-foreground">
             <span className="font-medium">Billing:</span>{' '}
-            {preview.billableMonths.join(', ') || '—'}
-            {preview.droppedMonths.length > 0 && (
-              <>
-                {' · '}
-                <span className="line-through opacity-70">{preview.droppedMonths.join(', ')}</span>
-              </>
-            )}
+            <BillingMonthSequence billableMonths={preview.billableMonths} droppedMonths={preview.droppedMonths} />
           </div>
         </>
       )}

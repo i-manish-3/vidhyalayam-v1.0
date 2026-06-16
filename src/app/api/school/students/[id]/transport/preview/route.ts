@@ -36,6 +36,16 @@ function parseFeeMonths(value: string | null | undefined): string[] {
     return value.split(',').map((m) => m.trim()).filter(Boolean)
   }
 }
+function sortAcademicMonths(months: string[]): string[] {
+  return [...months].sort((a, b) => {
+    const ai = AY_MONTHS.findIndex((m) => m.toLowerCase() === a.toLowerCase())
+    const bi = AY_MONTHS.findIndex((m) => m.toLowerCase() === b.toLowerCase())
+    if (ai === -1 && bi === -1) return a.localeCompare(b)
+    if (ai === -1) return 1
+    if (bi === -1) return -1
+    return ai - bi
+  })
+}
 
 export async function POST(
   request: NextRequest,
@@ -106,7 +116,7 @@ export async function POST(
       })
     }
 
-    const allMonths = parseFeeMonths(fareInfo.feeMonths)
+    const allMonths = sortAcademicMonths(parseFeeMonths(fareInfo.feeMonths))
     const [startYearStr] = academicYear.split('-')
     const startYear = Number(startYearStr)
     const effYM = effectiveFrom.getUTCFullYear() * 12 + effectiveFrom.getUTCMonth()

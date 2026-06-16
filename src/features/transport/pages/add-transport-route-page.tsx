@@ -28,7 +28,18 @@ interface RouteStop {
   fare: string
 }
 
-const FEE_MONTH_OPTIONS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+const FEE_MONTH_OPTIONS = ['Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar']
+
+function sortAcademicMonths(months: string[]): string[] {
+  return [...months].sort((a, b) => {
+    const ai = FEE_MONTH_OPTIONS.findIndex((month) => month.toLowerCase() === a.toLowerCase())
+    const bi = FEE_MONTH_OPTIONS.findIndex((month) => month.toLowerCase() === b.toLowerCase())
+    if (ai === -1 && bi === -1) return a.localeCompare(b)
+    if (ai === -1) return 1
+    if (bi === -1) return -1
+    return ai - bi
+  })
+}
 
 export function AddTransportRoutePage() {
   const { toast } = useToast()
@@ -81,7 +92,7 @@ export function AddTransportRoutePage() {
     setFeeMonths((current) =>
       current.includes(month)
         ? current.filter((item) => item !== month)
-        : [...current, month]
+        : sortAcademicMonths([...current, month])
     )
   }
 

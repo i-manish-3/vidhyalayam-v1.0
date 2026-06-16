@@ -39,6 +39,19 @@ interface TransportStop {
   fare?: number
 }
 
+const FEE_MONTH_OPTIONS = ['Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar']
+
+function sortAcademicMonths(months: string[]): string[] {
+  return [...months].sort((a, b) => {
+    const ai = FEE_MONTH_OPTIONS.findIndex((month) => month.toLowerCase() === a.toLowerCase())
+    const bi = FEE_MONTH_OPTIONS.findIndex((month) => month.toLowerCase() === b.toLowerCase())
+    if (ai === -1 && bi === -1) return a.localeCompare(b)
+    if (ai === -1) return 1
+    if (bi === -1) return -1
+    return ai - bi
+  })
+}
+
 interface TransportDriver {
   id: string
   name: string
@@ -138,9 +151,9 @@ export function TransportPage() {
     if (!value) return []
     try {
       const parsed = JSON.parse(value)
-      return Array.isArray(parsed) ? parsed.filter((month): month is string => typeof month === 'string' && !!month.trim()) : []
+      return Array.isArray(parsed) ? sortAcademicMonths(parsed.filter((month): month is string => typeof month === 'string' && !!month.trim())) : []
     } catch {
-      return value.split(',').map(month => month.trim()).filter(Boolean)
+      return sortAcademicMonths(value.split(',').map(month => month.trim()).filter(Boolean))
     }
   }
 

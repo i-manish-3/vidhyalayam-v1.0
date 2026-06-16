@@ -62,6 +62,16 @@ function parseFeeMonths(value: string | null | undefined): string[] {
     return value.split(',').map((m) => m.trim()).filter(Boolean)
   }
 }
+function sortAcademicMonths(months: string[]): string[] {
+  return [...months].sort((a, b) => {
+    const ai = AY_MONTHS.findIndex((m) => m.toLowerCase() === a.toLowerCase())
+    const bi = AY_MONTHS.findIndex((m) => m.toLowerCase() === b.toLowerCase())
+    if (ai === -1 && bi === -1) return a.localeCompare(b)
+    if (ai === -1) return 1
+    if (bi === -1) return -1
+    return ai - bi
+  })
+}
 
 async function resolveStopFare(
   schoolId: string,
@@ -142,7 +152,7 @@ export async function POST(
       return apiError(400, 'No fare configured for this route+stop in the current academic year')
     }
 
-    const allMonths = parseFeeMonths(fareInfo.feeMonths)
+    const allMonths = sortAcademicMonths(parseFeeMonths(fareInfo.feeMonths))
     if (allMonths.length === 0) {
       return apiError(400, 'Route has no fee months configured')
     }
