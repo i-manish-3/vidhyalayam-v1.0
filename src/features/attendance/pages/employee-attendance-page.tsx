@@ -576,9 +576,7 @@ export function EmployeeAttendancePage() {
                                   : 'border-transparent bg-background text-muted-foreground hover:border-border hover:bg-muted',
                             )}
                           >
-                            <cfg.icon className="size-3.5" />
-                            <span className="hidden lg:inline">{cfg.label}</span>
-                            <span className="lg:hidden">{cfg.shortLabel}</span>
+                            <span>{cfg.label}</span>
                           </button>
                         )
                       })}

@@ -1097,9 +1097,7 @@ export function AttendancePage() {
                                         : 'bg-background text-muted-foreground border-transparent hover:bg-muted hover:border-border',
                                   )}
                                 >
-                                  <cfg.icon className="size-3.5" strokeWidth={isActive ? 2.5 : 2} />
-                                  <span className="hidden lg:inline">{cfg.label}</span>
-                                  <span className="lg:hidden">{cfg.shortLabel}</span>
+                                  <span>{cfg.label}</span>
                                 </button>
                               )
                             },

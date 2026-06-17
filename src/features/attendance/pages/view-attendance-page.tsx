@@ -775,7 +775,7 @@ export function ViewAttendancePage() {
                         key={record.id}
                         className={cn(
                           'px-3 py-3 transition-colors hover:bg-muted/20 sm:px-5 md:flex md:items-center md:gap-3 md:py-2.5',
-                          record.status !== 'present' && statusConfig.bgColor,
+                          statusConfig.bgColor,
                         )}
                       >
                         <div className="flex min-w-0 items-center gap-3 md:flex-1">
@@ -823,7 +823,6 @@ export function ViewAttendancePage() {
                             statusConfig.bgColor,
                             statusConfig.textColor,
                           )}>
-                            <statusConfig.icon className="size-3" />
                             {statusConfig.label}
                           </div>
 
