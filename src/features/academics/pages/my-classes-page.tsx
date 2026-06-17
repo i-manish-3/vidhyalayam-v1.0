@@ -7,6 +7,7 @@ import { api } from '@/lib/api'
 import { getCurrentAcademicYear } from '@/lib/academic-years'
 import { useAppStore } from '@/lib/store'
 import { parseWorkingDays } from '@/lib/weekdays'
+import { openTimetablePrint } from '@/features/academics/lib/timetable-print'
 import { useToast } from '@/hooks/use-toast'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -27,6 +28,7 @@ import {
   ClipboardCheck,
   ClipboardList,
   Star,
+  Printer,
 } from 'lucide-react'
 
 const SUBJECT_TYPES = [
@@ -207,6 +209,18 @@ export function MyClassesPage() {
     () => timetableClass?.sections.find((section) => section.id === selectedTimetableSectionId) || null,
     [selectedTimetableSectionId, timetableClass]
   )
+
+  const handlePrintTimetable = () => {
+    if (!timetableClass || timetableEntries.length === 0) return
+    openTimetablePrint({
+      title: `${timetableClass.name || 'Class'}${selectedTimetableSection ? ` - Section ${selectedTimetableSection.name}` : ''} Timetable`,
+      subtitle: `${academicYear} session`,
+      days: DAYS,
+      periodConfigs,
+      entries: timetableEntries,
+      currentTeacherId: teacherId,
+    })
+  }
 
   const timetablePeriods = useMemo(() => {
     const configured = periodConfigs
@@ -513,18 +527,31 @@ export function MyClassesPage() {
                       {timetableEntries.length} scheduled period{timetableEntries.length !== 1 ? 's' : ''}
                     </p>
                   </div>
-                  <Select value={selectedTimetableSectionId} onValueChange={setSelectedTimetableSectionId}>
-                    <SelectTrigger className="h-9 w-full sm:w-48">
-                      <SelectValue placeholder="Select section" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {timetableClass.sections.map((section) => (
-                        <SelectItem key={section.id} value={section.id}>
-                          Section {section.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-9 gap-1.5"
+                      onClick={handlePrintTimetable}
+                      disabled={loadingTimetable || timetableEntries.length === 0}
+                    >
+                      <Printer className="size-3.5" />
+                      Print / PDF
+                    </Button>
+                    <Select value={selectedTimetableSectionId} onValueChange={setSelectedTimetableSectionId}>
+                      <SelectTrigger className="h-9 w-full sm:w-48">
+                        <SelectValue placeholder="Select section" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {timetableClass.sections.map((section) => (
+                          <SelectItem key={section.id} value={section.id}>
+                            Section {section.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
 
                 {loadingTimetable ? (

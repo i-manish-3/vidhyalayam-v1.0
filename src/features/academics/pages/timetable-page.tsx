@@ -21,6 +21,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { PageHeader } from '@/components/shared'
+import { openTimetablePrint } from '@/features/academics/lib/timetable-print'
 import {
   Dialog,
   DialogContent,
@@ -44,6 +45,7 @@ import {
   Pencil,
   ChevronDown,
   Clock,
+  Printer,
   GraduationCap,
   Users,
   X,
@@ -453,6 +455,26 @@ export function TimetablePage() {
   const totalEntries = filtered.length
   const uniqueSubjects = new Set(filtered.map(e => e.subjectId)).size
   const uniqueTeachers = new Set(filtered.map(e => e.teacherId)).size
+  const selectedClass = classes.find((item) => item.id === filterClass)
+  const selectedSection = sections.find((item) => item.id === filterSection)
+  const selectedTeacher = isTeacherRole ? ownTeacher : teachers.find((item) => item.id === filterTeacher)
+  const canPrintTimetable = (viewMode === 'class' ? !!filterClass : !!filterTeacher) && filtered.length > 0
+  const printTitle = viewMode === 'class'
+    ? `${selectedClass?.name || 'Class'}${selectedSection ? ` - Section ${selectedSection.name}` : ''} Timetable`
+    : `${selectedTeacher ? `${selectedTeacher.firstName} ${selectedTeacher.lastName}`.trim() : 'Teacher'} Timetable`
+  const printSubtitle = `${academicYear} session`
+
+  const handlePrintTimetable = () => {
+    openTimetablePrint({
+      title: printTitle,
+      subtitle: printSubtitle,
+      days: DAYS,
+      periodConfigs,
+      entries: filtered,
+      currentTeacherId: isTeacherRole ? ownTeacher?.id ?? null : null,
+      showSection: viewMode === 'teacher',
+    })
+  }
 
   // ── Loading state ──
   if (loading) {
@@ -475,6 +497,12 @@ export function TimetablePage() {
         description="Manage weekly class schedules and period allocations"
         action={canCreate ? { label: 'Add Entry', icon: PlusCircle, onClick: () => { resetForm(); setEditEntry(null); setShowAdd(true) } } : undefined}
         secondaryAction={canUpdate ? { label: 'Period Settings', icon: Settings2, onClick: openPeriodSettings } : undefined}
+        extraActions={canPrintTimetable ? (
+          <Button variant="outline" onClick={handlePrintTimetable} className="gap-2">
+            <Printer className="size-4" />
+            Print / PDF
+          </Button>
+        ) : undefined}
       />
 
       {/* View Mode & Filters */}
