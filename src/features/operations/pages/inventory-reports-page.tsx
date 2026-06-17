@@ -91,7 +91,7 @@ export function InventoryReportsPage() {
               <p className="text-sm text-muted-foreground">All items are above their reorder level.</p>
             ) : (
               <Table>
-                <TableHeader><TableRow><TableHead>Item</TableHead><TableHead className="text-right">On hand</TableHead><TableHead className="text-right">Reorder at</TableHead></TableRow></TableHeader>
+                <TableHeader><TableRow><TableHead>Item</TableHead><TableHead className="text-right">Current Stock</TableHead><TableHead className="text-right">Low Stock Alert</TableHead></TableRow></TableHeader>
                 <TableBody>
                   {data!.lowStock.map((l) => (
                     <TableRow key={l.id}>

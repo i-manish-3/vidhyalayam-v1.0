@@ -11,6 +11,9 @@ function round2(n: number): number {
   return Math.round((n + Number.EPSILON) * 100) / 100
 }
 
+// Thrown inside the txn for a stale/invalid return (re-checked under the lock).
+class ReturnValidationError extends Error {}
+
 // POST /api/school/inventory/sales/[id]/return
 // Partial (or full) return against a completed sale. Restocks the returned
 // quantities and records a return with a refund amount. Following the app's
@@ -48,11 +51,24 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }
 
     const result = await db.$transaction(async (tx) => {
+      // Serialize concurrent returns/voids on this student and re-read each line's
+      // returnedQty UNDER the lock, so two parallel returns can't both pass the
+      // "remaining" check against a stale value and over-return.
+      await tx.$queryRaw`SELECT id FROM "Student" WHERE id = ${sale.studentId} FOR UPDATE`
+      const freshItems = await tx.inventorySaleItem.findMany({ where: { saleId: sale.id } })
+      const freshById = new Map(freshItems.map((i) => [i.id, i]))
+      for (const r of requested) {
+        const line = freshById.get(r.saleItemId)
+        if (!line) throw new ReturnValidationError('A returned line does not belong to this sale.')
+        const remaining = line.quantity - line.returnedQty
+        if (r.quantity > remaining) throw new ReturnValidationError(`Cannot return ${r.quantity} of "${line.itemName}" — only ${remaining} remain.`)
+      }
+
       let refundAmount = 0
       const returnedSnapshot: Array<{ saleItemId: string; itemName: string; quantity: number; refund: number }> = []
 
       for (const r of requested) {
-        const line = itemById.get(r.saleItemId)!
+        const line = freshById.get(r.saleItemId)!
         const refund = round2(line.unitPrice * r.quantity)
         refundAmount = round2(refundAmount + refund)
 
@@ -109,6 +125,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       }
       const cashRefund = round2(refundAmount - ledgerReduction)
 
+      // Persist the refund breakdown on the return record so it stays visible and
+      // the owed cash can be tracked/settled later. pending only when cash is owed.
+      await tx.inventorySaleReturn.update({
+        where: { id: ret.id },
+        data: { ledgerReduction, cashRefund, refundStatus: cashRefund > 0 ? 'pending' : 'none' },
+      })
+
       // If every line is now fully returned, flag the sale as voided-by-return.
       const refreshed = await tx.inventorySaleItem.findMany({ where: { saleId: sale.id }, select: { quantity: true, returnedQty: true } })
       const fullyReturned = refreshed.every((l) => l.returnedQty >= l.quantity)
@@ -138,6 +161,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       message: parts.join(' '),
     })
   } catch (error) {
+    if (error instanceof ReturnValidationError) {
+      return apiError(400, error.message)
+    }
     console.error('Inventory sale return error:', error)
     return internalError('processing the return')
   }

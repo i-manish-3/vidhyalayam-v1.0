@@ -57,6 +57,16 @@ export interface ApplyWindowArgs {
   performedBy?: string | null
   cascadeFromWithdrawal?: boolean
   mode: WindowMode
+  /**
+   * When set (transport/hostel discontinue with the refund box ticked), the
+   * already-PAID future items are ALSO cancelled and their payments freed:
+   *   - 'advance': the freed payment is returned onto the student's fee account
+   *     as a usable advance credit (visible on Collect Fee → Available Advance).
+   *   - 'cash': the payment is NOT left as advance — it becomes a cash refund the
+   *     school hands back (tracked on the Transport/Hostel event as pending).
+   * Omitted for academic / TC closes, which keep paid items frozen as before.
+   */
+  refund?: { mode: 'advance' | 'cash' }
 }
 
 export interface CancelledItem {
@@ -82,6 +92,12 @@ export interface WindowChangeResult {
   totalRefundable: number
   /** Cancelled DEBIT ledger entry IDs — useful for downstream cascade reporting. */
   cancelledDebitIds: string[]
+  // Set only when args.refund was provided (paid items were refunded, not frozen).
+  refundMode?: 'advance' | 'cash' | null
+  /** Total payment freed from the paid items (advance + cash). */
+  refundedTotal: number
+  /** Portion of refundedTotal owed back as physical cash (cash mode only). */
+  cashRefundTotal: number
 }
 
 /**
@@ -548,6 +564,9 @@ async function runCancellation(ctx: CancellationContext): Promise<WindowChangeRe
       skippedDueToAllocations: [],
       totalRefundable: 0,
       cancelledDebitIds: [],
+      refundMode: args.refund?.mode ?? null,
+      refundedTotal: 0,
+      cashRefundTotal: 0,
     }
   }
 
@@ -585,9 +604,68 @@ async function runCancellation(ctx: CancellationContext): Promise<WindowChangeRe
   const cancelledAmount = round2(cancelledItems.reduce((s, i) => s + i.amount, 0))
   const totalRefundable = round2(skippedDueToAllocations.reduce((s, i) => s + i.refundable, 0))
 
+  // When refunding (transport/hostel discontinue with the box ticked), the PAID
+  // items are also cancelled and their payments freed. For transport/hostel the
+  // candidate item id IS the DEBIT ledger entry id, so we can reverse allocations
+  // by debitEntryId directly. (Academic/TC never pass `refund` — paid items there
+  // stay frozen exactly as before.)
+  const refundMode = args.refund?.mode ?? null
+  let refundedTotal = 0
+  let cashRefundTotal = 0
+
   let cancelledDebitIds: string[] = []
   if (mode === 'commit' && eligibleIds.length > 0) {
     cancelledDebitIds = await cancelItem(eligibleIds)
+  }
+
+  if (mode === 'commit' && refundMode && skippedDueToAllocations.length > 0) {
+    const { tx, scope: sc } = args
+    const paidDebitIds = skippedDueToAllocations.map((s) => s.itemId)
+    // Only true payments (entryType CREDIT) are refundable. Waivers
+    // (discount/concession/scholarship) are not money the student paid, so they
+    // must never be turned into an advance or a cash refund — exclude them.
+    const allocations = await tx.studentFeeLedgerAllocation.findMany({
+      where: {
+        debitEntryId: { in: paidDebitIds },
+        deletedAt: null,
+        amount: { gt: 0 },
+        creditEntry: { entryType: 'CREDIT' },
+      },
+      select: { id: true, amount: true, creditEntryId: true },
+    })
+    const originTag = sc === 'transport' ? 'transport discontinued' : sc === 'hostel' ? 'hostel discontinued' : 'discontinued'
+    for (const alloc of allocations) {
+      refundedTotal = round2(refundedTotal + alloc.amount)
+      if (refundMode === 'advance') {
+        // Return the allocated payment to its credit entry → usable advance.
+        const credit = await tx.studentFeeLedgerEntry.findUnique({
+          where: { id: alloc.creditEntryId },
+          select: { credit: true, balanceAmount: true, notes: true },
+        })
+        if (credit) {
+          const newBalance = round2((credit.balanceAmount || 0) + alloc.amount)
+          await tx.studentFeeLedgerEntry.update({
+            where: { id: alloc.creditEntryId },
+            data: {
+              balanceAmount: newBalance,
+              status: newBalance >= (credit.credit || 0) ? 'open' : 'partial',
+              // Marker so the advance's origin is shown when it's later applied.
+              notes: `${credit.notes ? `${credit.notes} ` : ''}(advance from ${originTag})`,
+            },
+          })
+        }
+      } else {
+        // Cash mode: do NOT restore the advance — money leaves as a cash refund.
+        cashRefundTotal = round2(cashRefundTotal + alloc.amount)
+      }
+      await tx.studentFeeLedgerAllocation.update({ where: { id: alloc.id }, data: { deletedAt: new Date() } })
+    }
+    // Cancel the paid debits + their collections too (same cascade as eligible).
+    const refundedDebitIds = await cancelItem(paidDebitIds)
+    cancelledDebitIds = [...cancelledDebitIds, ...refundedDebitIds]
+  }
+
+  if (mode === 'commit' && (eligibleIds.length > 0 || refundedTotal > 0)) {
     await finalise(cancelledAmount)
   }
 
@@ -600,6 +678,9 @@ async function runCancellation(ctx: CancellationContext): Promise<WindowChangeRe
     skippedDueToAllocations,
     totalRefundable,
     cancelledDebitIds,
+    refundMode,
+    refundedTotal,
+    cashRefundTotal,
   }
 }
 

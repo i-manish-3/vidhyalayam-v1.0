@@ -60,6 +60,7 @@ import {
 import { AcademicYearSwitcher } from '@/components/academic-year-switcher'
 import { ImpersonationBanner } from '@/components/super-admin/impersonation-banner'
 import { PlatformAnnouncementBanner } from '@/components/super-admin/platform-announcement-banner'
+import { ChatbotWidget } from '@/features/chatbot/chatbot-widget'
 import { resolveMigratedUrl } from '@/lib/migrated-routes'
 import { NotificationBell } from '@/components/notifications/notification-bell'
 
@@ -922,6 +923,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </footer>
         </main>
       </div>
+
+      <ChatbotWidget />
 
       <Dialog open={showProfileDialog} onOpenChange={(open) => {
         setShowProfileDialog(open)

@@ -825,9 +825,105 @@ export async function GET(request: NextRequest) {
       }
     })
 
+    // Live unspent advance for the selected student: sum of open/partial CREDIT
+    // balances (true payments/advances, not waivers). This is money already on
+    // the ledger — e.g. left behind when a paid store sale was reversed "to
+    // advance", or an over-payment — that can be applied to current dues.
+    let advanceBalance = 0
+    const advanceAdjustments: Array<Record<string, unknown>> = []
+    if (studentId) {
+      const adjStudent = await db.student.findFirst({
+        where: { id: studentId, schoolId: user.schoolId },
+        select: { firstName: true, lastName: true, class: { select: { name: true } } },
+      })
+      const adjStudentName = adjStudent ? `${adjStudent.firstName} ${adjStudent.lastName}`.trim() : '-'
+      const adjClassName = adjStudent?.class?.name || '-'
+      const openCredits = await db.studentFeeLedgerEntry.findMany({
+        where: {
+          schoolId: user.schoolId,
+          studentId,
+          entryType: 'CREDIT',
+          deletedAt: null,
+          status: { in: ['open', 'partial'] },
+          balanceAmount: { gt: 0 },
+        },
+        select: { balanceAmount: true },
+      })
+      advanceBalance = roundMoney(openCredits.reduce((sum, c) => sum + c.balanceAmount, 0))
+
+      // Synthesize an "Advance Adjustment" receipt-history entry for each apply-
+      // advance action (allocations grouped by their ADJ- receipt number). No new
+      // money — these are read-only projections of allocations so the report shows
+      // which fees an advance settled and where the advance came from.
+      const adjAllocations = await db.studentFeeLedgerAllocation.findMany({
+        where: { schoolId: user.schoolId, studentId, deletedAt: null, receiptNumber: { startsWith: 'ADJ-' } },
+        include: {
+          debitEntry: { select: { feeHeadName: true, installmentName: true, academicYear: true, dueDate: true, balanceAmount: true } },
+          creditEntry: { select: { receiptNumber: true, notes: true } },
+        },
+        orderBy: { allocatedAt: 'asc' },
+      })
+      const byReceipt = new Map<string, typeof adjAllocations>()
+      for (const a of adjAllocations) {
+        const key = a.receiptNumber || 'ADJ'
+        const list = byReceipt.get(key) || []
+        list.push(a)
+        byReceipt.set(key, list)
+      }
+      for (const [rcpt, allocs] of byReceipt) {
+        const paid = roundMoney(allocs.reduce((s, a) => s + a.amount, 0))
+        const latest = allocs.reduce((max, a) => (a.allocatedAt > max ? a.allocatedAt : max), allocs[0].allocatedAt)
+        const months = new Set<string>()
+        const sessions = new Set<string>()
+        const sources = new Set<string>()
+        const lines = allocs.map((a) => {
+          if (a.debitEntry.installmentName) months.add(a.debitEntry.installmentName)
+          if (a.debitEntry.academicYear) sessions.add(a.debitEntry.academicYear)
+          // Source label is embedded in the allocation note: "Advance adjusted — from <X>".
+          const m = /Advance adjusted — from ([^(]+?)(?:\s*\(|$)/.exec(a.notes || '')
+          if (m) sources.add(m[1].trim())
+          const headName = (a.debitEntry.feeHeadName || '').toLowerCase()
+          return {
+            feeHeadName: a.debitEntry.feeHeadName || 'Fee',
+            installmentName: a.debitEntry.installmentName,
+            academicYear: a.debitEntry.academicYear,
+            isTransport: headName.includes('transport'),
+            dueDate: a.debitEntry.dueDate,
+            paidInReceipt: roundMoney(a.amount),
+            balanceAfter: roundMoney(a.debitEntry.balanceAmount),
+          }
+        })
+        const sourceLabel = Array.from(sources).join(', ') || 'advance'
+        advanceAdjustments.push({
+          id: `adj-${rcpt}`,
+          receiptNumber: rcpt,
+          studentName: adjStudentName,
+          className: adjClassName,
+          feeMonth: sortPeriods(Array.from(months)).join(', '),
+          transportMonth: '',
+          hostelMonth: '',
+          date: latest,
+          submittedAt: latest,
+          discount: 0,
+          paid,
+          dues: 0,
+          paymentMethod: null,
+          notes: `Adjusted from advance — ${sourceLabel}`,
+          splits: null,
+          collectedBy: null,
+          session: Array.from(sessions).sort().join(', ') || academicYear || null,
+          receiptId: rcpt,
+          lines,
+          kind: 'advance',
+          sourceLabel,
+        })
+      }
+    }
+
     return NextResponse.json({
       collections: normalizedCollections,
-      receiptHistory,
+      receiptHistory: [...receiptHistory, ...advanceAdjustments],
+      advanceBalance,
       transportInfo: transportAllocation
         ? {
             id: transportAllocation.id,

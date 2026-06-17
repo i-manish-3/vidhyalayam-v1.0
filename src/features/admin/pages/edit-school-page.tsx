@@ -23,6 +23,7 @@ import {
   ShieldCheck,
   Save,
   Eye,
+  Bot,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
@@ -57,12 +58,14 @@ type FormState = {
   contactEmail: string
   website: string
   trialDays: string
+  chatbotEnabled: boolean
 }
 
 const emptyForm: FormState = {
   name: '', board: 'CBSE', academicYear: '2025-2026', status: 'active',
   address: '', city: '', state: '', pincode: '', country: 'India',
   contactPhone: '', contactEmail: '', website: '', trialDays: '14',
+  chatbotEnabled: false,
 }
 
 interface SchoolDetail {
@@ -80,6 +83,7 @@ interface SchoolDetail {
   contactPhone?: string
   contactEmail?: string
   website?: string
+  chatbotEnabled?: boolean
 }
 
 interface AssignedPermission {
@@ -137,6 +141,7 @@ export function EditSchoolPage({ schoolId }: { schoolId: string }) {
         contactEmail: school.contactEmail || '',
         website: school.website || '',
         trialDays,
+        chatbotEnabled: school.chatbotEnabled === true,
       })
 
       setPermissionModules(catalog.modules || {})
@@ -226,6 +231,7 @@ export function EditSchoolPage({ schoolId }: { schoolId: string }) {
         contactPhone: form.contactPhone,
         contactEmail: form.contactEmail,
         website: form.website,
+        chatbotEnabled: form.chatbotEnabled,
       }
       // Send trialDays only when (re-)entering trial; backend recomputes trialEndsAt.
       if (form.status === 'trial' && (originalStatus !== 'trial' || form.trialDays)) {
@@ -636,6 +642,48 @@ export function EditSchoolPage({ schoolId }: { schoolId: string }) {
                   </div>
                 </>
               )}
+            </section>
+
+            {/* ---------- Platform features (super-admin granted) ---------- */}
+            <section className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Bot className="size-4 text-muted-foreground" />
+                <h3 className="text-sm font-semibold">Platform Features</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setForm((f) => ({ ...f, chatbotEnabled: !f.chatbotEnabled }))}
+                aria-pressed={form.chatbotEnabled}
+                className={cn(
+                  'group flex w-full items-center gap-3 rounded-md border border-l-[3px] bg-card px-3 py-2.5 text-left transition-all hover:shadow-sm hover:border-foreground/20',
+                  form.chatbotEnabled ? 'border-l-violet-500 ring-1 ring-primary/30 bg-primary/[0.03]' : 'border-l-gray-400 opacity-80 hover:opacity-100'
+                )}
+              >
+                <div className="size-8 rounded-md flex items-center justify-center shrink-0 text-violet-600 bg-violet-50 dark:bg-violet-950/40">
+                  <Bot className="size-4" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold leading-tight">AI Assistant (Chatbot)</p>
+                  <p className="text-xs text-muted-foreground leading-tight mt-0.5">
+                    {form.chatbotEnabled
+                      ? 'Enabled — school users can ask the in-app assistant about fees, attendance, and how-to.'
+                      : 'Disabled — the assistant is hidden and blocked for this school.'}
+                  </p>
+                </div>
+                <div
+                  className={cn(
+                    'relative h-5 w-9 shrink-0 rounded-full transition-colors',
+                    form.chatbotEnabled ? 'bg-primary' : 'bg-muted-foreground/30'
+                  )}
+                >
+                  <span
+                    className={cn(
+                      'absolute top-0.5 size-4 rounded-full bg-white shadow transition-transform',
+                      form.chatbotEnabled ? 'translate-x-[18px]' : 'translate-x-0.5'
+                    )}
+                  />
+                </div>
+              </button>
             </section>
 
             {/* ---------- Actions ---------- */}

@@ -587,6 +587,201 @@ async function applyLedgerCredit(input: LedgerCreditInput) {
   return { creditEntry: updatedCredit, appliedAmount, allocations }
 }
 
+// Sequential per-school adjustment receipt number ('ADJ-' prefix). Used to group
+// every allocation made in one "apply advance" action so the report can render
+// them as a single Advance Adjustment entry.
+export async function nextAdjustmentReceiptNumber(tx: FeeTx, schoolId: string): Promise<string> {
+  const existing = await tx.studentFeeLedgerAllocation.findMany({
+    where: { schoolId, receiptNumber: { startsWith: 'ADJ-' } },
+    select: { receiptNumber: true },
+  })
+  const maxNum = existing
+    .map((r) => {
+      const m = /^ADJ-(\d+)$/.exec(r.receiptNumber || '')
+      return m ? parseInt(m[1], 10) : 0
+    })
+    .reduce((m, n) => (n > m ? n : m), 0)
+  return `ADJ-${maxNum + 1}`
+}
+
+// Human-readable origin of an advance credit, for the adjustment note + report.
+// Store-sale advances (left behind when a paid sale was reversed "to advance")
+// carry an "Inventory purchase <RCP>" note + the sale's receipt number; anything
+// else is treated as an over-payment.
+function deriveAdvanceSourceLabel(credit: { receiptNumber: string | null; notes: string | null }): string {
+  const rcpt = (credit.receiptNumber || '').replace(/^RCP-/, '')
+  const notes = (credit.notes || '').toLowerCase()
+  if (notes.includes('transport discontinued')) return 'Transport discontinued'
+  if (notes.includes('hostel discontinued')) return 'Hostel discontinued'
+  if (notes.includes('inventory purchase') || notes.includes('store sale')) {
+    return rcpt ? `Store sale #${rcpt} (reversed)` : 'reversed store sale'
+  }
+  return rcpt ? `Over-payment #${rcpt}` : 'advance'
+}
+
+export interface ApplyAdvanceInput {
+  tx: FeeTx
+  schoolId: string
+  studentId: string
+  // Optional cap; when omitted, applies as much advance as the dues can absorb.
+  maxAmount?: number
+  transactionDate?: Date
+  receiptNumber?: string | null
+  notes?: string | null
+  createdBy?: string | null
+}
+
+export interface ApplyAdvanceResult {
+  appliedAmount: number
+  advanceRemaining: number
+  allocations: Array<{ debitEntryId: string; amount: number; creditEntryId: string }>
+}
+
+/**
+ * Applies a student's EXISTING open advance (unspent CREDIT balance — e.g. left
+ * behind when a paid sale was reversed "to advance", or an over-payment) against
+ * their open dues. Unlike recordStudentLedgerPayment this creates NO new payment
+ * or credit row — it simply allocates money the student already has on the ledger
+ * to their open/partial DEBIT entries, oldest due first.
+ *
+ * Caller must already be inside a $transaction. The Student row is locked FOR
+ * UPDATE and every debit/credit balance update uses optimistic version locking,
+ * so a concurrent fee payment safely retries rather than double-spending the
+ * advance. Idempotent in effect: once the advance (or the dues) hit zero it stops.
+ */
+export async function applyExistingAdvance(input: ApplyAdvanceInput): Promise<ApplyAdvanceResult> {
+  const { tx, schoolId, studentId, maxAmount, transactionDate, receiptNumber, notes, createdBy } = input
+  const when = transactionDate || new Date()
+
+  // Serialize against payments / reversals on the same student.
+  await tx.$queryRaw`SELECT id FROM "Student" WHERE id = ${studentId} FOR UPDATE`
+
+  // Open advance = unspent CREDIT entries (true payments/advances, not waivers),
+  // oldest first so the earliest advance is consumed first.
+  const credits = await tx.studentFeeLedgerEntry.findMany({
+    where: {
+      schoolId,
+      studentId,
+      entryType: 'CREDIT',
+      deletedAt: null,
+      status: { in: ['open', 'partial'] },
+      balanceAmount: { gt: 0 },
+    },
+    orderBy: [{ transactionDate: 'asc' }, { createdAt: 'asc' }],
+  })
+
+  const cap = maxAmount !== undefined && maxAmount !== null ? roundMoney(maxAmount) : null
+  let budget = cap !== null ? cap : roundMoney(credits.reduce((sum, c) => sum + c.balanceAmount, 0))
+  const totalAdvance = roundMoney(credits.reduce((sum, c) => sum + c.balanceAmount, 0))
+
+  let appliedAmount = 0
+  const allocations: Array<{ debitEntryId: string; amount: number; creditEntryId: string }> = []
+  const touchedInvoices = new Set<string>()
+
+  if (budget <= 0 || credits.length === 0) {
+    return { appliedAmount: 0, advanceRemaining: totalAdvance, allocations: [] }
+  }
+
+  // Open dues, oldest due date first.
+  const debits = await tx.studentFeeLedgerEntry.findMany({
+    where: {
+      schoolId,
+      studentId,
+      entryType: { in: ['DEBIT', 'FINE'] },
+      deletedAt: null,
+      status: { in: ['open', 'partial'] },
+      balanceAmount: { gt: 0 },
+    },
+    orderBy: [{ dueDate: 'asc' }, { createdAt: 'asc' }],
+  })
+
+  for (const debit of debits) {
+    if (budget <= 0) break
+    let debitBalance = debit.balanceAmount
+    let debitVersion = debit.version
+
+    for (const credit of credits) {
+      if (budget <= 0 || debitBalance <= 0) break
+      if (credit.balanceAmount <= 0) continue
+
+      const applied = roundMoney(Math.min(budget, debitBalance, credit.balanceAmount))
+      if (applied <= 0) continue
+
+      // 1. Allocation row linking this credit to this debit. The note records the
+      //    advance's origin so the report can show where the money came from.
+      const sourceLabel = deriveAdvanceSourceLabel(credit)
+      await tx.studentFeeLedgerAllocation.create({
+        data: {
+          schoolId,
+          studentId,
+          debitEntryId: debit.id,
+          creditEntryId: credit.id,
+          amount: applied,
+          allocatedAt: when,
+          receiptNumber: receiptNumber || null,
+          notes: `Advance adjusted — from ${sourceLabel}${notes ? ` (${notes})` : ''}`,
+        },
+      })
+
+      // 2. Decrement the debit balance (optimistic lock).
+      const nextDebitBalance = roundMoney(debitBalance - applied)
+      const debitUpdate = await tx.studentFeeLedgerEntry.updateMany({
+        where: { id: debit.id, version: debitVersion },
+        data: {
+          balanceAmount: nextDebitBalance,
+          status: debitStatus(nextDebitBalance, debit.debit),
+          version: { increment: 1 },
+        },
+      })
+      if (debitUpdate.count === 0) {
+        throw new Error(`Concurrent modification detected on ledger entry ${debit.id}. Please retry.`)
+      }
+      debitBalance = nextDebitBalance
+      debitVersion += 1
+
+      // 3. Decrement the credit (advance) balance.
+      const nextCreditBalance = roundMoney(credit.balanceAmount - applied)
+      await tx.studentFeeLedgerEntry.update({
+        where: { id: credit.id },
+        data: {
+          balanceAmount: nextCreditBalance,
+          status: nextCreditBalance <= 0 ? 'settled' : 'partial',
+        },
+      })
+      credit.balanceAmount = nextCreditBalance
+
+      // 4. Keep the legacy FeeCollection + invoice projections in sync.
+      const refreshedDebit = await tx.studentFeeLedgerEntry.findUniqueOrThrow({ where: { id: debit.id } })
+      await syncLegacyCollectionFromDebit(tx, refreshedDebit, applied, {
+        entryType: 'CREDIT',
+        sourceType: 'advance',
+        paymentMethod: 'adjustment',
+        transactionRef: null,
+        // Keep the legacy collection's own receipt — the ADJ- number lives on the
+        // allocation (for report grouping), not on the collection projection.
+        receiptNumber: null,
+        transactionDate: when,
+        notes: notes || null,
+      })
+      if (refreshedDebit.invoiceId) touchedInvoices.add(refreshedDebit.invoiceId)
+
+      allocations.push({ debitEntryId: debit.id, amount: applied, creditEntryId: credit.id })
+      budget = roundMoney(budget - applied)
+      appliedAmount = roundMoney(appliedAmount + applied)
+    }
+  }
+
+  for (const invoiceId of touchedInvoices) {
+    await syncInvoiceFromLedger(tx, schoolId, invoiceId)
+  }
+
+  return {
+    appliedAmount,
+    advanceRemaining: roundMoney(totalAdvance - appliedAmount),
+    allocations,
+  }
+}
+
 export async function recordStudentLedgerPayment(input: RecordLedgerPaymentInput) {
   const {
     tx,

@@ -66,6 +66,7 @@ export interface School {
   board?: string
   workingDays?: string
   inventoryDuesOnFeePage?: boolean
+  chatbotEnabled?: boolean
 }
 
 interface AuthState {

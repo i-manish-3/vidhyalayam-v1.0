@@ -71,6 +71,7 @@ export async function GET(
       onboardingDate: school.onboardingDate,
       favicon: school.favicon,
       features: school.features,
+      chatbotEnabled: school.chatbotEnabled,
       createdAt: school.createdAt,
       updatedAt: school.updatedAt,
       studentCount: school._count.students,
@@ -135,6 +136,7 @@ export async function PATCH(
       academicYear,
       status,
       features,
+      chatbotEnabled,
       timezone,
       currency,
     } = body
@@ -200,6 +202,7 @@ export async function PATCH(
       }
     }
     if (features !== undefined) updateData.features = features
+    if (chatbotEnabled !== undefined) updateData.chatbotEnabled = Boolean(chatbotEnabled)
     if (timezone !== undefined) updateData.timezone = timezone
     if (currency !== undefined) updateData.currency = currency
 

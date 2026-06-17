@@ -10,6 +10,7 @@ const SCHOOL_SELECT = {
   status: true,
   academicYear: true, board: true, city: true, state: true, country: true,
   currency: true, workingDays: true, inventoryDuesOnFeePage: true,
+  chatbotEnabled: true,
 } as const
 
 export async function GET(request: NextRequest) {

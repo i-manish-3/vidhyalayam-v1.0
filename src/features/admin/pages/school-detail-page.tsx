@@ -36,6 +36,7 @@ import {
   Info,
   CalendarClock,
   ChevronRight,
+  Bot,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
@@ -59,6 +60,7 @@ interface SchoolDetail {
   trialEndsAt?: string
   onboardingDate?: string
   features?: string
+  chatbotEnabled?: boolean
   favicon?: string
   createdAt: string
   updatedAt: string
@@ -350,6 +352,23 @@ export function SchoolDetailPage({ schoolId }: { schoolId: string }) {
                   <DetailItem icon={BookOpen} label="Board" value={school.board} />
                   <DetailItem icon={Calendar} label="Academic Year" value={school.academicYear} />
                   <DetailItem icon={Shield} label="Status" value={statusBadge(school.status)} />
+                  <DetailItem
+                    icon={Bot}
+                    label="AI Assistant"
+                    value={
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          'gap-1.5 border font-medium',
+                          school.chatbotEnabled
+                            ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-400'
+                            : 'border-muted bg-muted/40 text-muted-foreground'
+                        )}
+                      >
+                        {school.chatbotEnabled ? 'Enabled' : 'Disabled'}
+                      </Badge>
+                    }
+                  />
                 </div>
 
                 <div className="rounded-xl border bg-muted/30 p-4">

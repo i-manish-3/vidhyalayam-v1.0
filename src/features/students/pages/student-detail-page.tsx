@@ -35,6 +35,7 @@ import {
   IssueRefundDialog,
   RefundHistorySection,
 } from '@/features/students/components/refund-dialog'
+import { DiscontinueRefundsSection } from '@/features/students/components/discontinue-refunds-section'
 import { SchoolPrintHeader } from '@/lib/print-header'
 import {
   User,
@@ -1716,6 +1717,14 @@ export function StudentDetailPage({ studentId }: { studentId: string }) {
             studentId={studentId}
             refreshKey={billingRefreshKey}
             canVoid={canIssueRefund}
+            onChanged={() => setBillingRefreshKey((n) => n + 1)}
+          />
+
+          {/* Transport / hostel discontinue refunds (advance + pending cash). */}
+          <DiscontinueRefundsSection
+            studentId={studentId}
+            refreshKey={billingRefreshKey}
+            canSettle={canIssueRefund}
             onChanged={() => setBillingRefreshKey((n) => n + 1)}
           />
 

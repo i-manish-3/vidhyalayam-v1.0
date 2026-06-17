@@ -94,6 +94,7 @@ model School {
   features           String? // JSON string of enabled features
   workingDays        String    @default("[\"Monday\",\"Tuesday\",\"Wednesday\",\"Thursday\",\"Friday\",\"Saturday\"]") // JSON array of weekday names this school operates on
   inventoryDuesOnFeePage Boolean @default(false) // when true, unpaid inventory-sale dues also surface on the Collect Fee page; otherwise they are collected only from Inventory → Sales
+  chatbotEnabled     Boolean   @default(false) // AI assistant access — granted per-school by the super admin only; OFF until explicitly enabled
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
   deletedAt          DateTime?
@@ -174,6 +175,7 @@ model School {
   idCardTemplates             IdCardTemplate[]
   idCardGenerationLogs        IdCardGenerationLog[]
   exportJobs                  ExportJob[]
+  chatConversations           ChatConversation[]
 
   @@index([subdomain])
   @@index([status])
@@ -2605,6 +2607,16 @@ model TransportEvent {
   reason                String?
   performedBy           String?
   cascadeFromWithdrawal Boolean  @default(false)
+  // Refund of already-paid future months on discontinue (only when the refund
+  // box was ticked). refundMode: advance (freed onto the student's fee account
+  // as a usable credit) | cash (handed back physically). refundStatus: none |
+  // advanced (terminal advance) | pending (cash owed) | settled.
+  refundMode            String?
+  refundAmount          Float     @default(0)
+  refundStatus          String    @default("none")
+  refundSettledAt       DateTime?
+  refundSettledBy       String?
+  refundMethod          String?
   createdAt             DateTime @default(now())
 
   school School @relation(fields: [schoolId], references: [id])
@@ -2791,6 +2803,16 @@ model HostelEvent {
   reason                String?
   performedBy           String?
   cascadeFromWithdrawal Boolean  @default(false)
+  // Refund of already-paid future months on discontinue (only when the refund
+  // box was ticked). refundMode: advance (freed onto the student's fee account
+  // as a usable credit) | cash (handed back physically). refundStatus: none |
+  // advanced (terminal advance) | pending (cash owed) | settled.
+  refundMode            String?
+  refundAmount          Float     @default(0)
+  refundStatus          String    @default("none")
+  refundSettledAt       DateTime?
+  refundSettledBy       String?
+  refundMethod          String?
   createdAt             DateTime @default(now())
 
   school School @relation(fields: [schoolId], references: [id])
@@ -2982,6 +3004,17 @@ model InventorySale {
   voidedAt      DateTime?
   voidedBy      String?
   voidReason    String?
+  // Refund handling when a PAID sale is voided. refundMode: advance (collected
+  // money left as a refundable credit on the student's account) | cash (to be
+  // handed back physically). refundStatus: none (nothing to refund) | advanced
+  // (terminal — sits as account advance) | pending (cash owed, not yet paid) |
+  // settled (cash paid out). See void/route.ts.
+  refundMode      String? // advance | cash
+  refundAmount    Float     @default(0) // amount being refunded/advanced on void
+  refundStatus    String    @default("none") // none | advanced | pending | settled
+  refundSettledAt DateTime?
+  refundSettledBy String?
+  refundMethod    String? // cash | bank | adjustment — how the cash refund was paid out
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
@@ -3025,7 +3058,17 @@ model InventorySaleReturn {
   schoolId      String
   saleId        String
   returnDate    DateTime @default(now())
-  refundAmount  Float    @default(0)
+  refundAmount  Float    @default(0) // total value of returned goods (unitPrice × qty)
+  // Breakdown of how refundAmount is settled: ledgerReduction clears the
+  // student's still-unpaid due on the sale; cashRefund is the already-paid
+  // portion owed back as physical cash. refundStatus tracks that cash refund:
+  // none (nothing owed) | pending (cash owed) | settled (paid out). See return/route.ts.
+  ledgerReduction Float    @default(0)
+  cashRefund      Float    @default(0)
+  refundStatus    String   @default("none") // none | pending | settled
+  refundSettledAt DateTime?
+  refundSettledBy String?
+  refundMethod    String? // cash | bank | adjustment
   reason        String?
   performedBy   String?
   ledgerEntryId String? // ledger reversal entry written for this return
@@ -3681,5 +3724,46 @@ model ExportJob {
 
   @@index([schoolId])
   @@index([status])
+  @@index([createdAt])
+}
+
+// ============================================
+// AI CHATBOT
+// ============================================
+
+// One chat thread for a user. Tenant-scoped; soft-deletable.
+model ChatConversation {
+  id        String    @id @default(cuid())
+  schoolId  String
+  userId    String // owner of the thread (the authenticated user)
+  userRole  String // role snapshot at creation (SCHOOL_ADMIN, TEACHER, PARENT, ...)
+  title     String? // first user message, truncated — used in the history list
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  school   School        @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  messages ChatMessage[]
+
+  @@index([schoolId, userId])
+  @@index([updatedAt])
+}
+
+// A single turn in a conversation. `role` is the chat role (user|assistant).
+// `toolCalls` stores the tools Claude invoked (names + sanitized args) for audit.
+model ChatMessage {
+  id             String   @id @default(cuid())
+  conversationId String
+  role           String // user | assistant
+  content        String // final text (assistant) or the user's question
+  toolCalls      String? // JSON: [{ name, input }] of tools used to answer
+  inputTokens    Int      @default(0)
+  outputTokens   Int      @default(0)
+  model          String? // model id that produced an assistant message
+  createdAt      DateTime @default(now())
+
+  conversation ChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId])
   @@index([createdAt])
 }

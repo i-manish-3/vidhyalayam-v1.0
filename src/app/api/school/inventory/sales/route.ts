@@ -59,6 +59,7 @@ export async function GET(request: NextRequest) {
         include: {
           student: { select: { id: true, firstName: true, lastName: true, admissionNumber: true } },
           items: { select: { id: true, itemName: true, variantLabel: true, quantity: true, unitPrice: true, lineTotal: true, returnedQty: true } },
+          returns: { where: { refundStatus: 'pending' }, select: { cashRefund: true } },
         },
       }),
       db.inventorySale.count({ where }),
@@ -81,7 +82,13 @@ export async function GET(request: NextRequest) {
       const outstanding = debit && !debit.deletedAt ? Math.max(0, debit.balanceAmount) : Math.max(0, s.totalAmount - s.amountPaid)
       const livePaid = Math.round((s.totalAmount - outstanding + Number.EPSILON) * 100) / 100
       const liveDueStatus = outstanding <= 0 ? 'paid' : livePaid > 0 ? 'partial' : 'due'
-      return { ...s, amountPaid: livePaid, dueStatus: liveDueStatus }
+      // Total cash still owed back to the student on this sale: an unsettled void
+      // cash refund plus any unsettled return cash refunds.
+      const voidPending = s.refundStatus === 'pending' ? s.refundAmount : 0
+      const returnPending = s.returns.reduce((sum, r) => sum + r.cashRefund, 0)
+      const pendingRefund = Math.round((voidPending + returnPending + Number.EPSILON) * 100) / 100
+      const { returns: _returns, ...rest } = s
+      return { ...rest, amountPaid: livePaid, dueStatus: liveDueStatus, pendingRefund }
     })
 
     return NextResponse.json({ sales: enriched, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } })

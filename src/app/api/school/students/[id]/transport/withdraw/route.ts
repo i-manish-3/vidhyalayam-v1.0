@@ -57,6 +57,8 @@ export async function POST(
 
     const reasonNotes = typeof body.reason === 'string' ? body.reason.trim() || null : null
     const refundEligible = body.refundEligible === true
+    // 'advance' = freed onto the fee account; 'cash' = pending cash refund.
+    const refundMode: 'advance' | 'cash' = body.refundMode === 'cash' ? 'cash' : 'advance'
 
     const student = await db.student.findFirst({
       where: { id: studentId, schoolId: user.schoolId, deletedAt: null },
@@ -99,7 +101,12 @@ export async function POST(
         performedBy: user.userId,
         cascadeFromWithdrawal: false,
         mode: 'commit',
+        // Only refund the already-paid future months when the box was ticked.
+        ...(refundEligible ? { refund: { mode: refundMode } } : {}),
       })
+
+      // advanced = sits as account advance; pending = cash owed; none = nothing freed.
+      const refundStatus = r.refundedTotal <= 0 ? 'none' : refundMode === 'cash' ? 'pending' : 'advanced'
 
       await tx.transportEvent.create({
         data: {
@@ -118,6 +125,9 @@ export async function POST(
           reason: reasonNotes,
           performedBy: user.userId,
           cascadeFromWithdrawal: false,
+          refundMode: refundEligible ? refundMode : null,
+          refundAmount: r.refundedTotal,
+          refundStatus,
         },
       })
 
@@ -141,6 +151,9 @@ export async function POST(
       refundEligible,
       requiresRefund: refundEligible ? result.skippedDueToAllocations : [],
       totalRefundDue: refundEligible ? result.totalRefundable : 0,
+      refundMode: refundEligible ? refundMode : null,
+      refundedTotal: result.refundedTotal,
+      cashRefundTotal: result.cashRefundTotal,
     })
   } catch (error) {
     if (error instanceof ConcurrentWithdrawalError) {
@@ -151,5 +164,56 @@ export async function POST(
     }
     console.error('POST /students/[id]/transport/withdraw failed:', error)
     return internalError('Failed to withdraw transport allocation')
+  }
+}
+
+const REFUND_METHODS = new Set(['cash', 'bank', 'adjustment'])
+
+// PATCH /api/school/students/[id]/transport/withdraw — mark a pending CASH refund
+// (from a transport discontinue) as physically paid. Body: { eventId, method }.
+// No ledger money moves; the discontinue already accounted for it.
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  try {
+    const user = await requirePermission(request, 'transport:allocation:update')
+    if (!user || !user.schoolId) return unauthorizedError()
+    const { id: studentId } = await params
+    const body = await request.json().catch(() => ({}))
+    const eventId = typeof body.eventId === 'string' ? body.eventId : ''
+    const method = REFUND_METHODS.has(body.method) ? body.method : 'cash'
+    if (!eventId) return apiError(400, 'eventId is required')
+
+    const event = await db.transportEvent.findFirst({
+      where: { id: eventId, schoolId: user.schoolId, studentId },
+      select: { id: true, refundStatus: true, refundAmount: true },
+    })
+    if (!event) return apiError(404, 'Transport event not found')
+    if (event.refundStatus !== 'pending') return apiError(400, 'This refund is not pending.')
+
+    // Conditional update guards against a concurrent double-settle; audit is in
+    // the same txn so a settled refund always has a matching trail.
+    const settled = await db.$transaction(async (tx) => {
+      const res = await tx.transportEvent.updateMany({
+        where: { id: event.id, refundStatus: 'pending' },
+        data: { refundStatus: 'settled', refundSettledAt: new Date(), refundSettledBy: user.userId, refundMethod: method },
+      })
+      if (res.count === 0) return false
+      await tx.feeAuditLog.create({
+        data: {
+          schoolId: user.schoolId!, entityType: 'TransportEvent', entityId: event.id, action: 'refund_settled',
+          studentId, userId: user.userId,
+          newValue: JSON.stringify({ amount: event.refundAmount, method }),
+        },
+      })
+      return true
+    })
+    if (!settled) return apiError(409, 'This refund was already settled.')
+
+    return NextResponse.json({ success: true, amount: event.refundAmount, method, message: `₹${event.refundAmount} cash refund marked as paid (${method}).` })
+  } catch (error) {
+    console.error('PATCH /students/[id]/transport/withdraw failed:', error)
+    return internalError('settling the refund')
   }
 }

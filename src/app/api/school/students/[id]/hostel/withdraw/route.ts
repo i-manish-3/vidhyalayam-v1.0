@@ -50,6 +50,7 @@ export async function POST(
 
     const reasonNotes = typeof body.reason === 'string' ? body.reason.trim() || null : null
     const refundEligible = body.refundEligible === true
+    const refundMode: 'advance' | 'cash' = body.refundMode === 'cash' ? 'cash' : 'advance'
 
     const student = await db.student.findFirst({
       where: { id: studentId, schoolId: user.schoolId, deletedAt: null },
@@ -68,8 +69,11 @@ export async function POST(
     const bed = await db.hostelBed.findUnique({ where: { id: allocation.bedId }, select: { bedNumber: true } })
 
     const result = await db.$transaction(async (tx) => {
-      // Race-safety: lock the bed row so concurrent withdraws serialize.
+      // Race-safety: lock the bed row so concurrent withdraws serialize, and the
+      // Student row so the refund's credit-balance restore serializes with fee
+      // payments / advance application / other reversals (which all lock Student).
       await tx.$queryRaw`SELECT id FROM "HostelBed" WHERE id = ${allocation.bedId} FOR UPDATE`
+      await tx.$queryRaw`SELECT id FROM "Student" WHERE id = ${studentId} FOR UPDATE`
 
       const stillActive = await tx.hostelAllocation.findFirst({
         where: { id: allocation.id, isActive: true },
@@ -91,7 +95,10 @@ export async function POST(
         performedBy: user.userId,
         cascadeFromWithdrawal: false,
         mode: 'commit',
+        ...(refundEligible ? { refund: { mode: refundMode } } : {}),
       })
+
+      const refundStatus = r.refundedTotal <= 0 ? 'none' : refundMode === 'cash' ? 'pending' : 'advanced'
 
       await tx.hostelEvent.create({
         data: {
@@ -109,6 +116,9 @@ export async function POST(
           reason: reasonNotes,
           performedBy: user.userId,
           cascadeFromWithdrawal: false,
+          refundMode: refundEligible ? refundMode : null,
+          refundAmount: r.refundedTotal,
+          refundStatus,
         },
       })
 
@@ -131,6 +141,9 @@ export async function POST(
       refundEligible,
       requiresRefund: refundEligible ? result.skippedDueToAllocations : [],
       totalRefundDue: refundEligible ? result.totalRefundable : 0,
+      refundMode: refundEligible ? refundMode : null,
+      refundedTotal: result.refundedTotal,
+      cashRefundTotal: result.cashRefundTotal,
     })
   } catch (error) {
     if (error instanceof ConcurrentWithdrawalError) {
@@ -138,5 +151,53 @@ export async function POST(
     }
     console.error('POST /students/[id]/hostel/withdraw failed:', error)
     return internalError('Failed to withdraw hostel allocation')
+  }
+}
+
+const REFUND_METHODS = new Set(['cash', 'bank', 'adjustment'])
+
+// PATCH /api/school/students/[id]/hostel/withdraw — mark a pending CASH refund
+// (from a hostel discontinue) as physically paid. Body: { eventId, method }.
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  try {
+    const user = await requirePermission(request, 'hostel:allocation:update')
+    if (!user || !user.schoolId) return unauthorizedError()
+    const { id: studentId } = await params
+    const body = await request.json().catch(() => ({}))
+    const eventId = typeof body.eventId === 'string' ? body.eventId : ''
+    const method = REFUND_METHODS.has(body.method) ? body.method : 'cash'
+    if (!eventId) return apiError(400, 'eventId is required')
+
+    const event = await db.hostelEvent.findFirst({
+      where: { id: eventId, schoolId: user.schoolId, studentId },
+      select: { id: true, refundStatus: true, refundAmount: true },
+    })
+    if (!event) return apiError(404, 'Hostel event not found')
+    if (event.refundStatus !== 'pending') return apiError(400, 'This refund is not pending.')
+
+    const settled = await db.$transaction(async (tx) => {
+      const res = await tx.hostelEvent.updateMany({
+        where: { id: event.id, refundStatus: 'pending' },
+        data: { refundStatus: 'settled', refundSettledAt: new Date(), refundSettledBy: user.userId, refundMethod: method },
+      })
+      if (res.count === 0) return false
+      await tx.feeAuditLog.create({
+        data: {
+          schoolId: user.schoolId!, entityType: 'HostelEvent', entityId: event.id, action: 'refund_settled',
+          studentId, userId: user.userId,
+          newValue: JSON.stringify({ amount: event.refundAmount, method }),
+        },
+      })
+      return true
+    })
+    if (!settled) return apiError(409, 'This refund was already settled.')
+
+    return NextResponse.json({ success: true, amount: event.refundAmount, method, message: `₹${event.refundAmount} cash refund marked as paid (${method}).` })
+  } catch (error) {
+    console.error('PATCH /students/[id]/hostel/withdraw failed:', error)
+    return internalError('settling the refund')
   }
 }

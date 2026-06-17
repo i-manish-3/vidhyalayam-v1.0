@@ -414,7 +414,7 @@ export function InventoryPage() {
                     <TableRow>
                       {form.hasVariants && <TableHead className="min-w-24">{form.variantLabel.trim() || 'Label'}</TableHead>}
                       <TableHead>{editingId ? 'Stock' : 'Opening Qty'}</TableHead>
-                      <TableHead>Reorder</TableHead>
+                      <TableHead>Low Stock Alert</TableHead>
                       <TableHead>Sell Price</TableHead>
                       {form.hasVariants && <TableHead className="w-8"></TableHead>}
                     </TableRow>

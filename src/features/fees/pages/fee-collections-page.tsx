@@ -25,6 +25,7 @@ import {
   CalendarDays,
   ChevronDown,
   Home,
+  Loader2,
   MessageCircle,
   Printer,
   PlusCircle,
@@ -33,6 +34,7 @@ import {
   ShoppingBag,
   Trash2,
   UserRound,
+  Wallet,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
@@ -220,6 +222,9 @@ interface ReceiptHistoryRow {
   session?: string | null
   receiptId?: string | null
   lines?: ReceiptHistoryLine[]
+  // 'advance' = synthesized entry where a prior advance was applied to dues.
+  kind?: string | null
+  sourceLabel?: string | null // where the advance came from (e.g. reversed store sale)
 }
 
 const SELECTABLE_PAYMENT_METHODS: Exclude<PaymentMethod, 'SPLIT'>[] = ['CASH', 'ONLINE', 'CHEQUE', 'UPI']
@@ -533,6 +538,9 @@ export function FeeCollectionsPage() {
   const [transportDetailsOpen, setTransportDetailsOpen] = useState(false)
   const [hostelInfo, setHostelInfo] = useState<HostelInfo | null>(null)
   const [hostelDetailsOpen, setHostelDetailsOpen] = useState(false)
+  // Unspent advance (open credit balance) the student already has on the ledger.
+  const [advanceBalance, setAdvanceBalance] = useState(0)
+  const [applyingAdvance, setApplyingAdvance] = useState(false)
   const [selectedCollectionIds, setSelectedCollectionIds] = useState<string[]>([])
   const [search, setSearch] = useState(savedListState?.search ?? '')
   const [paymentDate, setPaymentDate] = useState(() => todayLocalIso())
@@ -624,7 +632,7 @@ export function FeeCollectionsPage() {
   const fetchStudentCollections = useCallback(async (studentId: string) => {
     try {
       const [currentData, arrearsData] = await Promise.all([
-        api.get<{ collections: FeeCollectionItem[]; receiptHistory?: ReceiptHistoryRow[]; transportInfo?: TransportInfo | null; hostelInfo?: HostelInfo | null }>(
+        api.get<{ collections: FeeCollectionItem[]; receiptHistory?: ReceiptHistoryRow[]; transportInfo?: TransportInfo | null; hostelInfo?: HostelInfo | null; advanceBalance?: number }>(
           '/api/school/fees/collections',
           { studentId, academicYear, limit: '300' }
         ),
@@ -642,6 +650,7 @@ export function FeeCollectionsPage() {
       setReceiptHistory(currentData.receiptHistory || [])
       setTransportInfo(currentData.transportInfo || null)
       setHostelInfo(currentData.hostelInfo || null)
+      setAdvanceBalance(currentData.advanceBalance || 0)
 
       // Auto-select rules (cashier can override):
       //   1. Previous-AY dues (any kind, any status except PAID).
@@ -699,6 +708,7 @@ export function FeeCollectionsPage() {
       setReceiptHistory([])
       setTransportInfo(null)
       setHostelInfo(null)
+      setAdvanceBalance(0)
       setSelectedCollectionIds([])
       setAutoSelectedCollectionIds([])
       setSelectedPeriods([])
@@ -712,6 +722,28 @@ export function FeeCollectionsPage() {
       })
     }
   }, [academicYear, toast])
+
+  // Apply the student's unspent advance to their open dues (no new payment —
+  // money already on the ledger gets allocated). Refreshes dues afterwards.
+  const handleApplyAdvance = useCallback(async (studentId: string) => {
+    setApplyingAdvance(true)
+    try {
+      const r = await api.post<{ appliedAmount: number; advanceRemaining: number; message: string }>(
+        '/api/school/fees/apply-advance',
+        { studentId }
+      )
+      toast({ title: 'Advance applied', description: r.message })
+      await fetchStudentCollections(studentId)
+    } catch (err) {
+      toast({
+        title: "Couldn't apply advance",
+        description: err instanceof Error ? err.message : 'Please try again.',
+        variant: 'destructive',
+      })
+    } finally {
+      setApplyingAdvance(false)
+    }
+  }, [toast, fetchStudentCollections])
 
   const fetchSpecialComments = useCallback(async (studentId: string) => {
     setCommentsLoading(true)
@@ -1690,6 +1722,29 @@ export function FeeCollectionsPage() {
             </div>
           </Card>
 
+          {/* ── Available Advance ───────────────────────────── */}
+          {advanceBalance > 0 && (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-2.5 dark:border-emerald-500/30 dark:bg-emerald-500/10">
+              <div className="flex items-center gap-2 text-sm">
+                <Wallet className="size-4 text-emerald-600 dark:text-emerald-400" />
+                <span className="text-emerald-900 dark:text-emerald-200">
+                  This student has an advance of{' '}
+                  <strong className="tabular-nums">{receiptMoney(advanceBalance)}</strong>
+                  {' '}on their account (from a reversed sale or over-payment).
+                </span>
+              </div>
+              <Button
+                size="sm"
+                className="h-8 bg-emerald-600 text-white hover:bg-emerald-700"
+                onClick={() => handleApplyAdvance(selectedStudent.id)}
+                disabled={applyingAdvance}
+              >
+                {applyingAdvance ? <Loader2 className="mr-1 size-4 animate-spin" /> : <Wallet className="mr-1 size-4" />}
+                Apply to Dues
+              </Button>
+            </div>
+          )}
+
           {/* ── Collection Grid ─────────────────────────────── */}
           <div className="grid gap-4 xl:grid-cols-[1.5fr_1fr]">
             <div className="space-y-4">
@@ -2521,7 +2576,14 @@ export function FeeCollectionsPage() {
                       {paymentHistory.map((row, index) => (
                         <tr key={row.id} className="border-b transition-colors hover:bg-muted/40 align-top">
                           <td className="px-2.5 py-2 text-muted-foreground">{index + 1}</td>
-                          <td className="px-2.5 py-2 font-mono text-[11px]">{row.receiptNumber || '-'}</td>
+                          <td className="px-2.5 py-2 font-mono text-[11px]">
+                            <span>{row.receiptNumber || '-'}</span>
+                            {row.kind === 'advance' && (
+                              <Badge variant="outline" className="ml-1 h-4 border-emerald-300 bg-emerald-50 px-1 text-[9px] font-medium text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-300">
+                                Advance
+                              </Badge>
+                            )}
+                          </td>
                           <td className="px-2.5 py-2">{row.studentName || studentName(selectedStudent)}</td>
                           <td className="px-2.5 py-2">{row.className || selectedStudent.class?.name || '-'}</td>
                           <td className="px-2.5 py-2">{row.feeMonth || '-'}</td>

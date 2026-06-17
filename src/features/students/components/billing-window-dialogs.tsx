@@ -884,6 +884,7 @@ export function DiscontinueTransportDialog({
   const [effectiveDate, setEffectiveDate] = useState(todayISO())
   const [reason, setReason] = useState('')
   const [refundEligible, setRefundEligible] = useState(false)
+  const [refundMode, setRefundMode] = useState<'advance' | 'cash'>('advance')
   const [preview, setPreview] = useState<TransportWithdrawPreview | null>(null)
   const [previewLoading, setPreviewLoading] = useState(false)
   const [previewError, setPreviewError] = useState<string | null>(null)
@@ -896,6 +897,7 @@ export function DiscontinueTransportDialog({
       setEffectiveDate(todayISO())
       setReason('')
       setRefundEligible(false)
+      setRefundMode('advance')
       setPreview(null)
       setPreviewError(null)
     }
@@ -936,6 +938,7 @@ export function DiscontinueTransportDialog({
         effectiveDate,
         reason: reason.trim() || undefined,
         refundEligible,
+        refundMode: refundEligible ? refundMode : undefined,
       })
       toast({
         title: 'Transport discontinued',
@@ -1014,10 +1017,27 @@ export function DiscontinueTransportDialog({
                   className="mt-0.5"
                 />
                 <span className="grid gap-1 text-sm">
-                  <span className="font-medium">Mark paid future transport fees as refund eligible</span>
-                  <span className="text-xs text-muted-foreground">Paid future months stay intact and appear in refund follow-up.</span>
+                  <span className="font-medium">Refund the paid future transport fees</span>
+                  <span className="text-xs text-muted-foreground">Cancels the paid future months too and returns the money as below.</span>
                 </span>
               </label>
+              {refundEligible && (
+                <div className="mt-2 space-y-1.5 rounded-md border bg-muted/20 p-3">
+                  <Label>How should the refund be handled?</Label>
+                  <Select value={refundMode} onValueChange={(v) => setRefundMode(v as 'advance' | 'cash')}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="advance">Keep as account advance (use for other fees)</SelectItem>
+                      <SelectItem value="cash">Cash refund to parent (pay back physically)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    {refundMode === 'advance'
+                      ? 'Money becomes a credit on the student’s fee account — apply it to other dues from Collect Fee.'
+                      : 'Recorded as a pending cash refund — mark it paid from the student’s profile once handed over.'}
+                  </p>
+                </div>
+              )}
             </div>
           </div>
 
@@ -1904,6 +1924,7 @@ export function DiscontinueHostelDialog({
   const [effectiveDate, setEffectiveDate] = useState(todayISO())
   const [reason, setReason] = useState('')
   const [refundEligible, setRefundEligible] = useState(false)
+  const [refundMode, setRefundMode] = useState<'advance' | 'cash'>('advance')
   const [preview, setPreview] = useState<HostelWithdrawPreview | null>(null)
   const [previewLoading, setPreviewLoading] = useState(false)
   const [previewError, setPreviewError] = useState<string | null>(null)
@@ -1916,6 +1937,7 @@ export function DiscontinueHostelDialog({
       setEffectiveDate(todayISO())
       setReason('')
       setRefundEligible(false)
+      setRefundMode('advance')
       setPreview(null)
       setPreviewError(null)
     }
@@ -1950,6 +1972,7 @@ export function DiscontinueHostelDialog({
         effectiveDate,
         reason: reason.trim() || undefined,
         refundEligible,
+        refundMode: refundEligible ? refundMode : undefined,
       })
       toast({
         title: 'Hostel discontinued',
@@ -2023,10 +2046,27 @@ export function DiscontinueHostelDialog({
                   className="mt-0.5"
                 />
                 <span className="grid gap-1 text-sm">
-                  <span className="font-medium">Mark paid future hostel fees as refund eligible</span>
-                  <span className="text-xs text-muted-foreground">Paid future months stay intact and appear in refund follow-up.</span>
+                  <span className="font-medium">Refund the paid future hostel fees</span>
+                  <span className="text-xs text-muted-foreground">Cancels the paid future months too and returns the money as below.</span>
                 </span>
               </label>
+              {refundEligible && (
+                <div className="mt-2 space-y-1.5 rounded-md border bg-muted/20 p-3">
+                  <Label>How should the refund be handled?</Label>
+                  <Select value={refundMode} onValueChange={(v) => setRefundMode(v as 'advance' | 'cash')}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="advance">Keep as account advance (use for other fees)</SelectItem>
+                      <SelectItem value="cash">Cash refund to parent (pay back physically)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    {refundMode === 'advance'
+                      ? 'Money becomes a credit on the student’s fee account — apply it to other dues from Collect Fee.'
+                      : 'Recorded as a pending cash refund — mark it paid from the student’s profile once handed over.'}
+                  </p>
+                </div>
+              )}
             </div>
           </div>
 
