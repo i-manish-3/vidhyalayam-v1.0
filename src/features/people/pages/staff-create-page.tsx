@@ -5,13 +5,13 @@ import { useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
 import { compressImage } from '@/lib/image-compress'
 import { useToast } from '@/hooks/use-toast'
+import { PageHeader } from '@/components/shared'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Separator } from '@/components/ui/separator'
 import { DatePicker } from '@/components/date-picker'
 import {
   Select,
@@ -35,6 +35,8 @@ import {
   X,
   KeyRound,
   Users,
+  Loader2,
+  BriefcaseBusiness,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -67,18 +69,6 @@ const ROLE_ICONS: Record<string, LucideIcon> = {
   'Reception': Headphones,
   'Transport': Bus,
   'Security': Shield,
-}
-
-const ROLE_COLORS: Record<string, string> = {
-  'Teacher': 'bg-violet-100 text-violet-700 dark:bg-violet-950/40 dark:text-violet-400',
-  'Accountant': 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400',
-  'Sr. Accountant': 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400',
-  'Librarian': 'bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400',
-  'Office': 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400',
-  'Controller': 'bg-cyan-100 text-cyan-700 dark:bg-cyan-950/40 dark:text-cyan-400',
-  'Reception': 'bg-pink-100 text-pink-700 dark:bg-pink-950/40 dark:text-pink-400',
-  'Transport': 'bg-sky-100 text-sky-700 dark:bg-sky-950/40 dark:text-sky-400',
-  'Security': 'bg-slate-100 text-slate-700 dark:bg-slate-950/40 dark:text-slate-400',
 }
 
 // ─── Sub-Components ──────────────────────────────────────────────────────────
@@ -250,53 +240,46 @@ export function StaffCreatePage() {
 
   // ── Render ──
   return (
-    <div className="space-y-4">
-      {/* Header with back button */}
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-bold tracking-tight">Create Staff</h1>
-          <p className="text-xs text-muted-foreground">
-            Add a new staff member and assign them a role — permissions are automatically inherited
-          </p>
-        </div>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => router.push('/staff')}
-          className="gap-2"
-        >
-          <Users className="size-4" />
-          Staff List
-        </Button>
-      </div>
+    <div className="space-y-3">
+      <PageHeader
+        title="Create Staff"
+        description="Create a staff profile, sign-in account, and permission role."
+        secondaryAction={{
+          label: 'Staff List',
+          icon: Users,
+          onClick: () => router.push('/staff'),
+          disabled: submitting,
+        }}
+      />
 
-      {/* Form */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <UserPlus className="size-4" />
-            Staff Information
-          </CardTitle>
-          <CardDescription className="text-xs">Fill in the details below to create a new staff member</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {loadingRoles ? (
+      {loadingRoles ? (
+        <Card className="gap-0 py-0 shadow-sm">
+          <CardHeader className="border-b bg-muted/20 px-4 py-2.5">
+            <CardTitle className="flex items-center gap-2 text-sm">
+              <UserPlus className="size-4" />
+              Staff Information
+            </CardTitle>
+            <CardDescription className="text-xs">Loading staff form details</CardDescription>
+          </CardHeader>
+          <CardContent className="p-4">
             <FormSkeleton />
-          ) : (
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Personal Details */}
-              <div>
-                <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
-                  <div className="size-1.5 rounded-full bg-primary" />
-                  Personal Details
-                </h3>
-
-                {/* Photo */}
-                <div className="mb-3 flex items-center gap-3">
+          </CardContent>
+        </Card>
+      ) : (
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <Card className="gap-0 py-0 shadow-sm">
+            <CardHeader className="border-b bg-muted/20 px-4 py-2.5">
+              <CardTitle className="flex items-center gap-2 text-sm">
+                <UserPlus className="size-4" />
+                Personal Details
+              </CardTitle>
+              <CardDescription className="text-xs">Basic identity, contact, and profile photo</CardDescription>
+            </CardHeader>
+            <CardContent className="p-4">
+              <div className="space-y-3">
+                <div className="flex flex-col gap-3 rounded-lg border bg-background p-3 sm:flex-row sm:items-center">
                   <div className="relative size-16 shrink-0 overflow-hidden rounded-full border bg-muted">
                     {avatar ? (
-                      // eslint-disable-next-line @next/next/no-img-element
                       <img src={avatar} alt="" className="size-full object-cover" />
                     ) : (
                       <div className="flex size-full items-center justify-center text-muted-foreground">
@@ -304,15 +287,17 @@ export function StaffCreatePage() {
                       </div>
                     )}
                   </div>
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
+                  <div className="min-w-0 flex-1 space-y-1.5">
+                    <div className="flex flex-wrap items-center gap-2">
                       <Button
                         type="button"
                         variant="outline"
                         size="sm"
+                        className="h-8 gap-1.5"
                         onClick={() => photoInputRef.current?.click()}
+                        disabled={submitting}
                       >
-                        <Upload className="size-4" />
+                        <Upload className="size-3.5" />
                         {avatar ? 'Change Photo' : 'Upload Photo'}
                       </Button>
                       {avatar && (
@@ -320,14 +305,19 @@ export function StaffCreatePage() {
                           type="button"
                           variant="ghost"
                           size="sm"
-                          onClick={() => setAvatar(null)}
+                          className="h-8 gap-1.5 text-muted-foreground hover:text-destructive"
+                          onClick={() => {
+                            setAvatar(null)
+                            if (photoInputRef.current) photoInputRef.current.value = ''
+                          }}
+                          disabled={submitting}
                         >
-                          <X className="size-4" />
+                          <X className="size-3.5" />
                           Remove
                         </Button>
                       )}
                     </div>
-                    <p className="text-[11px] text-muted-foreground">JPG/PNG/WebP — auto-compressed to 200 KB.</p>
+                    <p className="text-[11px] text-muted-foreground">JPG, PNG, or WebP. Auto-compressed to 200 KB.</p>
                     <input
                       ref={photoInputRef}
                       type="file"
@@ -338,11 +328,9 @@ export function StaffCreatePage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                   <div className="space-y-1.5">
-                    <Label htmlFor="staff-employee-id" className="text-xs font-medium">
-                      Employee ID
-                    </Label>
+                    <Label htmlFor="staff-employee-id" className="text-xs font-medium">Employee ID</Label>
                     <Input
                       id="staff-employee-id"
                       placeholder="Auto generated from settings"
@@ -357,10 +345,11 @@ export function StaffCreatePage() {
                     </Label>
                     <Input
                       id="staff-first-name"
-                      placeholder="e.g., Ramesh"
+                      placeholder="Enter first name"
                       value={firstName}
                       onChange={(e) => setFirstName(e.target.value)}
                       className="h-9"
+                      disabled={submitting}
                     />
                   </div>
                   <div className="space-y-1.5">
@@ -369,10 +358,11 @@ export function StaffCreatePage() {
                     </Label>
                     <Input
                       id="staff-last-name"
-                      placeholder="e.g., Kumar"
+                      placeholder="Enter last name"
                       value={lastName}
                       onChange={(e) => setLastName(e.target.value)}
                       className="h-9"
+                      disabled={submitting}
                     />
                   </div>
                   <div className="space-y-1.5">
@@ -380,7 +370,7 @@ export function StaffCreatePage() {
                       Gender <span className="text-destructive">*</span>
                     </Label>
                     <Select value={gender} onValueChange={setGender}>
-                      <SelectTrigger id="staff-gender" className="h-9">
+                      <SelectTrigger id="staff-gender" className="h-9" disabled={submitting}>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -391,42 +381,7 @@ export function StaffCreatePage() {
                     </Select>
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="staff-phone" className="text-xs font-medium">
-                      Phone Number <span className="text-destructive">*</span>
-                    </Label>
-                    <Input
-                      id="staff-phone"
-                      inputMode="numeric"
-                      maxLength={10}
-                      placeholder="10-digit phone number"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                      className={`h-9 ${phoneError ? 'border-destructive focus-visible:ring-destructive/20' : ''}`}
-                      aria-invalid={!!phoneError}
-                    />
-                    {phoneError && (
-                      <p className="text-[11px] text-destructive">{phoneError}</p>
-                    )}
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="staff-email" className="text-xs font-medium">
-                      Email <span className="text-muted-foreground font-normal">(optional)</span>
-                    </Label>
-                    <Input
-                      id="staff-email"
-                      type="email"
-                      placeholder="name@example.com"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      aria-invalid={emailHasError}
-                      className={`h-9 ${emailHasError ? 'border-destructive focus-visible:ring-destructive/20' : ''}`}
-                    />
-                    {emailHasError && (
-                      <p className="text-[11px] text-destructive">Please enter a valid email address.</p>
-                    )}
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="staff-dob" className="text-xs font-medium">
+                    <Label className="text-xs font-medium">
                       Date of Birth <span className="text-destructive">*</span>
                     </Label>
                     <DatePicker
@@ -441,45 +396,50 @@ export function StaffCreatePage() {
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="staff-join-date" className="text-xs font-medium">
-                      Join Date <span className="text-destructive">*</span>
-                    </Label>
-                    <DatePicker
-                      value={joinDate}
-                      onChange={setJoinDate}
-                      disableFuture
-                      yearDropdown
-                      yearsBack={20}
-                      placeholder="Select join date"
-                      triggerClassName="w-full"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="staff-designation" className="text-xs font-medium">
-                      Designation <span className="text-muted-foreground font-normal">(optional)</span>
+                    <Label htmlFor="staff-phone" className="text-xs font-medium">
+                      Phone <span className="text-destructive">*</span>
                     </Label>
                     <Input
-                      id="staff-designation"
-                      placeholder="e.g., Sr. Accountant, Head Librarian"
-                      value={designation}
-                      onChange={(e) => setDesignation(e.target.value)}
-                      className="h-9"
+                      id="staff-phone"
+                      inputMode="numeric"
+                      maxLength={10}
+                      placeholder="10-digit phone number"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                      className={`h-9 ${phoneError ? 'border-destructive focus-visible:ring-destructive/40' : ''}`}
+                      aria-invalid={!!phoneError}
+                      disabled={submitting}
                     />
-                    <p className="text-[11px] text-muted-foreground">Defaults to selected role if left blank.</p>
+                    {phoneError ? (
+                      <p className="text-[11px] font-medium text-destructive">{phoneError}</p>
+                    ) : (
+                      <p className="text-[11px] text-muted-foreground">
+                        Login ID will be this phone number.
+                      </p>
+                    )}
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="staff-qualification" className="text-xs font-medium">
-                      Qualification <span className="text-muted-foreground font-normal">(optional)</span>
+                    <Label htmlFor="staff-email" className="text-xs font-medium">
+                      Email <span className="text-muted-foreground font-normal">(optional)</span>
                     </Label>
                     <Input
-                      id="staff-qualification"
-                      placeholder="e.g., B.Com, M.A."
-                      value={qualification}
-                      onChange={(e) => setQualification(e.target.value)}
-                      className="h-9"
+                      id="staff-email"
+                      type="email"
+                      inputMode="email"
+                      placeholder="staff@example.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      aria-invalid={emailHasError}
+                      className={`h-9 ${emailHasError ? 'border-destructive focus-visible:ring-destructive/40' : ''}`}
+                      disabled={submitting}
                     />
+                    {emailHasError ? (
+                      <p className="text-[11px] font-medium text-destructive">Please enter a valid email address.</p>
+                    ) : (
+                      <p className="text-[11px] text-muted-foreground">Optional. Used for notifications and recovery.</p>
+                    )}
                   </div>
-                  <div className="md:col-span-2 space-y-1.5">
+                  <div className="space-y-1.5 md:col-span-2">
                     <Label htmlFor="staff-address" className="text-xs font-medium">
                       Address <span className="text-muted-foreground font-normal">(optional)</span>
                     </Label>
@@ -489,127 +449,178 @@ export function StaffCreatePage() {
                       value={address}
                       onChange={(e) => setAddress(e.target.value)}
                       className="h-9"
+                      disabled={submitting}
                     />
                   </div>
                 </div>
 
-                <div className="mt-3 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-2.5 text-xs text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-300">
+                <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-2.5 text-xs text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-300">
                   <KeyRound className="mt-0.5 size-3.5 shrink-0" />
                   <span>
-                    The staff member will sign in with their phone number and the default password <span className="font-mono font-semibold">staff123</span>. They&apos;ll be prompted to change the password on first login.
+                    Default password is <span className="font-mono font-semibold">staff123</span>. Password change is required on first login.
                   </span>
                 </div>
               </div>
+            </CardContent>
+          </Card>
 
-              <Separator />
-
-              {/* Role Selection */}
-              <div>
-                <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
-                  <div className="size-1.5 rounded-full bg-primary" />
-                  Role Assignment
-                </h3>
-
-                <div className="space-y-3">
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-medium">
-                      Staff Permission Role <span className="text-destructive">*</span>
-                    </Label>
-                    <Select value={selectedRoleId} onValueChange={setSelectedRoleId}>
-                      <SelectTrigger className="h-9">
-                        <SelectValue placeholder="Choose access for this staff member" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {availableRoles.map((role) => {
-                          const Icon = ROLE_ICONS[role.name] || Shield
-                          return (
-                            <SelectItem key={role.id} value={role.id}>
-                              <div className="flex items-center gap-2">
-                                <Icon className="size-3.5" />
-                                <span>{role.name}</span>
-                              </div>
-                            </SelectItem>
-                          )
-                        })}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* Selected Role Preview */}
-                  {selectedRole && (
-                    <div className="rounded-lg border bg-card p-3 shadow-sm ring-1 ring-primary/10">
-                      <div className="flex items-start gap-3">
-                        <div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-                          {RoleIcon && <RoleIcon className="size-5" />}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <h4 className="text-sm font-semibold text-foreground">{selectedRole.name}</h4>
-                            {selectedRole.isSystem && (
-                              <Badge variant="secondary" className="h-5 px-2 text-[10px]">
-                                System
-                              </Badge>
-                            )}
-                          </div>
-                          {selectedRole.description && (
-                            <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
-                              {selectedRole.description}
-                            </p>
-                          )}
-                          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                            <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1">
-                              <ShieldCheck className="size-3" />
-                              {selectedRole.permissionCount} permissions
-                            </span>
-                            <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1">
-                              <UserPlus className="size-3" />
-                              {selectedRole.userCount} staff assigned
-                            </span>
-                          </div>
-                        </div>
-                        <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-                          <CheckCircle2 className="size-4" />
-                        </div>
-                      </div>
-                    </div>
-                  )}
+          <Card className="gap-0 py-0 shadow-sm">
+            <CardHeader className="border-b bg-muted/20 px-4 py-2.5">
+              <CardTitle className="flex items-center gap-2 text-sm">
+                <BriefcaseBusiness className="size-4" />
+                Job Details
+              </CardTitle>
+              <CardDescription className="text-xs">Joining date, designation, and qualification</CardDescription>
+            </CardHeader>
+            <CardContent className="p-4">
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium">
+                    Join Date <span className="text-destructive">*</span>
+                  </Label>
+                  <DatePicker
+                    value={joinDate}
+                    onChange={setJoinDate}
+                    disableFuture
+                    yearDropdown
+                    yearsBack={20}
+                    placeholder="Select join date"
+                    triggerClassName="w-full"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="staff-designation" className="text-xs font-medium">
+                    Designation <span className="text-muted-foreground font-normal">(optional)</span>
+                  </Label>
+                  <Input
+                    id="staff-designation"
+                    placeholder="e.g., Sr. Accountant, Head Librarian"
+                    value={designation}
+                    onChange={(e) => setDesignation(e.target.value)}
+                    className="h-9"
+                    disabled={submitting}
+                  />
+                  <p className="text-[11px] text-muted-foreground">Defaults to selected role if left blank.</p>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="staff-qualification" className="text-xs font-medium">
+                    Qualification <span className="text-muted-foreground font-normal">(optional)</span>
+                  </Label>
+                  <Input
+                    id="staff-qualification"
+                    placeholder="e.g., B.Com, M.A."
+                    value={qualification}
+                    onChange={(e) => setQualification(e.target.value)}
+                    className="h-9"
+                    disabled={submitting}
+                  />
                 </div>
               </div>
+            </CardContent>
+          </Card>
 
-              <Separator />
+          <Card className="gap-0 py-0 shadow-sm">
+            <CardHeader className="border-b bg-muted/20 px-4 py-2.5">
+              <CardTitle className="flex items-center gap-2 text-sm">
+                <ShieldCheck className="size-4" />
+                Role Assignment
+              </CardTitle>
+              <CardDescription className="text-xs">Choose the permission role for this staff member</CardDescription>
+            </CardHeader>
+            <CardContent className="p-4">
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium">
+                    Staff Permission Role <span className="text-destructive">*</span>
+                  </Label>
+                  <Select value={selectedRoleId} onValueChange={setSelectedRoleId}>
+                    <SelectTrigger className="h-9" disabled={submitting}>
+                      <SelectValue placeholder="Choose access for this staff member" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableRoles.map((role) => {
+                        const Icon = ROLE_ICONS[role.name] || Shield
+                        return (
+                          <SelectItem key={role.id} value={role.id}>
+                            <div className="flex items-center gap-2">
+                              <Icon className="size-3.5" />
+                              <span>{role.name}</span>
+                            </div>
+                          </SelectItem>
+                        )
+                      })}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-              {/* Action Buttons */}
-              <div className="flex items-center gap-3">
-                <Button
-                  type="submit"
-                  disabled={!isFormValid || submitting}
-                  className="gap-2 min-w-[140px]"
-                >
-                  {submitting ? (
-                    <>
-                      <div className="size-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                      Creating...
-                    </>
-                  ) : (
-                    <>
-                      <UserPlus className="size-4" />
-                      Create Staff
-                    </>
-                  )}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => router.push('/staff')}
-                  disabled={submitting}
-                >
-                  Cancel
-                </Button>
+                {selectedRole && (
+                  <div className="rounded-lg border bg-background p-3 shadow-sm ring-1 ring-primary/10">
+                    <div className="flex items-start gap-3">
+                      <div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+                        {RoleIcon && <RoleIcon className="size-5" />}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h4 className="text-sm font-semibold text-foreground">{selectedRole.name}</h4>
+                          {selectedRole.isSystem && (
+                            <Badge variant="secondary" className="h-5 px-2 text-[10px]">System</Badge>
+                          )}
+                        </div>
+                        {selectedRole.description && (
+                          <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
+                            {selectedRole.description}
+                          </p>
+                        )}
+                        <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                          <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1">
+                            <ShieldCheck className="size-3" />
+                            {selectedRole.permissionCount} permissions
+                          </span>
+                          <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1">
+                            <UserPlus className="size-3" />
+                            {selectedRole.userCount} staff assigned
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                        <CheckCircle2 className="size-4" />
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
-            </form>
-          )}
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
+
+          <div className="flex flex-col-reverse gap-2 border-t pt-3 sm:flex-row sm:items-center">
+            <Button
+              type="submit"
+              disabled={!isFormValid || submitting}
+              className="gap-2 sm:min-w-[140px]"
+            >
+              {submitting ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                <>
+                  <UserPlus className="size-4" />
+                  Create Staff
+                </>
+              )}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => router.push('/staff')}
+              disabled={submitting}
+            >
+              Cancel
+            </Button>
+          </div>
+        </form>
+      )}
     </div>
   )
 }

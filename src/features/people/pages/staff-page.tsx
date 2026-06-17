@@ -5,8 +5,8 @@ import { useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
 import { useAppStore } from '@/lib/store'
 import { useToast } from '@/hooks/use-toast'
-import { ResetUserPasswordDialog } from '@/components/shared'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { PageHeader, ResetUserPasswordDialog } from '@/components/shared'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -78,6 +78,7 @@ import {
   Loader2,
   Pencil,
   X,
+  Filter,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -595,6 +596,10 @@ export function StaffPage() {
   }, [availableRoles])
 
   const hasActiveFilters = roleFilter !== 'all' || statusFilter !== 'all' || debouncedSearch !== ''
+  const activeFilterCount = [roleFilter !== 'all', statusFilter !== 'all', debouncedSearch !== ''].filter(Boolean).length
+  const staffCountLabel = loadingUsers
+    ? 'Loading staff members'
+    : `${pagination.total} staff member${pagination.total === 1 ? '' : 's'}`
 
   const clearFilters = useCallback(() => {
     setSearchQuery('')
@@ -606,95 +611,115 @@ export function StaffPage() {
   // ── Render ──
   return (
     <div className="space-y-4">
-      {/* Header */}
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
-          <h1 className="text-xl font-bold tracking-tight">Staff List</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            View and manage staff profiles, roles, and account status
-          </p>
-        </div>
-        <Button onClick={handleCreateStaff} className="gap-2 shrink-0">
-          <UserPlus className="size-4" />
-          Add Staff
-        </Button>
-      </div>
+      <PageHeader
+        title="Staff List"
+        description="View and manage staff profiles, roles, and account status."
+        action={{ label: 'Add Staff', icon: UserPlus, onClick: handleCreateStaff }}
+      />
 
-      {/* Staff Table */}
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex flex-col gap-3">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                <Users className="size-4" />
-                Staff Members
-                <Badge variant="secondary" className="text-[10px]">
-                  {pagination.total}
+      <Card className="gap-0 py-0 shadow-sm">
+        <CardContent className="p-3">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+            <div className="flex items-center gap-2 text-sm font-medium">
+              <div className="flex size-8 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                <Filter className="size-4" />
+              </div>
+              Filters
+              {activeFilterCount > 0 && (
+                <Badge variant="secondary" className="h-5 px-1.5 text-[10px]">
+                  {activeFilterCount}
                 </Badge>
-              </CardTitle>
+              )}
             </div>
 
-            {/* Filters Row */}
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-              <div className="relative w-full sm:max-w-xs">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
+            <div className="grid flex-1 gap-2 sm:grid-cols-2 lg:grid-cols-[minmax(240px,1.4fr)_minmax(160px,0.8fr)_minmax(140px,0.7fr)]">
+              <div className="relative sm:col-span-2 lg:col-span-1">
+                <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   placeholder="Search by name, employee ID, email..."
                   value={searchQuery}
                   onChange={(e) => handleSearchChange(e.target.value)}
-                  className="pl-8 h-9 text-sm"
+                  className="h-9 bg-background pl-9 pr-9 text-sm"
                 />
-              </div>
-
-              <div className="flex items-center gap-2">
-                <Select value={roleFilter} onValueChange={handleRoleFilterChange}>
-                  <SelectTrigger className="h-9 w-full sm:w-[180px] text-sm">
-                    <SelectValue placeholder="All roles" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All roles</SelectItem>
-                    {filterableRoles.map((role) => {
-                      const Icon = ROLE_DISPLAY_ICONS[role.name] || Shield
-                      return (
-                        <SelectItem key={role.id} value={role.id}>
-                          <span className="inline-flex items-center gap-2">
-                            <Icon className="size-3.5" />
-                            {role.name}
-                          </span>
-                        </SelectItem>
-                      )
-                    })}
-                  </SelectContent>
-                </Select>
-
-                <Select
-                  value={statusFilter}
-                  onValueChange={(v) => handleStatusFilterChange(v as StatusFilter)}
-                >
-                  <SelectTrigger className="h-9 w-full sm:w-[140px] text-sm">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All status</SelectItem>
-                    <SelectItem value="active">Active only</SelectItem>
-                    <SelectItem value="inactive">Inactive only</SelectItem>
-                  </SelectContent>
-                </Select>
-
-                {hasActiveFilters && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={clearFilters}
-                    className="h-9 gap-1 text-xs"
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => handleSearchChange('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
+                    aria-label="Clear search"
                   >
                     <X className="size-3.5" />
-                    Clear
-                  </Button>
+                  </button>
                 )}
               </div>
+
+              <Select value={roleFilter} onValueChange={handleRoleFilterChange}>
+                <SelectTrigger className="h-9 bg-background text-sm">
+                  <SelectValue placeholder="All roles" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All roles</SelectItem>
+                  {filterableRoles.map((role) => {
+                    const Icon = ROLE_DISPLAY_ICONS[role.name] || Shield
+                    return (
+                      <SelectItem key={role.id} value={role.id}>
+                        <span className="inline-flex items-center gap-2">
+                          <Icon className="size-3.5" />
+                          {role.name}
+                        </span>
+                      </SelectItem>
+                    )
+                  })}
+                </SelectContent>
+              </Select>
+
+              <Select
+                value={statusFilter}
+                onValueChange={(v) => handleStatusFilterChange(v as StatusFilter)}
+              >
+                <SelectTrigger className="h-9 bg-background text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All status</SelectItem>
+                  <SelectItem value="active">Active only</SelectItem>
+                  <SelectItem value="inactive">Inactive only</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex items-center justify-between gap-2 lg:justify-end">
+              <p className="whitespace-nowrap text-xs text-muted-foreground">
+                {loadingUsers ? 'Loading...' : `${users.length} shown`}
+              </p>
+              {hasActiveFilters && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearFilters}
+                  className="h-8 gap-1.5 text-xs"
+                >
+                  <X className="size-3.5" />
+                  Clear
+                </Button>
+              )}
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Staff Table */}
+      <Card className="gap-0 overflow-hidden py-0 shadow-sm">
+        <CardHeader className="border-b bg-muted/20 px-4 py-2.5">
+          <CardTitle className="flex items-center gap-2 text-sm">
+            <Users className="size-4" />
+            Staff Members
+            <Badge variant="secondary" className="h-5 px-1.5 text-[10px]">
+              {pagination.total}
+            </Badge>
+          </CardTitle>
+          <CardDescription className="text-xs">{staffCountLabel}</CardDescription>
         </CardHeader>
         <CardContent className="p-0">
           {loadingUsers ? (
@@ -702,12 +727,12 @@ export function StaffPage() {
               <StaffTableSkeleton />
             </div>
           ) : users.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-center px-4">
-              <div className="size-14 rounded-full bg-muted flex items-center justify-center mb-4">
+            <div className="flex flex-col items-center justify-center px-4 py-14 text-center">
+              <div className="mb-4 flex size-14 items-center justify-center rounded-full bg-muted">
                 <Users className="size-7 text-muted-foreground/50" />
               </div>
-              <h3 className="text-lg font-semibold text-muted-foreground">No Staff Found</h3>
-              <p className="text-sm text-muted-foreground/70 mt-1 max-w-sm">
+              <h3 className="text-base font-semibold text-foreground">No Staff Found</h3>
+              <p className="mt-1 max-w-sm text-sm text-muted-foreground">
                 {hasActiveFilters
                   ? 'No staff members match your current filters.'
                   : 'No staff members have been added yet. Click "Add Staff" to get started.'}
@@ -725,8 +750,8 @@ export function StaffPage() {
               <div className="hidden md:block">
                 <Table>
                   <TableHeader>
-                    <TableRow>
-                      <TableHead>Name</TableHead>
+                    <TableRow className="bg-muted/40 hover:bg-muted/40">
+                      <TableHead className="px-4">Name</TableHead>
                       <TableHead className="w-[130px]">Employee ID</TableHead>
                       <TableHead>Email</TableHead>
                       <TableHead className="hidden lg:table-cell">Phone</TableHead>
@@ -747,7 +772,7 @@ export function StaffPage() {
                           className={`cursor-pointer ${!staff.isActive ? 'opacity-70' : ''}`}
                           onClick={() => handleViewStaff(staff.id)}
                         >
-                          <TableCell>
+                          <TableCell className="px-4 py-3">
                             <div className="flex items-center gap-3">
                               <Avatar className="size-8 shrink-0">
                                 <AvatarFallback className="bg-primary/10 text-primary text-[10px] font-medium">
@@ -767,18 +792,18 @@ export function StaffPage() {
                               </div>
                             </div>
                           </TableCell>
-                          <TableCell>
+                          <TableCell className="py-3">
                             {staff.employeeId ? (
                               <span className="font-mono text-xs">{staff.employeeId}</span>
                             ) : (
                               <span className="text-sm text-muted-foreground">-</span>
                             )}
                           </TableCell>
-                          <TableCell className="text-sm text-muted-foreground">{staff.email}</TableCell>
-                          <TableCell className="hidden lg:table-cell text-sm text-muted-foreground">
-                            {staff.phone || '—'}
+                          <TableCell className="py-3 text-sm text-muted-foreground">{staff.email || '-'}</TableCell>
+                          <TableCell className="hidden py-3 text-sm text-muted-foreground lg:table-cell">
+                            {staff.phone || '-'}
                           </TableCell>
-                          <TableCell>
+                          <TableCell className="py-3">
                             <div className="flex items-center gap-1.5">
                               <Badge
                                 variant="secondary"
@@ -794,10 +819,10 @@ export function StaffPage() {
                               )}
                             </div>
                           </TableCell>
-                          <TableCell>
+                          <TableCell className="py-3">
                             <StatusBadge active={staff.isActive} />
                           </TableCell>
-                          <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                          <TableCell className="py-3 text-right" onClick={(e) => e.stopPropagation()}>
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                 <Button
@@ -853,7 +878,7 @@ export function StaffPage() {
               {/* Mobile Card List */}
               <div className="md:hidden">
                 <ScrollArea className="max-h-[calc(100vh-420px)] min-h-[300px]">
-                  <div className="space-y-1 px-3 pb-3">
+                  <div className="space-y-2 p-3">
                     {users.map((staff) => {
                       const firstAssignedRole = staff.assignedRoles?.[0]
                       const displayRoleName = firstAssignedRole?.name ?? formatRoleName(staff.role)
@@ -862,7 +887,7 @@ export function StaffPage() {
                       return (
                         <div
                           key={staff.id}
-                          className={`w-full flex items-center gap-3 p-3 rounded-lg transition-all duration-150 hover:bg-muted/60 border border-transparent ${!staff.isActive ? 'opacity-70' : ''}`}
+                          className={`flex w-full items-center gap-3 rounded-lg border bg-background p-3 transition-colors hover:bg-muted/50 ${!staff.isActive ? 'opacity-70' : ''}`}
                         >
                           <button
                             onClick={() => handleViewStaff(staff.id)}
