@@ -2,7 +2,6 @@
 
 import React, { useEffect, useState } from 'react'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
@@ -13,6 +12,7 @@ import {
 import { KpiCard } from './kpi-card'
 import { formatCurrency } from '../audit-field-list'
 import { cn } from '@/lib/utils'
+import { ReportCard, reportTableHeaderRowClass } from './report-ui'
 
 interface Props {
   open: boolean
@@ -53,7 +53,7 @@ interface DetailResponse {
     billed: number
     collected: number
     outstanding: number
-    refunded: number
+    waived: number
     collectionRate: number
     studentsBilled: number
     defaulterCount: number
@@ -72,9 +72,6 @@ export function FeeHeadDetail({ open, onOpenChange, headName, academicYear, star
   useEffect(() => {
     if (!open || !headName) return
     let alive = true
-    setLoading(true)
-    setError(null)
-    setData(null)
 
     const params = new URLSearchParams()
     params.set('headName', headName)
@@ -82,14 +79,21 @@ export function FeeHeadDetail({ open, onOpenChange, headName, academicYear, star
     if (startDate) params.set('startDate', startDate)
     if (endDate) params.set('endDate', endDate)
 
-    fetch(`/api/school/fees/reports/fee-head?${params}`, { credentials: 'include' })
-      .then(r => {
-        if (!r.ok) throw new Error('Failed to load')
-        return r.json()
-      })
-      .then(d => { if (alive) setData(d) })
-      .catch(e => { if (alive) setError(e.message) })
-      .finally(() => { if (alive) setLoading(false) })
+    void Promise.resolve().then(() => {
+      if (!alive) return
+      setLoading(true)
+      setError(null)
+      setData(null)
+
+      return fetch(`/api/school/fees/reports/fee-head?${params}`, { credentials: 'include' })
+        .then(r => {
+          if (!r.ok) throw new Error('Failed to load')
+          return r.json()
+        })
+        .then(d => { if (alive) setData(d) })
+        .catch(e => { if (alive) setError(e.message) })
+        .finally(() => { if (alive) setLoading(false) })
+    })
 
     return () => { alive = false }
   }, [open, headName, academicYear, startDate, endDate])
@@ -109,9 +113,9 @@ export function FeeHeadDetail({ open, onOpenChange, headName, academicYear, star
           </SheetDescription>
         </SheetHeader>
 
-        <div className="p-5 space-y-4">
+        <div className="space-y-3 p-4">
           {/* KPIs */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <KpiCard label="Billed" value={loading || !k ? '—' : formatCurrency(k.billed)} icon={ReceiptText} tone="muted" loading={loading} />
             <KpiCard label="Collected" value={loading || !k ? '—' : formatCurrency(k.collected)} tone="success" loading={loading} />
             <KpiCard label="Outstanding" value={loading || !k ? '—' : formatCurrency(k.outstanding)} icon={AlertTriangle} tone="warning" loading={loading} />
@@ -131,15 +135,13 @@ export function FeeHeadDetail({ open, onOpenChange, headName, academicYear, star
           )}
 
           {/* Monthly trend */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                <TrendingUp className="size-4 text-blue-600" />
-                Monthly Trend
-              </CardTitle>
-              <p className="text-xs text-muted-foreground">Billed vs collected across the academic year</p>
-            </CardHeader>
-            <CardContent>
+          <ReportCard
+            title="Monthly Trend"
+            icon={TrendingUp}
+            iconClassName="text-blue-600"
+            description="Billed vs collected across the academic year"
+            contentClassName="p-3"
+          >
               {loading ? (
                 <Skeleton className="h-48 w-full" />
               ) : data && data.monthlySeries.some(m => m.billed > 0 || m.collected > 0) ? (
@@ -173,23 +175,19 @@ export function FeeHeadDetail({ open, onOpenChange, headName, academicYear, star
                   No activity for this head in the academic year
                 </div>
               )}
-            </CardContent>
-          </Card>
+          </ReportCard>
 
           {/* By Class */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                <Layers className="size-4 text-blue-600" />
-                By Class
-              </CardTitle>
-              <p className="text-xs text-muted-foreground">Classes that have any activity for this head</p>
-            </CardHeader>
-            <CardContent className="p-0">
+          <ReportCard
+            title="By Class"
+            icon={Layers}
+            iconClassName="text-blue-600"
+            description="Classes that have any activity for this head"
+          >
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
-                    <TableRow className="bg-gray-50 hover:bg-gray-50">
+                    <TableRow className={reportTableHeaderRowClass}>
                       <TableHead className="text-xs">Class</TableHead>
                       <TableHead className="text-xs text-right">Defaulters</TableHead>
                       <TableHead className="text-xs text-right">Billed</TableHead>
@@ -230,26 +228,22 @@ export function FeeHeadDetail({ open, onOpenChange, headName, academicYear, star
                   </TableBody>
                 </Table>
               </div>
-            </CardContent>
-          </Card>
+          </ReportCard>
 
           {/* Top Defaulters */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                <Users className="size-4 text-amber-600" />
-                Top Defaulters
-                {data?.defaultersTruncated && (
-                  <Badge variant="secondary" className="text-[10px] ml-1">showing top {data.topDefaulters.length}</Badge>
-                )}
-              </CardTitle>
-              <p className="text-xs text-muted-foreground">Students with open balance against this head, largest first</p>
-            </CardHeader>
-            <CardContent className="p-0">
+          <ReportCard
+            title="Top Defaulters"
+            icon={Users}
+            iconClassName="text-amber-600"
+            description="Students with open balance against this head, largest first"
+            actions={data?.defaultersTruncated && (
+              <Badge variant="secondary" className="text-[10px]">showing top {data.topDefaulters.length}</Badge>
+            )}
+          >
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
-                    <TableRow className="bg-gray-50 hover:bg-gray-50">
+                    <TableRow className={reportTableHeaderRowClass}>
                       <TableHead className="text-xs">Student</TableHead>
                       <TableHead className="text-xs">Class</TableHead>
                       <TableHead className="text-xs text-right">Outstanding</TableHead>
@@ -293,8 +287,7 @@ export function FeeHeadDetail({ open, onOpenChange, headName, academicYear, star
                   </TableBody>
                 </Table>
               </div>
-            </CardContent>
-          </Card>
+          </ReportCard>
         </div>
       </SheetContent>
     </Sheet>

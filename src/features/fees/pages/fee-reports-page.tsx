@@ -2,20 +2,35 @@
 
 import React, { useEffect, useMemo, useState } from 'react'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
-import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Card, CardContent } from '@/components/ui/card'
-import { LoadingState, EmptyState } from '@/components/shared'
+import { Label } from '@/components/ui/label'
+import { LoadingState, EmptyState, PageHeader } from '@/components/shared'
 import { api } from '@/lib/api'
 import { useAppStore } from '@/lib/store'
 import { usePermissions } from '@/hooks/use-permissions'
-import { LayoutDashboard, AlertTriangle, UserSearch, Layers, Lock, Calendar } from 'lucide-react'
+import {
+  AlertTriangle,
+  BadgePercent,
+  Banknote,
+  Calendar,
+  Filter,
+  Layers,
+  LayoutDashboard,
+  Lock,
+  UserSearch,
+  Wallet,
+  type LucideIcon,
+} from 'lucide-react'
 import { SummaryTab } from '../components/reports/summary-tab'
 import { OutstandingTab } from '../components/reports/outstanding-tab'
 import { StudentStatementTab } from '../components/reports/student-statement-tab'
 import { AggregationsTab } from '../components/reports/aggregations-tab'
+import { DailyRegisterTab } from '../components/reports/daily-register-tab'
+import { ConcessionsTab } from '../components/reports/concessions-tab'
+import { AdvancesTab } from '../components/reports/advances-tab'
+import { cn } from '@/lib/utils'
 
-type TabKey = 'summary' | 'outstanding' | 'statement' | 'aggregations'
+type TabKey = 'summary' | 'daily' | 'outstanding' | 'statement' | 'aggregations' | 'concessions' | 'advances'
 
 interface ClassOption { id: string; name: string }
 interface SectionOption { id: string; name: string; classId?: string }
@@ -26,6 +41,21 @@ const RANGE_PRESETS = [
   { value: '30d', label: 'Last 30 days' },
   { value: 'mtd', label: 'Month to date' },
   { value: 'ytd', label: 'Academic year' },
+]
+
+const REPORT_TABS: Array<{
+  value: TabKey
+  label: string
+  shortLabel?: string
+  icon: LucideIcon
+}> = [
+  { value: 'summary', label: 'Summary', icon: LayoutDashboard },
+  { value: 'daily', label: 'Daily', icon: Banknote },
+  { value: 'outstanding', label: 'Outstanding', shortLabel: 'Dues', icon: AlertTriangle },
+  { value: 'statement', label: 'Statement', shortLabel: 'Stmt', icon: UserSearch },
+  { value: 'aggregations', label: 'By Class', shortLabel: 'Pivot', icon: Layers },
+  { value: 'concessions', label: 'Concessions', shortLabel: 'Waivers', icon: BadgePercent },
+  { value: 'advances', label: 'Advances', icon: Wallet },
 ]
 
 export function FeeReportsPage() {
@@ -87,86 +117,85 @@ export function FeeReportsPage() {
   }
 
   return (
-    <div className="space-y-4 pb-20 sm:pb-0">
-      {/* Header */}
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-        <div className="flex items-stretch gap-3">
-          <span aria-hidden className="bg-brand mt-0.5 w-1 shrink-0 self-stretch rounded-full" />
-          <div>
-            <h1 className="text-xl font-semibold tracking-tight leading-tight text-foreground/90">
-              Fee Reports
-            </h1>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Daily collection, outstanding dues, student statements, and class-wise breakdowns
-            </p>
-          </div>
-        </div>
+    <div className="space-y-3 pb-20 sm:pb-0">
+      <PageHeader
+        title="Fee Reports"
+        description="Collections, dues, statements, concessions, advances, and class-wise breakdowns."
+      />
 
-        {/* Filters */}
-        <div className="flex flex-wrap items-center gap-2">
+      <div className="rounded-md border border-border/70 bg-card/60 px-3 py-2">
+        <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
+          <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground lg:w-28">
+            <Filter className="size-3.5" />
+            Report Scope
+          </div>
+
+          <div className="grid flex-1 gap-2 sm:grid-cols-2 lg:max-w-xl">
           {academicYears.length > 0 && (
-            <Select value={academicYear} onValueChange={setAcademicYear}>
-              <SelectTrigger className="h-9 w-[140px]">
-                <Calendar className="size-3.5 mr-1.5 text-muted-foreground" />
-                <SelectValue placeholder="AY" />
+            <div className="grid grid-cols-[92px_minmax(0,1fr)] items-center gap-2">
+              <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Academic Year
+              </Label>
+              <Select value={academicYear} onValueChange={setAcademicYear}>
+                <SelectTrigger className="h-8 w-full justify-start">
+                  <Calendar className="mr-1.5 size-3.5 text-muted-foreground" />
+                  <SelectValue placeholder="Academic year" />
+                </SelectTrigger>
+                <SelectContent>
+                  {academicYears.map(y => (
+                    <SelectItem key={y} value={y}>AY {y}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          <div className="grid grid-cols-[92px_minmax(0,1fr)] items-center gap-2">
+            <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Date Range
+            </Label>
+            <Select value={rangePreset} onValueChange={setRangePreset}>
+              <SelectTrigger className="h-8 w-full">
+                <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {academicYears.map(y => (
-                  <SelectItem key={y} value={y}>AY {y}</SelectItem>
+                {RANGE_PRESETS.map(p => (
+                  <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
-          )}
-          <Select value={rangePreset} onValueChange={setRangePreset}>
-            <SelectTrigger className="h-9 w-[160px]"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              {RANGE_PRESETS.map(p => (
-                <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          </div>
+          </div>
         </div>
       </div>
 
       {/* Tabs */}
-      <Tabs value={active} onValueChange={(v) => setActive(v as TabKey)} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 h-auto p-1 bg-gray-100">
-          <TabsTrigger
-            value="summary"
-            className="data-[state=active]:bg-white data-[state=active]:shadow-sm gap-1.5 py-2"
-          >
-            <LayoutDashboard className="size-3.5" />
-            <span className="hidden sm:inline">Summary</span>
-            <span className="sm:hidden">Summary</span>
-          </TabsTrigger>
-          <TabsTrigger
-            value="outstanding"
-            className="data-[state=active]:bg-white data-[state=active]:shadow-sm gap-1.5 py-2"
-          >
-            <AlertTriangle className="size-3.5" />
-            <span className="hidden sm:inline">Outstanding</span>
-            <span className="sm:hidden">Dues</span>
-          </TabsTrigger>
-          <TabsTrigger
-            value="statement"
-            className="data-[state=active]:bg-white data-[state=active]:shadow-sm gap-1.5 py-2"
-          >
-            <UserSearch className="size-3.5" />
-            <span className="hidden sm:inline">Student Statement</span>
-            <span className="sm:hidden">Statement</span>
-          </TabsTrigger>
-          <TabsTrigger
-            value="aggregations"
-            className="data-[state=active]:bg-white data-[state=active]:shadow-sm gap-1.5 py-2"
-          >
-            <Layers className="size-3.5" />
-            <span className="hidden sm:inline">By Class &amp; Head</span>
-            <span className="sm:hidden">Pivots</span>
-          </TabsTrigger>
-        </TabsList>
+      <Tabs value={active} onValueChange={(v) => setActive(v as TabKey)} className="space-y-3">
+        <div className="-mx-1 overflow-x-auto px-1 pb-1">
+          <TabsList className="grid h-auto min-w-[700px] grid-cols-7 bg-muted p-1 sm:min-w-0 sm:w-full">
+            {REPORT_TABS.map(({ value, label, shortLabel, icon: Icon }) => (
+              <TabsTrigger
+                key={value}
+                value={value}
+                className={cn(
+                  'h-8 gap-1.5 px-2 text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm sm:text-sm',
+                  value === active && 'text-foreground',
+                )}
+              >
+                <Icon className="size-3.5" />
+                <span className="hidden min-w-0 truncate sm:inline">{label}</span>
+                <span className="min-w-0 truncate sm:hidden">{shortLabel ?? label}</span>
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </div>
 
         <TabsContent value="summary" className="mt-0 space-y-3">
           <SummaryTab startDate={startDate} endDate={endDate} academicYear={academicYear} />
+        </TabsContent>
+
+        <TabsContent value="daily" className="mt-0 space-y-3">
+          <DailyRegisterTab classes={classes} />
         </TabsContent>
 
         <TabsContent value="outstanding" className="mt-0 space-y-3">
@@ -191,6 +220,21 @@ export function FeeReportsPage() {
 
         <TabsContent value="aggregations" className="mt-0 space-y-3">
           <AggregationsTab academicYear={academicYear} startDate={startDate} endDate={endDate} />
+        </TabsContent>
+
+        <TabsContent value="concessions" className="mt-0 space-y-3">
+          <ConcessionsTab academicYear={academicYear} startDate={startDate} endDate={endDate} classes={classes} />
+        </TabsContent>
+
+        <TabsContent value="advances" className="mt-0 space-y-3">
+          <AdvancesTab
+            academicYear={academicYear}
+            classes={classes}
+            onOpenStudent={(id) => {
+              setPickedStudentId(id)
+              setActive('statement')
+            }}
+          />
         </TabsContent>
       </Tabs>
     </div>

@@ -41,26 +41,26 @@ export function KpiCard({ label, value, hint, icon: Icon, tone = 'primary', load
   const styles = TONE_STYLES[tone]
 
   return (
-    <Card className={cn('relative overflow-hidden ring-1 transition-shadow hover:shadow-sm', styles.ring)}>
-      <CardContent className="p-4 sm:p-5">
+    <Card className={cn('relative overflow-hidden border-border/70 shadow-none ring-1', styles.ring)}>
+      <CardContent className="p-3">
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-center gap-2">
             {Icon && (
-              <span className={cn('inline-flex size-8 items-center justify-center rounded-md', styles.iconBg)}>
-                <Icon className={cn('size-4', styles.iconFg)} />
+              <span className={cn('inline-flex size-7 items-center justify-center rounded-md', styles.iconBg)}>
+                <Icon className={cn('size-3.5', styles.iconFg)} />
               </span>
             )}
-            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+            <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
               {label}
             </span>
           </div>
           {badge}
         </div>
-        <div className="mt-3">
+        <div className="mt-2">
           {loading ? (
-            <div className="h-7 w-24 animate-pulse rounded bg-gray-200" />
+            <div className="h-6 w-24 animate-pulse rounded bg-gray-200" />
           ) : (
-            <div className={cn('text-2xl font-bold tracking-tight tabular-nums', styles.number)}>
+            <div className={cn('text-xl font-bold tracking-tight tabular-nums', styles.number)}>
               {value}
             </div>
           )}

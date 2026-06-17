@@ -24,6 +24,22 @@ export async function PATCH(req: NextRequest) {
     const affiliationNumber = typeof body.affiliationNumber === 'string' ? body.affiliationNumber.trim() : body.affiliationNumber === null ? null : undefined
     const establishedYear = typeof body.establishedYear === 'string' ? body.establishedYear.trim() : body.establishedYear === null ? null : undefined
     const principalSignature = typeof body.principalSignature === 'string' ? body.principalSignature.trim() : body.principalSignature === null ? null : undefined
+    const board = typeof body.board === 'string' && body.board.trim() ? body.board.trim() : undefined
+    // Blank string normalises to null so "cleared" and "unset" are stored alike.
+    const principalName = typeof body.principalName === 'string' ? (body.principalName.trim() || null) : body.principalName === null ? null : undefined
+    const trustName = typeof body.trustName === 'string' ? (body.trustName.trim() || null) : body.trustName === null ? null : undefined
+    // Admit-card instructions: accept an array of strings and store as JSON.
+    let admitCardInstructions: string | null | undefined
+    if (Array.isArray(body.admitCardInstructions)) {
+      const lines = body.admitCardInstructions
+        .filter((s: unknown): s is string => typeof s === 'string')
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0)
+        .slice(0, 12)
+      admitCardInstructions = lines.length > 0 ? JSON.stringify(lines) : null
+    } else if (body.admitCardInstructions === null) {
+      admitCardInstructions = null
+    }
     const inventoryDuesOnFeePage = typeof body.inventoryDuesOnFeePage === 'boolean' ? body.inventoryDuesOnFeePage : undefined
 
     let workingDays: string | undefined
@@ -37,7 +53,7 @@ export async function PATCH(req: NextRequest) {
     if (name !== undefined && !name) {
       return apiError(400, 'Please enter a school name.')
     }
-    if (name === undefined && logo === undefined && favicon === undefined && printHeader === undefined && registrationNumber === undefined && udiseNumber === undefined && affiliationNumber === undefined && establishedYear === undefined && principalSignature === undefined && workingDays === undefined && inventoryDuesOnFeePage === undefined) {
+    if (name === undefined && logo === undefined && favicon === undefined && printHeader === undefined && registrationNumber === undefined && udiseNumber === undefined && affiliationNumber === undefined && establishedYear === undefined && principalSignature === undefined && board === undefined && principalName === undefined && trustName === undefined && admitCardInstructions === undefined && workingDays === undefined && inventoryDuesOnFeePage === undefined) {
       return apiError(400, 'Please provide at least one branding update.')
     }
 
@@ -92,6 +108,10 @@ export async function PATCH(req: NextRequest) {
         ...(affiliationNumber !== undefined ? { affiliationNumber } : {}),
         ...(establishedYear !== undefined ? { establishedYear } : {}),
         ...(principalSignatureUpload.url !== undefined ? { principalSignature: principalSignatureUpload.url } : {}),
+        ...(board !== undefined ? { board } : {}),
+        ...(principalName !== undefined ? { principalName } : {}),
+        ...(trustName !== undefined ? { trustName } : {}),
+        ...(admitCardInstructions !== undefined ? { admitCardInstructions } : {}),
         ...(workingDays !== undefined ? { workingDays } : {}),
         ...(inventoryDuesOnFeePage !== undefined ? { inventoryDuesOnFeePage } : {}),
       },
@@ -106,6 +126,9 @@ export async function PATCH(req: NextRequest) {
         affiliationNumber: true,
         establishedYear: true,
         principalSignature: true,
+        principalName: true,
+        trustName: true,
+        admitCardInstructions: true,
         status: true,
         academicYear: true,
         board: true,

@@ -3,6 +3,10 @@ import { db } from '@/lib/db'
 import { requirePermission } from '@/lib/api-auth'
 import { apiError, internalError } from '@/lib/api-errors'
 import { getFeeLedgerSummary } from '@/lib/fee-ledger-summary'
+import {
+  getZonedParts, startOfZonedDay, startOfZonedMonth, addZonedDays, addZonedMonths,
+  toDateKey, toMonthKey, academicYearStart, academicYearStartFor,
+} from '@/lib/zoned-time'
 
 /**
  * GET /api/school/fees/reports/summary
@@ -47,7 +51,6 @@ export async function GET(request: NextRequest) {
     const seriesEnd = endParam ? new Date(endParam) : todayEnd
 
     const academicYearFilter = academicYear ? { academicYear } : {}
-    const debitAcademicYearFilter = academicYear ? { academicYear } : {}
 
     // ── KPIs ───────────────────────────────────────────────────────────
     const ledgerSummary = await getFeeLedgerSummary(schoolId, undefined, academicYear)
@@ -56,17 +59,17 @@ export async function GET(request: NextRequest) {
       todayCredits,
       monthCredits,
       yearCredits,
-      refundDebits,
       todayReceipts,
       paymentMethodAgg,
       activeStudents,
+      refundEventCounts,
     ] = await Promise.all([
       db.studentFeeLedgerAllocation.aggregate({
         where: {
           schoolId, deletedAt: null,
           allocatedAt: { gte: todayStart, lt: todayEnd },
           creditEntry: { entryType: 'CREDIT', deletedAt: null },
-          debitEntry: { deletedAt: null, ...debitAcademicYearFilter },
+          debitEntry: { deletedAt: null, status: { not: 'cancelled' }, ...academicYearFilter },
         },
         _sum: { amount: true },
         _count: { id: true },
@@ -76,7 +79,7 @@ export async function GET(request: NextRequest) {
           schoolId, deletedAt: null,
           allocatedAt: { gte: monthStart, lt: todayEnd },
           creditEntry: { entryType: 'CREDIT', deletedAt: null },
-          debitEntry: { deletedAt: null, ...debitAcademicYearFilter },
+          debitEntry: { deletedAt: null, status: { not: 'cancelled' }, ...academicYearFilter },
         },
         _sum: { amount: true },
       }),
@@ -85,18 +88,9 @@ export async function GET(request: NextRequest) {
           schoolId, deletedAt: null,
           allocatedAt: { gte: yearStart, lt: todayEnd },
           creditEntry: { entryType: 'CREDIT', deletedAt: null },
-          debitEntry: { deletedAt: null, ...debitAcademicYearFilter },
+          debitEntry: { deletedAt: null, status: { not: 'cancelled' }, ...academicYearFilter },
         },
         _sum: { amount: true },
-      }),
-      // Refunds are DEBIT entries with sourceType='refund'
-      db.studentFeeLedgerEntry.aggregate({
-        where: {
-          schoolId, deletedAt: null, entryType: 'REFUND',
-          transactionDate: { gte: yearStart, lt: todayEnd },
-        },
-        _sum: { debit: true },
-        _count: { id: true },
       }),
       db.studentFeePayment.count({
         where: {
@@ -110,14 +104,34 @@ export async function GET(request: NextRequest) {
           schoolId, deletedAt: null,
           allocatedAt: { gte: seriesStart, lt: seriesEnd },
           creditEntry: { entryType: 'CREDIT', deletedAt: null },
-          debitEntry: { deletedAt: null, ...debitAcademicYearFilter },
+          debitEntry: { deletedAt: null, status: { not: 'cancelled' }, ...academicYearFilter },
         },
         select: {
           amount: true,
+          receiptNumber: true,
           creditEntry: { select: { paymentMethod: true } },
         },
       }),
       db.student.count({ where: { schoolId, isActive: true, deletedAt: null } }),
+      // Count of cash-refund events in the year (for the refunds KPI sub-line)
+      Promise.all([
+        db.transportEvent.count({
+          where: {
+            schoolId, eventType: 'WITHDRAWN', refundMode: 'cash',
+            refundStatus: { in: ['pending', 'settled'] },
+            createdAt: { gte: yearStart, lt: todayEnd },
+            ...academicYearFilter,
+          },
+        }),
+        db.hostelEvent.count({
+          where: {
+            schoolId, eventType: 'WITHDRAWN', refundMode: 'cash',
+            refundStatus: { in: ['pending', 'settled'] },
+            createdAt: { gte: yearStart, lt: todayEnd },
+            ...academicYearFilter,
+          },
+        }),
+      ]).then(([t, h]) => t + h),
     ])
 
     // ── Daily series ─────────────────────────────────────────────────────
@@ -129,7 +143,7 @@ export async function GET(request: NextRequest) {
         schoolId, deletedAt: null,
         allocatedAt: { gte: seriesStart, lt: seriesEnd },
         creditEntry: { entryType: 'CREDIT', deletedAt: null },
-        debitEntry: { deletedAt: null, ...debitAcademicYearFilter },
+        debitEntry: { deletedAt: null, status: { not: 'cancelled' }, ...academicYearFilter },
       },
       select: { allocatedAt: true, amount: true },
     })
@@ -152,7 +166,11 @@ export async function GET(request: NextRequest) {
 
     const paymentModeMap = new Map<string, { amount: number; count: number }>()
     for (const row of paymentMethodAgg) {
-      const method = row.creditEntry.paymentMethod || 'UNSPECIFIED'
+      // Advance applied to dues (receiptNumber 'ADJ-…') moves no real cash, so it
+      // is bucketed as ADJUSTMENT rather than inflating CASH/UPI/etc.
+      const isAdjustment = (row.receiptNumber || '').startsWith('ADJ-')
+      // Normalise casing: fees store 'CASH', inventory stores 'cash' — same mode.
+      const method = isAdjustment ? 'ADJUSTMENT' : (row.creditEntry.paymentMethod || 'UNSPECIFIED').toUpperCase()
       const bucket = paymentModeMap.get(method) ?? { amount: 0, count: 0 }
       bucket.amount += row.amount || 0
       bucket.count += 1
@@ -176,6 +194,7 @@ export async function GET(request: NextRequest) {
       where: {
         schoolId, deletedAt: null,
         entryType: { in: ['DEBIT', 'FINE'] },
+        status: { not: 'cancelled' },
         transactionDate: { gte: yearStart, lt: ayEndForTrend },
         ...academicYearFilter,
       },
@@ -195,7 +214,7 @@ export async function GET(request: NextRequest) {
         schoolId, deletedAt: null,
         allocatedAt: { gte: yearStart, lt: ayEndForTrend },
         creditEntry: { entryType: 'CREDIT', deletedAt: null },
-        debitEntry: { deletedAt: null, ...debitAcademicYearFilter },
+        debitEntry: { deletedAt: null, status: { not: 'cancelled' }, ...academicYearFilter },
       },
       select: {
         amount: true,
@@ -236,24 +255,50 @@ export async function GET(request: NextRequest) {
         collected: round2(v.collected),
       }))
 
+    // Service breakdown is scoped all-time-within-AY (not transactionDate-windowed)
+    // so its Billed/Outstanding totals reconcile with the top-line KPIs.
+    const [serviceEntries, serviceAllocations] = await Promise.all([
+      db.studentFeeLedgerEntry.findMany({
+        where: {
+          schoolId, deletedAt: null,
+          entryType: { in: ['DEBIT', 'FINE'] },
+          status: { not: 'cancelled' },
+          ...academicYearFilter,
+        },
+        select: {
+          debit: true, balanceAmount: true, status: true,
+          sourceType: true, feeHeadName: true,
+        },
+      }),
+      db.studentFeeLedgerAllocation.findMany({
+        where: {
+          schoolId, deletedAt: null,
+          creditEntry: { entryType: 'CREDIT', deletedAt: null },
+          debitEntry: { deletedAt: null, status: { not: 'cancelled' }, ...academicYearFilter },
+        },
+        select: {
+          amount: true,
+          debitEntry: { select: { sourceType: true, feeHeadName: true } },
+        },
+      }),
+    ])
+
     const serviceMap = new Map<ServiceKey, ServiceAgg>(
       SERVICE_ORDER.map(key => [
         key,
         { key, label: SERVICE_LABELS[key], billed: 0, collected: 0, outstanding: 0 },
       ])
     )
-    for (const row of monthlyEntries) {
+    for (const row of serviceEntries) {
       const serviceKey = getServiceKey(row.sourceType, row.feeHeadName)
       const bucket = serviceMap.get(serviceKey)!
-      if (row.entryType === 'DEBIT' || row.entryType === 'FINE') {
-        bucket.billed += row.debit || 0
-        if (row.status === 'open' || row.status === 'partial') {
-          bucket.outstanding += row.balanceAmount || 0
-        }
+      bucket.billed += row.debit || 0
+      if (row.status === 'open' || row.status === 'partial') {
+        bucket.outstanding += row.balanceAmount || 0
       }
       serviceMap.set(serviceKey, bucket)
     }
-    for (const row of monthlyAllocations) {
+    for (const row of serviceAllocations) {
       const serviceKey = getServiceKey(row.debitEntry.sourceType, row.debitEntry.feeHeadName)
       const bucket = serviceMap.get(serviceKey)!
       bucket.collected += row.amount || 0
@@ -287,8 +332,10 @@ export async function GET(request: NextRequest) {
         outstanding: round2(ledgerSummary.pending),
         overdue: round2(ledgerSummary.overdue),
         totalBilled: round2(ledgerSummary.total),
-        refundsIssued: round2(refundDebits._sum.debit || 0),
-        refundCount: refundDebits._count.id,
+        totalCollected: round2(ledgerSummary.collected),
+        waived: round2(ledgerSummary.waived),
+        refundsIssued: round2(ledgerSummary.refunded),
+        refundCount: refundEventCounts,
         collectionRate: ledgerSummary.total > 0
           ? Number(((ledgerSummary.collected / ledgerSummary.total) * 100).toFixed(1))
           : 0,
@@ -303,16 +350,6 @@ export async function GET(request: NextRequest) {
     console.error('Fee summary report error:', error)
     return internalError('loading fee summary')
   }
-}
-
-function toDateKey(d: Date, timezone: string): string {
-  const parts = getZonedParts(d, timezone)
-  return `${parts.year}-${String(parts.month).padStart(2, '0')}-${String(parts.day).padStart(2, '0')}`
-}
-
-function toMonthKey(d: Date, timezone: string): string {
-  const parts = getZonedParts(d, timezone)
-  return `${parts.year}-${String(parts.month).padStart(2, '0')}`
 }
 
 type ServiceKey = 'fees' | 'transport' | 'hostel'
@@ -344,80 +381,4 @@ function getServiceKey(sourceType?: string | null, feeHeadName?: string | null):
 
 function round2(n: number): number {
   return Math.round((n + Number.EPSILON) * 100) / 100
-}
-
-function academicYearStart(ay?: string, timezone = 'Asia/Kolkata'): Date | null {
-  if (!ay) return null
-  const match = ay.match(/^(\d{4})-(\d{4})$/)
-  if (!match) return null
-  // Indian AY: April 1st of the start year
-  return zonedLocalTimeToUtc(parseInt(match[1], 10), 4, 1, timezone)
-}
-
-function academicYearStartFor(instant: Date, timezone: string): Date {
-  const parts = getZonedParts(instant, timezone)
-  const year = parts.month < 4 ? parts.year - 1 : parts.year
-  return zonedLocalTimeToUtc(year, 4, 1, timezone)
-}
-
-function startOfZonedDay(instant: Date, timezone: string): Date {
-  const parts = getZonedParts(instant, timezone)
-  return zonedLocalTimeToUtc(parts.year, parts.month, parts.day, timezone)
-}
-
-function startOfZonedMonth(instant: Date, timezone: string): Date {
-  const parts = getZonedParts(instant, timezone)
-  return zonedLocalTimeToUtc(parts.year, parts.month, 1, timezone)
-}
-
-function addZonedDays(instant: Date, days: number, timezone: string): Date {
-  const parts = getZonedParts(instant, timezone)
-  const shifted = new Date(Date.UTC(parts.year, parts.month - 1, parts.day + days))
-  return zonedLocalTimeToUtc(shifted.getUTCFullYear(), shifted.getUTCMonth() + 1, shifted.getUTCDate(), timezone)
-}
-
-function addZonedMonths(instant: Date, months: number, timezone: string): Date {
-  const parts = getZonedParts(instant, timezone)
-  const shifted = new Date(Date.UTC(parts.year, parts.month - 1 + months, parts.day))
-  return zonedLocalTimeToUtc(shifted.getUTCFullYear(), shifted.getUTCMonth() + 1, shifted.getUTCDate(), timezone)
-}
-
-function zonedLocalTimeToUtc(year: number, month: number, day: number, timezone: string): Date {
-  let utc = Date.UTC(year, month - 1, day, 0, 0, 0, 0)
-  for (let i = 0; i < 2; i += 1) {
-    utc = Date.UTC(year, month - 1, day, 0, 0, 0, 0) - getTimezoneOffsetMs(new Date(utc), timezone)
-  }
-  return new Date(utc)
-}
-
-function getTimezoneOffsetMs(instant: Date, timezone: string): number {
-  const parts = getZonedParts(instant, timezone, true)
-  const asUtc = Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second)
-  return asUtc - instant.getTime()
-}
-
-function getZonedParts(instant: Date, timezone: string, includeTime = false) {
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone: timezone,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    ...(includeTime
-      ? {
-          hour: '2-digit',
-          minute: '2-digit',
-          second: '2-digit',
-          hourCycle: 'h23',
-        }
-      : {}),
-  }).formatToParts(instant)
-  const value = (type: Intl.DateTimeFormatPartTypes) => Number(parts.find(p => p.type === type)?.value || 0)
-  return {
-    year: value('year'),
-    month: value('month'),
-    day: value('day'),
-    hour: includeTime ? value('hour') : 0,
-    minute: includeTime ? value('minute') : 0,
-    second: includeTime ? value('second') : 0,
-  }
 }

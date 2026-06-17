@@ -371,6 +371,18 @@ export function SettingsPage() {
             </div>
           </div>
 
+          <div className="rounded-lg border border-dashed bg-muted/40 p-3 text-sm">
+            <p className="font-medium">Admit card branding moved</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Trust name, principal name, instructions and the full admit-card design are now managed in
+              {' '}
+              <button type="button" onClick={() => router.push('/exams/admit-card-template')} className="text-brand underline underline-offset-2">
+                Exams → Admit Card Template
+              </button>
+              , with a live preview.
+            </p>
+          </div>
+
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="rounded-lg border bg-card p-3">
               <div className="mb-2 flex items-center justify-between">

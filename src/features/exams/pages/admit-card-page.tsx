@@ -22,7 +22,8 @@ import { api } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
 import { AdmitCardRenderer } from '@/features/exams/components/admit-card-renderer'
 import type { AdmitCardData } from '@/features/exams/lib/admit-card-generator'
-import { Users, Search, Printer, Eye, TicketCheck } from 'lucide-react'
+import type { AdmitCardTemplateConfig } from '@/features/exams/lib/admit-card-template'
+import { Users, Search, Printer, Eye, TicketCheck, Palette } from 'lucide-react'
 
 interface ExamInfo {
   id: string
@@ -58,6 +59,7 @@ interface StudentRow {
 interface PreviewResponse {
   exam: { id: string; name: string; academicYear: string }
   school: { name: string; academicYear: string }
+  template?: AdmitCardTemplateConfig
   cards: Array<{ studentId: string; data: AdmitCardData }>
 }
 
@@ -218,6 +220,11 @@ export function AdmitCardPage({ examId }: Props) {
         title={`Admit Cards: ${exam.name}`}
         description={`${exam.group.paradigm.name} · ${exam.group.name} · ${exam.academicYear}`}
         backAction={{ onClick: () => router.push('/exams/list') }}
+        extraActions={
+          <Button variant="outline" onClick={() => router.push('/exams/admit-card-template')} className="gap-2">
+            <Palette className="size-4" /> Customize template
+          </Button>
+        }
         secondaryAction={{
           label: 'Schedule',
           onClick: () => router.push(`/exams/${examId}/schedule`),
@@ -395,7 +402,7 @@ export function AdmitCardPage({ examId }: Props) {
               <div className="space-y-6 rounded-xl border bg-muted/30 p-4">
                 {preview.cards.map((c) => (
                   <div key={c.studentId} className="bg-white p-3 shadow-sm">
-                    <AdmitCardRenderer data={c.data} />
+                    <AdmitCardRenderer data={c.data} template={preview.template} />
                   </div>
                 ))}
               </div>

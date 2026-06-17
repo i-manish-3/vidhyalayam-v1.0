@@ -96,7 +96,7 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: schoolBrandingScript }} />
       </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-brand-page text-foreground`}
       >
         {children}
         <Toaster />

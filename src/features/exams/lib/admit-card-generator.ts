@@ -22,6 +22,11 @@ export interface AdmitCardSchoolDef {
   udiseNumber: string | null
   principalSignature: string | null
   academicYear: string
+  board: string | null
+  registrationNumber: string | null
+  establishedYear: string | null
+  trustName: string | null
+  principalName: string | null
 }
 
 export interface AdmitCardStudentDef {
@@ -79,6 +84,11 @@ export interface AdmitCardData {
     affiliationNumber: string | null
     udiseNumber: string | null
     principalSignature: string | null
+    board: string | null
+    registrationNumber: string | null
+    establishedYear: string | null
+    trustName: string | null
+    principalName: string | null
   }
   examMeta: {
     name: string
@@ -102,6 +112,8 @@ export interface AdmitCardData {
   datesheet: ReadonlyArray<{
     subjectName: string
     date: string // "05 Mar 2026 (Thu)"
+    dateShort: string // "05 Mar 2026"
+    day: string // "Thursday"
     time: string // "10:00 – 13:00"
     room: string
     duration: string // "3h" / "90m"
@@ -137,6 +149,11 @@ function formatDateWithDay(d: Date): string {
   const base = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
   const day = d.toLocaleDateString('en-GB', { weekday: 'short' })
   return `${base} (${day})`
+}
+
+function formatWeekday(d: Date): string {
+  if (Number.isNaN(d.getTime())) return DASH
+  return d.toLocaleDateString('en-GB', { weekday: 'long' })
 }
 
 function formatDuration(minutes: number | null): string {
@@ -185,6 +202,8 @@ export function buildAdmitCard(input: BuildAdmitCardInput): AdmitCardData {
     .map((row) => ({
       subjectName: row.subjectName,
       date: formatDateWithDay(row.examDate),
+      dateShort: formatDate(row.examDate),
+      day: formatWeekday(row.examDate),
       time: `${row.startTime} – ${row.endTime}`,
       room: row.roomNumber || DASH,
       duration: formatDuration(row.durationMinutes),
@@ -200,6 +219,11 @@ export function buildAdmitCard(input: BuildAdmitCardInput): AdmitCardData {
       affiliationNumber: school.affiliationNumber,
       udiseNumber: school.udiseNumber,
       principalSignature: school.principalSignature,
+      board: school.board,
+      registrationNumber: school.registrationNumber,
+      establishedYear: school.establishedYear,
+      trustName: school.trustName,
+      principalName: school.principalName,
     },
     examMeta: {
       name: exam.name,

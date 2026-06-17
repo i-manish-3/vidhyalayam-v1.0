@@ -43,8 +43,9 @@ import {
   Trash2,
   ChevronDown,
   GraduationCap,
-  BookOpen,
+  Award,
   Coins,
+  CalendarDays,
   CalendarCheck,
   Package,
   UserPlus,
@@ -520,7 +521,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
     const items: StickyQuickMenuItem[] = [
       { type: 'link', label: 'Student List', page: 'students', href: '/students', icon: GraduationCap },
-      { type: 'link', label: 'Class List', page: 'classes', href: '/academics/classes', icon: BookOpen },
+      { type: 'link', label: 'Timetable', page: 'timetable', href: '/academics/timetable', icon: CalendarDays },
+      { type: 'link', label: 'Exam', page: 'exam-dashboard', href: '/exams', icon: Award },
       { type: 'link', label: 'Collect Fees', page: 'fee-collections', href: '/fees/collections', icon: IndianRupee },
       {
         type: 'dropdown',
@@ -720,7 +722,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="fixed inset-0 flex flex-col overflow-hidden bg-background font-sans" style={schoolThemeStyle}>
+    <div className="fixed inset-0 flex flex-col overflow-hidden bg-brand-page font-sans" style={schoolThemeStyle}>
       <header className="shrink-0 flex h-14 items-center gap-3 border-b border-primary/30 bg-primary bg-brand-header text-primary-foreground shadow-sm px-3 lg:px-4 z-30 dark:border-sidebar-border dark:bg-sidebar dark:text-sidebar-foreground">
         <TooltipProvider delayDuration={0}>
           <Tooltip>

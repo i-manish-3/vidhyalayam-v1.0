@@ -1,20 +1,21 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
-  Banknote, Wallet, ArrowUpRight, AlertTriangle, RotateCcw, Users, ReceiptText, TrendingUp,
+  Banknote, Wallet, ArrowUpRight, AlertTriangle, RotateCcw, Users, ReceiptText, TrendingUp, BadgePercent,
 } from 'lucide-react'
 import {
   ResponsiveContainer, AreaChart, Area, BarChart, Bar, Legend,
   XAxis, YAxis, Tooltip as RTooltip, CartesianGrid,
 } from 'recharts'
 import { KpiCard } from './kpi-card'
+import { ReconciliationBar } from './reconciliation-bar'
 import { formatCurrency } from '../audit-field-list'
 import { cn } from '@/lib/utils'
+import { ReportCard, reportTableHeaderRowClass } from './report-ui'
 
 interface SummaryData {
   generatedAt: string
@@ -27,6 +28,8 @@ interface SummaryData {
     outstanding: number
     overdue: number
     totalBilled: number
+    totalCollected: number
+    waived: number
     refundsIssued: number
     refundCount: number
     collectionRate: number
@@ -73,7 +76,10 @@ export function SummaryTab({ startDate, endDate, academicYear }: SummaryTabProps
         const nextData = await response.json()
         if (alive) setData(nextData)
       } catch (error) {
-        if (alive) setError(error instanceof Error ? error.message : 'Failed to load summary')
+        if (alive) {
+          setError(error instanceof Error ? error.message : 'Failed to load summary')
+          setData(null)
+        }
       } finally {
         if (alive) setLoading(false)
       }
@@ -94,12 +100,21 @@ export function SummaryTab({ startDate, endDate, academicYear }: SummaryTabProps
   }
 
   return (
-    <div className="space-y-4">
-      {/* Top row — daily ops */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+    <div className="space-y-3">
+      <ReconciliationBar
+        billed={k?.totalBilled ?? 0}
+        collected={k?.totalCollected ?? 0}
+        waived={k?.waived ?? 0}
+        outstanding={k?.outstanding ?? 0}
+        refunded={k?.refundsIssued ?? 0}
+        generatedAt={data?.generatedAt}
+        loading={loading}
+      />
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <KpiCard
           label="Today's Collection"
-          value={loading ? '—' : formatCurrency(k!.todayCollected)}
+          value={loading ? '-' : formatCurrency(k!.todayCollected)}
           hint={k ? `${k.todayReceiptCount} ${k.todayReceiptCount === 1 ? 'receipt' : 'receipts'}` : undefined}
           icon={Banknote}
           tone="success"
@@ -107,7 +122,7 @@ export function SummaryTab({ startDate, endDate, academicYear }: SummaryTabProps
         />
         <KpiCard
           label="This Month"
-          value={loading ? '—' : formatCurrency(k!.monthCollected)}
+          value={loading ? '-' : formatCurrency(k!.monthCollected)}
           hint="Month-to-date collection"
           icon={TrendingUp}
           tone="primary"
@@ -115,19 +130,19 @@ export function SummaryTab({ startDate, endDate, academicYear }: SummaryTabProps
         />
         <KpiCard
           label="Outstanding"
-          value={loading ? '—' : formatCurrency(k!.outstanding)}
+          value={loading ? '-' : formatCurrency(k!.outstanding)}
           hint={k && k.overdue > 0 ? (
-            <span className="text-red-600 font-medium">
-              {formatCurrency(k.overdue)} overdue
+            <span className="font-medium text-red-600">
+              {formatCurrency(k.overdue)} past due date
             </span>
-          ) : 'All within due date'}
+          ) : 'Nothing past due date yet'}
           icon={AlertTriangle}
           tone="warning"
           loading={loading}
         />
         <KpiCard
           label="Collection Rate"
-          value={loading ? '—' : `${k!.collectionRate}%`}
+          value={loading ? '-' : `${k!.collectionRate}%`}
           hint={k ? `${formatCurrency(k.yearCollected)} of ${formatCurrency(k.totalBilled)}` : undefined}
           icon={ArrowUpRight}
           tone="primary"
@@ -135,27 +150,34 @@ export function SummaryTab({ startDate, endDate, academicYear }: SummaryTabProps
         />
       </div>
 
-      {/* Second row — secondary metrics */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <KpiCard
           label="Year Collection"
-          value={loading ? '—' : formatCurrency(k!.yearCollected)}
-          hint="Since April 1st"
+          value={loading ? '-' : formatCurrency(k!.yearCollected)}
+          hint="Received since April 1st"
           icon={Wallet}
           tone="muted"
           loading={loading}
         />
         <KpiCard
+          label="Waived"
+          value={loading ? '-' : formatCurrency(k!.waived)}
+          hint="Discounts & concessions"
+          icon={BadgePercent}
+          tone="muted"
+          loading={loading}
+        />
+        <KpiCard
           label="Refunds Issued"
-          value={loading ? '—' : formatCurrency(k!.refundsIssued)}
-          hint={k ? `${k.refundCount} ${k.refundCount === 1 ? 'refund' : 'refunds'}` : undefined}
+          value={loading ? '-' : formatCurrency(k!.refundsIssued)}
+          hint={k ? `${k.refundCount} cash ${k.refundCount === 1 ? 'refund' : 'refunds'}` : undefined}
           icon={RotateCcw}
           tone="danger"
           loading={loading}
         />
         <KpiCard
           label="Total Billed"
-          value={loading ? '—' : formatCurrency(k!.totalBilled)}
+          value={loading ? '-' : formatCurrency(k!.totalBilled)}
           hint="All-time demand"
           icon={ReceiptText}
           tone="muted"
@@ -163,7 +185,7 @@ export function SummaryTab({ startDate, endDate, academicYear }: SummaryTabProps
         />
         <KpiCard
           label="Active Students"
-          value={loading ? '—' : k!.activeStudents.toLocaleString('en-IN')}
+          value={loading ? '-' : k!.activeStudents.toLocaleString('en-IN')}
           hint="Currently enrolled"
           icon={Users}
           tone="muted"
@@ -172,21 +194,16 @@ export function SummaryTab({ startDate, endDate, academicYear }: SummaryTabProps
       </div>
 
       {/* Service breakdown */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-semibold flex items-center gap-2">
-            <ReceiptText className="size-4 text-indigo-600" />
-            By Service
-          </CardTitle>
-          <p className="text-xs text-muted-foreground">
-            Academic year billing split across academic, transport, and hostel fees
-          </p>
-        </CardHeader>
-        <CardContent className="p-0">
+      <ReportCard
+        title="By Service"
+        icon={ReceiptText}
+        iconClassName="text-indigo-600"
+        description="Academic year billing split across academic, transport, and hostel fees"
+      >
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
-                <TableRow className="bg-gray-50 hover:bg-gray-50">
+                <TableRow className={reportTableHeaderRowClass}>
                   <TableHead className="text-xs">Service</TableHead>
                   <TableHead className="text-xs text-right">Billed</TableHead>
                   <TableHead className="text-xs text-right">Collected</TableHead>
@@ -225,23 +242,19 @@ export function SummaryTab({ startDate, endDate, academicYear }: SummaryTabProps
               </TableBody>
             </Table>
           </div>
-        </CardContent>
-      </Card>
+      </ReportCard>
 
       {/* Chart + Payment Mode */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
         {/* Chart — 2/3 width */}
-        <Card className="lg:col-span-2">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold flex items-center gap-2">
-              <TrendingUp className="size-4 text-blue-600" />
-              Daily Collection Trend
-            </CardTitle>
-            <p className="text-xs text-muted-foreground">
-              Receipts collected per day over the selected range
-            </p>
-          </CardHeader>
-          <CardContent>
+        <ReportCard
+          title="Daily Collection Trend"
+          icon={TrendingUp}
+          iconClassName="text-blue-600"
+          description="Receipts collected per day over the selected range"
+          contentClassName="p-3"
+          className="lg:col-span-2"
+        >
             {loading ? (
               <Skeleton className="h-56 w-full" />
             ) : error ? (
@@ -293,21 +306,16 @@ export function SummaryTab({ startDate, endDate, academicYear }: SummaryTabProps
                 No collections recorded in this range
               </div>
             )}
-          </CardContent>
-        </Card>
+        </ReportCard>
 
         {/* Payment Mode Breakdown */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold flex items-center gap-2">
-              <Wallet className="size-4 text-emerald-600" />
-              Payment Modes
-            </CardTitle>
-            <p className="text-xs text-muted-foreground">
-              How payments came in (date range)
-            </p>
-          </CardHeader>
-          <CardContent>
+        <ReportCard
+          title="Payment Modes"
+          icon={Wallet}
+          iconClassName="text-emerald-600"
+          description="How payments came in. Adjustment means advance applied to dues."
+          contentClassName="p-3"
+        >
             {loading ? (
               <div className="space-y-3">
                 {[1, 2, 3].map(i => <Skeleton key={i} className="h-12 w-full" />)}
@@ -349,22 +357,17 @@ export function SummaryTab({ startDate, endDate, academicYear }: SummaryTabProps
                 No payments in range
               </div>
             )}
-          </CardContent>
-        </Card>
+        </ReportCard>
       </div>
 
       {/* Monthly trend (AY-scoped) */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-semibold flex items-center gap-2">
-            <TrendingUp className="size-4 text-violet-600" />
-            Monthly Trend (Academic Year)
-          </CardTitle>
-          <p className="text-xs text-muted-foreground">
-            Billed vs collected each month — independent of the range filter above
-          </p>
-        </CardHeader>
-        <CardContent>
+      <ReportCard
+        title="Monthly Trend (Academic Year)"
+        icon={TrendingUp}
+        iconClassName="text-violet-600"
+        description="Billed vs collected each month, independent of the range filter above"
+        contentClassName="p-3"
+      >
           {loading ? (
             <Skeleton className="h-56 w-full" />
           ) : data && data.monthlySeries.some(m => m.billed > 0 || m.collected > 0) ? (
@@ -398,8 +401,7 @@ export function SummaryTab({ startDate, endDate, academicYear }: SummaryTabProps
               No billing or collections recorded this academic year yet
             </div>
           )}
-        </CardContent>
-      </Card>
+      </ReportCard>
     </div>
   )
 }
@@ -467,6 +469,7 @@ const MODE_COLORS: Record<string, string> = {
   BANK: 'bg-violet-500',
   NEFT: 'bg-violet-500',
   RTGS: 'bg-violet-500',
+  ADJUSTMENT: 'bg-amber-400',
   UNSPECIFIED: 'bg-gray-400',
 }
 

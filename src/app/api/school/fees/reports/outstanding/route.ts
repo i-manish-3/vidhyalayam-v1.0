@@ -32,13 +32,18 @@ export async function GET(request: NextRequest) {
     const sectionId = searchParams.get('sectionId') || undefined
     const academicYear = searchParams.get('academicYear') || undefined
     const minAmount = Number(searchParams.get('minAmount')) || 0
-    const bucket = searchParams.get('bucket') || 'overdue'
+    const VALID_BUCKETS = ['overdue', 'all', 'not_due', 'b0_30', 'b31_60', 'b61_90', 'b90_plus']
+    const bucketParam = searchParams.get('bucket') || 'overdue'
+    const bucket = VALID_BUCKETS.includes(bucketParam) ? bucketParam : 'overdue'
     const search = searchParams.get('search')?.trim() || undefined
     const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10))
     const limit = Math.min(200, Math.max(1, parseInt(searchParams.get('limit') || '50', 10)))
 
-    // Pull every open debit for this school. Per-school counts make this
-    // safe to load in one shot (debits cap at ~assignment items × students).
+    // Class/section pushed into the query so a filtered view never materialises
+    // every open debit in the school.
+    const studentScope = (classId || sectionId)
+      ? { student: { schoolId, ...(classId ? { classId } : {}), ...(sectionId ? { sectionId } : {}) } }
+      : {}
     const openDebits = await db.studentFeeLedgerEntry.findMany({
       where: {
         schoolId,
@@ -47,6 +52,7 @@ export async function GET(request: NextRequest) {
         status: { in: ['open', 'partial'] },
         balanceAmount: { gt: 0 },
         ...(academicYear ? { academicYear } : {}),
+        ...studentScope,
       },
       select: {
         studentId: true,
@@ -113,6 +119,13 @@ export async function GET(request: NextRequest) {
         rollNumber: true,
         class: { select: { id: true, name: true } },
         section: { select: { id: true, name: true } },
+        parentLinks: {
+          select: {
+            isPrimary: true,
+            relation: true,
+            parent: { select: { fatherName: true, motherName: true, phone: true, alternatePhone: true } },
+          },
+        },
       },
     })
 
@@ -129,6 +142,7 @@ export async function GET(request: NextRequest) {
     // Compose rows
     let rows = students.map(s => {
       const bk = byStudent.get(s.id)!
+      const contact = pickContact(s.parentLinks)
       return {
         studentId: s.id,
         name: `${s.firstName} ${s.lastName}`.trim(),
@@ -136,6 +150,8 @@ export async function GET(request: NextRequest) {
         rollNumber: s.rollNumber,
         class: s.class,
         section: s.section,
+        guardianName: contact.name,
+        guardianPhone: contact.phone,
         totalOutstanding: round2(bk.total),
         overdueOutstanding: round2(overdueTotal(bk)),
         buckets: {
@@ -231,6 +247,26 @@ function toBucketKey(bucket: string): keyof ReturnType<typeof emptyBuckets> {
 
 function stripTime(d: Date): Date {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate())
+}
+
+type ParentLink = {
+  isPrimary: boolean
+  relation: string
+  parent: { fatherName: string | null; motherName: string | null; phone: string | null; alternatePhone: string | null } | null
+}
+
+/** Pick the best guardian contact: primary link first, then any with a phone. */
+function pickContact(links: ParentLink[]): { name: string | null; phone: string | null } {
+  if (!links || links.length === 0) return { name: null, phone: null }
+  const sorted = [...links].sort((a, b) => Number(b.isPrimary) - Number(a.isPrimary))
+  for (const link of sorted) {
+    const p = link.parent
+    if (!p) continue
+    const phone = p.phone || p.alternatePhone || null
+    const name = link.relation === 'Mother' ? (p.motherName || p.fatherName) : (p.fatherName || p.motherName)
+    if (phone || name) return { name: name || null, phone }
+  }
+  return { name: null, phone: null }
 }
 
 function round2(n: number): number {

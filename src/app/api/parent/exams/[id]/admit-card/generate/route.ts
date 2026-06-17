@@ -11,6 +11,8 @@ import {
   type AdmitCardSchoolDef,
   type AdmitCardStudentDef,
 } from '@/features/exams/lib/admit-card-generator'
+import { parseAdmitCardInstructions } from '@/features/exams/lib/admit-card-utils'
+import { parseAdmitCardTemplate } from '@/features/exams/lib/admit-card-template'
 
 export async function POST(
   request: NextRequest,
@@ -62,6 +64,13 @@ export async function POST(
           udiseNumber: true,
           principalSignature: true,
           academicYear: true,
+          board: true,
+          registrationNumber: true,
+          establishedYear: true,
+          principalName: true,
+          trustName: true,
+          admitCardInstructions: true,
+          admitCardTemplate: true,
         },
       }),
       db.student.findMany({
@@ -127,7 +136,14 @@ export async function POST(
       udiseNumber: school.udiseNumber,
       principalSignature: school.principalSignature,
       academicYear: school.academicYear || exam.academicYear,
+      board: school.board,
+      registrationNumber: school.registrationNumber,
+      establishedYear: school.establishedYear,
+      trustName: school.trustName,
+      principalName: school.principalName,
     }
+
+    const customInstructions = parseAdmitCardInstructions(school.admitCardInstructions)
 
     const examDef: AdmitCardExamDef = {
       id: exam.id,
@@ -186,7 +202,7 @@ export async function POST(
 
         return {
           studentId,
-          data: buildAdmitCard({ school: schoolDef, student: studentDef, exam: examDef, schedule, qrPayload }),
+          data: buildAdmitCard({ school: schoolDef, student: studentDef, exam: examDef, schedule, qrPayload, instructions: customInstructions }),
         }
       })
       .filter((card): card is { studentId: string; data: ReturnType<typeof buildAdmitCard> } => card !== null)
@@ -197,6 +213,7 @@ export async function POST(
     return NextResponse.json({
       exam: { id: exam.id, name: exam.name, academicYear: exam.academicYear },
       school: { name: school.name, academicYear: school.academicYear },
+      template: parseAdmitCardTemplate(school.admitCardTemplate),
       cards,
     })
   } catch (error) {

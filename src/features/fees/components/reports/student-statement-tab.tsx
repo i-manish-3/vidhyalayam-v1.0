@@ -1,7 +1,7 @@
 'use client'
 
-import React, { useEffect, useState, useMemo } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import React, { useEffect, useState } from 'react'
+import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -11,6 +11,7 @@ import { Search, User as UserIcon, Printer, FileText, Download } from 'lucide-re
 import { formatCurrency } from '../audit-field-list'
 import { KpiCard } from './kpi-card'
 import { cn } from '@/lib/utils'
+import { ReportCard, reportTableHeaderRowClass } from './report-ui'
 
 interface StudentLite {
   id: string
@@ -174,16 +175,14 @@ export function StudentStatementTab({ academicYear, initialStudentId, onStudentS
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {/* Search */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-semibold flex items-center gap-2">
-            <UserIcon className="size-4 text-blue-600" />
-            Choose a Student
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
+      <ReportCard
+        title="Choose a Student"
+        icon={UserIcon}
+        iconClassName="text-blue-600"
+        contentClassName="p-3"
+      >
           <div className="relative">
             <Search className="absolute left-3 top-2.5 size-4 text-muted-foreground" />
             <Input
@@ -215,21 +214,19 @@ export function StudentStatementTab({ academicYear, initialStudentId, onStudentS
               <div className="absolute right-3 top-2.5 text-xs text-muted-foreground">Searching…</div>
             )}
           </div>
-        </CardContent>
-      </Card>
+      </ReportCard>
 
       {/* Statement */}
       {selectedId ? (
         loading ? (
-          <Card><CardContent className="p-6"><Skeleton className="h-64 w-full" /></CardContent></Card>
+          <Card className="border-border/70 shadow-none"><CardContent className="p-3"><Skeleton className="h-56 w-full" /></CardContent></Card>
         ) : statement ? (
           <>
             {/* Student card + summary */}
-            <Card>
-              <CardContent className="p-5">
-                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+            <div className="rounded-md border border-border/70 bg-card/60 p-3">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div>
-                    <h2 className="text-lg font-bold text-gray-900">{statement.student.name}</h2>
+                    <h2 className="text-base font-semibold text-gray-900">{statement.student.name}</h2>
                     <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                       <span className="font-medium">{statement.student.admissionNumber || 'No admission #'}</span>
                       {statement.student.rollNumber && <><span>·</span><span>Roll {statement.student.rollNumber}</span></>}
@@ -253,92 +250,28 @@ export function StudentStatementTab({ academicYear, initialStudentId, onStudentS
                 </div>
 
                 {/* Summary row */}
-                <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                   <KpiCard label="Total Billed" value={formatCurrency(statement.summary.billed)} tone="muted" icon={FileText} />
                   <KpiCard label="Total Paid" value={formatCurrency(statement.summary.paid)} tone="success" />
                   <KpiCard label="Waivers" value={formatCurrency(statement.summary.waiver)} tone="muted" />
                   <KpiCard label="Outstanding" value={formatCurrency(statement.summary.outstanding)} tone={statement.summary.outstanding > 0 ? 'warning' : 'success'} />
                 </div>
-              </CardContent>
-            </Card>
+            </div>
 
             <FeeWiseStatusTable items={statement.feeItems || []} />
 
-            {/* Legacy ledger */}
-            {false && <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-semibold">Fee-wise Status</CardTitle>
-                <p className="text-xs text-muted-foreground">Demand slip, amount paid, pending balance, and receipt-wise payment split</p>
-              </CardHeader>
-              <CardContent className="p-0">
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="bg-gray-50 hover:bg-gray-50">
-                        <TableHead className="text-xs min-w-[180px]">Fee</TableHead>
-                        <TableHead className="text-xs">Demand Slip</TableHead>
-                        <TableHead className="text-xs">Due Date</TableHead>
-                        <TableHead className="text-xs text-right">Billed</TableHead>
-                        <TableHead className="text-xs text-right">Paid</TableHead>
-                        <TableHead className="text-xs text-right">Pending</TableHead>
-                        <TableHead className="text-xs min-w-[220px]">Paid By</TableHead>
-                        <TableHead className="text-xs">Status</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {statement!.entries.length > 0 ? statement!.entries.map(e => (
-                        <TableRow key={e.id} className="text-sm">
-                          <TableCell className="py-2 text-xs whitespace-nowrap">
-                            {new Date(e.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: '2-digit' })}
-                          </TableCell>
-                          <TableCell className="py-2">
-                            <Badge variant="outline" className={cn('text-[10px] h-5', typeBadge(e.type))}>
-                              {e.type}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="py-2 text-sm">
-                            {e.description}
-                            {e.paymentMethod && (
-                              <span className="text-xs text-muted-foreground"> · {e.paymentMethod}</span>
-                            )}
-                          </TableCell>
-                          <TableCell className="py-2 text-xs font-mono text-muted-foreground">
-                            {e.receiptNumber || '—'}
-                          </TableCell>
-                          <TableCell className="py-2 text-right tabular-nums">
-                            {e.debit > 0 ? formatCurrency(e.debit) : <span className="text-gray-300">—</span>}
-                          </TableCell>
-                          <TableCell className="py-2 text-right tabular-nums text-emerald-700">
-                            {e.credit > 0 ? formatCurrency(e.credit) : <span className="text-gray-300">—</span>}
-                          </TableCell>
-                          <TableCell className="py-2 text-right tabular-nums font-semibold">
-                            {formatCurrency(e.balance)}
-                          </TableCell>
-                        </TableRow>
-                      )) : (
-                        <TableRow>
-                          <TableCell colSpan={7} className="text-center text-sm text-muted-foreground py-10">
-                            No ledger entries for this student
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
-                </div>
-              </CardContent>
-            </Card>}
           </>
         ) : (
-          <Card>
-            <CardContent className="p-10 text-center text-sm text-muted-foreground">
+          <Card className="border-border/70 shadow-none">
+            <CardContent className="p-6 text-center text-sm text-muted-foreground">
               Could not load statement for this student
             </CardContent>
           </Card>
         )
       ) : (
-        <Card>
-          <CardContent className="p-10 text-center">
-            <UserIcon className="size-10 text-gray-300 mx-auto mb-3" />
+        <Card className="border-border/70 shadow-none">
+          <CardContent className="p-6 text-center">
+            <UserIcon className="mx-auto mb-2 size-8 text-gray-300" />
             <p className="text-sm text-muted-foreground">
               Search above to view a student&rsquo;s complete fee history
             </p>
@@ -351,18 +284,14 @@ export function StudentStatementTab({ academicYear, initialStudentId, onStudentS
 
 function FeeWiseStatusTable({ items }: { items: FeeItem[] }) {
   return (
-    <Card>
-      <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-semibold">Fee-wise Status</CardTitle>
-        <p className="text-xs text-muted-foreground">
-          Demand slip, amount paid, pending balance, and receipt-wise payment split
-        </p>
-      </CardHeader>
-      <CardContent className="p-0">
+    <ReportCard
+      title="Fee-wise Status"
+      description="Demand slip, amount paid, pending balance, and receipt-wise payment split"
+    >
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
-              <TableRow className="bg-gray-50 hover:bg-gray-50">
+              <TableRow className={reportTableHeaderRowClass}>
                 <TableHead className="text-xs min-w-[180px]">Fee</TableHead>
                 <TableHead className="text-xs">Demand Slip</TableHead>
                 <TableHead className="text-xs">Due Date</TableHead>
@@ -419,8 +348,7 @@ function FeeWiseStatusTable({ items }: { items: FeeItem[] }) {
             </TableBody>
           </Table>
         </div>
-      </CardContent>
-    </Card>
+    </ReportCard>
   )
 }
 
@@ -452,18 +380,6 @@ function statusBadge(status: string): string {
     case 'paid': return 'bg-emerald-50 text-emerald-700 border-emerald-200'
     case 'partial': return 'bg-amber-50 text-amber-700 border-amber-200'
     case 'unpaid': return 'bg-red-50 text-red-700 border-red-200'
-    default: return 'bg-gray-100 text-gray-700 border-gray-300'
-  }
-}
-
-function typeBadge(type: string): string {
-  switch (type) {
-    case 'DEBIT': return 'bg-blue-50 text-blue-700 border-blue-200'
-    case 'CREDIT': return 'bg-emerald-50 text-emerald-700 border-emerald-200'
-    case 'WAIVER': return 'bg-purple-50 text-purple-700 border-purple-200'
-    case 'REFUND': return 'bg-red-50 text-red-700 border-red-200'
-    case 'FINE': return 'bg-amber-50 text-amber-700 border-amber-200'
-    case 'ADJUSTMENT': return 'bg-gray-100 text-gray-700 border-gray-300'
     default: return 'bg-gray-100 text-gray-700 border-gray-300'
   }
 }

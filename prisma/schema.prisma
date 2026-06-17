@@ -91,6 +91,10 @@ model School {
   affiliationNumber  String?
   establishedYear    String?
   principalSignature String?
+  principalName      String? // Printed under the principal signature on admit cards / certificates
+  trustName          String? // Managing trust / society name shown on printables
+  admitCardInstructions String? // JSON array of instruction lines for the admit card (falls back to defaults)
+  admitCardTemplate  String? // JSON visual config for the admit card template (accent color, field visibility, labels)
   features           String? // JSON string of enabled features
   workingDays        String    @default("[\"Monday\",\"Tuesday\",\"Wednesday\",\"Thursday\",\"Friday\",\"Saturday\"]") // JSON array of weekday names this school operates on
   inventoryDuesOnFeePage Boolean @default(false) // when true, unpaid inventory-sale dues also surface on the Collect Fee page; otherwise they are collected only from Inventory → Sales

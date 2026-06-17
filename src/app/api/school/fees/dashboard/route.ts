@@ -13,38 +13,61 @@ export async function GET(request: NextRequest) {
     }
 
     const schoolId = user.schoolId
+    const academicYear = new URL(request.url).searchParams.get('academicYear') || undefined
+    const ayFilter = academicYear ? { academicYear } : {}
     const useLedger = await hasFeeLedgerData(schoolId)
     if (useLedger) {
-      const [summary, paymentsByMethod, recentPayments, waiverTotals, fineTotals] = await Promise.all([
-        getFeeLedgerSummary(schoolId),
-        db.studentFeeLedgerEntry.groupBy({
-          by: ['paymentMethod'],
-          where: { schoolId, deletedAt: null, entryType: 'CREDIT' },
-          _sum: { credit: true },
-          _count: { id: true },
+      const [summary, methodAllocations, recentPayments, fineTotals] = await Promise.all([
+        getFeeLedgerSummary(schoolId, undefined, academicYear),
+        // Payment-mode mix must come from actual allocated cash (matching the
+        // reports' definition), not the face value of CREDIT rows which can hold
+        // unspent advance. Advance applied to dues (receiptNumber 'ADJ-…') is
+        // bucketed as ADJUSTMENT since it moves no real cash.
+        db.studentFeeLedgerAllocation.findMany({
+          where: {
+            schoolId, deletedAt: null,
+            creditEntry: { entryType: 'CREDIT', deletedAt: null },
+            debitEntry: { deletedAt: null, status: { not: 'cancelled' }, ...ayFilter },
+          },
+          select: {
+            amount: true,
+            receiptNumber: true,
+            creditEntry: { select: { paymentMethod: true } },
+          },
         }),
         db.studentFeeLedgerEntry.findMany({
-          where: { schoolId, deletedAt: null, entryType: 'CREDIT' },
+          where: { schoolId, deletedAt: null, entryType: 'CREDIT', ...ayFilter },
           include: { student: { select: { firstName: true, lastName: true, rollNumber: true } } },
           orderBy: { transactionDate: 'desc' },
           take: 5,
         }),
         db.studentFeeLedgerEntry.aggregate({
-          where: { schoolId, deletedAt: null, entryType: 'WAIVER' },
-          _sum: { credit: true },
-        }),
-        db.studentFeeLedgerEntry.aggregate({
-          where: { schoolId, deletedAt: null, entryType: 'FINE' },
+          where: { schoolId, deletedAt: null, entryType: 'FINE', status: { not: 'cancelled' }, ...ayFilter },
           _sum: { debit: true },
         }),
       ])
+
+      const methodMap = new Map<string, { amount: number; count: number }>()
+      for (const a of methodAllocations) {
+        const isAdjustment = (a.receiptNumber || '').startsWith('ADJ-')
+        // Normalise casing: fees store 'CASH', inventory stores 'cash' — same mode.
+        const method = isAdjustment ? 'ADJUSTMENT' : (a.creditEntry.paymentMethod || 'UNSPECIFIED').toUpperCase()
+        const b = methodMap.get(method) ?? { amount: 0, count: 0 }
+        b.amount += a.amount || 0
+        b.count += 1
+        methodMap.set(method, b)
+      }
+      const paymentsByMethod = Array.from(methodMap.entries())
+        .map(([paymentMethod, v]) => ({ paymentMethod, _sum: { paidAmount: v.amount }, _count: { id: v.count } }))
+        .sort((a, b) => b._sum.paidAmount - a._sum.paidAmount)
 
       return NextResponse.json({
         totalFees: summary.total,
         collected: summary.collected,
         pending: summary.pending,
         overdue: summary.overdue,
-        discounts: waiverTotals._sum.credit || 0,
+        discounts: summary.waived,
+        refunded: summary.refunded,
         fines: fineTotals._sum.debit || 0,
         collectionRate: summary.total > 0 ? ((summary.collected / summary.total) * 100).toFixed(1) : '0',
         paymentsByMethod,

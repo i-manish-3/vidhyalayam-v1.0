@@ -14,10 +14,12 @@ import { Button } from '@/components/ui/button'
 import { Loader2, Printer, AlertTriangle } from 'lucide-react'
 import { AdmitCardRenderer } from '@/features/exams/components/admit-card-renderer'
 import type { AdmitCardData } from '@/features/exams/lib/admit-card-generator'
+import type { AdmitCardTemplateConfig } from '@/features/exams/lib/admit-card-template'
 
 interface GenerateResponse {
   exam: { id: string; name: string; academicYear: string }
   school: { name: string; academicYear: string }
+  template?: AdmitCardTemplateConfig
   cards: Array<{ studentId: string; data: AdmitCardData }>
 }
 
@@ -113,6 +115,7 @@ function PrintAdmitCardsContent() {
   return (
     <>
       <style jsx global>{`
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Merriweather:wght@700&display=swap');
         @page {
           size: A4 portrait;
           margin: 10mm;
@@ -122,6 +125,7 @@ function PrintAdmitCardsContent() {
           .no-print { display: none !important; }
           .admit-page { page-break-after: always; }
           .admit-page:last-child { page-break-after: auto; }
+          .admit-page { margin: 0 !important; padding: 0 !important; box-shadow: none !important; }
         }
       `}</style>
 
@@ -145,7 +149,7 @@ function PrintAdmitCardsContent() {
               key={c.studentId}
               className="admit-page mx-auto mb-6 bg-white p-3 shadow-sm print:m-0 print:p-0 print:shadow-none"
             >
-              <AdmitCardRenderer data={c.data} />
+              <AdmitCardRenderer data={c.data} template={data.template} />
             </div>
           ))}
         </div>

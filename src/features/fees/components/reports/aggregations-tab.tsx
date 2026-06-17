@@ -1,21 +1,24 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Layers, ReceiptText, TrendingDown, Grid3x3, ChevronRight } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Layers, ReceiptText, Grid3x3, ChevronRight, Download } from 'lucide-react'
 import { formatCurrency } from '../audit-field-list'
-import { KpiCard } from './kpi-card'
+import { ReconciliationBar } from './reconciliation-bar'
 import { cn } from '@/lib/utils'
 import { FeeHeadDetail } from './fee-head-detail'
+import { exportCsv } from '@/lib/csv-export'
+import { ReportCard, reportTableHeaderRowClass } from './report-ui'
 
 interface ClassRow {
   classId: string
   className: string
   billed: number
   collected: number
+  waived: number
   outstanding: number
   refunded: number
   studentCount: number
@@ -26,6 +29,7 @@ interface HeadRow {
   feeHeadName: string
   billed: number
   collected: number
+  waived: number
   outstanding: number
   collectionRate: number
 }
@@ -35,6 +39,7 @@ interface ServiceRow {
   label: string
   billed: number
   collected: number
+  waived: number
   outstanding: number
   collectionRate: number
 }
@@ -52,11 +57,13 @@ interface MatrixData {
 }
 
 interface Response {
+  generatedAt?: string
+  collectionWindowed?: boolean
   byClass: ClassRow[]
   byService: ServiceRow[]
   byFeeHead: HeadRow[]
   matrix: MatrixData
-  totals: { billed: number; collected: number; outstanding: number; refunded: number }
+  totals: { billed: number; collected: number; waived: number; outstanding: number; refunded: number }
 }
 
 type MatrixMetric = 'billed' | 'collected' | 'outstanding'
@@ -106,6 +113,20 @@ export function AggregationsTab({ academicYear, startDate, endDate }: Aggregatio
   }, [academicYear, startDate, endDate])
 
   const t = data?.totals
+
+  const exportByClass = () => {
+    if (!data) return
+    const headers = ['Class', 'Students', 'Billed', 'Collected', 'Waived', 'Outstanding', 'Refunded', 'Collection Rate %']
+    const rows = data.byClass.map(c => [c.className, c.studentCount, c.billed, c.collected, c.waived, c.outstanding, c.refunded, c.collectionRate])
+    exportCsv('fees-by-class', headers, rows, [['Fees by Class'], [`Billed: ${t?.billed ?? 0}`, `Collected: ${t?.collected ?? 0}`, `Outstanding: ${t?.outstanding ?? 0}`]])
+  }
+  const exportByHead = () => {
+    if (!data) return
+    const headers = ['Fee Head', 'Billed', 'Collected', 'Waived', 'Outstanding', 'Collection Rate %']
+    const rows = data.byFeeHead.map(h => [h.feeHeadName, h.billed, h.collected, h.waived, h.outstanding, h.collectionRate])
+    exportCsv('fees-by-head', headers, rows, [['Fees by Fee Head']])
+  }
+
   if (!loading && !data) {
     return (
       <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
@@ -115,29 +136,40 @@ export function AggregationsTab({ academicYear, startDate, endDate }: Aggregatio
   }
 
   return (
-    <div className="space-y-4">
-      {/* Totals strip */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <KpiCard label="Total Billed" value={loading ? '—' : formatCurrency(t!.billed)} tone="muted" icon={ReceiptText} loading={loading} />
-        <KpiCard label="Total Collected" value={loading ? '—' : formatCurrency(t!.collected)} tone="success" loading={loading} />
-        <KpiCard label="Total Outstanding" value={loading ? '—' : formatCurrency(t!.outstanding)} tone="warning" loading={loading} />
-        <KpiCard label="Total Refunded" value={loading ? '—' : formatCurrency(t!.refunded)} tone="danger" icon={TrendingDown} loading={loading} />
+    <div className="space-y-3">
+      {/* Reconciliation identity — totals always add up */}
+      <ReconciliationBar
+        billed={t?.billed ?? 0}
+        collected={t?.collected ?? 0}
+        waived={t?.waived ?? 0}
+        outstanding={t?.outstanding ?? 0}
+        refunded={t?.refunded ?? 0}
+        generatedAt={data?.generatedAt}
+        collectionWindowed={data?.collectionWindowed}
+        loading={loading}
+      />
+
+      {/* Export */}
+      <div className="flex flex-wrap justify-end gap-2">
+        <Button variant="outline" size="sm" onClick={exportByClass} disabled={!data || data.byClass.length === 0} className="gap-1.5">
+          <Download className="size-3.5" /> Class CSV
+        </Button>
+        <Button variant="outline" size="sm" onClick={exportByHead} disabled={!data || data.byFeeHead.length === 0} className="gap-1.5">
+          <Download className="size-3.5" /> Fee Head CSV
+        </Button>
       </div>
 
       {/* By Service */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-semibold flex items-center gap-2">
-            <ReceiptText className="size-4 text-indigo-600" />
-            By Service
-          </CardTitle>
-          <p className="text-xs text-muted-foreground">Academic, transport, and hostel fees shown separately</p>
-        </CardHeader>
-        <CardContent className="p-0">
+      <ReportCard
+        title="By Service"
+        icon={ReceiptText}
+        iconClassName="text-indigo-600"
+        description="Academic, transport, and hostel fees shown separately"
+      >
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
-                <TableRow className="bg-gray-50 hover:bg-gray-50">
+                <TableRow className={reportTableHeaderRowClass}>
                   <TableHead className="text-xs">Service</TableHead>
                   <TableHead className="text-xs text-right">Billed</TableHead>
                   <TableHead className="text-xs text-right">Collected</TableHead>
@@ -176,23 +208,19 @@ export function AggregationsTab({ academicYear, startDate, endDate }: Aggregatio
               </TableBody>
             </Table>
           </div>
-        </CardContent>
-      </Card>
+      </ReportCard>
 
       {/* By Class */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-semibold flex items-center gap-2">
-            <Layers className="size-4 text-blue-600" />
-            By Class
-          </CardTitle>
-          <p className="text-xs text-muted-foreground">Billing and collection performance across classes</p>
-        </CardHeader>
-        <CardContent className="p-0">
+      <ReportCard
+        title="By Class"
+        icon={Layers}
+        iconClassName="text-blue-600"
+        description="Billing and collection performance across classes"
+      >
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
-                <TableRow className="bg-gray-50 hover:bg-gray-50">
+                <TableRow className={reportTableHeaderRowClass}>
                   <TableHead className="text-xs">Class</TableHead>
                   <TableHead className="text-xs text-right">Students</TableHead>
                   <TableHead className="text-xs text-right">Billed</TableHead>
@@ -235,23 +263,19 @@ export function AggregationsTab({ academicYear, startDate, endDate }: Aggregatio
               </TableBody>
             </Table>
           </div>
-        </CardContent>
-      </Card>
+      </ReportCard>
 
       {/* By Fee Head */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-semibold flex items-center gap-2">
-            <ReceiptText className="size-4 text-emerald-600" />
-            By Fee Head
-          </CardTitle>
-          <p className="text-xs text-muted-foreground">Which fee categories are driving collections (and dues) — click a row for deep-dive</p>
-        </CardHeader>
-        <CardContent className="p-0">
+      <ReportCard
+        title="By Fee Head"
+        icon={ReceiptText}
+        iconClassName="text-emerald-600"
+        description="Which fee categories are driving collections and dues. Click a row for deep-dive."
+      >
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
-                <TableRow className="bg-gray-50 hover:bg-gray-50">
+                <TableRow className={reportTableHeaderRowClass}>
                   <TableHead className="text-xs">Fee Head</TableHead>
                   <TableHead className="text-xs text-right">Billed</TableHead>
                   <TableHead className="text-xs text-right">Collected</TableHead>
@@ -268,7 +292,7 @@ export function AggregationsTab({ academicYear, startDate, endDate }: Aggregatio
                   data.byFeeHead.map((h, i) => (
                     <TableRow
                       key={`${h.feeHeadName}-${i}`}
-                      className="text-sm cursor-pointer group hover:bg-emerald-50/40"
+                      className="text-sm cursor-pointer group hover:bg-primary/5"
                       onClick={() => setDetailHead(h.feeHeadName)}
                     >
                       <TableCell className="py-2">
@@ -299,20 +323,15 @@ export function AggregationsTab({ academicYear, startDate, endDate }: Aggregatio
               </TableBody>
             </Table>
           </div>
-        </CardContent>
-      </Card>
+      </ReportCard>
 
       {/* Class × Head pivot */}
-      <Card>
-        <CardHeader className="pb-2">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                <Grid3x3 className="size-4 text-violet-600" />
-                Class × Fee Head
-              </CardTitle>
-              <p className="text-xs text-muted-foreground">Pivot of {matrixMetric} across classes and heads — scroll horizontally for more heads</p>
-            </div>
+      <ReportCard
+        title="Class x Fee Head"
+        icon={Grid3x3}
+        iconClassName="text-violet-600"
+        description={`Pivot of ${matrixMetric} across classes and heads. Scroll horizontally for more heads.`}
+        actions={(
             <Select value={matrixMetric} onValueChange={(v) => setMatrixMetric(v as MatrixMetric)}>
               <SelectTrigger className="h-8 w-[150px] text-xs">
                 <SelectValue />
@@ -323,9 +342,8 @@ export function AggregationsTab({ academicYear, startDate, endDate }: Aggregatio
                 <SelectItem value="collected">Collected</SelectItem>
               </SelectContent>
             </Select>
-          </div>
-        </CardHeader>
-        <CardContent className="p-0">
+        )}
+      >
           {loading ? (
             <div className="p-3"><Skeleton className="h-32 w-full" /></div>
           ) : data && data.matrix.classes.length > 0 && data.matrix.heads.length > 0 ? (
@@ -335,8 +353,7 @@ export function AggregationsTab({ academicYear, startDate, endDate }: Aggregatio
               Not enough data for a pivot yet
             </div>
           )}
-        </CardContent>
-      </Card>
+      </ReportCard>
 
       <FeeHeadDetail
         open={detailHead !== null}
@@ -386,8 +403,8 @@ function MatrixTable({
     <div className="overflow-x-auto">
       <Table>
         <TableHeader>
-          <TableRow className="bg-gray-50 hover:bg-gray-50">
-            <TableHead className="text-xs sticky left-0 bg-gray-50 z-10 min-w-[140px]">Class</TableHead>
+          <TableRow className={reportTableHeaderRowClass}>
+            <TableHead className="text-xs sticky left-0 bg-muted z-10 min-w-[140px]">Class</TableHead>
             {matrix.heads.map(h => (
               <TableHead
                 key={h}
@@ -420,8 +437,8 @@ function MatrixTable({
               </TableRow>
             )
           })}
-          <TableRow className="bg-gray-50 hover:bg-gray-50 font-semibold">
-            <TableCell className="py-2 text-xs uppercase tracking-wide sticky left-0 bg-gray-50 z-10">Total</TableCell>
+          <TableRow className="bg-muted/60 hover:bg-muted/60 font-semibold">
+            <TableCell className="py-2 text-xs uppercase tracking-wide sticky left-0 bg-muted z-10">Total</TableCell>
             {matrix.heads.map(h => (
               <TableCell key={h} className="py-2 text-right tabular-nums whitespace-nowrap">
                 {colTotals[h] > 0 ? formatCurrency(colTotals[h]) : '—'}

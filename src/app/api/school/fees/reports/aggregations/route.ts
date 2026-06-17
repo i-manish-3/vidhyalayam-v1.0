@@ -38,12 +38,17 @@ export async function GET(request: NextRequest) {
     // Strategy: fetch ledger entries with student.class joined; tally in JS.
     // For ~thousands of entries this is acceptable; for millions, move to
     // a raw SQL query with GROUP BY class_id.
-    const [entries, allocations] = await Promise.all([
+    // NOTE: student scope intentionally includes inactive/withdrawn students so
+    // these totals reconcile exactly with the summary KPIs (getFeeLedgerSummary,
+    // which is all-students). A student who left still owing fees correctly shows
+    // as outstanding. Status filtering, if wanted, belongs in the UI.
+    const [entries, allocations, refundEvents] = await Promise.all([
       db.studentFeeLedgerEntry.findMany({
       where: {
         schoolId,
         deletedAt: null,
-        entryType: { in: ['DEBIT', 'FINE', 'REFUND'] },
+        status: { not: 'cancelled' },
+        entryType: { in: ['DEBIT', 'FINE'] },
         ...ayFilter,
       },
       select: {
@@ -70,17 +75,19 @@ export async function GET(request: NextRequest) {
           deletedAt: null,
           ...(hasDateFilter ? { allocatedAt: collectionDateFilter } : {}),
           creditEntry: {
-            entryType: 'CREDIT',
+            entryType: { in: ['CREDIT', 'WAIVER'] },
             deletedAt: null,
           },
           debitEntry: {
             schoolId,
             deletedAt: null,
+            status: { not: 'cancelled' },
             ...ayFilter,
           },
         },
         select: {
           amount: true,
+          creditEntry: { select: { entryType: true } },
           debitEntry: {
             select: {
               feeHeadName: true,
@@ -96,6 +103,9 @@ export async function GET(request: NextRequest) {
           },
         },
       }),
+      // Cash refunds on transport/hostel discontinue (the discontinue flow records
+      // these on event rows, not as REFUND ledger entries).
+      getCashRefundEventsByClass(schoolId, academicYear),
     ])
 
     // Class aggregation
@@ -104,7 +114,7 @@ export async function GET(request: NextRequest) {
     const serviceMap = new Map<ServiceKey, ServiceAgg>(
       SERVICE_ORDER.map(key => [
         key,
-        { key, label: SERVICE_LABELS[key], billed: 0, collected: 0, outstanding: 0 },
+        { key, label: SERVICE_LABELS[key], billed: 0, collected: 0, waived: 0, outstanding: 0 },
       ])
     )
     const studentSet = new Map<string, Set<string>>() // classId → set<studentId>
@@ -119,20 +129,12 @@ export async function GET(request: NextRequest) {
       const className = cls?.name ?? 'Unassigned'
       matrixClassNames.set(classId, className)
 
-      const inCollectionWindow = !hasDateFilter
-        || (e.transactionDate >= (collectionDateFilter.gte ?? new Date(0))
-            && e.transactionDate < (collectionDateFilter.lt ?? new Date(8.64e15)))
-
       const ca = classMap.get(classId) ?? {
-        classId, className, billed: 0, collected: 0, outstanding: 0, refunded: 0,
+        classId, className, billed: 0, collected: 0, waived: 0, outstanding: 0, refunded: 0,
       }
-      if (e.entryType === 'DEBIT' || e.entryType === 'FINE') {
-        ca.billed += e.debit
-        if (e.status === 'open' || e.status === 'partial') {
-          ca.outstanding += e.balanceAmount || 0
-        }
-      } else if (e.entryType === 'REFUND' && inCollectionWindow) {
-        ca.refunded += e.debit
+      ca.billed += e.debit
+      if (e.status === 'open' || e.status === 'partial') {
+        ca.outstanding += e.balanceAmount || 0
       }
       classMap.set(classId, ca)
 
@@ -143,12 +145,10 @@ export async function GET(request: NextRequest) {
 
       // Fee head aggregation
       const headName = e.feeHeadName || 'Other'
-      const ha = headMap.get(headName) ?? { name: headName, billed: 0, collected: 0, outstanding: 0 }
-      if (e.entryType === 'DEBIT' || e.entryType === 'FINE') {
-        ha.billed += e.debit
-        if (e.status === 'open' || e.status === 'partial') {
-          ha.outstanding += e.balanceAmount || 0
-        }
+      const ha = headMap.get(headName) ?? { name: headName, billed: 0, collected: 0, waived: 0, outstanding: 0 }
+      ha.billed += e.debit
+      if (e.status === 'open' || e.status === 'partial') {
+        ha.outstanding += e.balanceAmount || 0
       }
       headMap.set(headName, ha)
 
@@ -156,11 +156,9 @@ export async function GET(request: NextRequest) {
       // fees even when all three share the monthly ledger.
       const serviceKey = getServiceKey(e.sourceType, e.feeHeadName)
       const sa = serviceMap.get(serviceKey)!
-      if (e.entryType === 'DEBIT' || e.entryType === 'FINE') {
-        sa.billed += e.debit
-        if (e.status === 'open' || e.status === 'partial') {
-          sa.outstanding += e.balanceAmount || 0
-        }
+      sa.billed += e.debit
+      if (e.status === 'open' || e.status === 'partial') {
+        sa.outstanding += e.balanceAmount || 0
       }
       serviceMap.set(serviceKey, sa)
 
@@ -170,11 +168,9 @@ export async function GET(request: NextRequest) {
       // level to keep cells readable — refunds are visible in the class table).
       const cellKey = `${classId}::${headName}`
       const cell = matrixMap.get(cellKey) ?? { billed: 0, collected: 0, outstanding: 0 }
-      if (e.entryType === 'DEBIT' || e.entryType === 'FINE') {
-        cell.billed += e.debit
-        if (e.status === 'open' || e.status === 'partial') {
-          cell.outstanding += e.balanceAmount || 0
-        }
+      cell.billed += e.debit
+      if (e.status === 'open' || e.status === 'partial') {
+        cell.outstanding += e.balanceAmount || 0
       }
       matrixMap.set(cellKey, cell)
     }
@@ -186,30 +182,43 @@ export async function GET(request: NextRequest) {
       const className = cls?.name ?? 'Unassigned'
       const amount = allocation.amount || 0
       const headName = debit.feeHeadName || 'Other'
+      const isWaiver = allocation.creditEntry.entryType === 'WAIVER'
 
       const ca = classMap.get(classId) ?? {
-        classId, className, billed: 0, collected: 0, outstanding: 0, refunded: 0,
+        classId, className, billed: 0, collected: 0, waived: 0, outstanding: 0, refunded: 0,
       }
-      ca.collected += amount
+      if (isWaiver) ca.waived += amount
+      else ca.collected += amount
       classMap.set(classId, ca)
 
       const set = studentSet.get(classId) ?? new Set<string>()
       set.add(debit.student.id)
       studentSet.set(classId, set)
 
-      const ha = headMap.get(headName) ?? { name: headName, billed: 0, collected: 0, outstanding: 0 }
-      ha.collected += amount
+      const ha = headMap.get(headName) ?? { name: headName, billed: 0, collected: 0, waived: 0, outstanding: 0 }
+      if (isWaiver) ha.waived += amount
+      else ha.collected += amount
       headMap.set(headName, ha)
 
       const serviceKey = getServiceKey(debit.sourceType, debit.feeHeadName)
       const sa = serviceMap.get(serviceKey)!
-      sa.collected += amount
+      if (isWaiver) sa.waived += amount
+      else sa.collected += amount
       serviceMap.set(serviceKey, sa)
 
-      const cellKey = `${classId}::${headName}`
-      const cell = matrixMap.get(cellKey) ?? { billed: 0, collected: 0, outstanding: 0 }
-      cell.collected += amount
-      matrixMap.set(cellKey, cell)
+      // Matrix shows only real collections (not waivers) so cells stay legible.
+      if (!isWaiver) {
+        const cellKey = `${classId}::${headName}`
+        const cell = matrixMap.get(cellKey) ?? { billed: 0, collected: 0, outstanding: 0 }
+        cell.collected += amount
+        matrixMap.set(cellKey, cell)
+      }
+    }
+
+    // Fold in cash refunds by class
+    for (const [classId, amount] of refundEvents) {
+      const ca = classMap.get(classId)
+      if (ca) ca.refunded += amount
     }
 
     // Build response
@@ -219,6 +228,7 @@ export async function GET(request: NextRequest) {
         className: c.className,
         billed: round2(c.billed),
         collected: round2(c.collected),
+        waived: round2(c.waived),
         outstanding: round2(c.outstanding),
         refunded: round2(c.refunded),
         studentCount: studentSet.get(c.classId)?.size ?? 0,
@@ -231,6 +241,7 @@ export async function GET(request: NextRequest) {
         feeHeadName: h.name,
         billed: round2(h.billed),
         collected: round2(h.collected),
+        waived: round2(h.waived),
         outstanding: round2(h.outstanding),
         collectionRate: h.billed > 0 ? Number(((h.collected / h.billed) * 100).toFixed(1)) : 0,
       }))
@@ -243,6 +254,7 @@ export async function GET(request: NextRequest) {
         label: service.label,
         billed: round2(service.billed),
         collected: round2(service.collected),
+        waived: round2(service.waived),
         outstanding: round2(service.outstanding),
         collectionRate: service.billed > 0
           ? Number(((service.collected / service.billed) * 100).toFixed(1))
@@ -255,11 +267,12 @@ export async function GET(request: NextRequest) {
       (acc, c) => {
         acc.billed += c.billed
         acc.collected += c.collected
+        acc.waived += c.waived
         acc.outstanding += c.outstanding
         acc.refunded += c.refunded
         return acc
       },
-      { billed: 0, collected: 0, outstanding: 0, refunded: 0 }
+      { billed: 0, collected: 0, waived: 0, outstanding: 0, refunded: 0 }
     )
     const totalKeys = Object.keys(totals) as Array<keyof typeof totals>
     totalKeys.forEach(k => {
@@ -290,6 +303,10 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       generatedAt: new Date().toISOString(),
+      // When a collection date-window is applied, collected/waived are window-scoped
+      // while billed/outstanding stay all-AY, so the identity won't balance. The UI
+      // uses this flag to suppress the reconciliation check in that case.
+      collectionWindowed: hasDateFilter,
       byClass,
       byService,
       byFeeHead,
@@ -311,6 +328,7 @@ interface ClassAgg {
   className: string
   billed: number
   collected: number
+  waived: number
   outstanding: number
   refunded: number
 }
@@ -319,6 +337,7 @@ interface HeadAgg {
   name: string
   billed: number
   collected: number
+  waived: number
   outstanding: number
 }
 
@@ -329,6 +348,7 @@ interface ServiceAgg {
   label: string
   billed: number
   collected: number
+  waived: number
   outstanding: number
 }
 
@@ -353,6 +373,45 @@ function getServiceKey(sourceType?: string | null, feeHeadName?: string | null):
   if (source === 'hostel' || head.includes('hostel')) return 'hostel'
   if (source === 'transport' || head.includes('transport')) return 'transport'
   return 'fees'
+}
+
+/**
+ * Cash refunds (transport/hostel discontinue) grouped by the student's class id.
+ * Returns a Map<classId, refundAmount>. Uses '__none__' for students with no class.
+ */
+async function getCashRefundEventsByClass(
+  schoolId: string,
+  academicYear?: string,
+): Promise<Map<string, number>> {
+  const where = {
+    schoolId,
+    eventType: 'WITHDRAWN',
+    refundMode: 'cash',
+    refundStatus: { in: ['pending', 'settled'] },
+    ...(academicYear ? { academicYear } : {}),
+  }
+  const select = { studentId: true, refundAmount: true }
+  const [transport, hostel] = await Promise.all([
+    db.transportEvent.findMany({ where, select }),
+    db.hostelEvent.findMany({ where, select }),
+  ])
+  const events = [...transport, ...hostel]
+  // Event models carry only studentId (no relation), so resolve classId in one batch.
+  // Include all students (even withdrawn) so this total matches getCashRefundTotal.
+  const studentIds = Array.from(new Set(events.map(e => e.studentId)))
+  const students = studentIds.length
+    ? await db.student.findMany({
+        where: { id: { in: studentIds } },
+        select: { id: true, classId: true },
+      })
+    : []
+  const classByStudent = new Map(students.map(s => [s.id, s.classId ?? '__none__']))
+  const map = new Map<string, number>()
+  for (const e of events) {
+    const classId = classByStudent.get(e.studentId) ?? '__none__'
+    map.set(classId, (map.get(classId) ?? 0) + (e.refundAmount || 0))
+  }
+  return map
 }
 
 function round2(n: number): number {

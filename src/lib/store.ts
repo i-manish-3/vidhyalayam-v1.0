@@ -53,6 +53,9 @@ export interface School {
   affiliationNumber?: string
   establishedYear?: string
   principalSignature?: string
+  principalName?: string | null
+  trustName?: string | null
+  admitCardInstructions?: string | null
   address?: string
   city?: string
   state?: string
