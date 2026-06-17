@@ -35,7 +35,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   Calendar,
@@ -616,7 +615,7 @@ export function TimetablePage() {
       ) : (
         <Card>
           <CardContent className="p-0">
-            <ScrollArea className="w-full">
+            <div className="themed-scrollbar w-full max-w-full overflow-x-auto overscroll-x-contain">
               <div className="min-w-[800px]">
                 <table className="w-full border-collapse">
                   <thead>
@@ -736,7 +735,7 @@ export function TimetablePage() {
                   </tbody>
                 </table>
               </div>
-            </ScrollArea>
+            </div>
           </CardContent>
         </Card>
       )}

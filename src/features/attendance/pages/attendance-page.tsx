@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { EmptyState, LoadingState } from '@/components/shared'
+import { EmptyState, LoadingState, PageHeader } from '@/components/shared'
 import { api } from '@/lib/api'
 import { useAppStore } from '@/lib/store'
 import { useEffectiveRole } from '@/hooks/use-effective-role'
@@ -625,23 +625,16 @@ export function AttendancePage() {
 
   return (
     <div className="space-y-3 pb-20 sm:pb-0">
-      {/* ── Page Header ──────────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-        <div className="flex items-center gap-3">
-          <div>
-            <h1 className="text-xl font-bold tracking-tight leading-tight">Mark Attendance</h1>
-            <p className="text-xs text-muted-foreground">
-              Record daily student attendance — Present, Absent, or Leave
-            </p>
-          </div>
-        </div>
-        <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center">
-          {canView && (
-            <Button variant="outline" size="sm" className="gap-1.5 h-9" onClick={() => router.push('/attendance/view')}>
-              <ClipboardList className="size-4" />
-              View Attendance
-            </Button>
-          )}
+      <PageHeader
+        title="Mark Attendance"
+        description="Record daily student attendance with present, absent, or leave status."
+        secondaryAction={canView ? {
+          label: 'View Attendance',
+          icon: ClipboardList,
+          onClick: () => router.push('/attendance/view'),
+        } : undefined}
+        extraActions={(
+          <>
           {isFinalized && (
             <Badge className="gap-1.5 h-9 px-3 bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100">
               <ShieldCheck className="size-4" />
@@ -685,8 +678,9 @@ export function AttendancePage() {
               {finalizing ? 'Finalizing...' : 'Finalize Attendance'}
             </Button>
           )}
-        </div>
-      </div>
+          </>
+        )}
+      />
 
       {/* ── Finalized Banner ────────────────────────────────────────── */}
       {isFinalized && (
@@ -755,7 +749,7 @@ export function AttendancePage() {
       )}
 
       {/* ── Configuration Bar ────────────────────────────────────────── */}
-      <Card className="shadow-sm">
+      <Card className="gap-0 py-0 shadow-sm">
         <CardContent className="p-3">
           <div className="grid gap-3 xl:grid-cols-[auto_auto_auto_1fr] xl:items-center">
             {/* Date navigation */}
@@ -938,7 +932,7 @@ export function AttendancePage() {
           description="Choose a date, class, and section above to start marking attendance."
         />
       ) : loading ? (
-        <Card className="shadow-sm">
+        <Card className="gap-0 py-0 shadow-sm">
           <CardContent className="p-10 flex items-center justify-center">
             <div className="flex items-center gap-2 text-muted-foreground">
               <div className="size-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
@@ -953,9 +947,9 @@ export function AttendancePage() {
           description="No students found for the selected class and section."
         />
       ) : (
-        <Card className={cn('shadow-sm overflow-hidden', isFinalized && 'ring-1 ring-emerald-200 dark:ring-emerald-800')}>
+        <Card className={cn('gap-0 overflow-hidden py-0 shadow-sm', isFinalized && 'ring-1 ring-emerald-200 dark:ring-emerald-800')}>
           {/* Table header */}
-          <div className="border-b bg-muted/40 px-3 py-3 sm:px-5">
+          <div className="border-b bg-muted/20 px-3 py-3 sm:px-5">
             <div className="flex flex-col gap-3 md:flex-row md:items-center">
               <div className="flex min-w-0 flex-wrap items-center gap-2 md:flex-1">
                 {isFinalized ? (
@@ -1018,7 +1012,7 @@ export function AttendancePage() {
           </div>
 
           {/* Column headers */}
-          <div className="px-5 py-2 bg-muted/20 border-b hidden md:flex items-center gap-3">
+          <div className="hidden items-center gap-3 border-b bg-muted/40 px-5 py-2 md:flex">
             <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider w-8 text-center">#</span>
             <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider w-10"></span>
             <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider flex-1">Student Name</span>

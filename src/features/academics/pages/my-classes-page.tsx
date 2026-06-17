@@ -610,7 +610,7 @@ function TimetableGrid({
   const gridStyle = { gridTemplateColumns: `96px repeat(${days.length}, minmax(104px, 1fr))` }
 
   return (
-    <div className="overflow-x-auto rounded-md border">
+    <div className="themed-scrollbar w-full max-w-full overflow-x-auto overscroll-x-contain rounded-md border">
       <div className="min-w-[760px]">
         <div className="grid border-b bg-muted/30" style={gridStyle}>
           <div className="border-r px-2 py-2 text-xs font-semibold text-muted-foreground">Period</div>

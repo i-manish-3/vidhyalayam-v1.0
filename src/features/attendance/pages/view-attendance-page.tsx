@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { EmptyState, LoadingState } from '@/components/shared'
+import { EmptyState, LoadingState, PageHeader } from '@/components/shared'
 import { api } from '@/lib/api'
 import { useAppStore } from '@/lib/store'
 import { getCurrentAcademicYear } from '@/lib/academic-years'
@@ -91,6 +91,7 @@ const STATUS_CONFIG: Record<string, {
   icon: typeof Check
   bgColor: string
   textColor: string
+  borderColor: string
   dotColor: string
   avatarBg: string
   barColor: string
@@ -101,6 +102,7 @@ const STATUS_CONFIG: Record<string, {
     icon: Check,
     bgColor: 'bg-emerald-50 dark:bg-emerald-950/50',
     textColor: 'text-emerald-700 dark:text-emerald-300',
+    borderColor: 'border-emerald-300 dark:border-emerald-700',
     dotColor: 'bg-emerald-500',
     avatarBg: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300',
     barColor: 'bg-emerald-500',
@@ -111,6 +113,7 @@ const STATUS_CONFIG: Record<string, {
     icon: X,
     bgColor: 'bg-red-50 dark:bg-red-950/50',
     textColor: 'text-red-700 dark:text-red-300',
+    borderColor: 'border-red-300 dark:border-red-700',
     dotColor: 'bg-red-500',
     avatarBg: 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300',
     barColor: 'bg-red-500',
@@ -121,6 +124,7 @@ const STATUS_CONFIG: Record<string, {
     icon: CalendarOff,
     bgColor: 'bg-amber-50 dark:bg-amber-950/50',
     textColor: 'text-amber-700 dark:text-amber-300',
+    borderColor: 'border-amber-300 dark:border-amber-700',
     dotColor: 'bg-amber-500',
     avatarBg: 'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300',
     barColor: 'bg-amber-500',
@@ -444,7 +448,7 @@ export function ViewAttendancePage() {
     <div className="space-y-3 pb-20 sm:pb-0">
       {/* ── Snapshot Banner ───────────────────────────────────────────── */}
       {effectiveSnapshot && snapshotMeta && (
-        <Card className="border-amber-300 bg-amber-50/70 dark:border-amber-700 dark:bg-amber-950/30 shadow-sm">
+        <Card className="gap-0 border-amber-300 bg-amber-50/70 py-0 shadow-sm dark:border-amber-700 dark:bg-amber-950/30">
           <CardContent className="p-3">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-start gap-2.5">
@@ -497,32 +501,24 @@ export function ViewAttendancePage() {
         </div>
       )}
 
-      {/* ── Page Header ──────────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-        <div className="flex items-center gap-3">
-          <div>
-            <h1 className="text-xl font-bold tracking-tight leading-tight">View Attendance</h1>
-            <p className="text-xs text-muted-foreground">
-              Review and analyze daily student attendance records
-            </p>
-          </div>
-        </div>
-        <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center">
+      <PageHeader
+        title="View Attendance"
+        description="Review and analyze daily student attendance records."
+        action={canMark && !effectiveSnapshot ? {
+          label: 'Mark Attendance',
+          icon: ClipboardCheck,
+          onClick: () => router.push('/attendance/mark'),
+        } : undefined}
+        extraActions={(
           <Badge variant="outline" className="h-9 w-full justify-center gap-1.5 px-3 text-xs sm:h-7 sm:w-fit">
             <CalendarDays className="size-3.5" />
             {formatDate(date)}
           </Badge>
-          {canMark && !effectiveSnapshot && (
-            <Button size="sm" onClick={() => router.push('/attendance/mark')} className="h-9 w-full gap-1.5 sm:h-8 sm:w-auto">
-              <ClipboardCheck className="size-4" />
-              Mark Attendance
-            </Button>
-          )}
-        </div>
-      </div>
+        )}
+      />
 
       {/* ── Filter Bar ───────────────────────────────────────────────── */}
-      <Card className="shadow-sm">
+      <Card className="gap-0 py-0 shadow-sm">
         <CardContent className="p-3">
           <div className="grid gap-3 xl:grid-cols-[auto_auto_auto_minmax(220px,1fr)] xl:items-center">
             {/* Date navigation */}
@@ -671,7 +667,7 @@ export function ViewAttendancePage() {
 
       {/* ── Records ──────────────────────────────────────────────────── */}
       {loading ? (
-        <Card className="shadow-sm">
+        <Card className="gap-0 py-0 shadow-sm">
           <CardContent className="p-10 flex items-center justify-center">
             <div className="flex items-center gap-2 text-muted-foreground">
               <div className="size-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
@@ -715,9 +711,9 @@ export function ViewAttendancePage() {
             const uniqueMarkers = [...new Set(markerNames)]
 
             return (
-              <Card key={groupKey} className="shadow-sm overflow-hidden">
+              <Card key={groupKey} className="gap-0 overflow-hidden py-0 shadow-sm">
                 {/* Group header */}
-                <div className="border-b bg-muted/40 px-3 py-3 sm:px-5">
+                <div className="border-b bg-muted/20 px-3 py-3 sm:px-5">
                   <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                     <div className="flex min-w-0 flex-wrap items-center gap-2">
                       <Users className="size-4 text-muted-foreground shrink-0" />
@@ -754,7 +750,7 @@ export function ViewAttendancePage() {
                 </div>
 
                 {/* Column headers */}
-                <div className="px-5 py-2 bg-muted/20 border-b hidden md:flex items-center gap-3">
+                <div className="hidden items-center gap-3 border-b bg-muted/40 px-5 py-2 md:flex">
                   <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider w-8 text-center">#</span>
                   <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider w-10"></span>
                   <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider flex-1">Student Name</span>
@@ -819,9 +815,10 @@ export function ViewAttendancePage() {
                         {/* Status badge */}
                         <div className="mt-3 grid grid-cols-2 gap-2 md:mt-0 md:flex md:w-28 md:shrink-0 md:items-center md:justify-center">
                           <div className={cn(
-                            'inline-flex h-9 items-center justify-center gap-1.5 rounded-md px-2.5 text-[11px] font-semibold md:h-auto md:py-1',
+                            'inline-flex h-9 w-full min-w-24 items-center justify-center rounded-md border px-3 text-[11px] font-semibold md:h-8 md:w-auto md:min-w-20',
                             statusConfig.bgColor,
                             statusConfig.textColor,
+                            statusConfig.borderColor,
                           )}>
                             {statusConfig.label}
                           </div>
