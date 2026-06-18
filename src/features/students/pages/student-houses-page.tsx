@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { api } from '@/lib/api'
 import { compareClassNames } from '@/lib/class-order'
+import { cn } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
 import { LoadingState, PageHeader } from '@/components/shared'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -23,7 +24,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { GraduationCap, Home, Loader2, Palette, Plus, Save, Trash2, Users, X } from 'lucide-react'
+import { CheckCircle2, GraduationCap, Home, Loader2, Palette, Plus, Save, Search, Trash2, Users, X } from 'lucide-react'
 
 interface StudentHouse {
   id: string
@@ -283,7 +284,12 @@ export function StudentHousesPage() {
   }
 
   const allVisibleSelected = filteredStudents.length > 0 && filteredStudents.every((student) => selectedStudentIds.includes(student.id))
+  const assignedCount = students.filter((student) => student.assignedHouse).length
+  const unassignedCount = students.length - assignedCount
+  const selectedVisibleCount = filteredStudents.filter((student) => selectedStudentIds.includes(student.id)).length
   const selectedHouse = targetHouseId ? houses.find((house) => house.id === targetHouseId) || null : null
+  const selectedClass = classOptions.find((item) => item.id === classFilter)
+  const selectedSection = sectionOptions.find((item) => item.id === sectionFilter)
   const scopeLabel = assignmentScope === 'selected'
     ? 'selected students'
     : assignmentScope === 'filtered'
@@ -291,6 +297,31 @@ export function StudentHousesPage() {
       : sectionFilter !== 'all'
         ? 'selected class-section'
         : 'selected class'
+  const scopeOptions = [
+    {
+      id: 'selected' as const,
+      title: 'Selected',
+      description: 'Only checked students',
+      count: selectedStudentIds.length,
+      disabled: false,
+    },
+    {
+      id: 'filtered' as const,
+      title: 'Filtered',
+      description: 'All students matching filters',
+      count: filteredStudents.length,
+      disabled: filteredStudents.length === 0,
+    },
+    {
+      id: 'class' as const,
+      title: 'Class / Section',
+      description: selectedClass
+        ? `${selectedClass.name}${selectedSection ? ` - ${selectedSection.name}` : ''}`
+        : 'Choose class first',
+      count: classScopeStudents.length,
+      disabled: classFilter === 'all' || classScopeStudents.length === 0,
+    },
+  ]
 
   if (loading) return <LoadingState />
 
@@ -301,6 +332,37 @@ export function StudentHousesPage() {
         description="Create houses with colors and assign students in one place."
         action={{ label: 'Create House', icon: Plus, onClick: openCreateDialog }}
       />
+
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="rounded-lg border bg-card p-4 shadow-sm">
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Houses</p>
+          <div className="mt-2 flex items-end justify-between gap-2">
+            <p className="text-2xl font-semibold">{houses.length}</p>
+            <Home className="size-5 text-muted-foreground" />
+          </div>
+        </div>
+        <div className="rounded-lg border bg-card p-4 shadow-sm">
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Assigned</p>
+          <div className="mt-2 flex items-end justify-between gap-2">
+            <p className="text-2xl font-semibold">{assignedCount}</p>
+            <CheckCircle2 className="size-5 text-emerald-600" />
+          </div>
+        </div>
+        <div className="rounded-lg border bg-card p-4 shadow-sm">
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Unassigned</p>
+          <div className="mt-2 flex items-end justify-between gap-2">
+            <p className="text-2xl font-semibold">{unassignedCount}</p>
+            <Users className="size-5 text-muted-foreground" />
+          </div>
+        </div>
+        <div className="rounded-lg border bg-card p-4 shadow-sm">
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Selected</p>
+          <div className="mt-2 flex items-end justify-between gap-2">
+            <p className="text-2xl font-semibold">{selectedStudentIds.length}</p>
+            <Badge variant="secondary">{selectedVisibleCount} visible</Badge>
+          </div>
+        </div>
+      </div>
 
       <div className="grid gap-4 lg:grid-cols-[360px_1fr]">
         <Card>
@@ -355,79 +417,188 @@ export function StudentHousesPage() {
 
         <Card>
           <CardHeader className="pb-3">
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <CardTitle className="flex items-center gap-2 text-base">
                 <span className="bg-brand-soft flex size-7 shrink-0 items-center justify-center rounded-lg text-white shadow-sm">
                   <GraduationCap className="size-4" />
                 </span>
-                Assign Students
+                House Assignment
               </CardTitle>
               {hasActiveFilters && (
                 <Button variant="ghost" size="sm" onClick={clearFilters} className="h-8 gap-1 text-destructive">
-                  <X className="size-4" /> Clear
+                  <X className="size-4" /> Clear filters
                 </Button>
               )}
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid gap-3 md:grid-cols-[1fr_170px_170px_170px]">
-              <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search student, admission no, class, house..." />
-              <Select value={classFilter} onValueChange={handleClassFilterChange}>
-                <SelectTrigger><SelectValue placeholder="Class" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Classes</SelectItem>
-                  {classOptions.map((item) => <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              <Select value={sectionFilter} onValueChange={setSectionFilter} disabled={classFilter === 'all'}>
-                <SelectTrigger><SelectValue placeholder="Section" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Sections</SelectItem>
-                  {sectionOptions.map((item) => <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              <Select value={selectedHouseId} onValueChange={setSelectedHouseId}>
-                <SelectTrigger><SelectValue placeholder="Filter house" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Students</SelectItem>
-                  <SelectItem value="none">Unassigned</SelectItem>
-                  {houses.map((house) => <SelectItem key={house.id} value={house.id}>{house.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="rounded-lg border bg-muted/20 p-3">
-              <div className="grid gap-3 lg:grid-cols-[190px_1fr_auto_auto]">
-                <Select value={assignmentScope} onValueChange={(value: 'selected' | 'filtered' | 'class') => setAssignmentScope(value)}>
-                  <SelectTrigger><SelectValue placeholder="Assignment scope" /></SelectTrigger>
+            <div className="rounded-lg border bg-card p-4 shadow-sm">
+              <div className="mb-3 flex items-center gap-2">
+                <span className="flex size-7 items-center justify-center rounded-md bg-muted text-xs font-semibold">1</span>
+                <div>
+                  <p className="text-sm font-semibold">Find students</p>
+                  <p className="text-xs text-muted-foreground">Search, class, section and current house filter.</p>
+                </div>
+              </div>
+              <div className="grid gap-3 md:grid-cols-[1fr_170px_170px_170px]">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                    placeholder="Search student, admission no, class, house..."
+                    className="pl-9"
+                  />
+                </div>
+                <Select value={classFilter} onValueChange={handleClassFilterChange}>
+                  <SelectTrigger><SelectValue placeholder="Class" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="selected">Selected students</SelectItem>
-                    <SelectItem value="filtered">All filtered students</SelectItem>
-                    <SelectItem value="class" disabled={classFilter === 'all'}>Class / Section</SelectItem>
+                    <SelectItem value="all">All Classes</SelectItem>
+                    {classOptions.map((item) => <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
-                <Select value={targetHouseId || 'choose'} onValueChange={(value) => setTargetHouseId(value === 'choose' ? '' : value)}>
-                  <SelectTrigger><SelectValue placeholder="Assign to house" /></SelectTrigger>
+                <Select value={sectionFilter} onValueChange={setSectionFilter} disabled={classFilter === 'all'}>
+                  <SelectTrigger><SelectValue placeholder="Section" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="choose" disabled>Choose house</SelectItem>
+                    <SelectItem value="all">All Sections</SelectItem>
+                    {sectionOptions.map((item) => <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <Select value={selectedHouseId} onValueChange={setSelectedHouseId}>
+                  <SelectTrigger><SelectValue placeholder="Filter house" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Students</SelectItem>
+                    <SelectItem value="none">Unassigned</SelectItem>
                     {houses.map((house) => <SelectItem key={house.id} value={house.id}>{house.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
-                <Button onClick={() => assignStudents(false)} disabled={assigning || scopeStudentIds.length === 0 || !targetHouseId} className="gap-1">
-                  {assigning ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
-                  Assign
-                </Button>
-                <Button variant="outline" onClick={() => assignStudents(true)} disabled={assigning || scopeStudentIds.length === 0} className="gap-1">
-                  <X className="size-4" /> Remove
-                </Button>
               </div>
-              <p className="mt-2 text-xs text-muted-foreground">
-                Action will update <span className="font-semibold text-foreground">{scopeStudentIds.length}</span> {scopeLabel}
-                {selectedHouse ? <> to <span className="font-semibold text-foreground">{selectedHouse.name}</span></> : null}.
-              </p>
             </div>
 
-            <div className="overflow-x-auto rounded-xl border shadow-sm">
+            <div className="grid gap-4 xl:grid-cols-[1fr_1.25fr_260px]">
+              <div className="rounded-lg border bg-card p-4 shadow-sm">
+                <div className="mb-3 flex items-center gap-2">
+                  <span className="flex size-7 items-center justify-center rounded-md bg-muted text-xs font-semibold">2</span>
+                  <div>
+                    <p className="text-sm font-semibold">Choose assignment scope</p>
+                    <p className="text-xs text-muted-foreground">Decide which students will be updated.</p>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  {scopeOptions.map((option) => (
+                    <button
+                      key={option.id}
+                      type="button"
+                      disabled={option.disabled}
+                      onClick={() => setAssignmentScope(option.id)}
+                      className={cn(
+                        'flex w-full items-center justify-between rounded-lg border p-3 text-left transition',
+                        assignmentScope === option.id ? 'border-primary bg-primary/5 ring-1 ring-primary/20' : 'hover:bg-muted/50',
+                        option.disabled && 'cursor-not-allowed opacity-50 hover:bg-transparent'
+                      )}
+                    >
+                      <span>
+                        <span className="block text-sm font-semibold">{option.title}</span>
+                        <span className="block text-xs text-muted-foreground">{option.description}</span>
+                      </span>
+                      <Badge variant={assignmentScope === option.id ? 'default' : 'secondary'}>{option.count}</Badge>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="rounded-lg border bg-card p-4 shadow-sm">
+                <div className="mb-3 flex items-center gap-2">
+                  <span className="flex size-7 items-center justify-center rounded-md bg-muted text-xs font-semibold">3</span>
+                  <div>
+                    <p className="text-sm font-semibold">Choose house</p>
+                    <p className="text-xs text-muted-foreground">Click a house card to assign.</p>
+                  </div>
+                </div>
+                {houses.length === 0 ? (
+                  <div className="rounded-lg border border-dashed p-5 text-center text-sm text-muted-foreground">
+                    Create a house first.
+                  </div>
+                ) : (
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {houses.map((house) => (
+                      <button
+                        key={house.id}
+                        type="button"
+                        onClick={() => setTargetHouseId(house.id)}
+                        className={cn(
+                          'flex items-center justify-between gap-3 rounded-lg border p-3 text-left transition hover:bg-muted/50',
+                          targetHouseId === house.id && 'border-primary bg-primary/5 ring-1 ring-primary/20'
+                        )}
+                      >
+                        <span className="flex min-w-0 items-center gap-2">
+                          <span className="size-3 shrink-0 rounded-full" style={{ backgroundColor: house.color }} />
+                          <span className="min-w-0">
+                            <span className="block truncate text-sm font-semibold">{house.name}</span>
+                            <span className="block text-xs text-muted-foreground">{house._count?.students || 0} assigned</span>
+                          </span>
+                        </span>
+                        {targetHouseId === house.id && <CheckCircle2 className="size-4 shrink-0 text-primary" />}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="rounded-lg border bg-muted/20 p-4 shadow-sm">
+                <div className="mb-3 flex items-center gap-2">
+                  <span className="flex size-7 items-center justify-center rounded-md bg-background text-xs font-semibold">4</span>
+                  <div>
+                    <p className="text-sm font-semibold">Apply</p>
+                    <p className="text-xs text-muted-foreground">Review before updating.</p>
+                  </div>
+                </div>
+                <div className="rounded-lg border bg-background p-3">
+                  <p className="text-xs text-muted-foreground">Students in scope</p>
+                  <p className="mt-1 text-3xl font-semibold">{scopeStudentIds.length}</p>
+                  <p className="mt-1 text-xs text-muted-foreground capitalize">{scopeLabel}</p>
+                </div>
+                <div className="mt-3 rounded-lg border bg-background p-3">
+                  <p className="text-xs text-muted-foreground">Target house</p>
+                  {selectedHouse ? (
+                    <div className="mt-2 flex items-center gap-2 text-sm font-semibold">
+                      <span className="size-3 rounded-full" style={{ backgroundColor: selectedHouse.color }} />
+                      {selectedHouse.name}
+                    </div>
+                  ) : (
+                    <p className="mt-2 text-sm text-muted-foreground">No house selected</p>
+                  )}
+                </div>
+                <div className="mt-3 grid gap-2">
+                  <Button onClick={() => assignStudents(false)} disabled={assigning || scopeStudentIds.length === 0 || !targetHouseId} className="gap-1">
+                    {assigning ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
+                    Assign House
+                  </Button>
+                  <Button variant="outline" onClick={() => assignStudents(true)} disabled={assigning || scopeStudentIds.length === 0} className="gap-1">
+                    <X className="size-4" /> Remove House
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-lg border bg-card shadow-sm">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b p-3">
+                <div>
+                  <p className="text-sm font-semibold">Student list</p>
+                  <p className="text-xs text-muted-foreground">
+                    Showing {filteredStudents.length} of {students.length} students. {selectedStudentIds.length} selected.
+                  </p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => toggleVisibleStudents(!allVisibleSelected)}
+                  disabled={filteredStudents.length === 0}
+                >
+                  {allVisibleSelected ? 'Unselect visible' : 'Select visible'}
+                </Button>
+              </div>
+              <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -481,6 +652,7 @@ export function StudentHousesPage() {
                   )}
                 </TableBody>
               </Table>
+              </div>
             </div>
           </CardContent>
         </Card>
