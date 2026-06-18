@@ -132,6 +132,7 @@ export const MENUS: Record<string, MenuItem[]> = {
         { label: 'Add New Admission', page: 'admission-form', icon: UserPlus },
         { label: 'Bulk Admission', page: 'bulk-admission', icon: Upload },
         { label: 'Student List', page: 'students', icon: Users },
+        { label: 'Student Houses', page: 'student-houses', icon: Palette },
         { label: 'Alumni', page: 'alumni', icon: GraduationCap },
       ],
     },

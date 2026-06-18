@@ -91,6 +91,7 @@ export async function GET(request: NextRequest) {
         { rollNumber: { contains: search, mode: 'insensitive' } },
         { aadhaarNumber: { contains: search, mode: 'insensitive' } },
         { admissionNumber: { contains: search, mode: 'insensitive' } },
+        { houseMembership: { name: { contains: search, mode: 'insensitive' } } },
         ...(admissionStudentIds.length > 0 ? [{ id: { in: admissionStudentIds } }] : []),
       ]
     }
@@ -149,6 +150,7 @@ export async function GET(request: NextRequest) {
       include: {
         class: { select: { id: true, name: true } },
         section: { select: { id: true, name: true } },
+        houseMembership: { select: { id: true, name: true, color: true } },
         admission: {
           select: {
             registrationNumber: true,
@@ -233,6 +235,7 @@ export async function GET(request: NextRequest) {
           section: sessionSection,
           rollNumber: sessionRollNumber,
           fullName: `${s.firstName} ${s.lastName}`,
+          assignedHouse: s.houseMembership,
           transportRouteName: s.admission?.transportRouteId
             ? routeMap[s.admission.transportRouteId] || null
             : null,

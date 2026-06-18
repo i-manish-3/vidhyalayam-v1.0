@@ -210,6 +210,7 @@ export async function GET(
       include: {
         class: { select: { id: true, name: true } },
         section: { select: { id: true, name: true } },
+        houseMembership: { select: { id: true, name: true, color: true } },
         parentLinks: {
           include: {
             parent: true,
@@ -377,7 +378,7 @@ export async function GET(
     // Fetch siblings via shared familyId. We fall back to the legacy
     // siblingId pointer only when familyId is missing (pre-backfill data),
     // so existing single-pointer links don't silently disappear.
-    type SiblingInfo = { id: string; firstName: string; lastName: string; admissionNumber: string | null; className: string | null }
+    type SiblingInfo = { id: string; firstName: string; lastName: string | null; admissionNumber: string | null; className: string | null }
     let siblings: SiblingInfo[] = []
     if (student.familyId) {
       const rows = await db.student.findMany({
@@ -492,6 +493,7 @@ export async function GET(
       section: sessionSection,
       rollNumber: sessionRollNumber,
       admission: student.admission ? { ...student.admission, feesGroup } : null,
+      assignedHouse: student.houseMembership,
       siblings,
       sibling: siblings[0] || null, // legacy field for any frontend not yet updated
       transportAllocations,

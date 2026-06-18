@@ -192,20 +192,32 @@ export async function renderDemandSlipHtml(
 // ── Receipt ──────────────────────────────────────────────────────────────
 
 interface ReceiptDebitAllocation {
+  id: string
   amount: number
   creditEntryId: string | null
   allocatedAt: Date | null
   createdAt: Date
-  creditEntry: { id: string; transactionDate: Date; createdAt: Date } | null
+  creditEntry: {
+    id: string
+    receiptNumber: string | null
+    entryType?: string | null
+    sourceType?: string | null
+    credit?: number | null
+    transactionDate: Date
+    createdAt: Date
+  } | null
 }
 
 interface ReceiptCreditAllocation {
+  id: string
   amount: number
   createdAt: Date
   debitEntry: {
     feeHeadName: string | null
     installmentName: string | null
     academicYear: string | null
+    sourceType: string | null
+    sourceId: string | null
     dueDate: Date | null
     balanceAmount: number
     feeCollection: {
@@ -237,7 +249,67 @@ export interface ReceiptRenderContext {
   phone: string | null
   academicYear: string
   collectedByName: string | null
+  inventorySalesById?: Record<string, { receiptNumber: string; discount: number; totalAmount?: number }>
   mode?: 'single' | 'parent'
+}
+
+function inventoryDiscountForReceiptAllocation(
+  credit: ReceiptCredit,
+  allocation: ReceiptCreditAllocation,
+  inventorySalesById?: Record<string, { receiptNumber: string; discount: number; totalAmount?: number }>,
+): number {
+  const debit = allocation.debitEntry
+  if (debit.sourceType !== 'inventory' || !debit.sourceId || !inventorySalesById) return 0
+  const sale = inventorySalesById[debit.sourceId]
+  const discount = roundMoney(sale?.discount || 0)
+  if (!sale || discount <= 0) return 0
+
+  if (credit.receiptNumber === sale.receiptNumber) return discount
+
+  const hasOriginalReceiptCredit = debit.debitAllocations.some(
+    (other) => other.creditEntry?.receiptNumber === sale.receiptNumber
+  )
+  if (hasOriginalReceiptCredit) return 0
+
+  const firstAllocation = debit.debitAllocations
+    .filter((other) => other.creditEntry)
+    .sort((a, b) => {
+      const aTime = a.creditEntry?.transactionDate.getTime() ?? a.allocatedAt?.getTime() ?? a.createdAt.getTime()
+      const bTime = b.creditEntry?.transactionDate.getTime() ?? b.allocatedAt?.getTime() ?? b.createdAt.getTime()
+      if (aTime !== bTime) return aTime - bTime
+      return a.createdAt.getTime() - b.createdAt.getTime()
+    })[0]
+
+  return firstAllocation?.id === allocation.id ? discount : 0
+}
+
+function inventoryBalanceAfterReceipt(
+  credit: ReceiptCredit,
+  allocation: ReceiptCreditAllocation,
+  inventorySalesById: ReceiptRenderContext['inventorySalesById'],
+  fallbackBalanceAfter: number,
+): number {
+  const debit = allocation.debitEntry
+  if (debit.sourceType !== 'inventory' || !debit.sourceId || !inventorySalesById) return fallbackBalanceAfter
+  const sale = inventorySalesById[debit.sourceId]
+  if (!sale || credit.receiptNumber !== sale.receiptNumber || sale.totalAmount === undefined) return fallbackBalanceAfter
+
+  return roundMoney(Math.max(0, sale.totalAmount - allocation.amount))
+}
+
+function sameReceiptWaiverForDebit(credit: ReceiptCredit, allocation: ReceiptCreditAllocation): number {
+  const debit = allocation.debitEntry
+  if (debit.feeCollection || debit.sourceType !== 'inventory') return 0
+
+  return roundMoney(
+    debit.debitAllocations
+      .filter((other) =>
+        other.creditEntry?.entryType === 'WAIVER' &&
+        ['discount', 'concession', 'scholarship'].includes(other.creditEntry?.sourceType || '') &&
+        other.creditEntry?.receiptNumber === credit.receiptNumber
+      )
+      .reduce((sum, other) => sum + Number(other.creditEntry?.credit || other.amount || 0), 0)
+  )
 }
 
 /**
@@ -256,16 +328,23 @@ export function renderReceiptHtmlFromCredit(credit: ReceiptCredit, ctx: ReceiptR
     isTransport: boolean
     dueDate: Date | null
     paidInReceipt: number
+    discountInReceipt: number
+    inventoryDiscountInReceipt: number
     balanceAfter: number
   }> = []
 
   for (const allocation of credit.creditAllocations) {
     const debit = allocation.debitEntry
     const headName = (debit.feeHeadName || debit.feeCollection?.feeHeadName || '').toLowerCase()
-    discount +=
+    const inventoryLineDiscount = inventoryDiscountForReceiptAllocation(credit, allocation, ctx.inventorySalesById)
+    const lineDiscount = roundMoney(
       (debit.feeCollection?.discount || 0) +
       (debit.feeCollection?.concession || 0) +
-      (debit.feeCollection?.scholarship || 0)
+      (debit.feeCollection?.scholarship || 0) +
+      sameReceiptWaiverForDebit(credit, allocation) +
+      inventoryLineDiscount
+    )
+    discount += lineDiscount
 
     const laterAllocated = debit.debitAllocations
       .filter((other) => {
@@ -277,8 +356,13 @@ export function renderReceiptHtmlFromCredit(credit: ReceiptCredit, ctx: ReceiptR
       })
       .reduce((sum, other) => sum + other.amount, 0)
 
-    const balanceAfter = roundMoney(debit.balanceAmount + laterAllocated)
-    dues += debit.balanceAmount + laterAllocated
+    const balanceAfter = inventoryBalanceAfterReceipt(
+      credit,
+      allocation,
+      ctx.inventorySalesById,
+      roundMoney(debit.balanceAmount + laterAllocated),
+    )
+    dues += balanceAfter
 
     derivedLines.push({
       feeHeadName: debit.feeHeadName || debit.feeCollection?.feeHeadName || 'Fee',
@@ -287,6 +371,8 @@ export function renderReceiptHtmlFromCredit(credit: ReceiptCredit, ctx: ReceiptR
       isTransport: headName.includes('transport'),
       dueDate: debit.dueDate || debit.feeCollection?.dueDate || null,
       paidInReceipt: roundMoney(allocation.amount),
+      discountInReceipt: lineDiscount,
+      inventoryDiscountInReceipt: roundMoney(inventoryLineDiscount),
       balanceAfter,
     })
   }
@@ -296,16 +382,27 @@ export function renderReceiptHtmlFromCredit(credit: ReceiptCredit, ctx: ReceiptR
   // Prefer the cashier's persisted snapshot; fall back to allocation-derived
   // lines for receipts written before the snapshot tail existed.
   const usePersisted = persisted && persisted.length > 0
+  let remainingPersistedDiscount = roundMoney(
+    derivedLines.reduce((sum, line) => sum + line.discountInReceipt, 0)
+  )
   const finalLines = usePersisted
-    ? persisted!.map((l) => ({
-        feeHeadName: l.feeHeadName,
-        installmentName: l.installmentName,
-        academicYear: l.academicYear,
-        isTransport: l.isTransport,
-        dueDate: l.dueDate ? new Date(l.dueDate) : null,
-        paidInReceipt: l.paid,
-        balanceAfter: l.due,
-      }))
+    ? persisted!.map((l) => {
+        const hasExplicitDiscount = typeof l.discount === 'number'
+        const discountInReceipt = hasExplicitDiscount
+          ? roundMoney(l.discount || 0)
+          : roundMoney(Math.min(remainingPersistedDiscount, l.paid || 0))
+        remainingPersistedDiscount = roundMoney(remainingPersistedDiscount - discountInReceipt)
+        return {
+          feeHeadName: l.feeHeadName,
+          installmentName: l.installmentName,
+          academicYear: l.academicYear,
+          isTransport: l.isTransport,
+          dueDate: l.dueDate ? new Date(l.dueDate) : null,
+          paidInReceipt: hasExplicitDiscount ? l.paid : roundMoney(Math.max(0, l.paid - discountInReceipt)),
+          discountInReceipt,
+          balanceAfter: l.due,
+        }
+      })
     : derivedLines
   const finalDues = usePersisted
     ? roundMoney(persisted!.reduce((sum, l) => sum + (l.due || 0), 0))
@@ -319,7 +416,7 @@ export function renderReceiptHtmlFromCredit(credit: ReceiptCredit, ctx: ReceiptR
     isTransport: line.isTransport,
     dueDate: line.dueDate ? line.dueDate.toISOString() : null,
     paid: line.paidInReceipt,
-    discount: 0,
+    discount: Number(line.discountInReceipt || 0),
     due: line.balanceAfter,
   }))
 

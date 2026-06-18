@@ -4,6 +4,7 @@ import { db } from '@/lib/db'
 import { requirePermission } from '@/lib/api-auth'
 import { unauthorizedError, internalError, apiError, forbiddenError, notFoundError } from '@/lib/api-errors'
 import { recordStudentLedgerPayment, nextSequentialReceiptNumber } from '@/lib/fees'
+import { encodeNotesTail } from '@/lib/fee-notes-tail'
 
 // Receipt numbers are a shared sequence; concurrent collections can briefly
 // collide on the unique (schoolId, receiptNumber) key. Retry transparently on P2002.
@@ -54,7 +55,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     const sale = await db.inventorySale.findFirst({
       where: { id, schoolId },
-      select: { id: true, studentId: true, receiptNumber: true, totalAmount: true, academicYear: true, status: true, ledgerDebitId: true },
+      select: { id: true, studentId: true, receiptNumber: true, totalAmount: true, discount: true, academicYear: true, status: true, ledgerDebitId: true },
     })
     if (!sale) return notFoundError('InventorySale')
     if (sale.status === 'voided') return apiError(400, 'This sale has been voided — there is nothing to collect.')
@@ -64,7 +65,17 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       // The ledger debit balance is the live outstanding amount.
       const debit = await tx.studentFeeLedgerEntry.findFirst({
         where: { id: sale.ledgerDebitId!, schoolId, deletedAt: null },
-        select: { id: true, balanceAmount: true },
+        select: {
+          id: true,
+          balanceAmount: true,
+          debitAllocations: {
+            where: { deletedAt: null },
+            select: {
+              id: true,
+              creditEntry: { select: { receiptNumber: true } },
+            },
+          },
+        },
       })
       if (!debit) throw new CollectError(400, 'This sale has no outstanding due to collect.')
       const outstanding = round2(Math.max(0, debit.balanceAmount))
@@ -74,6 +85,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       if (amount <= 0) throw new CollectError(400, 'Enter an amount to collect.')
 
       const receiptNumber = await nextSequentialReceiptNumber(tx, schoolId)
+      const hasOriginalReceiptCredit = debit.debitAllocations.some(
+        (allocation) => allocation.creditEntry?.receiptNumber === sale.receiptNumber
+      )
+      const discountForReceipt = !hasOriginalReceiptCredit && debit.debitAllocations.length === 0
+        ? round2(sale.discount || 0)
+        : 0
       await recordStudentLedgerPayment({
         tx,
         schoolId,
@@ -82,7 +99,20 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         paymentMethod,
         receiptNumber,
         academicYear: sale.academicYear || undefined,
-        notes: `Store due collected for sale ${sale.receiptNumber}`,
+        notes: encodeNotesTail(
+          `Store due collected for sale ${sale.receiptNumber}`,
+          [{
+            feeHeadName: 'Inventory Purchase',
+            installmentName: null,
+            academicYear: sale.academicYear || null,
+            isTransport: false,
+            dueDate: new Date().toISOString(),
+            paid: amount,
+            discount: discountForReceipt,
+            due: round2(outstanding - amount),
+          }],
+          null,
+        ),
         receivedBy: user.userId,
         targets: [{ debitEntryId: debit.id, amount }],
       })

@@ -43,7 +43,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
                 feeCollection: true,
                 debitAllocations: {
                   where: { deletedAt: null },
-                  include: { creditEntry: { select: { id: true, transactionDate: true, createdAt: true } } },
+                  include: { creditEntry: { select: { id: true, receiptNumber: true, entryType: true, sourceType: true, credit: true, transactionDate: true, createdAt: true } } },
                 },
               },
             },
@@ -70,6 +70,24 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     ])
     if (!student) return notFoundError('Student')
 
+    const inventorySaleIds = Array.from(
+      new Set(
+        credit.creditAllocations
+          .map((allocation) => allocation.debitEntry)
+          .filter((debit) => debit.sourceType === 'inventory' && !!debit.sourceId)
+          .map((debit) => debit.sourceId!)
+      )
+    )
+    const inventorySales = inventorySaleIds.length > 0
+      ? await db.inventorySale.findMany({
+          where: { schoolId: user.schoolId, id: { in: inventorySaleIds } },
+          select: { id: true, receiptNumber: true, discount: true, totalAmount: true },
+        })
+      : []
+    const inventorySalesById = Object.fromEntries(
+      inventorySales.map((sale) => [sale.id, { receiptNumber: sale.receiptNumber, discount: sale.discount, totalAmount: sale.totalAmount }])
+    )
+
     const father = student.parentLinks?.find((p) => p.parent?.fatherName)?.parent || null
     const mother = student.parentLinks?.find((p) => p.parent?.motherName)?.parent || null
 
@@ -84,11 +102,12 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
     const html = renderReceiptHtmlFromCredit(credit, {
       school,
-      student,
+      student: { ...student, lastName: student.lastName || '' },
       fatherName: father?.fatherName || null,
       phone: father?.phone || mother?.phone || null,
       academicYear: school?.academicYear || credit.academicYear || '',
       collectedByName,
+      inventorySalesById,
       mode: 'parent',
     })
 

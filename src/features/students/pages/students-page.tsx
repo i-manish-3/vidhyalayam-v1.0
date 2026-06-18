@@ -76,6 +76,7 @@ import {
   Tag,
   Fingerprint,
   Activity,
+  BadgeCheck,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -111,6 +112,7 @@ interface Student {
     dateOfAdmission: string | null
     profileImage: string | null
   } | null
+  assignedHouse?: { id: string; name: string; color: string } | null
   transportRouteName?: string | null
   hostelName?: string | null
   hostelRoomNumber?: string | null
@@ -210,6 +212,7 @@ type ColumnId =
   | 'hostel'
   | 'phone'
   | 'gender'
+  | 'house'
   | 'dob'
   | 'bloodGroup'
   | 'category'
@@ -238,6 +241,7 @@ const COLUMN_CONFIG: ColumnConfig[] = [
   { id: 'adm', label: 'Adm.No.', icon: IdCard, sortKey: 'adm', defaultVisible: true },
   { id: 'admDate', label: 'Adm.Date', icon: CalendarDays, sortKey: 'admDate', defaultVisible: true },
   { id: 'gender', label: 'Gender', icon: VenusAndMars, sortKey: 'gender' },
+  { id: 'house', label: 'House', icon: BadgeCheck, sortKey: 'house', defaultVisible: true },
   { id: 'dob', label: 'Date of Birth', icon: Cake, sortKey: 'dob' },
   { id: 'bloodGroup', label: 'Blood Group', icon: Droplet, sortKey: 'bloodGroup' },
   { id: 'category', label: 'Category', icon: Tag, sortKey: 'category' },
@@ -296,6 +300,7 @@ type SortKey =
   | 'adm'
   | 'admDate'
   | 'gender'
+  | 'house'
   | 'dob'
   | 'bloodGroup'
   | 'category'
@@ -343,6 +348,8 @@ function getSortValue(s: Student, key: SortKey): string | number {
     }
     case 'gender':
       return (s.gender || '').toLowerCase()
+    case 'house':
+      return (s.assignedHouse?.name || '').toLowerCase()
     case 'dob': {
       const d = s.dateOfBirth
       return d ? new Date(d).getTime() : 0
@@ -726,6 +733,7 @@ export function StudentsPage() {
         'Section',
         'Roll',
         'Gender',
+        'House',
         'Date of Birth',
         'Admission Date',
         'Category',
@@ -751,6 +759,7 @@ export function StudentsPage() {
           student.section?.name,
           student.rollNumber,
           student.gender,
+          student.assignedHouse?.name,
           formatDate(student.dateOfBirth),
           formatDate(student.admission?.dateOfAdmission),
           student.category,
@@ -1277,6 +1286,11 @@ export function StudentsPage() {
                         <SortableHeader label="Gender" icon={VenusAndMars} sortKey="gender" sort={sort} onSort={handleSort} />
                       </TableHead>
                     )}
+                    {isColumnVisible('house') && (
+                      <TableHead>
+                        <SortableHeader label="House" icon={BadgeCheck} sortKey="house" sort={sort} onSort={handleSort} />
+                      </TableHead>
+                    )}
                     {isColumnVisible('dob') && (
                       <TableHead>
                         <SortableHeader label="Date of Birth" icon={Cake} sortKey="dob" sort={sort} onSort={handleSort} />
@@ -1423,6 +1437,20 @@ export function StudentsPage() {
                         {isColumnVisible('gender') && (
                           <TableCell>
                             <span className="text-sm">{s.gender || '--'}</span>
+                          </TableCell>
+                        )}
+
+                        {/* House */}
+                        {isColumnVisible('house') && (
+                          <TableCell>
+                            {s.assignedHouse ? (
+                              <span className="inline-flex items-center gap-1.5 text-sm">
+                                <span className="size-2.5 rounded-full" style={{ backgroundColor: s.assignedHouse.color }} />
+                                {s.assignedHouse.name}
+                              </span>
+                            ) : (
+                              <span className="text-sm">--</span>
+                            )}
                           </TableCell>
                         )}
 

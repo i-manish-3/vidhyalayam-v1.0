@@ -418,15 +418,34 @@ export function buildSlipHtml(input: SlipHtmlInput): string {
   const totalDiscount = input.discountAmount !== undefined
     ? Math.round((input.discountAmount + Number.EPSILON) * 100) / 100
     : Math.round((input.lines.reduce((sum, l) => sum + l.discount, 0) + Number.EPSILON) * 100) / 100
+  const receiptNetSubtotal = Math.round((subtotalNum - totalDiscount + Number.EPSILON) * 100) / 100
+
+  const receiptFooterHtml = isReceipt
+    ? `
+          <tfoot>
+            ${totalDiscount > 0 ? `
+            <tr class="receipt-total-row discount-row">
+              <td class="total-label">Discount</td>
+              <td class="amt">- ${receiptMoney(totalDiscount)}</td>
+              <td class="amt">-</td>
+              <td class="amt">-</td>
+            </tr>` : ''}
+            <tr class="receipt-total-row subtotal-row">
+              <td class="total-label">Sub Total</td>
+              <td class="amt">${receiptMoney(receiptNetSubtotal)}</td>
+              <td class="amt">${receiptMoney(input.totalPaid || 0)}</td>
+              <td class="amt">${receiptMoney(input.duesAmount || 0)}</td>
+            </tr>
+          </tfoot>`
+    : ''
 
   // ── totals block (variant-specific) ─────────────────────────
   const totalsHtml = isReceipt
     ? `
-        <div class="totals">
+        <div class="totals receipt-summary">
           <table>
-            <tr><td class="lbl">Sub Total</td><td class="amt">${receiptMoney(subtotalNum)}</td></tr>
-            ${totalDiscount > 0 ? `<tr><td class="lbl">Discount</td><td class="amt">- ${receiptMoney(totalDiscount)}</td></tr>` : ''}
             <tr class="grand"><td class="lbl">TOTAL PAID</td><td class="amt">${receiptMoney(input.totalPaid || 0)}</td></tr>
+            <tr><td class="lbl">DISCOUNT</td><td class="amt">${receiptMoney(totalDiscount)}</td></tr>
             <tr class="due-row"><td class="lbl">BALANCE DUE</td><td class="amt">${receiptMoney(input.duesAmount || 0)}</td></tr>
           </table>
         </div>`
@@ -517,6 +536,7 @@ export function buildSlipHtml(input: SlipHtmlInput): string {
             </tr>
           </thead>
           <tbody>${linesHtml}</tbody>
+          ${receiptFooterHtml}
         </table>
         ${totalsHtml}
         ${extraBlockHtml}
@@ -571,6 +591,10 @@ export function buildSlipHtml(input: SlipHtmlInput): string {
   table.lines th { background: #eee; font-weight: 700; text-transform: uppercase; font-size: 11px; }
   table.lines th.amt { text-align: right; }
   table.lines td.amt { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  table.lines tfoot td { border-left: 0; border-right: 0; background: #fff; }
+  table.lines tfoot .total-label { text-align: right; color: #444; }
+  table.lines tfoot .discount-row td { border-top: 0; border-bottom: 1px solid #000; color: #444; }
+  table.lines tfoot .subtotal-row td { border-top: 0; border-bottom: 2px solid #000; font-weight: 600; }
   .totals { margin-top: 0; }
   .totals table { width: 100%; border-collapse: collapse; }
   .totals td { padding: 4px 8px; font-size: 12px; }

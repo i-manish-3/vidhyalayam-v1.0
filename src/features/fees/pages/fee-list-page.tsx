@@ -39,6 +39,7 @@ interface ReceiptLine {
   isTransport: boolean
   dueDate: string | null
   paidInReceipt: number
+  discountInReceipt?: number
   balanceAfter: number
 }
 
@@ -124,6 +125,18 @@ function formatSelectedDate(value: string) {
   })
 }
 
+function paymentMethodKey(value?: string | null): PaymentMethod | null {
+  if (!value) return null
+  const key = value.toUpperCase()
+  return ['CASH', 'ONLINE', 'CHEQUE', 'UPI', 'SPLIT'].includes(key) ? key as PaymentMethod : null
+}
+
+function paymentMethodLabel(value?: string | null) {
+  if (!value) return '-'
+  const key = paymentMethodKey(value)
+  return key ? PAYMENT_METHOD_LABELS[key] : value.charAt(0).toUpperCase() + value.slice(1).toLowerCase()
+}
+
 export function FeeListPage() {
   const { currentSchool } = useAppStore()
   const { toast } = useToast()
@@ -165,7 +178,7 @@ export function FeeListPage() {
       if (paymentMethodFilter !== 'ALL') {
         rows = rows.filter((r) => {
           if (r.splits && r.splits.length > 0) return paymentMethodFilter === 'SPLIT'
-          return r.paymentMethod === paymentMethodFilter
+          return paymentMethodKey(r.paymentMethod) === paymentMethodFilter
         })
       }
       setReceipts(rows)
@@ -192,7 +205,7 @@ export function FeeListPage() {
         isTransport: line.isTransport,
         dueDate: line.dueDate || null,
         paid: line.paidInReceipt,
-        discount: 0,
+        discount: Number(line.discountInReceipt || 0),
         due: line.balanceAfter,
       }))
       lines = buildSlipLines(slipInputs, academicYear, receiptDate)
@@ -265,14 +278,15 @@ export function FeeListPage() {
     if (row.splits && row.splits.length > 0) {
       return <Badge variant="outline" className="text-[10px]">Split</Badge>
     }
-    const label = row.paymentMethod ? (PAYMENT_METHOD_LABELS[row.paymentMethod as PaymentMethod] || row.paymentMethod) : '-'
+    const methodKey = paymentMethodKey(row.paymentMethod)
+    const label = paymentMethodLabel(row.paymentMethod)
     const colorMap: Record<string, string> = {
       CASH: 'bg-emerald-50 text-emerald-700 border-emerald-200',
       UPI: 'bg-violet-50 text-violet-700 border-violet-200',
       ONLINE: 'bg-blue-50 text-blue-700 border-blue-200',
       CHEQUE: 'bg-amber-50 text-amber-700 border-amber-200',
     }
-    const cls = row.paymentMethod ? (colorMap[row.paymentMethod] || 'bg-muted text-muted-foreground') : 'bg-muted text-muted-foreground'
+    const cls = methodKey ? (colorMap[methodKey] || 'bg-muted text-muted-foreground') : 'bg-muted text-muted-foreground'
     return <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium ${cls}`}>{label}</span>
   }
 
@@ -414,7 +428,7 @@ export function FeeListPage() {
                           <div className="space-y-0.5">
                             {row.splits.map((split, si) => (
                               <div key={si} className="flex items-center justify-between gap-2 rounded bg-muted/60 px-1.5 py-0.5">
-                                <span className="font-medium">{PAYMENT_METHOD_LABELS[split.paymentMethod as PaymentMethod] || split.paymentMethod}</span>
+                                <span className="font-medium">{paymentMethodLabel(split.paymentMethod)}</span>
                                 <span className="tabular-nums">{receiptMoney(split.amount)}</span>
                               </div>
                             ))}

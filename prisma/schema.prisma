@@ -108,6 +108,7 @@ model School {
   sections                    Section[]
   subjects                    Subject[]
   students                    Student[]
+  studentHouses               StudentHouse[]
   teachers                    Teacher[]
   drivers                     Driver[]
   staff                       Staff[]
@@ -339,6 +340,7 @@ model Student {
   schoolId          String
   classId           String?
   sectionId         String?
+  houseId           String?
   admissionNumber   String?   @unique
   rollNumber        String?
   firstName         String
@@ -375,6 +377,7 @@ model Student {
   school               School                       @relation(fields: [schoolId], references: [id])
   class                Class?                       @relation(fields: [classId], references: [id])
   section              Section?                     @relation(fields: [sectionId], references: [id])
+  houseMembership      StudentHouse?                @relation(fields: [houseId], references: [id])
   parentLinks          StudentParent[]
   attendance           Attendance[]
   attendanceChanges    AttendanceChangeLog[]
@@ -398,11 +401,31 @@ model Student {
   @@index([schoolId])
   @@index([classId])
   @@index([sectionId])
+  @@index([houseId])
   @@index([admissionNumber])
   @@index([admissionStatus])
   @@index([familyId])
   @@index([schoolId, classId, sectionId])
   @@index([schoolId, admissionStatus])
+}
+
+model StudentHouse {
+  id          String    @id @default(cuid())
+  schoolId    String
+  name        String
+  color       String    @default("#2563eb")
+  description String?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  school   School    @relation(fields: [schoolId], references: [id])
+  students Student[]
+
+  @@unique([schoolId, name])
+  @@index([schoolId])
+  @@index([schoolId, isActive])
 }
 
 model StudentAcademicEnrollment {

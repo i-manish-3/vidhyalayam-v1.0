@@ -180,6 +180,7 @@ interface ReceiptHistoryLine {
   isTransport: boolean
   dueDate: string | null
   paidInReceipt: number
+  discountInReceipt?: number
   balanceAfter: number
 }
 
@@ -231,6 +232,12 @@ const SELECTABLE_PAYMENT_METHODS: Exclude<PaymentMethod, 'SPLIT'>[] = ['CASH', '
 
 function money(value: number | string | null | undefined) {
   return `Rs ${Number(value || 0).toLocaleString()}`
+}
+
+function paymentMethodLabel(value?: string | null) {
+  if (!value) return '-'
+  const key = value.toUpperCase() as PaymentMethod
+  return PAYMENT_METHOD_LABELS[key] || value.charAt(0).toUpperCase() + value.slice(1).toLowerCase()
 }
 
 function formatHistoryDateTime(value?: string | null) {
@@ -370,10 +377,7 @@ function buildSlipInputsFromItems(
       const paymentForRow = Math.min(payableForRow, Math.max(0, remainingPay))
       remainingPay -= paymentForRow
       remainingDisc -= discountForRow
-      // For the slip display: show full amount paid (payment + discount)
-      // so each line appears fully settled. Discount is shown separately
-      // in the totals section, not distributed per-line on the slip.
-      paidForRow = paymentForRow + discountForRow
+      paidForRow = paymentForRow
       remainingAfter = Math.max(0, due - discountForRow - paymentForRow)
     }
     slipInputs.push({
@@ -383,7 +387,7 @@ function buildSlipInputsFromItems(
       isTransport: isTransportItem(item),
       dueDate: item.dueDate || null,
       paid: paidForRow,
-      discount: 0, // Don't show per-line discount on slip
+      discount: discountForRow,
       due: remainingAfter,
     })
   }
@@ -1307,7 +1311,7 @@ export function FeeCollectionsPage() {
         isTransport: line.isTransport,
         dueDate: line.dueDate || null,
         paid: line.paidInReceipt,
-        discount: 0, // History lines don't track per-line discount
+        discount: Number(line.discountInReceipt || 0),
         due: line.balanceAfter,
       }))
       lines = buildSlipLines(slipInputs, academicYear, receiptDate)
@@ -2598,13 +2602,16 @@ export function FeeCollectionsPage() {
                                     key={`${row.id}-split-${splitIdx}`}
                                     className="flex items-center justify-between gap-2 rounded-sm bg-muted/60 px-1.5 py-0.5"
                                   >
-                                    <span className="font-medium">{PAYMENT_METHOD_LABELS[split.paymentMethod as PaymentMethod] || split.paymentMethod}</span>
+                                    <span className="font-medium">{paymentMethodLabel(split.paymentMethod)}</span>
                                     <span className="tabular-nums">{receiptMoney(split.amount)}</span>
                                   </div>
                                 ))}
                               </div>
                             ) : row.paymentMethod ? (
-                              <span>{PAYMENT_METHOD_LABELS[row.paymentMethod] || row.paymentMethod}</span>
+                              <div className="flex items-center justify-between gap-2 rounded-sm bg-muted/60 px-1.5 py-0.5">
+                                <span className="font-medium">{paymentMethodLabel(row.paymentMethod)}</span>
+                                <span className="tabular-nums">{receiptMoney(row.paid)}</span>
+                              </div>
                             ) : (
                               <span className="text-muted-foreground">-</span>
                             )}

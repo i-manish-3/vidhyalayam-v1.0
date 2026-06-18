@@ -4,6 +4,7 @@ import { db } from '@/lib/db'
 import { requireRole, requirePermission } from '@/lib/api-auth'
 import { unauthorizedError, internalError, apiError, forbiddenError } from '@/lib/api-errors'
 import { createFeeDebitLedgerEntry, recordStudentLedgerPayment, nextSequentialReceiptNumber } from '@/lib/fees'
+import { encodeNotesTail } from '@/lib/fee-notes-tail'
 
 // Receipt numbers are a shared sequence; concurrent sales can briefly collide on
 // the unique (schoolId, receiptNumber) key. Retry transparently on P2002.
@@ -224,7 +225,21 @@ export async function POST(request: NextRequest) {
       const payment = collected > 0
         ? await recordStudentLedgerPayment({
             tx, schoolId, studentId, amount: collected, paymentMethod, receiptNumber, academicYear,
-            notes: `Inventory purchase ${receiptNumber}`, receivedBy: user.userId,
+            notes: encodeNotesTail(
+              `Inventory purchase ${receiptNumber}`,
+              [{
+                feeHeadName: 'Inventory Purchase',
+                installmentName: null,
+                academicYear: academicYear || null,
+                isTransport: false,
+                dueDate: new Date().toISOString(),
+                paid: collected,
+                discount,
+                due: round2(totalAmount - collected),
+              }],
+              null,
+            ),
+            receivedBy: user.userId,
             targets: debit ? [{ debitEntryId: debit.id, amount: collected }] : undefined,
           })
         : null

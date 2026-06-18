@@ -32,6 +32,7 @@ export interface PersistedSlipLine {
   isTransport: boolean
   dueDate: string | null // ISO string; used to flag overdue term heads
   paid: number
+  discount?: number
   due: number
 }
 
@@ -100,6 +101,9 @@ export function decodeNotesTail(value: string | null | undefined): {
             isTransport: !!l.isTransport,
             dueDate: l.dueDate ? String(l.dueDate) : null,
             paid: roundMoney(Number(l.paid) || 0),
+            discount: Object.prototype.hasOwnProperty.call(l, 'discount')
+              ? roundMoney(Number(l.discount) || 0)
+              : undefined,
             due: roundMoney(Number(l.due) || 0),
           }))
       }

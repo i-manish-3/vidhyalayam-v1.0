@@ -221,6 +221,7 @@ interface StudentData {
   class: { id: string; name: string } | null
   section: { id: string; name: string } | null
   admission: AdmissionData | null
+  assignedHouse: { id: string; name: string; color: string } | null
   sibling: SiblingInfo | null // legacy: kept for backwards compatibility
   siblings?: SiblingInfo[]
   academicEnrollments?: Array<{
@@ -476,6 +477,7 @@ function PrintableAdmissionForm({
   documents: AdmissionDocumentData[]
 }) {
   const fullName = `${student.firstName} ${student.lastName}`
+  const houseName = student.assignedHouse?.name || null
   const photoBox = (
     <div className="h-32 w-28 border border-black bg-white">
       {studentPhoto ? (
@@ -519,6 +521,7 @@ function PrintableAdmissionForm({
           <PfRow label="Section" value={section} />
           <PfRow label="Roll Number" value={rollNumber} />
           <PfRow label="Medium" value={a?.mediumOfInstruction} />
+          <PfRow label="House" value={houseName} />
         </div>
         {school?.printHeader && <div className="shrink-0">{photoBox}</div>}
       </div>
@@ -532,6 +535,7 @@ function PrintableAdmissionForm({
         <PfRow label="Nationality" value={a?.nationality} />
         <PfRow label="Religion" value={a?.religion} />
         <PfRow label="Category" value={a?.category} />
+        <PfRow label="House" value={houseName} />
         <PfRow label="Caste" value={a?.caste} />
         <PfRow label="Mother Tongue" value={a?.motherTongue} />
         <PfRow label="Aadhaar No" value={student.aadhaarNumber || a?.aadhaarNumber} />
@@ -737,6 +741,7 @@ function BrandedAdmissionFormBody({
   documents: AdmissionDocumentData[]
 }) {
   const fullName = `${student.firstName} ${student.lastName}`.trim()
+  const houseName = student.assignedHouse?.name || null
   const dob = student.dateOfBirth ? new Date(student.dateOfBirth) : null
   const dobValid = !!dob && !isNaN(dob.getTime())
   const dobDay = dobValid ? String(dob!.getDate()).padStart(2, '0') : ''
@@ -762,6 +767,7 @@ function BrandedAdmissionFormBody({
     ['Section', section],
     ['Roll No.', rollNumber],
     ['Medium', a?.mediumOfInstruction],
+    ['House', houseName],
     ['Applied Date', formatDate(a?.appliedDate)],
     ['Date of Admission', formatDate(a?.dateOfAdmission)],
     ['Blood Group', student.bloodGroup || a?.bloodGroup],
@@ -1596,6 +1602,9 @@ export function StudentDetailPage({ studentId }: { studentId: string }) {
                     value={student.gender}
                   />
                 )}
+                {student.assignedHouse && (
+                  <KeyFact icon={BadgeCheck} label="House" value={student.assignedHouse.name} />
+                )}
                 {(resolvedAcademicYear || currentSchoolAcademicYear || a?.academicYear) && (
                   <KeyFact
                     icon={CalendarDays}
@@ -1769,6 +1778,7 @@ export function StudentDetailPage({ studentId }: { studentId: string }) {
                 <InfoRow label="Gender" value={student.gender} />
                 <InfoRow label="Blood Group" value={student.bloodGroup || a?.bloodGroup} icon={Stethoscope} />
                 <InfoRow label="Category" value={a?.category} />
+                <InfoRow label="House" value={student.assignedHouse?.name} icon={BadgeCheck} />
                 <InfoRow label="Caste" value={a?.caste} />
                 <InfoRow label="Nationality" value={a?.nationality} />
                 <InfoRow label="Religion" value={a?.religion} />

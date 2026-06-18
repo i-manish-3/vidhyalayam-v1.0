@@ -17,6 +17,7 @@ const MODULE_PERMISSION_MAP: Record<string, string[]> = {
   'admission-form': ['admission:read', 'admission:create', 'student:create'],
   'bulk-admission': ['admission:create', 'student:create'],
   'students': ['student:read', 'student:create'],
+  'student-houses': ['student:read', 'student:update'],
   'student-detail': ['student:read'],
   'edit-student': ['student:read', 'student:update'],
   'alumni': ['student:read'],

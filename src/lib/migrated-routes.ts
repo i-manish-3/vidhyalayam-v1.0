@@ -6,6 +6,7 @@ import type { PageName } from '@/lib/store'
 export const MIGRATED_PAGES: Partial<Record<PageName, (...args: string[]) => string>> = {
   'dashboard': () => '/dashboard',
   'students': () => '/students',
+  'student-houses': () => '/students/houses',
   'student-detail': (id?: string) => (id ? `/students/${id}` : '/students'),
   'edit-student': (id?: string) => (id ? `/students/${id}/edit` : '/students'),
   'admission-form': () => '/students/admit',

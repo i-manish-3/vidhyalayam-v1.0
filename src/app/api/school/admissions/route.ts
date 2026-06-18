@@ -313,7 +313,7 @@ export async function GET(request: NextRequest) {
 
     // Fetch sibling details for admissions that have a siblingId
     const siblingIds = [...new Set(admissions.map(a => a.siblingId).filter(Boolean))] as string[]
-    const siblingMap = new Map<string, { id: string; firstName: string; lastName: string; admissionNumber: string | null; className: string | null }>()
+    const siblingMap = new Map<string, { id: string; firstName: string; lastName: string | null; admissionNumber: string | null; className: string | null }>()
     if (siblingIds.length > 0) {
       const siblings = await db.student.findMany({
         where: { id: { in: siblingIds } },
