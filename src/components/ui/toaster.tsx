@@ -1,5 +1,6 @@
 "use client"
 
+import { useSyncExternalStore } from "react"
 import { useToast } from "@/hooks/use-toast"
 import {
   Toast,
@@ -28,6 +29,13 @@ function ToastIcon({ variant }: { variant?: string }) {
 
 export function Toaster() {
   const { toasts } = useToast()
+  const mounted = useSyncExternalStore(
+    () => () => undefined,
+    () => true,
+    () => false,
+  )
+
+  if (!mounted) return null
 
   return (
     <ToastProvider>

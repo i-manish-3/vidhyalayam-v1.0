@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
     const targetIds = studentId ? [studentId] : childIds
 
     const payments = await db.studentFeePayment.findMany({
-      where: { schoolId: user.schoolId, studentId: { in: targetIds } },
+      where: { schoolId: user.schoolId, studentId: { in: targetIds }, cancelledAt: null },
       select: {
         id: true,
         receiptNumber: true,

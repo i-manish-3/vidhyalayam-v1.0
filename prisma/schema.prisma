@@ -1170,19 +1170,22 @@ model StudentFeeInvoiceLine {
 }
 
 model StudentFeePayment {
-  id             String   @id @default(cuid())
-  schoolId       String
-  studentId      String
-  invoiceId      String?
-  amount         Float
-  paymentMethod  String
-  transactionRef String?
-  receiptNumber  String
-  paymentDate    DateTime @default(now())
-  notes          String?
-  receivedBy     String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id                 String    @id @default(cuid())
+  schoolId           String
+  studentId          String
+  invoiceId          String?
+  amount             Float
+  paymentMethod      String
+  transactionRef     String?
+  receiptNumber      String
+  paymentDate        DateTime  @default(now())
+  notes              String?
+  receivedBy         String?
+  cancelledAt        DateTime?
+  cancelledBy        String?
+  cancellationReason String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
   school        School                  @relation(fields: [schoolId], references: [id])
   student       Student                 @relation(fields: [studentId], references: [id])
@@ -1194,6 +1197,7 @@ model StudentFeePayment {
   @@index([studentId])
   @@index([invoiceId])
   @@index([schoolId, paymentDate])
+  @@index([cancelledAt])
 }
 
 model StudentFeeLedgerEntry {

@@ -18,7 +18,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     if (childIds.length === 0) return unauthorizedError()
 
     const payment = await db.studentFeePayment.findFirst({
-      where: { id, schoolId: user.schoolId, studentId: { in: childIds } },
+      where: { id, schoolId: user.schoolId, studentId: { in: childIds }, cancelledAt: null },
       select: { id: true, receiptNumber: true, studentId: true },
     })
     if (!payment) return notFoundError('Receipt')

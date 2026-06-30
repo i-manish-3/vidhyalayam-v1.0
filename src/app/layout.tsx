@@ -13,6 +13,49 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+// Some browser security/VPN extensions (notably ones that use the `bis_*`
+// namespace) mutate server-rendered elements before React hydrates them. That
+// makes otherwise identical server/client markup look different to React.
+// Run this before hydration: remove attributes already injected in <head> and
+// temporarily reject later `bis_*` writes while the initial document loads.
+// No observer is used, so this cannot race React by removing tracked nodes.
+const browserExtensionHydrationGuard = `
+(() => {
+  const isBisAttribute = (name) => typeof name === 'string' && /^bis_/i.test(name);
+  const originalSetAttribute = Element.prototype.setAttribute;
+  const originalSetAttributeNS = Element.prototype.setAttributeNS;
+
+  const removeInjectedAttributes = (root) => {
+    if (!root) return;
+    const elements = [root, ...root.querySelectorAll('*')];
+    for (const element of elements) {
+      if (!element.attributes) continue;
+      for (const attribute of Array.from(element.attributes)) {
+        if (isBisAttribute(attribute.name)) element.removeAttribute(attribute.name);
+      }
+    }
+  };
+
+  removeInjectedAttributes(document.documentElement);
+
+  Element.prototype.setAttribute = function(name, value) {
+    if (isBisAttribute(name)) return;
+    return originalSetAttribute.call(this, name, value);
+  };
+
+  Element.prototype.setAttributeNS = function(namespace, name, value) {
+    if (isBisAttribute(name)) return;
+    return originalSetAttributeNS.call(this, namespace, name, value);
+  };
+
+  window.addEventListener('load', () => {
+    removeInjectedAttributes(document.documentElement);
+    Element.prototype.setAttribute = originalSetAttribute;
+    Element.prototype.setAttributeNS = originalSetAttributeNS;
+  }, { once: true });
+})();
+`;
+
 // One-shot pre-hydration branding: set <title> and favicon from cached
 // localStorage BEFORE React mounts so a hard refresh doesn't flash the default
 // title/icon. After hydration, BrandHeadManager (React) owns all updates.
@@ -93,9 +136,13 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        {process.env.NODE_ENV === "development" && (
+          <script dangerouslySetInnerHTML={{ __html: browserExtensionHydrationGuard }} />
+        )}
         <script dangerouslySetInnerHTML={{ __html: schoolBrandingScript }} />
       </head>
       <body
+        suppressHydrationWarning
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-brand-page text-foreground`}
       >
         {children}

@@ -643,6 +643,7 @@ export async function GET(request: NextRequest) {
           session: Array.from(sessions).sort().join(', ') || academicYear || null,
           receiptId: credit.receiptNumber,
           lines: responseLines,
+          cancellable: credit.sourceType === 'payment' && Boolean(credit.paymentId),
         }
       })
 
@@ -1025,6 +1026,7 @@ export async function GET(request: NextRequest) {
         session: Array.from(sessions).sort().join(', ') || academicYear || null,
         receiptId: credit.receiptNumber,
         lines: responseLines,
+        cancellable: credit.sourceType === 'payment' && Boolean(credit.paymentId),
       }
     })
 

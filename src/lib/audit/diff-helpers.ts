@@ -179,6 +179,11 @@ function generatePaymentDescription(action: string, diff: Record<string, any>, m
     const receipt = diff.receiptNumber?.new || metadata?.receiptNumber;
     return `Recorded payment of ₹${amount} via ${method} (Receipt: ${receipt})`;
   }
+  if (action === 'payment_cancelled') {
+    const receipt = diff.receiptNumber?.new || metadata?.receiptNumber;
+    const reason = diff.cancellationReason?.new || metadata?.cancellationReason;
+    return `Cancelled payment receipt ${receipt}${reason ? `: ${reason}` : ''}`;
+  }
   return formatDiffSummary(diff, 'Payment');
 }
 

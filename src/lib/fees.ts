@@ -104,6 +104,24 @@ interface RecordLedgerWaiverInput {
   targets?: LedgerAllocationTarget[]
 }
 
+export class FeePaymentCancellationError extends Error {
+  constructor(
+    public code: 'PAYMENT_NOT_FOUND' | 'PAYMENT_ALREADY_CANCELLED' | 'PAYMENT_NOT_CANCELLABLE' | 'CONCURRENT_PAYMENT_CHANGE',
+    message: string,
+  ) {
+    super(message)
+    this.name = 'FeePaymentCancellationError'
+  }
+}
+
+interface CancelLedgerPaymentInput {
+  tx: FeeTx
+  schoolId: string
+  creditEntryId: string
+  reason: string
+  cancelledBy: string
+}
+
 function serialize(value: unknown) {
   return JSON.stringify(value, (_key, current) => {
     if (current instanceof Date) return current.toISOString()
@@ -873,6 +891,158 @@ export async function recordStudentLedgerWaiver(input: RecordLedgerWaiverInput) 
     createdBy,
     targets,
   })
+}
+
+/**
+ * Void a fee receipt and rebuild every touched balance from active allocations.
+ * The records stay available for audit, but no longer count in fee reports.
+ */
+export async function cancelStudentLedgerPayment(input: CancelLedgerPaymentInput) {
+  const { tx, schoolId, creditEntryId, cancelledBy } = input
+  const reason = input.reason.trim()
+  const cancelledAt = new Date()
+
+  const credit = await tx.studentFeeLedgerEntry.findFirst({
+    where: { id: creditEntryId, schoolId, entryType: 'CREDIT' },
+    include: { payment: true },
+  })
+  if (!credit) {
+    throw new FeePaymentCancellationError('PAYMENT_NOT_FOUND', 'Payment receipt not found.')
+  }
+  if (credit.status === 'cancelled' || credit.deletedAt || credit.payment?.cancelledAt) {
+    throw new FeePaymentCancellationError('PAYMENT_ALREADY_CANCELLED', 'This payment has already been cancelled.')
+  }
+  if (credit.sourceType !== 'payment' || !credit.paymentId || !credit.payment) {
+    throw new FeePaymentCancellationError(
+      'PAYMENT_NOT_CANCELLABLE',
+      'This receipt was not created by the fee collection flow and cannot be cancelled here.',
+    )
+  }
+
+  // Discounts/concessions/scholarships created by the same collection action
+  // share its receipt number and must be reversed along with the cash credit.
+  const receiptEntries = await tx.studentFeeLedgerEntry.findMany({
+    where: {
+      schoolId,
+      studentId: credit.studentId,
+      deletedAt: null,
+      OR: [
+        { id: credit.id },
+        ...(credit.receiptNumber ? [{
+          receiptNumber: credit.receiptNumber,
+          entryType: 'WAIVER' as const,
+          sourceType: { in: ['discount', 'concession', 'scholarship'] },
+        }] : []),
+      ],
+    },
+    select: { id: true },
+  })
+  const receiptEntryIds = receiptEntries.map((entry) => entry.id)
+  const allocations = await tx.studentFeeLedgerAllocation.findMany({
+    where: { schoolId, creditEntryId: { in: receiptEntryIds }, deletedAt: null },
+    select: { id: true, debitEntryId: true },
+  })
+  const debitIds = Array.from(new Set(allocations.map((allocation) => allocation.debitEntryId)))
+
+  if (allocations.length > 0) {
+    await tx.studentFeeLedgerAllocation.updateMany({
+      where: { id: { in: allocations.map((allocation) => allocation.id) }, deletedAt: null },
+      data: { deletedAt: cancelledAt },
+    })
+  }
+  await tx.studentFeeLedgerEntry.updateMany({
+    where: { id: { in: receiptEntryIds }, schoolId, deletedAt: null },
+    data: { status: 'cancelled', balanceAmount: 0, deletedAt: cancelledAt },
+  })
+
+  const touchedInvoiceIds = new Set<string>()
+  for (const debitId of debitIds) {
+    const debit = await tx.studentFeeLedgerEntry.findFirst({
+      where: { id: debitId, schoolId, deletedAt: null, entryType: { in: ['DEBIT', 'FINE'] } },
+    })
+    if (!debit) continue
+
+    const activeAllocations = await tx.studentFeeLedgerAllocation.findMany({
+      where: {
+        schoolId,
+        debitEntryId: debit.id,
+        deletedAt: null,
+        creditEntry: { deletedAt: null, status: { not: 'cancelled' } },
+      },
+      include: { creditEntry: true },
+      orderBy: [{ allocatedAt: 'desc' }, { createdAt: 'desc' }],
+    })
+    const settled = roundMoney(activeAllocations.reduce((sum, allocation) => sum + allocation.amount, 0))
+    const nextBalance = roundMoney(Math.max(0, debit.debit - settled))
+    const updated = await tx.studentFeeLedgerEntry.updateMany({
+      where: { id: debit.id, version: debit.version },
+      data: {
+        balanceAmount: nextBalance,
+        status: debitStatus(nextBalance, debit.debit),
+        version: { increment: 1 },
+      },
+    })
+    if (updated.count === 0) {
+      throw new FeePaymentCancellationError(
+        'CONCURRENT_PAYMENT_CHANGE',
+        'This student\'s fee balance changed while the payment was being cancelled. Please try again.',
+      )
+    }
+
+    const paidAmount = roundMoney(activeAllocations
+      .filter((allocation) => allocation.creditEntry.entryType === 'CREDIT')
+      .reduce((sum, allocation) => sum + allocation.amount, 0))
+    const adjustmentTotal = (sourceType: WaiverSourceType) => roundMoney(activeAllocations
+      .filter((allocation) => allocation.creditEntry.entryType === 'WAIVER' && allocation.creditEntry.sourceType === sourceType)
+      .reduce((sum, allocation) => sum + allocation.amount, 0))
+    const latestPayment = activeAllocations.find((allocation) => allocation.creditEntry.entryType === 'CREDIT')?.creditEntry
+
+    if (debit.feeCollectionId) {
+      await tx.feeCollection.updateMany({
+        where: { id: debit.feeCollectionId, schoolId, deletedAt: null },
+        data: {
+          paidAmount,
+          discount: adjustmentTotal('discount'),
+          concession: adjustmentTotal('concession'),
+          scholarship: adjustmentTotal('scholarship'),
+          paymentStatus: paymentStatusFromLedgerStatus(debitStatus(nextBalance, debit.debit)),
+          paymentMethod: latestPayment?.paymentMethod || null,
+          transactionRef: latestPayment?.transactionRef || null,
+          paymentDate: latestPayment?.transactionDate || null,
+          receiptNumber: latestPayment?.receiptNumber || null,
+        },
+      })
+    }
+
+    const lineStatus = paymentStatusFromLedgerStatus(debitStatus(nextBalance, debit.debit))
+    if (debit.invoiceLineId) {
+      await tx.studentFeeInvoiceLine.updateMany({ where: { id: debit.invoiceLineId }, data: { status: lineStatus } })
+    } else if (debit.invoiceId && debit.assignmentItemId) {
+      await tx.studentFeeInvoiceLine.updateMany({
+        where: { invoiceId: debit.invoiceId, assignmentItemId: debit.assignmentItemId },
+        data: { status: lineStatus },
+      })
+    }
+    if (debit.invoiceId) touchedInvoiceIds.add(debit.invoiceId)
+  }
+
+  for (const invoiceId of touchedInvoiceIds) {
+    await syncInvoiceFromLedger(tx, schoolId, invoiceId)
+  }
+
+  const payment = await tx.studentFeePayment.update({
+    where: { id: credit.paymentId },
+    data: { cancelledAt, cancelledBy, cancellationReason: reason },
+  })
+
+  return {
+    previousPayment: credit.payment,
+    payment,
+    receiptNumber: payment.receiptNumber,
+    cancelledAmount: payment.amount,
+    reopenedDebitCount: debitIds.length,
+    cancelledAt,
+  }
 }
 
 // Retry wrapper for payment operations that may encounter concurrent modifications

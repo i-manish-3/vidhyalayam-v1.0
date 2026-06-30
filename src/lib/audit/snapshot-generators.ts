@@ -56,6 +56,9 @@ export function snapshotPayment(payment: any) {
     paymentDate: payment.paymentDate?.toISOString(),
     notes: payment.notes,
     receivedBy: payment.receivedBy,
+    cancelledAt: payment.cancelledAt?.toISOString(),
+    cancelledBy: payment.cancelledBy,
+    cancellationReason: payment.cancellationReason,
     createdAt: payment.createdAt?.toISOString(),
   });
 }

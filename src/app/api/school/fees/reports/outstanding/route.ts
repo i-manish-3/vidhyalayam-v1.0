@@ -132,7 +132,7 @@ export async function GET(request: NextRequest) {
     // Latest payment per student (for "last payment" column)
     const lastPayments = await db.studentFeePayment.groupBy({
       by: ['studentId'],
-      where: { schoolId, studentId: { in: studentIds } },
+      where: { schoolId, studentId: { in: studentIds }, cancelledAt: null },
       _max: { paymentDate: true },
     })
     const lastPaymentByStudent = new Map(

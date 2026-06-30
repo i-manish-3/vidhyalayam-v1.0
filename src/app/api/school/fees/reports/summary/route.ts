@@ -95,6 +95,7 @@ export async function GET(request: NextRequest) {
       db.studentFeePayment.count({
         where: {
           schoolId,
+          cancelledAt: null,
           paymentDate: { gte: todayStart, lt: todayEnd },
         },
       }),
