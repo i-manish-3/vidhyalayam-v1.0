@@ -20,7 +20,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { PageHeader } from '@/components/shared'
 import { openTimetablePrint } from '@/features/academics/lib/timetable-print'
 import {
   Dialog,
@@ -95,6 +94,15 @@ const SUBJECT_COLORS = [
   'bg-teal-100 text-teal-800 dark:bg-teal-950/40 dark:text-teal-300 border-teal-200 dark:border-teal-800',
   'bg-pink-100 text-pink-800 dark:bg-pink-950/40 dark:text-pink-300 border-pink-200 dark:border-pink-800',
   'bg-lime-100 text-lime-800 dark:bg-lime-950/40 dark:text-lime-300 border-lime-200 dark:border-lime-800',
+]
+
+const DAY_HEADER_COLORS = [
+  'bg-sky-100 text-sky-800 dark:bg-sky-500/15 dark:text-sky-300',
+  'bg-violet-100 text-violet-800 dark:bg-violet-500/15 dark:text-violet-300',
+  'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300',
+  'bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300',
+  'bg-rose-100 text-rose-800 dark:bg-rose-500/15 dark:text-rose-300',
+  'bg-cyan-100 text-cyan-800 dark:bg-cyan-500/15 dark:text-cyan-300',
 ]
 
 type ViewMode = 'class' | 'teacher'
@@ -492,28 +500,64 @@ export function TimetablePage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Timetable"
-        description="Manage weekly class schedules and period allocations"
-        action={canCreate ? { label: 'Add Entry', icon: PlusCircle, onClick: () => { resetForm(); setEditEntry(null); setShowAdd(true) } } : undefined}
-        secondaryAction={canUpdate ? { label: 'Period Settings', icon: Settings2, onClick: openPeriodSettings } : undefined}
-        extraActions={canPrintTimetable ? (
-          <Button variant="outline" onClick={handlePrintTimetable} className="gap-2">
-            <Printer className="size-4" />
-            Print / PDF
-          </Button>
-        ) : undefined}
-      />
+      <div className="relative flex flex-col gap-3 overflow-hidden rounded-xl border border-primary/25 bg-gradient-to-r from-primary via-teal-600 to-cyan-600 px-4 py-3 text-white shadow-lg shadow-primary/15 sm:flex-row sm:items-center sm:justify-between">
+        <div aria-hidden className="absolute -right-10 -top-12 size-36 rounded-full border-[18px] border-white/10" />
+        <div className="relative flex min-w-0 items-center gap-3">
+          <span className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-white/25 bg-white/15 shadow-md shadow-black/10 backdrop-blur-sm">
+            <Calendar className="size-5" />
+          </span>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-xl font-bold tracking-tight">Timetable</h1>
+              <span className="rounded-full border border-white/20 bg-white/10 px-2 py-0.5 text-[10px] font-semibold text-white/85">{academicYear}</span>
+            </div>
+            <p className="mt-0.5 text-xs text-white/80">Manage weekly class schedules and period allocations</p>
+          </div>
+        </div>
+        <div className="relative flex flex-wrap items-center gap-2">
+          {canPrintTimetable && (
+            <Button
+              variant="secondary"
+              onClick={handlePrintTimetable}
+              className="gap-2 border border-violet-200 shadow-sm hover:brightness-95"
+              style={{ backgroundColor: '#f5f3ff', color: '#6d28d9', backgroundImage: 'none' }}
+            >
+              <Printer className="size-4" /> Print / PDF
+            </Button>
+          )}
+          {canUpdate && (
+            <Button
+              variant="secondary"
+              onClick={openPeriodSettings}
+              className="gap-2 border border-amber-200 shadow-sm hover:brightness-95"
+              style={{ backgroundColor: '#fffbeb', color: '#b45309', backgroundImage: 'none' }}
+            >
+              <Settings2 className="size-4" /> Period Settings
+            </Button>
+          )}
+          {canCreate && (
+            <Button
+              variant="secondary"
+              onClick={() => { resetForm(); setEditEntry(null); setShowAdd(true) }}
+              className="gap-2 border border-white/60 shadow-sm hover:brightness-95"
+              style={{ backgroundColor: 'white', color: 'var(--primary)', backgroundImage: 'none' }}
+            >
+              <PlusCircle className="size-4" /> Add Entry
+            </Button>
+          )}
+        </div>
+      </div>
 
       {/* View Mode & Filters */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-            <div className="flex items-center bg-muted rounded-lg p-1">
+      <Card className="gap-0 overflow-hidden border-sky-200/80 bg-gradient-to-r from-sky-50 via-white to-violet-50 py-0 shadow-sm dark:border-sky-500/25 dark:from-sky-500/10 dark:via-card dark:to-violet-500/10">
+        <CardContent className="p-3">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+          <div className="flex flex-1 flex-col items-start gap-3 sm:flex-row sm:items-center">
+            <div className="flex items-center rounded-lg border border-sky-200/70 bg-white/80 p-1 shadow-sm dark:border-sky-500/20 dark:bg-background/70">
               <button
                 className={cn(
                   'px-3 py-1.5 text-xs font-medium rounded-md transition-colors',
-                  viewMode === 'class' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                  viewMode === 'class' ? 'bg-sky-500 text-white shadow-sm' : 'text-muted-foreground hover:bg-sky-50 hover:text-sky-700'
                 )}
                 onClick={() => handleViewModeChange('class')}
               >
@@ -523,7 +567,7 @@ export function TimetablePage() {
               <button
                 className={cn(
                   'px-3 py-1.5 text-xs font-medium rounded-md transition-colors',
-                  viewMode === 'teacher' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                  viewMode === 'teacher' ? 'bg-violet-500 text-white shadow-sm' : 'text-muted-foreground hover:bg-violet-50 hover:text-violet-700'
                 )}
                 onClick={() => handleViewModeChange('teacher')}
               >
@@ -535,23 +579,23 @@ export function TimetablePage() {
             {viewMode === 'class' ? (
               <div className="flex flex-wrap items-center gap-3">
                 <Select value={filterClass} onValueChange={handleFilterClassChange}>
-                  <SelectTrigger className="w-[180px] h-9">
+                  <SelectTrigger className="h-9 w-[180px] bg-white shadow-sm dark:bg-background">
                     <SelectValue placeholder="Select Class" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="max-h-64 rounded-xl border-sky-200/80 shadow-xl dark:border-sky-500/25">
                     {classes.map(c => (
-                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                      <SelectItem key={c.id} value={c.id} className="focus:bg-sky-100 focus:text-sky-800 dark:focus:bg-sky-500/15 dark:focus:text-sky-300">{c.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
                 {filterClass && (
                   <Select value={filterSection} onValueChange={handleFilterSectionChange}>
-                    <SelectTrigger className="w-[180px] h-9">
+                    <SelectTrigger className="h-9 w-[180px] bg-white shadow-sm dark:bg-background">
                       <SelectValue placeholder="Select Section" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="max-h-64 rounded-xl border-cyan-200/80 shadow-xl dark:border-cyan-500/25">
                       {availableSections.map(s => (
-                        <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                        <SelectItem key={s.id} value={s.id} className="focus:bg-cyan-100 focus:text-cyan-800 dark:focus:bg-cyan-500/15 dark:focus:text-cyan-300">{s.name}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -571,12 +615,12 @@ export function TimetablePage() {
                   </div>
                 ) : (
                   <Select value={filterTeacher} onValueChange={handleFilterTeacherChange}>
-                    <SelectTrigger className="w-[220px] h-9">
+                  <SelectTrigger className="h-9 w-[220px] bg-white shadow-sm dark:bg-background">
                       <SelectValue placeholder="Select Teacher" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="max-h-64 rounded-xl border-violet-200/80 shadow-xl dark:border-violet-500/25">
                       {teachers.map(t => (
-                        <SelectItem key={t.id} value={t.id}>{t.firstName} {t.lastName}</SelectItem>
+                        <SelectItem key={t.id} value={t.id} className="focus:bg-violet-100 focus:text-violet-800 dark:focus:bg-violet-500/15 dark:focus:text-violet-300">{t.firstName} {t.lastName}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -586,28 +630,32 @@ export function TimetablePage() {
           </div>
 
           {(filterClass || filterTeacher) && (
-            <div className="flex items-center gap-4 mt-3 pt-3 border-t">
-              <span className="text-xs text-muted-foreground">
-                <span className="font-semibold text-foreground">{totalEntries}</span> entries
+            <div className="flex shrink-0 flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-cyan-200 bg-cyan-50 px-2.5 py-1 text-xs text-cyan-700 shadow-sm dark:border-cyan-500/25 dark:bg-cyan-500/10 dark:text-cyan-300">
+                <Calendar className="size-3.5" />
+                <span className="font-bold">{totalEntries}</span> entries
               </span>
-              <span className="text-xs text-muted-foreground">
-                <span className="font-semibold text-foreground">{uniqueSubjects}</span> subjects
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-violet-200 bg-violet-50 px-2.5 py-1 text-xs text-violet-700 shadow-sm dark:border-violet-500/25 dark:bg-violet-500/10 dark:text-violet-300">
+                <GraduationCap className="size-3.5" />
+                <span className="font-bold">{uniqueSubjects}</span> subjects
               </span>
-              <span className="text-xs text-muted-foreground">
-                <span className="font-semibold text-foreground">{uniqueTeachers}</span> teachers
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs text-emerald-700 shadow-sm dark:border-emerald-500/25 dark:bg-emerald-500/10 dark:text-emerald-300">
+                <Users className="size-3.5" />
+                <span className="font-bold">{uniqueTeachers}</span> teachers
               </span>
             </div>
           )}
+          </div>
         </CardContent>
       </Card>
 
       {/* Timetable Grid */}
       {!(viewMode === 'class' ? filterClass : filterTeacher) ? (
-        <Card>
+        <Card className="border-dashed border-sky-300 bg-gradient-to-br from-white via-sky-50 to-violet-50 shadow-sm dark:border-sky-500/30 dark:from-card dark:via-sky-500/5 dark:to-violet-500/10">
           <CardContent className="p-8">
             <div className="flex flex-col items-center justify-center text-center gap-3">
-              <div className="size-14 rounded-full bg-muted flex items-center justify-center">
-                <Calendar className="size-7 text-muted-foreground" />
+              <div className="flex size-14 items-center justify-center rounded-full bg-gradient-to-br from-sky-500 to-violet-500 text-white shadow-md">
+                <Calendar className="size-7" />
               </div>
               <div>
                 <h3 className="text-sm font-semibold">Select a {viewMode === 'class' ? 'Class' : 'Teacher'}</h3>
@@ -619,11 +667,11 @@ export function TimetablePage() {
           </CardContent>
         </Card>
       ) : filtered.length === 0 ? (
-        <Card>
+        <Card className="border-dashed border-violet-300 bg-gradient-to-br from-white via-violet-50 to-fuchsia-50 shadow-sm dark:border-violet-500/30 dark:from-card dark:via-violet-500/5 dark:to-fuchsia-500/10">
           <CardContent className="p-8">
             <div className="flex flex-col items-center justify-center text-center gap-3">
-              <div className="size-14 rounded-full bg-muted flex items-center justify-center">
-                <Calendar className="size-7 text-muted-foreground" />
+              <div className="flex size-14 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white shadow-md">
+                <Calendar className="size-7" />
               </div>
               <div>
                 <h3 className="text-sm font-semibold">No Timetable Entries</h3>
@@ -641,19 +689,19 @@ export function TimetablePage() {
           </CardContent>
         </Card>
       ) : (
-        <Card>
+        <Card className="gap-0 overflow-hidden border-sky-200/80 bg-white py-0 shadow-md dark:border-sky-500/25 dark:bg-card">
           <CardContent className="p-0">
             <div className="themed-scrollbar w-full max-w-full overflow-x-auto overscroll-x-contain">
               <div className="min-w-[800px]">
                 <table className="w-full border-collapse">
-                  <thead>
+                  <thead className="sticky top-0 z-10 shadow-sm">
                     <tr>
-                      <th className="bg-muted/80 p-2 text-xs font-semibold text-center border-b border-r w-[100px]">
+                      <th className="w-[100px] border-b border-r bg-gradient-to-br from-primary to-teal-600 p-2 text-center text-xs font-semibold text-white">
                         <Clock className="size-3.5 inline mr-1" />
                         Time
                       </th>
-                      {DAYS.map(day => (
-                        <th key={day} className="bg-muted/80 p-2 text-xs font-semibold text-center border-b border-r last:border-r-0">
+                      {DAYS.map((day, index) => (
+                        <th key={day} className={cn('border-b border-r p-2 text-center text-xs font-semibold last:border-r-0', DAY_HEADER_COLORS[index % DAY_HEADER_COLORS.length])}>
                           {day}
                         </th>
                       ))}
@@ -664,8 +712,8 @@ export function TimetablePage() {
                       if (pc.isBreak) {
                         const isLunch = pc.label.toLowerCase().includes('lunch')
                         return (
-                          <tr key={pc.period}>
-                            <td className="bg-muted/40 px-2 py-1.5 border-b border-r text-center">
+                          <tr key={pc.period} className="transition-colors hover:brightness-[0.99]">
+                            <td className="border-b border-r bg-gradient-to-br from-amber-50 to-orange-50 px-2 py-1.5 text-center dark:from-amber-500/10 dark:to-orange-500/10">
                               <div className="text-xs font-semibold">{pc.label}</div>
                               <div className="text-[10px] text-muted-foreground">{pc.startTime} - {pc.endTime}</div>
                             </td>
@@ -684,8 +732,8 @@ export function TimetablePage() {
                         )
                       }
                       return (
-                      <tr key={pc.period}>
-                        <td className="bg-muted/40 px-2 py-1.5 border-b border-r text-center">
+                      <tr key={pc.period} className="group/row transition-colors hover:bg-sky-500/[0.025]">
+                        <td className="border-b border-r bg-gradient-to-br from-slate-50 to-sky-50 px-2 py-1.5 text-center dark:from-slate-500/10 dark:to-sky-500/10">
                           <div className="text-xs font-semibold">{pc.label}</div>
                           <div className="text-[10px] text-muted-foreground">
                             {pc.startTime} - {pc.endTime}
@@ -699,16 +747,16 @@ export function TimetablePage() {
                             <td
                               key={`${day}-${pc.period}`}
                               className={cn(
-                                'border-b border-r last:border-r-0 p-1 min-h-[64px] align-top transition-colors',
-                                ((cell && canUpdate) || (!cell && canCreate)) ? 'cursor-pointer hover:bg-primary/5' : 'cursor-default',
-                                cell ? '' : 'bg-background'
+                                'min-h-[64px] border-b border-r p-1 align-top transition-all last:border-r-0',
+                                ((cell && canUpdate) || (!cell && canCreate)) ? 'cursor-pointer hover:bg-sky-500/[0.07]' : 'cursor-default',
+                                cell ? '' : 'bg-white dark:bg-background'
                               )}
                               onClick={() => {
                                 if (cell ? canUpdate : canCreate) openAddForCell(day, pc.period)
                               }}
                             >
                               {cell ? (
-                                <div className={cn('rounded-md px-2 py-1.5 border text-xs', colorClass)}>
+                                <div className={cn('rounded-lg border px-2 py-1.5 text-xs shadow-sm transition-all hover:-translate-y-px hover:shadow-md', colorClass)}>
                                   <div className="flex items-start justify-between gap-1">
                                     <div className="flex-1 min-w-0">
                                       <p className="font-semibold truncate">{cell.subject?.name || '—'}</p>
@@ -750,8 +798,8 @@ export function TimetablePage() {
                                   </div>
                                 </div>
                               ) : (
-                                <div className="flex items-center justify-center h-[52px]">
-                                  <PlusCircle className="size-4 text-muted-foreground/30" />
+                                <div className="flex h-[52px] items-center justify-center rounded-md border border-dashed border-transparent transition-colors group-hover/row:border-sky-200 group-hover/row:bg-sky-50/60 dark:group-hover/row:border-sky-500/20 dark:group-hover/row:bg-sky-500/5">
+                                  <PlusCircle className="size-4 text-muted-foreground/25 transition-colors group-hover/row:text-sky-500" />
                                 </div>
                               )}
                             </td>
@@ -770,12 +818,17 @@ export function TimetablePage() {
 
       {/* Legend */}
       {filtered.length > 0 && viewMode === 'class' && (
-        <Card>
-          <CardContent className="p-4">
-            <h4 className="text-xs font-semibold mb-2 text-muted-foreground">Subjects</h4>
-            <div className="flex flex-wrap gap-2">
+        <Card className="gap-0 border-violet-200/80 bg-gradient-to-r from-violet-50 via-white to-cyan-50 py-0 shadow-sm dark:border-violet-500/25 dark:from-violet-500/10 dark:via-card dark:to-cyan-500/10">
+          <CardContent className="flex flex-col gap-2 p-3 sm:flex-row sm:items-center">
+            <div className="flex shrink-0 items-center gap-2 sm:border-r sm:border-violet-200 sm:pr-3 dark:sm:border-violet-500/25">
+              <span className="flex size-7 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-cyan-500 text-white shadow-sm">
+                <GraduationCap className="size-3.5" />
+              </span>
+              <h4 className="text-xs font-semibold text-foreground/80">Subjects</h4>
+            </div>
+            <div className="flex flex-wrap gap-1.5 sm:pl-1">
               {subjects.filter(s => filtered.some(e => e.subjectId === s.id)).map(subject => (
-                <Badge key={subject.id} variant="outline" className={cn('text-[10px] font-medium', subjectColorMap.get(subject.id))}>
+                <Badge key={subject.id} variant="outline" className={cn('h-6 px-2 text-[10px] font-semibold shadow-sm', subjectColorMap.get(subject.id))}>
                   {subject.name}
                 </Badge>
               ))}

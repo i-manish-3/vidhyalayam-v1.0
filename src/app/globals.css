@@ -87,9 +87,9 @@
   --gradient-secondary: linear-gradient(135deg, color-mix(in oklab, var(--primary), white 16%) 0%, var(--sidebar-accent, var(--primary)) 100%);
   --gradient-soft: linear-gradient(135deg, var(--sidebar-accent, var(--primary)) 0%, color-mix(in oklab, var(--primary), white 40%) 100%);
   --gradient-button: linear-gradient(135deg, var(--button-primary, var(--primary)) 0%, color-mix(in oklab, var(--button-primary, var(--primary)), white 16%) 100%);
-  --gradient-sidebar: linear-gradient(180deg, var(--sidebar, var(--primary)) 0%, color-mix(in oklab, var(--sidebar, var(--primary)), white 9%) 100%);
-  --gradient-header: linear-gradient(120deg, var(--primary) 0%, color-mix(in oklab, var(--primary), white 12%) 100%);
-  --page-background: color-mix(in oklab, var(--background) 88%, var(--primary) 12%);
+  --gradient-sidebar: linear-gradient(170deg, var(--primary) 0%, #11847f 68%, #087fa4 100%);
+  --gradient-header: linear-gradient(90deg, var(--primary) 0%, #0d9488 50%, #0284c7 100%);
+  --page-background: color-mix(in oklab, var(--background) 94%, var(--primary) 6%);
   --gradient-page: none;
   --shadow-premium: 0 1px 2px 0 oklch(0.2 0.04 266 / 0.04), 0 4px 16px -4px oklch(0.2 0.04 266 / 0.10);
 
@@ -146,8 +146,8 @@
   /* Dark-mode gradient overrides — keep brand gradients legible on dark surfaces.
      The light page tint would be near-white, so it is replaced with a dark wash. */
   --gradient-soft: linear-gradient(135deg, color-mix(in oklab, var(--primary), black 12%) 0%, var(--primary) 100%);
-  --gradient-sidebar: linear-gradient(180deg, var(--sidebar) 0%, color-mix(in oklab, var(--sidebar), black 22%) 100%);
-  --gradient-header: linear-gradient(120deg, var(--sidebar) 0%, color-mix(in oklab, var(--sidebar), white 5%) 100%);
+  --gradient-sidebar: linear-gradient(170deg, var(--primary) 0%, #11847f 68%, #087fa4 100%);
+  --gradient-header: linear-gradient(90deg, var(--primary) 0%, #0d9488 50%, #0284c7 100%);
   --page-background: color-mix(in oklab, var(--background) 92%, var(--primary) 8%);
   --gradient-page: none;
   --shadow-premium: 0 1px 2px 0 oklch(0 0 0 / 0.30), 0 6px 20px -6px oklch(0 0 0 / 0.45);

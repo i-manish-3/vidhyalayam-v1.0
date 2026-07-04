@@ -9,13 +9,15 @@ import {
   Cake,
   Calendar,
   CalendarCheck,
-  ClipboardCheck,
   GraduationCap,
   IndianRupee,
   Layers,
+  MoonStar,
   School,
+  Sun,
+  Sunrise,
+  Sunset,
   TrendingUp,
-  UserPlus,
   Users,
 } from 'lucide-react'
 import {
@@ -38,6 +40,7 @@ import { api } from '@/lib/api'
 import { useRouter } from 'next/navigation'
 import { usePermissions } from '@/hooks/use-permissions'
 import { cn } from '@/lib/utils'
+import { useAppStore } from '@/lib/store'
 
 const feeTrendData = [
   { month: 'Jul', collected: 85000, pending: 42000 },
@@ -107,8 +110,10 @@ export function SchoolAdminDashboard() {
   const [loading, setLoading] = useState(true)
   const [data, setData] = useState<DashboardData | null>(null)
   const [birthdays, setBirthdays] = useState<BirthdayPerson[]>([])
+  const [currentHour, setCurrentHour] = useState(() => new Date().getHours())
   const router = useRouter()
   const { hasPermission } = usePermissions()
+  const user = useAppStore((state) => state.user)
 
   // Widget-level access. SCHOOL_ADMIN with full permissions sees everything;
   // custom STAFF roles only see widgets they have permissions for.
@@ -166,6 +171,11 @@ export function SchoolAdminDashboard() {
 
     fetchData()
     fetchBirthdays()
+  }, [])
+
+  useEffect(() => {
+    const interval = setInterval(() => setCurrentHour(new Date().getHours()), 60000)
+    return () => clearInterval(interval)
   }, [])
 
   const fallbackData: DashboardData = {
@@ -244,18 +254,20 @@ export function SchoolAdminDashboard() {
     },
   ].filter(Boolean) as MetricItem[]
 
-  const quickActions = [
-    canSeeStudents && { label: 'Admit Student', icon: UserPlus, href: '/students/admit', tone: 'border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100' },
-    canSeeFees && { label: 'Collect Fee', icon: IndianRupee, href: '/fees/collections', tone: 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100' },
-    canSeeAttendance && { label: 'Mark Attendance', icon: ClipboardCheck, href: '/attendance/mark', tone: 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100' },
-  ].filter(Boolean) as Array<{ label: string; icon: React.ElementType; href: string; tone: string }>
-
   const todayLabel = new Intl.DateTimeFormat('en-IN', {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
     year: 'numeric',
   }).format(new Date())
+  const firstName = user?.name?.trim().split(/\s+/)[0] || 'User'
+  const greeting = currentHour >= 5 && currentHour < 12
+    ? { label: 'Good morning', Icon: Sunrise }
+    : currentHour >= 12 && currentHour < 17
+      ? { label: 'Good afternoon', Icon: Sun }
+      : currentHour >= 17 && currentHour < 21
+        ? { label: 'Good evening', Icon: Sunset }
+        : { label: 'Good night', Icon: MoonStar }
 
   if (loading) return <LoadingState />
 
@@ -286,21 +298,15 @@ export function SchoolAdminDashboard() {
             </div>
           </div>
 
-          {quickActions.length > 0 && (
-            <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap lg:max-w-md lg:justify-end">
-              {quickActions.map((action) => (
-                <Button
-                  key={action.label}
-                  variant="secondary"
-                  className={cn('h-8 justify-start gap-1.5 px-2.5 text-xs shadow-sm sm:justify-center', action.tone)}
-                  onClick={() => router.push(action.href)}
-                >
-                  <action.icon className="size-3.5" />
-                  {action.label}
-                </Button>
-              ))}
+          <div className="flex shrink-0 items-center gap-2.5 rounded-xl border border-white/20 bg-white/10 px-3 py-2 shadow-sm backdrop-blur-sm">
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-amber-200/35 bg-amber-300/20 text-amber-100 shadow-inner">
+              <greeting.Icon className="size-5" />
+            </span>
+            <div className="min-w-0 pr-1">
+              <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-white/65">{greeting.label}</p>
+              <p className="truncate text-sm font-semibold text-white">Dear {firstName}</p>
             </div>
-          )}
+          </div>
         </div>
       </section>
 

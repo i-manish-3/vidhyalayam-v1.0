@@ -296,12 +296,18 @@ export function BulkAdmissionPage() {
   }, [validation, filter])
 
   return (
-    <div className="space-y-6">
-      <div className="flex min-w-0 items-stretch gap-3">
-        <span aria-hidden className="bg-brand mt-0.5 w-1 shrink-0 self-stretch rounded-full" />
-        <div className="min-w-0">
-          <h1 className="text-xl font-semibold tracking-tight text-foreground/90">Bulk Admission</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+    <div className="space-y-5">
+      <div className="relative flex min-w-0 items-center gap-3 overflow-hidden rounded-xl border border-primary/25 bg-gradient-to-r from-primary via-teal-600 to-cyan-600 px-4 py-3 text-white shadow-lg shadow-primary/15">
+        <div aria-hidden className="absolute -right-10 -top-12 size-36 rounded-full border-[18px] border-white/10" />
+        <span className="relative flex size-11 shrink-0 items-center justify-center rounded-xl border border-white/25 bg-white/15 shadow-md shadow-black/10 backdrop-blur-sm">
+          <Upload className="size-5" />
+        </span>
+        <div className="relative min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-xl font-bold tracking-tight">Bulk Admission</h1>
+            <span className="rounded-full border border-white/20 bg-white/10 px-2 py-0.5 text-[10px] font-semibold text-white/85">CSV Import</span>
+          </div>
+          <p className="mt-0.5 max-w-4xl text-xs text-white/80">
             Import student, parent, address, class, section, and admission number data. Fees and siblings are managed later.
           </p>
         </div>
@@ -309,14 +315,14 @@ export function BulkAdmissionPage() {
 
       {phase === 'upload' && (
         <div className="grid gap-4 lg:grid-cols-3">
-          <Card className="lg:col-span-2">
-            <CardHeader>
+          <Card className="gap-0 overflow-hidden border-sky-200/80 bg-gradient-to-br from-white via-white to-sky-50 py-0 shadow-sm dark:border-sky-500/25 dark:from-card dark:via-card dark:to-sky-500/10 lg:col-span-2">
+            <CardHeader className="border-b border-sky-500/15 bg-gradient-to-r from-sky-500/10 to-cyan-500/10 px-4 py-3">
               <CardTitle className="flex items-center gap-2 text-base">
-                <Upload className="size-4" />
+                <span className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-cyan-500 text-white shadow-sm"><Upload className="size-4" /></span>
                 Upload CSV
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-4 p-4">
               <input
                 ref={fileInputRef}
                 type="file"
@@ -327,7 +333,7 @@ export function BulkAdmissionPage() {
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="flex w-full flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-muted-foreground/30 bg-muted/20 px-6 py-12 transition-colors hover:border-primary/50 hover:bg-muted/40"
+                className="group flex w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-sky-300 bg-gradient-to-br from-sky-50 via-white to-cyan-50 px-6 py-12 transition-all hover:border-sky-500 hover:shadow-md dark:border-sky-500/30 dark:from-sky-500/10 dark:via-card dark:to-cyan-500/10"
               >
                 {validating ? (
                   <>
@@ -336,7 +342,7 @@ export function BulkAdmissionPage() {
                   </>
                 ) : (
                   <>
-                    <FileText className="size-8 text-muted-foreground" />
+                    <span className="flex size-12 items-center justify-center rounded-xl bg-sky-500/10 text-sky-600 transition-transform group-hover:scale-105 dark:text-sky-300"><FileText className="size-6" /></span>
                     <span className="text-sm font-medium">Click to choose a CSV file</span>
                     <span className="text-xs text-muted-foreground">CSV only. Save Excel files as CSV first.</span>
                   </>
@@ -345,23 +351,23 @@ export function BulkAdmissionPage() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
+          <Card className="gap-0 overflow-hidden border-violet-200/80 bg-gradient-to-br from-white via-white to-violet-50 py-0 shadow-sm dark:border-violet-500/25 dark:from-card dark:via-card dark:to-violet-500/10">
+            <CardHeader className="border-b border-violet-500/15 bg-gradient-to-r from-violet-500/10 to-fuchsia-500/10 px-4 py-3">
               <CardTitle className="flex items-center gap-2 text-base">
-                <Download className="size-4" />
+                <span className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white shadow-sm"><Download className="size-4" /></span>
                 Get the Template
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
+            <CardContent className="space-y-3 p-4">
               <p className="text-sm text-muted-foreground">
                 Download one simple CSV template, fill the student details, and upload it back.
               </p>
-              <Button className="w-full gap-2" onClick={downloadTemplate}>
+              <Button className="w-full gap-2 bg-violet-600 text-white hover:bg-violet-700" onClick={downloadTemplate}>
                 <Download className="size-4" />
                 Download Template
               </Button>
 
-              <div className="space-y-2 rounded-md border bg-muted/20 p-3 text-xs">
+              <div className="space-y-2 rounded-lg border border-violet-200/70 bg-white/75 p-3 text-xs dark:border-violet-500/20 dark:bg-violet-500/5">
                 <div>
                   <p className="font-semibold text-foreground">Required</p>
                   <p className="mt-0.5 text-muted-foreground">
@@ -382,7 +388,7 @@ export function BulkAdmissionPage() {
                 </div>
               </div>
 
-              <div className="space-y-1.5 rounded-md border bg-muted/20 p-3 text-xs">
+              <div className="space-y-1.5 rounded-lg border border-amber-200/70 bg-amber-50/70 p-3 text-xs dark:border-amber-500/20 dark:bg-amber-500/5">
                 <p className="font-semibold text-foreground">Tips</p>
                 <ul className="list-disc space-y-1 pl-4 text-muted-foreground">
                   <li>Date format: <code>YYYY-MM-DD</code> or <code>DD/MM/YYYY</code>.</li>
@@ -412,8 +418,8 @@ export function BulkAdmissionPage() {
       )}
 
       {phase === 'committing' && (
-        <Card>
-          <CardHeader>
+        <Card className="overflow-hidden border-sky-200/80 bg-gradient-to-br from-white to-sky-50 shadow-sm dark:border-sky-500/25 dark:from-card dark:to-sky-500/10">
+          <CardHeader className="bg-gradient-to-r from-sky-500/10 to-emerald-500/10">
             <CardTitle className="flex items-center gap-2 text-base">
               <Loader2 className="size-4 animate-spin text-primary" />
               Importing students
@@ -433,8 +439,8 @@ export function BulkAdmissionPage() {
       )}
 
       {phase === 'done' && (
-        <Card>
-          <CardHeader>
+        <Card className="overflow-hidden border-emerald-200/80 bg-gradient-to-br from-white to-emerald-50 shadow-sm dark:border-emerald-500/25 dark:from-card dark:to-emerald-500/10">
+          <CardHeader className="bg-gradient-to-r from-emerald-500/10 to-teal-500/10">
             <CardTitle className="flex items-center gap-2 text-base">
               <CheckCircle2 className="size-4 text-green-600" />
               Bulk Import Complete
@@ -504,8 +510,8 @@ function PreviewSection({
 }) {
   const importable = validation.counts.valid + validation.counts.warning
   return (
-    <Card>
-      <CardHeader>
+    <Card className="gap-0 overflow-hidden border-sky-200/80 bg-gradient-to-br from-white via-white to-sky-50 py-0 shadow-sm dark:border-sky-500/25 dark:from-card dark:via-card dark:to-sky-500/10">
+      <CardHeader className="border-b border-sky-500/15 bg-gradient-to-r from-sky-500/10 via-primary/5 to-violet-500/10 px-4 py-3">
         <CardTitle className="flex flex-wrap items-center justify-between gap-2 text-base">
           <span className="flex items-center gap-2">
             <FileText className="size-4" />
@@ -522,7 +528,7 @@ function PreviewSection({
           </div>
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent className="space-y-3 p-4">
         <div className="flex flex-wrap items-center gap-2">
           <FilterChip label={`All (${validation.diagnostics.length})`} active={filter === 'all'} onClick={() => setFilter('all')} />
           <FilterChip label={`Valid (${validation.counts.valid})`} active={filter === 'valid'} tone="success" onClick={() => setFilter('valid')} />
@@ -537,9 +543,9 @@ function PreviewSection({
           </Alert>
         )}
 
-        <div className="overflow-x-auto rounded-md border">
+        <div className="overflow-x-auto rounded-lg border border-sky-500/15 shadow-sm">
           <table className="w-full text-sm">
-            <thead className="bg-muted/40 text-left text-xs uppercase tracking-wide">
+            <thead className="bg-gradient-to-r from-sky-500/10 via-primary/5 to-violet-500/10 text-left text-xs uppercase tracking-wide">
               <tr>
                 <th className="w-12 px-3 py-2">#</th>
                 <th className="w-24 px-3 py-2">Status</th>
@@ -568,7 +574,7 @@ function PreviewSection({
                 return (
                   <Fragment key={diagnostic.index}>
                     <tr
-                      className={`cursor-pointer border-t hover:bg-muted/30 ${tone}`}
+                      className={`cursor-pointer border-t transition-colors hover:bg-sky-500/[0.055] ${tone}`}
                       onClick={() => setExpandedRow(isOpen ? null : diagnostic.index)}
                     >
                       <td className="px-3 py-2 text-muted-foreground">{diagnostic.index + 1}</td>
@@ -684,9 +690,11 @@ function SummaryStat({
   tone: 'success' | 'destructive'
   icon: React.ReactNode
 }) {
-  const color = tone === 'success' ? 'text-green-600' : 'text-destructive'
+  const color = tone === 'success' ? 'text-emerald-700 dark:text-emerald-300' : 'text-rose-700 dark:text-rose-300'
   return (
-    <div className="rounded-lg border bg-card p-3">
+    <div className={tone === 'success'
+      ? 'rounded-lg border border-emerald-200 bg-gradient-to-br from-emerald-50 to-white p-3 dark:border-emerald-500/25 dark:from-emerald-500/10 dark:to-card'
+      : 'rounded-lg border border-rose-200 bg-gradient-to-br from-rose-50 to-white p-3 dark:border-rose-500/25 dark:from-rose-500/10 dark:to-card'}>
       <div className={`flex items-center gap-2 text-xs uppercase tracking-wide ${color}`}>
         {icon}
         {label}

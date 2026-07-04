@@ -1577,13 +1577,16 @@ export function FeeCollectionsPage() {
   return (
     <div className="space-y-4">
       {/* ── Page Header ──────────────────────────────────────── */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-stretch gap-3">
-          <span aria-hidden className="bg-brand mt-0.5 w-1 shrink-0 self-stretch rounded-full" />
+      <div className="relative flex flex-col gap-3 overflow-hidden rounded-xl border border-primary/25 bg-gradient-to-r from-primary via-teal-600 to-cyan-600 px-4 py-3 text-white shadow-lg shadow-primary/15 sm:flex-row sm:items-center sm:justify-between">
+        <div aria-hidden className="absolute -right-10 -top-12 size-36 rounded-full border-[18px] border-white/10" />
+        <div className="relative flex items-center gap-3">
+          <span className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-white/25 bg-white/15 shadow-md shadow-black/10 backdrop-blur-sm">
+            <ReceiptText className="size-5" />
+          </span>
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-xl font-bold tracking-tight leading-tight">Collect Fee</h1>
-              <Badge variant="outline" className="gap-1 h-5 px-2 text-[10px] font-semibold uppercase tracking-wider">
+              <Badge variant="outline" className="h-5 gap-1 border-white/20 bg-white/10 px-2 text-[10px] font-semibold uppercase tracking-wider text-white hover:bg-white/10">
                 <CalendarDays className="size-3" />
                 {academicYear}
               </Badge>
@@ -1593,7 +1596,7 @@ export function FeeCollectionsPage() {
                 </Badge>
               )}
             </div>
-            <p className="text-xs text-muted-foreground mt-0.5">
+            <p className="mt-0.5 text-xs text-white/80">
               Search a student, select dues, split payment, and print the receipt.
             </p>
           </div>
@@ -1601,14 +1604,14 @@ export function FeeCollectionsPage() {
       </div>
 
       {/* ── Search Bar + Payment Date ───────────────────────── */}
-      <Card className="!gap-0 !py-0 shadow-sm">
+      <Card className="!gap-0 overflow-visible border-cyan-200/80 bg-gradient-to-r from-cyan-50 via-white to-sky-50 !py-0 shadow-sm dark:border-cyan-500/25 dark:from-cyan-500/10 dark:via-card dark:to-sky-500/10">
         <CardContent className="p-2">
           <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_180px]">
             <div className="relative">
               <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
               <Input
                 placeholder="Search by name, admission, registration or roll no."
-                className="h-9 pl-8 text-sm"
+                className="h-9 bg-white pl-8 text-sm shadow-sm dark:bg-background"
                 value={search}
                 onChange={(event) => {
                   setSearch(event.target.value)
@@ -1666,7 +1669,7 @@ export function FeeCollectionsPage() {
               onChange={setPaymentDate}
               disableFuture
               placeholder="Payment date"
-              triggerClassName="h-9 w-full text-sm"
+              triggerClassName="h-9 w-full bg-white text-sm shadow-sm dark:bg-background"
               align="end"
             />
           </div>
@@ -1675,7 +1678,7 @@ export function FeeCollectionsPage() {
 
       {/* ── Empty state when no student selected ───────────── */}
       {!selectedStudent && (
-        <Card className="!gap-0 border-dashed !py-0 shadow-sm">
+        <Card className="!gap-0 border-dashed border-cyan-300 bg-gradient-to-br from-white via-cyan-50 to-sky-50 !py-0 shadow-sm dark:border-cyan-500/30 dark:from-card dark:via-cyan-500/5 dark:to-sky-500/10">
           <CardContent className="flex flex-col items-center justify-center py-12 text-center">
             <div className="flex size-14 items-center justify-center rounded-full bg-primary/10 text-primary">
               <UserRound className="size-6" />
@@ -1691,9 +1694,9 @@ export function FeeCollectionsPage() {
       {selectedStudent && (
         <>
           {/* ── Student Profile Strip ────────────────────────── */}
-          <Card className="!gap-0 overflow-hidden !py-0 shadow-sm">
+          <Card className="!gap-0 overflow-hidden border-sky-200/80 bg-gradient-to-r from-sky-50 via-white to-cyan-50 !py-0 shadow-sm dark:border-sky-500/25 dark:from-sky-500/10 dark:via-card dark:to-cyan-500/10">
             <div className="grid gap-0 lg:grid-cols-[280px_1fr]">
-              <div className="flex items-center gap-3 border-b bg-muted/30 px-3 py-2 lg:border-b-0 lg:border-r">
+              <div className="flex items-center gap-3 border-b border-sky-500/15 bg-gradient-to-r from-sky-500/10 to-cyan-500/10 px-3 py-2 lg:border-b-0 lg:border-r">
                 <div className="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border bg-muted">
                   {(selectedStudent.profileImage || selectedStudent.admission?.profileImage) ? (
                     <img src={(selectedStudent.profileImage || selectedStudent.admission?.profileImage) as string} alt={studentName(selectedStudent)} className="h-full w-full object-cover" />
@@ -1753,8 +1756,8 @@ export function FeeCollectionsPage() {
           <div className="grid gap-4 xl:grid-cols-[1.5fr_1fr]">
             <div className="space-y-4">
               {/* Select Periods */}
-              <Card className="!gap-0 !py-0 shadow-sm">
-                <CardHeader className="border-b px-3 !py-2">
+              <Card className="!gap-0 overflow-hidden border-violet-200/80 bg-gradient-to-br from-white to-violet-50 !py-0 shadow-sm dark:border-violet-500/25 dark:from-card dark:to-violet-500/10">
+                <CardHeader className="border-b border-violet-500/15 bg-gradient-to-r from-violet-500/10 to-fuchsia-500/10 px-3 !py-2">
                   <CardTitle className="flex items-center justify-between gap-3 text-sm">
                     <span className="flex items-center gap-2">
                       <CalendarDays className="size-4 text-primary" />
@@ -1977,8 +1980,8 @@ export function FeeCollectionsPage() {
 
               {/* Hostel */}
               {currentAllHostelItems.length > 0 && (
-                <Card className="!gap-0 overflow-hidden !py-0 shadow-sm">
-                  <CardHeader className="border-b bg-muted/30 px-3 !py-2">
+                <Card className="!gap-0 overflow-hidden border-orange-200/80 bg-gradient-to-br from-white to-orange-50 !py-0 shadow-sm dark:border-orange-500/25 dark:from-card dark:to-orange-500/10">
+                  <CardHeader className="border-b border-orange-500/15 bg-gradient-to-r from-orange-500/10 to-amber-500/10 px-3 !py-2">
                     <CardTitle className="flex items-center justify-between gap-3 text-sm">
                       <span className="flex items-center gap-2">
                         <Home className="size-4 text-primary" />
@@ -2118,8 +2121,8 @@ export function FeeCollectionsPage() {
 
               {/* Transport */}
               {currentAllTransportItems.length > 0 && (
-                <Card className="!gap-0 overflow-hidden !py-0 shadow-sm">
-                  <CardHeader className="border-b bg-muted/30 px-3 !py-2">
+                <Card className="!gap-0 overflow-hidden border-cyan-200/80 bg-gradient-to-br from-white to-cyan-50 !py-0 shadow-sm dark:border-cyan-500/25 dark:from-card dark:to-cyan-500/10">
+                  <CardHeader className="border-b border-cyan-500/15 bg-gradient-to-r from-cyan-500/10 to-sky-500/10 px-3 !py-2">
                     <CardTitle className="flex items-center justify-between gap-3 text-sm">
                       <span className="flex items-center gap-2">
                         <Bus className="size-4 text-primary" />
@@ -2235,8 +2238,8 @@ export function FeeCollectionsPage() {
               )}
 
               {/* Selected Particulars */}
-              <Card className="!gap-0 !py-0 shadow-sm">
-                <CardHeader className="border-b bg-muted/30 px-3 !py-2">
+              <Card className="!gap-0 overflow-hidden border-emerald-200/80 bg-gradient-to-br from-white to-emerald-50 !py-0 shadow-sm dark:border-emerald-500/25 dark:from-card dark:to-emerald-500/10">
+                <CardHeader className="border-b border-emerald-500/15 bg-gradient-to-r from-emerald-500/10 to-teal-500/10 px-3 !py-2">
                   <CardTitle className="flex items-center justify-between gap-3 text-sm">
                     <span className="flex items-center gap-2">
                       <ReceiptText className="size-4 text-primary" />
@@ -2331,8 +2334,8 @@ export function FeeCollectionsPage() {
             </div>
 
             {/* ── Payment Summary Sidebar ────────────────────── */}
-            <Card className="!gap-0 self-start !py-0 shadow-sm xl:sticky xl:top-4">
-              <CardHeader className="border-b px-3 !py-2">
+            <Card className="!gap-0 self-start overflow-hidden border-amber-200/80 bg-gradient-to-br from-white via-white to-amber-50 !py-0 shadow-sm dark:border-amber-500/25 dark:from-card dark:via-card dark:to-amber-500/10 xl:sticky xl:top-4">
+              <CardHeader className="border-b border-amber-500/15 bg-gradient-to-r from-amber-500/10 via-orange-500/5 to-emerald-500/10 px-3 !py-2">
                 <CardTitle className="flex items-center gap-2 text-sm">
                   <ReceiptText className="size-4 text-primary" />
                   Payment Summary
@@ -2529,20 +2532,20 @@ export function FeeCollectionsPage() {
             <TabsList className="grid h-auto w-full grid-cols-2 gap-1.5 bg-transparent p-0">
               <TabsTrigger
                 value="history"
-                className="h-10 gap-1.5 rounded-lg border bg-background text-xs font-semibold data-[state=active]:border-primary/50 data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm"
+                className="h-10 gap-1.5 rounded-lg border border-emerald-200 bg-white text-xs font-semibold text-emerald-700 shadow-sm data-[state=active]:border-emerald-400 data-[state=active]:bg-emerald-100 data-[state=active]:text-emerald-800 data-[state=active]:shadow-sm dark:border-emerald-500/25 dark:bg-background dark:text-emerald-300 dark:data-[state=active]:bg-emerald-500/15"
               >
                 <ReceiptText className="size-3.5" />
                 Payment History
               </TabsTrigger>
               <TabsTrigger
                 value="comment"
-                className="h-10 gap-1.5 rounded-lg border bg-background text-xs font-semibold data-[state=active]:border-primary/50 data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm"
+                className="h-10 gap-1.5 rounded-lg border border-violet-200 bg-white text-xs font-semibold text-violet-700 shadow-sm data-[state=active]:border-violet-400 data-[state=active]:bg-violet-100 data-[state=active]:text-violet-800 data-[state=active]:shadow-sm dark:border-violet-500/25 dark:bg-background dark:text-violet-300 dark:data-[state=active]:bg-violet-500/15"
               >
                 <MessageCircle className="size-3.5" />
                 Special Comment
               </TabsTrigger>
             </TabsList>
-            <TabsContent value="history" className="mt-2 rounded-lg border bg-card p-0 shadow-sm">
+            <TabsContent value="history" className="mt-2 overflow-hidden rounded-lg border border-emerald-200/80 bg-gradient-to-br from-white to-emerald-50 p-0 shadow-sm dark:border-emerald-500/25 dark:from-card dark:to-emerald-500/10">
               {paymentHistory.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-10 text-center">
                   <ReceiptText className="mb-2 size-8 text-muted-foreground/40" />
@@ -2552,7 +2555,7 @@ export function FeeCollectionsPage() {
               ) : (
                 <div className="max-h-[420px] overflow-auto">
                   <table className="w-full min-w-[1180px] border-collapse text-xs">
-                    <thead className="sticky top-0 z-10 bg-muted">
+                    <thead className="sticky top-0 z-10 bg-gradient-to-r from-emerald-100 via-teal-50 to-cyan-50 dark:from-emerald-500/15 dark:via-card dark:to-cyan-500/10">
                       <tr>
                         <th className="w-10 px-2.5 py-2 text-left font-semibold">#</th>
                         <th className="px-2.5 py-2 text-left font-semibold">Receipt</th>
@@ -2578,7 +2581,7 @@ export function FeeCollectionsPage() {
                         </td>
                       </tr>
                       {paymentHistory.map((row, index) => (
-                        <tr key={row.id} className="border-b transition-colors hover:bg-muted/40 align-top">
+                        <tr key={row.id} className="border-b transition-colors hover:bg-emerald-500/[0.05] align-top">
                           <td className="px-2.5 py-2 text-muted-foreground">{index + 1}</td>
                           <td className="px-2.5 py-2 font-mono text-[11px]">
                             <span>{row.receiptNumber || '-'}</span>
@@ -2647,7 +2650,7 @@ export function FeeCollectionsPage() {
                 </div>
               )}
             </TabsContent>
-            <TabsContent value="comment" className="mt-2 rounded-lg border bg-card px-3 py-2 shadow-sm">
+            <TabsContent value="comment" className="mt-2 rounded-lg border border-violet-200/80 bg-gradient-to-br from-white to-violet-50 px-3 py-2 shadow-sm dark:border-violet-500/25 dark:from-card dark:to-violet-500/10">
               <div className="space-y-2">
                 <div>
                   <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Add Special Comment</Label>

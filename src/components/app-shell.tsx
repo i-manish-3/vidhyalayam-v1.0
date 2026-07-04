@@ -36,9 +36,6 @@ import {
   Search,
   ArrowRight,
   Lock,
-  Sunrise,
-  Sunset,
-  MoonStar,
   ImagePlus,
   Trash2,
   ChevronDown,
@@ -56,6 +53,7 @@ import {
   Building2,
   UserRound,
   Users,
+  CheckCircle2,
   type LucideIcon,
 } from 'lucide-react'
 import { AcademicYearSwitcher } from '@/components/academic-year-switcher'
@@ -190,17 +188,17 @@ type StickyQuickMenuDropdown = {
 type StickyQuickMenuItem = StickyQuickMenuLink | StickyQuickMenuDropdown
 
 function quickMenuTone(label: string) {
-  const tones: Record<string, { icon: string; hover: string }> = {
-    'Student List': { icon: 'bg-sky-500/12 text-sky-600 dark:text-sky-300', hover: 'hover:bg-sky-500/10 hover:text-sky-700 dark:hover:text-sky-300' },
-    Timetable: { icon: 'bg-violet-500/12 text-violet-600 dark:text-violet-300', hover: 'hover:bg-violet-500/10 hover:text-violet-700 dark:hover:text-violet-300' },
-    Exam: { icon: 'bg-amber-500/14 text-amber-600 dark:text-amber-300', hover: 'hover:bg-amber-500/10 hover:text-amber-700 dark:hover:text-amber-300' },
-    'Collect Fees': { icon: 'bg-emerald-500/12 text-emerald-600 dark:text-emerald-300', hover: 'hover:bg-emerald-500/10 hover:text-emerald-700 dark:hover:text-emerald-300' },
-    Attendance: { icon: 'bg-rose-500/12 text-rose-600 dark:text-rose-300', hover: 'hover:bg-rose-500/10 hover:text-rose-700 dark:hover:text-rose-300' },
-    Inventory: { icon: 'bg-orange-500/12 text-orange-600 dark:text-orange-300', hover: 'hover:bg-orange-500/10 hover:text-orange-700 dark:hover:text-orange-300' },
-    Admission: { icon: 'bg-cyan-500/12 text-cyan-600 dark:text-cyan-300', hover: 'hover:bg-cyan-500/10 hover:text-cyan-700 dark:hover:text-cyan-300' },
-    'Account Reports': { icon: 'bg-indigo-500/12 text-indigo-600 dark:text-indigo-300', hover: 'hover:bg-indigo-500/10 hover:text-indigo-700 dark:hover:text-indigo-300' },
+  const tones: Record<string, { icon: string; hover: string; active: string; activeIcon: string }> = {
+    'Student List': { icon: 'bg-sky-500/12 text-sky-600 dark:text-sky-300', hover: 'hover:bg-sky-500/10 hover:text-sky-700 dark:hover:text-sky-300', active: 'bg-sky-500/12 text-sky-700 hover:bg-sky-500/15 hover:text-sky-700 dark:text-sky-300', activeIcon: 'bg-sky-500 text-white' },
+    Timetable: { icon: 'bg-violet-500/12 text-violet-600 dark:text-violet-300', hover: 'hover:bg-violet-500/10 hover:text-violet-700 dark:hover:text-violet-300', active: 'bg-violet-500/12 text-violet-700 hover:bg-violet-500/15 hover:text-violet-700 dark:text-violet-300', activeIcon: 'bg-violet-500 text-white' },
+    Exam: { icon: 'bg-amber-500/14 text-amber-600 dark:text-amber-300', hover: 'hover:bg-amber-500/10 hover:text-amber-700 dark:hover:text-amber-300', active: 'bg-amber-500/14 text-amber-700 hover:bg-amber-500/18 hover:text-amber-700 dark:text-amber-300', activeIcon: 'bg-amber-500 text-white' },
+    'Collect Fees': { icon: 'bg-emerald-500/12 text-emerald-600 dark:text-emerald-300', hover: 'hover:bg-emerald-500/10 hover:text-emerald-700 dark:hover:text-emerald-300', active: 'bg-emerald-500/12 text-emerald-700 hover:bg-emerald-500/15 hover:text-emerald-700 dark:text-emerald-300', activeIcon: 'bg-emerald-500 text-white' },
+    Attendance: { icon: 'bg-rose-500/12 text-rose-600 dark:text-rose-300', hover: 'hover:bg-rose-500/10 hover:text-rose-700 dark:hover:text-rose-300', active: 'bg-rose-500/12 text-rose-700 hover:bg-rose-500/15 hover:text-rose-700 dark:text-rose-300', activeIcon: 'bg-rose-500 text-white' },
+    Inventory: { icon: 'bg-orange-500/12 text-orange-600 dark:text-orange-300', hover: 'hover:bg-orange-500/10 hover:text-orange-700 dark:hover:text-orange-300', active: 'bg-orange-500/12 text-orange-700 hover:bg-orange-500/15 hover:text-orange-700 dark:text-orange-300', activeIcon: 'bg-orange-500 text-white' },
+    Admission: { icon: 'bg-cyan-500/12 text-cyan-600 dark:text-cyan-300', hover: 'hover:bg-cyan-500/10 hover:text-cyan-700 dark:hover:text-cyan-300', active: 'bg-cyan-500/12 text-cyan-700 hover:bg-cyan-500/15 hover:text-cyan-700 dark:text-cyan-300', activeIcon: 'bg-cyan-500 text-white' },
+    'Account Reports': { icon: 'bg-indigo-500/12 text-indigo-600 dark:text-indigo-300', hover: 'hover:bg-indigo-500/10 hover:text-indigo-700 dark:hover:text-indigo-300', active: 'bg-indigo-500/12 text-indigo-700 hover:bg-indigo-500/15 hover:text-indigo-700 dark:text-indigo-300', activeIcon: 'bg-indigo-500 text-white' },
   }
-  return tones[label] || { icon: 'bg-primary/10 text-primary', hover: 'hover:bg-primary/10 hover:text-primary' }
+  return tones[label] || { icon: 'bg-primary/10 text-primary', hover: 'hover:bg-primary/10 hover:text-primary', active: 'bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary', activeIcon: 'bg-primary text-primary-foreground' }
 }
 
 function UniversalSearch() {
@@ -465,13 +463,6 @@ function HamburgerIcon({ className }: { className?: string }) {
   )
 }
 
-function getTimeGreeting(hour: number) {
-  if (hour >= 5 && hour < 12) return { label: 'Good morning', Icon: Sunrise }
-  if (hour >= 12 && hour < 17) return { label: 'Good afternoon', Icon: Sun }
-  if (hour >= 17 && hour < 21) return { label: 'Good evening', Icon: Sunset }
-  return { label: 'Good night', Icon: MoonStar }
-}
-
 export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
@@ -482,7 +473,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [changingPassword, setChangingPassword] = useState(false)
-  const [currentHour, setCurrentHour] = useState(() => new Date().getHours())
   const [showProfileDialog, setShowProfileDialog] = useState(false)
   const [savingAvatar, setSavingAvatar] = useState(false)
   const [profileName, setProfileName] = useState('')
@@ -508,10 +498,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const roleBadge = user?.role === 'STAFF' && user.assignedRoleName
     ? user.assignedRoleName
     : user?.role?.replace('_', ' ') || 'User'
-  const firstName = user?.name?.trim().split(/\s+/)[0] || 'User'
-  const displayName = `Dear ${firstName}`
-  const timeGreeting = getTimeGreeting(currentHour)
-  const GreetingIcon = timeGreeting.Icon
   const isDarkTheme = resolvedTheme === 'dark' || theme === 'dark'
   const schoolThemeStyle = useMemo(
     () => getThemeVariables(isDarkTheme),
@@ -582,13 +568,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       SCHOOL_THEME_VARIABLE_NAMES.forEach((name) => root.style.removeProperty(name))
     }
   }, [schoolThemeStyle])
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentHour(new Date().getHours())
-    }, 60000)
-    return () => clearInterval(interval)
-  }, [])
 
   const handleRequiredPasswordChange = async () => {
     if (!currentPassword || !newPassword || !confirmPassword) {
@@ -775,23 +754,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
         <UniversalSearch />
 
-        <div className="hidden min-w-0 shrink-0 md:flex">
-          <div className="group flex h-9 max-w-[280px] items-center gap-2 rounded-lg border border-primary-foreground/20 bg-gradient-to-r from-primary-foreground/15 to-primary-foreground/7 px-2.5 shadow-sm shadow-black/5 backdrop-blur dark:border-sidebar-border dark:from-sidebar-accent/80 dark:to-sidebar-accent/45">
-            <span className="flex size-6 shrink-0 items-center justify-center rounded-md border border-primary-foreground/15 bg-primary-foreground/15 text-primary-foreground shadow-inner dark:border-sidebar-border dark:bg-sidebar-primary/25 dark:text-sidebar-foreground">
-              <GreetingIcon className="size-3.5" />
-            </span>
-            <div className="flex min-w-0 items-center gap-1.5">
-              <span className="truncate text-[11px] font-medium text-primary-foreground/70 dark:text-sidebar-foreground/60">
-                {timeGreeting.label}
-              </span>
-              <span className="size-1 shrink-0 rounded-full bg-primary-foreground/45 dark:bg-sidebar-foreground/35" />
-              <span className="truncate text-xs font-semibold text-primary-foreground dark:text-sidebar-foreground">
-                {displayName}
-              </span>
-            </div>
-          </div>
-        </div>
-
         <div className="flex-1" />
 
         <div className="flex items-center gap-1.5">
@@ -869,12 +831,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                             className={cn(
                               'group flex cursor-pointer items-center gap-1.5 rounded-md px-2 py-1 text-[13px] font-medium tracking-wide text-muted-foreground/90 transition-all duration-200',
                               tone.hover,
-                              isDropdownActive && 'bg-primary/10 font-semibold text-primary hover:bg-primary/15 hover:text-primary',
+                              isDropdownActive && `font-semibold ${tone.active}`,
                             )}
                           >
                             <span className={cn(
                               'flex size-6 shrink-0 items-center justify-center rounded-md transition-transform group-hover:scale-105',
-                              isDropdownActive ? 'bg-primary text-primary-foreground' : tone.icon,
+                              isDropdownActive ? tone.activeIcon : tone.icon,
                             )}>
                               <item.icon className="size-3.5" stroke="currentColor" fill="none" />
                             </span>
@@ -882,25 +844,37 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                             <ChevronDown className="size-3.5 opacity-60 transition-transform duration-200 group-data-[state=open]:rotate-180" />
                           </button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="start" className="min-w-[170px]">
+                        <DropdownMenuContent
+                          align="start"
+                          sideOffset={6}
+                          className={cn(
+                            'w-[var(--radix-dropdown-menu-trigger-width)] min-w-0 overflow-hidden rounded-lg border p-1 shadow-xl backdrop-blur-md',
+                            item.label === 'Attendance' && 'border-rose-200/80 bg-gradient-to-br from-popover via-popover to-rose-50 dark:border-rose-500/25 dark:to-rose-500/10',
+                            item.label === 'Account Reports' && 'border-indigo-200/80 bg-gradient-to-br from-popover via-popover to-indigo-50 dark:border-indigo-500/25 dark:to-indigo-500/10',
+                          )}
+                        >
                           {item.children.map((child) => {
                             const isChildActive = pathname === child.href || pathname.startsWith(child.href + '/')
                             const ChildIcon = child.icon
-                            const childTone = quickMenuTone(child.label)
+                            const childTone = tone
                             return (
-                              <DropdownMenuItem key={child.label} asChild>
+                              <DropdownMenuItem key={child.label} asChild className="rounded-lg p-0 focus:bg-transparent">
                                 <Link
                                   href={child.href}
-                                  className={`w-full cursor-pointer flex items-center gap-2 ${
-                                    isChildActive ? 'bg-accent font-semibold text-primary' : ''
-                                  }`}
+                                  className={cn(
+                                    'group relative flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-all',
+                                    !isChildActive && 'text-popover-foreground/80 hover:bg-background/70 hover:text-popover-foreground',
+                                    isChildActive && `font-semibold shadow-sm ${childTone.active}`,
+                                  )}
                                 >
+                                  {isChildActive && <span className="absolute bottom-2 left-0 top-2 w-0.5 rounded-r-full bg-current" />}
                                   {ChildIcon && (
-                                    <span className={cn('flex size-6 shrink-0 items-center justify-center rounded-md', isChildActive ? 'bg-primary text-primary-foreground' : childTone.icon)}>
-                                      <ChildIcon className="size-3.5" />
+                                    <span className={cn('flex size-6 shrink-0 items-center justify-center rounded-md transition-transform group-hover:scale-105', isChildActive ? childTone.activeIcon : childTone.icon)}>
+                                      <ChildIcon className={cn('size-3.5', isChildActive && 'text-white')} />
                                     </span>
                                   )}
-                                  {child.label}
+                                  <span className="flex-1">{child.label}</span>
+                                  {isChildActive && <CheckCircle2 className="size-3 opacity-70" />}
                                 </Link>
                               </DropdownMenuItem>
                             )
@@ -918,12 +892,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                       className={cn(
                         'group flex cursor-pointer items-center gap-1.5 rounded-md px-2 py-1 text-[13px] font-medium tracking-wide text-muted-foreground/90 transition-all duration-200',
                         tone.hover,
-                        isActive && 'bg-primary/10 font-semibold text-primary hover:bg-primary/15 hover:text-primary',
+                        isActive && `font-semibold ${tone.active}`,
                       )}
                     >
                       <span className={cn(
                         'flex size-6 shrink-0 items-center justify-center rounded-md transition-transform group-hover:scale-105',
-                        isActive ? 'bg-primary text-primary-foreground' : tone.icon,
+                        isActive ? tone.activeIcon : tone.icon,
                       )}>
                         <item.icon className="size-3.5" stroke="currentColor" fill="none" />
                       </span>

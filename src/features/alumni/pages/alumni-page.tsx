@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
-import { StatsCard, LoadingState, EmptyState } from '@/components/shared'
+import { LoadingState, EmptyState } from '@/components/shared'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -31,6 +31,7 @@ import {
   Users,
   LogOut,
   CalendarDays,
+  type LucideIcon,
 } from 'lucide-react'
 
 // ── Types ───────────────────────────────────────────────────────────────────
@@ -289,19 +290,24 @@ export function AlumniPage() {
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex min-w-0 items-stretch gap-3">
-          <span aria-hidden className="bg-brand mt-0.5 w-1 shrink-0 self-stretch rounded-full" />
+      <div className="relative flex flex-col gap-3 overflow-hidden rounded-xl border border-primary/25 bg-gradient-to-r from-primary via-teal-600 to-cyan-600 px-4 py-3 text-white shadow-lg shadow-primary/15 sm:flex-row sm:items-center sm:justify-between">
+        <div aria-hidden className="absolute -right-10 -top-12 size-36 rounded-full border-[18px] border-white/10" />
+        <div className="relative flex min-w-0 items-center gap-3">
+          <span className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-white/25 bg-white/15 shadow-md shadow-black/10 backdrop-blur-sm">
+            <GraduationCap className="size-5" />
+          </span>
           <div className="min-w-0">
-            <h1 className="text-xl font-bold tracking-tight">Alumni</h1>
-            <p className="mt-0.5 text-sm text-muted-foreground">
-              Passed-out students and everyone who left with a TC or withdrawal
-            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-xl font-bold tracking-tight">Alumni</h1>
+              <span className="rounded-full border border-white/20 bg-white/10 px-2 py-0.5 text-[10px] font-semibold text-white/85">{stats.total.toLocaleString('en-IN')} records</span>
+            </div>
+            <p className="mt-0.5 text-xs text-white/80">Passed-out students and everyone who left with a TC or withdrawal</p>
           </div>
         </div>
         <Button
-          variant="outline"
-          className="shrink-0 gap-2"
+          variant="secondary"
+          className="relative shrink-0 gap-2 border border-white/60 shadow-md"
+          style={{ backgroundColor: 'white', color: 'var(--primary)' }}
           onClick={handleExport}
           disabled={exporting || pagination.total === 0}
         >
@@ -312,17 +318,17 @@ export function AlumniPage() {
 
       {/* Stats */}
       <div className="grid gap-2 sm:grid-cols-3">
-        <StatsCard title="Total Alumni" value={stats.total} description="Passout + withdrawals" icon={GraduationCap} />
-        <StatsCard title="Passout" value={stats.passout} description="Completed & promoted out" icon={Users} />
-        <StatsCard title="Left (TC / Withdrawal)" value={stats.withdrawn} description="Transfer, dropout & more" icon={LogOut} />
+        <AlumniStatCard title="Total Alumni" value={stats.total} description="Passout + withdrawals" icon={GraduationCap} tone="violet" />
+        <AlumniStatCard title="Passout" value={stats.passout} description="Completed & promoted out" icon={Users} tone="emerald" />
+        <AlumniStatCard title="Left (TC / Withdrawal)" value={stats.withdrawn} description="Transfer, dropout & more" icon={LogOut} tone="amber" />
       </div>
 
       {/* Directory */}
-      <Card className="gap-0 py-0">
-        <CardHeader className="px-4 py-3">
+      <Card className="gap-0 overflow-hidden border-cyan-200/80 bg-gradient-to-br from-white via-white to-cyan-50 py-0 shadow-sm dark:border-cyan-500/25 dark:from-card dark:via-card dark:to-cyan-500/10">
+        <CardHeader className="border-b border-cyan-500/15 bg-gradient-to-r from-cyan-500/10 via-primary/5 to-violet-500/10 px-4 py-3">
           <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
             <CardTitle className="flex items-center gap-2 text-base">
-              <span className="bg-brand-soft flex size-7 shrink-0 items-center justify-center rounded-lg text-white shadow-sm">
+              <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-500 to-primary text-white shadow-sm shadow-cyan-500/20">
                 <GraduationCap className="size-4" />
               </span>
               Alumni Directory
@@ -334,7 +340,7 @@ export function AlumniPage() {
                   placeholder="Search name, adm no, roll..."
                   value={searchInput}
                   onChange={(e) => setSearchInput(e.target.value)}
-                  className="h-9 w-full pl-9 sm:w-56"
+                  className="h-9 w-full bg-background/90 pl-9 shadow-sm sm:w-56"
                 />
               </div>
               <Button variant="outline" size="sm" className="h-9 gap-1" onClick={() => setShowFilters((v) => !v)}>
@@ -353,7 +359,7 @@ export function AlumniPage() {
         <CardContent className="p-0">
           {/* Filter row */}
           {showFilters && (
-            <div className="grid grid-cols-2 gap-2 px-4 pb-3 sm:grid-cols-3">
+            <div className="grid grid-cols-2 gap-2 border-b border-cyan-500/10 bg-gradient-to-r from-cyan-500/[0.045] via-transparent to-violet-500/[0.045] px-4 py-3 sm:grid-cols-3">
               <Select value={typeFilter} onValueChange={(v) => { setTypeFilter(v); setPage(1) }}>
                 <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Type" /></SelectTrigger>
                 <SelectContent>
@@ -396,15 +402,15 @@ export function AlumniPage() {
               />
             </div>
           ) : (
-            <div className="relative overflow-x-auto border-t">
+            <div className="relative overflow-x-auto">
               {loading && (
                 <div className="bg-background/60 absolute inset-0 z-10 grid place-items-center">
                   <Loader2 className="text-muted-foreground size-5 animate-spin" />
                 </div>
               )}
               <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/40">
+                <TableHeader className="bg-gradient-to-r from-cyan-500/[0.08] via-primary/[0.04] to-violet-500/[0.07]">
+                  <TableRow>
                     <TableHead>Student</TableHead>
                     <TableHead>Last Class</TableHead>
                     <TableHead>Type</TableHead>
@@ -417,12 +423,11 @@ export function AlumniPage() {
                   {alumni.map((a) => {
                     const badge = leavingBadge(a.leavingType)
                     return (
-                      <TableRow key={a.id} className="hover:bg-muted/40">
+                      <TableRow key={a.id} className="transition-colors hover:bg-cyan-500/[0.05]">
                         <TableCell>
                           <div className="flex items-center gap-3">
                             <div className="bg-primary/10 text-primary grid size-9 shrink-0 place-items-center overflow-hidden rounded-full text-xs font-semibold">
                               {a.profileImage && /^https?:\/\//.test(a.profileImage) ? (
-                                // eslint-disable-next-line @next/next/no-img-element
                                 <img src={a.profileImage} alt={a.name} className="size-full object-cover" />
                               ) : (
                                 initials(a.firstName, a.lastName)
@@ -505,5 +510,57 @@ export function AlumniPage() {
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+function AlumniStatCard({
+  title,
+  value,
+  description,
+  icon: Icon,
+  tone,
+}: {
+  title: string
+  value: number
+  description: string
+  icon: LucideIcon
+  tone: 'violet' | 'emerald' | 'amber'
+}) {
+  const styles = {
+    violet: {
+      card: 'border-violet-200/80 bg-gradient-to-br from-violet-50 via-white to-fuchsia-50 dark:border-violet-500/25 dark:from-violet-500/10 dark:via-card dark:to-fuchsia-500/10',
+      icon: 'bg-gradient-to-br from-violet-500 to-fuchsia-500 shadow-violet-500/20',
+      accent: 'from-violet-500 via-fuchsia-400',
+      bubble: 'bg-violet-300/20 dark:bg-violet-500/10',
+    },
+    emerald: {
+      card: 'border-emerald-200/80 bg-gradient-to-br from-emerald-50 via-white to-teal-50 dark:border-emerald-500/25 dark:from-emerald-500/10 dark:via-card dark:to-teal-500/10',
+      icon: 'bg-gradient-to-br from-emerald-500 to-teal-500 shadow-emerald-500/20',
+      accent: 'from-emerald-500 via-teal-400',
+      bubble: 'bg-emerald-300/20 dark:bg-emerald-500/10',
+    },
+    amber: {
+      card: 'border-amber-200/80 bg-gradient-to-br from-amber-50 via-white to-orange-50 dark:border-amber-500/25 dark:from-amber-500/10 dark:via-card dark:to-orange-500/10',
+      icon: 'bg-gradient-to-br from-amber-500 to-orange-500 shadow-amber-500/20',
+      accent: 'from-amber-500 via-orange-400',
+      bubble: 'bg-amber-300/20 dark:bg-amber-500/10',
+    },
+  }[tone]
+
+  return (
+    <Card className={`group relative overflow-hidden py-0 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md ${styles.card}`}>
+      <div className={`absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r to-transparent ${styles.accent}`} />
+      <div aria-hidden className={`absolute -bottom-6 -right-4 size-16 rounded-full transition-transform group-hover:scale-125 ${styles.bubble}`} />
+      <CardContent className="relative flex items-center justify-between p-3">
+        <div className="min-w-0">
+          <p className="truncate text-[11px] font-medium text-muted-foreground">{title}</p>
+          <p className="text-xl font-bold tabular-nums">{value}</p>
+          <p className="truncate text-[10px] text-muted-foreground">{description}</p>
+        </div>
+        <span className={`flex size-9 shrink-0 items-center justify-center rounded-lg text-white shadow-sm ${styles.icon}`}>
+          <Icon className="size-4" />
+        </span>
+      </CardContent>
+    </Card>
   )
 }

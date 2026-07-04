@@ -5,7 +5,7 @@ import { api } from '@/lib/api'
 import { compareClassNames } from '@/lib/class-order'
 import { cn } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
-import { LoadingState, PageHeader } from '@/components/shared'
+import { LoadingState } from '@/components/shared'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -327,54 +327,67 @@ export function StudentHousesPage() {
 
   return (
     <div className="space-y-5">
-      <PageHeader
-        title="Student Houses"
-        description="Create houses with colors and assign students in one place."
-        action={{ label: 'Create House', icon: Plus, onClick: openCreateDialog }}
-      />
+      <div className="relative flex flex-col gap-3 overflow-hidden rounded-xl border border-primary/25 bg-gradient-to-r from-primary via-teal-600 to-cyan-600 px-4 py-3 text-white shadow-lg shadow-primary/15 sm:flex-row sm:items-center sm:justify-between">
+        <div aria-hidden className="absolute -right-10 -top-12 size-36 rounded-full border-[18px] border-white/10" />
+        <div className="relative flex min-w-0 items-center gap-3">
+          <span className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-white/25 bg-white/15 shadow-md shadow-black/10 backdrop-blur-sm">
+            <Home className="size-5" />
+          </span>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-xl font-bold tracking-tight">Student Houses</h1>
+              <span className="rounded-full border border-white/20 bg-white/10 px-2 py-0.5 text-[10px] font-semibold text-white/85">{houses.length} houses</span>
+            </div>
+            <p className="mt-0.5 text-xs text-white/80">Create colorful houses and assign students in one place</p>
+          </div>
+        </div>
+        <Button variant="secondary" onClick={openCreateDialog} className="relative shrink-0 gap-2 border border-white/60 shadow-md" style={{ backgroundColor: 'white', color: 'var(--primary)' }}>
+          <Plus className="size-4" /> Create House
+        </Button>
+      </div>
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <div className="rounded-lg border bg-card p-4 shadow-sm">
+        <div className="rounded-xl border border-violet-200/80 bg-gradient-to-br from-violet-50 via-white to-fuchsia-50 p-4 shadow-sm dark:border-violet-500/25 dark:from-violet-500/10 dark:via-card dark:to-fuchsia-500/10">
           <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Houses</p>
           <div className="mt-2 flex items-end justify-between gap-2">
             <p className="text-2xl font-semibold">{houses.length}</p>
-            <Home className="size-5 text-muted-foreground" />
+            <span className="flex size-9 items-center justify-center rounded-lg bg-violet-500 text-white shadow-sm"><Home className="size-4" /></span>
           </div>
         </div>
-        <div className="rounded-lg border bg-card p-4 shadow-sm">
+        <div className="rounded-xl border border-emerald-200/80 bg-gradient-to-br from-emerald-50 via-white to-teal-50 p-4 shadow-sm dark:border-emerald-500/25 dark:from-emerald-500/10 dark:via-card dark:to-teal-500/10">
           <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Assigned</p>
           <div className="mt-2 flex items-end justify-between gap-2">
             <p className="text-2xl font-semibold">{assignedCount}</p>
-            <CheckCircle2 className="size-5 text-emerald-600" />
+            <span className="flex size-9 items-center justify-center rounded-lg bg-emerald-500 text-white shadow-sm"><CheckCircle2 className="size-4" /></span>
           </div>
         </div>
-        <div className="rounded-lg border bg-card p-4 shadow-sm">
+        <div className="rounded-xl border border-amber-200/80 bg-gradient-to-br from-amber-50 via-white to-orange-50 p-4 shadow-sm dark:border-amber-500/25 dark:from-amber-500/10 dark:via-card dark:to-orange-500/10">
           <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Unassigned</p>
           <div className="mt-2 flex items-end justify-between gap-2">
             <p className="text-2xl font-semibold">{unassignedCount}</p>
-            <Users className="size-5 text-muted-foreground" />
+            <span className="flex size-9 items-center justify-center rounded-lg bg-amber-500 text-white shadow-sm"><Users className="size-4" /></span>
           </div>
         </div>
-        <div className="rounded-lg border bg-card p-4 shadow-sm">
+        <div className="rounded-xl border border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-cyan-50 p-4 shadow-sm dark:border-sky-500/25 dark:from-sky-500/10 dark:via-card dark:to-cyan-500/10">
           <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Selected</p>
           <div className="mt-2 flex items-end justify-between gap-2">
             <p className="text-2xl font-semibold">{selectedStudentIds.length}</p>
-            <Badge variant="secondary">{selectedVisibleCount} visible</Badge>
+            <Badge className="bg-sky-500 text-white hover:bg-sky-500">{selectedVisibleCount} visible</Badge>
           </div>
         </div>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[360px_1fr]">
-        <Card>
-          <CardHeader className="pb-3">
+        <Card className="gap-0 overflow-hidden border-violet-200/80 bg-gradient-to-br from-white to-violet-50 py-0 shadow-sm dark:border-violet-500/25 dark:from-card dark:to-violet-500/10">
+          <CardHeader className="border-b border-violet-500/15 bg-gradient-to-r from-violet-500/10 to-fuchsia-500/10 px-4 py-3">
             <CardTitle className="flex items-center gap-2 text-base">
-              <span className="bg-brand-soft flex size-7 shrink-0 items-center justify-center rounded-lg text-white shadow-sm">
+              <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white shadow-sm">
                 <Home className="size-4" />
               </span>
               House Master
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="space-y-3 p-4">
             {houses.length === 0 ? (
               <div className="rounded-lg border border-dashed p-6 text-center">
                 <Palette className="mx-auto mb-2 size-6 text-muted-foreground" />
@@ -383,7 +396,7 @@ export function StudentHousesPage() {
               </div>
             ) : (
               houses.map((house) => (
-                <div key={house.id} className="rounded-lg border p-3">
+                <div key={house.id} className="rounded-lg border p-3 shadow-sm" style={{ borderColor: `color-mix(in srgb, ${house.color} 35%, transparent)`, backgroundColor: `color-mix(in srgb, ${house.color} 7%, transparent)` }}>
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
@@ -415,11 +428,11 @@ export function StudentHousesPage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="pb-3">
+        <Card className="gap-0 overflow-hidden border-sky-200/80 bg-gradient-to-br from-white to-sky-50 py-0 shadow-sm dark:border-sky-500/25 dark:from-card dark:to-sky-500/10">
+          <CardHeader className="border-b border-sky-500/15 bg-gradient-to-r from-sky-500/10 via-primary/5 to-cyan-500/10 px-4 py-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <CardTitle className="flex items-center gap-2 text-base">
-                <span className="bg-brand-soft flex size-7 shrink-0 items-center justify-center rounded-lg text-white shadow-sm">
+                <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-primary text-white shadow-sm">
                   <GraduationCap className="size-4" />
                 </span>
                 House Assignment
@@ -431,10 +444,10 @@ export function StudentHousesPage() {
               )}
             </div>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="rounded-lg border bg-card p-4 shadow-sm">
+          <CardContent className="space-y-4 p-4">
+            <div className="rounded-lg border border-sky-200/80 bg-gradient-to-r from-sky-50 to-white p-4 shadow-sm dark:border-sky-500/20 dark:from-sky-500/10 dark:to-card">
               <div className="mb-3 flex items-center gap-2">
-                <span className="flex size-7 items-center justify-center rounded-md bg-muted text-xs font-semibold">1</span>
+                <span className="flex size-7 items-center justify-center rounded-md bg-sky-500 text-xs font-semibold text-white">1</span>
                 <div>
                   <p className="text-sm font-semibold">Find students</p>
                   <p className="text-xs text-muted-foreground">Search, class, section and current house filter.</p>
@@ -476,9 +489,9 @@ export function StudentHousesPage() {
             </div>
 
             <div className="grid gap-4 xl:grid-cols-[1fr_1.25fr_260px]">
-              <div className="rounded-lg border bg-card p-4 shadow-sm">
+              <div className="rounded-lg border border-violet-200/80 bg-gradient-to-br from-violet-50 to-white p-4 shadow-sm dark:border-violet-500/20 dark:from-violet-500/10 dark:to-card">
                 <div className="mb-3 flex items-center gap-2">
-                  <span className="flex size-7 items-center justify-center rounded-md bg-muted text-xs font-semibold">2</span>
+                  <span className="flex size-7 items-center justify-center rounded-md bg-violet-500 text-xs font-semibold text-white">2</span>
                   <div>
                     <p className="text-sm font-semibold">Choose assignment scope</p>
                     <p className="text-xs text-muted-foreground">Decide which students will be updated.</p>
@@ -507,9 +520,9 @@ export function StudentHousesPage() {
                 </div>
               </div>
 
-              <div className="rounded-lg border bg-card p-4 shadow-sm">
+              <div className="rounded-lg border border-emerald-200/80 bg-gradient-to-br from-emerald-50 to-white p-4 shadow-sm dark:border-emerald-500/20 dark:from-emerald-500/10 dark:to-card">
                 <div className="mb-3 flex items-center gap-2">
-                  <span className="flex size-7 items-center justify-center rounded-md bg-muted text-xs font-semibold">3</span>
+                  <span className="flex size-7 items-center justify-center rounded-md bg-emerald-500 text-xs font-semibold text-white">3</span>
                   <div>
                     <p className="text-sm font-semibold">Choose house</p>
                     <p className="text-xs text-muted-foreground">Click a house card to assign.</p>
@@ -545,9 +558,9 @@ export function StudentHousesPage() {
                 )}
               </div>
 
-              <div className="rounded-lg border bg-muted/20 p-4 shadow-sm">
+              <div className="rounded-lg border border-amber-200/80 bg-gradient-to-br from-amber-50 to-white p-4 shadow-sm dark:border-amber-500/20 dark:from-amber-500/10 dark:to-card">
                 <div className="mb-3 flex items-center gap-2">
-                  <span className="flex size-7 items-center justify-center rounded-md bg-background text-xs font-semibold">4</span>
+                  <span className="flex size-7 items-center justify-center rounded-md bg-amber-500 text-xs font-semibold text-white">4</span>
                   <div>
                     <p className="text-sm font-semibold">Apply</p>
                     <p className="text-xs text-muted-foreground">Review before updating.</p>
@@ -581,8 +594,8 @@ export function StudentHousesPage() {
               </div>
             </div>
 
-            <div className="rounded-lg border bg-card shadow-sm">
-              <div className="flex flex-wrap items-center justify-between gap-3 border-b p-3">
+            <div className="overflow-hidden rounded-lg border border-cyan-200/80 bg-card shadow-sm dark:border-cyan-500/20">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-cyan-500/15 bg-gradient-to-r from-cyan-500/10 via-sky-500/5 to-violet-500/10 p-3">
                 <div>
                   <p className="text-sm font-semibold">Student list</p>
                   <p className="text-xs text-muted-foreground">
@@ -600,7 +613,7 @@ export function StudentHousesPage() {
               </div>
               <div className="overflow-x-auto">
               <Table>
-                <TableHeader>
+                <TableHeader className="bg-gradient-to-r from-cyan-500/[0.07] via-sky-500/[0.04] to-violet-500/[0.07]">
                   <TableRow>
                     <TableHead className="w-10">
                       <Checkbox checked={allVisibleSelected} onCheckedChange={(value) => toggleVisibleStudents(value === true)} />
@@ -620,7 +633,7 @@ export function StudentHousesPage() {
                     </TableRow>
                   ) : (
                     filteredStudents.map((student) => (
-                      <TableRow key={student.id}>
+                      <TableRow key={student.id} className="transition-colors hover:bg-cyan-500/[0.045]">
                         <TableCell>
                           <Checkbox
                             checked={selectedStudentIds.includes(student.id)}
