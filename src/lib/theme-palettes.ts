@@ -2,7 +2,7 @@ import type { CSSProperties } from 'react'
 
 // Single fixed brand palette for the whole app: Turquoise.
 // Flat single-tone navbar — primary, accent, border and ring are all the exact
-// same #19A797 so the sidebar shows no shading whatsoever.
+// same #116874 so the sidebar shows no shading whatsoever.
 export interface ThemePalette {
   id: string
   name: string
@@ -17,12 +17,12 @@ export interface ThemePalette {
 export const TURQUOISE_THEME: ThemePalette = {
   id: 'turquoise',
   name: 'Turquoise',
-  primary: '#19A797',
+  primary: '#116874',
   foreground: '#f0fdfa',
-  ring: '#19A797',
-  sidebarAccent: '#19A797',
-  sidebarBorder: '#19A797',
-  chart: ['#19A797', '#2dd4bf', '#5eead4', '#0d9488', '#14887A'],
+  ring: '#116874',
+  sidebarAccent: '#116874',
+  sidebarBorder: '#116874',
+  chart: ['#116874', '#2dd4bf', '#5eead4', '#0d9488', '#14887A'],
 }
 
 export const SCHOOL_THEME_VARIABLE_NAMES = [
