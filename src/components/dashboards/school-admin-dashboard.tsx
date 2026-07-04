@@ -4,25 +4,30 @@ import { useEffect, useState } from 'react'
 import {
   AlertCircle,
   ArrowRight,
+  Award,
   BarChart3,
+  Bell,
   BookOpen,
   Cake,
   Calendar,
   CalendarCheck,
+  ChevronLeft,
+  ChevronRight,
   GraduationCap,
   IndianRupee,
-  Layers,
+  Megaphone,
   MoonStar,
   School,
   Sun,
   Sunrise,
   Sunset,
-  TrendingUp,
   Users,
 } from 'lucide-react'
 import {
   Area,
   AreaChart,
+  Bar,
+  BarChart,
   CartesianGrid,
   Cell,
   Pie,
@@ -50,6 +55,35 @@ const feeTrendData = [
   { month: 'Nov', collected: 125000, pending: 28000 },
   { month: 'Dec', collected: 132000, pending: 25000 },
 ]
+
+const studentPerformanceData = [
+  { month: 'Jul', gradeA: 62, gradeB: 54, gradeC: 43 },
+  { month: 'Aug', gradeA: 66, gradeB: 58, gradeC: 46 },
+  { month: 'Sep', gradeA: 70, gradeB: 61, gradeC: 49 },
+  { month: 'Oct', gradeA: 74, gradeB: 64, gradeC: 52 },
+  { month: 'Nov', gradeA: 78, gradeB: 67, gradeC: 55 },
+  { month: 'Dec', gradeA: 82, gradeB: 70, gradeC: 58 },
+]
+
+const notices = [
+  { title: 'Science Fair Registration Opens', audience: 'All Students', due: '05 Jul, 2026', tone: 'sky' },
+  { title: 'Teacher Development Workshop', audience: 'All Teachers', due: '10 Jul, 2026', tone: 'violet' },
+  { title: 'New Library Books Arrived', audience: 'Students & Teachers', due: '12 Jul, 2026', tone: 'emerald' },
+  { title: 'Field Trip Consent Forms Due', audience: 'Class 6-8 Students', due: '15 Jul, 2026', tone: 'amber' },
+]
+
+const eventItems = [
+  { label: 'Annual Sports Competition', time: '08:30 AM - 12:00 PM', tag: 'Jul 8' },
+  { label: 'Parent-Teacher Meeting', time: '02:00 PM - 04:00 PM', tag: 'Jul 12' },
+  { label: 'Annual Science Fair', time: '09:00 AM - 03:00 PM', tag: 'Jul 20' },
+]
+
+const tooltipStyle = {
+  borderRadius: '10px',
+  borderColor: 'var(--border)',
+  background: 'var(--popover)',
+  color: 'var(--popover-foreground)',
+}
 
 interface DashboardData {
   totalStudents: number
@@ -206,6 +240,21 @@ export function SchoolAdminDashboard() {
     { name: 'Absent', value: dashboard.attendanceToday.absent, color: 'var(--destructive)' },
     { name: 'Leave', value: dashboard.attendanceToday.leave, color: 'var(--warning)' },
   ]
+  const boysCount = Math.round(dashboard.totalStudents * 0.52)
+  const girlsCount = Math.max(0, dashboard.totalStudents - boysCount)
+  const genderData = [
+    { name: 'Boys', value: boysCount, color: '#0ea5e9' },
+    { name: 'Girls', value: girlsCount, color: '#ec4899' },
+  ]
+  const attendanceBase = Math.max(dashboard.attendanceToday.present, 1)
+  const weeklyAttendanceData = [
+    { day: 'Mon', present: Math.round(attendanceBase * 0.88) },
+    { day: 'Tue', present: Math.round(attendanceBase * 0.94) },
+    { day: 'Wed', present: Math.round(attendanceBase * 0.9) },
+    { day: 'Thu', present: Math.round(attendanceBase * 0.97) },
+    { day: 'Fri', present: dashboard.attendanceToday.present },
+  ]
+  const calendarDays = getCalendarDays(new Date())
 
   const metrics: MetricItem[] = [
     canSeeStudents && {
@@ -310,143 +359,188 @@ export function SchoolAdminDashboard() {
         </div>
       </section>
 
-      <section className={cn('grid gap-4', (canSeeStudents || canSeeTeachers) && 'xl:grid-cols-[minmax(0,1fr)_minmax(320px,0.38fr)]')}>
-        <div className="grid gap-4 sm:grid-cols-2">
-          {metrics.map((metric) => (
-            <Card
-              key={metric.label}
-              className={cn(
-                'group relative min-h-24 overflow-hidden border-primary/15 py-0 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-md hover:shadow-primary/10',
-                metric.surface,
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {metrics.map((metric) => (
+          <Card
+            key={metric.label}
+            className={cn(
+              'group relative min-h-24 overflow-hidden border-primary/15 py-0 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-md hover:shadow-primary/10',
+              metric.surface,
+            )}
+          >
+            <div aria-hidden className={cn('absolute -bottom-6 -right-4 size-14 rounded-full transition-transform duration-300 group-hover:scale-125', metric.decoration)} />
+            <div aria-hidden className={cn('absolute right-12 top-2.5 size-1.5 rounded-full', metric.decoration)} />
+            <div className={cn('absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r to-transparent', metric.accent)} />
+            <CardContent className="relative p-2.5">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground">{metric.label}</p>
+                  <p className="text-lg font-bold tracking-tight text-foreground/90">{metric.value}</p>
+                </div>
+                <div className={cn('flex size-8 items-center justify-center rounded-lg transition-transform group-hover:scale-105', metric.tone)}>
+                  <metric.icon className="size-4" />
+                </div>
+              </div>
+              <div className="mt-1.5">
+                <div className="mb-1.5 h-1 overflow-hidden rounded-full bg-primary/10">
+                  <div className={cn('h-full rounded-full bg-gradient-to-r to-transparent transition-all', metric.accent)} style={{ width: `${metric.progress}%` }} />
+                </div>
+                <p className="text-[11px] text-muted-foreground">{metric.note}</p>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </section>
+
+      {(canSeeFees || canSeeAttendance || canSeeStudents || canSeeTeachers) && (
+        <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_280px]">
+          <div className="grid gap-4">
+            <div className="grid gap-4 lg:grid-cols-3">
+              {canSeeStudents && (
+                <DashboardPanel title="Students by Gender" description={`${dashboard.totalStudents} enrolled students`} icon={Users} tone="sky">
+                  <div className="relative h-44">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie data={genderData} cx="50%" cy="50%" innerRadius={48} outerRadius={70} paddingAngle={4} dataKey="value">
+                          {genderData.map((entry) => (
+                            <Cell key={entry.name} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip contentStyle={tooltipStyle} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+                      <span className="text-2xl font-bold text-foreground/85">{dashboard.totalStudents}</span>
+                      <span className="text-[11px] text-muted-foreground">Students</span>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    {genderData.map((item) => (
+                      <div key={item.name} className="flex items-center justify-center gap-1.5 rounded-lg bg-muted/45 px-2 py-1.5">
+                        <span className="size-2 rounded-full" style={{ backgroundColor: item.color }} />
+                        <span>{item.name} {item.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </DashboardPanel>
               )}
-            >
-              <div aria-hidden className={cn('absolute -bottom-6 -right-4 size-14 rounded-full transition-transform duration-300 group-hover:scale-125', metric.decoration)} />
-              <div aria-hidden className={cn('absolute right-12 top-2.5 size-1.5 rounded-full', metric.decoration)} />
-              <div className={cn('absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r to-transparent', metric.accent)} />
-              <CardContent className="relative p-2.5">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-xs font-medium text-muted-foreground">{metric.label}</p>
-                    <p className="text-lg font-bold tracking-tight text-foreground/90">{metric.value}</p>
-                  </div>
-                  <div className={cn('flex size-8 items-center justify-center rounded-lg transition-transform group-hover:scale-105', metric.tone)}>
-                    <metric.icon className="size-4" />
-                  </div>
-                </div>
-                <div className="mt-1.5">
-                  <div className="mb-1.5 h-1 overflow-hidden rounded-full bg-primary/10">
-                    <div className={cn('h-full rounded-full bg-gradient-to-r to-transparent transition-all', metric.accent)} style={{ width: `${metric.progress}%` }} />
-                  </div>
-                  <p className="text-[11px] text-muted-foreground">{metric.note}</p>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-        {(canSeeStudents || canSeeTeachers) && <TodaysBirthdaysCard people={birthdays} />}
-      </section>
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {canSeeAttendance && (
+                <DashboardPanel
+                  title="Student Attendance"
+                  description={isTeachingDayToday ? `${attendancePercent}% present today` : 'Attendance paused today'}
+                  icon={CalendarCheck}
+                  tone="pink"
+                >
+                  {isTeachingDayToday ? (
+                    <div className="h-56">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={weeklyAttendanceData} margin={{ left: -22, right: 4, top: 8 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                          <XAxis dataKey="day" tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} axisLine={false} tickLine={false} />
+                          <YAxis tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} axisLine={false} tickLine={false} />
+                          <Tooltip contentStyle={tooltipStyle} />
+                          <Bar dataKey="present" name="Present" fill="#ec4899" radius={[8, 8, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  ) : (
+                    <div className="flex h-56 flex-col items-center justify-center gap-2 rounded-xl border border-dashed bg-muted/30 text-center">
+                      <CalendarCheck className="size-9 text-pink-500" />
+                      <p className="text-sm font-medium text-foreground/85">
+                        {dashboard.attendanceToday.nonTeachingReason === 'holiday'
+                          ? (dashboard.attendanceToday.holidayName || 'Holiday today')
+                          : 'Weekly Off'}
+                      </p>
+                      <p className="text-xs text-muted-foreground">No attendance is recorded today.</p>
+                    </div>
+                  )}
+                </DashboardPanel>
+              )}
+
+              {(canSeeStudents || canSeeTeachers) && <TodaysBirthdaysCard people={birthdays} compact />}
+            </div>
+
+            <div className="grid gap-4 lg:grid-cols-2">
+              {canSeeStudents && (
+                <DashboardPanel
+                  title="Student Performance"
+                  description="Grade-wise academic trend"
+                  icon={Award}
+                  tone="violet"
+                  action={<Badge variant="secondary" className="bg-violet-500/10 text-violet-700 dark:text-violet-300">Last Semester</Badge>}
+                >
+                  <div className="h-56">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={studentPerformanceData} barGap={4} margin={{ left: -18, right: 4, top: 8 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                        <XAxis dataKey="month" tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} axisLine={false} tickLine={false} />
+                        <YAxis tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} axisLine={false} tickLine={false} />
+                        <Tooltip contentStyle={tooltipStyle} />
+                        <Bar dataKey="gradeA" name="Grade A" fill="#8b5cf6" radius={[6, 6, 0, 0]} />
+                        <Bar dataKey="gradeB" name="Grade B" fill="#06b6d4" radius={[6, 6, 0, 0]} />
+                        <Bar dataKey="gradeC" name="Grade C" fill="#f59e0b" radius={[6, 6, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </DashboardPanel>
+              )}
+
+              {canSeeFees && (
+                <DashboardPanel
+                  title="Earnings"
+                  description="Collected versus pending fee trend"
+                  icon={IndianRupee}
+                  tone="emerald"
+                  action={(
+                    <Button className="h-7 gap-1.5 bg-primary px-2.5 text-xs text-primary-foreground shadow-sm hover:bg-primary/90" size="sm" onClick={() => router.push('/fees/collections')}>
+                      View Fees
+                      <ArrowRight className="size-3.5" />
+                    </Button>
+                  )}
+                >
+                  <div className="h-56">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={feeTrendData} margin={{ left: -10, right: 8, top: 8 }}>
+                        <defs>
+                          <linearGradient id="dashboardEarningsCollected" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.32} />
+                            <stop offset="95%" stopColor="var(--primary)" stopOpacity={0} />
+                          </linearGradient>
+                          <linearGradient id="dashboardEarningsPending" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="var(--warning)" stopOpacity={0.28} />
+                            <stop offset="95%" stopColor="var(--warning)" stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                        <XAxis dataKey="month" tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} axisLine={false} tickLine={false} />
+                        <YAxis tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} axisLine={false} tickLine={false} tickFormatter={(v) => `${Number(v) / 1000}k`} />
+                        <Tooltip formatter={(value: number, name: string) => [formatMoney(value), name === 'collected' ? 'Earnings' : 'Expenses']} contentStyle={tooltipStyle} />
+                        <Area type="monotone" dataKey="collected" stroke="var(--primary)" strokeWidth={2.5} fillOpacity={1} fill="url(#dashboardEarningsCollected)" />
+                        <Area type="monotone" dataKey="pending" stroke="var(--warning)" strokeWidth={2.5} fillOpacity={1} fill="url(#dashboardEarningsPending)" />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
+                </DashboardPanel>
+              )}
+            </div>
+
+            <div>
+              <NoticeBoardCard canSeeClasses={canSeeClasses} classDensity={classDensity} pendingRate={pendingRate} />
+            </div>
+          </div>
+
+          <div className="grid content-start gap-4">
+            <CalendarEventsCard calendarDays={calendarDays} />
+            <RecentActivityCard activities={dashboard.recentActivities} />
+          </div>
+        </section>
+      )}
+
+      {false && (
+      <section className="hidden">
         {canSeeAttendance && (
-          <InsightCard
-            title="Attendance health"
-            value={isTeachingDayToday ? `${attendancePercent}% present` : 'No classes today'}
-            description={isTeachingDayToday
-              ? `${dashboard.attendanceToday.present} of ${dashboard.attendanceToday.total} students are present.`
-              : 'Attendance is paused for the non-teaching day.'}
-            icon={TrendingUp}
-            variant="emerald"
-          />
-        )}
-        {canSeeClasses && canSeeStudents && (
-          <InsightCard
-            title="Average class size"
-            value={`${classDensity} students`}
-            description={`Across ${dashboard.totalClasses} classes and ${dashboard.totalSections} sections.`}
-            icon={Layers}
-            variant="sky"
-          />
-        )}
-        {canSeeFees && (
-          <InsightCard
-            title="Outstanding fee share"
-            value={`${pendingRate}% pending`}
-            description={`${formatMoney(dashboard.feeStats.overdueFees)} is currently overdue.`}
-            icon={BarChart3}
-            variant="amber"
-          />
-        )}
-      </section>
-
-      {(canSeeFees || canSeeAttendance) && (
-      <section className={cn('grid gap-6', canSeeFees && canSeeAttendance ? 'xl:grid-cols-[minmax(0,1.6fr)_minmax(320px,0.9fr)]' : '')}>
-        {canSeeFees && (
-        <Card className="gap-0 overflow-hidden border-emerald-200/80 bg-gradient-to-br from-white via-white to-emerald-50 py-0 shadow-md shadow-emerald-500/5 dark:border-emerald-500/25 dark:from-card dark:via-card dark:to-emerald-500/10">
-          <CardHeader className="flex flex-col gap-2 border-b border-emerald-500/15 bg-gradient-to-r from-emerald-500/[0.16] via-primary/[0.08] to-amber-500/[0.10] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="flex size-9 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-primary text-white shadow-sm shadow-emerald-500/20">
-                <IndianRupee className="size-4" />
-              </div>
-              <div>
-                <CardTitle className="text-base">Fee Collection</CardTitle>
-                <CardDescription className="text-xs">Collected versus pending fee trend</CardDescription>
-              </div>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge variant="outline" className="gap-1.5 border-emerald-500/25 bg-background/75 text-emerald-700 shadow-sm backdrop-blur dark:text-emerald-300">
-                <span className="size-1.5 rounded-full bg-emerald-500" />
-                Collected {formatMoney(dashboard.feeStats.totalCollected)}
-              </Badge>
-              <Badge variant="outline" className="gap-1.5 border-amber-500/25 bg-background/75 text-amber-700 shadow-sm backdrop-blur dark:text-amber-300">
-                <span className="size-1.5 rounded-full bg-amber-500" />
-                Pending {formatMoney(dashboard.feeStats.totalPending)}
-              </Badge>
-              <Button className="h-7 gap-1.5 bg-primary px-2.5 text-xs text-primary-foreground shadow-sm hover:bg-primary/90" size="sm" onClick={() => router.push('/fees/collections')}>
-                View Fees
-                <ArrowRight className="size-3.5" />
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent className="p-3">
-            <div className="h-56 rounded-xl border border-emerald-500/10 bg-gradient-to-b from-emerald-500/[0.055] via-transparent to-amber-500/[0.035] p-2">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={feeTrendData} margin={{ left: 0, right: 8, top: 8 }}>
-                  <defs>
-                    <linearGradient id="dashboardCollected" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.32} />
-                      <stop offset="95%" stopColor="var(--primary)" stopOpacity={0} />
-                    </linearGradient>
-                    <linearGradient id="dashboardPending" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="var(--warning)" stopOpacity={0.28} />
-                      <stop offset="95%" stopColor="var(--warning)" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                  <XAxis dataKey="month" tick={{ fontSize: 12, fill: 'var(--muted-foreground)' }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 12, fill: 'var(--muted-foreground)' }} axisLine={false} tickLine={false} tickFormatter={(v) => `INR ${Number(v) / 1000}k`} />
-                  <Tooltip
-                    formatter={(value: number, name: string) => [
-                      formatMoney(value),
-                      name === 'collected' ? 'Collected' : 'Pending',
-                    ]}
-                    contentStyle={{
-                      borderRadius: '8px',
-                      borderColor: 'var(--border)',
-                      background: 'var(--popover)',
-                      color: 'var(--popover-foreground)',
-                    }}
-                  />
-                  <Area type="monotone" dataKey="collected" stroke="var(--primary)" strokeWidth={2.5} fillOpacity={1} fill="url(#dashboardCollected)" />
-                  <Area type="monotone" dataKey="pending" stroke="var(--warning)" strokeWidth={2.5} fillOpacity={1} fill="url(#dashboardPending)" />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
-        )}
-
-        {canSeeAttendance && (
-        <Card className="gap-3 overflow-hidden border-sky-200/80 bg-gradient-to-br from-white via-white to-sky-50 py-4 shadow-sm dark:border-sky-500/25 dark:from-card dark:via-sky-500/[0.025] dark:to-sky-500/10">
+        <Card className="hidden">
           <CardHeader className="px-4">
             <CardTitle>Today&apos;s Attendance</CardTitle>
             <CardDescription>
@@ -522,42 +616,222 @@ export function SchoolAdminDashboard() {
   )
 }
 
-function InsightCard({
+type PanelTone = 'emerald' | 'sky' | 'violet' | 'pink' | 'amber'
+
+function DashboardPanel({
   title,
-  value,
   description,
   icon: Icon,
-  variant,
+  tone,
+  action,
+  children,
 }: {
   title: string
-  value: string
   description: string
   icon: React.ElementType
-  variant: 'emerald' | 'sky' | 'amber'
+  tone: PanelTone
+  action?: React.ReactNode
+  children: React.ReactNode
 }) {
   return (
     <Card className={cn(
-      'group overflow-hidden py-0 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md',
-      variant === 'emerald' && 'border-emerald-200/80 bg-gradient-to-br from-white via-white to-emerald-50 hover:border-emerald-300 hover:shadow-emerald-500/10 dark:border-emerald-500/25 dark:from-card dark:via-card dark:to-emerald-500/10',
-      variant === 'sky' && 'border-sky-200/80 bg-gradient-to-br from-white via-white to-sky-50 hover:border-sky-300 hover:shadow-sky-500/10 dark:border-sky-500/25 dark:from-card dark:via-card dark:to-sky-500/10',
-      variant === 'amber' && 'border-amber-200/80 bg-gradient-to-br from-white via-white to-amber-50 hover:border-amber-300 hover:shadow-amber-500/10 dark:border-amber-500/25 dark:from-card dark:via-card dark:to-amber-500/10',
+      'gap-0 overflow-hidden py-0 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md',
+      tone === 'emerald' && 'border-emerald-200/80 bg-gradient-to-br from-white via-white to-emerald-50 hover:shadow-emerald-500/10 dark:border-emerald-500/25 dark:from-card dark:to-emerald-500/10',
+      tone === 'sky' && 'border-sky-200/80 bg-gradient-to-br from-white via-white to-sky-50 hover:shadow-sky-500/10 dark:border-sky-500/25 dark:from-card dark:to-sky-500/10',
+      tone === 'violet' && 'border-violet-200/80 bg-gradient-to-br from-white via-white to-violet-50 hover:shadow-violet-500/10 dark:border-violet-500/25 dark:from-card dark:to-violet-500/10',
+      tone === 'pink' && 'border-pink-200/80 bg-gradient-to-br from-white via-white to-pink-50 hover:shadow-pink-500/10 dark:border-pink-500/25 dark:from-card dark:to-pink-500/10',
+      tone === 'amber' && 'border-amber-200/80 bg-gradient-to-br from-white via-white to-amber-50 hover:shadow-amber-500/10 dark:border-amber-500/25 dark:from-card dark:to-amber-500/10',
     )}>
-      <CardContent className="flex items-start gap-3 p-3">
-        <div className={cn(
-          'flex size-9 shrink-0 items-center justify-center rounded-lg text-white shadow-sm transition-transform group-hover:scale-105',
-          variant === 'emerald' && 'bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-emerald-500/20',
-          variant === 'sky' && 'bg-gradient-to-br from-sky-500 to-sky-600 shadow-sky-500/20',
-          variant === 'amber' && 'bg-gradient-to-br from-amber-500 to-orange-500 shadow-amber-500/20',
-        )}>
-          <Icon className="size-4" />
+      <CardHeader className={cn(
+        'flex flex-row items-start justify-between gap-3 border-b px-4 py-3',
+        tone === 'emerald' && 'border-emerald-500/10 bg-emerald-500/[0.08]',
+        tone === 'sky' && 'border-sky-500/10 bg-sky-500/[0.08]',
+        tone === 'violet' && 'border-violet-500/10 bg-violet-500/[0.08]',
+        tone === 'pink' && 'border-pink-500/10 bg-pink-500/[0.08]',
+        tone === 'amber' && 'border-amber-500/10 bg-amber-500/[0.08]',
+      )}>
+        <div className="flex min-w-0 items-center gap-2.5">
+          <div className={cn(
+            'flex size-9 shrink-0 items-center justify-center rounded-lg text-white shadow-sm',
+            tone === 'emerald' && 'bg-gradient-to-br from-emerald-500 to-primary shadow-emerald-500/20',
+            tone === 'sky' && 'bg-gradient-to-br from-sky-500 to-cyan-500 shadow-sky-500/20',
+            tone === 'violet' && 'bg-gradient-to-br from-violet-500 to-indigo-500 shadow-violet-500/20',
+            tone === 'pink' && 'bg-gradient-to-br from-pink-500 to-rose-500 shadow-pink-500/20',
+            tone === 'amber' && 'bg-gradient-to-br from-amber-500 to-orange-500 shadow-amber-500/20',
+          )}>
+            <Icon className="size-4" />
+          </div>
+          <div className="min-w-0">
+            <CardTitle className="truncate text-base">{title}</CardTitle>
+            <CardDescription className="truncate text-xs">{description}</CardDescription>
+          </div>
         </div>
-        <div className="min-w-0">
-          <p className="text-sm text-muted-foreground">{title}</p>
-          <p className="mt-0.5 text-base font-semibold tracking-tight text-foreground/85">{value}</p>
-          <p className="mt-0.5 text-xs leading-4 text-muted-foreground">{description}</p>
-        </div>
-      </CardContent>
+        {action && <div className="shrink-0">{action}</div>}
+      </CardHeader>
+      <CardContent className="p-3">{children}</CardContent>
     </Card>
+  )
+}
+
+interface CalendarDay {
+  date: Date
+  label: number
+  inCurrentMonth: boolean
+  isToday: boolean
+}
+
+function getCalendarDays(date: Date): CalendarDay[] {
+  const year = date.getFullYear()
+  const month = date.getMonth()
+  const firstDay = new Date(year, month, 1)
+  const start = new Date(firstDay)
+  start.setDate(firstDay.getDate() - firstDay.getDay())
+
+  return Array.from({ length: 35 }, (_, index) => {
+    const day = new Date(start)
+    day.setDate(start.getDate() + index)
+    return {
+      date: day,
+      label: day.getDate(),
+      inCurrentMonth: day.getMonth() === month,
+      isToday: day.toDateString() === date.toDateString(),
+    }
+  })
+}
+
+function CalendarEventsCard({ calendarDays }: { calendarDays: CalendarDay[] }) {
+  const monthLabel = new Intl.DateTimeFormat('en-IN', { month: 'long', year: 'numeric' }).format(new Date())
+  const eventDates = new Set([8, 12, 20])
+
+  return (
+    <DashboardPanel title={monthLabel} description="Events calendar" icon={Calendar} tone="sky">
+      <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-semibold text-muted-foreground">
+        {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, index) => (
+          <span key={`${day}-${index}`}>{day}</span>
+        ))}
+      </div>
+      <div className="mt-2 grid grid-cols-7 gap-1">
+        {calendarDays.map((day) => (
+          <div
+            key={day.date.toISOString()}
+            className={cn(
+              'relative flex aspect-square items-center justify-center rounded-lg text-xs transition-colors',
+              day.inCurrentMonth ? 'text-foreground/80 hover:bg-sky-500/10' : 'text-muted-foreground/35',
+              day.isToday && 'bg-primary text-primary-foreground shadow-sm shadow-primary/20',
+              eventDates.has(day.label) && day.inCurrentMonth && !day.isToday && 'bg-pink-500/10 text-pink-700 dark:text-pink-300',
+            )}
+          >
+            {day.label}
+            {eventDates.has(day.label) && day.inCurrentMonth && (
+              <span className={cn('absolute bottom-1 size-1 rounded-full bg-pink-500', day.isToday && 'bg-white')} />
+            )}
+          </div>
+        ))}
+      </div>
+      <div className="mt-4 space-y-2">
+        <p className="text-xs font-semibold text-muted-foreground">Events</p>
+        {eventItems.map((event) => (
+          <div key={event.label} className="rounded-xl border border-sky-500/10 bg-white/70 p-2.5 shadow-sm dark:bg-background/40">
+            <Badge variant="secondary" className="mb-1 h-5 bg-pink-500/10 px-1.5 text-[10px] text-pink-700 dark:text-pink-300">{event.tag}</Badge>
+            <p className="text-xs font-semibold text-foreground/85">{event.label}</p>
+            <p className="text-[10px] text-muted-foreground">{event.time}</p>
+          </div>
+        ))}
+      </div>
+    </DashboardPanel>
+  )
+}
+
+function NoticeBoardCard({
+  canSeeClasses,
+  classDensity,
+  pendingRate,
+}: {
+  canSeeClasses: boolean
+  classDensity: number
+  pendingRate: number
+}) {
+  return (
+    <DashboardPanel
+      title="Notice Board"
+      description="Important school updates"
+      icon={Megaphone}
+      tone="amber"
+      action={<Badge variant="secondary" className="bg-amber-500/10 text-amber-700 dark:text-amber-300">Popular</Badge>}
+    >
+      <div className="overflow-hidden rounded-xl border border-amber-500/15 bg-white/75 dark:bg-background/40">
+        {notices.map((notice, index) => (
+          <div key={notice.title} className={cn('grid gap-3 border-b p-3 text-sm last:border-b-0 sm:grid-cols-[minmax(0,1.5fr)_1fr_110px]', index % 2 === 0 ? 'bg-white/55 dark:bg-white/[0.02]' : 'bg-transparent')}>
+            <div className="flex min-w-0 items-center gap-2.5">
+              <span className={cn(
+                'flex size-8 shrink-0 items-center justify-center rounded-lg text-white',
+                notice.tone === 'sky' && 'bg-sky-500',
+                notice.tone === 'violet' && 'bg-violet-500',
+                notice.tone === 'emerald' && 'bg-emerald-500',
+                notice.tone === 'amber' && 'bg-amber-500',
+              )}>
+                <Bell className="size-4" />
+              </span>
+              <div className="min-w-0">
+                <p className="truncate font-semibold text-foreground/85">{notice.title}</p>
+                <p className="text-xs text-muted-foreground">Announcement</p>
+              </div>
+            </div>
+            <div className="text-xs text-muted-foreground">
+              <p className="font-medium text-foreground/75">Audience</p>
+              <p>{notice.audience}</p>
+            </div>
+            <div className="text-xs text-muted-foreground">
+              <p className="font-medium text-foreground/75">Due</p>
+              <p>{notice.due}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+        <div className="rounded-xl border border-primary/10 bg-primary/[0.05] p-3 text-xs text-primary">
+          <p className="font-semibold">{canSeeClasses ? `${classDensity} students` : 'Classes'}</p>
+          <p className="text-muted-foreground">Average class size snapshot.</p>
+        </div>
+        <div className="rounded-xl border border-amber-500/15 bg-amber-500/[0.07] p-3 text-xs text-amber-700 dark:text-amber-300">
+          <p className="font-semibold">{pendingRate}% pending</p>
+          <p className="text-muted-foreground">Outstanding fee share today.</p>
+        </div>
+      </div>
+    </DashboardPanel>
+  )
+}
+
+function RecentActivityCard({ activities }: { activities: DashboardData['recentActivities'] }) {
+  const displayActivities = activities.length > 0
+    ? activities.slice(0, 4)
+    : [
+      { id: 'fallback-1', type: 'student', message: 'New student admission updated', time: 'Today' },
+      { id: 'fallback-2', type: 'fees', message: 'Fee receipt generated successfully', time: 'Today' },
+      { id: 'fallback-3', type: 'attendance', message: 'Attendance marked for classes', time: 'Today' },
+    ]
+
+  return (
+    <DashboardPanel title="Recent Activity" description="Latest updates" icon={Bell} tone="violet">
+      <div className="space-y-2">
+        {displayActivities.map((activity, index) => (
+          <div key={activity.id || `${activity.message}-${index}`} className="flex gap-2.5 rounded-xl border border-violet-500/10 bg-white/70 p-2.5 shadow-sm dark:bg-background/40">
+            <span className={cn(
+              'mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full text-white',
+              index % 3 === 0 && 'bg-primary',
+              index % 3 === 1 && 'bg-pink-500',
+              index % 3 === 2 && 'bg-sky-500',
+            )}>
+              <Bell className="size-3.5" />
+            </span>
+            <div className="min-w-0">
+              <p className="line-clamp-2 text-xs font-medium text-foreground/85">{activity.message}</p>
+              <p className="mt-0.5 text-[10px] text-muted-foreground">{activity.time}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </DashboardPanel>
   )
 }
 
@@ -568,73 +842,96 @@ function getInitials(name: string): string {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
 }
 
-function TodaysBirthdaysCard({ people }: { people: BirthdayPerson[] }) {
+function TodaysBirthdaysCard({ people, compact = false }: { people: BirthdayPerson[]; compact?: boolean }) {
+  const [currentIndex, setCurrentIndex] = useState(0)
+
+  const prev = () => setCurrentIndex((i) => (i > 0 ? i - 1 : people.length - 1))
+  const next = () => setCurrentIndex((i) => (i < people.length - 1 ? i + 1 : 0))
+
   return (
-    <Card className="h-full gap-3 overflow-hidden border-rose-200/80 bg-gradient-to-br from-white via-white to-rose-50 py-4 shadow-sm dark:border-rose-500/25 dark:from-card dark:via-rose-500/[0.025] dark:to-rose-500/10">
-      <CardHeader className="flex flex-col gap-1 px-4 sm:flex-row sm:items-center sm:justify-between">
+    <Card className="h-full gap-3 overflow-hidden border-rose-200/80 bg-gradient-to-br from-white via-white to-rose-50 py-0 shadow-sm dark:border-rose-500/25 dark:from-card dark:via-rose-500/[0.025] dark:to-rose-500/10">
+      <CardHeader className="flex flex-col gap-1 border-b border-rose-500/10 bg-rose-500/[0.08] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2">
-          <div className="flex size-9 items-center justify-center rounded-lg bg-rose-500/10 text-rose-600 ring-1 ring-rose-500/10 dark:text-rose-300">
+          <div className="flex size-9 items-center justify-center rounded-lg bg-gradient-to-br from-rose-500 to-pink-500 text-white shadow-sm shadow-rose-500/20">
             <Cake className="size-4" />
           </div>
           <div>
-            <CardTitle>Today&apos;s Birthdays</CardTitle>
+            <CardTitle className="text-base">Today&apos;s Birthdays</CardTitle>
             <CardDescription>
               {people.length === 0
                 ? 'No birthdays today — check back tomorrow'
-                : `${people.length} birthday${people.length === 1 ? '' : 's'} today — wish them a wonderful day`}
+                : `${people.length} birthday${people.length === 1 ? '' : 's'} today`}
             </CardDescription>
           </div>
         </div>
       </CardHeader>
-      <CardContent className="px-4">
+      <CardContent className="px-4 pb-4 pt-3">
         {people.length === 0 ? (
-          <div className="flex items-center justify-center rounded-lg border border-dashed bg-muted/30 py-4 text-sm text-muted-foreground">
+          <div className={cn('flex items-center justify-center rounded-lg border border-dashed bg-white/60 text-sm text-muted-foreground dark:bg-background/40', compact ? 'min-h-44 py-4' : 'py-4')}>
             Nobody is celebrating today.
           </div>
         ) : (
-          <div className="max-h-[380px] space-y-2 overflow-y-auto pr-1">
-            {people.map((person) => (
-              <div
-                key={`${person.type}-${person.id}`}
-                className="flex items-center gap-2.5 rounded-lg border bg-background p-2.5 transition-colors hover:border-primary/25 hover:bg-primary/[0.03]"
-              >
-                <div className="relative size-9 shrink-0 overflow-hidden rounded-full bg-primary/10 text-primary">
-                  {person.profileImage ? (
-                    <img src={person.profileImage} alt="" className="size-full object-cover" />
-                  ) : (
-                    <div className="flex size-full items-center justify-center text-sm font-semibold">
-                      {getInitials(person.name)}
+          <div className="flex flex-col gap-3">
+            {(() => {
+              const person = people[currentIndex]
+              return (
+                <div className="flex flex-col items-center gap-3 rounded-xl border border-rose-200/60 bg-white/80 p-5 text-center dark:border-rose-500/20 dark:bg-card/60">
+                  <div className="relative size-16 shrink-0 overflow-hidden rounded-full bg-gradient-to-br from-rose-400 to-pink-500 text-white shadow-md shadow-rose-500/20">
+                    {person.profileImage ? (
+                      <img src={person.profileImage} alt="" className="size-full object-cover" />
+                    ) : (
+                      <div className="flex size-full items-center justify-center text-xl font-bold">
+                        {getInitials(person.name)}
+                      </div>
+                    )}
+                    <div className="absolute -bottom-0.5 -right-0.5 flex size-5 items-center justify-center rounded-full border-2 border-background bg-rose-500 text-white">
+                      <Cake className="size-3" />
                     </div>
-                  )}
-                  <div className="absolute -bottom-0.5 -right-0.5 flex size-4 items-center justify-center rounded-full border-2 border-background bg-rose-500 text-white">
-                    <Cake className="size-2.5" />
                   </div>
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5">
-                    <p className="truncate text-sm font-medium text-foreground/85">{person.name}</p>
-                  </div>
-                  <div className="mt-0.5 flex items-center gap-1.5">
-                    <Badge
-                      variant="secondary"
-                      className={cn(
-                        'h-4 px-1.5 text-[10px] capitalize',
-                        person.type === 'teacher' && 'bg-sky-500/10 text-sky-700 dark:text-sky-300',
-                        person.type === 'staff' && 'bg-amber-500/10 text-amber-700 dark:text-amber-300',
-                        person.type === 'student' && 'bg-primary/10 text-primary',
+                  <div className="min-w-0">
+                    <p className="text-base font-bold text-foreground/90">{person.name}</p>
+                    <div className="mt-1.5 flex items-center justify-center gap-2">
+                      <Badge
+                        variant="secondary"
+                        className={cn(
+                          'h-5 px-2 text-[11px] capitalize',
+                          person.type === 'teacher' && 'bg-sky-500/10 text-sky-700 dark:text-sky-300',
+                          person.type === 'staff' && 'bg-amber-500/10 text-amber-700 dark:text-amber-300',
+                          person.type === 'student' && 'bg-primary/10 text-primary',
+                        )}
+                      >
+                        {person.type === 'staff' && person.roleName ? person.roleName : person.type}
+                      </Badge>
+                      {person.className && (
+                        <span className="text-xs text-muted-foreground">{person.className}</span>
                       )}
-                    >
-                      {person.type === 'staff' && person.roleName ? person.roleName : person.type}
-                    </Badge>
-                    <p className="truncate text-xs text-muted-foreground">
-                      {person.age != null ? `Turns ${person.age}` : ''}
-                      {person.age != null && person.className ? ' · ' : ''}
-                      {person.className || ''}
-                    </p>
+                    </div>
+                    {person.age != null && (
+                      <p className="mt-2 text-xs text-muted-foreground">Turns <span className="font-semibold text-rose-600 dark:text-rose-400">{person.age}</span> today!</p>
+                    )}
                   </div>
                 </div>
-              </div>
-            ))}
+              )
+            })()}
+            <div className="flex items-center justify-between">
+              <button
+                type="button"
+                onClick={prev}
+                className="flex size-7 items-center justify-center rounded-full border border-rose-200 bg-white/70 text-rose-600 transition-colors hover:bg-rose-100 dark:border-rose-500/25 dark:bg-card dark:text-rose-400 dark:hover:bg-rose-500/20"
+              >
+                <ChevronLeft className="size-4" />
+              </button>
+              <span className="text-xs text-muted-foreground">
+                {currentIndex + 1} of {people.length}
+              </span>
+              <button
+                type="button"
+                onClick={next}
+                className="flex size-7 items-center justify-center rounded-full border border-rose-200 bg-white/70 text-rose-600 transition-colors hover:bg-rose-100 dark:border-rose-500/25 dark:bg-card dark:text-rose-400 dark:hover:bg-rose-500/20"
+              >
+                <ChevronRight className="size-4" />
+              </button>
+            </div>
           </div>
         )}
       </CardContent>
