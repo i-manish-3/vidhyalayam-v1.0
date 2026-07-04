@@ -63,6 +63,7 @@ import { ImpersonationBanner } from '@/components/super-admin/impersonation-bann
 import { PlatformAnnouncementBanner } from '@/components/super-admin/platform-announcement-banner'
 import { ChatbotWidget } from '@/features/chatbot/chatbot-widget'
 import { resolveMigratedUrl } from '@/lib/migrated-routes'
+import { cn } from '@/lib/utils'
 import { NotificationBell } from '@/components/notifications/notification-bell'
 
 function PastYearGlobalBanner() {
@@ -187,6 +188,20 @@ type StickyQuickMenuDropdown = {
 }
 
 type StickyQuickMenuItem = StickyQuickMenuLink | StickyQuickMenuDropdown
+
+function quickMenuTone(label: string) {
+  const tones: Record<string, { icon: string; hover: string }> = {
+    'Student List': { icon: 'bg-sky-500/12 text-sky-600 dark:text-sky-300', hover: 'hover:bg-sky-500/10 hover:text-sky-700 dark:hover:text-sky-300' },
+    Timetable: { icon: 'bg-violet-500/12 text-violet-600 dark:text-violet-300', hover: 'hover:bg-violet-500/10 hover:text-violet-700 dark:hover:text-violet-300' },
+    Exam: { icon: 'bg-amber-500/14 text-amber-600 dark:text-amber-300', hover: 'hover:bg-amber-500/10 hover:text-amber-700 dark:hover:text-amber-300' },
+    'Collect Fees': { icon: 'bg-emerald-500/12 text-emerald-600 dark:text-emerald-300', hover: 'hover:bg-emerald-500/10 hover:text-emerald-700 dark:hover:text-emerald-300' },
+    Attendance: { icon: 'bg-rose-500/12 text-rose-600 dark:text-rose-300', hover: 'hover:bg-rose-500/10 hover:text-rose-700 dark:hover:text-rose-300' },
+    Inventory: { icon: 'bg-orange-500/12 text-orange-600 dark:text-orange-300', hover: 'hover:bg-orange-500/10 hover:text-orange-700 dark:hover:text-orange-300' },
+    Admission: { icon: 'bg-cyan-500/12 text-cyan-600 dark:text-cyan-300', hover: 'hover:bg-cyan-500/10 hover:text-cyan-700 dark:hover:text-cyan-300' },
+    'Account Reports': { icon: 'bg-indigo-500/12 text-indigo-600 dark:text-indigo-300', hover: 'hover:bg-indigo-500/10 hover:text-indigo-700 dark:hover:text-indigo-300' },
+  }
+  return tones[label] || { icon: 'bg-primary/10 text-primary', hover: 'hover:bg-primary/10 hover:text-primary' }
+}
 
 function UniversalSearch() {
   const router = useRouter()
@@ -840,9 +855,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <main className="flex-1 min-w-0 overflow-y-auto flex flex-col bg-brand-page">
           {/* Sticky Quick Access Menubar */}
           {!hideStickyQuickMenu && visibleItems.length > 0 && (
-            <div className="sticky top-0 z-20 shrink-0 flex items-center h-10 px-4 lg:px-6 bg-card/90 backdrop-blur-md border-b border-border/40 shadow-sm overflow-x-auto no-scrollbar">
+            <div className="no-scrollbar sticky top-0 z-20 flex h-10 shrink-0 items-center overflow-x-auto overflow-y-hidden border-b border-border/40 bg-card/90 px-4 shadow-sm backdrop-blur-md lg:px-6">
               <div className="flex items-center gap-2 sm:gap-4 text-[13px] font-medium py-1">
                 {visibleItems.map((item) => {
+                  const tone = quickMenuTone(item.label)
                   if (item.type === 'dropdown') {
                     const isDropdownActive = item.children.some(child => pathname === child.href || pathname.startsWith(child.href + '/'))
                     return (
@@ -850,15 +866,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                         <DropdownMenuTrigger asChild>
                           <button
                             type="button"
-                            className={`group flex items-center gap-1.5 py-1 px-2.5 rounded-md hover:bg-accent hover:text-foreground transition-all duration-200 text-muted-foreground/90 font-medium text-[13px] tracking-wide cursor-pointer ${
-                              isDropdownActive ? 'bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary font-semibold' : ''
-                            }`}
+                            className={cn(
+                              'group flex cursor-pointer items-center gap-1.5 rounded-md px-2 py-1 text-[13px] font-medium tracking-wide text-muted-foreground/90 transition-all duration-200',
+                              tone.hover,
+                              isDropdownActive && 'bg-primary/10 font-semibold text-primary hover:bg-primary/15 hover:text-primary',
+                            )}
                           >
-                             <item.icon
-                               className="size-4 shrink-0"
-                               stroke="currentColor"
-                               fill="none"
-                             />
+                            <span className={cn(
+                              'flex size-6 shrink-0 items-center justify-center rounded-md transition-transform group-hover:scale-105',
+                              isDropdownActive ? 'bg-primary text-primary-foreground' : tone.icon,
+                            )}>
+                              <item.icon className="size-3.5" stroke="currentColor" fill="none" />
+                            </span>
                             <span>{item.label}</span>
                             <ChevronDown className="size-3.5 opacity-60 transition-transform duration-200 group-data-[state=open]:rotate-180" />
                           </button>
@@ -867,6 +886,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                           {item.children.map((child) => {
                             const isChildActive = pathname === child.href || pathname.startsWith(child.href + '/')
                             const ChildIcon = child.icon
+                            const childTone = quickMenuTone(child.label)
                             return (
                               <DropdownMenuItem key={child.label} asChild>
                                 <Link
@@ -875,7 +895,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                                     isChildActive ? 'bg-accent font-semibold text-primary' : ''
                                   }`}
                                 >
-                                  {ChildIcon && <ChildIcon className="size-4 shrink-0" />}
+                                  {ChildIcon && (
+                                    <span className={cn('flex size-6 shrink-0 items-center justify-center rounded-md', isChildActive ? 'bg-primary text-primary-foreground' : childTone.icon)}>
+                                      <ChildIcon className="size-3.5" />
+                                    </span>
+                                  )}
                                   {child.label}
                                 </Link>
                               </DropdownMenuItem>
@@ -891,15 +915,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     <Link
                       key={item.label}
                       href={item.href}
-                      className={`group flex items-center gap-1.5 py-1 px-2.5 rounded-md hover:bg-accent hover:text-foreground transition-all duration-200 text-muted-foreground/90 font-medium text-[13px] tracking-wide cursor-pointer ${
-                        isActive ? 'bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary font-semibold' : ''
-                      }`}
+                      className={cn(
+                        'group flex cursor-pointer items-center gap-1.5 rounded-md px-2 py-1 text-[13px] font-medium tracking-wide text-muted-foreground/90 transition-all duration-200',
+                        tone.hover,
+                        isActive && 'bg-primary/10 font-semibold text-primary hover:bg-primary/15 hover:text-primary',
+                      )}
                     >
-                       <item.icon
-                         className="size-4 shrink-0"
-                         stroke="currentColor"
-                         fill="none"
-                       />
+                      <span className={cn(
+                        'flex size-6 shrink-0 items-center justify-center rounded-md transition-transform group-hover:scale-105',
+                        isActive ? 'bg-primary text-primary-foreground' : tone.icon,
+                      )}>
+                        <item.icon className="size-3.5" stroke="currentColor" fill="none" />
+                      </span>
                       <span>{item.label}</span>
                     </Link>
                   )

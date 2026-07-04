@@ -240,6 +240,18 @@ body::-webkit-scrollbar-thumb:hover,
   background: var(--scrollbar-thumb, var(--primary));
 }
 
+/* Hide native scrollbar chrome while preserving scrolling. */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
 /* Infinite marquee animation for testimonials — seamless circular loop */
 .quick-actions-scrollbar {
   scrollbar-color: color-mix(in oklch, var(--primary) 58%, var(--border)) transparent;

@@ -13,7 +13,7 @@ import {
   GraduationCap,
   IndianRupee,
   Layers,
-  Sparkles,
+  School,
   TrendingUp,
   UserPlus,
   Users,
@@ -245,10 +245,10 @@ export function SchoolAdminDashboard() {
   ].filter(Boolean) as MetricItem[]
 
   const quickActions = [
-    canSeeStudents && { label: 'Admit Student', icon: UserPlus, href: '/students/admit' },
-    canSeeFees && { label: 'Collect Fee', icon: IndianRupee, href: '/fees/collections' },
-    canSeeAttendance && { label: 'Mark Attendance', icon: ClipboardCheck, href: '/attendance/mark' },
-  ].filter(Boolean) as Array<{ label: string; icon: React.ElementType; href: string }>
+    canSeeStudents && { label: 'Admit Student', icon: UserPlus, href: '/students/admit', tone: 'border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100' },
+    canSeeFees && { label: 'Collect Fee', icon: IndianRupee, href: '/fees/collections', tone: 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100' },
+    canSeeAttendance && { label: 'Mark Attendance', icon: ClipboardCheck, href: '/attendance/mark', tone: 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100' },
+  ].filter(Boolean) as Array<{ label: string; icon: React.ElementType; href: string; tone: string }>
 
   const todayLabel = new Intl.DateTimeFormat('en-IN', {
     weekday: 'long',
@@ -261,24 +261,28 @@ export function SchoolAdminDashboard() {
 
   return (
     <div className="space-y-6">
-      <section className="relative overflow-hidden rounded-xl border border-primary/20 bg-gradient-to-r from-primary via-primary to-primary/85 px-4 py-4 text-primary-foreground shadow-md shadow-primary/10 sm:px-5">
-        <div aria-hidden className="absolute -right-10 -top-12 size-36 rounded-full border-[18px] border-white/10" />
+      <section className="relative overflow-hidden rounded-xl border border-primary/25 bg-gradient-to-r from-primary via-teal-600 to-sky-600 px-4 py-4 text-white shadow-lg shadow-primary/15 sm:px-5">
+        <div aria-hidden className="absolute -right-10 -top-12 size-36 rounded-full border-[18px] border-sky-200/20" />
+        <div aria-hidden className="absolute -bottom-16 right-36 size-28 rounded-full bg-amber-300/15 blur-sm" />
+        <div aria-hidden className="absolute left-1/3 top-0 h-px w-48 bg-gradient-to-r from-transparent via-white/50 to-transparent" />
         <div className="relative flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex min-w-0 items-center gap-3">
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-white/15 bg-white/10 shadow-sm backdrop-blur-sm">
-              <Sparkles className="size-5 text-amber-200" />
+            <div className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-white/25 bg-white/15 text-white shadow-md shadow-black/10 backdrop-blur-sm">
+              <School className="size-6" strokeWidth={1.8} />
             </div>
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                 <h1 className="text-xl font-bold tracking-tight">School Overview</h1>
-                <span className="inline-flex items-center gap-1.5 text-[11px] text-primary-foreground/70">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-2 py-0.5 text-[11px] text-white/80 backdrop-blur-sm">
                   <Calendar className="size-3" />
                   <span suppressHydrationWarning>{todayLabel}</span>
                 </span>
               </div>
-              <p className="mt-0.5 text-xs text-primary-foreground/70">
-                Attendance, fees and school updates at a glance.
-              </p>
+              <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-white/75">
+                <span className="inline-flex items-center gap-1.5"><span className="size-1.5 rounded-full bg-emerald-300" />Attendance</span>
+                <span className="inline-flex items-center gap-1.5"><span className="size-1.5 rounded-full bg-amber-300" />Fees</span>
+                <span className="inline-flex items-center gap-1.5"><span className="size-1.5 rounded-full bg-sky-200" />School updates at a glance</span>
+              </div>
             </div>
           </div>
 
@@ -288,7 +292,7 @@ export function SchoolAdminDashboard() {
                 <Button
                   key={action.label}
                   variant="secondary"
-                  className="h-8 justify-start gap-1.5 border border-white/15 bg-white/95 px-2.5 text-xs text-primary shadow-sm hover:bg-white sm:justify-center"
+                  className={cn('h-8 justify-start gap-1.5 px-2.5 text-xs shadow-sm sm:justify-center', action.tone)}
                   onClick={() => router.push(action.href)}
                 >
                   <action.icon className="size-3.5" />
