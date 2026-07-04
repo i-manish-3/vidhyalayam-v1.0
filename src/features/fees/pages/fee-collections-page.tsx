@@ -1847,9 +1847,9 @@ export function FeeCollectionsPage() {
                               {state && (
                                 <span
                                   className={cn(
-                                    'inline-block size-1.5 rounded-full',
+                                    'inline-block size-2 rounded-full',
                                     state === 'paid' && 'bg-emerald-500',
-                                    state === 'partial' && 'bg-amber-500',
+                                    state === 'partial' && 'bg-amber-400',
                                     state === 'unpaid' && 'bg-slate-400'
                                   )}
                                   title={periodStateLabel(state)}
@@ -1952,9 +1952,9 @@ export function FeeCollectionsPage() {
                               {monthState && (
                                 <span
                                   className={cn(
-                                    'ml-auto inline-block size-1.5 rounded-full',
+                                    'ml-auto inline-block size-2 rounded-full',
                                     monthState === 'paid' && 'bg-emerald-500',
-                                    monthState === 'partial' && 'bg-amber-500',
+                                    monthState === 'partial' && 'bg-amber-400',
                                     monthState === 'unpaid' && (isOverdue ? 'bg-red-500' : 'bg-slate-400')
                                   )}
                                   title={isOverdue ? `Overdue · ${periodStateLabel(monthState)}` : periodStateLabel(monthState)}
@@ -2093,9 +2093,9 @@ export function FeeCollectionsPage() {
                               {monthState && (
                                 <span
                                   className={cn(
-                                    'ml-auto inline-block size-1.5 rounded-full',
+                                    'ml-auto inline-block size-2 rounded-full',
                                     monthState === 'paid' && 'bg-emerald-500',
-                                    monthState === 'partial' && 'bg-amber-500',
+                                    monthState === 'partial' && 'bg-amber-400',
                                     monthState === 'unpaid' && (isOverdue ? 'bg-red-500' : 'bg-slate-400')
                                   )}
                                   title={isOverdue ? `Overdue - ${periodStateLabel(monthState)}` : periodStateLabel(monthState)}
@@ -2211,9 +2211,9 @@ export function FeeCollectionsPage() {
                               {monthState && (
                                 <span
                                   className={cn(
-                                    'ml-auto inline-block size-1.5 rounded-full',
+                                    'ml-auto inline-block size-2 rounded-full',
                                     monthState === 'paid' && 'bg-emerald-500',
-                                    monthState === 'partial' && 'bg-amber-500',
+                                    monthState === 'partial' && 'bg-amber-400',
                                     monthState === 'unpaid' && (isOverdue ? 'bg-red-500' : 'bg-slate-400')
                                   )}
                                   title={isOverdue ? `Overdue · ${periodStateLabel(monthState)}` : periodStateLabel(monthState)}
@@ -2427,7 +2427,7 @@ export function FeeCollectionsPage() {
                     value={discountAmount}
                     onChange={(event) => setDiscountAmount(event.target.value)}
                     placeholder="0"
-                    className="h-9 text-sm"
+                    className="h-9 w-32 text-sm"
                   />
                 </div>
 
@@ -2455,7 +2455,7 @@ export function FeeCollectionsPage() {
                           value={split.paymentMethod}
                           onValueChange={(value) => updatePaymentSplit(split.id, { paymentMethod: value as Exclude<PaymentMethod, 'SPLIT'> })}
                         >
-                          <SelectTrigger className="h-8 text-xs">
+                          <SelectTrigger className="h-8 bg-white text-xs dark:bg-background">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -2469,7 +2469,7 @@ export function FeeCollectionsPage() {
                           value={split.amount}
                           onChange={(event) => updatePaymentSplit(split.id, { amount: event.target.value })}
                           placeholder="Amount"
-                          className="h-8 text-xs"
+                          className="h-8 bg-white text-xs dark:bg-background"
                         />
                         <Button
                           type="button"
@@ -2486,7 +2486,7 @@ export function FeeCollectionsPage() {
                         value={split.remarks}
                         onChange={(event) => updatePaymentSplit(split.id, { remarks: event.target.value })}
                         placeholder={paymentSplits.length > 1 ? `Remarks for split ${splitIdx + 1} (optional)` : 'Remarks (optional)'}
-                        className="h-7 text-xs"
+                        className="h-7 bg-white text-xs dark:bg-background"
                       />
                     </div>
                   ))}

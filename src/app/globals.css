@@ -58,7 +58,7 @@
   --popover-foreground: oklch(0.208 0.042 266);
 
   /* Turquoise accent — single brand color for the whole app */
-  --primary: #116874;
+  --primary: #156974;
   --primary-foreground: #f0fdfa;
 
   /* Slate neutral shades */
@@ -78,7 +78,7 @@
   /* Borders & Input */
   --border: oklch(0.929 0.013 256);
   --input: oklch(0.929 0.013 256);
-  --ring: #116874;
+  --ring: #156974;
 
   /* Brand gradient tokens — palette-aware, derived from the live theme vars.
      They reference --primary / --sidebar / --button-primary so every palette
@@ -94,7 +94,7 @@
   --shadow-premium: 0 1px 2px 0 oklch(0.2 0.04 266 / 0.04), 0 4px 16px -4px oklch(0.2 0.04 266 / 0.10);
 
   /* Chart palette — turquoise family */
-  --chart-1: #116874;
+  --chart-1: #156974;
   --chart-2: #2dd4bf;
   --chart-3: #5eead4;
   --chart-4: #0d9488;
@@ -105,10 +105,10 @@
   --sidebar-foreground: var(--primary-foreground);
   --sidebar-primary: var(--primary-foreground);
   --sidebar-primary-foreground: var(--primary);
-  --sidebar-accent: #116874;
+  --sidebar-accent: #156974;
   --sidebar-accent-foreground: var(--primary-foreground);
-  --sidebar-border: #116874;
-  --sidebar-ring: #116874;
+  --sidebar-border: #156974;
+  --sidebar-ring: #156974;
 }
 
 .dark {
@@ -121,7 +121,7 @@
   --popover-foreground: oklch(0.984 0.003 248);
 
   /* Emerald-400 for dark mode — brighter for contrast */
-  --primary: #116874;
+  --primary: #156974;
   --primary-foreground: #f0fdfa;
 
   /* Slate neutral shades for dark mode */
@@ -141,7 +141,7 @@
   /* Borders & Input */
   --border: oklch(0.38 0.035 260);
   --input: oklch(0.38 0.035 260);
-  --ring: #116874;
+  --ring: #156974;
 
   /* Dark-mode gradient overrides — keep brand gradients legible on dark surfaces.
      The light page tint would be near-white, so it is replaced with a dark wash. */
@@ -153,7 +153,7 @@
   --shadow-premium: 0 1px 2px 0 oklch(0 0 0 / 0.30), 0 6px 20px -6px oklch(0 0 0 / 0.45);
 
   /* Chart palette — brighter for dark mode */
-  --chart-1: #116874;
+  --chart-1: #156974;
   --chart-2: oklch(0.733 0.14 177);
   --chart-3: oklch(0.845 0.143 165);
   --chart-4: oklch(0.696 0.17 163);
@@ -162,12 +162,12 @@
   /* Sidebar — near-black slate */
   --sidebar: oklch(0.215 0.038 265);
   --sidebar-foreground: oklch(0.94 0.006 265);
-  --sidebar-primary: #116874;
+  --sidebar-primary: #156974;
   --sidebar-primary-foreground: #f0fdfa;
   --sidebar-accent: oklch(0.3 0.04 265);
   --sidebar-accent-foreground: oklch(0.94 0.006 265);
   --sidebar-border: oklch(0.38 0.035 265);
-  --sidebar-ring: #116874;
+  --sidebar-ring: #156974;
 }
 
 @layer base {
