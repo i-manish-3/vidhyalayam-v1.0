@@ -334,6 +334,89 @@ function FieldError({ message }: { message?: string | null }) {
   return <p className="text-xs text-destructive mt-1">{message}</p>
 }
 
+const FORM_SECTION_TONES: Record<string, { surface: string; icon: string; accent: string }> = {
+  'Admission Details': {
+    surface: 'border-teal-200/80 from-teal-50/80 via-white to-sky-50/80 dark:border-teal-500/25 dark:from-teal-500/10 dark:to-sky-500/10',
+    icon: 'from-primary to-sky-500',
+    accent: 'from-primary via-teal-400 to-sky-400',
+  },
+  'Personal Information': {
+    surface: 'border-violet-200/80 from-violet-50/75 via-white to-fuchsia-50/55 dark:border-violet-500/25 dark:from-violet-500/10 dark:to-fuchsia-500/10',
+    icon: 'from-violet-500 to-fuchsia-500',
+    accent: 'from-violet-500 via-fuchsia-400 to-pink-400',
+  },
+  'Government IDs': {
+    surface: 'border-indigo-200/80 from-indigo-50/75 via-white to-cyan-50/65 dark:border-indigo-500/25 dark:from-indigo-500/10 dark:to-cyan-500/10',
+    icon: 'from-indigo-500 to-cyan-500',
+    accent: 'from-indigo-500 via-blue-400 to-cyan-400',
+  },
+  "Mother's Details": {
+    surface: 'border-rose-200/80 from-rose-50/75 via-white to-pink-50/60 dark:border-rose-500/25 dark:from-rose-500/10 dark:to-pink-500/10',
+    icon: 'from-rose-500 to-pink-500',
+    accent: 'from-rose-500 via-pink-400 to-fuchsia-400',
+  },
+  "Father's Details": {
+    surface: 'border-sky-200/80 from-sky-50/75 via-white to-blue-50/60 dark:border-sky-500/25 dark:from-sky-500/10 dark:to-blue-500/10',
+    icon: 'from-sky-500 to-blue-500',
+    accent: 'from-sky-500 via-cyan-400 to-blue-400',
+  },
+  'Permanent Address': {
+    surface: 'border-amber-200/80 from-amber-50/75 via-white to-orange-50/55 dark:border-amber-500/25 dark:from-amber-500/10 dark:to-orange-500/10',
+    icon: 'from-amber-500 to-orange-500',
+    accent: 'from-amber-500 via-yellow-400 to-orange-400',
+  },
+  'Local / Residential Address': {
+    surface: 'border-emerald-200/80 from-emerald-50/75 via-white to-teal-50/60 dark:border-emerald-500/25 dark:from-emerald-500/10 dark:to-teal-500/10',
+    icon: 'from-emerald-500 to-teal-500',
+    accent: 'from-emerald-500 via-teal-400 to-cyan-400',
+  },
+  'Special Categories': {
+    surface: 'border-orange-200/80 from-orange-50/75 via-white to-rose-50/55 dark:border-orange-500/25 dark:from-orange-500/10 dark:to-rose-500/10',
+    icon: 'from-orange-500 to-rose-500',
+    accent: 'from-orange-500 via-amber-400 to-rose-400',
+  },
+  'Academic Details': {
+    surface: 'border-violet-200/80 from-violet-50/75 via-white to-blue-50/55 dark:border-violet-500/25 dark:from-violet-500/10 dark:to-blue-500/10',
+    icon: 'from-violet-500 to-blue-500',
+    accent: 'from-violet-500 via-indigo-400 to-blue-400',
+  },
+  'Last School Details': {
+    surface: 'border-cyan-200/80 from-cyan-50/75 via-white to-sky-50/60 dark:border-cyan-500/25 dark:from-cyan-500/10 dark:to-sky-500/10',
+    icon: 'from-cyan-500 to-sky-500',
+    accent: 'from-cyan-500 via-sky-400 to-blue-400',
+  },
+  'Transport Details': {
+    surface: 'border-orange-200/80 from-orange-50/75 via-white to-amber-50/60 dark:border-orange-500/25 dark:from-orange-500/10 dark:to-amber-500/10',
+    icon: 'from-orange-500 to-amber-500',
+    accent: 'from-orange-500 via-amber-400 to-yellow-400',
+  },
+  'Hostel Details': {
+    surface: 'border-indigo-200/80 from-indigo-50/75 via-white to-violet-50/60 dark:border-indigo-500/25 dark:from-indigo-500/10 dark:to-violet-500/10',
+    icon: 'from-indigo-500 to-violet-500',
+    accent: 'from-indigo-500 via-violet-400 to-fuchsia-400',
+  },
+  'Bank Account Details': {
+    surface: 'border-emerald-200/80 from-emerald-50/75 via-white to-cyan-50/55 dark:border-emerald-500/25 dark:from-emerald-500/10 dark:to-cyan-500/10',
+    icon: 'from-emerald-500 to-cyan-500',
+    accent: 'from-emerald-500 via-teal-400 to-cyan-400',
+  },
+  'Fee Group': {
+    surface: 'border-amber-200/80 from-amber-50/75 via-white to-yellow-50/60 dark:border-amber-500/25 dark:from-amber-500/10 dark:to-yellow-500/10',
+    icon: 'from-amber-500 to-orange-500',
+    accent: 'from-amber-500 via-yellow-400 to-orange-400',
+  },
+  'Required Documents': {
+    surface: 'border-indigo-200/80 from-indigo-50/75 via-white to-sky-50/60 dark:border-indigo-500/25 dark:from-indigo-500/10 dark:to-sky-500/10',
+    icon: 'from-indigo-500 to-sky-500',
+    accent: 'from-indigo-500 via-blue-400 to-sky-400',
+  },
+  'Add Custom Document': {
+    surface: 'border-fuchsia-200/80 from-fuchsia-50/70 via-white to-violet-50/55 dark:border-fuchsia-500/25 dark:from-fuchsia-500/10 dark:to-violet-500/10',
+    icon: 'from-fuchsia-500 to-violet-500',
+    accent: 'from-fuchsia-500 via-violet-400 to-indigo-400',
+  },
+}
+
 // Grouped sub-card used inside a wizard step ("card under card").
 function FormSection({
   title,
@@ -346,19 +429,28 @@ function FormSection({
   children: React.ReactNode
   className?: string
 }) {
+  const tone = FORM_SECTION_TONES[title || ''] || FORM_SECTION_TONES['Admission Details']
+
   return (
-    <section className={cn('rounded-xl border bg-muted/20 p-4 sm:p-5 space-y-4', className)}>
+    <section className={cn(
+      'relative space-y-4 overflow-hidden rounded-xl border bg-gradient-to-br p-4 shadow-sm sm:p-5 dark:via-card',
+      tone.surface,
+      '[&_[data-slot=input]]:bg-white [&_[data-slot=select-trigger]]:bg-white [&_textarea]:bg-white',
+      'dark:[&_[data-slot=input]]:bg-input/30 dark:[&_[data-slot=select-trigger]]:bg-input/30 dark:[&_textarea]:bg-input/30',
+      className,
+    )}>
+      <span aria-hidden className={cn('absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r', tone.accent)} />
       {title && (
-        <div className="flex items-center gap-2 border-b pb-2.5">
+        <div className="relative flex items-center gap-2 border-b border-primary/10 pb-2.5">
           {Icon && (
-            <span className="bg-brand-soft flex size-7 shrink-0 items-center justify-center rounded-lg text-white shadow-sm">
+            <span className={cn('flex size-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br text-white shadow-sm', tone.icon)}>
               <Icon className="size-3.5" />
             </span>
           )}
-          <h3 className="text-sm font-semibold tracking-tight">{title}</h3>
+          <h3 className="text-sm font-semibold tracking-tight text-foreground/90">{title}</h3>
         </div>
       )}
-      {children}
+      <div className="relative space-y-4">{children}</div>
     </section>
   )
 }
@@ -1366,20 +1458,10 @@ export function AdmissionFormPage() {
     const ec = (f: string) => fieldHasError(f, touched, fieldErrors) ? 'border-destructive focus-visible:ring-destructive' : ''
     return (
       <div className="space-y-4">
-        <FormSection title="Student Photo" icon={Camera}>
-        {/* Photo Upload */}
-        <div className="flex items-center gap-4">
-          <div
-            className="size-20 rounded-full bg-muted flex items-center justify-center border-2 border-dashed border-muted-foreground/30 shrink-0 overflow-hidden cursor-pointer hover:border-primary/50 transition-colors"
-            onClick={() => (document.getElementById('photo-input') as HTMLInputElement)?.click()}
-          >
-            {form.profileImage ? (
-              <img src={form.profileImage} alt="Student photo" className="size-full object-cover" />
-            ) : (
-              <Camera className="size-8 text-muted-foreground/50" />
-            )}
-          </div>
-          <div>
+        <FormSection title="Admission Details" icon={ShieldCheck}>
+        <div className="grid gap-3 lg:grid-cols-[170px_minmax(0,1fr)]">
+          {/* Student photo */}
+          <div className="flex flex-col items-center justify-center rounded-xl border border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-cyan-50 p-3 text-center shadow-sm dark:border-sky-500/25 dark:from-sky-500/10 dark:via-card dark:to-cyan-500/10">
             <input
               id="photo-input"
               type="file"
@@ -1403,65 +1485,80 @@ export function AdmissionFormPage() {
                 }
               }}
             />
-            <Button variant="outline" size="sm" onClick={() => (document.getElementById('photo-input') as HTMLInputElement)?.click()} className="gap-1">
-              <Upload className="size-3" /> {form.profileImage ? 'Change Photo' : 'Upload Photo'}
-            </Button>
-            {form.profileImage && (
-              <Button variant="ghost" size="sm" onClick={() => updateForm('profileImage', '')} className="gap-1 ml-1 text-destructive">
-                <X className="size-3" /> Remove
+            <button
+              type="button"
+              className="group relative flex size-20 items-center justify-center overflow-hidden rounded-xl border-2 border-dashed border-sky-300 bg-white shadow-sm transition-all hover:-translate-y-0.5 hover:border-sky-500 hover:shadow-md dark:border-sky-500/40 dark:bg-card"
+              onClick={() => (document.getElementById('photo-input') as HTMLInputElement)?.click()}
+              aria-label={form.profileImage ? 'Change student photo' : 'Upload student photo'}
+            >
+              {form.profileImage ? (
+                <img src={form.profileImage} alt="Student photo" className="size-full object-cover" />
+              ) : (
+                <Camera className="size-7 text-sky-500" />
+              )}
+              <span className="absolute inset-x-0 bottom-0 bg-slate-950/65 py-1 text-[9px] font-medium text-white opacity-0 transition-opacity group-hover:opacity-100">
+                {form.profileImage ? 'Change' : 'Upload'}
+              </span>
+            </button>
+            <p className="mt-1.5 text-[11px] font-semibold text-foreground/80">Student Photo</p>
+            <p className="text-[9px] leading-3 text-muted-foreground">JPG/PNG/WebP · 200 KB</p>
+            <div className="mt-1.5 flex items-center justify-center gap-1">
+              <Button variant="outline" size="sm" onClick={() => (document.getElementById('photo-input') as HTMLInputElement)?.click()} className="h-7 gap-1 bg-white px-2 text-[10px] dark:bg-card">
+                <Upload className="size-3" /> {form.profileImage ? 'Change' : 'Upload'}
               </Button>
-            )}
-            <p className="text-xs text-muted-foreground mt-1">JPG/PNG/WebP — auto-compressed to 200 KB</p>
-          </div>
-        </div>
-
-        </FormSection>
-
-        <FormSection title="Admission Details" icon={ShieldCheck}>
-        {/* Admission Number - Auto Generated */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label className="flex items-center gap-1.5">
-              <ShieldCheck className="size-3.5" /> Admission Number
-            </Label>
-            <div className="flex items-center gap-2">
-              <Input
-                value={nextAdmissionNumber || 'Auto-generated on submit'}
-                readOnly
-                className="bg-muted/50 font-mono text-base font-semibold tracking-wide cursor-not-allowed border-dashed"
-              />
-              <Badge variant="outline" className="shrink-0 text-xs">Auto</Badge>
+              {form.profileImage && (
+                <Button variant="ghost" size="sm" onClick={() => updateForm('profileImage', '')} className="size-7 p-0 text-destructive hover:bg-destructive/10 hover:text-destructive" aria-label="Remove student photo">
+                  <X className="size-3.5" />
+                </Button>
+              )}
             </div>
-            <p className="text-xs text-muted-foreground">Assigned automatically in serial order</p>
           </div>
-        </div>
 
-        {/* Academic Year & Registration */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label>Academic Year <span className="text-destructive">*</span></Label>
-            <Select value={form.academicYear} onValueChange={v => updateForm('academicYear', v)} disabled={academicYearOptions.length === 0}>
-              <SelectTrigger className={ec('academicYear')}><SelectValue placeholder="Select active year" /></SelectTrigger>
-              <SelectContent>
-                {academicYearOptions.map(y => <SelectItem key={y.value} value={y.value}>{y.label}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            {academicYearOptions.length === 0 && (
-              <p className="mt-1 text-xs text-destructive">No active academic year is available. Reactivate or create a year before creating admissions.</p>
-            )}
-            <FieldError message={touched.academicYear ? fieldErrors.academicYear : null} />
-          </div>
-          <div className="space-y-2">
-            <Label>Registration Number</Label>
-            <div className="flex items-center gap-2">
-              <Input
-                value={nextRegistrationNumber || 'Auto-generated on submit'}
-                readOnly
-                className="bg-muted/50 font-mono text-base font-semibold tracking-wide cursor-not-allowed border-dashed"
-              />
-              <Badge variant="outline" className="shrink-0 text-xs">Auto</Badge>
+          <div className="space-y-4">
+            {/* Admission Number - Auto Generated */}
+            <div className="space-y-2">
+              <Label className="flex items-center gap-1.5">
+                <ShieldCheck className="size-3.5 text-primary" /> Admission Number
+              </Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  value={nextAdmissionNumber || 'Auto-generated on submit'}
+                  readOnly
+                  className="cursor-not-allowed border-dashed bg-muted/50 font-mono text-base font-semibold tracking-wide"
+                />
+                <Badge variant="outline" className="shrink-0 border-primary/20 bg-primary/5 text-xs text-primary">Auto</Badge>
+              </div>
+              <p className="text-xs text-muted-foreground">Assigned automatically in serial order</p>
             </div>
-            <p className="text-xs text-muted-foreground">Uses the school registration format</p>
+
+            {/* Academic Year & Registration */}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Academic Year <span className="text-destructive">*</span></Label>
+                <Select value={form.academicYear} onValueChange={v => updateForm('academicYear', v)} disabled={academicYearOptions.length === 0}>
+                  <SelectTrigger className={ec('academicYear')}><SelectValue placeholder="Select active year" /></SelectTrigger>
+                  <SelectContent>
+                    {academicYearOptions.map(y => <SelectItem key={y.value} value={y.value}>{y.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                {academicYearOptions.length === 0 && (
+                  <p className="mt-1 text-xs text-destructive">No active academic year is available. Reactivate or create a year before creating admissions.</p>
+                )}
+                <FieldError message={touched.academicYear ? fieldErrors.academicYear : null} />
+              </div>
+              <div className="space-y-2">
+                <Label>Registration Number</Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    value={nextRegistrationNumber || 'Auto-generated on submit'}
+                    readOnly
+                    className="cursor-not-allowed border-dashed bg-muted/50 font-mono text-base font-semibold tracking-wide"
+                  />
+                  <Badge variant="outline" className="shrink-0 border-primary/20 bg-primary/5 text-xs text-primary">Auto</Badge>
+                </div>
+                <p className="text-xs text-muted-foreground">Uses the school registration format</p>
+              </div>
+            </div>
           </div>
         </div>
         </FormSection>
@@ -1510,30 +1607,58 @@ export function AdmissionFormPage() {
           </div>
           <div className="space-y-2">
             <Label>Gender <span className="text-destructive">*</span></Label>
-            <div className="flex gap-2">
+            <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
                 onClick={() => updateForm('gender', 'Male')}
-                className={`flex items-center gap-1.5 rounded-md border-2 px-3 py-1.5 transition-all ${
+                aria-pressed={form.gender === 'Male'}
+                className={`group relative flex h-12 items-center gap-2.5 overflow-hidden rounded-xl border px-2.5 text-left transition-all duration-200 ${
                   form.gender === 'Male'
-                    ? 'border-primary bg-primary/10 text-primary shadow-sm'
-                    : 'border-muted bg-background text-muted-foreground hover:border-primary/40 hover:bg-primary/5'
+                    ? 'border-sky-400 bg-gradient-to-r from-sky-500 to-cyan-500 text-white shadow-md shadow-sky-500/20'
+                    : 'border-sky-200 bg-gradient-to-r from-sky-50 to-cyan-50 text-sky-700 shadow-sm hover:-translate-y-0.5 hover:border-sky-300 hover:shadow-md dark:border-sky-500/25 dark:from-sky-500/10 dark:to-cyan-500/10 dark:text-sky-300'
                 }`}
               >
-                <CircleUser className="size-4" />
-                <span className="text-xs font-medium">Male</span>
+                <span className={cn(
+                  'flex size-8 shrink-0 items-center justify-center rounded-lg transition-colors',
+                  form.gender === 'Male' ? 'bg-white/20 text-white' : 'bg-sky-100 text-sky-600 dark:bg-sky-500/15 dark:text-sky-300',
+                )}>
+                  <CircleUser className="size-4.5" />
+                </span>
+                <span>
+                  <span className="block text-xs font-semibold">Male</span>
+                  <span className={cn('block text-[9px]', form.gender === 'Male' ? 'text-white/75' : 'text-sky-600/65 dark:text-sky-300/65')}>Boy student</span>
+                </span>
+                {form.gender === 'Male' && (
+                  <span className="ml-auto flex size-4 items-center justify-center rounded-full bg-white text-sky-600 shadow-sm">
+                    <Check className="size-2.5" strokeWidth={3} />
+                  </span>
+                )}
               </button>
               <button
                 type="button"
                 onClick={() => updateForm('gender', 'Female')}
-                className={`flex items-center gap-1.5 rounded-md border-2 px-3 py-1.5 transition-all ${
+                aria-pressed={form.gender === 'Female'}
+                className={`group relative flex h-12 items-center gap-2.5 overflow-hidden rounded-xl border px-2.5 text-left transition-all duration-200 ${
                   form.gender === 'Female'
-                    ? 'border-primary bg-primary/10 text-primary shadow-sm'
-                    : 'border-muted bg-background text-muted-foreground hover:border-primary/40 hover:bg-primary/5'
+                    ? 'border-pink-400 bg-gradient-to-r from-pink-500 to-rose-500 text-white shadow-md shadow-pink-500/20'
+                    : 'border-pink-200 bg-gradient-to-r from-pink-50 to-rose-50 text-pink-700 shadow-sm hover:-translate-y-0.5 hover:border-pink-300 hover:shadow-md dark:border-pink-500/25 dark:from-pink-500/10 dark:to-rose-500/10 dark:text-pink-300'
                 }`}
               >
-                <CircleUserRound className="size-4" />
-                <span className="text-xs font-medium">Female</span>
+                <span className={cn(
+                  'flex size-8 shrink-0 items-center justify-center rounded-lg transition-colors',
+                  form.gender === 'Female' ? 'bg-white/20 text-white' : 'bg-pink-100 text-pink-600 dark:bg-pink-500/15 dark:text-pink-300',
+                )}>
+                  <CircleUserRound className="size-4.5" />
+                </span>
+                <span>
+                  <span className="block text-xs font-semibold">Female</span>
+                  <span className={cn('block text-[9px]', form.gender === 'Female' ? 'text-white/75' : 'text-pink-600/65 dark:text-pink-300/65')}>Girl student</span>
+                </span>
+                {form.gender === 'Female' && (
+                  <span className="ml-auto flex size-4 items-center justify-center rounded-full bg-white text-pink-600 shadow-sm">
+                    <Check className="size-2.5" strokeWidth={3} />
+                  </span>
+                )}
               </button>
             </div>
             <FieldError message={touched.gender ? fieldErrors.gender : null} />
@@ -2686,20 +2811,32 @@ export function AdmissionFormPage() {
   const CurrentStepIcon = currentStepMeta.icon
 
   return (
-    <div className="flex w-full flex-col min-h-[calc(100vh-10rem)]">
+    <div className="flex min-h-[calc(100vh-10rem)] w-full flex-col gap-4">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-6">
-        <div className="flex min-w-0 items-stretch gap-3">
-          <span aria-hidden className="bg-brand mt-0.5 w-1 shrink-0 self-stretch rounded-full" />
+      <section className="relative overflow-hidden rounded-xl border border-primary/25 bg-gradient-to-r from-primary via-teal-600 to-sky-600 px-4 py-4 text-white shadow-lg shadow-primary/15 sm:px-5">
+        <div aria-hidden className="absolute -right-10 -top-12 size-36 rounded-full border-[18px] border-sky-200/20" />
+        <div aria-hidden className="absolute -bottom-14 right-44 size-24 rounded-full bg-amber-300/15 blur-sm" />
+        <div className="relative flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-white/25 bg-white/15 shadow-md shadow-black/10 backdrop-blur-sm">
+              <UserPlus className="size-5" />
+            </span>
+            <div className="min-w-0">
+              <h1 className="text-xl font-bold tracking-tight">Admit New Student</h1>
+              <p className="mt-0.5 text-xs text-white/75">Register a student through a simple, guided admission process</p>
+            </div>
+          </div>
           <div className="min-w-0">
-            <h1 className="text-xl font-bold tracking-tight">Admit New Student</h1>
-            <p className="text-sm text-muted-foreground">Fill in the details to register a new student admission</p>
+            <Badge variant="outline" className="h-7 gap-1.5 border-white/25 bg-white/10 px-2.5 text-[11px] font-semibold text-white hover:bg-white/10">
+              <CalendarDays className="size-3.5" />
+              {form.academicYear || 'Academic year'}
+            </Badge>
           </div>
         </div>
-      </div>
+      </section>
 
       {/* Step Indicator */}
-      <div className="mb-6">
+      <div className="rounded-xl border border-violet-200/70 bg-gradient-to-r from-violet-50 via-white to-cyan-50 p-3 shadow-sm dark:border-violet-500/20 dark:from-violet-500/10 dark:via-card dark:to-cyan-500/10 sm:p-4">
         {/* Step circles */}
         <div className="flex items-start justify-between">
           {WIZARD_STEPS.map((step, index) => {
@@ -2715,22 +2852,22 @@ export function AdmissionFormPage() {
                   type="button"
                   onClick={() => isClickable && handleStepClick(step.number)}
                   disabled={!isClickable}
-                  className={`flex flex-col items-center gap-1.5 group ${isClickable ? 'cursor-pointer' : 'cursor-not-allowed'}`}
+                  className={`group flex flex-col items-center gap-1.5 ${isClickable ? 'cursor-pointer' : 'cursor-not-allowed'}`}
                 >
                   <div
-                    className={`flex size-10 items-center justify-center rounded-full border-2 transition-all duration-200 ${
+                    className={`flex size-9 items-center justify-center rounded-xl border transition-all duration-200 sm:size-10 ${
                       isCompleted
-                        ? 'border-[var(--sidebar-accent,var(--primary))] bg-[var(--sidebar-accent,var(--primary))] text-white'
+                        ? 'border-emerald-500 bg-emerald-500 text-white shadow-sm shadow-emerald-500/20'
                         : isCurrent
-                        ? 'border-[var(--button-primary,var(--primary))] bg-[var(--button-primary,var(--primary))] text-[var(--button-primary-foreground,var(--primary-foreground))] shadow-md scale-110'
-                        : 'border-muted-foreground/30 bg-background text-muted-foreground'
+                        ? 'scale-105 border-sky-400 bg-gradient-to-br from-primary to-sky-500 text-white shadow-md shadow-sky-500/20'
+                        : 'border-violet-200 bg-white text-violet-500 shadow-sm dark:border-violet-500/25 dark:bg-card dark:text-violet-300'
                     }`}
                   >
                     {isCompleted ? <Check className="size-5" /> : <Icon className="size-4" />}
                   </div>
                   <span
-                    className={`text-[10px] sm:text-xs font-medium transition-colors text-center leading-tight ${
-                      isCurrent ? 'text-[var(--button-primary,var(--primary))]' : isCompleted ? 'text-[var(--sidebar-accent,var(--primary))]' : 'text-muted-foreground'
+                    className={`text-center text-[10px] font-medium leading-tight transition-colors sm:text-xs ${
+                      isCurrent ? 'font-semibold text-sky-700 dark:text-sky-300' : isCompleted ? 'text-emerald-700 dark:text-emerald-300' : 'text-muted-foreground'
                     }`}
                   >
                     <span className="hidden sm:inline">{step.label}</span>
@@ -2738,10 +2875,10 @@ export function AdmissionFormPage() {
                   </span>
                 </button>
                 {index < WIZARD_STEPS.length - 1 && (
-                  <div className="flex-1 mx-1 mt-4">
+                  <div className="mx-1 mt-4 flex-1 sm:mx-2">
                     <div
-                      className={`h-0.5 w-full transition-colors ${
-                        isCompleted || currentStep > step.number ? 'bg-[var(--sidebar-accent,var(--primary))]' : 'bg-muted-foreground/20'
+                      className={`h-0.5 w-full rounded-full transition-colors ${
+                        isCompleted || currentStep > step.number ? 'bg-gradient-to-r from-emerald-500 to-teal-400' : 'bg-violet-200/80 dark:bg-violet-500/20'
                       }`}
                     />
                   </div>
@@ -2753,42 +2890,42 @@ export function AdmissionFormPage() {
       </div>
 
       {/* Step Content */}
-      <Card className="card-premium flex-1 overflow-hidden border-0 p-0">
+      <Card className="card-premium flex-1 gap-0 overflow-hidden border border-primary/15 py-0 shadow-md shadow-primary/5">
         {/* Branded step header band */}
-        <div className="flex items-center gap-3 border-b bg-[color-mix(in_oklab,var(--primary),transparent_95%)] px-4 py-3 sm:px-6">
-          <div className="bg-brand-soft flex size-10 shrink-0 items-center justify-center rounded-xl text-white shadow-sm">
+        <div className="flex items-center gap-3 border-b border-primary/15 bg-gradient-to-r from-teal-50 via-white to-sky-50 px-4 py-3 dark:from-primary/15 dark:via-card dark:to-sky-500/10 sm:px-6">
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-sky-500 text-white shadow-sm shadow-primary/20">
             <CurrentStepIcon className="size-5" />
           </div>
           <div className="min-w-0">
             <h2 className="text-base font-semibold leading-tight tracking-tight">{currentStepMeta.label}</h2>
             <p className="truncate text-xs text-muted-foreground">{STEP_SUBTITLES[currentStep]}</p>
           </div>
-          <Badge variant="brand" className="ml-auto hidden shrink-0 sm:inline-flex">
+          <Badge variant="outline" className="ml-auto hidden h-6 shrink-0 border-primary/20 bg-white/80 px-2 text-[10px] font-semibold text-primary shadow-sm dark:bg-card/80 sm:inline-flex">
             Step {currentStep} of {WIZARD_STEPS.length}
           </Badge>
         </div>
-        <CardContent className="p-4 sm:p-6">
+        <CardContent className="bg-gradient-to-br from-white via-primary/[0.015] to-sky-50/35 p-4 dark:from-card dark:via-card dark:to-sky-500/5 sm:p-6">
           {renderStepContent()}
         </CardContent>
       </Card>
 
       {/* Navigation Buttons */}
-      <div className="flex items-center justify-between gap-3 mt-5 border-t pt-4 pb-4">
+      <div className="flex items-center justify-between gap-3 rounded-xl border border-primary/15 bg-card/95 p-3 shadow-sm">
         <div>
           {currentStep > 1 && (
-            <Button variant="outline" size="lg" onClick={handlePrev} className="gap-1">
+            <Button variant="outline" onClick={handlePrev} className="h-9 gap-1 bg-white dark:bg-card">
               <ChevronLeft className="size-4" /> Previous
             </Button>
           )}
         </div>
         <div className="flex items-center gap-2">
           {currentStep < 6 && (
-            <Button onClick={handleNext} size="lg" className="gap-1 px-8">
+            <Button onClick={handleNext} className="h-9 gap-1 px-6 shadow-sm shadow-primary/20">
               Next <ChevronRight className="size-4" />
             </Button>
           )}
           {currentStep === 6 && (
-            <Button onClick={handleSubmit} size="lg" disabled={submitting} className="gap-1 px-8">
+            <Button onClick={handleSubmit} disabled={submitting} className="h-9 gap-1 px-6 shadow-sm shadow-primary/20">
               {submitting ? (
                 <div className="size-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
               ) : (
