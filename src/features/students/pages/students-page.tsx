@@ -7,6 +7,7 @@ import { api } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
 import { useAppStore } from '@/lib/store'
 import { usePermissions, PERMISSIONS } from '@/hooks/use-permissions'
+import { cn } from '@/lib/utils'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -1037,16 +1038,31 @@ export function StudentsPage() {
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex min-w-0 items-stretch gap-3">
-          <span aria-hidden className="bg-brand mt-0.5 w-1 shrink-0 self-stretch rounded-full" />
+      <div className="relative flex flex-col gap-3 overflow-hidden rounded-xl border border-primary/25 bg-gradient-to-r from-primary via-teal-600 to-cyan-600 px-4 py-3 text-white shadow-lg shadow-primary/15 sm:flex-row sm:items-center sm:justify-between">
+        <div aria-hidden className="absolute -right-8 -top-14 size-36 rounded-full border-[18px] border-cyan-200/15" />
+        <div aria-hidden className="absolute bottom-0 right-1/4 h-px w-48 bg-gradient-to-r from-transparent via-white/45 to-transparent" />
+        <div aria-hidden className="absolute -bottom-14 right-28 size-24 rounded-full bg-sky-300/10" />
+        <div className="relative flex min-w-0 items-center gap-3">
+          <span className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-white/25 bg-white/15 shadow-md shadow-black/10 backdrop-blur-sm">
+            <Users className="size-5.5" strokeWidth={1.8} />
+          </span>
           <div className="min-w-0">
-            <h1 className="text-xl font-bold tracking-tight">Students</h1>
-            <p className="mt-0.5 text-sm text-muted-foreground">Manage all students</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-xl font-bold tracking-tight">Students</h1>
+              <span className="rounded-full border border-white/20 bg-white/10 px-2 py-0.5 text-[10px] font-semibold text-white/85 backdrop-blur-sm">
+                {stats.total.toLocaleString('en-IN')} records
+              </span>
+            </div>
+            <p className="mt-0.5 text-xs text-white/80">Profiles, admissions and student status in one place</p>
           </div>
         </div>
         {canAdmit && (
-          <Button onClick={() => router.push('/students/admit')} className="gap-2 shrink-0">
+          <Button
+            variant="secondary"
+            onClick={() => router.push('/students/admit')}
+            className="relative shrink-0 gap-2 border border-white/60 shadow-md transition-transform hover:-translate-y-0.5 hover:shadow-lg"
+            style={{ backgroundColor: 'white', color: 'var(--primary)' }}
+          >
             <GraduationCap className="size-4" /> Admit Student
           </Button>
         )}
@@ -1059,33 +1075,37 @@ export function StudentsPage() {
           value={stats.total}
           description="All students"
           icon={Users}
+          tone="sky"
         />
         <StudentStatCard
           title="Active"
           value={stats.active}
           description="Currently active"
           icon={UserCheck}
+          tone="emerald"
         />
         <StudentStatCard
           title="Disabled"
           value={stats.disabled}
           description="Currently disabled"
           icon={UserX}
+          tone="rose"
         />
         <StudentStatCard
           title="This Month"
           value={stats.thisMonth}
           description="New admissions"
           icon={GraduationCap}
+          tone="violet"
         />
       </div>
 
       {/* Students Table */}
-      <Card className="gap-0 py-0">
-        <CardHeader className="px-4 py-3">
+      <Card className="gap-0 overflow-hidden border-sky-500/15 bg-gradient-to-br from-card via-card to-sky-500/[0.035] py-0 shadow-sm">
+        <CardHeader className="border-b border-sky-500/15 bg-gradient-to-r from-sky-500/[0.10] via-primary/[0.05] to-violet-500/[0.08] px-4 py-3">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <CardTitle className="text-base flex items-center gap-2">
-              <span className="bg-brand-soft flex size-7 shrink-0 items-center justify-center rounded-lg text-white shadow-sm">
+              <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-primary text-white shadow-sm shadow-sky-500/20">
                 <Users className="size-4" />
               </span>
               {studentListTitle}
@@ -1097,7 +1117,7 @@ export function StudentsPage() {
                   placeholder="Search name, adm no, roll..."
                   value={searchQuery}
                   onChange={(e) => handleSearchChange(e.target.value)}
-                  className="pl-9 h-9 w-full sm:w-56"
+                  className="h-9 w-full bg-background/90 pl-9 shadow-sm sm:w-56"
                 />
               </div>
               <Button
@@ -1163,7 +1183,7 @@ export function StudentsPage() {
         <CardContent className="p-0">
           {/* Filter row */}
           {showFilters && (
-            <div className="px-4 pb-3 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">
+            <div className="grid grid-cols-2 gap-2 border-b border-sky-500/10 bg-gradient-to-r from-sky-500/[0.045] via-transparent to-violet-500/[0.045] px-4 py-3 sm:grid-cols-3 xl:grid-cols-6">
               <Select value={classFilter} onValueChange={handleClassFilterChange}>
                 <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Class" /></SelectTrigger>
                 <SelectContent>
@@ -1232,9 +1252,9 @@ export function StudentsPage() {
               />
             </div>
           ) : (
-            <div className="overflow-x-auto mx-4 mb-4 rounded-xl border shadow-sm">
+            <div className="mx-4 mb-4 overflow-x-auto rounded-xl border border-sky-500/15 shadow-sm">
               <Table>
-                <TableHeader>
+                <TableHeader className="bg-gradient-to-r from-sky-500/[0.08] via-primary/[0.04] to-violet-500/[0.07]">
                   <TableRow>
                     {isColumnVisible('photo') && (
                       <TableHead className="w-[44px]">
@@ -1347,7 +1367,7 @@ export function StudentsPage() {
                     return (
                       <TableRow
                         key={s.id}
-                        className={`cursor-pointer hover:bg-muted/50 ${!s.isActive ? 'opacity-60 bg-muted/30' : ''}`}
+                        className={`cursor-pointer transition-colors hover:bg-sky-500/[0.055] ${!s.isActive ? 'opacity-60 bg-rose-500/[0.035]' : ''}`}
                         onClick={() => handleViewStudent(s)}
                       >
                         {/* Photo */}
@@ -1640,22 +1660,53 @@ function StudentStatCard({
   value,
   description,
   icon: Icon,
+  tone,
 }: {
   title: string
   value: string | number
   description: string
   icon: LucideIcon
+  tone: 'sky' | 'emerald' | 'rose' | 'violet'
 }) {
+  const styles = {
+    sky: {
+      card: 'border-sky-500/20 bg-gradient-to-br from-sky-500/[0.15] via-card to-sky-500/[0.05]',
+      icon: 'bg-gradient-to-br from-sky-500 to-sky-600 shadow-sky-500/20',
+      accent: 'from-sky-500 via-sky-400',
+      bubble: 'bg-sky-500/[0.10]',
+    },
+    emerald: {
+      card: 'border-emerald-500/20 bg-gradient-to-br from-emerald-500/[0.15] via-card to-emerald-500/[0.05]',
+      icon: 'bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-emerald-500/20',
+      accent: 'from-emerald-500 via-emerald-400',
+      bubble: 'bg-emerald-500/[0.10]',
+    },
+    rose: {
+      card: 'border-rose-500/20 bg-gradient-to-br from-rose-500/[0.14] via-card to-rose-500/[0.05]',
+      icon: 'bg-gradient-to-br from-rose-500 to-rose-600 shadow-rose-500/20',
+      accent: 'from-rose-500 via-rose-400',
+      bubble: 'bg-rose-500/[0.10]',
+    },
+    violet: {
+      card: 'border-violet-500/20 bg-gradient-to-br from-violet-500/[0.14] via-card to-violet-500/[0.05]',
+      icon: 'bg-gradient-to-br from-violet-500 to-violet-600 shadow-violet-500/20',
+      accent: 'from-violet-500 via-violet-400',
+      bubble: 'bg-violet-500/[0.10]',
+    },
+  }[tone]
+
   return (
-    <Card className="card-premium w-full overflow-hidden rounded-xl border-0 py-0">
-      <CardContent className="p-3">
+    <Card className={cn('group relative w-full overflow-hidden rounded-xl py-0 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md', styles.card)}>
+      <div className={cn('absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r to-transparent', styles.accent)} />
+      <div aria-hidden className={cn('absolute -bottom-7 -right-5 size-16 rounded-full transition-transform group-hover:scale-125', styles.bubble)} />
+      <CardContent className="relative p-3">
         <div className="flex items-center justify-between gap-2">
           <div className="min-w-0">
             <p className="truncate text-[11px] font-medium leading-4 text-muted-foreground">{title}</p>
             <p className="text-lg font-bold leading-6 tracking-tight tabular-nums">{value}</p>
             <p className="truncate text-[10px] leading-3 text-muted-foreground">{description}</p>
           </div>
-          <div className="bg-brand-soft flex size-9 shrink-0 items-center justify-center rounded-lg text-white shadow-sm">
+          <div className={cn('flex size-9 shrink-0 items-center justify-center rounded-lg text-white shadow-sm', styles.icon)}>
             <Icon className="size-4" />
           </div>
         </div>

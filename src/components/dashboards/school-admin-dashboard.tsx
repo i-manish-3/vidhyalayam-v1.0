@@ -204,9 +204,9 @@ export function SchoolAdminDashboard() {
       note: `${dashboard.totalClasses} classes, ${dashboard.totalSections} sections`,
       icon: GraduationCap,
       tone: 'bg-primary text-primary-foreground shadow-sm shadow-primary/20',
-      surface: 'border-primary/20 bg-gradient-to-br from-primary/[0.18] via-card to-primary/[0.05]',
+      surface: 'border-teal-200/80 bg-gradient-to-br from-teal-50 via-white to-cyan-50 dark:border-primary/25 dark:from-primary/15 dark:via-card dark:to-primary/5',
       accent: 'from-primary via-primary/70',
-      decoration: 'bg-primary/[0.10]',
+      decoration: 'bg-cyan-300/20 dark:bg-primary/10',
       progress: Math.min(100, dashboard.totalStudents > 0 ? 82 : 0),
     },
     canSeeTeachers && {
@@ -215,9 +215,9 @@ export function SchoolAdminDashboard() {
       note: 'Active teaching staff',
       icon: BookOpen,
       tone: 'bg-primary text-primary-foreground shadow-sm shadow-primary/20',
-      surface: 'border-sky-500/20 bg-gradient-to-br from-sky-500/[0.16] via-card to-sky-500/[0.06]',
+      surface: 'border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-cyan-50 dark:border-sky-500/25 dark:from-sky-500/15 dark:via-card dark:to-sky-500/5',
       accent: 'from-sky-500 via-sky-400',
-      decoration: 'bg-sky-500/[0.10]',
+      decoration: 'bg-sky-300/20 dark:bg-sky-500/10',
       progress: Math.min(100, dashboard.totalTeachers > 0 ? 76 : 0),
     },
     canSeeFees && {
@@ -226,9 +226,9 @@ export function SchoolAdminDashboard() {
       note: `${collectionRate}% collection rate`,
       icon: IndianRupee,
       tone: 'bg-primary text-primary-foreground shadow-sm shadow-primary/20',
-      surface: 'border-emerald-500/20 bg-gradient-to-br from-emerald-500/[0.15] via-card to-emerald-500/[0.06]',
+      surface: 'border-emerald-200/80 bg-gradient-to-br from-emerald-50 via-white to-teal-50 dark:border-emerald-500/25 dark:from-emerald-500/15 dark:via-card dark:to-emerald-500/5',
       accent: 'from-emerald-500 via-emerald-400',
-      decoration: 'bg-emerald-500/[0.10]',
+      decoration: 'bg-emerald-300/20 dark:bg-emerald-500/10',
       progress: collectionRate,
     },
     canSeeFees && {
@@ -237,9 +237,9 @@ export function SchoolAdminDashboard() {
       note: `${formatMoney(dashboard.feeStats.overdueFees)} overdue`,
       icon: AlertCircle,
       tone: 'bg-primary text-primary-foreground shadow-sm shadow-primary/20',
-      surface: 'border-amber-500/20 bg-gradient-to-br from-amber-500/[0.15] via-card to-orange-500/[0.05]',
+      surface: 'border-amber-200/80 bg-gradient-to-br from-amber-50 via-white to-orange-50 dark:border-amber-500/25 dark:from-amber-500/15 dark:via-card dark:to-orange-500/5',
       accent: 'from-amber-500 via-orange-400',
-      decoration: 'bg-amber-500/[0.11]',
+      decoration: 'bg-amber-300/20 dark:bg-amber-500/10',
       progress: Math.min(100, pendingRate),
     },
   ].filter(Boolean) as MetricItem[]
@@ -375,7 +375,7 @@ export function SchoolAdminDashboard() {
       {(canSeeFees || canSeeAttendance) && (
       <section className={cn('grid gap-6', canSeeFees && canSeeAttendance ? 'xl:grid-cols-[minmax(0,1.6fr)_minmax(320px,0.9fr)]' : '')}>
         {canSeeFees && (
-        <Card className="gap-0 overflow-hidden border-emerald-500/25 bg-gradient-to-br from-card via-card to-emerald-500/[0.10] py-0 shadow-md shadow-emerald-500/5">
+        <Card className="gap-0 overflow-hidden border-emerald-200/80 bg-gradient-to-br from-white via-white to-emerald-50 py-0 shadow-md shadow-emerald-500/5 dark:border-emerald-500/25 dark:from-card dark:via-card dark:to-emerald-500/10">
           <CardHeader className="flex flex-col gap-2 border-b border-emerald-500/15 bg-gradient-to-r from-emerald-500/[0.16] via-primary/[0.08] to-amber-500/[0.10] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-2.5">
               <div className="flex size-9 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-primary text-white shadow-sm shadow-emerald-500/20">
@@ -440,7 +440,7 @@ export function SchoolAdminDashboard() {
         )}
 
         {canSeeAttendance && (
-        <Card className="gap-3 overflow-hidden border-sky-500/20 bg-gradient-to-br from-card via-sky-500/[0.025] to-sky-500/[0.10] py-4 shadow-sm">
+        <Card className="gap-3 overflow-hidden border-sky-200/80 bg-gradient-to-br from-white via-white to-sky-50 py-4 shadow-sm dark:border-sky-500/25 dark:from-card dark:via-sky-500/[0.025] dark:to-sky-500/10">
           <CardHeader className="px-4">
             <CardTitle>Today&apos;s Attendance</CardTitle>
             <CardDescription>
@@ -532,9 +532,9 @@ function InsightCard({
   return (
     <Card className={cn(
       'group overflow-hidden py-0 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md',
-      variant === 'emerald' && 'border-emerald-500/20 bg-gradient-to-br from-card to-emerald-500/[0.11] hover:border-emerald-500/35 hover:shadow-emerald-500/10',
-      variant === 'sky' && 'border-sky-500/20 bg-gradient-to-br from-card to-sky-500/[0.11] hover:border-sky-500/35 hover:shadow-sky-500/10',
-      variant === 'amber' && 'border-amber-500/20 bg-gradient-to-br from-card to-amber-500/[0.12] hover:border-amber-500/35 hover:shadow-amber-500/10',
+      variant === 'emerald' && 'border-emerald-200/80 bg-gradient-to-br from-white via-white to-emerald-50 hover:border-emerald-300 hover:shadow-emerald-500/10 dark:border-emerald-500/25 dark:from-card dark:via-card dark:to-emerald-500/10',
+      variant === 'sky' && 'border-sky-200/80 bg-gradient-to-br from-white via-white to-sky-50 hover:border-sky-300 hover:shadow-sky-500/10 dark:border-sky-500/25 dark:from-card dark:via-card dark:to-sky-500/10',
+      variant === 'amber' && 'border-amber-200/80 bg-gradient-to-br from-white via-white to-amber-50 hover:border-amber-300 hover:shadow-amber-500/10 dark:border-amber-500/25 dark:from-card dark:via-card dark:to-amber-500/10',
     )}>
       <CardContent className="flex items-start gap-3 p-3">
         <div className={cn(
@@ -564,7 +564,7 @@ function getInitials(name: string): string {
 
 function TodaysBirthdaysCard({ people }: { people: BirthdayPerson[] }) {
   return (
-    <Card className="h-full gap-3 overflow-hidden border-rose-500/20 bg-gradient-to-br from-card via-rose-500/[0.025] to-rose-500/[0.10] py-4 shadow-sm">
+    <Card className="h-full gap-3 overflow-hidden border-rose-200/80 bg-gradient-to-br from-white via-white to-rose-50 py-4 shadow-sm dark:border-rose-500/25 dark:from-card dark:via-rose-500/[0.025] dark:to-rose-500/10">
       <CardHeader className="flex flex-col gap-1 px-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2">
           <div className="flex size-9 items-center justify-center rounded-lg bg-rose-500/10 text-rose-600 ring-1 ring-rose-500/10 dark:text-rose-300">
