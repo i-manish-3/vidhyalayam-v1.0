@@ -100,7 +100,7 @@
   --chart-4: #0d9488;
   --chart-5: #14887A;
 
-  /* Sidebar — flat single-tone turquoise */
+  /* Sidebar semantic colors; the visible surface uses --gradient-sidebar. */
   --sidebar: var(--primary);
   --sidebar-foreground: var(--primary-foreground);
   --sidebar-primary: var(--primary-foreground);
@@ -159,7 +159,7 @@
   --chart-4: oklch(0.696 0.17 163);
   --chart-5: oklch(0.621 0.134 170);
 
-  /* Sidebar — near-black slate */
+  /* Dark sidebar semantic colors; the visible surface uses --gradient-sidebar. */
   --sidebar: oklch(0.215 0.038 265);
   --sidebar-foreground: oklch(0.94 0.006 265);
   --sidebar-primary: #156974;

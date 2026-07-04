@@ -1,8 +1,8 @@
 import type { CSSProperties } from 'react'
 
 // Single fixed brand palette for the whole app: Turquoise.
-// Flat single-tone navbar — primary, accent, border and ring are all the exact
-// same #156974 so the sidebar shows no shading whatsoever.
+// Navigation gradients are defined in globals.css while these semantic values
+// keep controls, borders, focus rings, and charts consistent.
 export interface ThemePalette {
   id: string
   name: string
