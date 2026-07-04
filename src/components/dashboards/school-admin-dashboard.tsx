@@ -78,6 +78,9 @@ interface MetricItem {
   note: string
   icon: React.ElementType
   tone: string
+  surface: string
+  accent: string
+  decoration: string
   progress: number
 }
 
@@ -201,6 +204,9 @@ export function SchoolAdminDashboard() {
       note: `${dashboard.totalClasses} classes, ${dashboard.totalSections} sections`,
       icon: GraduationCap,
       tone: 'bg-primary text-primary-foreground shadow-sm shadow-primary/20',
+      surface: 'border-primary/20 bg-gradient-to-br from-primary/[0.18] via-card to-primary/[0.05]',
+      accent: 'from-primary via-primary/70',
+      decoration: 'bg-primary/[0.10]',
       progress: Math.min(100, dashboard.totalStudents > 0 ? 82 : 0),
     },
     canSeeTeachers && {
@@ -209,6 +215,9 @@ export function SchoolAdminDashboard() {
       note: 'Active teaching staff',
       icon: BookOpen,
       tone: 'bg-primary text-primary-foreground shadow-sm shadow-primary/20',
+      surface: 'border-sky-500/20 bg-gradient-to-br from-sky-500/[0.16] via-card to-sky-500/[0.06]',
+      accent: 'from-sky-500 via-sky-400',
+      decoration: 'bg-sky-500/[0.10]',
       progress: Math.min(100, dashboard.totalTeachers > 0 ? 76 : 0),
     },
     canSeeFees && {
@@ -217,6 +226,9 @@ export function SchoolAdminDashboard() {
       note: `${collectionRate}% collection rate`,
       icon: IndianRupee,
       tone: 'bg-primary text-primary-foreground shadow-sm shadow-primary/20',
+      surface: 'border-emerald-500/20 bg-gradient-to-br from-emerald-500/[0.15] via-card to-emerald-500/[0.06]',
+      accent: 'from-emerald-500 via-emerald-400',
+      decoration: 'bg-emerald-500/[0.10]',
       progress: collectionRate,
     },
     canSeeFees && {
@@ -225,6 +237,9 @@ export function SchoolAdminDashboard() {
       note: `${formatMoney(dashboard.feeStats.overdueFees)} overdue`,
       icon: AlertCircle,
       tone: 'bg-primary text-primary-foreground shadow-sm shadow-primary/20',
+      surface: 'border-amber-500/20 bg-gradient-to-br from-amber-500/[0.15] via-card to-orange-500/[0.05]',
+      accent: 'from-amber-500 via-orange-400',
+      decoration: 'bg-amber-500/[0.11]',
       progress: Math.min(100, pendingRate),
     },
   ].filter(Boolean) as MetricItem[]
@@ -287,20 +302,17 @@ export function SchoolAdminDashboard() {
 
       <section className={cn('grid gap-4', (canSeeStudents || canSeeTeachers) && 'xl:grid-cols-[minmax(0,1fr)_minmax(320px,0.38fr)]')}>
         <div className="grid gap-4 sm:grid-cols-2">
-          {metrics.map((metric, index) => (
+          {metrics.map((metric) => (
             <Card
               key={metric.label}
               className={cn(
                 'group relative min-h-24 overflow-hidden border-primary/15 py-0 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-md hover:shadow-primary/10',
-                index % 4 === 0 && 'bg-gradient-to-br from-primary/[0.18] via-card to-card',
-                index % 4 === 1 && 'bg-gradient-to-br from-card via-primary/[0.07] to-primary/[0.14]',
-                index % 4 === 2 && 'bg-gradient-to-br from-primary/[0.13] via-card to-primary/[0.05]',
-                index % 4 === 3 && 'bg-gradient-to-br from-card via-card to-primary/[0.16]',
+                metric.surface,
               )}
             >
-              <div aria-hidden className="absolute -bottom-6 -right-4 size-14 rounded-full bg-primary/[0.08] transition-transform duration-300 group-hover:scale-125" />
-              <div aria-hidden className="absolute right-12 top-2.5 size-1.5 rounded-full bg-primary/20" />
-              <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-primary via-primary/70 to-transparent" />
+              <div aria-hidden className={cn('absolute -bottom-6 -right-4 size-14 rounded-full transition-transform duration-300 group-hover:scale-125', metric.decoration)} />
+              <div aria-hidden className={cn('absolute right-12 top-2.5 size-1.5 rounded-full', metric.decoration)} />
+              <div className={cn('absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r to-transparent', metric.accent)} />
               <CardContent className="relative p-2.5">
                 <div className="flex items-start justify-between gap-3">
                   <div>
@@ -313,7 +325,7 @@ export function SchoolAdminDashboard() {
                 </div>
                 <div className="mt-1.5">
                   <div className="mb-1.5 h-1 overflow-hidden rounded-full bg-primary/10">
-                    <div className="h-full rounded-full bg-gradient-to-r from-primary to-primary/65 transition-all" style={{ width: `${metric.progress}%` }} />
+                    <div className={cn('h-full rounded-full bg-gradient-to-r to-transparent transition-all', metric.accent)} style={{ width: `${metric.progress}%` }} />
                   </div>
                   <p className="text-[11px] text-muted-foreground">{metric.note}</p>
                 </div>
@@ -333,6 +345,7 @@ export function SchoolAdminDashboard() {
               ? `${dashboard.attendanceToday.present} of ${dashboard.attendanceToday.total} students are present.`
               : 'Attendance is paused for the non-teaching day.'}
             icon={TrendingUp}
+            variant="emerald"
           />
         )}
         {canSeeClasses && canSeeStudents && (
@@ -341,6 +354,7 @@ export function SchoolAdminDashboard() {
             value={`${classDensity} students`}
             description={`Across ${dashboard.totalClasses} classes and ${dashboard.totalSections} sections.`}
             icon={Layers}
+            variant="sky"
           />
         )}
         {canSeeFees && (
@@ -349,6 +363,7 @@ export function SchoolAdminDashboard() {
             value={`${pendingRate}% pending`}
             description={`${formatMoney(dashboard.feeStats.overdueFees)} is currently overdue.`}
             icon={BarChart3}
+            variant="amber"
           />
         )}
       </section>
@@ -356,27 +371,34 @@ export function SchoolAdminDashboard() {
       {(canSeeFees || canSeeAttendance) && (
       <section className={cn('grid gap-6', canSeeFees && canSeeAttendance ? 'xl:grid-cols-[minmax(0,1.6fr)_minmax(320px,0.9fr)]' : '')}>
         {canSeeFees && (
-        <Card className="gap-3 overflow-hidden border-primary/15 bg-gradient-to-br from-card via-card to-primary/[0.055] py-4 shadow-sm">
-          <CardHeader className="flex flex-col gap-2 px-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <CardTitle>Fee Collection</CardTitle>
-              <CardDescription>Collected versus pending fee trend</CardDescription>
+        <Card className="gap-0 overflow-hidden border-emerald-500/25 bg-gradient-to-br from-card via-card to-emerald-500/[0.10] py-0 shadow-md shadow-emerald-500/5">
+          <CardHeader className="flex flex-col gap-2 border-b border-emerald-500/15 bg-gradient-to-r from-emerald-500/[0.16] via-primary/[0.08] to-amber-500/[0.10] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="flex size-9 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-primary text-white shadow-sm shadow-emerald-500/20">
+                <IndianRupee className="size-4" />
+              </div>
+              <div>
+                <CardTitle className="text-base">Fee Collection</CardTitle>
+                <CardDescription className="text-xs">Collected versus pending fee trend</CardDescription>
+              </div>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <Badge variant="outline" className="bg-primary/5 text-primary">
+              <Badge variant="outline" className="gap-1.5 border-emerald-500/25 bg-background/75 text-emerald-700 shadow-sm backdrop-blur dark:text-emerald-300">
+                <span className="size-1.5 rounded-full bg-emerald-500" />
                 Collected {formatMoney(dashboard.feeStats.totalCollected)}
               </Badge>
-              <Badge variant="outline" className="bg-amber-500/10 text-amber-700 dark:text-amber-300">
+              <Badge variant="outline" className="gap-1.5 border-amber-500/25 bg-background/75 text-amber-700 shadow-sm backdrop-blur dark:text-amber-300">
+                <span className="size-1.5 rounded-full bg-amber-500" />
                 Pending {formatMoney(dashboard.feeStats.totalPending)}
               </Badge>
-              <Button variant="outline" size="sm" onClick={() => router.push('/fees/collections')}>
+              <Button className="h-7 gap-1.5 bg-primary px-2.5 text-xs text-primary-foreground shadow-sm hover:bg-primary/90" size="sm" onClick={() => router.push('/fees/collections')}>
                 View Fees
-                <ArrowRight className="size-4" />
+                <ArrowRight className="size-3.5" />
               </Button>
             </div>
           </CardHeader>
-          <CardContent className="px-4">
-            <div className="h-60">
+          <CardContent className="p-3">
+            <div className="h-56 rounded-xl border border-emerald-500/10 bg-gradient-to-b from-emerald-500/[0.055] via-transparent to-amber-500/[0.035] p-2">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={feeTrendData} margin={{ left: 0, right: 8, top: 8 }}>
                   <defs>
@@ -414,7 +436,7 @@ export function SchoolAdminDashboard() {
         )}
 
         {canSeeAttendance && (
-        <Card className="gap-3 overflow-hidden border-primary/15 bg-gradient-to-br from-card via-primary/[0.035] to-primary/[0.09] py-4 shadow-sm">
+        <Card className="gap-3 overflow-hidden border-sky-500/20 bg-gradient-to-br from-card via-sky-500/[0.025] to-sky-500/[0.10] py-4 shadow-sm">
           <CardHeader className="px-4">
             <CardTitle>Today&apos;s Attendance</CardTitle>
             <CardDescription>
@@ -490,11 +512,33 @@ export function SchoolAdminDashboard() {
   )
 }
 
-function InsightCard({ title, value, description, icon: Icon }: { title: string; value: string; description: string; icon: React.ElementType }) {
+function InsightCard({
+  title,
+  value,
+  description,
+  icon: Icon,
+  variant,
+}: {
+  title: string
+  value: string
+  description: string
+  icon: React.ElementType
+  variant: 'emerald' | 'sky' | 'amber'
+}) {
   return (
-    <Card className="group overflow-hidden border-primary/15 bg-gradient-to-br from-card via-primary/[0.035] to-primary/[0.10] py-0 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md hover:shadow-primary/10">
+    <Card className={cn(
+      'group overflow-hidden py-0 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md',
+      variant === 'emerald' && 'border-emerald-500/20 bg-gradient-to-br from-card to-emerald-500/[0.11] hover:border-emerald-500/35 hover:shadow-emerald-500/10',
+      variant === 'sky' && 'border-sky-500/20 bg-gradient-to-br from-card to-sky-500/[0.11] hover:border-sky-500/35 hover:shadow-sky-500/10',
+      variant === 'amber' && 'border-amber-500/20 bg-gradient-to-br from-card to-amber-500/[0.12] hover:border-amber-500/35 hover:shadow-amber-500/10',
+    )}>
       <CardContent className="flex items-start gap-3 p-3">
-        <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-primary/75 text-primary-foreground shadow-sm shadow-primary/20 transition-transform group-hover:scale-105">
+        <div className={cn(
+          'flex size-9 shrink-0 items-center justify-center rounded-lg text-white shadow-sm transition-transform group-hover:scale-105',
+          variant === 'emerald' && 'bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-emerald-500/20',
+          variant === 'sky' && 'bg-gradient-to-br from-sky-500 to-sky-600 shadow-sky-500/20',
+          variant === 'amber' && 'bg-gradient-to-br from-amber-500 to-orange-500 shadow-amber-500/20',
+        )}>
           <Icon className="size-4" />
         </div>
         <div className="min-w-0">
@@ -516,10 +560,10 @@ function getInitials(name: string): string {
 
 function TodaysBirthdaysCard({ people }: { people: BirthdayPerson[] }) {
   return (
-    <Card className="h-full gap-3 overflow-hidden border-primary/15 bg-gradient-to-br from-card via-primary/[0.025] to-primary/[0.09] py-4 shadow-sm">
+    <Card className="h-full gap-3 overflow-hidden border-rose-500/20 bg-gradient-to-br from-card via-rose-500/[0.025] to-rose-500/[0.10] py-4 shadow-sm">
       <CardHeader className="flex flex-col gap-1 px-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2">
-          <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary ring-1 ring-primary/10">
+          <div className="flex size-9 items-center justify-center rounded-lg bg-rose-500/10 text-rose-600 ring-1 ring-rose-500/10 dark:text-rose-300">
             <Cake className="size-4" />
           </div>
           <div>
@@ -552,7 +596,7 @@ function TodaysBirthdaysCard({ people }: { people: BirthdayPerson[] }) {
                       {getInitials(person.name)}
                     </div>
                   )}
-                  <div className="absolute -bottom-0.5 -right-0.5 flex size-4 items-center justify-center rounded-full border-2 border-background bg-primary text-primary-foreground">
+                  <div className="absolute -bottom-0.5 -right-0.5 flex size-4 items-center justify-center rounded-full border-2 border-background bg-rose-500 text-white">
                     <Cake className="size-2.5" />
                   </div>
                 </div>
