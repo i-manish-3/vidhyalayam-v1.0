@@ -804,8 +804,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     {initials}
                   </AvatarFallback>
                 </Avatar>
-                <div className="hidden sm:flex flex-col items-start">
-                  <span className="text-xs font-medium leading-tight">{user?.name}</span>
+                <div className="hidden sm:flex min-w-0 flex-col items-start">
+                  <span className="max-w-40 truncate text-xs font-medium leading-tight">{user?.name}</span>
                   <Badge variant="secondary" className="text-[9px] px-1 py-0 h-3.5 leading-none bg-primary-foreground/15 text-primary-foreground hover:bg-primary-foreground/15 dark:bg-sidebar-accent dark:text-sidebar-foreground">
                     {roleBadge}
                   </Badge>

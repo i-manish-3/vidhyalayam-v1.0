@@ -1,9 +1,10 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { api } from '@/lib/api'
 import { useAppStore } from '@/lib/store'
 import { getCurrentAcademicYear } from '@/lib/academic-years'
+import { cn } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -31,6 +32,7 @@ import {
 } from '@/lib/fee-slip-template'
 
 type PaymentMethod = 'CASH' | 'ONLINE' | 'CHEQUE' | 'UPI' | 'SPLIT'
+type ReceiptStatusFilter = 'ALL' | 'COLLECTED' | 'CANCELLED'
 
 interface ReceiptLine {
   feeHeadName: string
@@ -63,6 +65,9 @@ interface ReceiptRow {
   collectedBy: { id: string; name: string } | null
   session: string | null
   lines: ReceiptLine[]
+  receiptStatus: 'collected' | 'cancelled'
+  cancelledAt?: string | null
+  cancellationReason?: string | null
 }
 
 interface ReceiptSummary {
@@ -137,7 +142,7 @@ function paymentMethodLabel(value?: string | null) {
   return key ? PAYMENT_METHOD_LABELS[key] : value.charAt(0).toUpperCase() + value.slice(1).toLowerCase()
 }
 
-export function FeeListPage() {
+export function FeeListPage({ headerActions }: { headerActions?: ReactNode }) {
   const { currentSchool } = useAppStore()
   const { toast } = useToast()
 
@@ -149,6 +154,7 @@ export function FeeListPage() {
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [paymentMethodFilter, setPaymentMethodFilter] = useState('ALL')
+  const [receiptStatusFilter, setReceiptStatusFilter] = useState<ReceiptStatusFilter>('COLLECTED')
   const [selectedDate, setSelectedDate] = useState(() => formatDateInput())
   const [receiptSummary, setReceiptSummary] = useState<ReceiptSummary | null>(null)
   const [receiptHtml, setReceiptHtml] = useState<string | null>(null)
@@ -168,6 +174,7 @@ export function FeeListPage() {
         limit: 'all',
         academicYear,
         date: selectedDate,
+        receiptStatus: receiptStatusFilter.toLowerCase(),
       })
       if (debouncedSearch) params.set('search', debouncedSearch)
 
@@ -188,7 +195,7 @@ export function FeeListPage() {
     } finally {
       setLoading(false)
     }
-  }, [debouncedSearch, academicYear, paymentMethodFilter, selectedDate, toast])
+  }, [debouncedSearch, academicYear, paymentMethodFilter, receiptStatusFilter, selectedDate, toast])
 
   useEffect(() => { void fetchReceipts() }, [fetchReceipts])
 
@@ -272,7 +279,10 @@ export function FeeListPage() {
     setTimeout(() => frame.contentWindow?.print(), 400)
   }
 
-  const totalCollected = useMemo(() => receipts.reduce((s, r) => s + r.paid, 0), [receipts])
+  const totalCollected = useMemo(
+    () => receipts.reduce((sum, receipt) => receipt.receiptStatus === 'cancelled' ? sum : sum + receipt.paid, 0),
+    [receipts],
+  )
 
   const paymentMethodBadge = (row: ReceiptRow) => {
     if (row.splits && row.splits.length > 0) {
@@ -295,6 +305,7 @@ export function FeeListPage() {
       <PageHeader
         title="Fee Receipts"
         description={`Daily collection register for ${formatSelectedDate(selectedDate)} (${academicYear})`}
+        extraActions={headerActions}
         secondaryAction={{
           label: loading ? 'Refreshing...' : 'Refresh',
           icon: RefreshCw,
@@ -338,6 +349,16 @@ export function FeeListPage() {
               className="pl-9 h-9"
             />
           </div>
+          <Select value={receiptStatusFilter} onValueChange={(value) => setReceiptStatusFilter(value as ReceiptStatusFilter)}>
+            <SelectTrigger className="h-9 w-40">
+              <SelectValue placeholder="Receipt status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">All Receipts</SelectItem>
+              <SelectItem value="COLLECTED">Collected</SelectItem>
+              <SelectItem value="CANCELLED">Cancelled</SelectItem>
+            </SelectContent>
+          </Select>
           <Select value={paymentMethodFilter} onValueChange={setPaymentMethodFilter}>
             <SelectTrigger className="h-9 w-44">
               <SelectValue placeholder="Payment mode" />
@@ -381,11 +402,12 @@ export function FeeListPage() {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[1100px] border-collapse text-xs">
+              <table className="w-full min-w-[1180px] border-collapse text-xs">
                 <thead className="sticky top-0 z-10 bg-muted/60 backdrop-blur-sm">
                   <tr>
                     <th className="w-10 px-3 py-2.5 text-left font-semibold text-muted-foreground">#</th>
                     <th className="px-3 py-2.5 text-left font-semibold text-muted-foreground">Receipt No.</th>
+                    <th className="px-3 py-2.5 text-left font-semibold text-muted-foreground">Status</th>
                     <th className="px-3 py-2.5 text-left font-semibold text-muted-foreground">Student</th>
                     <th className="px-3 py-2.5 text-left font-semibold text-muted-foreground">Class</th>
                     <th className="px-3 py-2.5 text-left font-semibold text-muted-foreground">Fee Month</th>
@@ -405,7 +427,10 @@ export function FeeListPage() {
                   {receipts.map((row, idx) => (
                     <tr
                       key={row.id}
-                      className="group align-top transition-colors hover:bg-muted/35"
+                      className={cn(
+                        'group align-top transition-colors hover:bg-muted/35',
+                        row.receiptStatus === 'cancelled' && 'bg-red-50/40 dark:bg-red-500/5',
+                      )}
                     >
                       <td className="px-3 py-2.5 text-muted-foreground tabular-nums">
                         {idx + 1}
@@ -414,6 +439,20 @@ export function FeeListPage() {
                         <span className="font-mono text-[11px] font-semibold text-primary">
                           {row.receiptNumber || '-'}
                         </span>
+                      </td>
+                      <td className="px-3 py-2.5">
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            'text-[10px]',
+                            row.receiptStatus === 'cancelled'
+                              ? 'border-red-200 bg-red-50 text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300'
+                              : 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300',
+                          )}
+                          title={row.cancellationReason || undefined}
+                        >
+                          {row.receiptStatus === 'cancelled' ? 'Cancelled' : 'Collected'}
+                        </Badge>
                       </td>
                       <td className="px-3 py-2.5 font-medium">{row.studentName}</td>
                       <td className="px-3 py-2.5 text-muted-foreground">{row.className || '-'}</td>
@@ -473,7 +512,7 @@ export function FeeListPage() {
                 {/* Footer totals row */}
                 <tfoot className="border-t bg-muted/30">
                   <tr>
-                    <td colSpan={12} className="px-3 py-2.5 text-right text-xs font-bold text-muted-foreground">
+                    <td colSpan={13} className="px-3 py-2.5 text-right text-xs font-bold text-muted-foreground">
                       Day Total Collected:
                     </td>
                     <td className="px-3 py-2.5 text-right text-sm font-bold tabular-nums text-emerald-700">

@@ -10,8 +10,10 @@ export default function FeeListRoute() {
 
   return (
     <PermissionGuard page="fee-list">
-      <FeePaymentCancellation onCancelled={() => setRefreshKey((value) => value + 1)} />
-      <FeeListPage key={refreshKey} />
+      <FeeListPage
+        key={refreshKey}
+        headerActions={<FeePaymentCancellation onCancelled={() => setRefreshKey((value) => value + 1)} />}
+      />
     </PermissionGuard>
   )
 }

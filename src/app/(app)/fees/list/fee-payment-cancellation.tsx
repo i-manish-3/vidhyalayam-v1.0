@@ -102,11 +102,9 @@ export function FeePaymentCancellation({ onCancelled }: FeePaymentCancellationPr
 
   return (
     <>
-      <div className="mb-3 flex justify-end">
-        <Button variant="destructive" className="gap-2" onClick={() => setOpen(true)}>
-          <Ban className="size-4" /> Cancel Collected Fee
-        </Button>
-      </div>
+      <Button variant="destructive" className="gap-2" onClick={() => setOpen(true)}>
+        <Ban className="size-4" /> Cancel Collected Fee
+      </Button>
 
       <Dialog open={open} onOpenChange={(next) => { if (!cancelling) { setOpen(next); if (!next) reset() } }}>
         <DialogContent className="max-w-lg">

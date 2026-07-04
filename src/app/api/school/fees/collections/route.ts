@@ -432,14 +432,19 @@ export async function GET(request: NextRequest) {
     const listReceipts = searchParams.get('listReceipts') === 'true'
     const search = searchParams.get('search') || ''
     const date = searchParams.get('date') || ''
+    const receiptStatus = searchParams.get('receiptStatus') || 'collected'
 
     if (listReceipts) {
       const selectedDayRange = date ? dayRange(date) : null
       const where: Prisma.StudentFeeLedgerEntryWhereInput = {
         schoolId: user.schoolId,
         entryType: 'CREDIT',
-        deletedAt: null,
         receiptNumber: { not: null },
+        ...(receiptStatus === 'cancelled'
+          ? { status: 'cancelled' }
+          : receiptStatus === 'all'
+            ? { AND: [{ OR: [{ deletedAt: null, status: { not: 'cancelled' } }, { status: 'cancelled' }] }] }
+            : { deletedAt: null, status: { not: 'cancelled' } }),
         ...(studentId ? { studentId } : {}),
         ...(academicYear ? { academicYear } : {}),
         ...(selectedDayRange ? { transactionDate: selectedDayRange } : {}),
@@ -474,8 +479,13 @@ export async function GET(request: NextRequest) {
                 section: { select: { name: true } },
               },
             },
+            payment: {
+              select: {
+                cancelledAt: true,
+                cancellationReason: true,
+              },
+            },
             creditAllocations: {
-              where: { deletedAt: null },
               include: {
                 debitEntry: {
                   include: {
@@ -540,7 +550,11 @@ export async function GET(request: NextRequest) {
           balanceAfter: number
         }> = []
 
-        for (const allocation of credit.creditAllocations) {
+        const receiptAllocations = credit.status === 'cancelled'
+          ? credit.creditAllocations
+          : credit.creditAllocations.filter((allocation) => !allocation.deletedAt)
+
+        for (const allocation of receiptAllocations) {
           const debit = allocation.debitEntry
           const period = debit.installmentName || debit.feeCollection?.installmentName || ''
           const headName = (debit.feeHeadName || debit.feeCollection?.feeHeadName || '').toLowerCase()
@@ -644,6 +658,9 @@ export async function GET(request: NextRequest) {
           receiptId: credit.receiptNumber,
           lines: responseLines,
           cancellable: credit.sourceType === 'payment' && Boolean(credit.paymentId),
+          receiptStatus: credit.status === 'cancelled' || credit.deletedAt ? 'cancelled' : 'collected',
+          cancelledAt: credit.payment?.cancelledAt || credit.deletedAt || null,
+          cancellationReason: credit.payment?.cancellationReason || null,
         }
       })
 
