@@ -550,6 +550,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     })
   }, [allowedTopMenuPages, effectiveRole, permissions, permissionsLoaded])
 
+  // When quick links overlap (for example `/students` and
+  // `/students/admit`), only the most specific matching route is active.
+  const activeQuickHref = useMemo(() => {
+    const hrefs = visibleItems.flatMap((item) =>
+      item.type === 'dropdown' ? item.children.map((child) => child.href) : [item.href]
+    )
+
+    return hrefs
+      .filter((href) => pathname === href || (href !== '/' && pathname.startsWith(href + '/')))
+      .sort((a, b) => b.length - a.length)[0] ?? null
+  }, [pathname, visibleItems])
+
   useEffect(() => {
     const root = document.documentElement
 
@@ -789,23 +801,45 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 </div>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuLabel>
-                <div className="flex flex-col space-y-1">
-                  <p className="text-sm font-medium">{user?.name}</p>
-                  <p className="text-xs text-muted-foreground">{user?.email}</p>
+            <DropdownMenuContent align="end" sideOffset={8} className="w-72 overflow-hidden rounded-xl border border-primary/20 bg-popover p-0 shadow-2xl shadow-primary/15">
+              <DropdownMenuLabel className="relative overflow-hidden bg-gradient-to-r from-primary via-teal-600 to-cyan-600 p-3.5 text-white">
+                <div aria-hidden className="absolute -right-5 -top-8 size-24 rounded-full border-[12px] border-white/10" />
+                <div className="relative flex items-center gap-3">
+                  <Avatar className="size-11 border-2 border-white/60 shadow-md">
+                    {user?.avatar && <AvatarImage src={user.avatar} alt={user?.name || 'User'} />}
+                    <AvatarFallback className="bg-white text-xs font-bold text-primary">{initials}</AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-bold text-white">{user?.name}</p>
+                    <p className="truncate text-[11px] font-normal text-white/75">{user?.email}</p>
+                    <Badge className="mt-1 h-4 border border-white/20 bg-white/15 px-1.5 text-[9px] font-semibold text-white hover:bg-white/15">
+                      {roleBadge}
+                    </Badge>
+                  </div>
                 </div>
               </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => setShowProfileDialog(true)}>
-                <User className="mr-2 size-4" />
-                Profile
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleLogout} className="text-destructive">
-                <LogOut className="mr-2 size-4" />
-                Sign Out
-              </DropdownMenuItem>
+              <div className="bg-gradient-to-br from-primary/[0.025] via-popover to-sky-500/[0.045] p-1.5">
+                <DropdownMenuItem onClick={() => setShowProfileDialog(true)} className="group cursor-pointer gap-3 rounded-lg px-2.5 py-2 focus:bg-sky-50 dark:focus:bg-sky-500/10">
+                  <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-cyan-600 text-white shadow-sm transition-transform group-hover:scale-105">
+                    <User className="size-4 text-white" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold">My Profile</p>
+                    <p className="text-[10px] text-muted-foreground">Photo, name and password</p>
+                  </div>
+                  <ArrowRight className="size-3.5 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+                </DropdownMenuItem>
+                <DropdownMenuSeparator className="my-1.5" />
+                <DropdownMenuItem onClick={handleLogout} className="group cursor-pointer gap-3 rounded-lg px-2.5 py-2 text-destructive focus:bg-red-50 focus:text-destructive dark:focus:bg-red-500/10">
+                  <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-red-500 to-rose-600 text-white shadow-sm transition-transform group-hover:scale-105">
+                    <LogOut className="size-4 text-white" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold">Sign Out</p>
+                    <p className="text-[10px] text-muted-foreground">End this session securely</p>
+                  </div>
+                </DropdownMenuItem>
+              </div>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -817,12 +851,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <main className="flex-1 min-w-0 overflow-y-auto flex flex-col bg-brand-page">
           {/* Sticky Quick Access Menubar */}
           {!hideStickyQuickMenu && visibleItems.length > 0 && (
-            <div className="no-scrollbar sticky top-0 z-20 flex h-10 shrink-0 items-center overflow-x-auto overflow-y-hidden border-b border-border/40 bg-card/90 px-4 shadow-sm backdrop-blur-md lg:px-6">
+            <div className="no-scrollbar sticky top-0 z-20 flex h-10 shrink-0 items-center overflow-x-auto overflow-y-hidden bg-card/90 px-4 shadow-[0_4px_12px_-8px_color-mix(in_oklab,var(--primary),transparent_45%)] backdrop-blur-md after:pointer-events-none after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:bg-gradient-to-r after:from-sky-400/60 after:via-primary/75 after:to-violet-400/60 after:content-[''] lg:px-6">
               <div className="flex items-center gap-2 sm:gap-4 text-[13px] font-medium py-1">
                 {visibleItems.map((item) => {
                   const tone = quickMenuTone(item.label)
                   if (item.type === 'dropdown') {
-                    const isDropdownActive = item.children.some(child => pathname === child.href || pathname.startsWith(child.href + '/'))
+                    const isDropdownActive = item.children.some(child => child.href === activeQuickHref)
                     return (
                       <DropdownMenu key={item.label}>
                         <DropdownMenuTrigger asChild>
@@ -854,7 +888,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                           )}
                         >
                           {item.children.map((child) => {
-                            const isChildActive = pathname === child.href || pathname.startsWith(child.href + '/')
+                            const isChildActive = child.href === activeQuickHref
                             const ChildIcon = child.icon
                             const childTone = tone
                             return (
@@ -884,7 +918,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     )
                   }
 
-                  const isActive = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href + '/'))
+                  const isActive = item.href === activeQuickHref
                   return (
                     <Link
                       key={item.label}
@@ -941,25 +975,26 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           setConfirmPassword('')
         }
       }}>
-        <DialogContent className="flex max-h-[90svh] flex-col overflow-hidden p-0 sm:max-w-lg">
-          <DialogHeader className="shrink-0 border-b px-6 py-5 pr-12">
-            <DialogTitle className="flex items-center gap-2">
-              <span className="bg-brand-soft flex size-8 shrink-0 items-center justify-center rounded-lg text-white shadow-sm">
-                <User className="size-4" />
+        <DialogContent className="flex max-h-[90svh] flex-col overflow-hidden border-primary/20 bg-card p-0 shadow-2xl shadow-primary/15 sm:max-w-xl [&>button]:right-3 [&>button]:top-3 [&>button]:rounded-full [&>button]:text-white [&>button]:opacity-80 [&>button]:hover:bg-white/15 [&>button]:hover:opacity-100">
+          <DialogHeader className="relative shrink-0 overflow-hidden border-b border-white/15 bg-gradient-to-r from-primary via-teal-600 to-cyan-600 px-5 py-4 pr-12 text-white">
+            <div aria-hidden className="absolute -right-8 -top-12 size-32 rounded-full border-[16px] border-white/10" />
+            <div aria-hidden className="absolute -bottom-12 right-24 size-24 rounded-full bg-sky-300/10 blur-xl" />
+            <div className="relative flex items-center gap-3">
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-white/25 bg-white/15 text-white shadow-md backdrop-blur-sm">
+                <User className="size-5 text-white" />
               </span>
-              My Profile
-            </DialogTitle>
-            <DialogDescription>
-              Update your profile photo and password.
-            </DialogDescription>
+              <div>
+                <DialogTitle className="text-lg font-bold tracking-tight text-white">My Profile</DialogTitle>
+                <DialogDescription className="mt-0.5 text-xs text-white/75">
+                  Manage your account details and security.
+                </DialogDescription>
+              </div>
+            </div>
           </DialogHeader>
 
-          <div className="themed-scrollbar min-h-0 flex-1 space-y-6 overflow-y-auto overscroll-contain px-6 py-5 pr-7">
-            <section className="space-y-3">
-              <h3 className="flex items-center gap-2 text-sm font-semibold">
-                <span aria-hidden className="bg-brand h-4 w-1 shrink-0 rounded-full" />
-                Profile Photo
-              </h3>
+          <div className="themed-scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain bg-gradient-to-br from-primary/[0.025] via-background to-sky-500/[0.035] p-4 sm:p-5">
+            <section className="relative overflow-hidden rounded-xl border border-sky-200/80 bg-gradient-to-r from-sky-50 via-white to-violet-50 p-4 shadow-sm dark:border-sky-500/25 dark:from-sky-500/15 dark:via-card dark:to-violet-500/10">
+              <div aria-hidden className="absolute -right-5 -top-8 size-24 rounded-full bg-sky-200/25 blur-xl dark:bg-sky-500/10" />
               <input
                 ref={avatarInputRef}
                 type="file"
@@ -967,20 +1002,29 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 className="hidden"
                 onChange={(event) => handleAvatarSelect(event.target.files?.[0])}
               />
-              <div className="flex items-center gap-4 rounded-lg border bg-muted/20 p-3">
-                <Avatar className="size-16">
+              <div className="relative flex flex-col items-center gap-4 text-center sm:flex-row sm:text-left">
+                <div className="relative shrink-0">
+                <Avatar className="size-20 border-4 border-white shadow-lg ring-2 ring-sky-300/60 dark:border-card dark:ring-sky-500/30">
                   {user?.avatar && <AvatarImage src={user.avatar} alt={user?.name || 'User'} />}
-                  <AvatarFallback className="text-base">{initials}</AvatarFallback>
+                  <AvatarFallback className="bg-gradient-to-br from-primary to-cyan-600 text-lg font-bold text-white">{initials}</AvatarFallback>
                 </Avatar>
+                  {savingAvatar && (
+                    <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/35">
+                      <span className="size-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    </span>
+                  )}
+                </div>
                 <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-                  <p className="truncate text-sm font-medium">{user?.name}</p>
-                  <p className="truncate text-xs text-muted-foreground">{user?.email}</p>
-                  <div className="mt-1 flex flex-wrap gap-2">
+                  <div>
+                    <p className="truncate text-base font-bold">{user?.name}</p>
+                    <p className="truncate text-xs text-muted-foreground">{user?.email}</p>
+                  </div>
+                  <div className="mt-1 flex flex-wrap justify-center gap-2 sm:justify-start">
                     <Button
                       type="button"
                       variant="outline"
                       size="sm"
-                      className="h-8 gap-1.5"
+                      className="h-8 gap-1.5 border-sky-200 bg-white text-xs text-sky-700 hover:bg-sky-50 dark:border-sky-500/25 dark:bg-input/30 dark:text-sky-300"
                       disabled={savingAvatar}
                       onClick={() => avatarInputRef.current?.click()}
                     >
@@ -992,7 +1036,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                         type="button"
                         variant="ghost"
                         size="sm"
-                        className="h-8 gap-1.5 text-destructive hover:text-destructive"
+                        className="h-8 gap-1.5 text-xs text-destructive hover:bg-red-50 hover:text-destructive dark:hover:bg-red-500/10"
                         disabled={savingAvatar}
                         onClick={handleAvatarRemove}
                       >
@@ -1003,19 +1047,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   </div>
                 </div>
               </div>
-              <p className="text-[11px] text-muted-foreground">
+              <p className="relative mt-3 text-center text-[10px] text-muted-foreground sm:text-left">
                 JPG, PNG, or WebP up to 200 KB. Larger images are compressed automatically.
               </p>
             </section>
 
-            <section className="space-y-3">
-              <h3 className="flex items-center gap-2 text-sm font-semibold">
-                <span aria-hidden className="bg-brand h-4 w-1 shrink-0 rounded-full" />
-                Display Name
-              </h3>
-              <div className="space-y-3 rounded-lg border bg-muted/20 p-3">
+            <section className="rounded-xl border border-emerald-200/80 bg-gradient-to-br from-emerald-50 via-white to-teal-50 p-3.5 shadow-sm dark:border-emerald-500/25 dark:from-emerald-500/15 dark:via-card dark:to-teal-500/10">
+              <div className="mb-3 flex items-center gap-2">
+                <span className="flex size-7 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-sm"><User className="size-3.5 text-white" /></span>
+                <div><h3 className="text-sm font-semibold">Display Name</h3><p className="text-[10px] text-muted-foreground">Shown across your school account</p></div>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
                 <div className="space-y-1.5">
-                  <Label htmlFor="profile-name">Full Name</Label>
+                  <Label htmlFor="profile-name" className="text-xs">Full Name</Label>
                   <Input
                     id="profile-name"
                     value={profileName}
@@ -1023,68 +1067,73 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     placeholder="Enter your name"
                     maxLength={80}
                     autoComplete="name"
+                    className="h-9 bg-white dark:bg-input/30"
                   />
                 </div>
                 <Button
                   onClick={handleNameSave}
                   disabled={savingName || profileName.trim().length < 2 || profileName.trim() === (user?.name || '')}
-                  className="w-full"
+                  className="h-9 gap-1.5 px-3 text-xs sm:w-auto"
                 >
+                  {savingName && <span className="size-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />}
                   {savingName ? 'Saving...' : 'Update Name'}
                 </Button>
               </div>
             </section>
 
-            <section className="space-y-3">
-              <h3 className="flex items-center gap-2 text-sm font-semibold">
-                <span aria-hidden className="bg-brand h-4 w-1 shrink-0 rounded-full" />
-                <Lock className="size-3.5" />
-                Change Password
-              </h3>
-              <div className="space-y-3 rounded-lg border bg-muted/20 p-3">
-                <div className="space-y-1.5">
-                  <Label htmlFor="profile-current-password">Current Password</Label>
+            <section className="rounded-xl border border-violet-200/80 bg-gradient-to-br from-violet-50 via-white to-purple-50 p-3.5 shadow-sm dark:border-violet-500/25 dark:from-violet-500/15 dark:via-card dark:to-purple-500/10">
+              <div className="mb-3 flex items-center gap-2">
+                <span className="flex size-7 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 text-white shadow-sm"><Lock className="size-3.5 text-white" /></span>
+                <div><h3 className="text-sm font-semibold">Change Password</h3><p className="text-[10px] text-muted-foreground">Use at least 6 characters</p></div>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label htmlFor="profile-current-password" className="text-xs">Current Password</Label>
                   <Input
                     id="profile-current-password"
                     type="password"
                     value={currentPassword}
                     onChange={(event) => setCurrentPassword(event.target.value)}
                     autoComplete="current-password"
+                    className="h-9 bg-white dark:bg-input/30"
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="profile-new-password">New Password</Label>
+                  <Label htmlFor="profile-new-password" className="text-xs">New Password</Label>
                   <Input
                     id="profile-new-password"
                     type="password"
                     value={newPassword}
                     onChange={(event) => setNewPassword(event.target.value)}
                     autoComplete="new-password"
+                    className="h-9 bg-white dark:bg-input/30"
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="profile-confirm-password">Confirm New Password</Label>
+                  <Label htmlFor="profile-confirm-password" className="text-xs">Confirm Password</Label>
                   <Input
                     id="profile-confirm-password"
                     type="password"
                     value={confirmPassword}
                     onChange={(event) => setConfirmPassword(event.target.value)}
                     autoComplete="new-password"
+                    className="h-9 bg-white dark:bg-input/30"
                   />
                 </div>
                 <Button
                   onClick={handleRequiredPasswordChange}
                   disabled={changingPassword}
-                  className="w-full"
+                  className="h-9 gap-1.5 text-xs sm:col-span-2"
                 >
+                  {changingPassword && <span className="size-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />}
                   {changingPassword ? 'Saving...' : 'Update Password'}
                 </Button>
               </div>
             </section>
           </div>
 
-          <DialogFooter className="shrink-0 border-t px-6 py-4">
-            <Button variant="outline" onClick={() => setShowProfileDialog(false)}>
+          <DialogFooter className="shrink-0 border-t border-primary/10 bg-muted/30 px-4 py-3 sm:px-5">
+            <Button variant="outline" size="sm" className="h-8 px-4 text-xs" onClick={() => setShowProfileDialog(false)}>
               Close
             </Button>
           </DialogFooter>
