@@ -332,15 +332,15 @@ function InfoRow({ label, value, icon: Icon }: { label: string; value: string | 
   return (
     <div
       className={cn(
-        'group min-w-0 space-y-1 rounded-lg border border-border/60 bg-card px-2.5 py-2 shadow-[0_1px_0_rgba(0,0,0,0.02)] transition-colors',
-        'hover:border-primary/40 hover:bg-primary/[0.03]',
+        'group min-w-0 space-y-1 rounded-lg border border-primary/10 bg-gradient-to-br from-card via-card to-primary/[0.035] px-2.5 py-2 shadow-[0_1px_0_rgba(0,0,0,0.02)] transition-all',
+        'hover:-translate-y-px hover:border-primary/30 hover:shadow-sm',
         isEmpty && 'bg-muted/20 hover:border-border/60 hover:bg-muted/20',
       )}
     >
       <div className="flex items-center gap-1.5">
         {Icon && (
-          <span className="flex size-4 shrink-0 items-center justify-center rounded bg-primary/10 text-primary">
-            <Icon className="size-2.5" />
+          <span className="flex size-4.5 shrink-0 items-center justify-center rounded bg-gradient-to-br from-primary to-teal-600 text-white shadow-sm">
+            <Icon className="size-2.5 text-white" />
           </span>
         )}
         <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
@@ -352,14 +352,53 @@ function InfoRow({ label, value, icon: Icon }: { label: string; value: string | 
   )
 }
 
+function sectionTone(title: string) {
+  const normalized = title.toLowerCase()
+
+  if (normalized.includes('academic') || normalized.includes('identity')) {
+    return {
+      card: 'border-violet-200/80 bg-gradient-to-br from-violet-50/70 via-card to-purple-50/60 dark:border-violet-500/25 dark:from-violet-500/12 dark:via-card dark:to-purple-500/8',
+      header: 'border-violet-200/70 bg-gradient-to-r from-violet-100/75 via-white/80 to-purple-100/60 dark:border-violet-500/20 dark:from-violet-500/15 dark:via-card dark:to-purple-500/10',
+      icon: 'from-violet-500 to-purple-600',
+    }
+  }
+  if (normalized.includes('bank') || normalized.includes('fee')) {
+    return {
+      card: 'border-emerald-200/80 bg-gradient-to-br from-emerald-50/70 via-card to-teal-50/60 dark:border-emerald-500/25 dark:from-emerald-500/12 dark:via-card dark:to-teal-500/8',
+      header: 'border-emerald-200/70 bg-gradient-to-r from-emerald-100/75 via-white/80 to-teal-100/60 dark:border-emerald-500/20 dark:from-emerald-500/15 dark:via-card dark:to-teal-500/10',
+      icon: 'from-emerald-500 to-teal-600',
+    }
+  }
+  if (normalized.includes('transport') || normalized.includes('hostel') || normalized.includes('document')) {
+    return {
+      card: 'border-amber-200/80 bg-gradient-to-br from-amber-50/70 via-card to-orange-50/60 dark:border-amber-500/25 dark:from-amber-500/12 dark:via-card dark:to-orange-500/8',
+      header: 'border-amber-200/70 bg-gradient-to-r from-amber-100/75 via-white/80 to-orange-100/60 dark:border-amber-500/20 dark:from-amber-500/15 dark:via-card dark:to-orange-500/10',
+      icon: 'from-amber-500 to-orange-600',
+    }
+  }
+  if (normalized.includes('father') || normalized.includes('mother') || normalized.includes('sibling')) {
+    return {
+      card: 'border-rose-200/80 bg-gradient-to-br from-rose-50/70 via-card to-pink-50/60 dark:border-rose-500/25 dark:from-rose-500/12 dark:via-card dark:to-pink-500/8',
+      header: 'border-rose-200/70 bg-gradient-to-r from-rose-100/75 via-white/80 to-pink-100/60 dark:border-rose-500/20 dark:from-rose-500/15 dark:via-card dark:to-pink-500/10',
+      icon: 'from-rose-500 to-pink-600',
+    }
+  }
+  return {
+    card: 'border-sky-200/80 bg-gradient-to-br from-sky-50/70 via-card to-cyan-50/60 dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-cyan-500/8',
+    header: 'border-sky-200/70 bg-gradient-to-r from-sky-100/75 via-white/80 to-cyan-100/60 dark:border-sky-500/20 dark:from-sky-500/15 dark:via-card dark:to-cyan-500/10',
+    icon: 'from-sky-500 to-cyan-600',
+  }
+}
+
 function SectionCard({ title, icon: Icon, children, className = '', headerAction }: { title: string; icon: React.ComponentType<{ className?: string }>; children: React.ReactNode; className?: string; headerAction?: React.ReactNode }) {
+  const tone = sectionTone(title)
   return (
-    <Card className={cn('overflow-hidden border-border/60 bg-muted/30 shadow-sm gap-0 py-0', className)}>
-      <CardHeader className="border-b border-border/60 bg-background/60 px-3 py-2">
+    <Card className={cn('gap-0 overflow-hidden py-0 shadow-sm transition-shadow hover:shadow-md', tone.card, className)}>
+      <CardHeader className={cn('border-b px-3 py-2', tone.header)}>
         <div className="flex items-center justify-between gap-2">
           <CardTitle className="flex items-center gap-2 text-[13px] font-semibold">
-            <span className="flex size-6 items-center justify-center rounded-md bg-primary/15 text-primary">
-              <Icon className="size-3.5" />
+            <span className={cn('flex size-6 items-center justify-center rounded-md bg-gradient-to-br text-white shadow-sm', tone.icon)}>
+              <Icon className="size-3.5 text-white" />
             </span>
             {title}
           </CardTitle>
@@ -381,12 +420,49 @@ function KeyFact({
   value: string | null | undefined
 }) {
   return (
-    <div className="flex min-w-0 items-center gap-2 py-0.5">
-      <Icon className="size-3.5 shrink-0 text-primary/70" />
+    <div className="flex min-w-0 items-center gap-2 py-1">
+      <span className="flex size-5 shrink-0 items-center justify-center rounded-md bg-gradient-to-br from-primary to-cyan-600 text-white shadow-sm">
+        <Icon className="size-3 text-white" />
+      </span>
       <span className="shrink-0 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{label}</span>
       <span className="ml-auto min-w-0 truncate text-right text-xs font-semibold text-foreground">
         {value || <span className="text-muted-foreground/60">--</span>}
       </span>
+    </div>
+  )
+}
+
+function HouseHighlight({ house }: { house: { name: string; color: string } }) {
+  return (
+    <div className="relative mx-auto mt-2.5 w-fit max-w-full">
+      <span
+        aria-hidden
+        className="absolute inset-0 animate-pulse rounded-xl opacity-25 blur-md motion-reduce:animate-none"
+        style={{ backgroundColor: house.color }}
+      />
+      <div
+        className="relative flex max-w-full items-center gap-2 rounded-xl border bg-white/95 px-2 py-1.5 text-left shadow-md backdrop-blur-sm dark:bg-card/95"
+        style={{ borderColor: house.color, boxShadow: `0 4px 14px color-mix(in oklab, ${house.color} 28%, transparent)` }}
+      >
+        <span
+          className="flex size-7 shrink-0 items-center justify-center rounded-lg text-white shadow-sm"
+          style={{ backgroundColor: house.color }}
+        >
+          <Home className="size-3.5 text-white" />
+        </span>
+        <span className="min-w-0">
+          <span className="block text-[8px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Student House</span>
+          <span className="block truncate text-xs font-bold text-foreground">{house.name}</span>
+        </span>
+        <span className="relative ml-1 flex size-2.5 shrink-0">
+          <span
+            aria-hidden
+            className="absolute inline-flex size-full animate-ping rounded-full opacity-60 motion-reduce:animate-none"
+            style={{ backgroundColor: house.color }}
+          />
+          <span className="relative inline-flex size-2.5 rounded-full" style={{ backgroundColor: house.color }} />
+        </span>
+      </div>
     </div>
   )
 }
@@ -1457,7 +1533,7 @@ export function StudentDetailPage({ studentId }: { studentId: string }) {
   const canUseStudentServices = !isWithdrawnOrTransferred
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {/* Print stylesheet: visible only at print time. Hides app chrome, shows the form. */}
       <style>{`
         @media print {
@@ -1545,7 +1621,7 @@ export function StudentDetailPage({ studentId }: { studentId: string }) {
       />
 
       {requestedYearHasNoEnrollment && (
-        <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-2 text-sm text-destructive">
+        <div className="rounded-xl border border-red-200/80 bg-gradient-to-r from-red-50 via-white to-rose-50 px-4 py-3 text-sm text-red-700 shadow-sm dark:border-red-500/25 dark:from-red-500/15 dark:via-card dark:to-rose-500/10 dark:text-red-300">
           This student wasn&apos;t enrolled in <strong>{viewYear}</strong>. Showing latest profile info; class &amp; roll
           for that session are unavailable.
         </div>
@@ -1554,42 +1630,45 @@ export function StudentDetailPage({ studentId }: { studentId: string }) {
       {/* Layout: sticky sidebar (identity + key facts + actions) + main panel. */}
       <div className="grid gap-3 lg:grid-cols-[260px_minmax(0,1fr)] xl:grid-cols-[280px_minmax(0,1fr)]">
         {/* ───────── Sidebar ───────── */}
-        <aside className="lg:sticky lg:top-2 lg:self-start lg:max-h-[calc(100vh-1rem)] lg:overflow-y-auto">
-          <Card className="overflow-hidden border-border/70 py-0 shadow-sm">
+        <aside className="lg:sticky lg:top-2 lg:self-start">
+          <Card className="overflow-hidden border-primary/20 bg-gradient-to-br from-card via-card to-sky-500/[0.035] py-0 shadow-md shadow-primary/5">
             {/* Identity surface — gradient backing pulls the photo + name out
                 of the dense field grid that follows. */}
-            <div className="relative bg-gradient-to-br from-primary/15 via-primary/5 to-transparent px-4 pb-4 pt-5">
-              <div className="mx-auto flex size-32 items-center justify-center overflow-hidden rounded-xl border border-primary/25 bg-background shadow-sm sm:size-36">
+            <div className="relative overflow-hidden bg-gradient-to-br from-primary via-teal-600 to-cyan-600 px-4 pb-4 pt-5 text-white">
+              <div aria-hidden className="absolute -right-9 -top-12 size-32 rounded-full border-[16px] border-white/10" />
+              <div aria-hidden className="absolute -bottom-10 -left-8 size-24 rounded-full bg-sky-300/10 blur-xl" />
+              <div className="relative mx-auto flex size-32 items-center justify-center overflow-hidden rounded-2xl border-4 border-white/70 bg-white/15 shadow-xl shadow-black/15 ring-2 ring-white/20 sm:size-36">
                 {studentPhoto ? (
                   <img src={studentPhoto} alt={fullName} className="size-full object-cover" />
                 ) : (
-                  <User className="size-12 text-primary/60" />
+                  <User className="size-12 text-white/75" />
                 )}
               </div>
-              <div className="mt-3 text-center">
-                <h1 className="break-words text-base font-bold leading-tight tracking-tight text-foreground sm:text-lg">
+              <div className="relative mt-3 text-center">
+                <h1 className="break-words text-base font-bold leading-tight tracking-tight text-white sm:text-lg">
                   {fullName}
                 </h1>
                 {classLabel && (
-                  <p className="mt-0.5 text-[11px] font-medium text-muted-foreground">{classLabel}</p>
+                  <p className="mt-0.5 text-[11px] font-medium text-white/75">{classLabel}</p>
                 )}
                 <Badge
                   variant="outline"
                   className={cn(
-                    'mt-2 inline-flex h-5 items-center gap-1 rounded-md px-1.5 text-[10.5px] font-semibold',
+                    'mt-2 inline-flex h-5 items-center gap-1 rounded-md !border-white/30 !bg-white/90 px-1.5 text-[10.5px] font-semibold shadow-sm',
                     statusClass(effectiveEnrollmentStatus),
                   )}
                 >
                   <BadgeCheck className="size-3" />
                   {effectiveEnrollmentStatus || 'Admitted'}
                 </Badge>
+                {student.assignedHouse && <HouseHighlight house={student.assignedHouse} />}
               </div>
             </div>
 
             <div className="px-3 pb-3">
               {/* Key facts — a compact identity card built into the sidebar so
                   the student's anchor info is always on screen. */}
-              <div className="rounded-md border border-border/70 bg-muted/20 px-2.5 py-2">
+              <div className="rounded-lg border border-sky-200/70 bg-gradient-to-br from-sky-50 via-white to-cyan-50 px-2.5 py-2 shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-cyan-500/8">
                 <KeyFact icon={Hash} label="Adm No" value={admissionLabel} />
                 {effectiveRollNumber && (
                   <KeyFact icon={IdCard} label="Roll" value={String(effectiveRollNumber)} />
@@ -1601,9 +1680,6 @@ export function StudentDetailPage({ studentId }: { studentId: string }) {
                     label="Gender"
                     value={student.gender}
                   />
-                )}
-                {student.assignedHouse && (
-                  <KeyFact icon={BadgeCheck} label="House" value={student.assignedHouse.name} />
                 )}
                 {(resolvedAcademicYear || currentSchoolAcademicYear || a?.academicYear) && (
                   <KeyFact
@@ -1623,9 +1699,10 @@ export function StudentDetailPage({ studentId }: { studentId: string }) {
                   <Button
                     size="sm"
                     onClick={() => router.push(`/fees/collections?preselect=${student.id}`)}
-                    className="h-9 w-full justify-start gap-2 font-semibold"
+                    className="h-9 w-full justify-start gap-2 border border-emerald-500 bg-emerald-600 px-2.5 font-semibold text-white shadow-sm [background-image:linear-gradient(to_right,var(--color-emerald-600),var(--color-teal-600))] hover:-translate-y-px hover:shadow-md"
                   >
-                    <Banknote className="size-4" /> Collect Fees
+                    <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-white/15"><Banknote className="size-3.5 text-white" /></span>
+                    Collect Fees
                   </Button>
                 )}
                 {canEdit && (
@@ -1633,9 +1710,10 @@ export function StudentDetailPage({ studentId }: { studentId: string }) {
                     variant="outline"
                     size="sm"
                     onClick={() => router.push(`/students/${studentId}/edit`)}
-                    className="h-8 w-full justify-start gap-2"
+                    className="h-9 w-full justify-start gap-2 border-sky-200 bg-gradient-to-r from-sky-50 via-white to-cyan-50 px-2.5 text-sky-800 shadow-sm hover:-translate-y-px hover:border-sky-300 hover:bg-sky-50 hover:text-sky-900 hover:shadow-md dark:border-sky-500/25 dark:from-sky-500/15 dark:via-card dark:to-cyan-500/10 dark:text-sky-300"
                   >
-                    <Edit className="size-3.5" /> Edit Profile
+                    <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-gradient-to-br from-sky-500 to-cyan-600"><Edit className="size-3.5 text-white" /></span>
+                    Edit Profile
                   </Button>
                 )}
                 {canManageTransport && canUseStudentServices && (
@@ -1644,18 +1722,20 @@ export function StudentDetailPage({ studentId }: { studentId: string }) {
                       variant="outline"
                       size="sm"
                       onClick={() => setDiscontinueTransportOpen(true)}
-                      className="h-8 w-full justify-start gap-2"
+                      className="h-9 w-full justify-start gap-2 border-amber-200 bg-gradient-to-r from-amber-50 via-white to-orange-50 px-2.5 text-amber-800 shadow-sm hover:-translate-y-px hover:border-amber-300 hover:bg-amber-50 hover:text-amber-900 hover:shadow-md dark:border-amber-500/25 dark:from-amber-500/15 dark:via-card dark:to-orange-500/10 dark:text-amber-300"
                     >
-                      <Bus className="size-3.5" /> Discontinue Transport
+                      <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-gradient-to-br from-amber-500 to-orange-600"><Bus className="size-3.5 text-white" /></span>
+                      Discontinue Transport
                     </Button>
                   ) : (
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => setAddTransportOpen(true)}
-                      className="h-8 w-full justify-start gap-2"
+                      className="h-9 w-full justify-start gap-2 border-amber-200 bg-gradient-to-r from-amber-50 via-white to-orange-50 px-2.5 text-amber-800 shadow-sm hover:-translate-y-px hover:border-amber-300 hover:bg-amber-50 hover:text-amber-900 hover:shadow-md dark:border-amber-500/25 dark:from-amber-500/15 dark:via-card dark:to-orange-500/10 dark:text-amber-300"
                     >
-                      <Bus className="size-3.5" /> Add Transport
+                      <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-gradient-to-br from-amber-500 to-orange-600"><Bus className="size-3.5 text-white" /></span>
+                      Add Transport
                     </Button>
                   )
                 )}
@@ -1665,18 +1745,20 @@ export function StudentDetailPage({ studentId }: { studentId: string }) {
                       variant="outline"
                       size="sm"
                       onClick={() => setDiscontinueHostelOpen(true)}
-                      className="h-8 w-full justify-start gap-2"
+                      className="h-9 w-full justify-start gap-2 border-violet-200 bg-gradient-to-r from-violet-50 via-white to-purple-50 px-2.5 text-violet-800 shadow-sm hover:-translate-y-px hover:border-violet-300 hover:bg-violet-50 hover:text-violet-900 hover:shadow-md dark:border-violet-500/25 dark:from-violet-500/15 dark:via-card dark:to-purple-500/10 dark:text-violet-300"
                     >
-                      <Building2 className="size-3.5" /> Discontinue Hostel
+                      <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-gradient-to-br from-violet-500 to-purple-600"><Building2 className="size-3.5 text-white" /></span>
+                      Discontinue Hostel
                     </Button>
                   ) : (
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => setAddHostelOpen(true)}
-                      className="h-8 w-full justify-start gap-2"
+                      className="h-9 w-full justify-start gap-2 border-violet-200 bg-gradient-to-r from-violet-50 via-white to-purple-50 px-2.5 text-violet-800 shadow-sm hover:-translate-y-px hover:border-violet-300 hover:bg-violet-50 hover:text-violet-900 hover:shadow-md dark:border-violet-500/25 dark:from-violet-500/15 dark:via-card dark:to-purple-500/10 dark:text-violet-300"
                     >
-                      <Building2 className="size-3.5" /> Add Hostel
+                      <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-gradient-to-br from-violet-500 to-purple-600"><Building2 className="size-3.5 text-white" /></span>
+                      Add Hostel
                     </Button>
                   )
                 )}
@@ -1684,9 +1766,10 @@ export function StudentDetailPage({ studentId }: { studentId: string }) {
                   variant="outline"
                   size="sm"
                   onClick={() => window.print()}
-                  className="h-8 w-full justify-start gap-2"
+                  className="h-9 w-full justify-start gap-2 border-indigo-200 bg-gradient-to-r from-indigo-50 via-white to-sky-50 px-2.5 text-indigo-800 shadow-sm hover:-translate-y-px hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-900 hover:shadow-md dark:border-indigo-500/25 dark:from-indigo-500/15 dark:via-card dark:to-sky-500/10 dark:text-indigo-300"
                 >
-                  <Printer className="size-3.5" /> Print Admission Form
+                  <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-gradient-to-br from-indigo-500 to-sky-600"><Printer className="size-3.5 text-white" /></span>
+                  Print Admission Form
                 </Button>
                 {canIssueTC && canUseStudentServices && (
                   <>
@@ -1696,9 +1779,10 @@ export function StudentDetailPage({ studentId }: { studentId: string }) {
                       size="sm"
                       type="button"
                       onClick={openWithdrawDialog}
-                      className="h-8 w-full justify-start gap-2 border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                      className="h-9 w-full justify-start gap-2 border-red-200 bg-gradient-to-r from-red-50 via-white to-rose-50 px-2.5 text-red-700 shadow-sm hover:-translate-y-px hover:border-red-300 hover:bg-red-50 hover:text-red-800 hover:shadow-md dark:border-red-500/25 dark:from-red-500/15 dark:via-card dark:to-rose-500/10 dark:text-red-300"
                     >
-                      <FileText className="size-3.5" /> Issue Transfer Certificate
+                      <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-gradient-to-br from-red-500 to-rose-600"><FileText className="size-3.5 text-white" /></span>
+                      Issue Transfer Certificate
                     </Button>
                   </>
                 )}
@@ -1739,30 +1823,30 @@ export function StudentDetailPage({ studentId }: { studentId: string }) {
 
 
       <Tabs defaultValue="personal" className="min-w-0 gap-2">
-        <div className="sticky top-0 z-10 -mx-1 flex justify-center overflow-x-auto bg-background/95 px-1 py-1 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-          <TabsList className="h-9 w-max rounded-md border border-border/70 bg-muted/50 p-0.5">
-            <TabsTrigger value="personal" className="h-8 gap-1.5 rounded-md px-2.5 text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+        <div className="sticky top-0 z-10 -mx-1 flex justify-center overflow-x-auto bg-background/90 px-1 py-1.5 backdrop-blur supports-[backdrop-filter]:bg-background/75">
+          <TabsList className="h-10 w-max rounded-xl border border-primary/15 bg-gradient-to-r from-sky-50 via-white to-violet-50 p-1 shadow-sm dark:from-sky-500/10 dark:via-card dark:to-violet-500/10">
+            <TabsTrigger value="personal" className="h-8 gap-1.5 rounded-lg px-2.5 text-xs data-[state=active]:bg-sky-500 data-[state=active]:text-white data-[state=active]:shadow-sm [&[data-state=active]_svg]:text-white">
               <User className="size-3.5" />
               Personal
             </TabsTrigger>
-            <TabsTrigger value="contact" className="h-8 gap-1.5 rounded-md px-2.5 text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+            <TabsTrigger value="contact" className="h-8 gap-1.5 rounded-lg px-2.5 text-xs data-[state=active]:bg-cyan-500 data-[state=active]:text-white data-[state=active]:shadow-sm [&[data-state=active]_svg]:text-white">
               <Phone className="size-3.5" />
               Contact
             </TabsTrigger>
-            <TabsTrigger value="general" className="h-8 gap-1.5 rounded-md px-2.5 text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+            <TabsTrigger value="general" className="h-8 gap-1.5 rounded-lg px-2.5 text-xs data-[state=active]:bg-violet-500 data-[state=active]:text-white data-[state=active]:shadow-sm [&[data-state=active]_svg]:text-white">
               <GraduationCap className="size-3.5" />
               General
             </TabsTrigger>
-            <TabsTrigger value="accounts" className="h-8 gap-1.5 rounded-md px-2.5 text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+            <TabsTrigger value="accounts" className="h-8 gap-1.5 rounded-lg px-2.5 text-xs data-[state=active]:bg-emerald-500 data-[state=active]:text-white data-[state=active]:shadow-sm [&[data-state=active]_svg]:text-white">
               <Banknote className="size-3.5" />
               Accounts
             </TabsTrigger>
-            <TabsTrigger value="documents" className="h-8 gap-1.5 rounded-md px-2.5 text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+            <TabsTrigger value="documents" className="h-8 gap-1.5 rounded-lg px-2.5 text-xs data-[state=active]:bg-amber-500 data-[state=active]:text-white data-[state=active]:shadow-sm [&[data-state=active]_svg]:text-white">
               <FileText className="size-3.5" />
               Documents
             </TabsTrigger>
             {(student.siblings?.length || 0) > 0 && (
-              <TabsTrigger value="sibling" className="h-8 gap-1.5 rounded-md px-2.5 text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+              <TabsTrigger value="sibling" className="h-8 gap-1.5 rounded-lg px-2.5 text-xs data-[state=active]:bg-rose-500 data-[state=active]:text-white data-[state=active]:shadow-sm [&[data-state=active]_svg]:text-white">
                 <Heart className="size-3.5" />
                 Siblings
               </TabsTrigger>
