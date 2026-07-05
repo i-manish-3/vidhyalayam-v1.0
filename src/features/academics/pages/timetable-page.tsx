@@ -839,39 +839,47 @@ export function TimetablePage() {
 
       {/* Add/Edit Dialog */}
       <Dialog open={showAdd} onOpenChange={(open) => { setShowAdd(open); if (!open) { setEditEntry(null); resetForm() } }}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>{editEntry ? 'Edit Timetable Entry' : 'Add Timetable Entry'}</DialogTitle>
-            <DialogDescription>
-              {editEntry ? 'Update the subject and teacher for this slot.' : 'Assign a subject and teacher to a time slot.'}
-            </DialogDescription>
+        <DialogContent className="max-h-[90svh] overflow-hidden border-primary/20 bg-card p-0 shadow-2xl shadow-primary/15 sm:max-w-xl [&>button]:right-3 [&>button]:top-3 [&>button]:rounded-full [&>button]:text-white [&>button]:opacity-80 [&>button]:hover:bg-white/15 [&>button]:hover:opacity-100">
+          <DialogHeader className="relative overflow-hidden border-b border-white/15 bg-gradient-to-r from-primary via-teal-600 to-cyan-600 px-5 py-4 pr-12 text-white">
+            <div aria-hidden className="absolute -right-8 -top-12 size-32 rounded-full border-[16px] border-white/10" />
+            <div className="relative flex items-center gap-3">
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-white/25 bg-white/15 shadow-md backdrop-blur-sm">
+                {editEntry ? <Pencil className="size-4.5 text-white" /> : <PlusCircle className="size-5 text-white" />}
+              </span>
+              <div>
+                <DialogTitle className="text-lg font-bold tracking-tight text-white">{editEntry ? 'Edit Timetable Entry' : 'Add Timetable Entry'}</DialogTitle>
+                <DialogDescription className="mt-0.5 text-xs text-white/75">
+                  {editEntry ? 'Update the subject and teacher for this time slot.' : 'Assign a subject and teacher to a time slot.'}
+                </DialogDescription>
+              </div>
+            </div>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="text-xs font-medium">Class <span className="text-destructive">*</span></Label>
+          <div className="themed-scrollbar grid max-h-[68svh] gap-3 overflow-y-auto bg-gradient-to-br from-primary/[0.025] via-background to-violet-500/[0.035] p-4 sm:p-5">
+            <div className="grid gap-3 rounded-xl border border-sky-200/80 bg-gradient-to-r from-sky-50 via-white to-violet-50 p-3 shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-semibold uppercase tracking-wider text-sky-700 dark:text-sky-300">Class <span className="text-destructive">*</span></Label>
                 <Select value={form.classId} onValueChange={v => setForm(f => ({ ...f, classId: v, sectionId: '', subjectId: '' }))}>
-                  <SelectTrigger><SelectValue placeholder="Select class" /></SelectTrigger>
+                  <SelectTrigger leadingIcon={<GraduationCap className="size-3.5 text-white" />} leadingIconClassName="from-sky-500 to-cyan-600" className="w-full bg-white dark:bg-input/30"><SelectValue placeholder="Select class" /></SelectTrigger>
                   <SelectContent>{classes.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <Label className="text-xs font-medium">Section <span className="text-destructive">*</span></Label>
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-semibold uppercase tracking-wider text-violet-700 dark:text-violet-300">Section <span className="text-destructive">*</span></Label>
                 <Select value={form.sectionId} onValueChange={v => setForm(f => ({ ...f, sectionId: v }))} disabled={!form.classId}>
-                  <SelectTrigger><SelectValue placeholder="Select section" /></SelectTrigger>
+                  <SelectTrigger leadingIcon={<Users className="size-3.5 text-white" />} leadingIconClassName="from-violet-500 to-purple-600" className="w-full bg-white dark:bg-input/30"><SelectValue placeholder="Select section" /></SelectTrigger>
                   <SelectContent>{availableFormSections.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="text-xs font-medium">Subject <span className="text-destructive">*</span></Label>
+            <div className="grid gap-3 rounded-xl border border-emerald-200/80 bg-gradient-to-r from-emerald-50 via-white to-cyan-50 p-3 shadow-sm dark:border-emerald-500/25 dark:from-emerald-500/12 dark:via-card dark:to-cyan-500/10 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-300">Subject <span className="text-destructive">*</span></Label>
                 <Select
                   value={form.subjectId}
                   onValueChange={v => setForm(f => ({ ...f, subjectId: v }))}
                   disabled={!form.classId || availableFormSubjects.length === 0}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger leadingIcon={<GraduationCap className="size-3.5 text-white" />} leadingIconClassName="from-emerald-500 to-teal-600" className="w-full bg-white dark:bg-input/30">
                     <SelectValue placeholder={!form.classId ? 'Select class first' : availableFormSubjects.length === 0 ? 'No subjects in this class' : 'Select subject'} />
                   </SelectTrigger>
                   <SelectContent>{availableFormSubjects.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
@@ -882,26 +890,26 @@ export function TimetablePage() {
                   </p>
                 )}
               </div>
-              <div className="space-y-2">
-                <Label className="text-xs font-medium">Teacher <span className="text-destructive">*</span></Label>
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-semibold uppercase tracking-wider text-cyan-700 dark:text-cyan-300">Teacher <span className="text-destructive">*</span></Label>
                 <Select value={form.teacherId} onValueChange={v => setForm(f => ({ ...f, teacherId: v }))}>
-                  <SelectTrigger><SelectValue placeholder="Select teacher" /></SelectTrigger>
+                  <SelectTrigger leadingIcon={<Users className="size-3.5 text-white" />} leadingIconClassName="from-cyan-500 to-sky-600" className="w-full bg-white dark:bg-input/30"><SelectValue placeholder="Select teacher" /></SelectTrigger>
                   <SelectContent>{teachers.map(t => <SelectItem key={t.id} value={t.id}>{t.firstName} {t.lastName}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="text-xs font-medium">Day <span className="text-destructive">*</span></Label>
+            <div className="grid gap-3 rounded-xl border border-amber-200/80 bg-gradient-to-r from-amber-50 via-white to-orange-50 p-3 shadow-sm dark:border-amber-500/25 dark:from-amber-500/12 dark:via-card dark:to-orange-500/10 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-300">Day <span className="text-destructive">*</span></Label>
                 <Select value={form.day} onValueChange={v => setForm(f => ({ ...f, day: v }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger leadingIcon={<Calendar className="size-3.5 text-white" />} leadingIconClassName="from-amber-500 to-orange-600" className="w-full bg-white dark:bg-input/30"><SelectValue /></SelectTrigger>
                   <SelectContent>{DAYS.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <Label className="text-xs font-medium">Period <span className="text-destructive">*</span></Label>
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-semibold uppercase tracking-wider text-orange-700 dark:text-orange-300">Period <span className="text-destructive">*</span></Label>
                 <Select value={form.period} onValueChange={v => setForm(f => ({ ...f, period: v }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger leadingIcon={<Clock className="size-3.5 text-white" />} leadingIconClassName="from-orange-500 to-red-500" className="w-full bg-white dark:bg-input/30"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {activePeriods.map(p => (
                       <SelectItem key={p.period} value={String(p.period)}>
@@ -913,21 +921,21 @@ export function TimetablePage() {
               </div>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => { setShowAdd(false); setEditEntry(null); resetForm() }}>
+          <DialogFooter className="border-t border-primary/10 bg-gradient-to-r from-muted/40 via-background to-primary/5 px-4 py-3 sm:px-5">
+            <Button variant="outline" size="sm" className="h-9 px-4" onClick={() => { setShowAdd(false); setEditEntry(null); resetForm() }}>
               Cancel
             </Button>
             {editEntry && canDelete && (
-              <Button variant="destructive" onClick={async () => { await handleDelete(editEntry.id); setShowAdd(false); setEditEntry(null); resetForm() }}>
-                <Trash2 className="size-4 mr-1" />
+              <Button variant="destructive" size="sm" className="h-9 gap-1.5" onClick={async () => { await handleDelete(editEntry.id); setShowAdd(false); setEditEntry(null); resetForm() }}>
+                <Trash2 className="size-4" />
                 Delete
               </Button>
             )}
-            <Button onClick={handleSubmit} disabled={submitting || !form.sectionId || !form.subjectId || !form.teacherId}>
+            <Button size="sm" className="h-9 gap-1.5 px-4" onClick={handleSubmit} disabled={submitting || !form.sectionId || !form.subjectId || !form.teacherId}>
               {submitting ? (
-                <><div className="size-4 animate-spin rounded-full border-2 border-current border-t-transparent mr-1" />Saving...</>
+                <><div className="size-4 animate-spin rounded-full border-2 border-current border-t-transparent" />Saving...</>
               ) : (
-                <>{editEntry ? 'Update Entry' : 'Add Entry'}</>
+                <><Check className="size-4" />{editEntry ? 'Update Entry' : 'Add Entry'}</>
               )}
             </Button>
           </DialogFooter>
@@ -936,37 +944,60 @@ export function TimetablePage() {
 
       {/* Period Settings Dialog */}
       <Dialog open={showSettings} onOpenChange={setShowSettings}>
-        <DialogContent className="flex max-h-[88svh] flex-col overflow-hidden p-0 sm:max-w-4xl">
-          <DialogHeader className="shrink-0 border-b px-5 py-4 pr-12">
-            <DialogTitle>Period Configuration</DialogTitle>
-            <DialogDescription>
-              Define the time slots and break periods for your school day.
-            </DialogDescription>
+        <DialogContent className="flex max-h-[90svh] flex-col overflow-hidden border-primary/20 bg-card p-0 shadow-2xl shadow-primary/15 sm:max-w-5xl [&>button]:right-3 [&>button]:top-3 [&>button]:rounded-full [&>button]:text-white [&>button]:opacity-80 [&>button]:hover:bg-white/15 [&>button]:hover:opacity-100">
+          <DialogHeader className="relative shrink-0 overflow-hidden border-b border-white/15 bg-gradient-to-r from-primary via-teal-600 to-cyan-600 px-5 py-4 pr-12 text-white">
+            <div aria-hidden className="absolute -right-8 -top-14 size-36 rounded-full border-[18px] border-white/10" />
+            <div className="relative flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-3">
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-white/25 bg-white/15 shadow-md backdrop-blur-sm">
+                  <Settings2 className="size-5 text-white" />
+                </span>
+                <div>
+                  <DialogTitle className="text-lg font-bold tracking-tight text-white">Period Configuration</DialogTitle>
+                  <DialogDescription className="mt-0.5 text-xs text-white/75">
+                    Define time slots, teaching periods, and breaks for your school day.
+                  </DialogDescription>
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Badge className="h-6 border border-white/20 bg-white/15 px-2 text-[10px] text-white hover:bg-white/15">
+                  {periodForm.filter((period) => !period.isBreak).length} periods
+                </Badge>
+                <Badge className="h-6 border border-amber-200/30 bg-amber-300/20 px-2 text-[10px] text-white hover:bg-amber-300/20">
+                  {periodForm.filter((period) => period.isBreak).length} breaks
+                </Badge>
+              </div>
+            </div>
           </DialogHeader>
-          <div className="themed-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4 pr-6">
-            <div className="space-y-3">
+          <div className="themed-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain bg-gradient-to-br from-primary/[0.025] via-background to-violet-500/[0.035] p-4 sm:p-5">
+            <div className="space-y-2.5">
               {sortedPeriodForm.map(({ periodConfig: p, formIndex }, idx) => (
                 <div key={idx} className={cn(
-                  'flex flex-col gap-3 p-3 rounded-lg border sm:flex-row sm:items-center',
-                  p.isBreak ? 'bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800' : 'bg-background'
+                  'group flex flex-col gap-3 rounded-xl border p-3 shadow-sm transition-all hover:shadow-md sm:flex-row sm:items-center',
+                  p.isBreak
+                    ? 'border-amber-200/90 bg-gradient-to-r from-amber-50 via-white to-orange-50 dark:border-amber-500/30 dark:from-amber-500/15 dark:via-card dark:to-orange-500/10'
+                    : 'border-sky-200/80 bg-gradient-to-r from-sky-50 via-white to-violet-50 dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10'
                 )}>
-                  <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-muted text-xs font-bold text-muted-foreground">{idx + 1}</span>
+                  <span className={cn(
+                    'flex size-8 shrink-0 items-center justify-center rounded-lg text-xs font-bold text-white shadow-sm',
+                    p.isBreak ? 'bg-gradient-to-br from-amber-500 to-orange-600' : 'bg-gradient-to-br from-sky-500 to-violet-600',
+                  )}>{idx + 1}</span>
                   <div className="grid flex-1 gap-3 sm:grid-cols-2 lg:grid-cols-[1.2fr_1fr_0.9fr_0.8fr_0.9fr]">
                     <div className="space-y-1">
-                      <Label className="text-[10px] text-muted-foreground">Label</Label>
+                      <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Label</Label>
                       <Input
                         value={p.label}
                         onChange={e => setPeriodForm(prev => prev.map((pp, i) => i === formIndex ? { ...pp, label: e.target.value } : pp))}
-                        className="h-8 text-xs"
+                        className="h-9 border-border/70 bg-white text-xs shadow-sm dark:bg-input/30"
                       />
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-[10px] text-muted-foreground">Start</Label>
+                      <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Start</Label>
                       <Select
                         value={p.startTime}
                         onValueChange={value => setPeriodForm(prev => prev.map((pp, i) => i === formIndex ? withStartTime(pp, value) : pp))}
                       >
-                        <SelectTrigger className="h-8 text-xs">
+                        <SelectTrigger leadingIcon={<Clock className="size-3.5 text-white" />} leadingIconClassName="from-sky-500 to-cyan-600" className="h-9 bg-white text-xs dark:bg-input/30">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent className="max-h-72">
@@ -977,12 +1008,12 @@ export function TimetablePage() {
                       </Select>
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-[10px] text-muted-foreground">Duration</Label>
+                      <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Duration</Label>
                       <Select
                         value={String(durationBetween(p.startTime, p.endTime))}
                         onValueChange={value => setPeriodForm(prev => prev.map((pp, i) => i === formIndex ? withDuration(pp, Number(value)) : pp))}
                       >
-                        <SelectTrigger className="h-8 text-xs">
+                        <SelectTrigger leadingIcon={<Clock className="size-3.5 text-white" />} leadingIconClassName="from-violet-500 to-purple-600" className="h-9 bg-white text-xs dark:bg-input/30">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -996,13 +1027,13 @@ export function TimetablePage() {
                       </Select>
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-[10px] text-muted-foreground">End</Label>
-                      <div className="flex h-8 items-center rounded-md border bg-muted/40 px-3 text-xs font-medium tabular-nums text-muted-foreground">
+                      <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">End</Label>
+                      <div className="flex h-9 items-center rounded-lg border border-indigo-200/70 bg-indigo-50/70 px-3 text-xs font-semibold tabular-nums text-indigo-700 shadow-sm dark:border-indigo-500/25 dark:bg-indigo-500/10 dark:text-indigo-300">
                         {p.endTime}
                       </div>
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-[10px] text-muted-foreground">Type</Label>
+                      <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Type</Label>
                       <Select
                         value={!p.isBreak ? 'period' : p.label.toLowerCase().includes('lunch') ? 'lunch' : 'break'}
                         onValueChange={v => setPeriodForm(prev => prev.map((pp, i) => i === formIndex ? {
@@ -1011,7 +1042,11 @@ export function TimetablePage() {
                           label: v === 'lunch' ? 'Lunch Break' : v === 'break' ? 'Break' : pp.label,
                         } : pp))}
                       >
-                        <SelectTrigger className="h-8 text-xs">
+                        <SelectTrigger
+                          leadingIcon={p.isBreak ? <Clock className="size-3.5 text-white" /> : <GraduationCap className="size-3.5 text-white" />}
+                          leadingIconClassName={p.isBreak ? 'from-amber-500 to-orange-600' : 'from-indigo-500 to-violet-600'}
+                          className="h-9 bg-white text-xs dark:bg-input/30"
+                        >
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -1025,7 +1060,7 @@ export function TimetablePage() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="size-8 shrink-0 self-end text-muted-foreground hover:text-destructive sm:self-auto"
+                    className="size-8 shrink-0 self-end rounded-lg border border-transparent text-muted-foreground hover:border-red-200 hover:bg-red-50 hover:text-destructive dark:hover:border-red-500/25 dark:hover:bg-red-500/10 sm:self-auto"
                     onClick={() => setPeriodForm(prev => prev.filter((_, i) => i !== formIndex))}
                   >
                     <X className="size-3.5" />
@@ -1035,7 +1070,7 @@ export function TimetablePage() {
               <Button
                 variant="outline"
                 size="sm"
-                className="w-full gap-2"
+                className="h-10 w-full gap-2 border-dashed border-primary/30 bg-gradient-to-r from-primary/5 via-background to-sky-500/5 text-primary hover:border-primary/50 hover:bg-primary/10"
                 onClick={() => {
                   const sorted = [...periodForm].sort((a, b) => a.period - b.period)
                   const lastConfig = sorted[sorted.length - 1]
@@ -1056,13 +1091,13 @@ export function TimetablePage() {
               </Button>
             </div>
           </div>
-          <DialogFooter className="shrink-0 border-t px-5 py-4">
-            <Button variant="outline" onClick={() => setShowSettings(false)}>Cancel</Button>
-            <Button onClick={handleSavePeriods} disabled={savingPeriods}>
+          <DialogFooter className="shrink-0 border-t border-primary/10 bg-gradient-to-r from-muted/40 via-background to-primary/5 px-4 py-3 sm:px-5">
+            <Button variant="outline" size="sm" className="h-9 px-4" onClick={() => setShowSettings(false)}>Cancel</Button>
+            <Button size="sm" className="h-9 gap-1.5 px-4" onClick={handleSavePeriods} disabled={savingPeriods}>
               {savingPeriods ? (
-                <><div className="size-4 animate-spin rounded-full border-2 border-current border-t-transparent mr-1" />Saving...</>
+                <><div className="size-4 animate-spin rounded-full border-2 border-current border-t-transparent" />Saving...</>
               ) : (
-                <><Check className="size-4 mr-1" />Save Periods</>
+                <><Check className="size-4" />Save Periods</>
               )}
             </Button>
           </DialogFooter>
