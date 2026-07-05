@@ -137,8 +137,7 @@ export function FeeReportsPage() {
                 Academic Year
               </Label>
               <Select value={academicYear} onValueChange={setAcademicYear}>
-                <SelectTrigger className="h-8 w-full justify-start">
-                  <Calendar className="mr-1.5 size-3.5 text-muted-foreground" />
+                <SelectTrigger leadingIcon={<Calendar className="size-3.5" />} className="h-8 w-full justify-start">
                   <SelectValue placeholder="Academic year" />
                 </SelectTrigger>
                 <SelectContent>

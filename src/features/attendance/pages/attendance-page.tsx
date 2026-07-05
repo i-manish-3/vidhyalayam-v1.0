@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { EmptyState, LoadingState, PageHeader } from '@/components/shared'
+import { LoadingState } from '@/components/shared'
 import { api } from '@/lib/api'
 import { useAppStore } from '@/lib/store'
 import { useEffectiveRole } from '@/hooks/use-effective-role'
@@ -97,7 +97,7 @@ const STATUS_CONFIG: Record<AttendanceStatus, {
     label: 'Present',
     shortLabel: 'P',
     icon: Check,
-    bgColor: 'bg-emerald-50 dark:bg-emerald-950/50',
+    bgColor: 'bg-gradient-to-br from-emerald-50 via-white to-teal-50 dark:from-emerald-950/40 dark:via-card dark:to-teal-950/30',
     textColor: 'text-emerald-700 dark:text-emerald-300',
     borderColor: 'border-emerald-300 dark:border-emerald-700',
     ringColor: 'ring-emerald-500/30',
@@ -108,7 +108,7 @@ const STATUS_CONFIG: Record<AttendanceStatus, {
     label: 'Absent',
     shortLabel: 'A',
     icon: X,
-    bgColor: 'bg-red-50 dark:bg-red-950/50',
+    bgColor: 'bg-gradient-to-br from-red-50 via-white to-rose-50 dark:from-red-950/40 dark:via-card dark:to-rose-950/30',
     textColor: 'text-red-700 dark:text-red-300',
     borderColor: 'border-red-300 dark:border-red-700',
     ringColor: 'ring-red-500/30',
@@ -119,7 +119,7 @@ const STATUS_CONFIG: Record<AttendanceStatus, {
     label: 'Leave',
     shortLabel: 'L',
     icon: CalendarOff,
-    bgColor: 'bg-amber-50 dark:bg-amber-950/50',
+    bgColor: 'bg-gradient-to-br from-amber-50 via-white to-orange-50 dark:from-amber-950/40 dark:via-card dark:to-orange-950/30',
     textColor: 'text-amber-700 dark:text-amber-300',
     borderColor: 'border-amber-300 dark:border-amber-700',
     ringColor: 'ring-amber-500/30',
@@ -624,67 +624,95 @@ export function AttendancePage() {
   if (initialLoad) return <LoadingState />
 
   return (
-    <div className="space-y-3 pb-20 sm:pb-0">
-      <PageHeader
-        title="Mark Attendance"
-        description="Record daily student attendance with present, absent, or leave status."
-        secondaryAction={canView ? {
-          label: 'View Attendance',
-          icon: ClipboardList,
-          onClick: () => router.push('/attendance/view'),
-        } : undefined}
-        extraActions={(
-          <>
-          {isFinalized && (
-            <Badge className="gap-1.5 h-9 px-3 bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100">
-              <ShieldCheck className="size-4" />
-              Finalized
-            </Badge>
-          )}
-          {!isFinalized && !markingBlocked && hasAnyMarked && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-1.5 h-9" onClick={clearAll}>
-                  <Eraser className="size-3.5" />
-                  Clear All
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Reset all attendance marks</TooltipContent>
-            </Tooltip>
-          )}
-          {!isFinalized && !markingBlocked && (
-            <Button
-              onClick={handleSave}
-              disabled={saving || students.length === 0}
-              className="gap-2 h-9"
-              size="sm"
-            >
-              <Save className="size-3.5" />
-              {saving ? 'Saving...' : 'Save Attendance'}
-            </Button>
-          )}
-          {!isFinalized && !markingBlocked && allMarked && existingAttendance.length > 0 && (
-            <Button
-              onClick={handleFinalize}
-              disabled={finalizing}
-              className="gap-2 h-9 bg-emerald-600 hover:bg-emerald-700 text-white"
-              size="sm"
-            >
-              {finalizing ? (
-                <div className="size-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
-              ) : (
-                <Shield className="size-3.5" />
-              )}
-              {finalizing ? 'Finalizing...' : 'Finalize Attendance'}
-            </Button>
-          )}
-          </>
-        )}
-      />
+    <div className="space-y-4">
+      {/* ── Branded Hero ────────────────────────────────────────────── */}
+      <section className="relative overflow-hidden rounded-xl border border-primary/25 bg-gradient-to-r from-primary via-teal-600 to-cyan-600 px-4 py-3 text-white shadow-lg shadow-primary/15">
+        <div aria-hidden className="absolute -top-14 right-1/3 size-36 rounded-full border-[18px] border-white/10" />
+        <div aria-hidden className="absolute -bottom-16 right-1/4 size-28 rounded-full bg-amber-300/10 blur-sm" />
+        <div aria-hidden className="absolute left-1/3 top-0 h-px w-48 bg-gradient-to-r from-transparent via-white/50 to-transparent" />
+        <div className="relative flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-white/25 bg-white/15 text-white shadow-md shadow-black/10 backdrop-blur-sm">
+              <ClipboardCheck className="size-5" strokeWidth={1.8} />
+            </span>
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="text-xl font-bold tracking-tight">Mark Attendance</h1>
+                <span className="rounded-full border border-white/20 bg-white/10 px-2 py-0.5 text-[10px] font-semibold text-white/85 backdrop-blur-sm">
+                  {academicYear}
+                </span>
+              </div>
+              <p className="mt-0.5 text-xs text-white/80">Record daily student attendance with present, absent, or leave status.</p>
+            </div>
+          </div>
+          <div className="relative z-10 flex shrink-0 flex-wrap items-center gap-2">
+            {isFinalized && (
+              <Badge className="gap-1.5 border border-white/25 bg-white/15 px-3 py-1.5 text-xs text-white shadow-sm backdrop-blur-sm hover:bg-white/20">
+                <ShieldCheck className="size-3.5" />
+                Finalized
+              </Badge>
+            )}
+            {canView && !isFinalized && (
+              <Button
+                variant="secondary"
+                size="sm"
+                className="relative gap-2 border border-white/60 shadow-md transition-transform hover:-translate-y-0.5 hover:shadow-lg"
+                style={{ backgroundColor: 'white', color: 'var(--primary)' }}
+                onClick={() => router.push('/attendance/view')}
+              >
+                <ClipboardList className="size-4" />
+                View Attendance
+              </Button>
+            )}
+            {!isFinalized && !markingBlocked && hasAnyMarked && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="h-8 gap-1.5 border border-white/30 bg-white/20 px-2.5 text-xs text-white shadow-sm backdrop-blur-sm hover:bg-white/30"
+                    onClick={clearAll}
+                  >
+                    <Eraser className="size-3.5" />
+                    Clear All
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Reset all attendance marks</TooltipContent>
+              </Tooltip>
+            )}
+            {!isFinalized && !markingBlocked && (
+              <Button
+                onClick={handleSave}
+                disabled={saving || students.length === 0}
+                size="sm"
+                className="h-8 gap-1.5 bg-white px-3 text-xs text-primary shadow-sm [background-image:none] hover:bg-white/90 disabled:bg-white disabled:text-primary/60"
+              >
+                <Save className="size-3.5" />
+                {saving ? 'Saving...' : 'Save'}
+              </Button>
+            )}
+            {!isFinalized && !markingBlocked && allMarked && existingAttendance.length > 0 && (
+              <Button
+                onClick={handleFinalize}
+                disabled={finalizing}
+                size="sm"
+                className="h-8 gap-1.5 border border-emerald-300/40 bg-emerald-600 px-3 text-xs text-white shadow-sm [background-image:none] hover:bg-emerald-700"
+              >
+                {finalizing ? (
+                  <div className="size-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                ) : (
+                  <Shield className="size-3.5" />
+                )}
+                {finalizing ? 'Finalizing...' : 'Finalize'}
+              </Button>
+            )}
+          </div>
+        </div>
+      </section>
 
       {/* ── Finalized Banner ────────────────────────────────────────── */}
       {isFinalized && (
-        <div className="flex flex-col gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 dark:border-emerald-800 dark:bg-emerald-950/30 sm:flex-row sm:items-center">
+        <div className="flex flex-col gap-3 rounded-xl border border-emerald-200/80 bg-gradient-to-br from-emerald-50 via-white to-teal-50 px-4 py-3 shadow-sm dark:border-emerald-500/25 dark:from-emerald-500/15 dark:via-card dark:to-emerald-500/5 sm:flex-row sm:items-center">
           <div className="flex min-w-0 flex-1 items-center gap-3">
             <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/50">
               <Lock className="size-4 text-emerald-600 dark:text-emerald-400" />
@@ -700,7 +728,7 @@ export function AttendancePage() {
             <Button
               variant="outline"
               size="sm"
-              className="h-9 w-full gap-1.5 border-emerald-300 bg-white/70 text-emerald-800 hover:bg-white dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300 sm:w-auto"
+              className="h-8 gap-1.5 border-emerald-300 bg-white/70 px-2.5 text-xs text-emerald-800 hover:bg-white dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300"
               onClick={() => setReopenDialogOpen(true)}
             >
               <LockOpen className="size-3.5" />
@@ -712,8 +740,8 @@ export function AttendancePage() {
 
       {/* ── Future Date Banner ───────────────────────────────────────── */}
       {isFutureDate && (
-        <div className="flex items-center gap-3 px-4 py-3 rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800">
-          <div className="size-8 rounded-full bg-amber-100 dark:bg-amber-900/50 flex items-center justify-center shrink-0">
+        <div className="flex items-center gap-3 rounded-xl border border-amber-200/80 bg-gradient-to-br from-amber-50 via-white to-orange-50 px-4 py-3 shadow-sm dark:border-amber-500/25 dark:from-amber-500/15 dark:via-card dark:to-orange-500/5">
+          <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/50">
             <CalendarDays className="size-4 text-amber-600 dark:text-amber-400" />
           </div>
           <div className="flex-1 min-w-0">
@@ -727,8 +755,8 @@ export function AttendancePage() {
 
       {/* ── Non-Teaching Day Banner ──────────────────────────────────── */}
       {!isFutureDate && isNonTeachingDay && (
-        <div className="flex items-center gap-3 px-4 py-3 rounded-lg border border-sky-200 bg-sky-50 dark:bg-sky-950/30 dark:border-sky-800">
-          <div className="size-8 rounded-full bg-sky-100 dark:bg-sky-900/50 flex items-center justify-center shrink-0">
+        <div className="flex items-center gap-3 rounded-xl border border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-cyan-50 px-4 py-3 shadow-sm dark:border-sky-500/25 dark:from-sky-500/15 dark:via-card dark:to-cyan-500/5">
+          <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-sky-100 dark:bg-sky-900/50">
             <CalendarDays className="size-4 text-sky-600 dark:text-sky-400" />
           </div>
           <div className="flex-1 min-w-0">
@@ -749,7 +777,7 @@ export function AttendancePage() {
       )}
 
       {/* ── Configuration Bar ────────────────────────────────────────── */}
-      <Card className="gap-0 py-0 shadow-sm">
+      <Card className="gap-0 overflow-hidden border-rose-200/80 bg-gradient-to-r from-rose-50 via-white to-sky-50 py-0 shadow-sm dark:border-rose-500/25 dark:from-rose-500/12 dark:via-card dark:to-sky-500/10">
         <CardContent className="p-3">
           <div className="grid gap-3 xl:grid-cols-[auto_auto_auto_1fr] xl:items-center">
             {/* Date navigation */}
@@ -761,7 +789,7 @@ export function AttendancePage() {
                 value={date}
                 onChange={handleDateChange}
                 disableFuture
-                triggerClassName="h-9 w-full min-w-0 justify-start px-2.5 text-sm sm:h-7 sm:w-[220px] sm:text-xs"
+                triggerClassName="h-9 w-full min-w-0 justify-start bg-white px-2.5 text-sm dark:bg-input/30 sm:h-7 sm:w-[220px] sm:text-xs"
               />
               <Button variant="outline" size="icon" className="size-9 shrink-0 sm:size-7" onClick={() => handleDateChange(navigateDate(date, 1))} disabled={isFutureDate || isToday}>
                 <ChevronRight className="size-3" />
@@ -777,12 +805,18 @@ export function AttendancePage() {
             <div className="grid grid-cols-[72px_minmax(0,1fr)] items-center gap-2 sm:flex sm:items-center">
               <Label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap">Class</Label>
               <Select value={classId} onValueChange={handleClassChange}>
-                <SelectTrigger className="h-9 w-full text-sm sm:h-7 sm:w-[160px] sm:text-xs">
+                <SelectTrigger
+                  leadingIcon={<Users className="size-3.5 text-white" />}
+                  leadingIconClassName="from-sky-500 to-cyan-600"
+                  className="h-10 w-full border-sky-200 from-sky-50 via-white to-cyan-50 px-2 text-sm shadow-sm focus:border-sky-400 focus:ring-sky-400/20 dark:border-sky-500/25 dark:from-sky-500/15 dark:via-input/30 dark:to-cyan-500/10 sm:h-9 sm:w-[180px] sm:text-xs"
+                >
                   <SelectValue placeholder="Select class" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="max-h-64 border-sky-200/80 bg-white shadow-lg dark:border-sky-500/25 dark:bg-popover">
                   {classes.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    <SelectItem key={c.id} value={c.id} className="data-[state=checked]:bg-sky-50 data-[state=checked]:font-semibold data-[state=checked]:text-sky-700 dark:data-[state=checked]:bg-sky-500/15 dark:data-[state=checked]:text-sky-300">
+                      {c.name}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -792,15 +826,23 @@ export function AttendancePage() {
             <div className="grid grid-cols-[72px_minmax(0,1fr)] items-center gap-2 sm:flex sm:items-center">
               <Label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap">Section</Label>
               {classHasNoSections ? (
-                <Badge variant="secondary" className="flex h-9 w-full items-center px-3 text-sm sm:h-7 sm:w-auto sm:text-xs">No Sections</Badge>
+                <Badge variant="secondary" className="flex h-10 w-full items-center gap-2 border border-violet-200 bg-violet-50 px-3 text-sm text-violet-700 dark:border-violet-500/25 dark:bg-violet-500/10 dark:text-violet-300 sm:h-9 sm:w-auto sm:text-xs">
+                  <ClipboardList className="size-3.5" /> No Sections
+                </Badge>
               ) : (
                 <Select value={sectionId} onValueChange={handleSectionChange} disabled={!classId}>
-                  <SelectTrigger className="h-9 w-full text-sm sm:h-7 sm:w-[150px] sm:text-xs">
+                  <SelectTrigger
+                    leadingIcon={<ClipboardList className="size-3.5 text-white" />}
+                    leadingIconClassName="from-violet-500 to-purple-600"
+                    className="h-10 w-full border-violet-200 from-violet-50 via-white to-purple-50 px-2 text-sm shadow-sm focus:border-violet-400 focus:ring-violet-400/20 disabled:opacity-60 dark:border-violet-500/25 dark:from-violet-500/15 dark:via-input/30 dark:to-purple-500/10 sm:h-9 sm:w-[170px] sm:text-xs"
+                  >
                     <SelectValue placeholder="Select section" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="max-h-64 border-violet-200/80 bg-white shadow-lg dark:border-violet-500/25 dark:bg-popover">
                     {filteredSections.map((s) => (
-                      <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                      <SelectItem key={s.id} value={s.id} className="data-[state=checked]:bg-violet-50 data-[state=checked]:font-semibold data-[state=checked]:text-violet-700 dark:data-[state=checked]:bg-violet-500/15 dark:data-[state=checked]:text-violet-300">
+                        {s.name}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -861,78 +903,125 @@ export function AttendancePage() {
 
       {/* ── Summary Bar ──────────────────────────────────────────────── */}
       {students.length > 0 && (
-        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center sm:gap-1.5">
+        <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
           {/* Progress */}
-          <div className="col-span-2 flex items-center gap-2 rounded-md border bg-card px-2.5 py-2 shadow-sm sm:col-span-1 sm:py-1.5">
-            <div className="size-5 rounded bg-primary/10 flex items-center justify-center shrink-0">
-              <ClipboardCheck className="size-3 text-primary" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wider">Progress</span>
-                <span className={cn(
-                  'text-[11px] font-bold',
-                  completionPercent === 100 ? 'text-emerald-600' : 'text-foreground',
-                )}>
+          <div className="col-span-2 rounded-xl border border-cyan-200/80 bg-gradient-to-br from-cyan-50 via-white to-sky-50 p-3 shadow-sm transition-shadow hover:shadow-md dark:border-cyan-500/25 dark:from-cyan-500/15 dark:via-card dark:to-sky-500/10 md:col-span-1">
+            <div className="flex items-center gap-2.5">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-500 to-sky-600 text-white shadow-sm">
+                <ClipboardCheck className="size-4" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Progress</p>
+                <p className={cn('text-lg font-bold leading-tight', completionPercent === 100 ? 'text-emerald-600 dark:text-emerald-400' : 'text-cyan-700 dark:text-cyan-300')}>
                   {completionPercent}%
-                </span>
+                </p>
               </div>
-              <div className="h-0.5 w-full overflow-hidden rounded-full bg-muted mt-0.5">
-                <div
-                  className="h-full rounded-full bg-primary transition-all duration-300"
-                  style={{ width: `${completionPercent}%` }}
-                />
-              </div>
+            </div>
+            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-cyan-100 dark:bg-cyan-950/60">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-sky-500 transition-all duration-300"
+                style={{ width: `${completionPercent}%` }}
+              />
             </div>
           </div>
 
           {/* Present */}
-          <div className="flex items-center gap-1.5 rounded-md border bg-card px-2.5 py-2 shadow-sm sm:py-1.5">
-            <div className="size-5 rounded bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center shrink-0">
-              <Check className="size-3 text-emerald-600 dark:text-emerald-400" />
+          <div className="flex items-center gap-2.5 rounded-xl border border-emerald-200/80 bg-gradient-to-br from-emerald-50 via-white to-teal-50 p-3 shadow-sm transition-shadow hover:shadow-md dark:border-emerald-500/25 dark:from-emerald-500/15 dark:via-card dark:to-teal-500/10">
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-sm">
+              <Check className="size-4" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Present</p>
+              <p className="text-lg font-bold leading-tight text-emerald-700 dark:text-emerald-300">{presentCount}</p>
             </div>
-            <span className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wider">P</span>
-            <span className="text-sm font-bold text-emerald-700 dark:text-emerald-400">{presentCount}</span>
           </div>
 
           {/* Absent */}
-          <div className="flex items-center gap-1.5 rounded-md border bg-card px-2.5 py-2 shadow-sm sm:py-1.5">
-            <div className="size-5 rounded bg-red-100 dark:bg-red-900/40 flex items-center justify-center shrink-0">
-              <X className="size-3 text-red-600 dark:text-red-400" />
+          <div className="flex items-center gap-2.5 rounded-xl border border-rose-200/80 bg-gradient-to-br from-rose-50 via-white to-red-50 p-3 shadow-sm transition-shadow hover:shadow-md dark:border-rose-500/25 dark:from-rose-500/15 dark:via-card dark:to-red-500/10">
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-rose-500 to-red-600 text-white shadow-sm">
+              <X className="size-4" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Absent</p>
+              <p className="text-lg font-bold leading-tight text-rose-700 dark:text-rose-300">{absentCount}</p>
             </div>
-            <span className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wider">A</span>
-            <span className="text-sm font-bold text-red-700 dark:text-red-400">{absentCount}</span>
           </div>
 
           {/* Leave */}
-          <div className="flex items-center gap-1.5 rounded-md border bg-card px-2.5 py-2 shadow-sm sm:py-1.5">
-            <div className="size-5 rounded bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center shrink-0">
-              <CalendarOff className="size-3 text-amber-600 dark:text-amber-400" />
+          <div className="flex items-center gap-2.5 rounded-xl border border-amber-200/80 bg-gradient-to-br from-amber-50 via-white to-orange-50 p-3 shadow-sm transition-shadow hover:shadow-md dark:border-amber-500/25 dark:from-amber-500/15 dark:via-card dark:to-orange-500/10">
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 text-white shadow-sm">
+              <CalendarOff className="size-4" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">On Leave</p>
+              <p className="text-lg font-bold leading-tight text-amber-700 dark:text-amber-300">{leaveCount}</p>
             </div>
-            <span className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wider">L</span>
-            <span className="text-sm font-bold text-amber-700 dark:text-amber-400">{leaveCount}</span>
           </div>
 
           {/* Unmarked */}
-          <div className="flex items-center gap-1.5 rounded-md border bg-card px-2.5 py-2 shadow-sm sm:py-1.5">
-            <div className="size-5 rounded bg-muted flex items-center justify-center shrink-0">
-              <ClipboardCheck className="size-3 text-muted-foreground" />
+          <div className="flex items-center gap-2.5 rounded-xl border border-violet-200/80 bg-gradient-to-br from-violet-50 via-white to-slate-50 p-3 shadow-sm transition-shadow hover:shadow-md dark:border-violet-500/25 dark:from-violet-500/15 dark:via-card dark:to-slate-500/10">
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-slate-600 text-white shadow-sm">
+              <ClipboardCheck className="size-4" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Unmarked</p>
+              <p className="text-lg font-bold leading-tight text-violet-700 dark:text-violet-300">{unmarkedCount}</p>
             </div>
-            <span className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wider">?</span>
-            <span className="text-sm font-bold text-muted-foreground">{unmarkedCount}</span>
           </div>
         </div>
       )}
 
       {/* ── Student List ─────────────────────────────────────────────── */}
       {!classId || (!classHasNoSections && !sectionId) ? (
-        <EmptyState
-          icon={ClipboardCheck}
-          title="Select Class & Section"
-          description="Choose a date, class, and section above to start marking attendance."
-        />
+        <Card className="relative gap-0 overflow-hidden border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-violet-50 py-0 shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10">
+          <div aria-hidden className="absolute -right-10 -top-14 size-40 rounded-full border-[20px] border-sky-200/25 dark:border-sky-400/10" />
+          <div aria-hidden className="absolute -bottom-16 -left-8 size-36 rounded-full bg-violet-200/25 blur-2xl dark:bg-violet-500/10" />
+          <CardContent className="relative flex flex-col items-center px-4 py-8 text-center sm:px-6">
+            <span className="flex size-14 items-center justify-center rounded-2xl bg-gradient-to-br from-primary via-teal-600 to-cyan-600 text-white shadow-lg shadow-primary/20 ring-4 ring-primary/10">
+              <ClipboardCheck className="size-7" />
+            </span>
+            <h2 className="mt-4 text-lg font-semibold">{classId ? 'Select a Section' : 'Select Class & Section'}</h2>
+            <p className="mt-1 max-w-lg text-sm text-muted-foreground">
+              Choose the attendance group above to load students and begin marking today&rsquo;s attendance.
+            </p>
+
+            <div className="mt-5 grid w-full max-w-2xl gap-2.5 sm:grid-cols-3">
+              <div className="flex items-center gap-3 rounded-xl border border-emerald-200/80 bg-gradient-to-br from-emerald-50 via-white to-teal-50 p-3 text-left shadow-sm dark:border-emerald-500/25 dark:from-emerald-500/15 dark:via-card dark:to-teal-500/10">
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-sm">
+                  <CalendarDays className="size-4" />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold">Date</p>
+                  <p className="truncate text-[11px] text-emerald-700 dark:text-emerald-300">{formatShortDate(date)}</p>
+                </div>
+                <Check className="ml-auto size-3.5 shrink-0 text-emerald-600" />
+              </div>
+
+              <div className="flex items-center gap-3 rounded-xl border border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-cyan-50 p-3 text-left shadow-sm dark:border-sky-500/25 dark:from-sky-500/15 dark:via-card dark:to-cyan-500/10">
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-cyan-600 text-white shadow-sm">
+                  <Users className="size-4" />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold">Class</p>
+                  <p className="truncate text-[11px] text-sky-700 dark:text-sky-300">{selectedClassName || 'Choose class'}</p>
+                </div>
+                {classId && <Check className="ml-auto size-3.5 shrink-0 text-sky-600" />}
+              </div>
+
+              <div className="flex items-center gap-3 rounded-xl border border-violet-200/80 bg-gradient-to-br from-violet-50 via-white to-purple-50 p-3 text-left shadow-sm dark:border-violet-500/25 dark:from-violet-500/15 dark:via-card dark:to-purple-500/10">
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 text-white shadow-sm">
+                  <ClipboardList className="size-4" />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold">Section</p>
+                  <p className="truncate text-[11px] text-violet-700 dark:text-violet-300">Choose section</p>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       ) : loading ? (
-        <Card className="gap-0 py-0 shadow-sm">
+        <Card className="gap-0 border-sky-200/70 bg-gradient-to-br from-sky-50 via-white to-cyan-50 py-0 shadow-sm dark:border-sky-500/25 dark:from-sky-500/10 dark:via-card dark:to-cyan-500/10">
           <CardContent className="p-10 flex items-center justify-center">
             <div className="flex items-center gap-2 text-muted-foreground">
               <div className="size-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
@@ -941,15 +1030,21 @@ export function AttendancePage() {
           </CardContent>
         </Card>
       ) : students.length === 0 ? (
-        <EmptyState
-          icon={ClipboardCheck}
-          title="No Students Found"
-          description="No students found for the selected class and section."
-        />
+        <Card className="gap-0 border-amber-200/80 bg-gradient-to-r from-amber-50 via-white to-orange-50 py-0 shadow-sm dark:border-amber-500/25 dark:from-amber-500/12 dark:via-card dark:to-orange-500/10">
+          <CardContent className="flex items-center gap-3 p-5">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">
+              <Users className="size-5" />
+            </span>
+            <div>
+              <h2 className="text-sm font-semibold">No students found</h2>
+              <p className="mt-0.5 text-xs text-muted-foreground">There are no students in the selected class and section.</p>
+            </div>
+          </CardContent>
+        </Card>
       ) : (
-        <Card className={cn('gap-0 overflow-hidden py-0 shadow-sm', isFinalized && 'ring-1 ring-emerald-200 dark:ring-emerald-800')}>
+        <Card className={cn('gap-0 overflow-hidden border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-violet-50 py-0 shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10', isFinalized && 'ring-1 ring-emerald-200 dark:ring-emerald-800')}>
           {/* Table header */}
-          <div className="border-b bg-muted/20 px-3 py-3 sm:px-5">
+          <div className="border-b border-sky-200/70 bg-gradient-to-r from-sky-100/80 via-cyan-50/90 to-violet-100/70 px-3 py-3 dark:border-sky-500/20 dark:from-sky-500/15 dark:via-cyan-500/10 dark:to-violet-500/15 sm:px-5">
             <div className="flex flex-col gap-3 md:flex-row md:items-center">
               <div className="flex min-w-0 flex-wrap items-center gap-2 md:flex-1">
                 {isFinalized ? (
@@ -980,7 +1075,7 @@ export function AttendancePage() {
                   placeholder="Search student..."
                   value={searchQuery}
                   onChange={(e) => handleSearchChange(e.target.value)}
-                  className="h-7 pl-8 pr-7 text-xs"
+                  className="h-7 bg-white pl-8 pr-7 text-xs dark:bg-input/30"
                 />
                 {searchQuery && (
                   <button
@@ -998,7 +1093,7 @@ export function AttendancePage() {
                 placeholder="Search student..."
                 value={searchQuery}
                 onChange={(e) => handleSearchChange(e.target.value)}
-                className="h-9 pl-8 pr-8 text-sm"
+                className="h-9 bg-white pl-8 pr-8 text-sm dark:bg-input/30"
               />
               {searchQuery && (
                 <button
@@ -1012,7 +1107,7 @@ export function AttendancePage() {
           </div>
 
           {/* Column headers */}
-          <div className="hidden items-center gap-3 border-b bg-muted/40 px-5 py-2 md:flex">
+          <div className="hidden items-center gap-3 border-b border-cyan-200/70 bg-gradient-to-r from-cyan-100/80 via-sky-50 to-violet-100/70 px-5 py-2 dark:border-cyan-500/20 dark:from-cyan-500/15 dark:via-sky-500/10 dark:to-violet-500/15 md:flex">
             <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider w-8 text-center">#</span>
             <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider w-10"></span>
             <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider flex-1">Student Name</span>
@@ -1131,7 +1226,7 @@ export function AttendancePage() {
                             placeholder="Add remark (e.g., Sick leave, Family function, Medical appointment...)"
                             value={currentRemark}
                             onChange={(e) => handleRemarkChange(student.id, e.target.value)}
-                            className="h-8 text-xs"
+                            className="h-8 bg-white text-xs dark:bg-input/30"
                             autoFocus
                           />
                         </div>
@@ -1154,7 +1249,7 @@ export function AttendancePage() {
           </div>
 
           {/* Footer legend + actions */}
-          <div className="flex flex-col gap-3 border-t bg-muted/40 px-3 py-3 sm:px-5 md:flex-row md:items-center md:justify-between">
+          <div className="flex flex-col gap-3 border-t border-sky-200/70 bg-gradient-to-r from-sky-100/70 via-cyan-50/90 to-violet-100/70 px-3 py-3 dark:border-sky-500/20 dark:from-sky-500/15 dark:via-cyan-500/10 dark:to-violet-500/15 sm:px-5 md:flex-row md:items-center md:justify-between">
             <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-[11px] text-muted-foreground sm:flex sm:items-center sm:gap-4">
               <span className="flex items-center gap-1">
                 <span className="size-2 rounded-full bg-emerald-500" />
@@ -1175,26 +1270,8 @@ export function AttendancePage() {
                 </span>
               )}
             </div>
-            <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
-              {!isFinalized && !markingBlocked ? (
-                <>
-                  {hasAnyMarked && (
-                    <Button variant="ghost" size="sm" className="h-9 gap-1.5 text-xs text-muted-foreground sm:h-8" onClick={clearAll}>
-                      <RotateCcw className="size-3" />
-                      Clear All
-                    </Button>
-                  )}
-                  <Button
-                    onClick={handleSave}
-                    disabled={saving || students.length === 0}
-                    className="h-9 gap-2 sm:h-8"
-                    size="sm"
-                  >
-                    <Save className="size-3.5" />
-                    {saving ? 'Saving...' : 'Save Attendance'}
-                  </Button>
-                </>
-              ) : isFutureDate ? (
+            <div className="flex items-center gap-2">
+              {isFutureDate ? (
                 <div className="flex items-center gap-1.5 text-xs text-amber-700 dark:text-amber-400 font-medium">
                   <CalendarDays className="size-3.5" />
                   Future dates cannot be marked
@@ -1204,10 +1281,40 @@ export function AttendancePage() {
                   <CalendarDays className="size-3.5" />
                   {nonTeachingInfo?.reason === 'holiday' ? 'Holiday — no attendance' : 'Weekly Off'}
                 </div>
-              ) : (
+              ) : isFinalized ? (
                 <div className="flex items-center gap-1.5 text-xs text-emerald-700 dark:text-emerald-400 font-medium">
                   <Lock className="size-3.5" />
                   Attendance Locked
+                </div>
+              ) : (
+                <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:items-center">
+                  <Button
+                    onClick={handleSave}
+                    disabled={saving || finalizing || students.length === 0}
+                    size="sm"
+                    className="h-9 gap-1.5 px-3 text-xs sm:h-8"
+                  >
+                    {saving ? (
+                      <div className="size-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    ) : (
+                      <Save className="size-3.5" />
+                    )}
+                    {saving ? 'Saving...' : 'Save Attendance'}
+                  </Button>
+                  <Button
+                    onClick={handleFinalize}
+                    disabled={saving || finalizing || !allMarked || existingAttendance.length === 0}
+                    size="sm"
+                    title={!allMarked ? `Mark all ${unmarkedCount} remaining students before finalizing` : undefined}
+                    className="h-9 gap-1.5 border border-emerald-600 bg-emerald-600 px-3 text-xs text-white shadow-sm [background-image:none] hover:bg-emerald-700 disabled:border-emerald-400 disabled:bg-emerald-400 sm:h-8"
+                  >
+                    {finalizing ? (
+                      <div className="size-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    ) : (
+                      <Shield className="size-3.5" />
+                    )}
+                    {finalizing ? 'Finalizing...' : 'Finalize Attendance'}
+                  </Button>
                 </div>
               )}
             </div>
@@ -1241,6 +1348,7 @@ export function AttendancePage() {
               placeholder="Example: Parent reported approved medical leave for a student."
               rows={4}
               disabled={reopening}
+              className="bg-white dark:bg-input/30"
             />
             <p className="text-xs text-muted-foreground">
               Minimum 5 characters. Attendance must be finalized again after changes.

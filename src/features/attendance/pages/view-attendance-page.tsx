@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { EmptyState, LoadingState, PageHeader } from '@/components/shared'
+import { LoadingState } from '@/components/shared'
 import { api } from '@/lib/api'
 import { useAppStore } from '@/lib/store'
 import { getCurrentAcademicYear } from '@/lib/academic-years'
@@ -100,7 +100,7 @@ const STATUS_CONFIG: Record<string, {
     label: 'Present',
     shortLabel: 'P',
     icon: Check,
-    bgColor: 'bg-emerald-50 dark:bg-emerald-950/50',
+    bgColor: 'bg-gradient-to-br from-emerald-50 via-white to-teal-50 dark:from-emerald-950/40 dark:via-card dark:to-teal-950/30',
     textColor: 'text-emerald-700 dark:text-emerald-300',
     borderColor: 'border-emerald-300 dark:border-emerald-700',
     dotColor: 'bg-emerald-500',
@@ -111,7 +111,7 @@ const STATUS_CONFIG: Record<string, {
     label: 'Absent',
     shortLabel: 'A',
     icon: X,
-    bgColor: 'bg-red-50 dark:bg-red-950/50',
+    bgColor: 'bg-gradient-to-br from-red-50 via-white to-rose-50 dark:from-red-950/40 dark:via-card dark:to-rose-950/30',
     textColor: 'text-red-700 dark:text-red-300',
     borderColor: 'border-red-300 dark:border-red-700',
     dotColor: 'bg-red-500',
@@ -122,7 +122,7 @@ const STATUS_CONFIG: Record<string, {
     label: 'Leave',
     shortLabel: 'L',
     icon: CalendarOff,
-    bgColor: 'bg-amber-50 dark:bg-amber-950/50',
+    bgColor: 'bg-gradient-to-br from-amber-50 via-white to-orange-50 dark:from-amber-950/40 dark:via-card dark:to-orange-950/30',
     textColor: 'text-amber-700 dark:text-amber-300',
     borderColor: 'border-amber-300 dark:border-amber-700',
     dotColor: 'bg-amber-500',
@@ -445,10 +445,46 @@ export function ViewAttendancePage() {
   if (initialLoad) return <LoadingState />
 
   return (
-    <div className="space-y-3 pb-20 sm:pb-0">
+    <div className="space-y-4">
+      <section className="relative overflow-hidden rounded-xl border border-primary/25 bg-gradient-to-r from-primary via-teal-600 to-cyan-600 px-4 py-3 text-white shadow-lg shadow-primary/15">
+        <div aria-hidden className="absolute -top-14 right-1/3 size-36 rounded-full border-[18px] border-white/10" />
+        <div aria-hidden className="absolute -bottom-16 right-1/4 size-28 rounded-full bg-sky-300/10 blur-sm" />
+        <div className="relative flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-white/25 bg-white/15 shadow-md shadow-black/10 backdrop-blur-sm">
+              <ClipboardList className="size-5" />
+            </span>
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="text-xl font-bold tracking-tight">View Attendance</h1>
+                <span className="rounded-full border border-white/20 bg-white/10 px-2 py-0.5 text-[10px] font-semibold text-white/85 backdrop-blur-sm">{academicYear}</span>
+              </div>
+              <p className="mt-0.5 text-xs text-white/80">Review daily records, attendance rates, and submission details.</p>
+            </div>
+          </div>
+          <div className="relative z-10 flex flex-wrap items-center gap-2">
+            <Badge className="h-8 gap-1.5 border border-white/25 bg-white/15 px-3 text-xs text-white backdrop-blur-sm hover:bg-white/15">
+              <CalendarDays className="size-3.5" />
+              {formatDate(date)}
+            </Badge>
+            {canMark && !effectiveSnapshot && (
+              <Button
+                variant="secondary"
+                size="sm"
+                className="gap-2 border border-white/60 shadow-md"
+                style={{ backgroundColor: 'white', color: 'var(--primary)' }}
+                onClick={() => router.push('/attendance/mark')}
+              >
+                <ClipboardCheck className="size-4" />
+                Mark Attendance
+              </Button>
+            )}
+          </div>
+        </div>
+      </section>
       {/* ── Snapshot Banner ───────────────────────────────────────────── */}
       {effectiveSnapshot && snapshotMeta && (
-        <Card className="gap-0 border-amber-300 bg-amber-50/70 py-0 shadow-sm dark:border-amber-700 dark:bg-amber-950/30">
+        <Card className="gap-0 border-amber-200/80 bg-gradient-to-r from-amber-50 via-white to-orange-50 py-0 shadow-sm dark:border-amber-500/25 dark:from-amber-500/15 dark:via-card dark:to-orange-500/10">
           <CardContent className="p-3">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-start gap-2.5">
@@ -482,7 +518,7 @@ export function ViewAttendancePage() {
 
       {/* ── Non-Teaching Day Banner ───────────────────────────────────── */}
       {nonTeachingInfo && !effectiveSnapshot && (
-        <div className="flex items-center gap-3 px-4 py-3 rounded-lg border border-sky-200 bg-sky-50 dark:bg-sky-950/30 dark:border-sky-800">
+        <div className="flex items-center gap-3 rounded-xl border border-sky-200/80 bg-gradient-to-r from-sky-50 via-white to-cyan-50 px-4 py-3 shadow-sm dark:border-sky-500/25 dark:from-sky-500/15 dark:via-card dark:to-cyan-500/10">
           <div className="size-8 rounded-full bg-sky-100 dark:bg-sky-900/50 flex items-center justify-center shrink-0">
             <CalendarDays className="size-4 text-sky-600 dark:text-sky-400" />
           </div>
@@ -501,24 +537,8 @@ export function ViewAttendancePage() {
         </div>
       )}
 
-      <PageHeader
-        title="View Attendance"
-        description="Review and analyze daily student attendance records."
-        action={canMark && !effectiveSnapshot ? {
-          label: 'Mark Attendance',
-          icon: ClipboardCheck,
-          onClick: () => router.push('/attendance/mark'),
-        } : undefined}
-        extraActions={(
-          <Badge variant="outline" className="h-9 w-full justify-center gap-1.5 px-3 text-xs sm:h-7 sm:w-fit">
-            <CalendarDays className="size-3.5" />
-            {formatDate(date)}
-          </Badge>
-        )}
-      />
-
       {/* ── Filter Bar ───────────────────────────────────────────────── */}
-      <Card className="gap-0 py-0 shadow-sm">
+      <Card className="gap-0 overflow-hidden border-sky-200/80 bg-gradient-to-r from-sky-50 via-white to-violet-50 py-0 shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10">
         <CardContent className="p-3">
           <div className="grid gap-3 xl:grid-cols-[auto_auto_auto_minmax(220px,1fr)] xl:items-center">
             {/* Date navigation */}
@@ -530,7 +550,7 @@ export function ViewAttendancePage() {
                 value={date}
                 onChange={handleDateChange}
                 disableFuture
-                triggerClassName="h-9 w-full min-w-0 justify-start px-2.5 text-sm sm:h-7 sm:w-[220px] sm:text-xs"
+                triggerClassName="h-9 w-full min-w-0 justify-start bg-white px-2.5 text-sm dark:bg-input/30 sm:h-7 sm:w-[220px] sm:text-xs"
               />
               <Button variant="outline" size="icon" className="size-9 shrink-0 sm:size-7" onClick={() => handleDateChange(navigateDate(date, 1))} disabled={isToday}>
                 <ChevronRight className="size-3" />
@@ -546,12 +566,18 @@ export function ViewAttendancePage() {
             <div className="grid grid-cols-[72px_minmax(0,1fr)] items-center gap-2 sm:flex sm:items-center">
               <Label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap">Class</Label>
               <Select value={classId} onValueChange={handleClassChange}>
-                <SelectTrigger className="h-9 w-full text-sm sm:h-7 sm:w-[160px] sm:text-xs">
+                <SelectTrigger
+                  leadingIcon={<Users className="size-3.5 text-white" />}
+                  leadingIconClassName="from-sky-500 to-cyan-600"
+                  className="h-10 w-full border-sky-200 from-sky-50 via-white to-cyan-50 px-2 text-sm shadow-sm focus:border-sky-400 focus:ring-sky-400/20 dark:border-sky-500/25 dark:from-sky-500/15 dark:via-input/30 dark:to-cyan-500/10 sm:h-9 sm:w-[180px] sm:text-xs"
+                >
                   <SelectValue placeholder="Select Class" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="max-h-64 border-sky-200/80 bg-white shadow-lg dark:border-sky-500/25 dark:bg-popover">
                   {classes.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    <SelectItem key={c.id} value={c.id} className="data-[state=checked]:bg-sky-50 data-[state=checked]:font-semibold data-[state=checked]:text-sky-700 dark:data-[state=checked]:bg-sky-500/15 dark:data-[state=checked]:text-sky-300">
+                      {c.name}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -561,15 +587,23 @@ export function ViewAttendancePage() {
             <div className="grid grid-cols-[72px_minmax(0,1fr)] items-center gap-2 sm:flex sm:items-center">
               <Label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap">Section</Label>
               {classHasNoSections ? (
-                <Badge variant="secondary" className="flex h-9 w-full items-center px-3 text-sm sm:h-7 sm:w-auto sm:text-xs">No Sections</Badge>
+                <Badge variant="secondary" className="flex h-10 w-full items-center gap-2 border border-violet-200 bg-violet-50 px-3 text-sm text-violet-700 dark:border-violet-500/25 dark:bg-violet-500/10 dark:text-violet-300 sm:h-9 sm:w-auto sm:text-xs">
+                  <ClipboardList className="size-3.5" /> No Sections
+                </Badge>
               ) : (
                 <Select value={sectionId} onValueChange={handleSectionChangeWithSnapshot} disabled={!classId}>
-                  <SelectTrigger className="h-9 w-full text-sm sm:h-7 sm:w-[150px] sm:text-xs">
+                  <SelectTrigger
+                    leadingIcon={<ClipboardList className="size-3.5 text-white" />}
+                    leadingIconClassName="from-violet-500 to-purple-600"
+                    className="h-10 w-full border-violet-200 from-violet-50 via-white to-purple-50 px-2 text-sm shadow-sm focus:border-violet-400 focus:ring-violet-400/20 disabled:opacity-60 dark:border-violet-500/25 dark:from-violet-500/15 dark:via-input/30 dark:to-purple-500/10 sm:h-9 sm:w-[170px] sm:text-xs"
+                  >
                     <SelectValue placeholder="Select Section" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="max-h-64 border-violet-200/80 bg-white shadow-lg dark:border-violet-500/25 dark:bg-popover">
                     {filteredSections.map((s) => (
-                      <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                      <SelectItem key={s.id} value={s.id} className="data-[state=checked]:bg-violet-50 data-[state=checked]:font-semibold data-[state=checked]:text-violet-700 dark:data-[state=checked]:bg-violet-500/15 dark:data-[state=checked]:text-violet-300">
+                        {s.name}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -583,7 +617,7 @@ export function ViewAttendancePage() {
                 placeholder="Search by name, roll no..."
                 value={searchQuery}
                 onChange={(e) => handleSearchChange(e.target.value)}
-                className="h-9 pl-8 pr-8 text-sm sm:h-7 sm:text-xs"
+                className="h-9 bg-white pl-8 pr-8 text-sm dark:bg-input/30 sm:h-7 sm:text-xs"
               />
               {searchQuery && (
                 <button
@@ -602,9 +636,9 @@ export function ViewAttendancePage() {
       {stats.total > 0 && (
         <div className="space-y-2">
           {/* Attendance rate bar - thin */}
-          <div className="flex flex-col gap-3 rounded-lg border bg-card px-3 py-3 shadow-sm sm:flex-row sm:items-center sm:py-2">
-            <div className="size-7 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
-              <BarChart3 className="size-3.5 text-primary" />
+          <div className="flex flex-col gap-3 rounded-xl border border-cyan-200/80 bg-gradient-to-r from-cyan-50 via-white to-sky-50 px-3 py-3 shadow-sm dark:border-cyan-500/25 dark:from-cyan-500/15 dark:via-card dark:to-sky-500/10 sm:flex-row sm:items-center">
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-500 to-sky-600 text-white shadow-sm">
+              <BarChart3 className="size-4" />
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between gap-2">
@@ -644,20 +678,20 @@ export function ViewAttendancePage() {
           </div>
 
           {/* Stat strips - thin */}
-          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-stretch">
+          <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
             {[
-              { label: 'Total', value: stats.total, color: 'text-foreground', bg: 'bg-primary/10', icon: ClipboardList },
-              { label: 'Present', value: stats.present, color: 'text-emerald-700 dark:text-emerald-400', bg: 'bg-emerald-100 dark:bg-emerald-900/40', icon: Check },
-              { label: 'Absent', value: stats.absent, color: 'text-red-700 dark:text-red-400', bg: 'bg-red-100 dark:bg-red-900/40', icon: X },
-              { label: 'Leave', value: stats.leave, color: 'text-amber-700 dark:text-amber-400', bg: 'bg-amber-100 dark:bg-amber-900/40', icon: CalendarOff },
+              { label: 'Total Students', value: stats.total, color: 'text-sky-700 dark:text-sky-300', tile: 'from-sky-500 to-cyan-600', card: 'border-sky-200/80 from-sky-50 via-white to-cyan-50 dark:border-sky-500/25 dark:from-sky-500/15 dark:via-card dark:to-cyan-500/10', icon: ClipboardList },
+              { label: 'Present', value: stats.present, color: 'text-emerald-700 dark:text-emerald-300', tile: 'from-emerald-500 to-teal-600', card: 'border-emerald-200/80 from-emerald-50 via-white to-teal-50 dark:border-emerald-500/25 dark:from-emerald-500/15 dark:via-card dark:to-teal-500/10', icon: Check },
+              { label: 'Absent', value: stats.absent, color: 'text-rose-700 dark:text-rose-300', tile: 'from-rose-500 to-red-600', card: 'border-rose-200/80 from-rose-50 via-white to-red-50 dark:border-rose-500/25 dark:from-rose-500/15 dark:via-card dark:to-red-500/10', icon: X },
+              { label: 'On Leave', value: stats.leave, color: 'text-amber-700 dark:text-amber-300', tile: 'from-amber-500 to-orange-600', card: 'border-amber-200/80 from-amber-50 via-white to-orange-50 dark:border-amber-500/25 dark:from-amber-500/15 dark:via-card dark:to-orange-500/10', icon: CalendarOff },
             ].map((item) => (
-              <div key={item.label} className="flex items-center gap-2 rounded-lg border bg-card px-3 py-2 shadow-sm">
-                <div className={cn('size-7 rounded-md flex items-center justify-center shrink-0', item.bg)}>
-                  <item.icon className={cn('size-3.5', item.color)} />
+              <div key={item.label} className={cn('flex items-center gap-2.5 rounded-xl border bg-gradient-to-br p-3 shadow-sm transition-shadow hover:shadow-md', item.card)}>
+                <div className={cn('flex size-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br text-white shadow-sm', item.tile)}>
+                  <item.icon className="size-4" />
                 </div>
                 <div>
                   <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider leading-none">{item.label}</p>
-                  <p className={cn('text-base font-bold leading-tight mt-0.5', item.color)}>{item.value}</p>
+                  <p className={cn('mt-0.5 text-lg font-bold leading-tight', item.color)}>{item.value}</p>
                 </div>
               </div>
             ))}
@@ -667,7 +701,7 @@ export function ViewAttendancePage() {
 
       {/* ── Records ──────────────────────────────────────────────────── */}
       {loading ? (
-        <Card className="gap-0 py-0 shadow-sm">
+        <Card className="gap-0 border-sky-200/70 bg-gradient-to-br from-sky-50 via-white to-cyan-50 py-0 shadow-sm dark:border-sky-500/25 dark:from-sky-500/10 dark:via-card dark:to-cyan-500/10">
           <CardContent className="p-10 flex items-center justify-center">
             <div className="flex items-center gap-2 text-muted-foreground">
               <div className="size-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
@@ -676,17 +710,40 @@ export function ViewAttendancePage() {
           </CardContent>
         </Card>
       ) : !classId || (!classHasNoSections && !sectionId) ? (
-        <EmptyState
-          icon={ClipboardList}
-          title="Select Class & Section"
-          description="Choose a date, class, and section above to view attendance records."
-        />
+        <Card className="relative gap-0 overflow-hidden border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-violet-50 py-0 shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10">
+          <div aria-hidden className="absolute -right-10 -top-14 size-40 rounded-full border-[20px] border-sky-200/25 dark:border-sky-400/10" />
+          <CardContent className="relative flex flex-col items-center px-4 py-8 text-center sm:px-6">
+            <span className="flex size-14 items-center justify-center rounded-2xl bg-gradient-to-br from-primary via-teal-600 to-cyan-600 text-white shadow-lg shadow-primary/20 ring-4 ring-primary/10">
+              <ClipboardList className="size-7" />
+            </span>
+            <h2 className="mt-4 text-lg font-semibold">{classId ? 'Select a Section' : 'Select Class & Section'}</h2>
+            <p className="mt-1 max-w-lg text-sm text-muted-foreground">Choose a class and section above to review its attendance records.</p>
+            <div className="mt-5 grid w-full max-w-2xl gap-2.5 sm:grid-cols-3">
+              <div className="flex items-center gap-3 rounded-xl border border-emerald-200/80 bg-gradient-to-br from-emerald-50 via-white to-teal-50 p-3 text-left shadow-sm dark:border-emerald-500/25 dark:from-emerald-500/15 dark:via-card dark:to-teal-500/10">
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 text-white"><CalendarDays className="size-4" /></span>
+                <div className="min-w-0"><p className="text-xs font-semibold">Date</p><p className="truncate text-[11px] text-emerald-700 dark:text-emerald-300">{formatDate(date)}</p></div>
+                <Check className="ml-auto size-3.5 text-emerald-600" />
+              </div>
+              <div className="flex items-center gap-3 rounded-xl border border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-cyan-50 p-3 text-left shadow-sm dark:border-sky-500/25 dark:from-sky-500/15 dark:via-card dark:to-cyan-500/10">
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-cyan-600 text-white"><Users className="size-4" /></span>
+                <div className="min-w-0"><p className="text-xs font-semibold">Class</p><p className="truncate text-[11px] text-sky-700 dark:text-sky-300">{classes.find((item) => item.id === classId)?.name || 'Choose class'}</p></div>
+                {classId && <Check className="ml-auto size-3.5 text-sky-600" />}
+              </div>
+              <div className="flex items-center gap-3 rounded-xl border border-violet-200/80 bg-gradient-to-br from-violet-50 via-white to-purple-50 p-3 text-left shadow-sm dark:border-violet-500/25 dark:from-violet-500/15 dark:via-card dark:to-purple-500/10">
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 text-white"><ClipboardCheck className="size-4" /></span>
+                <div className="min-w-0"><p className="text-xs font-semibold">Section</p><p className="truncate text-[11px] text-violet-700 dark:text-violet-300">Choose section</p></div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       ) : records.length === 0 ? (
-        <EmptyState
-          icon={ClipboardList}
-          title="No Attendance Records"
-          description="No attendance found for the selected date and filters. Try changing the date or class/section."
-        />
+        <Card className="gap-0 border-amber-200/80 bg-gradient-to-br from-amber-50 via-white to-orange-50 py-0 shadow-sm dark:border-amber-500/25 dark:from-amber-500/12 dark:via-card dark:to-orange-500/10">
+          <CardContent className="flex flex-col items-center px-4 py-8 text-center">
+            <span className="flex size-12 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 text-white shadow-md"><CalendarOff className="size-6" /></span>
+            <h2 className="mt-3 text-base font-semibold">No Attendance Records</h2>
+            <p className="mt-1 max-w-md text-sm text-muted-foreground">No finalized attendance was found for this date and group. Try another date or selection.</p>
+          </CardContent>
+        </Card>
       ) : filteredRecords.length === 0 ? (
         <div className="text-center py-12">
           <Search className="size-10 text-muted-foreground/40 mx-auto mb-3" />
@@ -711,9 +768,9 @@ export function ViewAttendancePage() {
             const uniqueMarkers = [...new Set(markerNames)]
 
             return (
-              <Card key={groupKey} className="gap-0 overflow-hidden py-0 shadow-sm">
+              <Card key={groupKey} className="gap-0 overflow-hidden border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-violet-50 py-0 shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10">
                 {/* Group header */}
-                <div className="border-b bg-muted/20 px-3 py-3 sm:px-5">
+                <div className="border-b border-sky-200/70 bg-gradient-to-r from-sky-100/80 via-cyan-50/90 to-violet-100/70 px-3 py-3 dark:border-sky-500/20 dark:from-sky-500/15 dark:via-cyan-500/10 dark:to-violet-500/15 sm:px-5">
                   <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                     <div className="flex min-w-0 flex-wrap items-center gap-2">
                       <Users className="size-4 text-muted-foreground shrink-0" />
@@ -750,7 +807,7 @@ export function ViewAttendancePage() {
                 </div>
 
                 {/* Column headers */}
-                <div className="hidden items-center gap-3 border-b bg-muted/40 px-5 py-2 md:flex">
+                <div className="hidden items-center gap-3 border-b border-cyan-200/70 bg-gradient-to-r from-cyan-100/80 via-sky-50 to-violet-100/70 px-5 py-2 dark:border-cyan-500/20 dark:from-cyan-500/15 dark:via-sky-500/10 dark:to-violet-500/15 md:flex">
                   <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider w-8 text-center">#</span>
                   <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider w-10"></span>
                   <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider flex-1">Student Name</span>
@@ -770,8 +827,9 @@ export function ViewAttendancePage() {
                       <div
                         key={record.id}
                         className={cn(
-                          'px-3 py-3 transition-colors hover:bg-muted/20 sm:px-5 md:flex md:items-center md:gap-3 md:py-2.5',
+                          'border-l-2 px-3 py-3 transition-colors hover:brightness-[0.99] sm:px-5 md:flex md:items-center md:gap-3 md:py-2.5',
                           statusConfig.bgColor,
+                          statusConfig.borderColor,
                         )}
                       >
                         <div className="flex min-w-0 items-center gap-3 md:flex-1">

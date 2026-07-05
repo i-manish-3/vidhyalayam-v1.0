@@ -556,8 +556,7 @@ export function SuperAdminRolesPage() {
           />
         </div>
         <Select value={schoolFilter} onValueChange={handleSchoolFilterChange}>
-          <SelectTrigger className="h-9 w-full lg:w-[260px]">
-            <School className="size-3.5 mr-1.5 shrink-0" />
+          <SelectTrigger leadingIcon={<School className="size-3.5" />} className="h-9 w-full lg:w-[260px]">
             <SelectValue placeholder="All Schools" />
           </SelectTrigger>
           <SelectContent>
