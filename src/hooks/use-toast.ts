@@ -152,6 +152,7 @@ function detectVariant(title: string, explicitVariant?: string): ToastProps["var
     lower.includes("added") ||
     lower.includes("created") ||
     lower.includes("updated") ||
+    lower.includes("changed") ||
     lower.includes("deleted") ||
     lower.includes("removed") ||
     lower.includes("completed") ||
@@ -159,6 +160,20 @@ function detectVariant(title: string, explicitVariant?: string): ToastProps["var
     lower.includes("approved") ||
     lower.includes("welcome") ||
     lower.includes("uploaded") ||
+    lower.includes("assigned") ||
+    lower.includes("restored") ||
+    lower.includes("archived") ||
+    lower.includes("submitted") ||
+    lower.includes("published") ||
+    lower.includes("sent") ||
+    lower.includes("imported") ||
+    lower.includes("generated") ||
+    lower.includes("copied") ||
+    lower.includes("reopened") ||
+    lower.includes("enabled") ||
+    lower.includes("disabled") ||
+    lower.includes("collected") ||
+    lower.includes("payment received") ||
     lower.includes("done") ||
     lower.includes("finalized") ||
     lower.includes("attendance saved") ||
@@ -197,7 +212,10 @@ function detectVariant(title: string, explicitVariant?: string): ToastProps["var
     lower.includes("caution") ||
     lower.includes("attention") ||
     lower.includes("unpaid fees") ||
-    lower.includes("check your input")
+    lower.includes("check your input") ||
+    lower.includes("nothing to") ||
+    lower.includes("not ready") ||
+    lower.includes("already exists")
   ) {
     return "warning"
   }
@@ -208,7 +226,10 @@ function detectVariant(title: string, explicitVariant?: string): ToastProps["var
     lower.includes("note") ||
     lower.includes("print") ||
     lower.includes("coming soon") ||
-    lower.includes("exported")
+    lower.includes("exported") ||
+    lower.includes("started") ||
+    lower.includes("processing") ||
+    lower.includes("notification")
   ) {
     return "info"
   }

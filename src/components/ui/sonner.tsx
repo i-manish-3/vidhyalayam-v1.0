@@ -14,6 +14,20 @@ const Toaster = ({ ...props }: ToasterProps) => {
       duration={4000}
       visibleToasts={3}
       gap={12}
+      toastOptions={{
+        classNames: {
+          toast: "!rounded-xl !border-primary/20 !bg-gradient-to-br !from-primary/10 !via-background !to-sky-500/10 !px-4 !py-3.5 !shadow-xl !shadow-primary/10 !backdrop-blur-sm",
+          success: "!border-emerald-200/90 !from-emerald-50 !via-white !to-teal-50 dark:!border-emerald-500/30 dark:!from-emerald-500/20 dark:!via-card dark:!to-teal-500/10",
+          error: "!border-red-200/90 !from-red-50 !via-white !to-rose-50 dark:!border-red-500/30 dark:!from-red-500/20 dark:!via-card dark:!to-rose-500/10",
+          warning: "!border-amber-200/90 !from-amber-50 !via-white !to-orange-50 dark:!border-amber-500/30 dark:!from-amber-500/20 dark:!via-card dark:!to-orange-500/10",
+          info: "!border-sky-200/90 !from-sky-50 !via-white !to-indigo-50 dark:!border-sky-500/30 dark:!from-sky-500/20 dark:!via-card dark:!to-indigo-500/10",
+          title: "!text-sm !font-bold !tracking-tight",
+          description: "!mt-1 !text-xs !leading-relaxed !text-muted-foreground",
+          closeButton: "!border-border/60 !bg-background/80 !text-foreground !shadow-sm hover:!bg-background",
+          actionButton: "!rounded-lg !bg-primary !text-primary-foreground",
+          cancelButton: "!rounded-lg !bg-muted !text-muted-foreground",
+        },
+      }}
       icons={{
         success: (
           <svg width="18" height="18" viewBox="0 0 18 18" fill="none" className="shrink-0">

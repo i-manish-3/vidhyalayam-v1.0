@@ -292,6 +292,23 @@ body::-webkit-scrollbar-thumb:hover,
   animation-play-state: paused;
 }
 
+@keyframes toast-progress {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+
+.toast-progress {
+  animation: toast-progress 4.5s linear forwards;
+}
+
+[data-slot="toast-root"]:hover .toast-progress {
+  animation-play-state: paused;
+}
+
 @keyframes page-fade-in {
   from {
     opacity: 0;

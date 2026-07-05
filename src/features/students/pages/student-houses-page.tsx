@@ -287,6 +287,8 @@ export function StudentHousesPage() {
   const assignedCount = students.filter((student) => student.assignedHouse).length
   const unassignedCount = students.length - assignedCount
   const selectedVisibleCount = filteredStudents.filter((student) => selectedStudentIds.includes(student.id)).length
+  const assignedPercentage = students.length > 0 ? Math.round((assignedCount / students.length) * 100) : 0
+  const unassignedPercentage = students.length > 0 ? Math.round((unassignedCount / students.length) * 100) : 0
   const selectedHouse = targetHouseId ? houses.find((house) => house.id === targetHouseId) || null : null
   const selectedClass = classOptions.find((item) => item.id === classFilter)
   const selectedSection = sectionOptions.find((item) => item.id === sectionFilter)
@@ -346,34 +348,49 @@ export function StudentHousesPage() {
         </Button>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <div className="rounded-xl border border-violet-200/80 bg-gradient-to-br from-violet-50 via-white to-fuchsia-50 p-4 shadow-sm dark:border-violet-500/25 dark:from-violet-500/10 dark:via-card dark:to-fuchsia-500/10">
-          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Houses</p>
-          <div className="mt-2 flex items-end justify-between gap-2">
-            <p className="text-2xl font-semibold">{houses.length}</p>
-            <span className="flex size-9 items-center justify-center rounded-lg bg-violet-500 text-white shadow-sm"><Home className="size-4" /></span>
+      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="group flex items-center gap-2.5 rounded-xl border border-violet-200/80 bg-gradient-to-r from-violet-50 via-white to-fuchsia-50 p-2.5 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md dark:border-violet-500/25 dark:from-violet-500/15 dark:via-card dark:to-fuchsia-500/10">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-600 text-white shadow-sm">
+            <Home className="size-4 text-white" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Houses</p>
+            <p className="text-lg font-bold leading-tight text-violet-700 dark:text-violet-300">{houses.length}</p>
           </div>
+          <span className="text-[10px] font-medium text-violet-600/70 dark:text-violet-300/70">groups</span>
         </div>
-        <div className="rounded-xl border border-emerald-200/80 bg-gradient-to-br from-emerald-50 via-white to-teal-50 p-4 shadow-sm dark:border-emerald-500/25 dark:from-emerald-500/10 dark:via-card dark:to-teal-500/10">
-          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Assigned</p>
-          <div className="mt-2 flex items-end justify-between gap-2">
-            <p className="text-2xl font-semibold">{assignedCount}</p>
-            <span className="flex size-9 items-center justify-center rounded-lg bg-emerald-500 text-white shadow-sm"><CheckCircle2 className="size-4" /></span>
+
+        <div className="group flex items-center gap-2.5 rounded-xl border border-emerald-200/80 bg-gradient-to-r from-emerald-50 via-white to-teal-50 p-2.5 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md dark:border-emerald-500/25 dark:from-emerald-500/15 dark:via-card dark:to-teal-500/10">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-sm">
+            <CheckCircle2 className="size-4 text-white" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Assigned</p>
+            <p className="text-lg font-bold leading-tight text-emerald-700 dark:text-emerald-300">{assignedCount}</p>
           </div>
+          <Badge className="h-5 bg-emerald-100 px-1.5 text-[10px] text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-500/15 dark:text-emerald-300">{assignedPercentage}%</Badge>
         </div>
-        <div className="rounded-xl border border-amber-200/80 bg-gradient-to-br from-amber-50 via-white to-orange-50 p-4 shadow-sm dark:border-amber-500/25 dark:from-amber-500/10 dark:via-card dark:to-orange-500/10">
-          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Unassigned</p>
-          <div className="mt-2 flex items-end justify-between gap-2">
-            <p className="text-2xl font-semibold">{unassignedCount}</p>
-            <span className="flex size-9 items-center justify-center rounded-lg bg-amber-500 text-white shadow-sm"><Users className="size-4" /></span>
+
+        <div className="group flex items-center gap-2.5 rounded-xl border border-amber-200/80 bg-gradient-to-r from-amber-50 via-white to-orange-50 p-2.5 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md dark:border-amber-500/25 dark:from-amber-500/15 dark:via-card dark:to-orange-500/10">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 text-white shadow-sm">
+            <Users className="size-4 text-white" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Unassigned</p>
+            <p className="text-lg font-bold leading-tight text-amber-700 dark:text-amber-300">{unassignedCount}</p>
           </div>
+          <Badge className="h-5 bg-amber-100 px-1.5 text-[10px] text-amber-700 hover:bg-amber-100 dark:bg-amber-500/15 dark:text-amber-300">{unassignedPercentage}%</Badge>
         </div>
-        <div className="rounded-xl border border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-cyan-50 p-4 shadow-sm dark:border-sky-500/25 dark:from-sky-500/10 dark:via-card dark:to-cyan-500/10">
-          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Selected</p>
-          <div className="mt-2 flex items-end justify-between gap-2">
-            <p className="text-2xl font-semibold">{selectedStudentIds.length}</p>
-            <Badge className="bg-sky-500 text-white hover:bg-sky-500">{selectedVisibleCount} visible</Badge>
+
+        <div className="group flex items-center gap-2.5 rounded-xl border border-sky-200/80 bg-gradient-to-r from-sky-50 via-white to-cyan-50 p-2.5 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md dark:border-sky-500/25 dark:from-sky-500/15 dark:via-card dark:to-cyan-500/10">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-cyan-600 text-white shadow-sm">
+            <GraduationCap className="size-4 text-white" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Selected</p>
+            <p className="text-lg font-bold leading-tight text-sky-700 dark:text-sky-300">{selectedStudentIds.length}</p>
           </div>
+          <Badge className="h-5 bg-sky-100 px-1.5 text-[10px] text-sky-700 hover:bg-sky-100 dark:bg-sky-500/15 dark:text-sky-300">{selectedVisibleCount} visible</Badge>
         </div>
       </div>
 
