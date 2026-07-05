@@ -1823,8 +1823,8 @@ export function StudentDetailPage({ studentId }: { studentId: string }) {
 
 
       <Tabs defaultValue="personal" className="min-w-0 gap-2">
-        <div className="sticky top-0 z-10 -mx-1 flex justify-center overflow-x-auto bg-background/90 px-1 py-1.5 backdrop-blur supports-[backdrop-filter]:bg-background/75">
-          <TabsList className="h-10 w-max rounded-xl border border-primary/15 bg-gradient-to-r from-sky-50 via-white to-violet-50 p-1 shadow-sm dark:from-sky-500/10 dark:via-card dark:to-violet-500/10">
+        <div className="sticky top-0 z-10 -mx-1 flex justify-center overflow-x-auto bg-gradient-to-r from-transparent via-background/75 to-transparent px-1 py-2 backdrop-blur-sm">
+          <TabsList className="h-10 w-max rounded-xl border border-sky-200/80 bg-gradient-to-r from-sky-100/90 via-cyan-50 to-violet-100/90 p-1 shadow-md shadow-primary/10 ring-1 ring-white/70 dark:border-sky-500/25 dark:from-sky-500/15 dark:via-card dark:to-violet-500/15 dark:ring-white/5">
             <TabsTrigger value="personal" className="h-8 gap-1.5 rounded-lg px-2.5 text-xs data-[state=active]:bg-sky-500 data-[state=active]:text-white data-[state=active]:shadow-sm [&[data-state=active]_svg]:text-white">
               <User className="size-3.5" />
               Personal
