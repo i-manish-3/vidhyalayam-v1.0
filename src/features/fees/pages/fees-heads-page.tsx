@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { EmptyState, LoadingState, PageHeader } from '@/components/shared'
+import { LoadingState } from '@/components/shared'
 import { api } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { useAppStore } from '@/lib/store'
@@ -13,8 +13,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -33,6 +33,7 @@ import {
   CalendarDays,
   CheckCircle2,
   IndianRupee,
+  X,
   Layers3,
   MoreHorizontal,
   PlusCircle,
@@ -203,94 +204,128 @@ export function FeesHeadsPage() {
   }
 
   return (
-    <div className="space-y-4">
-      <PageHeader
-        title="Fee Heads"
-        description="Define the fee names and billing behavior used in fee structures."
-        secondaryAction={{ label: 'Fee Groups', icon: Layers3, onClick: () => router.push('/fees/groups') }}
-        action={{ label: 'Add Fee Head', icon: PlusCircle, onClick: () => setShowAdd(true) }}
-      />
+    <div className="space-y-6">
+      <div className="relative flex flex-col gap-3 overflow-hidden rounded-xl border border-primary/25 bg-gradient-to-r from-primary via-teal-600 to-cyan-600 px-4 py-3 text-white shadow-lg shadow-primary/15 sm:flex-row sm:items-center sm:justify-between">
+        <div aria-hidden className="absolute -right-10 -top-12 size-36 rounded-full border-[18px] border-white/10" />
+        <div aria-hidden className="absolute bottom-0 right-1/4 h-px w-48 bg-gradient-to-r from-transparent via-white/45 to-transparent" />
+        <div aria-hidden className="absolute -bottom-14 right-28 size-24 rounded-full bg-sky-300/10" />
+        <div className="relative flex min-w-0 items-center gap-3">
+          <span className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-white/25 bg-white/15 shadow-md shadow-black/10 backdrop-blur-sm">
+            <IndianRupee className="size-5" />
+          </span>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-xl font-bold tracking-tight">Fee Heads</h1>
+              <span className="rounded-full border border-white/20 bg-white/10 px-2 py-0.5 text-[10px] font-semibold text-white/85">{feeHeads.length} heads</span>
+            </div>
+            <p className="mt-0.5 text-xs text-white/80">Define the fee names and billing behavior used in fee structures.</p>
+          </div>
+        </div>
+        <div className="relative flex shrink-0 flex-wrap items-center gap-2">
+          <Button
+            variant="secondary"
+            onClick={() => router.push('/fees/groups')}
+            className="gap-2 border border-white/60 shadow-md"
+            style={{ backgroundColor: 'white', color: 'var(--primary)' }}
+          >
+            <Layers3 className="size-4" />
+            Fee Groups
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={() => setShowAdd(true)}
+            className="gap-2 border border-white/60 shadow-md"
+            style={{ backgroundColor: 'white', color: 'var(--primary)' }}
+          >
+            <PlusCircle className="size-4" />
+            Add Fee Head
+          </Button>
+        </div>
+      </div>
 
       {feeHeads.length === 0 ? (
-        <EmptyState
-          icon={IndianRupee}
-          title="No Fee Heads"
-          description="Create fee heads such as Tuition Fee, Lab Fee, Annual Charge, or Security Deposit."
-          action={{ label: 'Add Fee Head', onClick: () => setShowAdd(true) }}
-        />
+        <div className="flex flex-col items-center justify-center gap-4 rounded-2xl border border-sky-200/60 bg-gradient-to-br from-sky-50 via-white to-cyan-50 p-12 text-center shadow-sm dark:border-sky-500/20 dark:from-sky-500/5 dark:via-card dark:to-cyan-500/5">
+          <div className="flex size-16 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-100 to-cyan-100 shadow-sm dark:from-sky-900/50 dark:to-cyan-900/50">
+            <IndianRupee className="size-8 text-sky-600 dark:text-sky-400" />
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold text-sky-900 dark:text-sky-200">No Fee Heads</h3>
+            <p className="mt-1 text-sm text-sky-700/70 dark:text-sky-300/70">Create fee heads such as Tuition Fee, Lab Fee, Annual Charge, or Security Deposit.</p>
+          </div>
+          <Button
+            onClick={() => setShowAdd(true)}
+            className="gap-2 bg-gradient-to-r from-primary to-cyan-600 shadow-md shadow-primary/20"
+          >
+            <PlusCircle className="size-4" />
+            Add Fee Head
+          </Button>
+        </div>
       ) : (
-        <Card className="gap-0 overflow-hidden py-0 shadow-sm">
-          <CardHeader className="border-b bg-muted/30 px-4 py-3">
-            <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="bg-brand-soft flex size-7 shrink-0 items-center justify-center rounded-lg text-white shadow-sm">
-                    <IndianRupee className="size-3.5" />
-                  </span>
-                  <CardTitle className="text-base">Fee Head Library</CardTitle>
-                </div>
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  {filteredFeeHeads.length} of {feeHeads.length} heads shown
-                </p>
-              </div>
-              <div className="grid gap-2 sm:grid-cols-[minmax(220px,1fr)_160px_190px] xl:w-[650px]">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    value={search}
-                    onChange={(event) => {
-                      const value = event.target.value
-                      setSearch(value)
-                      rememberListState({ search: value })
-                    }}
-                    placeholder="Search fee heads..."
-                    className="h-9 pl-9"
-                  />
-                </div>
-                <Select
-                  value={statusFilter}
-                  onValueChange={(value) => {
-                    const next = value as StatusFilter
-                    setStatusFilter(next)
-                    rememberListState({ statusFilter: next })
-                  }}
-                >
-                  <SelectTrigger className="h-9">
-                    <SelectValue placeholder="Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ALL">All Status</SelectItem>
-                    <SelectItem value="ACTIVE">Active</SelectItem>
-                    <SelectItem value="INACTIVE">Inactive</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Select
-                  value={frequencyFilter}
-                  onValueChange={(value) => {
-                    const next = value as FrequencyFilter
-                    setFrequencyFilter(next)
-                    rememberListState({ frequencyFilter: next })
-                  }}
-                >
-                  <SelectTrigger className="h-9">
-                    <SelectValue placeholder="Frequency" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ALL">All Frequencies</SelectItem>
-                    {FREQUENCY_OPTIONS.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+        <div className="overflow-hidden rounded-lg border border-cyan-200/80 bg-card shadow-sm dark:border-cyan-500/20">
+          <div className="flex flex-col gap-3 border-b border-cyan-500/15 bg-gradient-to-r from-cyan-500/10 via-sky-500/5 to-violet-500/10 p-3 xl:flex-row xl:items-center xl:justify-between">
+            <div>
+              <p className="text-sm font-semibold">Fee Head Library</p>
+              <p className="text-xs text-muted-foreground">
+                {filteredFeeHeads.length} of {feeHeads.length} heads shown
+              </p>
             </div>
-          </CardHeader>
-          <CardContent className="p-0">
+            <div className="grid gap-2 sm:grid-cols-[minmax(220px,1fr)_160px_190px] xl:w-[650px]">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={search}
+                  onChange={(event) => {
+                    const value = event.target.value
+                    setSearch(value)
+                    rememberListState({ search: value })
+                  }}
+                  placeholder="Search fee heads..."
+                  className="h-9 pl-9"
+                />
+              </div>
+              <Select
+                value={statusFilter}
+                onValueChange={(value) => {
+                  const next = value as StatusFilter
+                  setStatusFilter(next)
+                  rememberListState({ statusFilter: next })
+                }}
+              >
+                <SelectTrigger className="h-9">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">All Status</SelectItem>
+                  <SelectItem value="ACTIVE">Active</SelectItem>
+                  <SelectItem value="INACTIVE">Inactive</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select
+                value={frequencyFilter}
+                onValueChange={(value) => {
+                  const next = value as FrequencyFilter
+                  setFrequencyFilter(next)
+                  rememberListState({ frequencyFilter: next })
+                }}
+              >
+                <SelectTrigger className="h-9">
+                  <SelectValue placeholder="Frequency" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">All Frequencies</SelectItem>
+                  {FREQUENCY_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="overflow-x-auto">
             <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/20 hover:bg-muted/20">
+              <TableHeader className="bg-gradient-to-r from-cyan-500/[0.07] via-sky-500/[0.04] to-violet-500/[0.07]">
+                <TableRow>
                   <TableHead className="px-4 py-2.5">Fee Head</TableHead>
                   <TableHead className="px-4 py-2.5">Billing Behavior</TableHead>
                   <TableHead className="px-4 py-2.5">Status</TableHead>
@@ -310,7 +345,7 @@ export function FeesHeadsPage() {
                     const FrequencyIcon = frequency.icon
 
                     return (
-                      <TableRow key={head.id} className="group">
+                      <TableRow key={head.id} className="transition-colors hover:bg-cyan-500/[0.045]">
                         <TableCell className="px-4 py-3">
                           <div className="flex min-w-56 items-center gap-3">
                             <div className={cn(
@@ -337,13 +372,16 @@ export function FeesHeadsPage() {
                         <TableCell className="px-4 py-3">
                           <div className="flex items-center gap-2">
                             {head.isActive ? (
-                              <CheckCircle2 className="size-4 text-emerald-600" />
+                              <span className="inline-flex items-center gap-1.5 text-sm font-medium text-emerald-600">
+                                <CheckCircle2 className="size-4" />
+                                Active
+                              </span>
                             ) : (
-                              <XCircle className="size-4 text-muted-foreground" />
+                              <span className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
+                                <XCircle className="size-4" />
+                                Inactive
+                              </span>
                             )}
-                            <span className={cn('text-sm font-medium', !head.isActive && 'text-muted-foreground')}>
-                              {head.isActive ? 'Active' : 'Inactive'}
-                            </span>
                           </div>
                         </TableCell>
                         <TableCell className="px-4 py-3">
@@ -366,52 +404,71 @@ export function FeesHeadsPage() {
                 )}
               </TableBody>
             </Table>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       )}
 
       <Dialog open={showAdd} onOpenChange={setShowAdd}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <span className="bg-brand-soft flex size-9 items-center justify-center rounded-md text-white shadow-sm">
+        <DialogContent className="max-w-lg border-sky-200/80 bg-gradient-to-br from-white via-sky-50/45 to-cyan-50/60 p-0 shadow-xl dark:border-sky-500/25 dark:from-card dark:via-sky-500/10 dark:to-cyan-500/10">
+          <DialogHeader className="relative overflow-hidden rounded-t-lg border-b border-sky-500/15 bg-gradient-to-r from-primary via-teal-600 to-cyan-600 p-5 text-white">
+            <div aria-hidden className="absolute -right-10 -top-12 size-32 rounded-full border-[16px] border-white/15" />
+            <div aria-hidden className="absolute bottom-0 right-32 h-px w-48 bg-gradient-to-r from-transparent via-white/50 to-transparent" />
+            <div className="flex items-start gap-3">
+              <div className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-white/25 bg-white/15 shadow-md shadow-black/10 backdrop-blur-sm">
                 <IndianRupee className="size-5" />
-              </span>
-              Add Fee Head
-            </DialogTitle>
+              </div>
+              <div className="min-w-0 space-y-1">
+                <DialogTitle className="text-white">Add Fee Head</DialogTitle>
+                <DialogDescription className="text-white/80">Create a new fee head for billing fee structures.</DialogDescription>
+              </div>
+              <DialogClose className="absolute top-3 right-3 z-20 flex size-8 items-center justify-center rounded-full border border-white/30 bg-white/15 text-white/90 shadow-sm backdrop-blur-sm transition-all hover:bg-white/30 hover:text-white">
+                <X className="size-4" />
+                <span className="sr-only">Close</span>
+              </DialogClose>
+            </div>
           </DialogHeader>
-          <div className="grid gap-4 py-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="fee-head-name">Fee Head Name</Label>
-              <Input
-                id="fee-head-name"
-                value={form.name}
-                onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
-                placeholder="e.g., Tuition Fee, Lab Fee, Annual Charge"
-              />
+          <div className="grid gap-4 p-5">
+            <div className="rounded-xl border border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-cyan-50 p-4 shadow-sm dark:border-sky-500/25 dark:from-sky-500/10 dark:via-card dark:to-cyan-500/10">
+              <div className="mb-3 flex items-center gap-2 border-b border-sky-500/15 pb-2.5 text-sm font-semibold">
+                <span className="flex size-7 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-cyan-600 text-white shadow-sm">
+                  <IndianRupee className="size-3.5" />
+                </span>
+                Fee details
+              </div>
+              <div className="space-y-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="fee-head-name">Fee Head Name</Label>
+                  <Input
+                    id="fee-head-name"
+                    value={form.name}
+                    onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
+                    placeholder="e.g., Tuition Fee, Lab Fee, Annual Charge"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label>Billing Behavior</Label>
+                  <Select
+                    value={form.frequency}
+                    onValueChange={(value) => setForm((current) => ({ ...current, frequency: value as FeeFrequency }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select frequency" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {FREQUENCY_OPTIONS.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">{getFrequencyOption(form.frequency).description}</p>
+                </div>
+              </div>
             </div>
 
-            <div className="space-y-1.5">
-              <Label>Billing Behavior</Label>
-              <Select
-                value={form.frequency}
-                onValueChange={(value) => setForm((current) => ({ ...current, frequency: value as FeeFrequency }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select frequency" />
-                </SelectTrigger>
-                <SelectContent>
-                  {FREQUENCY_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">{getFrequencyOption(form.frequency).description}</p>
-            </div>
-
-            <div className="flex items-center justify-between gap-4 rounded-md border bg-muted/20 p-3">
+            <div className="flex items-center justify-between gap-4 rounded-xl border border-amber-200/80 bg-gradient-to-br from-amber-50 via-white to-orange-50 p-3.5 shadow-sm dark:border-amber-500/25 dark:from-amber-500/10 dark:via-card dark:to-orange-500/10">
               <div>
                 <Label htmlFor="fee-head-active" className="cursor-pointer">Active</Label>
                 <p className="mt-0.5 text-xs text-muted-foreground">Available while creating fee structures.</p>
@@ -423,13 +480,27 @@ export function FeesHeadsPage() {
               />
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAdd(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleAdd} disabled={saving || !form.name.trim()}>
-              {saving ? 'Adding...' : 'Add Fee Head'}
-            </Button>
+          <DialogFooter className="border-t border-sky-500/15 bg-white/80 p-4 dark:bg-card/80">
+            <div className="flex w-full items-center justify-between gap-3 max-sm:flex-col">
+              <p className="hidden text-xs text-sky-700 sm:block dark:text-sky-300">
+                <span className="inline-flex items-center gap-1">
+                  <IndianRupee className="size-3" />
+                  Create a new fee head
+                </span>
+              </p>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" onClick={() => setShowAdd(false)} className="bg-white dark:bg-card">
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleAdd}
+                  disabled={saving || !form.name.trim()}
+                  className="gap-1.5 bg-gradient-to-r from-primary to-cyan-600 shadow-sm shadow-primary/20"
+                >
+                  {saving ? 'Adding...' : 'Add Fee Head'}
+                </Button>
+              </div>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>

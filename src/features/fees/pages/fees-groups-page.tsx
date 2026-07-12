@@ -2,14 +2,15 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { EmptyState, LoadingState } from '@/components/shared'
+import { LoadingState } from '@/components/shared'
+import { cn } from '@/lib/utils'
 import { api } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import {
   Table,
   TableBody,
@@ -28,7 +29,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { AlignLeft, Edit2, Layers, ListChecks, PlusCircle, Tag, Trash2 } from 'lucide-react'
+import { Edit2, Layers, PlusCircle, Trash2, X } from 'lucide-react'
 
 // ── Types ──────────────────────────────────────────────────────────────
 
@@ -180,217 +181,340 @@ export function FeesGroupsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex min-w-0 items-stretch gap-3">
-          <span aria-hidden className="bg-brand mt-0.5 w-1 shrink-0 self-stretch rounded-full" />
+    <div className="space-y-5">
+      <div className="relative flex flex-col gap-3 overflow-hidden rounded-xl border border-primary/25 bg-gradient-to-r from-primary via-teal-600 to-cyan-600 px-4 py-3 text-white shadow-lg shadow-primary/15 sm:flex-row sm:items-center sm:justify-between">
+        <div aria-hidden className="absolute -right-10 -top-12 size-36 rounded-full border-[18px] border-white/10" />
+        <div aria-hidden className="absolute bottom-0 right-1/4 h-px w-48 bg-gradient-to-r from-transparent via-white/45 to-transparent" />
+        <div aria-hidden className="absolute -bottom-14 right-28 size-24 rounded-full bg-sky-300/10" />
+        <div className="relative flex min-w-0 items-center gap-3">
+          <span className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-white/25 bg-white/15 shadow-md shadow-black/10 backdrop-blur-sm">
+            <Layers className="size-5" />
+          </span>
           <div className="min-w-0">
-            <h1 className="text-xl font-semibold tracking-tight text-foreground/90">Fee Groups</h1>
-            <p className="mt-1 text-sm text-muted-foreground">{feeGroups.length} fee groups configured</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-xl font-bold tracking-tight">Fee Groups</h1>
+              <span className="rounded-full border border-white/20 bg-white/10 px-2 py-0.5 text-[10px] font-semibold text-white/85">{feeGroups.length} groups</span>
+            </div>
+            <p className="mt-0.5 text-xs text-white/80">Organise fee heads into groups for fee structure assignment.</p>
           </div>
         </div>
-        <div className="flex shrink-0 flex-wrap items-center gap-2">
-          <Button onClick={() => setShowAdd(true)} className="gap-2">
-            <PlusCircle className="size-4" />
-            Add Fee Group
-          </Button>
-          <Button variant="outline" onClick={() => router.push('/fees/structures')} className="gap-2">
+        <div className="relative flex shrink-0 flex-wrap items-center gap-2">
+          <Button
+            variant="secondary"
+            onClick={() => router.push('/fees/structures')}
+            className="gap-2 border border-white/60 shadow-md"
+            style={{ backgroundColor: 'white', color: 'var(--primary)' }}
+          >
             <Layers className="size-4" />
             Fees Structure
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={() => setShowAdd(true)}
+            className="gap-2 border border-white/60 shadow-md"
+            style={{ backgroundColor: 'white', color: 'var(--primary)' }}
+          >
+            <PlusCircle className="size-4" />
+            Add Fee Group
           </Button>
         </div>
       </div>
 
       {feeGroups.length === 0 ? (
-        <EmptyState
-          icon={Layers}
-          title="No Fee Groups"
-          description="Create fee groups such as New Admission, Regular Student, or Staff Ward."
-          action={{ label: 'Add Fee Group', onClick: () => setShowAdd(true) }}
-        />
+        <div className="flex flex-col items-center justify-center gap-4 rounded-2xl border border-sky-200/60 bg-gradient-to-br from-sky-50 via-white to-cyan-50 p-12 text-center shadow-sm dark:border-sky-500/20 dark:from-sky-500/5 dark:via-card dark:to-cyan-500/5">
+          <div className="flex size-16 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-100 to-cyan-100 shadow-sm dark:from-sky-900/50 dark:to-cyan-900/50">
+            <Layers className="size-8 text-sky-600 dark:text-sky-400" />
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold text-sky-900 dark:text-sky-200">No Fee Groups</h3>
+            <p className="mt-1 text-sm text-sky-700/70 dark:text-sky-300/70">Create fee groups such as New Admission, Regular Student, or Staff Ward.</p>
+          </div>
+          <Button
+            onClick={() => setShowAdd(true)}
+            className="gap-2 bg-gradient-to-r from-primary to-cyan-600 shadow-md shadow-primary/20"
+          >
+            <PlusCircle className="size-4" />
+            Add Fee Group
+          </Button>
+        </div>
       ) : (
-        <div className="overflow-hidden rounded-lg border bg-background shadow-sm">
-          <Table>
-            <TableHeader className="bg-muted/50">
-              <TableRow className="hover:bg-transparent">
-                <TableHead className="h-11 px-4 text-xs font-semibold uppercase text-muted-foreground">
-                  <span className="flex items-center gap-2">
-                    <Tag className="size-3.5 text-primary" />
-                    Fee Group Name
-                  </span>
-                </TableHead>
-                <TableHead className="h-11 px-4 text-xs font-semibold uppercase text-muted-foreground">
-                  <span className="flex items-center gap-2">
-                    <AlignLeft className="size-3.5" />
-                    Description
-                  </span>
-                </TableHead>
-                <TableHead className="h-11 w-48 px-4 text-right text-xs font-semibold uppercase text-muted-foreground">
-                  <span className="flex items-center justify-end gap-2">
-                    <ListChecks className="size-3.5" />
-                    Action
-                  </span>
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {feeGroups.map((group) => {
-                const isDefaultGroup = group.name === DEFAULT_FEE_GROUP_NAME
+        <div className="overflow-hidden rounded-lg border border-cyan-200/80 bg-card shadow-sm dark:border-cyan-500/20">
+          <div className="border-b border-cyan-500/15 bg-gradient-to-r from-cyan-500/10 via-sky-500/5 to-violet-500/10 p-3">
+            <p className="text-sm font-semibold">All Fee Groups</p>
+            <p className="text-xs text-muted-foreground">{feeGroups.length} groups configured</p>
+          </div>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader className="bg-gradient-to-r from-cyan-500/[0.07] via-sky-500/[0.04] to-violet-500/[0.07]">
+                <TableRow>
+                  <TableHead className="h-11 px-4">Fee Group Name</TableHead>
+                  <TableHead className="h-11 px-4">Description</TableHead>
+                  <TableHead className="h-11 w-48 px-4 text-right">Action</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {feeGroups.map((group) => {
+                  const isDefaultGroup = group.name === DEFAULT_FEE_GROUP_NAME
 
-                return (
-                  <TableRow key={group.id} className="group">
-                    <TableCell className="px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        <span className="bg-brand-soft flex size-8 shrink-0 items-center justify-center rounded-md text-white shadow-sm">
-                          <Layers className="size-4" />
+                  return (
+                    <TableRow key={group.id} className="transition-colors hover:bg-cyan-500/[0.045]">
+                      <TableCell className="px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          <span className={cn(
+                            'flex size-8 shrink-0 items-center justify-center rounded-md border',
+                            isDefaultGroup ? 'border-amber-200/80 bg-amber-50 text-amber-600 dark:border-amber-500/30 dark:bg-amber-500/20 dark:text-amber-400' : 'border-primary/20 bg-primary/10 text-primary'
+                          )}>
+                            <Layers className="size-4" />
+                          </span>
+                          <span className="font-medium">{group.name}</span>
+                          {isDefaultGroup && (
+                            <span className="rounded-md border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/20 dark:text-amber-400">Default</span>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="max-w-md px-4 py-3 text-muted-foreground">
+                        <span className="line-clamp-2 whitespace-normal">
+                          {group.description?.trim() || '-'}
                         </span>
-                        <span className="font-medium text-foreground">{group.name}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="max-w-md px-4 py-3 text-muted-foreground">
-                      <span className="line-clamp-2 whitespace-normal">
-                        {group.description?.trim() || '-'}
-                      </span>
-                    </TableCell>
-                    <TableCell className="px-4 py-3">
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-8 gap-1.5 px-3"
-                          onClick={() => openEdit(group)}
-                          aria-label={`Edit ${group.name}`}
-                        >
-                          <Edit2 className="size-4" />
-                          Edit
-                        </Button>
-                        {!isDefaultGroup && (
+                      </TableCell>
+                      <TableCell className="px-4 py-3">
+                        <div className="flex justify-end gap-2">
                           <Button
                             variant="outline"
                             size="sm"
-                            className="h-8 gap-1.5 border-destructive/30 px-3 text-destructive hover:bg-destructive hover:text-destructive-foreground"
-                            onClick={() => setDeletingGroup(group)}
-                            aria-label={`Delete ${group.name}`}
+                            className="h-8 gap-1.5 px-3"
+                            onClick={() => openEdit(group)}
+                            aria-label={`Edit ${group.name}`}
                           >
-                            <Trash2 className="size-4" />
-                            Delete
+                            <Edit2 className="size-4" />
+                            Edit
                           </Button>
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                )
-              })}
-            </TableBody>
-          </Table>
+                          {!isDefaultGroup && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8 gap-1.5 border-destructive/30 px-3 text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                              onClick={() => setDeletingGroup(group)}
+                              aria-label={`Delete ${group.name}`}
+                            >
+                              <Trash2 className="size-4" />
+                              Delete
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
+              </TableBody>
+            </Table>
+          </div>
         </div>
       )}
 
       {/* Add Fee Group Dialog */}
       <Dialog open={showAdd} onOpenChange={setShowAdd}>
-        <DialogContent className="max-w-lg max-h-[90vh]">
-          <DialogHeader>
-            <DialogTitle>Add New Fee Group</DialogTitle>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="group-name">Group Name</Label>
-              <Input
-                id="group-name"
-                value={form.name}
-                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                placeholder="e.g., Academic Fees, Transport Fees"
-              />
+        <DialogContent className="max-w-lg max-h-[90vh] border-sky-200/80 bg-gradient-to-br from-white via-sky-50/45 to-cyan-50/60 p-0 shadow-xl dark:border-sky-500/25 dark:from-card dark:via-sky-500/10 dark:to-cyan-500/10">
+          <DialogHeader className="relative overflow-hidden rounded-t-lg border-b border-sky-500/15 bg-gradient-to-r from-primary via-teal-600 to-cyan-600 p-5 text-white">
+            <div aria-hidden className="absolute -right-10 -top-12 size-32 rounded-full border-[16px] border-white/15" />
+            <div aria-hidden className="absolute bottom-0 right-32 h-px w-48 bg-gradient-to-r from-transparent via-white/50 to-transparent" />
+            <div className="flex items-start gap-3">
+              <div className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-white/25 bg-white/15 shadow-md shadow-black/10 backdrop-blur-sm">
+                <Layers className="size-5" />
+              </div>
+              <div className="min-w-0 space-y-1">
+                <DialogTitle className="text-white">Add New Fee Group</DialogTitle>
+                <DialogDescription className="text-white/80">Create a new fee group to organise fee heads.</DialogDescription>
+              </div>
+              <DialogClose className="absolute top-3 right-3 z-20 flex size-8 items-center justify-center rounded-full border border-white/30 bg-white/15 text-white/90 shadow-sm backdrop-blur-sm transition-all hover:bg-white/30 hover:text-white">
+                <X className="size-4" />
+                <span className="sr-only">Close</span>
+              </DialogClose>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="group-desc">Description</Label>
-              <Textarea
-                id="group-desc"
-                value={form.description}
-                onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-                placeholder="Optional description for this fee group"
-                rows={2}
-              />
+          </DialogHeader>
+          <div className="grid gap-4 p-5">
+            <div className="rounded-xl border border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-cyan-50 p-4 shadow-sm dark:border-sky-500/25 dark:from-sky-500/10 dark:via-card dark:to-cyan-500/10">
+              <div className="mb-3 flex items-center gap-2 border-b border-sky-500/15 pb-2.5 text-sm font-semibold">
+                <span className="flex size-7 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-cyan-600 text-white shadow-sm">
+                  <Layers className="size-3.5" />
+                </span>
+                Group details
+              </div>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="group-name">Group Name</Label>
+                  <Input
+                    id="group-name"
+                    value={form.name}
+                    onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                    placeholder="e.g., Academic Fees, Transport Fees"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="group-desc">Description</Label>
+                  <Textarea
+                    id="group-desc"
+                    value={form.description}
+                    onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+                    placeholder="Optional description for this fee group"
+                    rows={2}
+                  />
+                </div>
+              </div>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAdd(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={handleAdd}
-              disabled={saving || !form.name.trim()}
-            >
-              {saving ? 'Adding...' : 'Add Fee Group'}
-            </Button>
+          <DialogFooter className="border-t border-sky-500/15 bg-white/80 p-4 dark:bg-card/80">
+            <div className="flex w-full items-center justify-between gap-3 max-sm:flex-col">
+              <p className="hidden text-xs text-sky-700 sm:block dark:text-sky-300">
+                <span className="inline-flex items-center gap-1">
+                  <Layers className="size-3" />
+                  Create a new fee group
+                </span>
+              </p>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" onClick={() => setShowAdd(false)} className="bg-white dark:bg-card">
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleAdd}
+                  disabled={saving || !form.name.trim()}
+                  className="gap-1.5 bg-gradient-to-r from-primary to-cyan-600 shadow-sm shadow-primary/20"
+                >
+                  {saving ? 'Adding...' : 'Add Fee Group'}
+                </Button>
+              </div>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       <Dialog open={!!editingGroup} onOpenChange={(open) => !open && setEditingGroup(null)}>
-        <DialogContent className="max-w-lg max-h-[90vh]">
-          <DialogHeader>
-            <DialogTitle>Edit Fee Group</DialogTitle>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="edit-group-name">Group Name</Label>
-              <Input
-                id="edit-group-name"
-                value={editForm.name}
-                onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
-                placeholder="e.g., Academic Fees, Transport Fees"
-                disabled={editingGroup?.name === DEFAULT_FEE_GROUP_NAME}
-              />
-              {editingGroup?.name === DEFAULT_FEE_GROUP_NAME && (
-                <p className="text-xs text-muted-foreground">The _DEFAULT group name is protected.</p>
-              )}
+        <DialogContent className="max-w-lg max-h-[90vh] border-sky-200/80 bg-gradient-to-br from-white via-sky-50/45 to-cyan-50/60 p-0 shadow-xl dark:border-sky-500/25 dark:from-card dark:via-sky-500/10 dark:to-cyan-500/10">
+          <DialogHeader className="relative overflow-hidden rounded-t-lg border-b border-sky-500/15 bg-gradient-to-r from-primary via-teal-600 to-cyan-600 p-5 text-white">
+            <div aria-hidden className="absolute -right-10 -top-12 size-32 rounded-full border-[16px] border-white/15" />
+            <div aria-hidden className="absolute bottom-0 right-32 h-px w-48 bg-gradient-to-r from-transparent via-white/50 to-transparent" />
+            <div className="flex items-start gap-3">
+              <div className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-white/25 bg-white/15 shadow-md shadow-black/10 backdrop-blur-sm">
+                <Edit2 className="size-5" />
+              </div>
+              <div className="min-w-0 space-y-1">
+                <DialogTitle className="text-white">Edit Fee Group</DialogTitle>
+                <DialogDescription className="text-white/80">Update the fee group details.</DialogDescription>
+              </div>
+              <DialogClose className="absolute top-3 right-3 z-20 flex size-8 items-center justify-center rounded-full border border-white/30 bg-white/15 text-white/90 shadow-sm backdrop-blur-sm transition-all hover:bg-white/30 hover:text-white">
+                <X className="size-4" />
+                <span className="sr-only">Close</span>
+              </DialogClose>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-group-desc">Description</Label>
-              <Textarea
-                id="edit-group-desc"
-                value={editForm.description}
-                onChange={(e) => setEditForm((f) => ({ ...f, description: e.target.value }))}
-                placeholder="Optional description for this fee group"
-                rows={2}
-              />
+          </DialogHeader>
+          <div className="grid gap-4 p-5">
+            <div className="rounded-xl border border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-cyan-50 p-4 shadow-sm dark:border-sky-500/25 dark:from-sky-500/10 dark:via-card dark:to-cyan-500/10">
+              <div className="mb-3 flex items-center gap-2 border-b border-sky-500/15 pb-2.5 text-sm font-semibold">
+                <span className="flex size-7 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-cyan-600 text-white shadow-sm">
+                  <Edit2 className="size-3.5" />
+                </span>
+                Group details
+              </div>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-group-name">Group Name</Label>
+                  <Input
+                    id="edit-group-name"
+                    value={editForm.name}
+                    onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
+                    placeholder="e.g., Academic Fees, Transport Fees"
+                    disabled={editingGroup?.name === DEFAULT_FEE_GROUP_NAME}
+                  />
+                  {editingGroup?.name === DEFAULT_FEE_GROUP_NAME && (
+                    <p className="text-xs text-muted-foreground">The _DEFAULT group name is protected.</p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-group-desc">Description</Label>
+                  <Textarea
+                    id="edit-group-desc"
+                    value={editForm.description}
+                    onChange={(e) => setEditForm((f) => ({ ...f, description: e.target.value }))}
+                    placeholder="Optional description for this fee group"
+                    rows={2}
+                  />
+                </div>
+              </div>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditingGroup(null)} disabled={saving}>
-              Cancel
-            </Button>
-            <Button
-              onClick={handleEdit}
-              disabled={saving || !editForm.name.trim()}
-            >
-              {saving ? 'Saving...' : 'Save Changes'}
-            </Button>
+          <DialogFooter className="border-t border-sky-500/15 bg-white/80 p-4 dark:bg-card/80">
+            <div className="flex w-full items-center justify-between gap-3 max-sm:flex-col">
+              <p className="hidden text-xs text-sky-700 sm:block dark:text-sky-300">
+                <span className="inline-flex items-center gap-1">
+                  <Edit2 className="size-3" />
+                  Update fee group details
+                </span>
+              </p>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" onClick={() => setEditingGroup(null)} disabled={saving} className="bg-white dark:bg-card">
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleEdit}
+                  disabled={saving || !editForm.name.trim()}
+                  className="gap-1.5 bg-gradient-to-r from-primary to-cyan-600 shadow-sm shadow-primary/20"
+                >
+                  {saving ? 'Saving...' : 'Save Changes'}
+                </Button>
+              </div>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       <AlertDialog open={!!deletingGroup} onOpenChange={(open) => !open && setDeletingGroup(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Fee Group?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will remove "{deletingGroup?.name}" from the active fee group list. Groups already used in fee structures cannot be deleted.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={(event) => {
-                event.preventDefault()
-                handleDelete()
-              }}
-              disabled={deleting}
-              className="bg-destructive text-white hover:bg-destructive/90"
-            >
-              {deleting ? 'Deleting...' : 'Delete Group'}
-            </AlertDialogAction>
+        <AlertDialogContent className="max-w-lg border-sky-200/80 bg-gradient-to-br from-white via-sky-50/45 to-cyan-50/60 p-0 shadow-xl dark:border-sky-500/25 dark:from-card dark:via-sky-500/10 dark:to-cyan-500/10">
+          <div className="relative overflow-hidden rounded-t-lg border-b border-sky-500/15 bg-gradient-to-r from-primary via-teal-600 to-cyan-600 p-5 text-white">
+            <div aria-hidden className="absolute -right-10 -top-12 size-32 rounded-full border-[16px] border-white/15" />
+            <div aria-hidden className="absolute bottom-0 right-32 h-px w-48 bg-gradient-to-r from-transparent via-white/50 to-transparent" />
+            <div className="flex items-start gap-3">
+              <div className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-white/25 bg-white/15 shadow-md shadow-black/10 backdrop-blur-sm">
+                <Trash2 className="size-5" />
+              </div>
+              <div className="min-w-0 space-y-1">
+                <AlertDialogTitle className="text-white">Delete Fee Group?</AlertDialogTitle>
+                <p className="text-sm text-white/80">This action cannot be undone.</p>
+              </div>
+              <AlertDialogCancel className="absolute top-3 right-3 z-20 flex size-8 items-center justify-center rounded-full border border-white/30 bg-white/15 text-white/90 shadow-sm backdrop-blur-sm transition-all hover:bg-white/30 hover:text-white">
+                <X className="size-4" />
+                <span className="sr-only">Close</span>
+              </AlertDialogCancel>
+            </div>
+          </div>
+          <div className="p-5">
+            <div className="rounded-xl border border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-cyan-50 p-4 shadow-sm dark:border-sky-500/25 dark:from-sky-500/10 dark:via-card dark:to-cyan-500/10">
+              <p className="text-sm text-sky-900 dark:text-sky-200">
+                This will remove "<strong className="text-foreground">{deletingGroup?.name}</strong>" from the active fee group list. Groups already used in fee structures cannot be deleted.
+              </p>
+            </div>
+          </div>
+          <AlertDialogFooter className="border-t border-sky-500/15 bg-white/80 p-4 dark:bg-card/80">
+            <div className="flex w-full items-center justify-between gap-3">
+              <p className="text-xs text-sky-700 dark:text-sky-300">
+                <span className="inline-flex items-center gap-1">
+                  <Trash2 className="size-3" />
+                  Remove this fee group
+                </span>
+              </p>
+              <div className="flex items-center gap-2">
+                <AlertDialogCancel disabled={deleting} className="border-sky-200/70 text-sky-700 hover:bg-sky-100 dark:border-sky-500/30 dark:text-sky-300 dark:hover:bg-sky-500/20">Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={(event) => {
+                    event.preventDefault()
+                    handleDelete()
+                  }}
+                  disabled={deleting}
+                  className="gap-1.5 bg-gradient-to-r from-rose-600 to-rose-500 text-white shadow-md shadow-rose-300/30 hover:from-rose-500 hover:to-rose-400 disabled:from-gray-400 disabled:to-gray-400"
+                >
+                  {deleting ? 'Deleting...' : 'Delete Group'}
+                </AlertDialogAction>
+              </div>
+            </div>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

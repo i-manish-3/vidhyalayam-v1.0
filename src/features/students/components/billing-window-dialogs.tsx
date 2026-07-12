@@ -17,6 +17,7 @@ import { useToast } from '@/hooks/use-toast'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -30,7 +31,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import { DatePicker } from '@/components/date-picker'
-import { AlertTriangle, Loader2, CheckCircle2, XCircle, Bus, FileX2, Undo2, Receipt, Building2, CalendarDays, FileText } from 'lucide-react'
+import { AlertTriangle, Loader2, CheckCircle2, XCircle, X, Bus, FileX2, Undo2, Receipt, Building2, CalendarDays, FileText } from 'lucide-react'
 
 // ─── shared types ──────────────────────────────────────────────────────────
 
@@ -261,20 +262,26 @@ export function WithdrawStudentDialog({ open, onOpenChange, studentId, studentNa
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
-        <DialogHeader className="space-y-3">
+      <DialogContent className="max-h-[90vh] overflow-y-auto border-sky-200/80 bg-gradient-to-br from-white via-sky-50/45 to-cyan-50/60 p-0 shadow-xl dark:border-sky-500/25 dark:from-card dark:via-sky-500/10 dark:to-cyan-500/10 sm:max-w-4xl">
+        <DialogHeader className="relative overflow-hidden rounded-t-lg border-b border-sky-500/15 bg-gradient-to-r from-primary via-teal-600 to-cyan-600 p-5 text-white">
+          <div aria-hidden className="absolute -right-10 -top-12 size-32 rounded-full border-[16px] border-white/15" />
+          <div aria-hidden className="absolute bottom-0 right-32 h-px w-48 bg-gradient-to-r from-transparent via-white/50 to-transparent" />
           <div className="flex items-start gap-3">
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-destructive/10 text-destructive">
+            <div className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-white/25 bg-white/15 shadow-md shadow-black/10 backdrop-blur-sm">
               <FileX2 className="size-5" />
             </div>
             <div className="min-w-0 space-y-1">
-              <DialogTitle>Issue Transfer Certificate</DialogTitle>
-              <DialogDescription>
-                Withdraw {studentName} from the school and review billing impact before confirming.
+              <DialogTitle className="text-white">Issue Transfer Certificate</DialogTitle>
+              <DialogDescription className="text-white/80">
+                Withdraw <span className="font-semibold text-white">{studentName}</span> from the school and review billing impact before confirming.
               </DialogDescription>
             </div>
+            <DialogClose className="absolute top-3 right-3 z-20 flex size-8 items-center justify-center rounded-full border border-white/30 bg-white/15 text-white/90 shadow-sm backdrop-blur-sm transition-all hover:bg-white/30 hover:text-white">
+              <X className="size-4" />
+              <span className="sr-only">Close</span>
+            </DialogClose>
           </div>
-          <div className="rounded-md border border-destructive/25 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+          <div className="relative rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-sm text-white/85 shadow-sm backdrop-blur-sm">
             <div className="flex items-start gap-2">
               <AlertTriangle className="mt-0.5 size-4 shrink-0" />
               <span>This will close active academic assignments and mark the student as withdrawn or transferred.</span>
@@ -282,11 +289,13 @@ export function WithdrawStudentDialog({ open, onOpenChange, studentId, studentNa
           </div>
         </DialogHeader>
 
-        <div className="grid gap-4 py-2 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+        <div className="grid gap-4 p-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] sm:p-5">
           <div className="space-y-4">
-            <div className="rounded-md border bg-background p-4">
-              <div className="mb-3 flex items-center gap-2 text-sm font-medium">
-                <CalendarDays className="size-4 text-muted-foreground" />
+            <div className="rounded-xl border border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-cyan-50 p-4 shadow-sm dark:border-sky-500/25 dark:from-sky-500/10 dark:via-card dark:to-cyan-500/10">
+              <div className="mb-3 flex items-center gap-2 border-b border-sky-500/15 pb-2.5 text-sm font-semibold">
+                <span className="flex size-7 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-cyan-600 text-white shadow-sm">
+                  <CalendarDays className="size-3.5" />
+                </span>
                 Certificate details
               </div>
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
@@ -328,12 +337,14 @@ export function WithdrawStudentDialog({ open, onOpenChange, studentId, studentNa
               </div>
             </div>
 
-            <div className="rounded-md border bg-background p-4">
-              <div className="mb-3 flex items-center gap-2 text-sm font-medium">
-                <Receipt className="size-4 text-muted-foreground" />
+            <div className="rounded-xl border border-amber-200/80 bg-gradient-to-br from-amber-50 via-white to-orange-50 p-4 shadow-sm dark:border-amber-500/25 dark:from-amber-500/10 dark:via-card dark:to-orange-500/10">
+              <div className="mb-3 flex items-center gap-2 border-b border-amber-500/15 pb-2.5 text-sm font-semibold">
+                <span className="flex size-7 items-center justify-center rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 text-white shadow-sm">
+                  <Receipt className="size-3.5" />
+                </span>
                 Refund handling
               </div>
-              <label htmlFor="wd-refund" className="flex cursor-pointer items-start gap-3 rounded-md border bg-muted/20 p-3">
+              <label htmlFor="wd-refund" className="flex cursor-pointer items-start gap-3 rounded-lg border border-rose-200/80 bg-gradient-to-r from-rose-50 via-white to-amber-50 p-3 shadow-sm transition-all hover:border-rose-300 hover:shadow-md dark:border-rose-500/25 dark:from-rose-500/10 dark:via-card dark:to-amber-500/10">
               <Checkbox
                 id="wd-refund"
                 checked={refundEligible}
@@ -347,9 +358,11 @@ export function WithdrawStudentDialog({ open, onOpenChange, studentId, studentNa
               </label>
             </div>
 
-          <div className="rounded-md border bg-background p-4">
-            <div className="mb-3 flex items-center gap-2 text-sm font-medium">
-              <FileText className="size-4 text-muted-foreground" />
+          <div className="rounded-xl border border-violet-200/80 bg-gradient-to-br from-violet-50 via-white to-fuchsia-50 p-4 shadow-sm dark:border-violet-500/25 dark:from-violet-500/10 dark:via-card dark:to-fuchsia-500/10">
+            <div className="mb-3 flex items-center gap-2 border-b border-violet-500/15 pb-2.5 text-sm font-semibold">
+              <span className="flex size-7 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-600 text-white shadow-sm">
+                <FileText className="size-3.5" />
+              </span>
               Notes
             </div>
             <Textarea
@@ -365,18 +378,28 @@ export function WithdrawStudentDialog({ open, onOpenChange, studentId, studentNa
           <PreviewPanel loading={previewLoading} error={previewError} preview={preview} />
         </div>
 
-        <DialogFooter className="border-t pt-4">
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
-            Cancel
-          </Button>
-          <Button
-            variant="destructive"
-            onClick={handleSubmit}
-            disabled={submitting || previewLoading || !preview || !!previewError}
-          >
-            {submitting && <Loader2 className="size-4 animate-spin" />}
-            Issue Transfer Certificate
-          </Button>
+        <DialogFooter className="border-t border-sky-500/15 bg-white/80 p-4 dark:bg-card/80">
+          <div className="flex w-full items-center justify-between gap-3 max-sm:flex-col">
+            <p className="hidden text-xs text-amber-700 sm:block dark:text-amber-400">
+              <span className="inline-flex items-center gap-1">
+                <AlertTriangle className="size-3" />
+                This action cannot be undone
+              </span>
+            </p>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting} className="bg-white dark:bg-card">
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSubmit}
+                disabled={submitting || previewLoading || !preview || !!previewError}
+                className="gap-1.5 bg-gradient-to-r from-primary to-cyan-600 shadow-sm shadow-primary/20"
+              >
+                {submitting && <Loader2 className="size-4 animate-spin" />}
+                Issue Transfer Certificate
+              </Button>
+            </div>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -412,8 +435,13 @@ function PreviewPanel({
   }
   if (!preview) {
     return (
-      <div className="flex min-h-64 items-center justify-center rounded-md border bg-muted/20 p-6 text-center text-sm text-muted-foreground">
-        Select an effective date to preview billing and allocation impact.
+      <div className="flex min-h-64 items-center justify-center rounded-xl border border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-cyan-50 p-6 text-center text-sm text-sky-700 shadow-sm dark:border-sky-500/25 dark:from-sky-500/10 dark:via-card dark:to-cyan-500/10 dark:text-sky-300">
+        <div>
+          <div className="mx-auto mb-3 flex size-10 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500 to-cyan-600 text-white shadow-sm">
+            <FileX2 className="size-5" />
+          </div>
+          Select an effective date to preview billing and allocation impact.
+        </div>
       </div>
     )
   }
@@ -422,14 +450,16 @@ function PreviewPanel({
   const empty = cancelledItems.length === 0 && requiresRefund.length === 0
 
   return (
-    <div className="space-y-4 rounded-md border bg-background p-4">
+    <div className="space-y-4 rounded-xl border border-emerald-200/80 bg-gradient-to-br from-emerald-50 via-white to-teal-50 p-4 text-sm shadow-sm dark:border-emerald-500/25 dark:from-emerald-500/10 dark:via-card dark:to-teal-500/10">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <div className="flex items-center gap-2 text-sm font-medium">
-            <CheckCircle2 className="size-4 text-emerald-600" />
+          <div className="flex items-center gap-2 border-b border-emerald-500/15 pb-2.5 font-semibold">
+            <span className="flex size-7 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-sm">
+              <CheckCircle2 className="size-3.5" />
+            </span>
             Impact preview
           </div>
-          <p className="mt-1 text-xs text-muted-foreground">Academic year {preview.academicYear}</p>
+          <p className="mt-1 text-xs text-emerald-700/70 dark:text-emerald-300/70">Academic year {preview.academicYear}</p>
         </div>
         {loading && (
           <Badge variant="outline" className="gap-1">
@@ -445,17 +475,17 @@ function PreviewPanel({
         <ImpactMetric label="Refund due" value={formatINR(totalRefundDue)} tone={totalRefundDue > 0 ? 'warning' : 'default'} />
       </div>
       <div className="grid gap-2 sm:grid-cols-2">
-        <div className="rounded-md border bg-muted/20 p-3">
-          <div className="text-xs text-muted-foreground">Academic assignments closed</div>
-          <div className="mt-1 text-lg font-semibold tabular-nums">{preview.academicAssignmentsClosed}</div>
+        <div className="rounded-lg border border-emerald-200/70 bg-emerald-50/50 p-3 dark:border-emerald-500/25 dark:bg-emerald-500/10">
+          <div className="text-xs text-emerald-700/70 dark:text-emerald-300/70">Academic assignments closed</div>
+          <div className="mt-1 text-lg font-semibold tabular-nums text-emerald-900 dark:text-emerald-200">{preview.academicAssignmentsClosed}</div>
         </div>
-        <div className="rounded-md border bg-muted/20 p-3">
-          <div className="text-xs text-muted-foreground">Transport allocations closed</div>
-          <div className="mt-1 text-lg font-semibold tabular-nums">{preview.transportAllocationsClosed}</div>
+        <div className="rounded-lg border border-emerald-200/70 bg-emerald-50/50 p-3 dark:border-emerald-500/25 dark:bg-emerald-500/10">
+          <div className="text-xs text-emerald-700/70 dark:text-emerald-300/70">Transport allocations closed</div>
+          <div className="mt-1 text-lg font-semibold tabular-nums text-emerald-900 dark:text-emerald-200">{preview.transportAllocationsClosed}</div>
         </div>
       </div>
       {empty && (
-        <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-200">
+        <div className="rounded-lg border border-emerald-200 bg-gradient-to-r from-emerald-50 to-white p-3 text-sm text-emerald-900 shadow-sm dark:border-emerald-900/60 dark:from-emerald-950/30 dark:to-card dark:text-emerald-200">
           No future-dated billing changes are required for this TC.
         </div>
       )}
@@ -469,7 +499,7 @@ function PreviewPanel({
         </div>
       )}
       {requiresRefund.length > 0 && (
-        <div className="space-y-2 rounded-md border border-amber-300 bg-amber-50 p-3 dark:bg-amber-950/30">
+        <div className="space-y-2 rounded-lg border border-amber-300 bg-gradient-to-br from-amber-50 via-white to-orange-50 p-3 shadow-sm dark:bg-amber-950/30">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="flex items-center gap-1.5 text-sm font-medium text-amber-900 dark:text-amber-200">
               <AlertTriangle className="size-4" />
@@ -496,13 +526,13 @@ function ImpactMetric({
   tone?: 'default' | 'warning'
 }) {
   return (
-    <div className="rounded-md border bg-muted/20 p-3">
-      <div className="text-xs text-muted-foreground">{label}</div>
+    <div className="rounded-lg border border-emerald-200/70 bg-emerald-50/50 p-3 dark:border-emerald-500/25 dark:bg-emerald-500/10">
+      <div className="text-xs text-emerald-700/70 dark:text-emerald-300/70">{label}</div>
       <div
         className={
           tone === 'warning'
             ? 'mt-1 font-semibold text-amber-700 dark:text-amber-300'
-            : 'mt-1 font-semibold tabular-nums'
+            : 'mt-1 font-semibold tabular-nums text-emerald-900 dark:text-emerald-200'
         }
       >
         {value}
@@ -706,6 +736,10 @@ export function AddTransportDialog({
                 Allocate a transport route to {studentName}. Months prior to the effective date will be skipped automatically.
               </DialogDescription>
             </div>
+            <DialogClose className="absolute top-3 right-3 z-20 flex size-8 items-center justify-center rounded-full border border-white/30 bg-white/15 text-white/90 shadow-sm backdrop-blur-sm transition-all hover:bg-white/30 hover:text-white">
+              <X className="size-4" />
+              <span className="sr-only">Close</span>
+            </DialogClose>
           </div>
           <div className="relative rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-sm text-white/85 shadow-sm backdrop-blur-sm">
             Months before the effective date are skipped automatically for academic year {academicYear}.
@@ -975,8 +1009,8 @@ export function DiscontinueTransportDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto border-amber-200/80 bg-gradient-to-br from-white via-amber-50/45 to-rose-50/60 p-0 shadow-xl dark:border-amber-500/25 dark:from-card dark:via-amber-500/10 dark:to-rose-500/10 sm:max-w-4xl">
-        <DialogHeader className="relative overflow-hidden rounded-t-lg border-b border-amber-500/20 bg-gradient-to-r from-amber-600 via-orange-600 to-rose-600 p-5 text-white">
+      <DialogContent className="max-h-[90vh] overflow-y-auto border-sky-200/80 bg-gradient-to-br from-white via-sky-50/45 to-cyan-50/60 p-0 shadow-xl dark:border-sky-500/25 dark:from-card dark:via-sky-500/10 dark:to-cyan-500/10 sm:max-w-4xl">
+        <DialogHeader className="relative overflow-hidden rounded-t-lg border-b border-sky-500/15 bg-gradient-to-r from-primary via-teal-600 to-cyan-600 p-5 text-white">
           <div aria-hidden className="absolute -right-10 -top-12 size-32 rounded-full border-[16px] border-white/15" />
           <div aria-hidden className="absolute bottom-0 right-32 h-px w-48 bg-gradient-to-r from-transparent via-white/50 to-transparent" />
           <div className="flex items-start gap-3">
@@ -986,9 +1020,13 @@ export function DiscontinueTransportDialog({
             <div className="min-w-0 space-y-1">
               <DialogTitle className="text-white">Discontinue Transport</DialogTitle>
               <DialogDescription className="text-white/80">
-                Stop transport billing for {studentName} from the effective date forward. The student remains enrolled.
+                Stop transport billing for <span className="font-semibold text-white">{studentName}</span> from the effective date forward. The student remains enrolled.
               </DialogDescription>
             </div>
+            <DialogClose className="absolute top-3 right-3 z-20 flex size-8 items-center justify-center rounded-full border border-white/30 bg-white/15 text-white/90 shadow-sm backdrop-blur-sm transition-all hover:bg-white/30 hover:text-white">
+              <X className="size-4" />
+              <span className="sr-only">Close</span>
+            </DialogClose>
           </div>
           <div className="relative rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-sm text-white/85 shadow-sm backdrop-blur-sm">
             <div className="flex items-start gap-2">
@@ -1000,9 +1038,9 @@ export function DiscontinueTransportDialog({
 
         <div className="grid gap-4 p-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] sm:p-5">
           <div className="space-y-4">
-            <div className="rounded-xl border border-amber-200/80 bg-gradient-to-br from-amber-50 via-white to-orange-50 p-4 shadow-sm dark:border-amber-500/25 dark:from-amber-500/10 dark:via-card dark:to-orange-500/10">
-              <div className="mb-3 flex items-center gap-2 border-b border-amber-500/15 pb-2.5 text-sm font-semibold">
-                <span className="flex size-7 items-center justify-center rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 text-white shadow-sm">
+            <div className="rounded-xl border border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-cyan-50 p-4 shadow-sm dark:border-sky-500/25 dark:from-sky-500/10 dark:via-card dark:to-cyan-500/10">
+              <div className="mb-3 flex items-center gap-2 border-b border-sky-500/15 pb-2.5 text-sm font-semibold">
+                <span className="flex size-7 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-cyan-600 text-white shadow-sm">
                   <CalendarDays className="size-3.5" />
                 </span>
                 Discontinue details
@@ -1043,16 +1081,16 @@ export function DiscontinueTransportDialog({
                 <div className="mt-2 space-y-1.5 rounded-lg border border-violet-200/80 bg-gradient-to-br from-violet-50 via-white to-fuchsia-50 p-3 shadow-sm dark:border-violet-500/25 dark:from-violet-500/10 dark:via-card dark:to-fuchsia-500/10">
                   <Label>How should the refund be handled?</Label>
                   <Select value={refundMode} onValueChange={(v) => setRefundMode(v as 'advance' | 'cash')}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="advance">Keep as account advance (use for other fees)</SelectItem>
-                      <SelectItem value="cash">Cash refund to parent (pay back physically)</SelectItem>
+                    <SelectTrigger className="w-full"><SelectValue placeholder="Select refund method" /></SelectTrigger>
+                    <SelectContent className="w-[var(--radix-popper-anchor-width)]">
+                      <SelectItem value="advance" className="truncate pr-8">Keep as account advance (use for other fees)</SelectItem>
+                      <SelectItem value="cash" className="truncate pr-8">Cash refund to parent (pay back physically)</SelectItem>
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-muted-foreground">
                     {refundMode === 'advance'
-                      ? 'Money becomes a credit on the student’s fee account — apply it to other dues from Collect Fee.'
-                      : 'Recorded as a pending cash refund — mark it paid from the student’s profile once handed over.'}
+                      ? 'Money becomes a credit on the student\'s fee account — apply it to other dues from Collect Fee.'
+                      : 'Recorded as a pending cash refund — mark it paid from the student\'s profile once handed over.'}
                   </p>
                 </div>
               )}
@@ -1140,18 +1178,28 @@ export function DiscontinueTransportDialog({
           </div>
         </div>
 
-        <DialogFooter className="border-t pt-4">
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
-            Cancel
-          </Button>
-          <Button
-            variant="destructive"
-            onClick={handleSubmit}
-            disabled={submitting || previewLoading || !preview?.canCommit}
-          >
-            {submitting && <Loader2 className="size-4 animate-spin" />}
-            Discontinue Transport
-          </Button>
+        <DialogFooter className="border-t border-sky-500/15 bg-white/80 p-4 dark:bg-card/80">
+          <div className="flex w-full items-center justify-between gap-3 max-sm:flex-col">
+            <p className="hidden text-xs text-amber-700 sm:block dark:text-amber-400">
+              <span className="inline-flex items-center gap-1">
+                <AlertTriangle className="size-3" />
+                This action cannot be undone
+              </span>
+            </p>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting} className="bg-white dark:bg-card">
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSubmit}
+                disabled={submitting || previewLoading || !preview?.canCommit}
+                className="gap-1.5 bg-gradient-to-r from-primary to-cyan-600 shadow-sm shadow-primary/20"
+              >
+                {submitting && <Loader2 className="size-4 animate-spin" />}
+                Discontinue Transport
+              </Button>
+            </div>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -1709,29 +1757,37 @@ export function AddHostelDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
-        <DialogHeader className="space-y-3">
+      <DialogContent className="max-h-[90vh] overflow-y-auto border-sky-200/80 bg-gradient-to-br from-white via-sky-50/45 to-cyan-50/60 p-0 shadow-xl dark:border-sky-500/25 dark:from-card dark:via-sky-500/10 dark:to-cyan-500/10 sm:max-w-4xl">
+        <DialogHeader className="relative overflow-hidden rounded-t-lg border-b border-sky-500/15 bg-gradient-to-r from-primary via-teal-600 to-cyan-600 p-5 text-white">
+          <div aria-hidden className="absolute -right-10 -top-12 size-32 rounded-full border-[16px] border-white/15" />
+          <div aria-hidden className="absolute bottom-0 right-32 h-px w-48 bg-gradient-to-r from-transparent via-white/50 to-transparent" />
           <div className="flex items-start gap-3">
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+            <div className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-white/25 bg-white/15 shadow-md shadow-black/10 backdrop-blur-sm">
               <Building2 className="size-5" />
             </div>
             <div className="min-w-0 space-y-1">
-              <DialogTitle>Add Hostel</DialogTitle>
-              <DialogDescription>
+              <DialogTitle className="text-white">Add Hostel</DialogTitle>
+              <DialogDescription className="text-white/80">
                 Allocate a hostel bed to {studentName}. Months prior to the effective date will be skipped automatically.
               </DialogDescription>
             </div>
+            <DialogClose className="absolute top-3 right-3 z-20 flex size-8 items-center justify-center rounded-full border border-white/30 bg-white/15 text-white/90 shadow-sm backdrop-blur-sm transition-all hover:bg-white/30 hover:text-white">
+              <X className="size-4" />
+              <span className="sr-only">Close</span>
+            </DialogClose>
           </div>
-          <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
+          <div className="relative rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-sm text-white/85 shadow-sm backdrop-blur-sm">
             Months before the effective date are skipped automatically for academic year {academicYear}.
           </div>
         </DialogHeader>
 
-        <div className="grid gap-4 py-2 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
+        <div className="grid gap-4 p-4 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)] sm:p-5">
           <div className="space-y-4">
-            <div className="rounded-md border bg-background p-4">
-              <div className="mb-3 flex items-center gap-2 text-sm font-medium">
-                <Building2 className="size-4 text-muted-foreground" />
+            <div className="rounded-xl border border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-cyan-50 p-4 shadow-sm dark:border-sky-500/25 dark:from-sky-500/10 dark:via-card dark:to-cyan-500/10">
+              <div className="mb-3 flex items-center gap-2 border-b border-sky-500/15 pb-2.5 text-sm font-semibold">
+                <span className="flex size-7 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-cyan-600 text-white shadow-sm">
+                  <Building2 className="size-3.5" />
+                </span>
                 Accommodation details
               </div>
               <div className="space-y-3">
@@ -1785,9 +1841,11 @@ export function AddHostelDialog({
               </div>
             </div>
 
-            <div className="rounded-md border bg-background p-4">
-              <div className="mb-3 flex items-center gap-2 text-sm font-medium">
-                <CalendarDays className="size-4 text-muted-foreground" />
+            <div className="rounded-xl border border-amber-200/80 bg-gradient-to-br from-amber-50 via-white to-orange-50 p-4 shadow-sm dark:border-amber-500/25 dark:from-amber-500/10 dark:via-card dark:to-orange-500/10">
+              <div className="mb-3 flex items-center gap-2 border-b border-amber-500/15 pb-2.5 text-sm font-semibold">
+                <span className="flex size-7 items-center justify-center rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 text-white shadow-sm">
+                  <CalendarDays className="size-3.5" />
+                </span>
                 Billing start
               </div>
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
@@ -1818,12 +1876,28 @@ export function AddHostelDialog({
           />
         </div>
 
-        <DialogFooter className="border-t pt-4">
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>Cancel</Button>
-          <Button onClick={handleSubmit} disabled={submitting || previewLoading || !preview?.canCommit}>
-            {submitting && <Loader2 className="size-4 animate-spin" />}
-            Add Hostel
-          </Button>
+        <DialogFooter className="border-t border-sky-500/15 bg-white/80 p-4 dark:bg-card/80">
+          <div className="flex w-full items-center justify-between gap-3 max-sm:flex-col">
+            <p className="hidden text-xs text-muted-foreground/60 sm:block">
+              <span className="inline-flex items-center gap-1">
+                <Building2 className="size-3" />
+                Allocate a new hostel bed
+              </span>
+            </p>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting} className="bg-white dark:bg-card">
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSubmit}
+                disabled={submitting || previewLoading || !preview?.canCommit}
+                className="gap-1.5 bg-gradient-to-r from-primary to-cyan-600 shadow-sm shadow-primary/20"
+              >
+                {submitting && <Loader2 className="size-4 animate-spin" />}
+                Add Hostel
+              </Button>
+            </div>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -1847,14 +1921,14 @@ function HostelPreviewPanel({
 }) {
   if (loading && !preview) {
     return (
-      <div className="flex min-h-48 items-center justify-center rounded-md border bg-muted/20 p-6 text-sm text-muted-foreground">
+      <div className="flex min-h-48 items-center justify-center gap-2 rounded-xl border border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-cyan-50 p-6 text-sm text-sky-800 shadow-sm dark:border-sky-500/25 dark:from-sky-500/10 dark:via-card dark:to-cyan-500/10 dark:text-sky-300">
         <Loader2 className="size-3.5 animate-spin" /> Calculating fare…
       </div>
     )
   }
   if (error) {
     return (
-      <div className="flex items-start gap-3 rounded-md border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
+      <div className="flex items-start gap-3 rounded-xl border border-rose-300 bg-rose-50 p-4 text-sm text-rose-700 shadow-sm dark:bg-rose-950/30 dark:text-rose-300">
         <XCircle className="mt-0.5 size-5 shrink-0" />
         <div>
           <div className="font-medium">Preview failed</div>
@@ -1865,35 +1939,42 @@ function HostelPreviewPanel({
   }
   if (!preview) {
     return (
-      <div className="flex min-h-64 items-center justify-center rounded-md border bg-muted/20 p-6 text-center text-sm text-muted-foreground">
-        Select a hostel, room, and available bed to preview billing.
+      <div className="flex min-h-64 items-center justify-center rounded-xl border border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-cyan-50 p-6 text-center text-sm text-sky-700 shadow-sm dark:border-sky-500/25 dark:from-sky-500/10 dark:via-card dark:to-cyan-500/10 dark:text-sky-300">
+        <div>
+          <div className="mx-auto mb-3 flex size-10 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500 to-cyan-600 text-white shadow-sm">
+            <Building2 className="size-5" />
+          </div>
+          Select a hostel, room, and available bed to preview billing.
+        </div>
       </div>
     )
   }
   return (
-    <div className="space-y-4 rounded-md border bg-background p-4 text-sm">
-      <div className="flex items-center gap-2 font-medium">
-        <CheckCircle2 className={preview.canCommit ? 'size-4 text-emerald-600' : 'size-4 text-amber-600'} />
+    <div className="space-y-4 rounded-xl border border-emerald-200/80 bg-gradient-to-br from-emerald-50 via-white to-teal-50 p-4 text-sm shadow-sm dark:border-emerald-500/25 dark:from-emerald-500/10 dark:via-card dark:to-teal-500/10">
+      <div className="flex items-center gap-2 border-b border-emerald-500/15 pb-2.5 font-semibold">
+        <span className="flex size-7 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-sm">
+          <CheckCircle2 className="size-3.5" />
+        </span>
         Fare preview
       </div>
       {(hostelName || roomLabel || bedLabel) && (
-        <div className="grid gap-2 rounded-md border bg-muted/20 p-3 text-xs sm:grid-cols-3">
+        <div className="grid gap-2 rounded-lg border border-emerald-200/70 bg-emerald-50/50 p-3 text-xs dark:border-emerald-500/25 dark:bg-emerald-500/10 sm:grid-cols-3">
           <div>
-            <div className="text-muted-foreground">Hostel</div>
-            <div className="mt-1 font-medium">{hostelName || '-'}</div>
+            <div className="text-emerald-700/70 dark:text-emerald-300/70">Hostel</div>
+            <div className="mt-0.5 font-medium text-emerald-900 dark:text-emerald-200">{hostelName || '-'}</div>
           </div>
           <div>
-            <div className="text-muted-foreground">Room</div>
-            <div className="mt-1 font-medium">{roomLabel || '-'}</div>
+            <div className="text-emerald-700/70 dark:text-emerald-300/70">Room</div>
+            <div className="mt-0.5 font-medium text-emerald-900 dark:text-emerald-200">{roomLabel || '-'}</div>
           </div>
           <div>
-            <div className="text-muted-foreground">Bed</div>
-            <div className="mt-1 font-medium">{bedLabel || '-'}</div>
+            <div className="text-emerald-700/70 dark:text-emerald-300/70">Bed</div>
+            <div className="mt-0.5 font-medium text-emerald-900 dark:text-emerald-200">{bedLabel || '-'}</div>
           </div>
         </div>
       )}
       {preview.blockers.length > 0 && (
-        <div className="mb-2 rounded border border-amber-300 bg-amber-50 p-2 dark:bg-amber-950/30">
+        <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 dark:bg-amber-950/30">
           <ul className="list-disc list-inside text-xs text-amber-900 dark:text-amber-200 space-y-0.5">
             {preview.blockers.map((b) => <li key={b}>{b}</li>)}
           </ul>
@@ -1902,21 +1983,21 @@ function HostelPreviewPanel({
       {preview.canCommit && (
         <>
           <div className="grid grid-cols-3 gap-3 text-xs">
-            <div>
-              <div className="text-muted-foreground">Per-month</div>
-              <div className="font-semibold tabular-nums">{formatINR(preview.fare)}</div>
+            <div className="rounded-lg bg-emerald-50/50 p-2.5 dark:bg-emerald-500/10">
+              <div className="text-emerald-700/70 dark:text-emerald-300/70">Per-month</div>
+              <div className="font-semibold tabular-nums text-emerald-900 dark:text-emerald-200">{formatINR(preview.fare)}</div>
             </div>
-            <div>
-              <div className="text-muted-foreground">Months</div>
-              <div className="font-semibold">{preview.billableMonths.length}</div>
+            <div className="rounded-lg bg-emerald-50/50 p-2.5 dark:bg-emerald-500/10">
+              <div className="text-emerald-700/70 dark:text-emerald-300/70">Months</div>
+              <div className="font-semibold text-emerald-900 dark:text-emerald-200">{preview.billableMonths.length}</div>
             </div>
-            <div>
-              <div className="text-muted-foreground">Total</div>
-              <div className="font-semibold tabular-nums">{formatINR(preview.totalAmount)}</div>
+            <div className="rounded-lg bg-emerald-50/50 p-2.5 dark:bg-emerald-500/10">
+              <div className="text-emerald-700/70 dark:text-emerald-300/70">Total</div>
+              <div className="font-semibold tabular-nums text-emerald-900 dark:text-emerald-200">{formatINR(preview.totalAmount)}</div>
             </div>
           </div>
-          <div className="mt-2 text-[11px] text-muted-foreground">
-            <span className="font-medium">Billing:</span>{' '}
+          <div className="mt-2 text-[11px] text-emerald-700/70 dark:text-emerald-300/70">
+            <span className="font-medium text-emerald-900 dark:text-emerald-200">Billing:</span>{' '}
             <BillingMonthSequence billableMonths={preview.billableMonths} droppedMonths={preview.droppedMonths} />
           </div>
         </>
@@ -2015,20 +2096,26 @@ export function DiscontinueHostelDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
-        <DialogHeader className="space-y-3">
+      <DialogContent className="max-h-[90vh] overflow-y-auto border-sky-200/80 bg-gradient-to-br from-white via-sky-50/45 to-cyan-50/60 p-0 shadow-xl dark:border-sky-500/25 dark:from-card dark:via-sky-500/10 dark:to-cyan-500/10 sm:max-w-4xl">
+        <DialogHeader className="relative overflow-hidden rounded-t-lg border-b border-sky-500/15 bg-gradient-to-r from-primary via-teal-600 to-cyan-600 p-5 text-white">
+          <div aria-hidden className="absolute -right-10 -top-12 size-32 rounded-full border-[16px] border-white/15" />
+          <div aria-hidden className="absolute bottom-0 right-32 h-px w-48 bg-gradient-to-r from-transparent via-white/50 to-transparent" />
           <div className="flex items-start gap-3">
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-destructive/10 text-destructive">
+            <div className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-white/25 bg-white/15 shadow-md shadow-black/10 backdrop-blur-sm">
               <Building2 className="size-5" />
             </div>
             <div className="min-w-0 space-y-1">
-              <DialogTitle>Discontinue Hostel</DialogTitle>
-              <DialogDescription>
-                Stop hostel billing for {studentName} from the effective date forward. The student remains enrolled.
+              <DialogTitle className="text-white">Discontinue Hostel</DialogTitle>
+              <DialogDescription className="text-white/80">
+                Stop hostel billing for <span className="font-semibold text-white">{studentName}</span> from the effective date forward. The student remains enrolled.
               </DialogDescription>
             </div>
+            <DialogClose className="absolute top-3 right-3 z-20 flex size-8 items-center justify-center rounded-full border border-white/30 bg-white/15 text-white/90 shadow-sm backdrop-blur-sm transition-all hover:bg-white/30 hover:text-white">
+              <X className="size-4" />
+              <span className="sr-only">Close</span>
+            </DialogClose>
           </div>
-          <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
+          <div className="relative rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-sm text-white/85 shadow-sm backdrop-blur-sm">
             <div className="flex items-start gap-2">
               <AlertTriangle className="mt-0.5 size-4 shrink-0" />
               <span>Future unpaid hostel months will be cancelled. Paid future months stay intact and can be marked for refund review.</span>
@@ -2036,11 +2123,13 @@ export function DiscontinueHostelDialog({
           </div>
         </DialogHeader>
 
-        <div className="grid gap-4 py-2 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+        <div className="grid gap-4 p-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] sm:p-5">
           <div className="space-y-4">
-            <div className="rounded-md border bg-background p-4">
-              <div className="mb-3 flex items-center gap-2 text-sm font-medium">
-                <CalendarDays className="size-4 text-muted-foreground" />
+            <div className="rounded-xl border border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-cyan-50 p-4 shadow-sm dark:border-sky-500/25 dark:from-sky-500/10 dark:via-card dark:to-cyan-500/10">
+              <div className="mb-3 flex items-center gap-2 border-b border-sky-500/15 pb-2.5 text-sm font-semibold">
+                <span className="flex size-7 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-cyan-600 text-white shadow-sm">
+                  <CalendarDays className="size-3.5" />
+                </span>
                 Discontinue details
               </div>
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
@@ -2058,7 +2147,7 @@ export function DiscontinueHostelDialog({
                   <Input id="dh-reason" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Shifted to day-scholar" />
                 </div>
               </div>
-              <label htmlFor="dh-refund" className="mt-4 flex cursor-pointer items-start gap-3 rounded-md border bg-muted/20 p-3">
+              <label htmlFor="dh-refund" className="mt-4 flex cursor-pointer items-start gap-3 rounded-lg border border-rose-200/80 bg-gradient-to-r from-rose-50 via-white to-amber-50 p-3 shadow-sm transition-all hover:border-rose-300 hover:shadow-md dark:border-rose-500/25 dark:from-rose-500/10 dark:via-card dark:to-amber-500/10">
                 <Checkbox
                   id="dh-refund"
                   checked={refundEligible}
@@ -2071,30 +2160,32 @@ export function DiscontinueHostelDialog({
                 </span>
               </label>
               {refundEligible && (
-                <div className="mt-2 space-y-1.5 rounded-md border bg-muted/20 p-3">
+                <div className="mt-2 space-y-1.5 rounded-lg border border-violet-200/80 bg-gradient-to-br from-violet-50 via-white to-fuchsia-50 p-3 shadow-sm dark:border-violet-500/25 dark:from-violet-500/10 dark:via-card dark:to-fuchsia-500/10">
                   <Label>How should the refund be handled?</Label>
                   <Select value={refundMode} onValueChange={(v) => setRefundMode(v as 'advance' | 'cash')}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="advance">Keep as account advance (use for other fees)</SelectItem>
-                      <SelectItem value="cash">Cash refund to parent (pay back physically)</SelectItem>
+                    <SelectTrigger className="w-full"><SelectValue placeholder="Select refund method" /></SelectTrigger>
+                    <SelectContent className="w-[var(--radix-popper-anchor-width)]">
+                      <SelectItem value="advance" className="truncate pr-8">Keep as account advance (use for other fees)</SelectItem>
+                      <SelectItem value="cash" className="truncate pr-8">Cash refund to parent (pay back physically)</SelectItem>
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-muted-foreground">
                     {refundMode === 'advance'
-                      ? 'Money becomes a credit on the student’s fee account — apply it to other dues from Collect Fee.'
-                      : 'Recorded as a pending cash refund — mark it paid from the student’s profile once handed over.'}
+                      ? 'Money becomes a credit on the student\'s fee account — apply it to other dues from Collect Fee.'
+                      : 'Recorded as a pending cash refund — mark it paid from the student\'s profile once handed over.'}
                   </p>
                 </div>
               )}
             </div>
           </div>
 
-          <div className="space-y-4 rounded-md border bg-background p-4">
+          <div className="space-y-4 rounded-xl border border-rose-200/80 bg-gradient-to-br from-rose-50 via-white to-amber-50 p-4 shadow-sm dark:border-rose-500/25 dark:from-rose-500/10 dark:via-card dark:to-amber-500/10">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <div className="flex items-center gap-2 text-sm font-medium">
-                  <CheckCircle2 className="size-4 text-emerald-600" />
+                <div className="flex items-center gap-2 text-sm font-semibold">
+                  <span className="flex size-7 items-center justify-center rounded-lg bg-gradient-to-br from-rose-500 to-amber-600 text-white shadow-sm">
+                    <CheckCircle2 className="size-3.5" />
+                  </span>
                   Impact preview
                 </div>
                 <p className="mt-1 text-xs text-muted-foreground">Hostel billing changes from selected date.</p>
@@ -2108,12 +2199,12 @@ export function DiscontinueHostelDialog({
             </div>
 
           {previewLoading && !preview && (
-            <div className="flex min-h-48 items-center justify-center rounded-md border bg-muted/20 p-6 text-sm text-muted-foreground">
+            <div className="flex min-h-48 items-center justify-center gap-2 rounded-lg border border-amber-200/80 bg-gradient-to-br from-amber-50 via-white to-orange-50 p-6 text-sm text-amber-800 shadow-sm dark:border-amber-500/25 dark:from-amber-500/10 dark:via-card dark:to-orange-500/10 dark:text-amber-300">
               <Loader2 className="size-3.5 animate-spin" /> Calculating impact…
             </div>
           )}
           {previewError && (
-            <div className="flex items-start gap-3 rounded-md border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
+            <div className="flex items-start gap-3 rounded-lg border border-rose-300 bg-rose-50 p-4 text-sm text-rose-700 shadow-sm dark:bg-rose-950/30 dark:text-rose-300">
               <XCircle className="mt-0.5 size-5 shrink-0" />
               <div>
                 <div className="font-medium">Preview failed</div>
@@ -2122,7 +2213,7 @@ export function DiscontinueHostelDialog({
             </div>
           )}
           {preview && !preview.canCommit && (
-            <div className="rounded-md border border-amber-300 bg-amber-50 p-3 dark:bg-amber-950/30">
+            <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 shadow-sm dark:bg-amber-950/30">
               <ul className="list-disc list-inside text-xs text-amber-900 dark:text-amber-200">
                 {preview.blockers.map((b) => <li key={b}>{b}</li>)}
               </ul>
@@ -2137,7 +2228,7 @@ export function DiscontinueHostelDialog({
                 <ImpactMetric label="Refund due" value={formatINR(preview.totalRefundDue)} tone={preview.totalRefundDue > 0 ? 'warning' : 'default'} />
               </div>
               {preview.cancelledItems.length === 0 && preview.requiresRefund.length === 0 && (
-                <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-200">
+                <div className="rounded-lg border border-emerald-200 bg-gradient-to-r from-emerald-50 to-white p-3 text-sm text-emerald-900 shadow-sm dark:border-emerald-900/60 dark:from-emerald-950/30 dark:to-card dark:text-emerald-200">
                   No future months to cancel — hostel will be marked closed without billing changes.
                 </div>
               )}
@@ -2151,7 +2242,7 @@ export function DiscontinueHostelDialog({
                 </div>
               )}
               {preview.requiresRefund.length > 0 && (
-                <div className="space-y-2 rounded-md border border-amber-300 bg-amber-50 p-3 dark:bg-amber-950/30">
+                <div className="space-y-2 rounded-lg border border-amber-300 bg-gradient-to-br from-amber-50 via-white to-orange-50 p-3 shadow-sm dark:bg-amber-950/30">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className="flex items-center gap-1.5 text-sm font-medium text-amber-900 dark:text-amber-200">
                       <AlertTriangle className="size-4" />
@@ -2169,12 +2260,28 @@ export function DiscontinueHostelDialog({
           </div>
         </div>
 
-        <DialogFooter className="border-t pt-4">
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>Cancel</Button>
-          <Button variant="destructive" onClick={handleSubmit} disabled={submitting || previewLoading || !preview?.canCommit}>
-            {submitting && <Loader2 className="size-4 animate-spin" />}
-            Discontinue Hostel
-          </Button>
+        <DialogFooter className="border-t border-sky-500/15 bg-white/80 p-4 dark:bg-card/80">
+          <div className="flex w-full items-center justify-between gap-3 max-sm:flex-col">
+            <p className="hidden text-xs text-amber-700 sm:block dark:text-amber-400">
+              <span className="inline-flex items-center gap-1">
+                <AlertTriangle className="size-3" />
+                This action cannot be undone
+              </span>
+            </p>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting} className="bg-white dark:bg-card">
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSubmit}
+                disabled={submitting || previewLoading || !preview?.canCommit}
+                className="gap-1.5 bg-gradient-to-r from-primary to-cyan-600 shadow-sm shadow-primary/20"
+              >
+                {submitting && <Loader2 className="size-4 animate-spin" />}
+                Discontinue Hostel
+              </Button>
+            </div>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
