@@ -39,6 +39,9 @@ import {
   ImagePlus,
   Trash2,
   ChevronDown,
+  Mail,
+  ShieldCheck,
+  Sparkles,
   GraduationCap,
   Award,
   Coins,
@@ -975,16 +978,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           setConfirmPassword('')
         }
       }}>
-        <DialogContent className="flex max-h-[90svh] flex-col overflow-hidden border-primary/20 bg-card p-0 shadow-2xl shadow-primary/15 sm:max-w-xl [&>button]:right-3 [&>button]:top-3 [&>button]:rounded-full [&>button]:text-white [&>button]:opacity-80 [&>button]:hover:bg-white/15 [&>button]:hover:opacity-100">
-          <DialogHeader className="relative shrink-0 overflow-hidden border-b border-white/15 bg-gradient-to-r from-primary via-teal-600 to-cyan-600 px-5 py-4 pr-12 text-white">
-            <div aria-hidden className="absolute -right-8 -top-12 size-32 rounded-full border-[16px] border-white/10" />
-            <div aria-hidden className="absolute -bottom-12 right-24 size-24 rounded-full bg-sky-300/10 blur-xl" />
+        <DialogContent className="flex max-h-[90svh] flex-col overflow-hidden border-primary/20 bg-card p-0 shadow-2xl shadow-primary/15 sm:max-w-2xl [&>button]:right-3 [&>button]:top-3 [&>button]:rounded-full [&>button]:text-white [&>button]:opacity-85 [&>button]:hover:bg-white/15 [&>button]:hover:opacity-100">
+          <DialogHeader className="relative shrink-0 overflow-hidden border-b border-white/15 bg-[linear-gradient(135deg,var(--primary)_0%,#0d9488_48%,#2563eb_100%)] px-5 py-4 pr-12 text-white sm:px-6">
+            <div aria-hidden className="absolute -right-10 -top-16 size-40 rounded-full border-[18px] border-white/10" />
+            <div aria-hidden className="absolute -bottom-14 left-10 size-28 rounded-full bg-emerald-300/20 blur-2xl" />
+            <div aria-hidden className="absolute bottom-0 right-24 h-24 w-44 rounded-full bg-sky-300/15 blur-2xl" />
             <div className="relative flex items-center gap-3">
-              <span className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-white/25 bg-white/15 text-white shadow-md backdrop-blur-sm">
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-white/25 bg-white/15 text-white shadow-md backdrop-blur-sm">
                 <User className="size-5 text-white" />
               </span>
               <div>
-                <DialogTitle className="text-lg font-bold tracking-tight text-white">My Profile</DialogTitle>
+                <DialogTitle className="text-lg font-bold tracking-normal text-white">My Profile</DialogTitle>
                 <DialogDescription className="mt-0.5 text-xs text-white/75">
                   Manage your account details and security.
                 </DialogDescription>
@@ -992,9 +996,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </div>
           </DialogHeader>
 
-          <div className="themed-scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain bg-gradient-to-br from-primary/[0.025] via-background to-sky-500/[0.035] p-4 sm:p-5">
-            <section className="relative overflow-hidden rounded-xl border border-sky-200/80 bg-gradient-to-r from-sky-50 via-white to-violet-50 p-4 shadow-sm dark:border-sky-500/25 dark:from-sky-500/15 dark:via-card dark:to-violet-500/10">
-              <div aria-hidden className="absolute -right-5 -top-8 size-24 rounded-full bg-sky-200/25 blur-xl dark:bg-sky-500/10" />
+          <div className="themed-scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain bg-gradient-to-br from-primary/[0.03] via-background to-cyan-500/[0.055] p-4 sm:p-5">
+            <section className="relative overflow-hidden rounded-xl border border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-violet-50 p-4 shadow-sm dark:border-sky-500/25 dark:from-sky-500/15 dark:via-card dark:to-violet-500/10 sm:p-5">
+              <div aria-hidden className="absolute -right-7 -top-10 size-28 rounded-full bg-sky-200/35 blur-xl dark:bg-sky-500/15" />
+              <div aria-hidden className="absolute -bottom-10 left-12 size-24 rounded-full bg-violet-200/30 blur-xl dark:bg-violet-500/10" />
               <input
                 ref={avatarInputRef}
                 type="file"
@@ -1004,27 +1009,50 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               />
               <div className="relative flex flex-col items-center gap-4 text-center sm:flex-row sm:text-left">
                 <div className="relative shrink-0">
-                <Avatar className="size-20 border-4 border-white shadow-lg ring-2 ring-sky-300/60 dark:border-card dark:ring-sky-500/30">
-                  {user?.avatar && <AvatarImage src={user.avatar} alt={user?.name || 'User'} />}
-                  <AvatarFallback className="bg-gradient-to-br from-primary to-cyan-600 text-lg font-bold text-white">{initials}</AvatarFallback>
-                </Avatar>
+                  <Avatar className="size-24 border-4 border-white shadow-xl ring-4 ring-sky-200/70 dark:border-card dark:ring-sky-500/25">
+                    {user?.avatar && <AvatarImage src={user.avatar} alt={user?.name || 'User'} />}
+                    <AvatarFallback className="bg-gradient-to-br from-primary via-teal-500 to-cyan-600 text-2xl font-bold text-white">{initials}</AvatarFallback>
+                  </Avatar>
                   {savingAvatar && (
                     <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/35">
                       <span className="size-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
                     </span>
                   )}
                 </div>
-                <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                <div className="flex min-w-0 flex-1 flex-col gap-3">
                   <div>
-                    <p className="truncate text-base font-bold">{user?.name}</p>
+                    <p className="truncate text-lg font-bold">{user?.name}</p>
                     <p className="truncate text-xs text-muted-foreground">{user?.email}</p>
                   </div>
-                  <div className="mt-1 flex flex-wrap justify-center gap-2 sm:justify-start">
+                  <div className="grid gap-2 text-left sm:grid-cols-3">
+                    <div className="rounded-lg border border-sky-200/80 bg-white/80 px-3 py-2 shadow-sm dark:border-sky-500/20 dark:bg-background/35">
+                      <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase text-sky-700 dark:text-sky-300">
+                        <ShieldCheck className="size-3" />
+                        Role
+                      </div>
+                      <p className="mt-1 truncate text-xs font-semibold">{roleBadge}</p>
+                    </div>
+                    <div className="rounded-lg border border-emerald-200/80 bg-white/80 px-3 py-2 shadow-sm dark:border-emerald-500/20 dark:bg-background/35">
+                      <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase text-emerald-700 dark:text-emerald-300">
+                        <CheckCircle2 className="size-3" />
+                        Status
+                      </div>
+                      <p className="mt-1 truncate text-xs font-semibold">Active account</p>
+                    </div>
+                    <div className="rounded-lg border border-violet-200/80 bg-white/80 px-3 py-2 shadow-sm dark:border-violet-500/20 dark:bg-background/35">
+                      <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase text-violet-700 dark:text-violet-300">
+                        <Mail className="size-3" />
+                        Email
+                      </div>
+                      <p className="mt-1 truncate text-xs font-semibold">{user?.email || '-'}</p>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap justify-center gap-2 sm:justify-start">
                     <Button
                       type="button"
                       variant="outline"
                       size="sm"
-                      className="h-8 gap-1.5 border-sky-200 bg-white text-xs text-sky-700 hover:bg-sky-50 dark:border-sky-500/25 dark:bg-input/30 dark:text-sky-300"
+                      className="h-8 gap-1.5 border-sky-200 bg-white text-xs font-semibold text-sky-700 shadow-sm hover:bg-sky-50 dark:border-sky-500/25 dark:bg-input/30 dark:text-sky-300"
                       disabled={savingAvatar}
                       onClick={() => avatarInputRef.current?.click()}
                     >
@@ -1036,7 +1064,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                         type="button"
                         variant="ghost"
                         size="sm"
-                        className="h-8 gap-1.5 text-xs text-destructive hover:bg-red-50 hover:text-destructive dark:hover:bg-red-500/10"
+                        className="h-8 gap-1.5 text-xs font-semibold text-destructive hover:bg-red-50 hover:text-destructive dark:hover:bg-red-500/10"
                         disabled={savingAvatar}
                         onClick={handleAvatarRemove}
                       >
@@ -1047,14 +1075,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   </div>
                 </div>
               </div>
-              <p className="relative mt-3 text-center text-[10px] text-muted-foreground sm:text-left">
+              <p className="relative mt-4 flex items-center justify-center gap-1.5 text-center text-[10px] text-muted-foreground sm:justify-start sm:text-left">
+                <Sparkles className="size-3 text-sky-500" />
                 JPG, PNG, or WebP up to 200 KB. Larger images are compressed automatically.
               </p>
             </section>
 
-            <section className="rounded-xl border border-emerald-200/80 bg-gradient-to-br from-emerald-50 via-white to-teal-50 p-3.5 shadow-sm dark:border-emerald-500/25 dark:from-emerald-500/15 dark:via-card dark:to-teal-500/10">
+            <section className="rounded-xl border border-emerald-200/80 bg-gradient-to-br from-emerald-50 via-white to-teal-50 p-4 shadow-sm dark:border-emerald-500/25 dark:from-emerald-500/15 dark:via-card dark:to-teal-500/10">
               <div className="mb-3 flex items-center gap-2">
-                <span className="flex size-7 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-sm"><User className="size-3.5 text-white" /></span>
+                <span className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-sm"><User className="size-4 text-white" /></span>
                 <div><h3 className="text-sm font-semibold">Display Name</h3><p className="text-[10px] text-muted-foreground">Shown across your school account</p></div>
               </div>
               <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
@@ -1081,9 +1110,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </div>
             </section>
 
-            <section className="rounded-xl border border-violet-200/80 bg-gradient-to-br from-violet-50 via-white to-purple-50 p-3.5 shadow-sm dark:border-violet-500/25 dark:from-violet-500/15 dark:via-card dark:to-purple-500/10">
+            <section className="rounded-xl border border-violet-200/80 bg-gradient-to-br from-violet-50 via-white to-purple-50 p-4 shadow-sm dark:border-violet-500/25 dark:from-violet-500/15 dark:via-card dark:to-purple-500/10">
               <div className="mb-3 flex items-center gap-2">
-                <span className="flex size-7 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 text-white shadow-sm"><Lock className="size-3.5 text-white" /></span>
+                <span className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 text-white shadow-sm"><Lock className="size-4 text-white" /></span>
                 <div><h3 className="text-sm font-semibold">Change Password</h3><p className="text-[10px] text-muted-foreground">Use at least 6 characters</p></div>
               </div>
               <div className="grid gap-3 sm:grid-cols-2">

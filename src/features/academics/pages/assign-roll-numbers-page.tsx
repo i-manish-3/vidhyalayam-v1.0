@@ -13,15 +13,17 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Separator } from '@/components/ui/separator'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { EmptyState, LoadingState } from '@/components/shared'
 import {
   ArrowRight,
+  CheckCircle2,
+  GraduationCap,
   Hash,
   ListOrdered,
   Pencil,
   Save,
+  Sparkles,
   Users,
   RotateCcw,
 } from 'lucide-react'
@@ -124,6 +126,14 @@ export function AssignRollNumbersPage() {
     for (const [r, c] of counts) if (c > 1) dupes.add(r)
     return dupes
   }, [students, rollDraft])
+
+  const assignedCount = useMemo(
+    () => students.filter((student) => (rollDraft[student.id] ?? '').trim()).length,
+    [students, rollDraft]
+  )
+
+  const selectedClass = classes.find((item) => item.id === classId)
+  const selectedSection = sections.find((item) => item.id === sectionId)
 
   // Load classes / sections on mount
   useEffect(() => {
@@ -278,91 +288,77 @@ export function AssignRollNumbersPage() {
   if (initialLoad) return <LoadingState />
 
   return (
-    <div className="space-y-3">
-      {/* ── Page Header ──────────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-        <div className="flex items-center gap-3">
-          <div>
-            <h1 className="text-xl font-bold tracking-tight leading-tight">Assign Roll Numbers</h1>
-            <p className="text-xs text-muted-foreground">
-              Set roll numbers manually or auto-assign in alphabetical order.
-            </p>
+    <div className="space-y-4">
+      <section className="relative overflow-hidden rounded-xl border border-primary/25 bg-gradient-to-r from-primary via-teal-600 to-cyan-600 px-4 py-3 text-white shadow-lg shadow-primary/15">
+        <div aria-hidden className="absolute -right-9 -top-14 size-36 rounded-full border-[18px] border-white/10" />
+        <div aria-hidden className="absolute -bottom-14 right-1/4 size-28 rounded-full bg-violet-300/15 blur-xl" />
+        <div className="relative flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-white/25 bg-white/15 shadow-md shadow-black/10 backdrop-blur-sm">
+              <Hash className="size-5 text-white" />
+            </span>
+            <div>
+              <h1 className="text-xl font-bold tracking-tight">Assign Roll Numbers</h1>
+              <p className="mt-0.5 text-xs text-white/80">Organize class rolls manually or generate them alphabetically.</p>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge className="h-7 gap-1.5 border border-white/20 bg-white/15 px-2.5 text-[10px] text-white hover:bg-white/15">
+              <GraduationCap className="size-3.5 text-white" /> {academicYear}
+            </Badge>
+            {dirtyCount > 0 && (
+              <Badge className="h-7 gap-1.5 border border-amber-200/30 bg-amber-300/20 px-2.5 text-[10px] text-white hover:bg-amber-300/20">
+                <Pencil className="size-3 text-white" /> {dirtyCount} unsaved
+              </Badge>
+            )}
           </div>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          {dirtyCount > 0 && (
-            <Badge variant="outline" className="h-7 px-2 gap-1 text-xs text-amber-700 border-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:text-amber-300 dark:border-amber-800">
-              <Pencil className="size-3" /> {dirtyCount} unsaved
-            </Badge>
-          )}
-          <Button variant="outline" size="sm" className="gap-1.5 h-9" disabled={dirtyCount === 0 || saving} onClick={resetDraft}>
-            <RotateCcw className="size-3.5" />
-            Reset
-          </Button>
-          <Button size="sm" className="gap-1.5 h-9" disabled={dirtyCount === 0 || saving} onClick={handleSave}>
-            <Save className="size-3.5" />
-            {saving ? 'Saving…' : 'Save'}
-          </Button>
-        </div>
-      </div>
+      </section>
 
-      {/* ── Filter Bar ───────────────────────────────────────────────── */}
-      <Card className="shadow-sm">
-        <CardContent className="px-3 py-2">
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-            <div className="flex items-center gap-1.5">
-              <Label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap">Class</Label>
+      <Card className="gap-0 overflow-hidden border-sky-200/80 bg-gradient-to-br from-sky-50/55 via-card to-violet-50/50 py-0 shadow-sm dark:border-sky-500/25 dark:from-sky-500/10 dark:via-card dark:to-violet-500/10">
+        <div className="border-b border-sky-200/70 bg-gradient-to-r from-sky-100/80 via-white/90 to-violet-100/70 px-4 py-2.5 dark:border-sky-500/20 dark:from-sky-500/15 dark:via-card dark:to-violet-500/10">
+          <div className="flex items-center gap-2">
+            <span className="flex size-7 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-violet-600 text-white shadow-sm"><Sparkles className="size-3.5 text-white" /></span>
+            <div>
+              <p className="text-sm font-semibold leading-none">Roll Number Setup</p>
+              <p className="mt-1 text-[11px] text-muted-foreground">Select a class and choose how numbers should be assigned.</p>
+            </div>
+          </div>
+        </div>
+        <CardContent className="p-3">
+          <div className="grid gap-3 lg:grid-cols-[1fr_1fr_auto] lg:items-end">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">Class</Label>
               <Select value={classId} onValueChange={handleClassChange}>
-                <SelectTrigger className="h-7 w-[130px] text-xs">
-                  <SelectValue placeholder="Select Class" />
+                <SelectTrigger leadingIcon={<GraduationCap className="size-3.5 text-white" />} leadingIconClassName="from-sky-500 to-blue-600" className="w-full bg-white dark:bg-input/30">
+                  <SelectValue placeholder="Select class" />
                 </SelectTrigger>
                 <SelectContent>
-                  {classes.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                  ))}
+                  {classes.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
-
-            <div className="flex items-center gap-1.5">
-              <Label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap">Section</Label>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">Section</Label>
               {classHasNoSections ? (
-                <Badge variant="secondary" className="h-7 text-xs px-3">No Sections</Badge>
+                <div className="flex h-9 items-center rounded-lg border border-violet-200 bg-violet-50 px-3 text-xs font-medium text-violet-700 dark:border-violet-500/25 dark:bg-violet-500/10 dark:text-violet-300">No sections in this class</div>
               ) : (
                 <Select value={sectionId} onValueChange={setSectionId} disabled={!classId}>
-                  <SelectTrigger className="h-7 w-[120px] text-xs">
-                    <SelectValue placeholder="Select Section" />
+                  <SelectTrigger leadingIcon={<Users className="size-3.5 text-white" />} leadingIconClassName="from-violet-500 to-purple-600" className="w-full bg-white dark:bg-input/30">
+                    <SelectValue placeholder="Select section" />
                   </SelectTrigger>
                   <SelectContent>
-                    {filteredSections.map((s) => (
-                      <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                    ))}
+                    {filteredSections.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
               )}
             </div>
-
-            <Separator orientation="vertical" className="hidden lg:block h-5" />
-
-            <div className="flex items-center gap-1 ml-auto">
-              <Button
-                variant={mode === 'manual' ? 'default' : 'outline'}
-                size="sm"
-                className="h-7 gap-1.5 text-xs"
-                onClick={() => handleModeChange('manual')}
-              >
-                <Pencil className="size-3" />
-                Manual
+            <div className="flex rounded-xl border border-primary/15 bg-white/80 p-1 shadow-sm dark:bg-card/70">
+              <Button variant="ghost" size="sm" className={cn('h-8 gap-1.5 rounded-lg px-3 text-xs', mode === 'manual' && 'bg-gradient-to-r from-sky-500 to-cyan-600 text-white shadow-sm hover:text-white')} onClick={() => handleModeChange('manual')}>
+                <Pencil className="size-3.5" /> Manual
               </Button>
-              <Button
-                variant={mode === 'alphabetical' ? 'default' : 'outline'}
-                size="sm"
-                className="h-7 gap-1.5 text-xs"
-                onClick={() => handleModeChange('alphabetical')}
-                disabled={students.length === 0}
-              >
-                <ListOrdered className="size-3" />
-                Alphabetical
+              <Button variant="ghost" size="sm" className={cn('h-8 gap-1.5 rounded-lg px-3 text-xs', mode === 'alphabetical' && 'bg-gradient-to-r from-violet-500 to-purple-600 text-white shadow-sm hover:text-white')} onClick={() => handleModeChange('alphabetical')} disabled={students.length === 0}>
+                <ListOrdered className="size-3.5" /> Alphabetical
               </Button>
             </div>
           </div>
@@ -371,7 +367,7 @@ export function AssignRollNumbersPage() {
 
       {/* ── Students Table ───────────────────────────────────────────── */}
       {loadingStudents ? (
-        <Card className="shadow-sm">
+        <Card className="overflow-hidden border-sky-200/80 bg-gradient-to-r from-sky-50 via-card to-violet-50 shadow-sm dark:border-sky-500/25 dark:from-sky-500/10 dark:via-card dark:to-violet-500/10">
           <CardContent className="p-10 flex items-center justify-center">
             <div className="flex items-center gap-2 text-muted-foreground">
               <div className="size-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
@@ -392,12 +388,32 @@ export function AssignRollNumbersPage() {
           description="There are no active students in this class/section. Admit students first to assign roll numbers."
         />
       ) : (
-        <Card className="shadow-sm overflow-hidden border-border/60">
+        <>
+          <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+            <div className="flex items-center gap-2.5 rounded-xl border border-sky-200/80 bg-gradient-to-r from-sky-50 via-white to-cyan-50 p-2.5 shadow-sm dark:border-sky-500/25 dark:from-sky-500/15 dark:via-card dark:to-cyan-500/10">
+              <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-cyan-600 text-white"><Users className="size-4 text-white" /></span>
+              <div><p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Students</p><p className="text-base font-bold text-sky-700 dark:text-sky-300">{students.length}</p></div>
+            </div>
+            <div className="flex items-center gap-2.5 rounded-xl border border-emerald-200/80 bg-gradient-to-r from-emerald-50 via-white to-teal-50 p-2.5 shadow-sm dark:border-emerald-500/25 dark:from-emerald-500/15 dark:via-card dark:to-teal-500/10">
+              <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 text-white"><CheckCircle2 className="size-4 text-white" /></span>
+              <div><p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Assigned</p><p className="text-base font-bold text-emerald-700 dark:text-emerald-300">{assignedCount}</p></div>
+            </div>
+            <div className="flex items-center gap-2.5 rounded-xl border border-amber-200/80 bg-gradient-to-r from-amber-50 via-white to-orange-50 p-2.5 shadow-sm dark:border-amber-500/25 dark:from-amber-500/15 dark:via-card dark:to-orange-500/10">
+              <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 text-white"><Pencil className="size-4 text-white" /></span>
+              <div><p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Pending</p><p className="text-base font-bold text-amber-700 dark:text-amber-300">{dirtyCount}</p></div>
+            </div>
+            <div className="flex items-center gap-2.5 rounded-xl border border-violet-200/80 bg-gradient-to-r from-violet-50 via-white to-purple-50 p-2.5 shadow-sm dark:border-violet-500/25 dark:from-violet-500/15 dark:via-card dark:to-purple-500/10">
+              <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 text-white"><Hash className="size-4 text-white" /></span>
+              <div><p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Duplicates</p><p className="text-base font-bold text-violet-700 dark:text-violet-300">{duplicateRolls.size}</p></div>
+            </div>
+          </div>
+
+        <Card className="gap-0 overflow-hidden border-primary/15 bg-card py-0 shadow-md shadow-primary/5">
           {/* Table summary header */}
-          <div className="px-4 py-2.5 bg-gradient-to-r from-muted/60 to-muted/20 border-b flex items-center justify-between flex-wrap gap-2">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-sky-200/70 bg-gradient-to-r from-sky-100/80 via-white to-violet-100/70 px-4 py-2.5 dark:border-sky-500/20 dark:from-sky-500/15 dark:via-card dark:to-violet-500/10">
             <div className="flex items-center gap-2">
-              <div className="size-7 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
-                <Users className="size-3.5 text-primary" />
+              <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-violet-600 text-white shadow-sm">
+                <Users className="size-4 text-white" />
               </div>
               <div>
                 <p className="text-sm font-semibold leading-none">{students.length} student{students.length === 1 ? '' : 's'}</p>
@@ -411,7 +427,7 @@ export function AssignRollNumbersPage() {
                 </Badge>
               )}
             </div>
-            <Button variant="ghost" size="sm" className="h-7 text-xs gap-1.5 text-muted-foreground hover:text-destructive" onClick={clearAll}>
+            <Button variant="outline" size="sm" className="h-8 gap-1.5 border-red-200 bg-white/80 text-xs text-red-600 hover:bg-red-50 hover:text-red-700 dark:border-red-500/25 dark:bg-card/70" onClick={clearAll}>
               <RotateCcw className="size-3" />
               Clear all
             </Button>
@@ -420,7 +436,7 @@ export function AssignRollNumbersPage() {
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
-                <TableRow className="border-b-2 hover:bg-transparent bg-muted/30">
+                <TableRow className="border-b-2 border-primary/15 bg-gradient-to-r from-primary/[0.07] via-cyan-500/[0.05] to-violet-500/[0.07] hover:bg-transparent">
                   <TableHead className="w-12 text-[10px] font-bold text-muted-foreground uppercase tracking-wider text-center">#</TableHead>
                   <TableHead className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Student</TableHead>
                   <TableHead className="w-36 text-[10px] font-bold text-muted-foreground uppercase tracking-wider hidden md:table-cell">Admission No</TableHead>
@@ -452,7 +468,7 @@ export function AssignRollNumbersPage() {
                       </TableCell>
                       <TableCell className="py-2">
                         <div className="flex items-center gap-2.5">
-                          <Avatar className="size-8 shrink-0 ring-1 ring-border">
+                          <Avatar className="size-8 shrink-0 ring-2 ring-white shadow-sm dark:ring-card">
                             <AvatarFallback className="text-[10px] font-bold" style={avatarTint(s.id)}>
                               {initials(s)}
                             </AvatarFallback>
@@ -470,7 +486,7 @@ export function AssignRollNumbersPage() {
                       </TableCell>
                       <TableCell className="py-2 text-center">
                         {s.rollNumber ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-muted/70 text-xs font-mono font-medium">
+                          <span className="inline-flex items-center gap-1 rounded-md border border-sky-200 bg-sky-50 px-2 py-0.5 text-xs font-mono font-medium text-sky-700 dark:border-sky-500/25 dark:bg-sky-500/10 dark:text-sky-300">
                             <Hash className="size-3 text-muted-foreground" />
                             {s.rollNumber}
                           </span>
@@ -509,7 +525,21 @@ export function AssignRollNumbersPage() {
               </TableBody>
             </Table>
           </div>
+          <div className="flex flex-col gap-2 border-t border-primary/10 bg-gradient-to-r from-muted/30 via-background to-primary/5 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-xs text-muted-foreground">
+              {selectedClass?.name || 'Class'}{selectedSection ? ` / ${selectedSection.name}` : ''} · {dirtyCount > 0 ? `${dirtyCount} change${dirtyCount === 1 ? '' : 's'} ready to save` : 'Everything is up to date'}
+            </p>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" className="h-9 gap-1.5 border-primary/20" disabled={dirtyCount === 0 || saving} onClick={resetDraft}>
+                <RotateCcw className="size-3.5" /> Reset
+              </Button>
+              <Button size="sm" className="h-9 gap-1.5 bg-gradient-to-r from-primary to-teal-600 px-4 text-white shadow-md shadow-primary/20 hover:opacity-90" disabled={dirtyCount === 0 || saving} onClick={handleSave}>
+                <Save className="size-3.5 text-white" /> {saving ? 'Saving…' : 'Save Roll Numbers'}
+              </Button>
+            </div>
+          </div>
         </Card>
+        </>
       )}
     </div>
   )

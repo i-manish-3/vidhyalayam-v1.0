@@ -394,14 +394,14 @@ function PreviewPanel({
 }) {
   if (loading && !preview) {
     return (
-      <div className="flex min-h-64 items-center justify-center rounded-md border bg-muted/20 p-6 text-sm text-muted-foreground">
+      <div className="flex min-h-64 items-center justify-center gap-2 rounded-xl border border-cyan-200/80 bg-gradient-to-br from-cyan-50 via-white to-sky-50 p-6 text-sm text-cyan-800 shadow-sm dark:border-cyan-500/25 dark:from-cyan-500/10 dark:via-card dark:to-sky-500/10 dark:text-cyan-300">
         <Loader2 className="size-3.5 animate-spin" /> Calculating impact…
       </div>
     )
   }
   if (error) {
     return (
-      <div className="flex items-start gap-3 rounded-md border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
+      <div className="flex items-start gap-3 rounded-xl border border-rose-200/80 bg-gradient-to-br from-rose-50 via-white to-red-50 p-4 text-sm text-rose-700 shadow-sm dark:border-rose-500/25 dark:from-rose-500/10 dark:via-card dark:to-red-500/10 dark:text-rose-300">
         <XCircle className="mt-0.5 size-5 shrink-0" />
         <div>
           <div className="font-medium">Preview failed</div>
@@ -692,29 +692,33 @@ export function AddTransportDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
-        <DialogHeader className="space-y-3">
+      <DialogContent className="max-h-[90vh] overflow-y-auto border-sky-200/80 bg-gradient-to-br from-white via-sky-50/45 to-cyan-50/60 p-0 shadow-xl dark:border-sky-500/25 dark:from-card dark:via-sky-500/10 dark:to-cyan-500/10 sm:max-w-4xl">
+        <DialogHeader className="relative overflow-hidden rounded-t-lg border-b border-sky-500/15 bg-gradient-to-r from-primary via-teal-600 to-cyan-600 p-5 text-white">
+          <div aria-hidden className="absolute -right-10 -top-12 size-32 rounded-full border-[16px] border-white/15" />
+          <div aria-hidden className="absolute bottom-0 right-32 h-px w-48 bg-gradient-to-r from-transparent via-white/50 to-transparent" />
           <div className="flex items-start gap-3">
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+            <div className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-white/25 bg-white/15 shadow-md shadow-black/10 backdrop-blur-sm">
               <Bus className="size-5" />
             </div>
             <div className="min-w-0 space-y-1">
-              <DialogTitle>Add Transport</DialogTitle>
-          <DialogDescription>
-            Allocate a transport route to {studentName}. Months prior to the effective date will be skipped automatically.
-            </DialogDescription>
+              <DialogTitle className="text-white">Add Transport</DialogTitle>
+              <DialogDescription className="text-white/80">
+                Allocate a transport route to {studentName}. Months prior to the effective date will be skipped automatically.
+              </DialogDescription>
             </div>
           </div>
-          <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
+          <div className="relative rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-sm text-white/85 shadow-sm backdrop-blur-sm">
             Months before the effective date are skipped automatically for academic year {academicYear}.
           </div>
         </DialogHeader>
 
-        <div className="grid gap-4 py-2 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
+        <div className="grid gap-4 p-4 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)] sm:p-5">
           <div className="space-y-4">
-            <div className="rounded-md border bg-background p-4">
-              <div className="mb-3 flex items-center gap-2 text-sm font-medium">
-                <Bus className="size-4 text-muted-foreground" />
+            <div className="rounded-xl border border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-cyan-50 p-4 shadow-sm dark:border-sky-500/25 dark:from-sky-500/10 dark:via-card dark:to-cyan-500/10">
+              <div className="mb-3 flex items-center gap-2 border-b border-sky-500/15 pb-2.5 text-sm font-semibold">
+                <span className="flex size-7 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-cyan-600 text-white shadow-sm">
+                  <Bus className="size-3.5" />
+                </span>
                 Route details
               </div>
               <div className="space-y-3">
@@ -751,9 +755,11 @@ export function AddTransportDialog({
               </div>
             </div>
 
-            <div className="rounded-md border bg-background p-4">
-              <div className="mb-3 flex items-center gap-2 text-sm font-medium">
-                <CalendarDays className="size-4 text-muted-foreground" />
+            <div className="rounded-xl border border-amber-200/80 bg-gradient-to-br from-amber-50 via-white to-orange-50 p-4 shadow-sm dark:border-amber-500/25 dark:from-amber-500/10 dark:via-card dark:to-orange-500/10">
+              <div className="mb-3 flex items-center gap-2 border-b border-amber-500/15 pb-2.5 text-sm font-semibold">
+                <span className="flex size-7 items-center justify-center rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 text-white shadow-sm">
+                  <CalendarDays className="size-3.5" />
+                </span>
                 Billing start
               </div>
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
@@ -782,13 +788,14 @@ export function AddTransportDialog({
           <TransportPreviewPanel loading={previewLoading} error={previewError} preview={preview} />
         </div>
 
-        <DialogFooter className="border-t pt-4">
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
+        <DialogFooter className="border-t border-sky-500/15 bg-white/80 p-4 dark:bg-card/80">
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting} className="bg-white dark:bg-card">
             Cancel
           </Button>
           <Button
             onClick={handleSubmit}
             disabled={submitting || previewLoading || !preview?.canCommit}
+            className="gap-1.5 bg-gradient-to-r from-primary to-cyan-600 shadow-sm shadow-primary/20"
           >
             {submitting && <Loader2 className="size-4 animate-spin" />}
             Add Transport
@@ -828,19 +835,26 @@ function TransportPreviewPanel({
   }
   if (!preview) {
     return (
-      <div className="flex min-h-64 items-center justify-center rounded-md border bg-muted/20 p-6 text-center text-sm text-muted-foreground">
-        Select a route and stop to preview transport billing.
+      <div className="flex min-h-64 items-center justify-center rounded-xl border border-violet-200/80 bg-gradient-to-br from-violet-50 via-white to-cyan-50 p-6 text-center text-sm text-violet-700 shadow-sm dark:border-violet-500/25 dark:from-violet-500/10 dark:via-card dark:to-cyan-500/10 dark:text-violet-300">
+        <div>
+          <div className="mx-auto mb-3 flex size-10 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-cyan-600 text-white shadow-sm">
+            <Bus className="size-5" />
+          </div>
+          Select a route and stop to preview transport billing.
+        </div>
       </div>
     )
   }
   return (
-    <div className="space-y-4 rounded-md border bg-background p-4 text-sm">
-      <div className="flex items-center gap-2 font-medium">
-        <CheckCircle2 className={preview.canCommit ? 'size-4 text-emerald-600' : 'size-4 text-amber-600'} />
+    <div className="space-y-4 rounded-xl border border-emerald-200/80 bg-gradient-to-br from-emerald-50 via-white to-teal-50 p-4 text-sm shadow-sm dark:border-emerald-500/25 dark:from-emerald-500/10 dark:via-card dark:to-teal-500/10">
+      <div className="flex items-center gap-2 border-b border-emerald-500/15 pb-2.5 font-semibold">
+        <span className="flex size-7 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-sm">
+          <CheckCircle2 className="size-3.5" />
+        </span>
         Fare preview
       </div>
       {preview.blockers.length > 0 && (
-        <div className="rounded-md border border-amber-300 bg-amber-50 p-3 dark:bg-amber-950/30">
+        <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 shadow-sm dark:bg-amber-950/30">
           <ul className="list-disc list-inside text-xs text-amber-900 dark:text-amber-200 space-y-0.5">
             {preview.blockers.map((b) => <li key={b}>{b}</li>)}
           </ul>
@@ -853,7 +867,7 @@ function TransportPreviewPanel({
             <ImpactMetric label="Billable months" value={String(preview.billableMonths.length)} />
             <ImpactMetric label="Total" value={formatINR(preview.totalAmount)} />
           </div>
-          <div className="rounded-md border bg-muted/20 p-3 text-xs text-muted-foreground">
+          <div className="rounded-lg border border-sky-200/80 bg-gradient-to-r from-sky-50 to-white p-3 text-xs text-sky-800 shadow-sm dark:border-sky-500/25 dark:from-sky-500/10 dark:to-card dark:text-sky-300">
             <span className="font-medium">Billing:</span>{' '}
             <BillingMonthSequence billableMonths={preview.billableMonths} droppedMonths={preview.droppedMonths} />
           </div>
@@ -961,20 +975,22 @@ export function DiscontinueTransportDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
-        <DialogHeader className="space-y-3">
+      <DialogContent className="max-h-[90vh] overflow-y-auto border-amber-200/80 bg-gradient-to-br from-white via-amber-50/45 to-rose-50/60 p-0 shadow-xl dark:border-amber-500/25 dark:from-card dark:via-amber-500/10 dark:to-rose-500/10 sm:max-w-4xl">
+        <DialogHeader className="relative overflow-hidden rounded-t-lg border-b border-amber-500/20 bg-gradient-to-r from-amber-600 via-orange-600 to-rose-600 p-5 text-white">
+          <div aria-hidden className="absolute -right-10 -top-12 size-32 rounded-full border-[16px] border-white/15" />
+          <div aria-hidden className="absolute bottom-0 right-32 h-px w-48 bg-gradient-to-r from-transparent via-white/50 to-transparent" />
           <div className="flex items-start gap-3">
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-destructive/10 text-destructive">
+            <div className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-white/25 bg-white/15 shadow-md shadow-black/10 backdrop-blur-sm">
               <Bus className="size-5" />
             </div>
             <div className="min-w-0 space-y-1">
-              <DialogTitle>Discontinue Transport</DialogTitle>
-              <DialogDescription>
+              <DialogTitle className="text-white">Discontinue Transport</DialogTitle>
+              <DialogDescription className="text-white/80">
                 Stop transport billing for {studentName} from the effective date forward. The student remains enrolled.
               </DialogDescription>
             </div>
           </div>
-          <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
+          <div className="relative rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-sm text-white/85 shadow-sm backdrop-blur-sm">
             <div className="flex items-start gap-2">
               <AlertTriangle className="mt-0.5 size-4 shrink-0" />
               <span>Future unpaid transport months will be cancelled. Paid future months stay intact and can be marked for refund review.</span>
@@ -982,11 +998,13 @@ export function DiscontinueTransportDialog({
           </div>
         </DialogHeader>
 
-        <div className="grid gap-4 py-2 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+        <div className="grid gap-4 p-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] sm:p-5">
           <div className="space-y-4">
-            <div className="rounded-md border bg-background p-4">
-              <div className="mb-3 flex items-center gap-2 text-sm font-medium">
-                <CalendarDays className="size-4 text-muted-foreground" />
+            <div className="rounded-xl border border-amber-200/80 bg-gradient-to-br from-amber-50 via-white to-orange-50 p-4 shadow-sm dark:border-amber-500/25 dark:from-amber-500/10 dark:via-card dark:to-orange-500/10">
+              <div className="mb-3 flex items-center gap-2 border-b border-amber-500/15 pb-2.5 text-sm font-semibold">
+                <span className="flex size-7 items-center justify-center rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 text-white shadow-sm">
+                  <CalendarDays className="size-3.5" />
+                </span>
                 Discontinue details
               </div>
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
@@ -1009,7 +1027,7 @@ export function DiscontinueTransportDialog({
                   />
                 </div>
               </div>
-              <label htmlFor="dt-refund" className="mt-4 flex cursor-pointer items-start gap-3 rounded-md border bg-muted/20 p-3">
+              <label htmlFor="dt-refund" className="mt-4 flex cursor-pointer items-start gap-3 rounded-lg border border-rose-200/80 bg-gradient-to-r from-rose-50 via-white to-amber-50 p-3 shadow-sm transition-all hover:border-rose-300 hover:shadow-md dark:border-rose-500/25 dark:from-rose-500/10 dark:via-card dark:to-amber-500/10">
                 <Checkbox
                   id="dt-refund"
                   checked={refundEligible}
@@ -1022,7 +1040,7 @@ export function DiscontinueTransportDialog({
                 </span>
               </label>
               {refundEligible && (
-                <div className="mt-2 space-y-1.5 rounded-md border bg-muted/20 p-3">
+                <div className="mt-2 space-y-1.5 rounded-lg border border-violet-200/80 bg-gradient-to-br from-violet-50 via-white to-fuchsia-50 p-3 shadow-sm dark:border-violet-500/25 dark:from-violet-500/10 dark:via-card dark:to-fuchsia-500/10">
                   <Label>How should the refund be handled?</Label>
                   <Select value={refundMode} onValueChange={(v) => setRefundMode(v as 'advance' | 'cash')}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
@@ -1041,11 +1059,13 @@ export function DiscontinueTransportDialog({
             </div>
           </div>
 
-          <div className="space-y-4 rounded-md border bg-background p-4">
+          <div className="space-y-4 rounded-xl border border-rose-200/80 bg-gradient-to-br from-rose-50 via-white to-amber-50 p-4 shadow-sm dark:border-rose-500/25 dark:from-rose-500/10 dark:via-card dark:to-amber-500/10">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <div className="flex items-center gap-2 text-sm font-medium">
-                  <CheckCircle2 className="size-4 text-emerald-600" />
+                <div className="flex items-center gap-2 text-sm font-semibold">
+                  <span className="flex size-7 items-center justify-center rounded-lg bg-gradient-to-br from-rose-500 to-amber-600 text-white shadow-sm">
+                    <CheckCircle2 className="size-3.5" />
+                  </span>
                   Impact preview
                 </div>
                 <p className="mt-1 text-xs text-muted-foreground">Transport billing changes from selected date.</p>
@@ -1059,12 +1079,12 @@ export function DiscontinueTransportDialog({
             </div>
 
           {previewLoading && !preview && (
-            <div className="flex min-h-48 items-center justify-center rounded-md border bg-muted/20 p-6 text-sm text-muted-foreground">
+            <div className="flex min-h-48 items-center justify-center gap-2 rounded-lg border border-amber-200/80 bg-gradient-to-br from-amber-50 via-white to-orange-50 p-6 text-sm text-amber-800 shadow-sm dark:border-amber-500/25 dark:from-amber-500/10 dark:via-card dark:to-orange-500/10 dark:text-amber-300">
               <Loader2 className="size-3.5 animate-spin" /> Calculating impact…
             </div>
           )}
           {previewError && (
-            <div className="flex items-start gap-3 rounded-md border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
+            <div className="flex items-start gap-3 rounded-lg border border-rose-300 bg-rose-50 p-4 text-sm text-rose-700 shadow-sm dark:bg-rose-950/30 dark:text-rose-300">
               <XCircle className="mt-0.5 size-5 shrink-0" />
               <div>
                 <div className="font-medium">Preview failed</div>
@@ -1073,7 +1093,7 @@ export function DiscontinueTransportDialog({
             </div>
           )}
           {preview && !preview.canCommit && (
-            <div className="rounded-md border border-amber-300 bg-amber-50 p-3 dark:bg-amber-950/30">
+            <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 shadow-sm dark:bg-amber-950/30">
               <ul className="list-disc list-inside text-xs text-amber-900 dark:text-amber-200">
                 {preview.blockers.map((b) => <li key={b}>{b}</li>)}
               </ul>
@@ -1088,7 +1108,7 @@ export function DiscontinueTransportDialog({
                 <ImpactMetric label="Refund due" value={formatINR(preview.totalRefundDue)} tone={preview.totalRefundDue > 0 ? 'warning' : 'default'} />
               </div>
               {preview.cancelledItems.length === 0 && preview.requiresRefund.length === 0 && (
-                <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-200">
+                <div className="rounded-lg border border-emerald-200 bg-gradient-to-r from-emerald-50 to-white p-3 text-sm text-emerald-900 shadow-sm dark:border-emerald-900/60 dark:from-emerald-950/30 dark:to-card dark:text-emerald-200">
                   No future months to cancel — transport will be marked closed without billing changes.
                 </div>
               )}
@@ -1102,7 +1122,7 @@ export function DiscontinueTransportDialog({
                 </div>
               )}
               {preview.requiresRefund.length > 0 && (
-                <div className="space-y-2 rounded-md border border-amber-300 bg-amber-50 p-3 dark:bg-amber-950/30">
+                <div className="space-y-2 rounded-lg border border-amber-300 bg-gradient-to-br from-amber-50 via-white to-orange-50 p-3 shadow-sm dark:bg-amber-950/30">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className="flex items-center gap-1.5 text-sm font-medium text-amber-900 dark:text-amber-200">
                       <AlertTriangle className="size-4" />

@@ -34,6 +34,10 @@ import {
   Loader2,
   TrendingUp,
   Users,
+  CalendarDays,
+  BookOpen,
+  Banknote,
+  ArrowRight,
 } from 'lucide-react'
 
 interface ClassOption { id: string; name: string }
@@ -342,22 +346,34 @@ export function PromoteStudentPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-start gap-3">
-        <div>
-          <h1 className="text-lg font-semibold tracking-tight">Promote Student</h1>
-          <p className="text-sm text-muted-foreground">Follow the checklist and submit when ready.</p>
+    <div className="space-y-4">
+      <section className="relative overflow-hidden rounded-xl border border-primary/25 bg-gradient-to-r from-primary via-teal-600 to-cyan-600 px-4 py-3 text-white shadow-lg shadow-primary/15">
+        <div aria-hidden className="absolute -right-9 -top-14 size-36 rounded-full border-[18px] border-white/10" />
+        <div aria-hidden className="absolute -bottom-14 right-1/4 size-28 rounded-full bg-violet-300/10 blur-xl" />
+        <div className="relative flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-white/25 bg-white/15 shadow-md shadow-black/10 backdrop-blur-sm">
+              <TrendingUp className="size-5 text-white" />
+            </span>
+            <div>
+              <h1 className="text-xl font-bold tracking-tight">Promote Students</h1>
+              <p className="mt-0.5 text-xs text-white/80">Move selected students safely into their next class, session, or alumni.</p>
+            </div>
+          </div>
+          <Badge className="h-7 gap-1.5 border border-white/20 bg-white/15 px-2.5 text-[10px] text-white hover:bg-white/15">
+            <GraduationCap className="size-3.5 text-white" /> Session transition
+          </Badge>
         </div>
-      </div>
+      </section>
 
-      <div className="rounded-lg border bg-card p-3 shadow-sm">
+      <div className="rounded-xl border border-violet-200/80 bg-gradient-to-r from-violet-50 via-white to-sky-50 p-3 shadow-sm dark:border-violet-500/25 dark:from-violet-500/12 dark:via-card dark:to-sky-500/10">
         <div className="mb-2 flex items-center justify-between gap-3">
           <h2 className="text-sm font-semibold">Promotion Checklist</h2>
           {/* <Badge variant="outline" className="rounded-md">Lower to higher</Badge> */}
         </div>
         <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
             {CHECKLIST.map((item) => (
-              <div key={item.number} className="rounded-md border bg-muted/20 px-3 py-2">
+              <div key={item.number} className={item.tone === 'danger' ? 'rounded-lg border border-red-200 bg-gradient-to-r from-red-50 to-rose-50 px-3 py-2 shadow-sm dark:border-red-500/25 dark:from-red-500/15 dark:to-rose-500/10' : 'rounded-lg border border-sky-200 bg-gradient-to-r from-sky-50 to-cyan-50 px-3 py-2 shadow-sm dark:border-sky-500/25 dark:from-sky-500/15 dark:to-cyan-500/10'}>
                 <div className="flex items-center gap-2">
                   <span className={item.tone === 'danger' ? 'flex size-5 shrink-0 items-center justify-center rounded-full bg-destructive/15 text-[11px] font-bold text-destructive' : 'flex size-5 shrink-0 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-primary-foreground'}>
                     {item.number}
@@ -377,11 +393,11 @@ export function PromoteStudentPage() {
         </div>
       </div>
 
-      <Card className="gap-0 overflow-hidden py-0 shadow-sm">
-        <CardHeader className="border-b bg-muted/20 px-4 py-1.5 !pb-1.5">
+      <Card className="gap-0 overflow-hidden border-sky-200/80 bg-gradient-to-br from-sky-50/50 via-card to-violet-50/50 py-0 shadow-sm dark:border-sky-500/25 dark:from-sky-500/10 dark:via-card dark:to-violet-500/10">
+        <CardHeader className="border-b border-sky-200/70 bg-gradient-to-r from-sky-100/75 via-white/90 to-violet-100/65 px-4 py-2 !pb-2 dark:border-sky-500/20 dark:from-sky-500/15 dark:via-card dark:to-violet-500/10">
           <div className="flex min-h-9 flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between">
             <CardTitle className="flex items-center gap-1.5 text-sm leading-none">
-              <GraduationCap className="size-3.5 text-primary" />
+              <span className="flex size-6 items-center justify-center rounded-md bg-gradient-to-br from-sky-500 to-violet-600 text-white"><GraduationCap className="size-3.5 text-white" /></span>
               Promotion Setup
             </CardTitle>
             <div className="flex flex-wrap gap-1.5">
@@ -392,9 +408,9 @@ export function PromoteStudentPage() {
         </CardHeader>
         <CardContent className="p-3">
           <div className="grid gap-3 xl:grid-cols-[0.95fr_1.05fr]">
-            <div className="rounded-lg border bg-muted/15 p-3">
+            <div className="rounded-xl border border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-cyan-50 p-3 shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-cyan-500/10">
               <div className="mb-3 flex items-start gap-2.5">
-                <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg bg-primary text-xs font-bold text-primary-foreground shadow-sm">1</span>
+                <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-cyan-600 text-xs font-bold text-white shadow-sm">1</span>
                 <div className="min-w-0">
                   <h3 className="text-sm font-semibold leading-none">Current Class</h3>
                   <p className="mt-1 text-xs text-muted-foreground">Choose students from this session.</p>
@@ -404,7 +420,7 @@ export function PromoteStudentPage() {
                 <div className="space-y-1.5">
                   <Label className="text-xs font-medium">Current Session</Label>
                 <Select value={fromAcademicYear} onValueChange={handleFromAcademicYearChange} disabled={loadingOptions}>
-                  <SelectTrigger className="w-full bg-background"><SelectValue placeholder="Select session" /></SelectTrigger>
+                  <SelectTrigger leadingIcon={<CalendarDays className="size-3.5 text-white" />} leadingIconClassName="from-sky-500 to-cyan-600" className="w-full bg-white dark:bg-input/30"><SelectValue placeholder="Select session" /></SelectTrigger>
                   <SelectContent>
                     {academicYears.map((year) => <SelectItem key={year} value={year}>{year}</SelectItem>)}
                   </SelectContent>
@@ -413,7 +429,7 @@ export function PromoteStudentPage() {
                 <div className="space-y-1.5">
                   <Label className="text-xs font-medium">Class</Label>
                 <Select value={fromClassId} onValueChange={handleFromClassChange} disabled={loadingOptions}>
-                  <SelectTrigger className="w-full bg-background"><SelectValue placeholder="Select class" /></SelectTrigger>
+                  <SelectTrigger leadingIcon={<GraduationCap className="size-3.5 text-white" />} leadingIconClassName="from-sky-500 to-blue-600" className="w-full bg-white dark:bg-input/30"><SelectValue placeholder="Select class" /></SelectTrigger>
                   <SelectContent>
                     {classes.map((item) => <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>)}
                   </SelectContent>
@@ -422,7 +438,7 @@ export function PromoteStudentPage() {
                 <div className="space-y-1.5">
                   <Label className="text-xs font-medium">Section</Label>
                 <Select value={fromSectionId} onValueChange={handleFromSectionChange} disabled={!fromClassId || loadingOptions}>
-                  <SelectTrigger className="w-full bg-background"><SelectValue placeholder="Select section" /></SelectTrigger>
+                  <SelectTrigger leadingIcon={<Users className="size-3.5 text-white" />} leadingIconClassName="from-cyan-500 to-teal-600" className="w-full bg-white dark:bg-input/30"><SelectValue placeholder="Select section" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Sections</SelectItem>
                     {fromSections.map((item) => <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>)}
@@ -432,7 +448,7 @@ export function PromoteStudentPage() {
                 <div className="space-y-1.5">
                   <Label className="text-xs font-medium">Status</Label>
                 <Select value={studentStatus} onValueChange={handleStudentStatusChange}>
-                  <SelectTrigger className="w-full bg-background"><SelectValue /></SelectTrigger>
+                  <SelectTrigger leadingIcon={<CheckCircle2 className="size-3.5 text-white" />} leadingIconClassName="from-emerald-500 to-teal-600" className="w-full bg-white dark:bg-input/30"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="active">Active</SelectItem>
                     <SelectItem value="inactive">Inactive</SelectItem>
@@ -443,9 +459,9 @@ export function PromoteStudentPage() {
             </div>
             </div>
 
-            <div className="rounded-lg border bg-background p-3 shadow-xs">
+            <div className="rounded-xl border border-violet-200/80 bg-gradient-to-br from-violet-50 via-white to-purple-50 p-3 shadow-sm dark:border-violet-500/25 dark:from-violet-500/12 dark:via-card dark:to-purple-500/10">
               <div className="mb-3 flex items-start gap-2.5">
-                <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg bg-primary text-xs font-bold text-primary-foreground shadow-sm">2</span>
+                <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 text-xs font-bold text-white shadow-sm">2</span>
                 <div className="min-w-0">
                   <h3 className="text-sm font-semibold leading-none">Promote To</h3>
                   <p className="mt-1 text-xs text-muted-foreground">Select destination session, class and fees.</p>
@@ -455,7 +471,7 @@ export function PromoteStudentPage() {
                 <div className="space-y-1.5">
                   <Label className="text-xs font-medium">Type</Label>
                 <Select value={promotionType} onValueChange={(value: 'class' | 'alumni') => setPromotionType(value)}>
-                  <SelectTrigger className="w-full bg-background"><SelectValue /></SelectTrigger>
+                  <SelectTrigger leadingIcon={<TrendingUp className="size-3.5 text-white" />} leadingIconClassName="from-violet-500 to-purple-600" className="w-full bg-white dark:bg-input/30"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="class">Student Promote</SelectItem>
                     <SelectItem value="alumni">Alumni Promote</SelectItem>
@@ -467,7 +483,7 @@ export function PromoteStudentPage() {
                     <div className="space-y-1.5">
                       <Label className="text-xs font-medium">To Session</Label>
                     <Select value={toAcademicYear} onValueChange={setToAcademicYear}>
-                      <SelectTrigger className="w-full bg-background"><SelectValue placeholder="Select session" /></SelectTrigger>
+                      <SelectTrigger leadingIcon={<CalendarDays className="size-3.5 text-white" />} leadingIconClassName="from-violet-500 to-indigo-600" className="w-full bg-white dark:bg-input/30"><SelectValue placeholder="Select session" /></SelectTrigger>
                       <SelectContent>
                         {targetAcademicYears.map((year) => <SelectItem key={year} value={year}>{year}</SelectItem>)}
                       </SelectContent>
@@ -479,7 +495,7 @@ export function PromoteStudentPage() {
                     <div className="space-y-1.5">
                       <Label className="text-xs font-medium">To Class</Label>
                     <Select value={toClassId} onValueChange={(value) => { setToClassId(value); setToSectionId('') }}>
-                      <SelectTrigger className="w-full bg-background"><SelectValue placeholder="Select class" /></SelectTrigger>
+                      <SelectTrigger leadingIcon={<GraduationCap className="size-3.5 text-white" />} leadingIconClassName="from-indigo-500 to-violet-600" className="w-full bg-white dark:bg-input/30"><SelectValue placeholder="Select class" /></SelectTrigger>
                       <SelectContent>
                         {classes.map((item) => <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>)}
                       </SelectContent>
@@ -488,7 +504,7 @@ export function PromoteStudentPage() {
                     <div className="space-y-1.5">
                       <Label className="text-xs font-medium">To Section</Label>
                     <Select value={toSectionId || 'none'} onValueChange={(value) => setToSectionId(value === 'none' ? '' : value)} disabled={!toClassId}>
-                      <SelectTrigger className="w-full bg-background"><SelectValue placeholder="Select section" /></SelectTrigger>
+                      <SelectTrigger leadingIcon={<Users className="size-3.5 text-white" />} leadingIconClassName="from-purple-500 to-violet-600" className="w-full bg-white dark:bg-input/30"><SelectValue placeholder="Select section" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="none">No Section</SelectItem>
                         {toSections.map((item) => <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>)}
@@ -498,7 +514,7 @@ export function PromoteStudentPage() {
                     <div className="space-y-1.5">
                       <Label className="text-xs font-medium">Fees Group <span className="text-destructive">*</span></Label>
                     <Select value={feesGroupId === 'none' ? '' : feesGroupId} onValueChange={setFeesGroupId}>
-                      <SelectTrigger className="w-full bg-background"><SelectValue placeholder="Select fee group" /></SelectTrigger>
+                      <SelectTrigger leadingIcon={<Banknote className="size-3.5 text-white" />} leadingIconClassName="from-emerald-500 to-teal-600" className="w-full bg-white dark:bg-input/30"><SelectValue placeholder="Select fee group" /></SelectTrigger>
                       <SelectContent>
                         {feesGroups.map((item) => <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>)}
                       </SelectContent>
@@ -512,12 +528,12 @@ export function PromoteStudentPage() {
                     value={effectiveFrom}
                     onChange={setEffectiveFrom}
                     placeholder="Select effective date"
-                    triggerClassName="w-full bg-background"
+                    triggerClassName="w-full border-amber-200 bg-white dark:border-amber-500/25 dark:bg-input/30"
                   />
                 </div>
               </div>
               {promotionType === 'class' && (
-                <div className="mt-3 flex items-start gap-2 rounded-md border bg-background px-3 py-2">
+                <div className="mt-3 flex items-start gap-2 rounded-lg border border-emerald-200 bg-gradient-to-r from-emerald-50 to-teal-50 px-3 py-2 dark:border-emerald-500/25 dark:from-emerald-500/10 dark:to-teal-500/10">
                   <Checkbox
                     id="carry-forward-transport"
                     checked={carryForwardTransport}
@@ -539,38 +555,42 @@ export function PromoteStudentPage() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-3 rounded-lg border bg-card p-3 shadow-sm md:grid-cols-4">
-        <div className="min-w-0 rounded-md bg-muted/30 px-3 py-2">
-          <p className="text-[11px] font-medium uppercase text-muted-foreground">From</p>
-          <p className="truncate text-sm font-semibold">{fromClass?.name || '-'}{fromSection ? ` / ${fromSection.name}` : fromSectionId === 'all' ? ' / All Sections' : ''}</p>
-          <p className="text-xs text-muted-foreground">{fromAcademicYear || '-'}</p>
+      <div className="grid gap-2 md:grid-cols-4">
+        <div className="flex min-w-0 items-center gap-2.5 rounded-xl border border-sky-200/80 bg-gradient-to-r from-sky-50 via-white to-cyan-50 p-2.5 shadow-sm dark:border-sky-500/25 dark:from-sky-500/15 dark:via-card dark:to-cyan-500/10">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-cyan-600 text-white"><CalendarDays className="size-4 text-white" /></span>
+          <div className="min-w-0"><p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">From</p>
+          <p className="truncate text-sm font-semibold text-sky-700 dark:text-sky-300">{fromClass?.name || '-'}{fromSection ? ` / ${fromSection.name}` : fromSectionId === 'all' ? ' / All Sections' : ''}</p>
+          <p className="text-xs text-muted-foreground">{fromAcademicYear || '-'}</p></div>
         </div>
-        <div className="min-w-0 rounded-md bg-muted/30 px-3 py-2">
-          <p className="text-[11px] font-medium uppercase text-muted-foreground">To</p>
-          <p className="truncate text-sm font-semibold">{promotionType === 'alumni' ? 'Alumni' : toClass?.name || '-'}</p>
-          <p className="text-xs text-muted-foreground">{promotionType === 'alumni' ? 'Final status' : toAcademicYear || '-'}</p>
+        <div className="flex min-w-0 items-center gap-2.5 rounded-xl border border-violet-200/80 bg-gradient-to-r from-violet-50 via-white to-purple-50 p-2.5 shadow-sm dark:border-violet-500/25 dark:from-violet-500/15 dark:via-card dark:to-purple-500/10">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 text-white"><ArrowRight className="size-4 text-white" /></span>
+          <div className="min-w-0"><p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">To</p>
+          <p className="truncate text-sm font-semibold text-violet-700 dark:text-violet-300">{promotionType === 'alumni' ? 'Alumni' : toClass?.name || '-'}</p>
+          <p className="text-xs text-muted-foreground">{promotionType === 'alumni' ? 'Final status' : toAcademicYear || '-'}</p></div>
         </div>
-        <div className="min-w-0 rounded-md bg-muted/30 px-3 py-2">
-          <p className="text-[11px] font-medium uppercase text-muted-foreground">Students</p>
-          <p className="text-sm font-semibold">{selectedIds.length} selected</p>
-          <p className="text-xs text-muted-foreground">{students.length} loaded</p>
+        <div className="flex min-w-0 items-center gap-2.5 rounded-xl border border-emerald-200/80 bg-gradient-to-r from-emerald-50 via-white to-teal-50 p-2.5 shadow-sm dark:border-emerald-500/25 dark:from-emerald-500/15 dark:via-card dark:to-teal-500/10">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 text-white"><Users className="size-4 text-white" /></span>
+          <div className="min-w-0"><p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Students</p>
+          <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">{selectedIds.length} selected</p>
+          <p className="text-xs text-muted-foreground">{students.length} loaded</p></div>
         </div>
-        <div className="min-w-0 rounded-md bg-muted/30 px-3 py-2">
-          <p className="text-[11px] font-medium uppercase text-muted-foreground">Fees</p>
-          <p className="truncate text-sm font-semibold">{feesGroups.find((item) => item.id === feesGroupId)?.name || '-'}</p>
-          <p className="text-xs text-muted-foreground">Old dues stay open</p>
+        <div className="flex min-w-0 items-center gap-2.5 rounded-xl border border-amber-200/80 bg-gradient-to-r from-amber-50 via-white to-orange-50 p-2.5 shadow-sm dark:border-amber-500/25 dark:from-amber-500/15 dark:via-card dark:to-orange-500/10">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 text-white"><Banknote className="size-4 text-white" /></span>
+          <div className="min-w-0"><p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Fees</p>
+          <p className="truncate text-sm font-semibold text-amber-700 dark:text-amber-300">{feesGroups.find((item) => item.id === feesGroupId)?.name || '-'}</p>
+          <p className="text-xs text-muted-foreground">Old dues stay open</p></div>
         </div>
       </div>
 
-      <Card>
-        <CardHeader>
+      <Card className="gap-0 overflow-hidden border-sky-200/80 bg-gradient-to-br from-sky-50/50 via-card to-violet-50/50 py-0 shadow-sm dark:border-sky-500/25 dark:from-sky-500/10 dark:via-card dark:to-violet-500/10">
+        <CardHeader className="border-b border-sky-200/70 bg-gradient-to-r from-sky-100/75 via-white/90 to-violet-100/65 px-4 py-3 !pb-3 dark:border-sky-500/20 dark:from-sky-500/15 dark:via-card dark:to-violet-500/10">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <CardTitle className="flex items-center gap-2 text-base">
-              <Users className="size-5 text-primary" />
+              <span className="flex size-7 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-violet-600 text-white"><Users className="size-4 text-white" /></span>
               Student List
             </CardTitle>
             <div className="flex items-center gap-2">
-              <Badge variant="secondary">{selectedIds.length} selected</Badge>
+              <Badge className="border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-500/25 dark:bg-emerald-500/10 dark:text-emerald-300">{selectedIds.length} selected</Badge>
               <Button onClick={validateBeforeConfirm} disabled={submitting || selectedIds.length === 0}>
                 {submitting ? <Loader2 className="size-4 animate-spin" /> : <TrendingUp className="size-4" />}
                 Promote
@@ -591,7 +611,7 @@ export function PromoteStudentPage() {
           ) : (
             <div className="overflow-x-auto">
               <Table>
-                <TableHeader>
+                <TableHeader className="bg-gradient-to-r from-sky-100/80 via-cyan-50 to-violet-100/70 dark:from-sky-500/15 dark:via-cyan-500/10 dark:to-violet-500/15">
                   <TableRow>
                     <TableHead className="w-12">
                       <Checkbox checked={allSelected} onCheckedChange={toggleAll} />
@@ -614,7 +634,7 @@ export function PromoteStudentPage() {
                       : [toClass?.name, toSections.find((section) => section.id === toSectionId)?.name].filter(Boolean).join(' / ') || '-'
 
                     return (
-                      <TableRow key={student.id} data-state={checked ? 'selected' : undefined}>
+                      <TableRow key={student.id} data-state={checked ? 'selected' : undefined} className={checked ? 'bg-gradient-to-r from-emerald-50/80 via-white to-cyan-50/70 hover:from-emerald-100/70 hover:to-cyan-100/60 dark:from-emerald-500/10 dark:via-card dark:to-cyan-500/10' : 'hover:bg-sky-50/50 dark:hover:bg-sky-500/5'}>
                         <TableCell>
                           <Checkbox checked={checked} onCheckedChange={() => toggleStudent(student.id)} />
                         </TableCell>
@@ -658,40 +678,59 @@ export function PromoteStudentPage() {
       )}
 
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <AlertDialogContent className="sm:max-w-xl">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="size-5 text-destructive" />
-              Confirm Promotion
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              This action will update selected students and cannot be treated like a simple class filter change.
-            </AlertDialogDescription>
+        <AlertDialogContent className="overflow-hidden border-primary/20 bg-card p-0 shadow-2xl shadow-primary/15 sm:max-w-xl">
+          <AlertDialogHeader className="relative overflow-hidden border-b border-white/15 bg-gradient-to-r from-primary via-teal-600 to-cyan-600 px-5 py-4 text-left text-white">
+            <div aria-hidden className="absolute -right-8 -top-12 size-32 rounded-full border-[16px] border-white/10" />
+            <div className="relative flex items-start gap-3">
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-amber-200/30 bg-amber-300/20 text-white shadow-md backdrop-blur-sm">
+                <AlertTriangle className="size-5 text-white" />
+              </span>
+              <div>
+                <AlertDialogTitle className="text-lg font-bold tracking-tight text-white">Confirm Promotion</AlertDialogTitle>
+                <AlertDialogDescription className="mt-1 text-xs leading-relaxed text-white/75">
+                  Review the destination and impact before updating these student records.
+                </AlertDialogDescription>
+              </div>
+            </div>
           </AlertDialogHeader>
 
-          <Alert variant="destructive">
-            <AlertTriangle />
-            <AlertTitle>Before you submit</AlertTitle>
-            <AlertDescription>
-              Existing previous-session dues will remain payable, new session fee demand may be created if a fees group is selected, and student current class/status will change immediately.
-            </AlertDescription>
-          </Alert>
+          <div className="space-y-3 bg-gradient-to-br from-primary/[0.025] via-background to-amber-500/[0.035] p-4 sm:p-5">
+            <Alert variant="destructive" className="border-red-200/90 bg-gradient-to-r from-red-50 via-white to-rose-50 text-red-800 shadow-sm dark:border-red-500/30 dark:from-red-500/15 dark:via-card dark:to-rose-500/10 dark:text-red-300">
+              <AlertTriangle className="text-red-600 dark:text-red-400" />
+              <AlertTitle className="font-semibold">Before you submit</AlertTitle>
+              <AlertDescription className="text-xs leading-relaxed">
+                Previous-session dues remain payable. New fee demand may be created, and the current class or status changes immediately.
+              </AlertDescription>
+            </Alert>
 
-          <div className="rounded-md border bg-muted/30 p-3 text-sm">
             <div className="grid gap-2 sm:grid-cols-2">
-              <div><span className="text-muted-foreground">Students:</span> <strong>{selectedStudents.length}</strong></div>
-              <div><span className="text-muted-foreground">Type:</span> <strong>{promotionType === 'alumni' ? 'Alumni Promote' : 'Student Promote'}</strong></div>
-              <div><span className="text-muted-foreground">From:</span> <strong>{fromAcademicYear} - {fromClass?.name || '-'}{fromSection ? ` / ${fromSection.name}` : fromSectionId === 'all' ? ' / All Sections' : ''}</strong></div>
-              <div><span className="text-muted-foreground">To:</span> <strong>{promotionType === 'alumni' ? 'Alumni' : `${toAcademicYear} - ${toClass?.name || '-'}`}</strong></div>
+              <div className="flex items-center gap-2.5 rounded-xl border border-emerald-200/80 bg-gradient-to-r from-emerald-50 via-white to-teal-50 p-2.5 shadow-sm dark:border-emerald-500/25 dark:from-emerald-500/15 dark:via-card dark:to-teal-500/10">
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 text-white"><Users className="size-4 text-white" /></span>
+                <div><p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Students</p><p className="text-sm font-bold text-emerald-700 dark:text-emerald-300">{selectedStudents.length} selected</p></div>
+              </div>
+              <div className="flex items-center gap-2.5 rounded-xl border border-violet-200/80 bg-gradient-to-r from-violet-50 via-white to-purple-50 p-2.5 shadow-sm dark:border-violet-500/25 dark:from-violet-500/15 dark:via-card dark:to-purple-500/10">
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 text-white"><TrendingUp className="size-4 text-white" /></span>
+                <div><p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Type</p><p className="text-sm font-bold text-violet-700 dark:text-violet-300">{promotionType === 'alumni' ? 'Alumni Promote' : 'Student Promote'}</p></div>
+              </div>
+              <div className="rounded-xl border border-sky-200/80 bg-gradient-to-r from-sky-50 via-white to-cyan-50 p-2.5 shadow-sm dark:border-sky-500/25 dark:from-sky-500/15 dark:via-card dark:to-cyan-500/10">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">From</p>
+                <p className="mt-0.5 text-xs font-bold text-sky-700 dark:text-sky-300">{fromAcademicYear} · {fromClass?.name || '-'}{fromSection ? ` / ${fromSection.name}` : fromSectionId === 'all' ? ' / All Sections' : ''}</p>
+              </div>
+              <div className="rounded-xl border border-amber-200/80 bg-gradient-to-r from-amber-50 via-white to-orange-50 p-2.5 shadow-sm dark:border-amber-500/25 dark:from-amber-500/15 dark:via-card dark:to-orange-500/10">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">To</p>
+                <p className="mt-0.5 text-xs font-bold text-amber-700 dark:text-amber-300">{promotionType === 'alumni' ? 'Alumni' : `${toAcademicYear} · ${toClass?.name || '-'}`}</p>
+              </div>
               {promotionType === 'class' && (
-                <div className="sm:col-span-2"><span className="text-muted-foreground">Transport:</span> <strong>{carryForwardTransport ? `Carry forward (fares from ${toAcademicYear})` : 'Do not carry forward'}</strong></div>
+                <div className="rounded-lg border border-cyan-200/70 bg-cyan-50/70 px-3 py-2 text-xs text-cyan-800 dark:border-cyan-500/25 dark:bg-cyan-500/10 dark:text-cyan-300 sm:col-span-2">
+                  <strong>Transport:</strong> {carryForwardTransport ? `Carry forward using ${toAcademicYear} fares` : 'Do not carry forward'}
+                </div>
               )}
             </div>
           </div>
 
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={submitting}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={submitPromotion} disabled={submitting}>
+          <AlertDialogFooter className="border-t border-primary/10 bg-gradient-to-r from-muted/40 via-background to-primary/5 px-4 py-3 sm:px-5">
+            <AlertDialogCancel className="h-9" disabled={submitting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction className="h-9 gap-1.5 px-4" onClick={submitPromotion} disabled={submitting}>
               {submitting ? <Loader2 className="size-4 animate-spin" /> : <CheckCircle2 className="size-4" />}
               Promote Selected Students
             </AlertDialogAction>

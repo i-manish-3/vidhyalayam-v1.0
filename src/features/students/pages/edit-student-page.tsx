@@ -16,12 +16,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/components/ui/separator'
 import { Checkbox } from '@/components/ui/checkbox'
 import { DatePicker } from '@/components/date-picker'
+import { cn } from '@/lib/utils'
 import {
   Save, User, Phone, MapPin, GraduationCap, Banknote,
   Home, Shield, FileText, Camera, Upload, X,
   CircleUser, CircleUserRound, CalendarDays, IdCard,
   Ruler, Weight, Briefcase, Mail, CreditCard, Building, Heart,
-  Check, Bus, Plus, Info, Clock,
+  Check, Bus, Plus, Info, Clock, ChevronLeft, ChevronRight,
 } from 'lucide-react'
 
 // ============================================
@@ -171,6 +172,14 @@ const EDIT_TABS = [
   { number: 4, label: 'Accounts Info', icon: Banknote },
   { number: 5, label: 'Documents', icon: FileText },
 ]
+
+const EDIT_TAB_SUBTITLES: Record<number, string> = {
+  1: 'Photo, admission identity, name, age, and student basics',
+  2: 'Guardian details, phone numbers, and residential addresses',
+  3: 'Academic placement, IDs, health, transport, and hostel info',
+  4: 'Fee group, sibling link, bank details, and remarks',
+  5: 'Required documents, custom uploads, and verification status',
+}
 
 const GENDER_OPTIONS = ['Male', 'Female']
 
@@ -1910,48 +1919,53 @@ export function EditStudentPage({ studentId }: { studentId: string }) {
   // Render
   // ============================================
 
+  const currentTabMeta = EDIT_TABS.find((tab) => tab.number === currentTab) ?? EDIT_TABS[0]
+  const CurrentTabIcon = currentTabMeta.icon
+
   return (
-    <div className="min-h-[calc(100vh-10rem)] flex flex-col">
+    <div className="flex min-h-[calc(100vh-10rem)] w-full flex-col gap-4">
       {/* Header — matches admission page style */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-6">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-3">
-            <div className="size-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0 overflow-hidden">
+      <section className="relative overflow-hidden rounded-xl border border-primary/25 bg-gradient-to-r from-primary via-teal-600 to-sky-600 px-4 py-4 text-white shadow-lg shadow-primary/15 sm:px-5">
+        <div aria-hidden className="absolute -right-10 -top-12 size-36 rounded-full border-[18px] border-sky-200/20" />
+        <div aria-hidden className="absolute -bottom-14 right-44 size-24 rounded-full bg-amber-300/15 blur-sm" />
+        <div className="relative flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-white/25 bg-white/15 shadow-md shadow-black/10 backdrop-blur-sm">
               {form.profileImage ? (
                 <img src={form.profileImage} alt={fullName} className="size-full object-cover" />
               ) : (
-                <User className="size-5 text-primary" />
+                <User className="size-5" />
               )}
             </div>
-            <div>
-              <h1 className="text-xl font-bold">Edit Student</h1>
-              <p className="text-sm text-muted-foreground">
+            <div className="min-w-0">
+              <h1 className="text-xl font-bold tracking-tight">Edit Student</h1>
+              <p className="mt-0.5 truncate text-xs text-white/75">
                 {fullName}
-                {student.admissionNumber && <span className="ml-2 font-mono text-xs">({student.admissionNumber})</span>}
+                {student.admissionNumber && <span className="ml-2 font-mono">({student.admissionNumber})</span>}
               </p>
             </div>
           </div>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <Button variant="outline" onClick={() => router.push(`/students/${studentId}`)} className="gap-1">
-            Cancel
-          </Button>
-          <Button onClick={handleSave} disabled={saving} className="gap-1">
-            {saving ? (
-              <div className="size-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
-            ) : (
-              <Save className="size-4" />
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="outline" className="h-7 gap-1.5 border-white/25 bg-white/10 px-2.5 text-[11px] font-semibold text-white hover:bg-white/10">
+              <CalendarDays className="size-3.5" />
+              {form.academicYear || resolvedYear || 'Academic year'}
+            </Badge>
+            {student.class?.name && (
+              <Badge variant="outline" className="h-7 gap-1.5 border-white/25 bg-white/10 px-2.5 text-[11px] font-semibold text-white hover:bg-white/10">
+                <GraduationCap className="size-3.5" />
+                {student.class.name}{student.section?.name ? ` - ${student.section.name}` : ''}
+              </Badge>
             )}
-            {saving ? 'Saving...' : 'Save Changes'}
-          </Button>
+          </div>
         </div>
-      </div>
+      </section>
 
       {/* Tab Indicator — matches admission page step tracker style */}
-      <div className="mb-6">
+      <div className="rounded-xl border border-violet-200/70 bg-gradient-to-r from-violet-50 via-white to-cyan-50 p-3 shadow-sm dark:border-violet-500/20 dark:from-violet-500/10 dark:via-card dark:to-cyan-500/10 sm:p-4">
         <div className="flex items-start justify-between">
           {EDIT_TABS.map((tab, index) => {
             const isCurrent = currentTab === tab.number
+            const isPast = currentTab > tab.number
             const Icon = tab.icon
 
             return (
@@ -1959,31 +1973,38 @@ export function EditStudentPage({ studentId }: { studentId: string }) {
                 <button
                   type="button"
                   onClick={() => setCurrentTab(tab.number)}
-                  className="flex flex-col items-center gap-1.5 group cursor-pointer"
+                  className="group flex cursor-pointer flex-col items-center gap-1.5"
                 >
                   <div
-                    className={`flex size-10 items-center justify-center rounded-full border-2 transition-all duration-200 ${
+                    className={cn(
+                      'flex size-9 items-center justify-center rounded-xl border transition-all duration-200 sm:size-10',
                       isCurrent
-                        ? 'border-primary bg-primary text-primary-foreground shadow-md scale-110'
-                        : 'border-muted-foreground/30 bg-background text-muted-foreground hover:border-primary/40 hover:bg-primary/5'
-                    }`}
+                        ? 'scale-105 border-sky-400 bg-gradient-to-br from-primary to-sky-500 text-white shadow-md shadow-sky-500/20'
+                        : isPast
+                          ? 'border-emerald-500 bg-emerald-500 text-white shadow-sm shadow-emerald-500/20'
+                          : 'border-violet-200 bg-white text-violet-500 shadow-sm hover:-translate-y-0.5 hover:border-sky-300 hover:text-sky-600 dark:border-violet-500/25 dark:bg-card dark:text-violet-300'
+                    )}
                   >
-                    <Icon className="size-4" />
+                    {isPast ? <Check className="size-5" /> : <Icon className="size-4" />}
                   </div>
                   <span
-                    className={`text-[10px] sm:text-xs font-medium transition-colors text-center leading-tight ${
-                      isCurrent ? 'text-primary' : 'text-muted-foreground'
-                    }`}
+                    className={cn(
+                      'text-center text-[10px] font-medium leading-tight transition-colors sm:text-xs',
+                      isCurrent ? 'font-semibold text-sky-700 dark:text-sky-300' : isPast ? 'text-emerald-700 dark:text-emerald-300' : 'text-muted-foreground'
+                    )}
                   >
                     <span className="hidden sm:inline">{tab.label}</span>
                     <span className="sm:hidden">{tab.number}</span>
                   </span>
                 </button>
                 {index < EDIT_TABS.length - 1 && (
-                  <div className="flex-1 mx-1 mt-4">
-                    <div className={`h-0.5 w-full transition-colors ${
-                      currentTab > tab.number ? 'bg-primary' : 'bg-muted-foreground/20'
-                    }`} />
+                  <div className="mx-1 mt-4 flex-1 sm:mx-2">
+                    <div
+                      className={cn(
+                        'h-0.5 w-full rounded-full transition-colors',
+                        currentTab > tab.number ? 'bg-gradient-to-r from-emerald-500 to-teal-400' : 'bg-violet-200/80 dark:bg-violet-500/20'
+                      )}
+                    />
                   </div>
                 )}
               </div>
@@ -1993,31 +2014,46 @@ export function EditStudentPage({ studentId }: { studentId: string }) {
       </div>
 
       {/* Tab Content — matches admission page card style */}
-      <Card className="flex-1">
-        <CardContent className="p-4 sm:p-6">
+      <Card className="card-premium flex-1 gap-0 overflow-hidden border border-primary/15 py-0 shadow-md shadow-primary/5">
+        <div className="flex items-center gap-3 border-b border-primary/15 bg-gradient-to-r from-teal-50 via-white to-sky-50 px-4 py-3 dark:from-primary/15 dark:via-card dark:to-sky-500/10 sm:px-6">
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-sky-500 text-white shadow-sm shadow-primary/20">
+            <CurrentTabIcon className="size-5" />
+          </div>
+          <div className="min-w-0">
+            <h2 className="text-base font-semibold leading-tight tracking-tight">{currentTabMeta.label}</h2>
+            <p className="truncate text-xs text-muted-foreground">{EDIT_TAB_SUBTITLES[currentTab]}</p>
+          </div>
+          <Badge variant="outline" className="ml-auto hidden h-6 shrink-0 border-primary/20 bg-white/80 px-2 text-[10px] font-semibold text-primary shadow-sm dark:bg-card/80 sm:inline-flex">
+            Tab {currentTab} of {EDIT_TABS.length}
+          </Badge>
+        </div>
+        <CardContent className="bg-gradient-to-br from-white via-primary/[0.015] to-sky-50/35 p-4 dark:from-card dark:via-card dark:to-sky-500/5 sm:p-6">
           {renderTabContent()}
         </CardContent>
       </Card>
 
       {/* Bottom Navigation — matches admission page */}
-      <div className="flex items-center justify-between mt-6 pb-4">
+      <div className="flex items-center justify-between gap-3 rounded-xl border border-primary/15 bg-card/95 p-3 shadow-sm">
         <div>
           {currentTab > 1 && (
-            <Button variant="outline" onClick={() => setCurrentTab(prev => prev - 1)} className="gap-1">
-              ← Previous
+            <Button variant="outline" onClick={() => setCurrentTab(prev => prev - 1)} className="h-9 gap-1 bg-white dark:bg-card">
+              <ChevronLeft className="size-4" /> Previous
             </Button>
           )}
         </div>
         <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => router.push(`/students/${studentId}`)} className="h-9 gap-1 bg-white dark:bg-card">
+            Cancel
+          </Button>
           {currentTab < 5 && (
-            <Button onClick={() => setCurrentTab(prev => prev + 1)} className="gap-1">
-              Next →
+            <Button onClick={() => setCurrentTab(prev => prev + 1)} className="h-9 gap-1 px-6 shadow-sm shadow-primary/20">
+              Next <ChevronRight className="size-4" />
             </Button>
           )}
           {currentTab === 5 && (
-            <Button onClick={handleSave} disabled={saving} className="gap-1">
+            <Button onClick={handleSave} disabled={saving} className="h-9 gap-1 px-6 shadow-sm shadow-primary/20">
               {saving ? (
-                <div className="size-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
+                <div className="size-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
               ) : (
                 <Save className="size-4" />
               )}

@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { PageHeader, EmptyState, LoadingState } from '@/components/shared'
+import { LoadingState } from '@/components/shared'
 import { api } from '@/lib/api'
+import { cn } from '@/lib/utils'
 import { getCurrentAcademicYear } from '@/lib/academic-years'
 import { useAppStore } from '@/lib/store'
 import { parseWorkingDays } from '@/lib/weekdays'
@@ -40,6 +41,13 @@ const SUBJECT_TYPES = [
   { value: 'optional', label: 'Optional', badge: 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-300' },
   { value: 'extra', label: 'Extra', badge: 'border-teal-200 bg-teal-50 text-teal-700 dark:border-teal-900/60 dark:bg-teal-950/30 dark:text-teal-300' },
   { value: 'special', label: 'Special', badge: 'border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-900/60 dark:bg-violet-950/30 dark:text-violet-300' },
+] as const
+
+const CLASS_CARD_TONES = [
+  { card: 'border-sky-200/80 from-sky-50 via-white to-cyan-50 dark:border-sky-500/25 dark:from-sky-500/15 dark:via-card dark:to-cyan-500/10', header: 'from-sky-100/80 via-white/90 to-cyan-100/70 dark:from-sky-500/15 dark:via-card dark:to-cyan-500/10', icon: 'from-sky-500 to-cyan-600' },
+  { card: 'border-violet-200/80 from-violet-50 via-white to-purple-50 dark:border-violet-500/25 dark:from-violet-500/15 dark:via-card dark:to-purple-500/10', header: 'from-violet-100/80 via-white/90 to-purple-100/70 dark:from-violet-500/15 dark:via-card dark:to-purple-500/10', icon: 'from-violet-500 to-purple-600' },
+  { card: 'border-emerald-200/80 from-emerald-50 via-white to-teal-50 dark:border-emerald-500/25 dark:from-emerald-500/15 dark:via-card dark:to-teal-500/10', header: 'from-emerald-100/80 via-white/90 to-teal-100/70 dark:from-emerald-500/15 dark:via-card dark:to-teal-500/10', icon: 'from-emerald-500 to-teal-600' },
+  { card: 'border-amber-200/80 from-amber-50 via-white to-orange-50 dark:border-amber-500/25 dark:from-amber-500/15 dark:via-card dark:to-orange-500/10', header: 'from-amber-100/80 via-white/90 to-orange-100/70 dark:from-amber-500/15 dark:via-card dark:to-orange-500/10', icon: 'from-amber-500 to-orange-600' },
 ] as const
 
 function getTypeBadge(type: string) {
@@ -269,22 +277,38 @@ export function ClassesPage() {
 
   return (
     <div className="space-y-4">
-      <PageHeader
-        title="Class List"
-        description="Manage class structure, sections, subjects and student strength."
-        action={{ label: 'Add Class', icon: PlusCircle, onClick: () => router.push('/academics/classes/new') }}
-      />
+      <section className="relative overflow-hidden rounded-xl border border-primary/25 bg-gradient-to-r from-primary via-teal-600 to-cyan-600 px-4 py-3 text-white shadow-lg shadow-primary/15">
+        <div aria-hidden className="absolute -right-9 -top-14 size-36 rounded-full border-[18px] border-white/10" />
+        <div aria-hidden className="absolute -bottom-14 right-1/4 size-28 rounded-full bg-violet-300/10 blur-xl" />
+        <div className="relative flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-white/25 bg-white/15 shadow-md shadow-black/10 backdrop-blur-sm">
+              <Layers className="size-5 text-white" />
+            </span>
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="text-xl font-bold tracking-tight">Class List</h1>
+                <span className="rounded-full border border-white/20 bg-white/10 px-2 py-0.5 text-[10px] font-semibold text-white/85">{academicYear}</span>
+              </div>
+              <p className="mt-0.5 text-xs text-white/80">Manage classes, sections, subjects, teachers, and student strength.</p>
+            </div>
+          </div>
+          <Button variant="secondary" onClick={() => router.push('/academics/classes/new')} className="relative gap-2 border border-white/60 shadow-md" style={{ backgroundColor: 'white', color: 'var(--primary)' }}>
+            <PlusCircle className="size-4" /> Add Class
+          </Button>
+        </div>
+      </section>
 
       {classes.length > 0 && (
         <>
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <StatCard icon={Layers} label="Classes" value={classes.length} note={`${stats.activeClasses} active`} />
-            <StatCard icon={Users} label="Students" value={stats.totalStudents} note="Across all classes" />
-            <StatCard icon={GraduationCap} label="Sections" value={stats.totalSections} note="Configured sections" />
-            <StatCard icon={BookOpen} label="Subjects" value={stats.totalSubjects} note="Assigned subjects" />
+          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+            <StatCard tone="sky" icon={Layers} label="Classes" value={classes.length} note={`${stats.activeClasses} active`} />
+            <StatCard tone="emerald" icon={Users} label="Students" value={stats.totalStudents} note="Across all classes" />
+            <StatCard tone="violet" icon={GraduationCap} label="Sections" value={stats.totalSections} note="Configured sections" />
+            <StatCard tone="amber" icon={BookOpen} label="Subjects" value={stats.totalSubjects} note="Assigned subjects" />
           </div>
 
-          <Card className="gap-0 py-0 shadow-sm">
+          <Card className="gap-0 overflow-hidden border-sky-200/80 bg-gradient-to-r from-sky-50 via-white to-violet-50 py-0 shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10">
             <CardContent className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="relative w-full sm:max-w-md">
                 <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -292,7 +316,7 @@ export function ClassesPage() {
                   placeholder="Search class, section, or subject"
                   value={searchQuery}
                   onChange={(e) => handleSearchChange(e.target.value)}
-                  className="h-9 bg-background pl-9 pr-9"
+                  className="h-9 border-sky-200 bg-white pl-9 pr-9 shadow-sm focus-visible:border-sky-400 focus-visible:ring-sky-400/20 dark:border-sky-500/25 dark:bg-input/30"
                 />
                 {searchQuery && (
                   <button
@@ -305,7 +329,7 @@ export function ClassesPage() {
                   </button>
                 )}
               </div>
-              <Badge variant="secondary" className="w-fit rounded-md px-2 py-1 text-xs">
+              <Badge className="h-9 w-fit rounded-lg border border-emerald-200 bg-emerald-50 px-3 text-xs text-emerald-700 hover:bg-emerald-50 dark:border-emerald-500/25 dark:bg-emerald-500/10 dark:text-emerald-300">
                 {filteredClasses.length} showing
               </Badge>
             </CardContent>
@@ -314,39 +338,32 @@ export function ClassesPage() {
       )}
 
       {classes.length === 0 ? (
-        <EmptyState
+        <ClassEmptyState
           icon={GraduationCap}
           title="No Classes Yet"
           description="Add classes to organize students and sections."
-          action={{ label: 'Add Class', onClick: () => router.push('/academics/classes/new') }}
+          actionLabel="Add Class"
+          onAction={() => router.push('/academics/classes/new')}
         />
       ) : filteredClasses.length === 0 ? (
-        <Card className="py-0">
-          <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-            <Search className="mb-3 size-10 text-muted-foreground/40" />
-            <p className="text-sm font-medium">No classes found</p>
-            <p className="mt-1 text-sm text-muted-foreground">No class matches &ldquo;{searchQuery}&rdquo;.</p>
-            <Button variant="link" size="sm" onClick={() => handleSearchChange('')} className="mt-1">
-              Clear search
-            </Button>
-          </CardContent>
-        </Card>
+        <ClassEmptyState icon={Search} title="No classes found" description={`No class matches “${searchQuery}”.`} actionLabel="Clear search" onAction={() => handleSearchChange('')} />
       ) : (
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 2xl:grid-cols-3">
-          {filteredClasses.map(cls => {
+          {filteredClasses.map((cls, classIndex) => {
             const sectionCount = cls.sections?.length || 0
             const subjectCount = cls.subjects?.length || 0
             const studentCount = cls._count?.students ?? 0
             const classTeacherCount = sectionCount > 0
               ? cls.sections?.filter(section => section.classTeacher).length || 0
               : cls.classTeacher ? 1 : 0
+            const tone = CLASS_CARD_TONES[classIndex % CLASS_CARD_TONES.length]
 
             return (
-              <Card key={cls.id} className="card-premium group gap-0 overflow-hidden border-0 py-0">
+              <Card key={cls.id} className={cn('group gap-0 overflow-hidden border bg-gradient-to-br py-0 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md', tone.card)}>
                 <CardContent className="p-0">
-                  <div className="flex items-start gap-3 border-b bg-muted/20 p-4">
-                    <div className="bg-brand-soft flex size-10 shrink-0 items-center justify-center rounded-lg text-white shadow-sm">
-                      <Layers className="size-5" />
+                  <div className={cn('flex items-start gap-3 border-b border-current/10 bg-gradient-to-r p-3.5', tone.header)}>
+                    <div className={cn('flex size-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br text-white shadow-md', tone.icon)}>
+                      <Layers className="size-5 text-white" />
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex min-w-0 flex-wrap items-center gap-1.5">
@@ -354,7 +371,7 @@ export function ClassesPage() {
                           {cls.name || 'Unnamed Class'}
                         </h3>
                         {sectionCount > 0 ? cls.sections!.slice(0, 4).map(section => (
-                          <Badge key={section.id} variant="secondary" className="h-5 shrink-0 rounded-md px-1.5 text-[11px]">
+                          <Badge key={section.id} variant="outline" className="h-5 shrink-0 rounded-md border-primary/15 bg-white/70 px-1.5 text-[11px] shadow-sm dark:bg-card/60">
                             {section.name}
                             <span className="ml-1 text-muted-foreground">({section._count?.students ?? 0})</span>
                           </Badge>
@@ -368,7 +385,7 @@ export function ClassesPage() {
                             +{sectionCount - 4}
                           </Badge>
                         )}
-                        <Badge variant={cls.isActive ? 'secondary' : 'outline'} className="h-5 shrink-0 rounded-md px-1.5 text-[11px]">
+                        <Badge variant="outline" className={cn('h-5 shrink-0 rounded-md px-1.5 text-[11px]', cls.isActive ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/25 dark:bg-emerald-500/10 dark:text-emerald-300' : 'border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-500/25 dark:bg-slate-500/10 dark:text-slate-300')}>
                           {cls.isActive ? 'Active' : 'Inactive'}
                         </Badge>
                       </div>
@@ -381,7 +398,7 @@ export function ClassesPage() {
                         type="button"
                         variant="ghost"
                         size="icon"
-                        className="size-8"
+                        className="size-8 rounded-lg border border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100 dark:border-violet-500/25 dark:bg-violet-500/10 dark:text-violet-300"
                         title="View timetable"
                         aria-label={`View timetable for ${cls.name || 'class'}`}
                         onClick={() => handleOpenTimetable(cls)}
@@ -404,20 +421,20 @@ export function ClassesPage() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-3 border-b text-center">
+                  <div className="grid grid-cols-3 border-b border-current/10 bg-white/55 text-center dark:bg-card/40">
                     <Metric label="Students" value={studentCount} />
                     <Metric label="Sections" value={sectionCount} />
                     <Metric label="Class Teachers" value={classTeacherCount} />
                   </div>
 
-                  <div className="p-4">
+                  <div className="p-3.5">
                     <div className="space-y-3">
                       <div className="space-y-2">
                         <SectionTitle icon={UserCheck} label={`Class Teachers (${academicYear})`} />
                         {sectionCount > 0 ? (
                           <div className="flex flex-wrap gap-1.5">
                             {cls.sections!.map(section => (
-                              <Badge key={section.id} variant={section.classTeacher ? 'secondary' : 'outline'} className="h-6 rounded-md px-2 text-xs">
+                              <Badge key={section.id} variant="outline" className={cn('h-6 rounded-md px-2 text-xs shadow-sm', section.classTeacher ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/25 dark:bg-emerald-500/10 dark:text-emerald-300' : 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-300')}>
                                 {section.name}: {section.classTeacher ? getTeacherName(section.classTeacher) : 'Unassigned'}
                               </Badge>
                             ))}
@@ -427,7 +444,7 @@ export function ClassesPage() {
                             {getTeacherName(cls.classTeacher)}
                           </Badge>
                         ) : (
-                          <p className="rounded-md border border-dashed px-3 py-2 text-xs text-muted-foreground">No class teacher assigned.</p>
+                          <p className="rounded-lg border border-dashed border-amber-300/70 bg-amber-50/60 px-3 py-2 text-xs text-amber-700 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-300">No class teacher assigned.</p>
                         )}
                       </div>
 
@@ -450,26 +467,26 @@ export function ClassesPage() {
                           )}
                         </div>
                       ) : (
-                        <p className="rounded-md border border-dashed px-3 py-2 text-xs text-muted-foreground">No subjects assigned.</p>
+                        <p className="rounded-lg border border-dashed border-violet-300/70 bg-violet-50/60 px-3 py-2 text-xs text-violet-700 dark:border-violet-500/25 dark:bg-violet-500/10 dark:text-violet-300">No subjects assigned.</p>
                       )}
                       </div>
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between border-t bg-muted/15 px-4 py-2.5">
+                  <div className="flex items-center justify-between border-t border-current/10 bg-white/60 px-3.5 py-2.5 dark:bg-card/50">
                     <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                       <CheckCircle2 className="size-3.5 text-primary" />
                       Ready for setup
                     </div>
                     <div className="flex gap-2">
-                      <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={() => handleEdit(cls)}>
+                      <Button variant="outline" size="sm" className="h-8 gap-1.5 border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100 dark:border-sky-500/25 dark:bg-sky-500/10 dark:text-sky-300" onClick={() => handleEdit(cls)}>
                         <Pencil className="size-3.5" />
                         Edit
                       </Button>
                       <Button
                         variant="outline"
                         size="sm"
-                        className="h-8 gap-1.5 border-destructive/20 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                        className="h-8 gap-1.5 border-red-200 bg-red-50 text-red-700 hover:bg-red-100 hover:text-red-800 dark:border-red-500/25 dark:bg-red-500/10 dark:text-red-300"
                         onClick={() => setDeleteClass(cls)}
                       >
                         <Trash2 className="size-3.5" />
@@ -601,16 +618,23 @@ export function ClassesPage() {
   )
 }
 
-function StatCard({ icon: Icon, label, value, note }: { icon: typeof Layers; label: string; value: number; note: string }) {
+function StatCard({ icon: Icon, label, value, note, tone }: { icon: typeof Layers; label: string; value: number; note: string; tone: 'sky' | 'emerald' | 'violet' | 'amber' }) {
+  const styles = {
+    sky: { card: 'border-sky-200/80 from-sky-50 via-white to-cyan-50 dark:border-sky-500/25 dark:from-sky-500/15 dark:via-card dark:to-cyan-500/10', icon: 'from-sky-500 to-cyan-600', value: 'text-sky-700 dark:text-sky-300' },
+    emerald: { card: 'border-emerald-200/80 from-emerald-50 via-white to-teal-50 dark:border-emerald-500/25 dark:from-emerald-500/15 dark:via-card dark:to-teal-500/10', icon: 'from-emerald-500 to-teal-600', value: 'text-emerald-700 dark:text-emerald-300' },
+    violet: { card: 'border-violet-200/80 from-violet-50 via-white to-purple-50 dark:border-violet-500/25 dark:from-violet-500/15 dark:via-card dark:to-purple-500/10', icon: 'from-violet-500 to-purple-600', value: 'text-violet-700 dark:text-violet-300' },
+    amber: { card: 'border-amber-200/80 from-amber-50 via-white to-orange-50 dark:border-amber-500/25 dark:from-amber-500/15 dark:via-card dark:to-orange-500/10', icon: 'from-amber-500 to-orange-600', value: 'text-amber-700 dark:text-amber-300' },
+  }[tone]
+
   return (
-    <Card className="card-premium gap-0 border-0 py-0">
-      <CardContent className="flex items-center gap-3 p-3">
-        <div className="bg-brand-soft flex size-9 shrink-0 items-center justify-center rounded-lg text-white shadow-sm">
-          <Icon className="size-4.5" />
+    <Card className={cn('group gap-0 border bg-gradient-to-r py-0 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md', styles.card)}>
+      <CardContent className="flex items-center gap-2.5 p-2.5">
+        <div className={cn('flex size-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br text-white shadow-sm', styles.icon)}>
+          <Icon className="size-4 text-white" />
         </div>
-        <div className="min-w-0">
-          <p className="text-xs text-muted-foreground">{label}</p>
-          <p className="text-lg font-semibold leading-tight">{value}</p>
+        <div className="min-w-0 flex-1">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
+          <p className={cn('text-lg font-bold leading-tight', styles.value)}>{value}</p>
           <p className="truncate text-[11px] text-muted-foreground">{note}</p>
         </div>
       </CardContent>
@@ -630,9 +654,29 @@ function Metric({ label, value }: { label: string; value: number }) {
 function SectionTitle({ icon: Icon, label }: { icon: typeof GraduationCap; label: string }) {
   return (
     <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
-      <Icon className="size-3.5" />
+      <span className="flex size-5 items-center justify-center rounded-md bg-gradient-to-br from-primary to-cyan-600 text-white"><Icon className="size-3 text-white" /></span>
       {label}
     </div>
+  )
+}
+
+function ClassEmptyState({ icon: Icon, title, description, actionLabel, onAction }: {
+  icon: typeof GraduationCap
+  title: string
+  description: string
+  actionLabel: string
+  onAction: () => void
+}) {
+  return (
+    <Card className="relative gap-0 overflow-hidden border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-violet-50 py-0 shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10">
+      <div aria-hidden className="absolute -right-8 -top-10 size-28 rounded-full border-[14px] border-sky-200/25 dark:border-sky-500/10" />
+      <CardContent className="relative flex flex-col items-center justify-center py-10 text-center">
+        <span className="mb-3 flex size-12 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500 to-violet-600 text-white shadow-md"><Icon className="size-6 text-white" /></span>
+        <p className="text-sm font-semibold">{title}</p>
+        <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+        <Button size="sm" onClick={onAction} className="mt-3 h-8 gap-1.5 px-3 text-xs">{actionLabel}</Button>
+      </CardContent>
+    </Card>
   )
 }
 

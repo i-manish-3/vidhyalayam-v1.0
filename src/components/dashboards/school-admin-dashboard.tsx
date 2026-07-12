@@ -333,7 +333,6 @@ export function SchoolAdminDashboard() {
             </div>
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                <h1 className="text-xl font-bold tracking-tight">School Overview</h1>
                 <span className="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-2 py-0.5 text-[11px] text-white/80 backdrop-blur-sm">
                   <Calendar className="size-3" />
                   <span suppressHydrationWarning>{todayLabel}</span>
