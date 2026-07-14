@@ -13,7 +13,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -44,6 +44,7 @@ import {
   Search,
   Tags,
   Trash2,
+  X,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -791,34 +792,42 @@ export function FeesStructuresPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex min-w-0 items-stretch gap-3">
-          <span aria-hidden className="bg-brand mt-0.5 w-1 shrink-0 self-stretch rounded-full" />
+      <div className="relative flex flex-col gap-3 overflow-hidden rounded-xl border border-primary/25 bg-gradient-to-r from-primary via-teal-600 to-cyan-600 px-4 py-3 text-white shadow-lg shadow-primary/15 sm:flex-row sm:items-center sm:justify-between">
+        <div aria-hidden className="absolute -right-10 -top-12 size-36 rounded-full border-[18px] border-white/15" />
+        <div aria-hidden className="absolute bottom-0 right-1/4 h-px w-48 bg-gradient-to-r from-transparent via-white/45 to-transparent" />
+        <div aria-hidden className="absolute -bottom-14 right-28 size-24 rounded-full bg-sky-300/10" />
+        <div className="relative flex min-w-0 items-center gap-3">
+          <span className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-white/25 bg-white/15 shadow-md shadow-black/10 backdrop-blur-sm">
+            <LayoutGrid className="size-5" />
+          </span>
           <div className="min-w-0">
-            <h1 className="text-xl font-semibold tracking-tight text-foreground/90">Class Fee Structure</h1>
-            <p className="mt-0.5 text-sm text-muted-foreground">
-              Configure fee amounts by session, class, and fee group.
-            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-xl font-bold tracking-tight">Class Fee Structure</h1>
+              <span className="rounded-full border border-white/20 bg-white/10 px-2 py-0.5 text-[10px] font-semibold text-white/85">{structures.length} structures</span>
+            </div>
+            <p className="mt-0.5 text-xs text-white/80">Configure fee amounts by session, class, and fee group.</p>
           </div>
         </div>
-        <div className="flex shrink-0 flex-wrap items-center gap-2">
-          <Button onClick={() => setShowAdd(true)} className="gap-2">
+        <div className="relative flex shrink-0 flex-wrap items-center gap-2">
+          <Button variant="secondary" onClick={() => router.push('/fees/groups')} className="gap-2 border border-white/60 shadow-md" style={{ backgroundColor: 'white', color: 'var(--primary)' }}>
+            <Tags className="size-4" />
+            Fee Groups
+          </Button>
+          <Button variant="secondary" onClick={() => setShowAdd(true)} className="gap-2 border border-white/60 shadow-md" style={{ backgroundColor: 'white', color: 'var(--primary)' }}>
             <PlusCircle className="size-4" />
             Add Structure
-          </Button>
-          <Button variant="outline" onClick={() => router.push('/fees/groups')} className="gap-2">
-            <Tags className="size-4" />
-            Fee Group
           </Button>
         </div>
       </div>
 
-      <Card className="overflow-hidden rounded-lg py-0 shadow-sm">
-        <CardHeader className="border-b bg-muted/40 px-4 !pb-2 !pt-2">
+      <Card className="gap-0 overflow-hidden border-sky-500/15 bg-gradient-to-br from-card via-card to-sky-500/[0.035] py-0 shadow-sm">
+        <CardHeader className="border-b border-sky-500/15 bg-gradient-to-r from-sky-500/[0.10] via-primary/[0.05] to-violet-500/[0.08] px-4 !pb-2 !pt-2">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <CardTitle className="flex items-center gap-2 text-base">
-                <LayoutGrid className="size-4 text-primary" />
+                <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-primary text-white shadow-sm shadow-sky-500/20">
+                  <LayoutGrid className="size-4" />
+                </span>
                 Class Fee Structure Setup
               </CardTitle>
               <p className="mt-0.5 text-sm text-muted-foreground">
@@ -978,10 +987,10 @@ export function FeesStructuresPage() {
               <span>Select one or more classes to configure fee heads.</span>
             </div>
           ) : (
-          <div className="overflow-hidden rounded-lg border bg-background shadow-sm">
+          <div className="overflow-hidden rounded-xl border border-sky-500/15 shadow-sm">
             <Table>
-              <TableHeader className="bg-muted/50">
-                <TableRow className="hover:bg-transparent">
+              <TableHeader className="bg-gradient-to-r from-sky-500/[0.08] via-primary/[0.04] to-violet-500/[0.07]">
+                <TableRow>
                   <TableHead className="h-9 w-[90px] px-3 text-xs font-semibold uppercase text-muted-foreground">
                     <span className="flex items-center gap-2">
                       <CheckCircle2 className="size-3.5" />
@@ -1019,7 +1028,7 @@ export function FeesStructuresPage() {
                     const isExpanded = expandedHeadId === head.id
                     return (
                       <Fragment key={head.id}>
-                        <TableRow className={cn('transition-colors', isSelected ? 'bg-primary/5 hover:bg-primary/10' : 'hover:bg-muted/40')}>
+                        <TableRow className={cn('transition-colors', isSelected ? 'bg-sky-500/[0.06] hover:bg-sky-500/[0.09]' : 'hover:bg-sky-500/[0.045]')}>
                           <TableCell className="px-3 py-1.5">
                             <Switch
                               checked={isSelected}
@@ -1212,14 +1221,19 @@ export function FeesStructuresPage() {
         <div className="space-y-3">
           <Separator />
           <div className="flex items-center justify-between gap-3">
-            <div>
-              <h2 className="text-lg font-semibold tracking-tight">Saved Class Fee Structures</h2>
-              <p className="text-sm text-muted-foreground">
-                {filteredStructures.length} of {structures.length} fee structure{structures.length !== 1 ? 's' : ''} shown
-              </p>
+            <div className="flex items-center gap-2">
+              <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-primary text-white shadow-sm shadow-sky-500/20">
+                <LayoutGrid className="size-4" />
+              </span>
+              <div>
+                <h2 className="text-lg font-semibold tracking-tight">Saved Class Fee Structures</h2>
+                <p className="text-sm text-muted-foreground">
+                  {filteredStructures.length} of {structures.length} fee structure{structures.length !== 1 ? 's' : ''} shown
+                </p>
+              </div>
             </div>
           </div>
-          <div className="grid gap-3 rounded-lg border bg-muted/20 p-3 md:grid-cols-[minmax(220px,1fr)_180px_180px_180px]">
+          <div className="grid gap-3 rounded-xl border border-sky-500/15 bg-gradient-to-br from-sky-500/[0.03] via-card to-violet-500/[0.03] p-3 md:grid-cols-[minmax(220px,1fr)_180px_180px_180px]">
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
@@ -1265,10 +1279,10 @@ export function FeesStructuresPage() {
               </SelectContent>
             </Select>
           </div>
-          <div className="overflow-hidden rounded-lg border bg-background shadow-sm">
+          <div className="overflow-hidden rounded-xl border border-sky-500/15 bg-gradient-to-br from-card via-card to-sky-500/[0.035] shadow-sm">
             <Table>
-              <TableHeader className="bg-muted/50">
-                <TableRow className="hover:bg-transparent">
+              <TableHeader className="bg-gradient-to-r from-sky-500/[0.08] via-primary/[0.04] to-violet-500/[0.07]">
+                <TableRow>
                   <TableHead className="h-11 px-4 text-xs font-semibold uppercase text-muted-foreground">
                     <span className="flex items-center gap-2">
                       <FileText className="size-3.5" />
@@ -1306,7 +1320,7 @@ export function FeesStructuresPage() {
 
                   return (
                     <Fragment key={structure.id}>
-                      <TableRow className="hover:bg-muted/40">
+                      <TableRow className="transition-colors hover:bg-sky-500/[0.055]">
                         <TableCell className="px-4 py-3">
                           <div className="flex items-center gap-3">
                             <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
@@ -1373,7 +1387,7 @@ export function FeesStructuresPage() {
                                     </div>
                                     <div className="overflow-hidden rounded-md border bg-background">
                                       <Table>
-                                        <TableHeader className="bg-muted/40">
+                                        <TableHeader className="bg-gradient-to-r from-sky-500/[0.08] via-primary/[0.04] to-violet-500/[0.07]">
                                           <TableRow>
                                             <TableHead className="w-[140px]">Period</TableHead>
                                             <TableHead className="w-[120px]">Amount</TableHead>
@@ -1414,7 +1428,7 @@ export function FeesStructuresPage() {
               </TableBody>
             </Table>
             {filteredStructures.length > 0 && (
-              <div className="flex flex-col items-center justify-between gap-3 border-t px-4 py-3 sm:flex-row">
+              <div className="flex flex-col items-center justify-between gap-3 border-t border-sky-500/15 bg-gradient-to-r from-sky-500/[0.06] via-primary/[0.03] to-violet-500/[0.05] px-4 py-3 sm:flex-row">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <span>Rows per page:</span>
                   <Select value={String(structurePageSize)} onValueChange={(v) => handleStructurePageSizeChange(Number(v))}>
@@ -1464,9 +1478,23 @@ export function FeesStructuresPage() {
 
       {/* Add Fee Structure Dialog */}
       <Dialog open={showAdd} onOpenChange={setShowAdd}>
-        <DialogContent className="max-w-2xl max-h-[90vh]">
-          <DialogHeader>
-            <DialogTitle>Add New Fee Structure</DialogTitle>
+        <DialogContent className="max-h-[90vh] max-w-2xl border-sky-200/80 bg-gradient-to-br from-white via-sky-50/45 to-cyan-50/60 p-0 shadow-xl dark:border-sky-500/25 dark:from-card dark:via-sky-500/10 dark:to-cyan-500/10">
+          <DialogHeader className="relative overflow-hidden rounded-t-lg border-b border-sky-500/15 bg-gradient-to-r from-primary via-teal-600 to-cyan-600 p-5 text-white">
+            <div aria-hidden className="absolute -right-10 -top-12 size-32 rounded-full border-[16px] border-white/15" />
+            <div aria-hidden className="absolute bottom-0 right-32 h-px w-48 bg-gradient-to-r from-transparent via-white/50 to-transparent" />
+            <div className="flex items-start gap-3">
+              <div className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-white/25 bg-white/15 shadow-md shadow-black/10 backdrop-blur-sm">
+                <LayoutGrid className="size-5" />
+              </div>
+              <div className="min-w-0 space-y-1">
+                <DialogTitle className="text-white">Add New Fee Structure</DialogTitle>
+                <DialogDescription className="text-white/80">Create a new fee structure for a class and fee group.</DialogDescription>
+              </div>
+              <DialogClose className="absolute top-3 right-3 z-20 flex size-8 items-center justify-center rounded-full border border-white/30 bg-white/15 text-white/90 shadow-sm backdrop-blur-sm transition-all hover:bg-white/30 hover:text-white">
+                <X className="size-4" />
+                <span className="sr-only">Close</span>
+              </DialogClose>
+            </div>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-4 sm:grid-cols-2">
@@ -1728,16 +1756,27 @@ export function FeesStructuresPage() {
               </div>
             )}
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAdd(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={handleAdd}
-              disabled={saving || !form.name.trim() || !form.feeGroupId || !form.classId}
-            >
-              {saving ? 'Creating...' : 'Create Structure'}
-            </Button>
+          <DialogFooter className="border-t border-sky-500/15 bg-white/80 p-4 dark:bg-card/80">
+            <div className="flex w-full items-center justify-between gap-3 max-sm:flex-col">
+              <p className="hidden text-xs text-sky-700 sm:block dark:text-sky-300">
+                <span className="inline-flex items-center gap-1">
+                  <LayoutGrid className="size-3" />
+                  Create a new fee structure
+                </span>
+              </p>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" onClick={() => setShowAdd(false)} className="bg-white dark:bg-card">
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleAdd}
+                  disabled={saving || !form.name.trim() || !form.feeGroupId || !form.classId}
+                  className="gap-1.5 bg-gradient-to-r from-primary to-cyan-600 shadow-sm shadow-primary/20"
+                >
+                  {saving ? 'Creating...' : 'Create Structure'}
+                </Button>
+              </div>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
