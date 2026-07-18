@@ -261,13 +261,18 @@ export function FeesHeadsPage() {
           </Button>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-lg border border-cyan-200/80 bg-card shadow-sm dark:border-cyan-500/20">
-          <div className="flex flex-col gap-3 border-b border-cyan-500/15 bg-gradient-to-r from-cyan-500/10 via-sky-500/5 to-violet-500/10 p-3 xl:flex-row xl:items-center xl:justify-between">
-            <div>
-              <p className="text-sm font-semibold">Fee Head Library</p>
-              <p className="text-xs text-muted-foreground">
-                {filteredFeeHeads.length} of {feeHeads.length} heads shown
-              </p>
+        <div className="overflow-hidden rounded-xl border border-sky-500/15 bg-gradient-to-br from-card via-card to-sky-500/[0.035] shadow-sm dark:border-sky-500/20">
+          <div className="flex flex-col gap-3 border-b border-sky-500/15 bg-gradient-to-r from-sky-500/[0.10] via-primary/[0.05] to-violet-500/[0.08] p-3 xl:flex-row xl:items-center xl:justify-between">
+            <div className="flex items-center gap-2">
+              <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-primary text-white shadow-sm shadow-sky-500/20">
+                <IndianRupee className="size-4" />
+              </span>
+              <div>
+                <p className="text-sm font-semibold">Fee Head Library</p>
+                <p className="text-xs text-muted-foreground">
+                  {filteredFeeHeads.length} of {feeHeads.length} heads shown
+                </p>
+              </div>
             </div>
             <div className="grid gap-2 sm:grid-cols-[minmax(220px,1fr)_160px_190px] xl:w-[650px]">
               <div className="relative">
@@ -335,8 +340,14 @@ export function FeesHeadsPage() {
               <TableBody>
                 {filteredFeeHeads.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={4} className="h-32 text-center text-muted-foreground">
-                      No fee heads match the selected filters.
+                    <TableCell colSpan={4} className="py-10 text-center">
+                      <div className="flex flex-col items-center justify-center gap-2">
+                        <div className="flex size-12 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-100 to-cyan-100 shadow-sm dark:from-sky-900/50 dark:to-cyan-900/50">
+                          <IndianRupee className="size-6 text-sky-600 dark:text-sky-400" />
+                        </div>
+                        <p className="text-sm font-medium text-sky-900 dark:text-sky-200">No fee heads match</p>
+                        <p className="text-xs text-sky-700/70 dark:text-sky-300/70">Try adjusting the search or filters.</p>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -349,8 +360,8 @@ export function FeesHeadsPage() {
                         <TableCell className="px-4 py-3">
                           <div className="flex min-w-56 items-center gap-3">
                             <div className={cn(
-                              'flex size-9 items-center justify-center rounded-md border',
-                              head.isActive ? 'border-primary/20 bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
+                              'flex size-9 items-center justify-center rounded-md border shadow-sm',
+                              head.isActive ? 'border-sky-300/60 bg-gradient-to-br from-sky-500 to-cyan-600 text-white shadow-sky-500/20 dark:border-sky-500/40' : 'border-sky-200/50 bg-muted text-muted-foreground dark:border-sky-500/20'
                             )}>
                               <IndianRupee className="size-4" />
                             </div>
@@ -362,23 +373,23 @@ export function FeesHeadsPage() {
                         </TableCell>
                         <TableCell className="px-4 py-3">
                           <div className="flex flex-wrap items-center gap-2">
-                            <Badge variant="outline" className={cn('gap-1.5 border', FREQUENCY_BADGE_CLASSES[head.frequency])}>
+                            <Badge variant="outline" className={cn('gap-1.5 border shadow-sm', FREQUENCY_BADGE_CLASSES[head.frequency])}>
                               <FrequencyIcon className="size-3.5" />
                               {frequency.label}
                             </Badge>
-                            <span className="text-xs text-muted-foreground">{frequency.shortLabel}</span>
+                            <span className="rounded-md border border-sky-200/50 bg-sky-50/50 px-1.5 py-0.5 text-[10px] font-medium text-sky-700 dark:border-sky-500/20 dark:bg-sky-500/10 dark:text-sky-300">{frequency.shortLabel}</span>
                           </div>
                         </TableCell>
                         <TableCell className="px-4 py-3">
                           <div className="flex items-center gap-2">
                             {head.isActive ? (
-                              <span className="inline-flex items-center gap-1.5 text-sm font-medium text-emerald-600">
-                                <CheckCircle2 className="size-4" />
+                              <span className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-emerald-500 to-emerald-400 px-2.5 py-0.5 text-xs font-semibold text-white shadow-sm shadow-emerald-300/30">
+                                <CheckCircle2 className="size-3.5" />
                                 Active
                               </span>
                             ) : (
-                              <span className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-                                <XCircle className="size-4" />
+                              <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-600 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                                <XCircle className="size-3.5" />
                                 Inactive
                               </span>
                             )}
@@ -387,12 +398,19 @@ export function FeesHeadsPage() {
                         <TableCell className="px-4 py-3">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="size-8">
+                              <Button variant="ghost" size="icon" className="size-8 data-[state=open]:bg-sky-100 data-[state=open]:text-sky-700 dark:data-[state=open]:bg-sky-900/40 dark:data-[state=open]:text-sky-300">
                                 <MoreHorizontal className="size-4" />
                               </Button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => handleToggleActive(head)}>
+                            <DropdownMenuContent align="end" className="border-sky-200/60 dark:border-sky-500/25">
+                              <DropdownMenuItem
+                                onClick={() => handleToggleActive(head)}
+                                className={cn(
+                                  'gap-2 focus:bg-sky-50 dark:focus:bg-sky-900/30',
+                                  head.isActive ? 'text-amber-600 focus:text-amber-700 dark:text-amber-400 dark:focus:text-amber-300' : 'text-emerald-600 focus:text-emerald-700 dark:text-emerald-400 dark:focus:text-emerald-300'
+                                )}
+                              >
+                                {head.isActive ? <XCircle className="size-4" /> : <CheckCircle2 className="size-4" />}
                                 {head.isActive ? 'Deactivate' : 'Activate'}
                               </DropdownMenuItem>
                             </DropdownMenuContent>

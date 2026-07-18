@@ -4,13 +4,12 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Separator } from '@/components/ui/separator'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { cn } from '@/lib/utils'
 import {
   Shield,
   ShieldCheck,
@@ -26,10 +25,10 @@ import {
   Lock,
   LockOpen,
   CheckCircle2,
+  User,
+  Building2,
   type LucideIcon,
 } from 'lucide-react'
-
-// ─── Types ───────────────────────────────────────────────────────────────────
 
 interface StaffInfo {
   id: string
@@ -74,8 +73,6 @@ interface UserPermissionsResponse {
   effectivePermissions: string[]
   roles: AssignedRole[]
 }
-
-// ─── Constants ───────────────────────────────────────────────────────────────
 
 const ROLE_BADGE_COLORS: Record<string, string> = {
   SCHOOL_ADMIN: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400',
@@ -138,8 +135,6 @@ const MODULE_COLORS: Record<string, string> = {
   'Roles & Permissions': 'bg-slate-100 dark:bg-slate-950/40 text-slate-700 dark:text-slate-400',
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
 function getInitials(name: string): string {
   return name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)
 }
@@ -151,8 +146,6 @@ function formatRoleName(role: string): string {
 function getRoleBadgeColor(role: string): string {
   return ROLE_BADGE_COLORS[role] || 'bg-gray-100 text-gray-700 dark:bg-gray-950/40 dark:text-gray-400'
 }
-
-// ─── Loading Skeletons ───────────────────────────────────────────────────────
 
 function DetailSkeleton() {
   return (
@@ -175,7 +168,45 @@ function DetailSkeleton() {
   )
 }
 
-// ─── Main Component ──────────────────────────────────────────────────────────
+function StatCard({
+  label,
+  value,
+  icon: Icon,
+  tone,
+  status,
+}: {
+  label: string
+  value: string | number
+  icon: LucideIcon
+  tone: 'primary' | 'muted' | 'emerald' | 'red'
+  status?: 'active' | 'locked'
+}) {
+  const toneMap = {
+    primary: { iconBg: 'bg-primary/10', iconColor: 'text-primary', barColor: 'from-primary/60 via-primary to-primary/40' },
+    muted: { iconBg: 'bg-muted', iconColor: 'text-muted-foreground', barColor: 'from-muted/60 via-muted to-muted/40' },
+    emerald: { iconBg: 'bg-emerald-50 dark:bg-emerald-950/30', iconColor: 'text-emerald-600', barColor: 'from-emerald-400 via-emerald-500 to-emerald-400' },
+    red: { iconBg: 'bg-red-50 dark:bg-red-950/30', iconColor: 'text-red-600', barColor: 'from-red-400 via-red-500 to-red-400' },
+  }
+  const t = toneMap[tone]
+  return (
+    <div className="relative overflow-hidden rounded-xl border border-primary/5 bg-gradient-to-br from-card via-card to-primary/[0.02] shadow-sm transition-all hover:shadow-md">
+      <div className="p-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-xs font-medium text-muted-foreground">{label}</p>
+            <p className={cn('mt-1 text-2xl font-bold tracking-tight', status === 'locked' && 'text-red-600', status === 'active' && 'text-emerald-600')}>
+              {value}
+            </p>
+          </div>
+          <div className={cn('flex size-10 items-center justify-center rounded-xl', t.iconBg)}>
+            <Icon className={cn('size-5', t.iconColor)} />
+          </div>
+        </div>
+      </div>
+      <div className={cn('absolute bottom-0 left-0 h-1 w-full bg-gradient-to-r', t.barColor)} />
+    </div>
+  )
+}
 
 export function StaffDetailPage({ staffId }: { staffId: string }) {
   const router = useRouter()
@@ -187,11 +218,9 @@ export function StaffDetailPage({ staffId }: { staffId: string }) {
   const [activeTab, setActiveTab] = useState('permissions')
   const [unlocking, setUnlocking] = useState(false)
 
-  // ── Fetch staff details ──
   const fetchStaffDetail = useCallback(async () => {
     try {
       setLoading(true)
-
       const staffRes = await api.get<{
         id: string
         userId?: string | null
@@ -232,33 +261,23 @@ export function StaffDetailPage({ staffId }: { staffId: string }) {
       }
       setStaffInfo(mapped)
 
-      // Permissions are still keyed by User.id (login account).
       if (mapped.userId) {
-        const permRes = await api.get<UserPermissionsResponse>(
-          `/api/school/users/${mapped.userId}/permissions`
-        )
+        const permRes = await api.get<UserPermissionsResponse>(`/api/school/users/${mapped.userId}/permissions`)
         setPermissionsData(permRes)
       }
     } catch {
       toast({ title: "Couldn't Load Staff Details", description: "We couldn't load the staff details. Please try again.", variant: 'destructive' })
-    } finally {
-      setLoading(false)
-    }
+    } finally { setLoading(false) }
   }, [staffId, toast])
 
-  useEffect(() => {
-    fetchStaffDetail()
-  }, [fetchStaffDetail])
+  useEffect(() => { fetchStaffDetail() }, [fetchStaffDetail])
 
-  // ── Derived state ──
   const permissionsByModule = useMemo(() => {
     if (!permissionsData?.roles) return {} as Record<string, RolePermission[]>
-
     const grouped: Record<string, RolePermission[]> = {}
     for (const role of permissionsData.roles) {
       for (const perm of role.permissions) {
         if (!grouped[perm.module]) grouped[perm.module] = []
-        // Avoid duplicates across roles
         if (!grouped[perm.module].some((p) => p.code === perm.code)) {
           grouped[perm.module].push(perm)
         }
@@ -267,10 +286,7 @@ export function StaffDetailPage({ staffId }: { staffId: string }) {
     return grouped
   }, [permissionsData])
 
-  const sortedModules = useMemo(
-    () => Object.keys(permissionsByModule).sort(),
-    [permissionsByModule]
-  )
+  const sortedModules = useMemo(() => Object.keys(permissionsByModule).sort(), [permissionsByModule])
 
   const totalPermissions = useMemo(
     () => Object.values(permissionsByModule).reduce((sum, perms) => sum + perms.length, 0),
@@ -282,40 +298,32 @@ export function StaffDetailPage({ staffId }: { staffId: string }) {
     [permissionsData]
   )
 
-  // ── Handle back navigation ──
-  const handleBack = useCallback(() => {
-    router.push('/staff')
-  }, [router])
+  const handleBack = useCallback(() => { router.push('/staff') }, [router])
 
-  // ── Unlock staff account ──
   const handleUnlock = useCallback(async () => {
     if (!staffInfo?.id) return
     try {
       setUnlocking(true)
       await api.post(`/api/school/users/${staffInfo.userId}/unlock`, {})
       await fetchStaffDetail()
-      toast({
-        title: 'Account Unlocked',
-        description: `${staffInfo.name} can now log in immediately.`,
-      })
+      toast({ title: 'Account Unlocked', description: `${staffInfo.name} can now log in immediately.` })
     } catch (err) {
-      toast({
-        title: "Couldn't Unlock Account",
-        description: err instanceof Error ? err.message : "We couldn't unlock this account. Please try again.",
-        variant: 'destructive',
-      })
-    } finally {
-      setUnlocking(false)
-    }
+      toast({ title: "Couldn't Unlock Account", description: err instanceof Error ? err.message : "We couldn't unlock this account. Please try again.", variant: 'destructive' })
+    } finally { setUnlocking(false) }
   }, [staffInfo?.id, staffInfo?.name, fetchStaffDetail, toast])
 
-  // ── Render ──
   if (loading) {
     return (
       <div className="space-y-6">
-        <div className="flex items-center gap-3">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Staff Details</h1>
+        <div className="relative overflow-hidden rounded-2xl bg-[linear-gradient(135deg,var(--primary)_0%,#0d9488_48%,#2563eb_100%)] px-6 py-6 text-white shadow-lg">
+          <div className="relative flex items-center gap-4">
+            <span className="flex size-12 items-center justify-center rounded-2xl border border-white/20 bg-white/15 shadow-md backdrop-blur-sm">
+              <Users className="size-6 text-white" />
+            </span>
+            <div>
+              <h1 className="text-xl font-bold tracking-tight">Staff Details</h1>
+              <p className="mt-1 text-sm text-white/75">View staff member information and inherited permissions</p>
+            </div>
           </div>
         </div>
         <DetailSkeleton />
@@ -326,39 +334,65 @@ export function StaffDetailPage({ staffId }: { staffId: string }) {
   if (!staffInfo) {
     return (
       <div className="space-y-6">
-        <div className="flex items-center gap-3">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Staff Details</h1>
+        <div className="relative overflow-hidden rounded-2xl bg-[linear-gradient(135deg,var(--primary)_0%,#0d9488_48%,#2563eb_100%)] px-6 py-6 text-white shadow-lg">
+          <div className="relative flex items-center gap-4">
+            <span className="flex size-12 items-center justify-center rounded-2xl border border-white/20 bg-white/15 shadow-md backdrop-blur-sm">
+              <Users className="size-6 text-white" />
+            </span>
+            <div>
+              <h1 className="text-xl font-bold tracking-tight">Staff Details</h1>
+              <p className="mt-1 text-sm text-white/75">View staff member information and inherited permissions</p>
+            </div>
           </div>
         </div>
-        <Card className="flex flex-col items-center justify-center py-20 text-center">
+        <div className="flex flex-col items-center justify-center rounded-xl border border-primary/10 bg-gradient-to-br from-primary/[0.02] via-card to-cyan-500/[0.02] py-20 text-center shadow-sm">
           <Users className="size-12 text-muted-foreground/30 mb-4" />
           <h3 className="text-lg font-semibold text-muted-foreground">Staff Not Found</h3>
           <p className="text-sm text-muted-foreground/70 mt-1">The staff member you are looking for does not exist.</p>
-        </Card>
+        </div>
       </div>
     )
   }
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Staff Details</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            View staff member information and inherited permissions
-          </p>
+      {/* Gradient Header Banner */}
+      <div className="relative overflow-hidden rounded-2xl bg-[linear-gradient(135deg,var(--primary)_0%,#0d9488_48%,#2563eb_100%)] px-6 py-6 text-white shadow-lg">
+        <div aria-hidden className="absolute -right-10 -top-10 size-36 rounded-full border-[20px] border-cyan-200/15" />
+        <div aria-hidden className="absolute -bottom-8 right-16 size-20 rounded-full bg-cyan-300/8" />
+        <div aria-hidden className="absolute left-12 top-4 size-16 rounded-full bg-white/5 blur-md" />
+        <div aria-hidden className="absolute bottom-0 left-1/4 h-px w-48 bg-gradient-to-r from-transparent via-white/30 to-transparent" />
+        <div className="relative flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <span className="flex size-12 items-center justify-center rounded-2xl border border-white/20 bg-white/15 shadow-md backdrop-blur-sm">
+              <Users className="size-6 text-white" />
+            </span>
+            <div>
+              <h1 className="text-xl font-bold tracking-tight">Staff Details</h1>
+              <p className="mt-1 text-sm text-white/75">View staff member information and inherited permissions</p>
+            </div>
+          </div>
+          <Button
+            variant="secondary"
+            size="sm"
+            style={{ backgroundColor: 'white', color: 'var(--primary)' }}
+            onClick={handleBack}
+            className="gap-2"
+          >
+            <Users className="size-4" />
+            Staff List
+          </Button>
         </div>
       </div>
 
       {/* Staff Profile Card */}
-      <Card>
-        <CardContent className="py-5">
+      <div className="relative overflow-hidden rounded-xl border border-primary/10 bg-gradient-to-br from-primary/[0.03] via-card to-cyan-500/[0.03] shadow-sm">
+        <div aria-hidden className="absolute -right-6 -top-6 size-20 rounded-full border-[12px] border-primary/5" />
+        <div className="relative px-5 py-4">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-4">
-              <Avatar className="size-14 shrink-0">
-                <AvatarFallback className="bg-primary/10 text-primary text-lg font-semibold">
+              <Avatar className="size-14 shrink-0 border-2 border-primary/15 shadow-md">
+                <AvatarFallback className="bg-gradient-to-br from-primary to-teal-600 text-lg font-bold text-white">
                   {getInitials(staffInfo.name)}
                 </AvatarFallback>
               </Avatar>
@@ -373,20 +407,13 @@ export function StaffDetailPage({ staffId }: { staffId: string }) {
                   )}
                 </h2>
                 <div className="flex flex-wrap items-center gap-2 mt-1">
-                  <Badge
-                    variant="secondary"
-                    className={`text-[10px] px-2 h-5 ${getRoleBadgeColor(staffInfo.role)}`}
-                  >
+                  <Badge variant="secondary" className={cn('text-[10px] px-2 h-5', getRoleBadgeColor(staffInfo.role))}>
                     {formatRoleName(staffInfo.role)}
                   </Badge>
                   {assignedRoleNames.map((roleName) => {
                     const Icon = ROLE_DISPLAY_ICONS[roleName] || Shield
                     return (
-                      <Badge
-                        key={roleName}
-                        variant="outline"
-                        className="text-[10px] px-2 h-5 gap-1"
-                      >
+                      <Badge key={roleName} variant="outline" className="text-[10px] px-2 h-5 gap-1">
                         <Icon className="size-3" />
                         {roleName}
                       </Badge>
@@ -395,24 +422,24 @@ export function StaffDetailPage({ staffId }: { staffId: string }) {
                 </div>
               </div>
             </div>
-            <div className="flex items-center gap-4 text-sm text-muted-foreground">
-              <div className="flex items-center gap-1.5">
-                <Mail className="size-3.5" />
+            <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+              <span className="flex items-center gap-1.5">
+                <Mail className="size-3.5 text-primary/60" />
                 <span>{staffInfo.email}</span>
-              </div>
+              </span>
               {staffInfo.phone && (
-                <div className="flex items-center gap-1.5">
-                  <Phone className="size-3.5" />
+                <span className="flex items-center gap-1.5">
+                  <Phone className="size-3.5 text-primary/60" />
                   <span>{staffInfo.phone}</span>
-                </div>
+                </span>
               )}
             </div>
           </div>
 
           {staffInfo.isLocked && (
-            <div className="flex items-center justify-between gap-3 mt-4 px-3 py-2 rounded-md bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800">
+            <div className="mt-4 flex items-center justify-between gap-3 rounded-xl border border-red-200 bg-gradient-to-br from-red-50 via-white to-red-50 px-4 py-3 dark:border-red-800 dark:from-red-950/30 dark:via-card dark:to-red-950/30">
               <div className="flex items-center gap-2 min-w-0">
-                <Lock className="size-4 text-red-600 dark:text-red-400 shrink-0" />
+                <Lock className="size-4 shrink-0 text-red-600 dark:text-red-400" />
                 <div className="min-w-0">
                   <p className="text-xs font-medium text-red-700 dark:text-red-400">
                     Account temporarily locked after {staffInfo.failedAttempts ?? 5}+ failed login attempts
@@ -436,91 +463,39 @@ export function StaffDetailPage({ staffId }: { staffId: string }) {
               </Button>
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
-      {/* Permissions Summary Cards */}
+      {/* Stat Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <Card className="relative overflow-hidden">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Total Perms</p>
-                <p className="text-2xl font-bold tracking-tight">{totalPermissions}</p>
-              </div>
-              <div className="flex size-10 items-center justify-center rounded-xl bg-primary/10">
-                <Shield className="size-5 text-primary" />
-              </div>
-            </div>
-          </CardContent>
-          <div className="absolute bottom-0 left-0 h-1 w-full bg-gradient-to-r from-primary/60 via-primary to-primary/40" />
-        </Card>
-        <Card className="relative overflow-hidden">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Modules</p>
-                <p className="text-2xl font-bold tracking-tight">{sortedModules.length}</p>
-              </div>
-              <div className="flex size-10 items-center justify-center rounded-xl bg-muted">
-                <ShieldCheck className="size-5 text-muted-foreground" />
-              </div>
-            </div>
-          </CardContent>
-          <div className="absolute bottom-0 left-0 h-1 w-full bg-gradient-to-r from-muted/60 via-muted to-muted/40" />
-        </Card>
-        <Card className="relative overflow-hidden">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Roles</p>
-                <p className="text-2xl font-bold tracking-tight">{permissionsData?.roles.length || 0}</p>
-              </div>
-              <div className="flex size-10 items-center justify-center rounded-xl bg-muted">
-                <Users className="size-5 text-muted-foreground" />
-              </div>
-            </div>
-          </CardContent>
-          <div className="absolute bottom-0 left-0 h-1 w-full bg-gradient-to-r from-muted/60 via-muted to-muted/40" />
-        </Card>
-        <Card className="relative overflow-hidden">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Status</p>
-                <p className={`text-2xl font-bold tracking-tight ${staffInfo.isLocked ? 'text-red-600' : 'text-emerald-600'}`}>
-                  {staffInfo.isLocked ? 'Locked' : 'Active'}
-                </p>
-              </div>
-              <div className={`flex size-10 items-center justify-center rounded-xl ${staffInfo.isLocked ? 'bg-red-50 dark:bg-red-950/30' : 'bg-emerald-50 dark:bg-emerald-950/30'}`}>
-                {staffInfo.isLocked ? (
-                  <Lock className="size-5 text-red-600" />
-                ) : (
-                  <CheckCircle2 className="size-5 text-emerald-600" />
-                )}
-              </div>
-            </div>
-          </CardContent>
-          <div className={`absolute bottom-0 left-0 h-1 w-full bg-gradient-to-r ${staffInfo.isLocked ? 'from-red-400 via-red-500 to-red-400' : 'from-emerald-400 via-emerald-500 to-emerald-400'}`} />
-        </Card>
+        <StatCard label="Total Permissions" value={totalPermissions} icon={Shield} tone="primary" />
+        <StatCard label="Modules" value={sortedModules.length} icon={ShieldCheck} tone="muted" />
+        <StatCard label="Roles" value={permissionsData?.roles.length || 0} icon={Users} tone="muted" />
+        <StatCard
+          label="Status"
+          value={staffInfo.isLocked ? 'Locked' : 'Active'}
+          icon={staffInfo.isLocked ? Lock : CheckCircle2}
+          tone={staffInfo.isLocked ? 'red' : 'emerald'}
+          status={staffInfo.isLocked ? 'locked' : 'active'}
+        />
       </div>
 
       {/* Inheritance Info Banner */}
-      <div className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800">
-        <ShieldCheck className="size-4 text-blue-600 dark:text-blue-400 shrink-0" />
+      <div className="flex items-center gap-2.5 rounded-xl border border-blue-200/80 bg-gradient-to-br from-blue-50 via-white to-blue-50 px-4 py-2.5 dark:border-blue-800/30 dark:from-blue-950/20 dark:via-card dark:to-blue-950/20">
+        <ShieldCheck className="size-4 shrink-0 text-blue-600 dark:text-blue-400" />
         <span className="text-xs font-medium text-blue-700 dark:text-blue-400">
-          Permissions are inherited from roles — modify role permissions in Roles & Permissions to update this staff member&apos;s access.
+          Permissions are inherited from roles — modify role permissions in Roles &amp; Permissions to update this staff member&apos;s access.
         </span>
       </div>
 
-      {/* Tabs: Permissions by Role & Permissions by Module */}
+      {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="permissions" className="gap-1.5">
+        <TabsList className="grid w-full grid-cols-2 rounded-xl border border-primary/10 bg-gradient-to-r from-primary/[0.03] via-muted to-cyan-500/[0.03] p-1">
+          <TabsTrigger value="permissions" className="gap-1.5 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm">
             <ShieldCheck className="size-3.5" />
             By Module
           </TabsTrigger>
-          <TabsTrigger value="roles" className="gap-1.5">
+          <TabsTrigger value="roles" className="gap-1.5 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm">
             <Users className="size-3.5" />
             By Role
           </TabsTrigger>
@@ -528,13 +503,11 @@ export function StaffDetailPage({ staffId }: { staffId: string }) {
 
         <TabsContent value="permissions" className="mt-4">
           {sortedModules.length === 0 ? (
-            <Card className="flex flex-col items-center justify-center py-12 text-center">
+            <div className="flex flex-col items-center justify-center rounded-xl border border-primary/10 bg-gradient-to-br from-primary/[0.02] via-card to-cyan-500/[0.02] py-12 text-center shadow-sm">
               <Lock className="size-10 text-muted-foreground/30 mb-3" />
               <h3 className="text-sm font-semibold text-muted-foreground">No Permissions Assigned</h3>
-              <p className="text-xs text-muted-foreground/70 mt-1">
-                This staff member has not been assigned any roles with permissions.
-              </p>
-            </Card>
+              <p className="text-xs text-muted-foreground/70 mt-1">This staff member has not been assigned any roles with permissions.</p>
+            </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {sortedModules.map((moduleName) => {
@@ -542,32 +515,29 @@ export function StaffDetailPage({ staffId }: { staffId: string }) {
                 const Icon = MODULE_ICONS[moduleName] || Shield
                 const colorClass = MODULE_COLORS[moduleName] || 'bg-muted text-muted-foreground'
                 return (
-                  <Card key={moduleName} className="overflow-hidden">
-                    <CardHeader className="pb-2 pt-3 px-4">
+                  <div key={moduleName} className="relative overflow-hidden rounded-xl border border-primary/10 bg-gradient-to-br from-card via-card to-primary/[0.02] shadow-sm transition-all hover:shadow-md">
+                    <div className="border-b border-primary/5 px-4 pt-3 pb-2">
                       <div className="flex items-center gap-2">
-                        <div className={`size-7 rounded-md flex items-center justify-center shrink-0 ${colorClass}`}>
+                        <div className={cn('size-7 rounded-md flex items-center justify-center shrink-0', colorClass)}>
                           <Icon className="size-3.5" />
                         </div>
-                        <CardTitle className="text-sm font-semibold truncate">{moduleName}</CardTitle>
-                        <Badge variant="secondary" className="text-[10px] ml-auto shrink-0">
+                        <h3 className="text-sm font-semibold truncate">{moduleName}</h3>
+                        <Badge variant="secondary" className="text-[10px] ml-auto shrink-0 bg-primary/5 text-primary">
                           {perms.length}
                         </Badge>
                       </div>
-                    </CardHeader>
-                    <CardContent className="px-4 pb-3 pt-0">
+                    </div>
+                    <div className="px-4 pb-3 pt-2">
                       <div className="space-y-0.5">
                         {perms.map((perm) => (
-                          <div
-                            key={perm.code}
-                            className="flex items-center justify-between py-1 px-2 rounded-md bg-emerald-50/60 dark:bg-emerald-950/20"
-                          >
+                          <div key={perm.code} className="flex items-center justify-between rounded-md bg-emerald-500/[0.06] px-2 py-1.5">
                             <span className="text-xs text-foreground truncate">{perm.name}</span>
-                            <CheckCircle2 className="size-3.5 text-emerald-500 shrink-0 ml-2" />
+                            <CheckCircle2 className="size-3.5 shrink-0 ml-2 text-emerald-500" />
                           </div>
                         ))}
                       </div>
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </div>
                 )
               })}
             </div>
@@ -576,18 +546,15 @@ export function StaffDetailPage({ staffId }: { staffId: string }) {
 
         <TabsContent value="roles" className="mt-4">
           {!permissionsData?.roles || permissionsData.roles.length === 0 ? (
-            <Card className="flex flex-col items-center justify-center py-12 text-center">
+            <div className="flex flex-col items-center justify-center rounded-xl border border-primary/10 bg-gradient-to-br from-primary/[0.02] via-card to-cyan-500/[0.02] py-12 text-center shadow-sm">
               <Shield className="size-10 text-muted-foreground/30 mb-3" />
               <h3 className="text-sm font-semibold text-muted-foreground">No Roles Assigned</h3>
-              <p className="text-xs text-muted-foreground/70 mt-1">
-                This staff member has not been assigned any roles.
-              </p>
-            </Card>
+              <p className="text-xs text-muted-foreground/70 mt-1">This staff member has not been assigned any roles.</p>
+            </div>
           ) : (
             <div className="space-y-4">
               {permissionsData.roles.map((role) => {
                 const Icon = ROLE_DISPLAY_ICONS[role.name] || Shield
-                // Group permissions by module within each role
                 const permsByModule: Record<string, RolePermission[]> = {}
                 for (const perm of role.permissions) {
                   if (!permsByModule[perm.module]) permsByModule[perm.module] = []
@@ -596,14 +563,16 @@ export function StaffDetailPage({ staffId }: { staffId: string }) {
                 const moduleNames = Object.keys(permsByModule).sort()
 
                 return (
-                  <Card key={role.id} className="overflow-hidden">
-                    <CardHeader className="pb-2 pt-4 px-4">
+                  <div key={role.id} className="relative overflow-hidden rounded-xl border border-primary/10 bg-gradient-to-br from-card via-card to-primary/[0.02] shadow-sm transition-all hover:shadow-md">
+                    <div aria-hidden className="absolute -right-4 -top-4 size-14 rounded-full border-[10px] border-primary/5" />
+                    <div className="relative border-b border-primary/5 px-4 pt-4 pb-2">
                       <div className="flex items-center gap-3">
-                        <div
-                          className="size-10 rounded-lg flex items-center justify-center shrink-0 bg-primary/10"
+                        <div className={cn(
+                          'size-10 rounded-lg flex items-center justify-center shrink-0 bg-gradient-to-br from-primary/10 to-teal-500/10 text-primary',
+                        )}
                           style={role.color ? { backgroundColor: `${role.color}20` } : undefined}
                         >
-                          <Icon className="size-5 text-primary" />
+                          <Icon className="size-5" />
                         </div>
                         <div className="flex-1 min-w-0">
                           <h3 className="text-sm font-semibold">{role.name}</h3>
@@ -620,30 +589,26 @@ export function StaffDetailPage({ staffId }: { staffId: string }) {
                           </div>
                         </div>
                       </div>
-                    </CardHeader>
-                    <CardContent className="px-4 pb-3 pt-2">
+                    </div>
+                    <div className="px-4 pb-3 pt-2">
                       <div className="space-y-2">
                         {moduleNames.map((modName) => {
                           const modPerms = permsByModule[modName]
                           const ModIcon = MODULE_ICONS[modName] || Shield
                           return (
-                            <div key={modName} className="rounded-md border p-2.5">
+                            <div key={modName} className="rounded-lg border border-primary/5 bg-gradient-to-br from-primary/[0.02] via-card to-cyan-500/[0.02] p-2.5">
                               <div className="flex items-center gap-2 mb-1.5">
-                                <div className={`size-5 rounded flex items-center justify-center ${MODULE_COLORS[modName] || 'bg-muted'}`}>
+                                <div className={cn('size-5 rounded flex items-center justify-center', MODULE_COLORS[modName] || 'bg-muted')}>
                                   <ModIcon className="size-3" />
                                 </div>
                                 <span className="text-xs font-medium">{modName}</span>
-                                <Badge variant="secondary" className="text-[9px] px-1 py-0 h-3.5 ml-auto">
+                                <Badge variant="secondary" className="text-[9px] px-1 py-0 h-3.5 ml-auto bg-primary/5 text-primary">
                                   {modPerms.length}
                                 </Badge>
                               </div>
                               <div className="flex flex-wrap gap-1">
                                 {modPerms.map((perm) => (
-                                  <Badge
-                                    key={perm.code}
-                                    variant="outline"
-                                    className="text-[9px] px-1.5 py-0 h-4 gap-0.5"
-                                  >
+                                  <Badge key={perm.code} variant="outline" className="text-[9px] px-1.5 py-0 h-4 gap-0.5">
                                     <CheckCircle2 className="size-2.5 text-emerald-500" />
                                     {perm.name}
                                   </Badge>
@@ -653,8 +618,8 @@ export function StaffDetailPage({ staffId }: { staffId: string }) {
                           )
                         })}
                       </div>
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </div>
                 )
               })}
             </div>

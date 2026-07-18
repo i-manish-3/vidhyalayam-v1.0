@@ -8,6 +8,7 @@ import { getCurrentAcademicYear } from '@/lib/academic-years'
 import { useToast } from '@/hooks/use-toast'
 import { PageHeader } from '@/components/shared'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -217,22 +218,38 @@ export function AddTransportRoutePage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Create Route"
-        description="Set the route name, route code, fee months, stop fares, and optional driver"
-        secondaryAction={{
-          label: 'View Routes',
-          icon: Eye,
-          onClick: () => router.push('/transport/routes'),
-        }}
-      />
+      {/* Gradient Header Banner */}
+      <div className="relative flex flex-col gap-3 overflow-hidden rounded-xl border border-primary/25 bg-gradient-to-r from-primary via-teal-600 to-cyan-600 px-4 py-3 text-white shadow-lg shadow-primary/15 sm:flex-row sm:items-center sm:justify-between">
+        <div aria-hidden className="absolute -right-8 -top-14 size-36 rounded-full border-[18px] border-cyan-200/15" />
+        <div aria-hidden className="absolute bottom-0 right-1/4 h-px w-48 bg-gradient-to-r from-transparent via-white/45 to-transparent" />
+        <div aria-hidden className="absolute -bottom-14 right-28 size-24 rounded-full bg-sky-300/10" />
+        <div className="relative flex min-w-0 items-center gap-3">
+          <span className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-white/25 bg-white/15 shadow-md shadow-black/10 backdrop-blur-sm">
+            <Bus className="size-5.5 text-white" strokeWidth={1.8} />
+          </span>
+          <div className="min-w-0">
+            <h1 className="text-xl font-bold tracking-tight">Create Route</h1>
+            <p className="mt-0.5 text-xs text-white/80">Set the route name, route code, fee months, stop fares, and optional driver.</p>
+          </div>
+        </div>
+        <Button
+          variant="secondary"
+          onClick={() => router.push('/transport/routes')}
+          className="relative shrink-0 gap-2 border border-white/60 shadow-md transition-all hover:-translate-y-0.5 hover:shadow-lg"
+          style={{ backgroundColor: 'white', color: 'var(--primary)' }}
+        >
+          <Eye className="size-4" strokeWidth={2.2} />
+          <span className="font-semibold">View Routes</span>
+        </Button>
+      </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <Card className="gap-0 overflow-hidden py-0">
-          <CardHeader className="border-b bg-muted/30 px-4 py-2.5 sm:px-5">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <span className="bg-brand-soft flex size-7 shrink-0 items-center justify-center rounded-lg text-white shadow-sm">
-                <Bus className="size-3.5" />
+      <form onSubmit={handleSubmit} className="space-y-5">
+        {/* Basic Route Info */}
+        <Card className="gap-0 overflow-hidden border-sky-500/15 bg-gradient-to-br from-card via-card to-sky-500/[0.035] py-0 shadow-sm">
+          <CardHeader className="border-b border-sky-500/15 bg-gradient-to-r from-sky-500/[0.10] via-primary/[0.05] to-violet-500/[0.08] px-4 py-3 sm:px-5">
+            <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+              <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-primary text-white shadow-sm shadow-sky-500/20">
+                <Bus className="size-4" />
               </span>
               Basic Route Info
             </CardTitle>
@@ -251,7 +268,6 @@ export function AddTransportRoutePage() {
                   className="h-10"
                 />
               </div>
-
               <div className="space-y-2">
                 <Label htmlFor="route-code" className="text-xs font-medium">
                   Route Code <span className="text-destructive">*</span>
@@ -273,11 +289,12 @@ export function AddTransportRoutePage() {
           </CardContent>
         </Card>
 
-        <Card className="gap-0 overflow-hidden py-0">
-          <CardHeader className="border-b bg-muted/30 px-4 py-2.5 sm:px-5">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <span className="bg-brand-soft flex size-7 shrink-0 items-center justify-center rounded-lg text-white shadow-sm">
-                <MapPin className="size-3.5" />
+        {/* Route Path & Vehicle */}
+        <Card className="gap-0 overflow-hidden border-emerald-500/15 bg-gradient-to-br from-card via-card to-emerald-500/[0.035] py-0 shadow-sm">
+          <CardHeader className="border-b border-emerald-500/15 bg-gradient-to-r from-emerald-500/[0.10] via-primary/[0.05] to-cyan-500/[0.08] px-4 py-3 sm:px-5">
+            <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+              <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-cyan-500 text-white shadow-sm shadow-emerald-500/20">
+                <MapPin className="size-4" />
               </span>
               Route Path & Vehicle
             </CardTitle>
@@ -285,68 +302,31 @@ export function AddTransportRoutePage() {
           <CardContent className="px-4 pb-4 pt-3 sm:px-5">
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
               <div className="space-y-2">
-                <Label htmlFor="start-point" className="text-xs font-medium">
-                  Start Point
-                </Label>
-                <Input
-                  id="start-point"
-                  placeholder="e.g., City Center"
-                  value={startPoint}
-                  onChange={(event) => setStartPoint(event.target.value)}
-                  className="h-10"
-                />
+                <Label htmlFor="start-point" className="text-xs font-medium">Start Point</Label>
+                <Input id="start-point" placeholder="e.g., City Center" value={startPoint} onChange={(event) => setStartPoint(event.target.value)} className="h-10" />
               </div>
-
               <div className="space-y-2">
-                <Label htmlFor="end-point" className="text-xs font-medium">
-                  End Point
-                </Label>
-                <Input
-                  id="end-point"
-                  placeholder="e.g., School Gate"
-                  value={endPoint}
-                  onChange={(event) => setEndPoint(event.target.value)}
-                  className="h-10"
-                />
+                <Label htmlFor="end-point" className="text-xs font-medium">End Point</Label>
+                <Input id="end-point" placeholder="e.g., School Gate" value={endPoint} onChange={(event) => setEndPoint(event.target.value)} className="h-10" />
               </div>
-
               <div className="space-y-2">
-                <Label htmlFor="distance" className="text-xs font-medium">
-                  Distance (km)
-                </Label>
-                <Input
-                  id="distance"
-                  type="number"
-                  min="0"
-                  step="0.1"
-                  placeholder="e.g., 12.5"
-                  value={distance}
-                  onChange={(event) => setDistance(event.target.value)}
-                  className="h-10"
-                />
+                <Label htmlFor="distance" className="text-xs font-medium">Distance (km)</Label>
+                <Input id="distance" type="number" min="0" step="0.1" placeholder="e.g., 12.5" value={distance} onChange={(event) => setDistance(event.target.value)} className="h-10" />
               </div>
-
               <div className="space-y-2">
-                <Label htmlFor="vehicle-number" className="text-xs font-medium">
-                  Vehicle Number
-                </Label>
-                <Input
-                  id="vehicle-number"
-                  placeholder="e.g., DL 1A 1234"
-                  value={vehicleNumber}
-                  onChange={(event) => setVehicleNumber(event.target.value)}
-                  className="h-10"
-                />
+                <Label htmlFor="vehicle-number" className="text-xs font-medium">Vehicle Number</Label>
+                <Input id="vehicle-number" placeholder="e.g., DL 1A 1234" value={vehicleNumber} onChange={(event) => setVehicleNumber(event.target.value)} className="h-10" />
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="gap-0 overflow-hidden py-0">
-          <CardHeader className="flex flex-col gap-2 border-b bg-muted/30 px-4 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:px-5">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <span className="bg-brand-soft flex size-7 shrink-0 items-center justify-center rounded-lg text-white shadow-sm">
-                <CalendarDays className="size-3.5" />
+        {/* Fee Months */}
+        <Card className="gap-0 overflow-hidden border-violet-500/15 bg-gradient-to-br from-card via-card to-violet-500/[0.035] py-0 shadow-sm">
+          <CardHeader className="flex flex-col gap-2 border-b border-violet-500/15 bg-gradient-to-r from-violet-500/[0.10] via-primary/[0.05] to-rose-500/[0.08] px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+            <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+              <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-rose-500 text-white shadow-sm shadow-violet-500/20">
+                <CalendarDays className="size-4" />
               </span>
               Fee Months
             </CardTitle>
@@ -365,14 +345,7 @@ export function AddTransportRoutePage() {
                 />
                 All months
               </label>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => setFeeMonths([])}
-                disabled={feeMonths.length === 0}
-                className="h-7 px-2 text-xs"
-              >
+              <Button type="button" variant="ghost" size="sm" onClick={() => setFeeMonths([])} disabled={feeMonths.length === 0} className="h-7 px-2 text-xs">
                 Clear all
               </Button>
             </div>
@@ -388,23 +361,28 @@ export function AddTransportRoutePage() {
                   return (
                     <label
                       key={month}
-                      className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm"
+                      className={cn(
+                        'flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2.5 text-sm transition-all',
+                        checked
+                          ? 'border-violet-500/40 bg-gradient-to-br from-violet-500/[0.10] via-card to-rose-500/[0.08] shadow-sm'
+                          : 'border-border hover:border-violet-500/20 hover:bg-muted/30'
+                      )}
                     >
                       <Checkbox checked={checked} onCheckedChange={() => toggleFeeMonth(month)} />
-                      <span>{month}</span>
+                      <span className={cn('font-medium', checked && 'text-violet-700 dark:text-violet-300')}>{month}</span>
                     </label>
                   )
                 })}
               </div>
               {feeMonths.length > 0 && (
                 <div className="flex flex-wrap gap-2">
-                  {feeMonths.map((month) => (
-                    <Badge key={month} variant="secondary" className="gap-1.5 py-1.5 px-3 text-sm">
+                  {sortAcademicMonths(feeMonths).map((month) => (
+                    <Badge key={month} variant="secondary" className="gap-1.5 border-violet-500/25 bg-violet-500/[0.08] py-1.5 px-3 text-sm">
                       <CalendarDays className="size-3" />
                       {month}
                       <button
                         type="button"
-                        className="ml-0.5 rounded-full p-0.5 transition-colors hover:bg-muted-foreground/20"
+                        className="ml-0.5 rounded-full p-0.5 transition-colors hover:bg-violet-500/20"
                         onClick={() => toggleFeeMonth(month)}
                         aria-label={`Remove month ${month}`}
                       >
@@ -418,11 +396,12 @@ export function AddTransportRoutePage() {
           </CardContent>
         </Card>
 
-        <Card className="gap-0 overflow-hidden py-0">
-          <CardHeader className="border-b bg-muted/30 px-4 py-2.5 sm:px-5">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <span className="bg-brand-soft flex size-7 shrink-0 items-center justify-center rounded-lg text-white shadow-sm">
-                <PlusCircle className="size-3.5" />
+        {/* Stops & Fares */}
+        <Card className="gap-0 overflow-hidden border-amber-500/15 bg-gradient-to-br from-card via-card to-amber-500/[0.035] py-0 shadow-sm">
+          <CardHeader className="border-b border-amber-500/15 bg-gradient-to-r from-amber-500/[0.10] via-primary/[0.05] to-emerald-500/[0.08] px-4 py-3 sm:px-5">
+            <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+              <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-amber-500 to-emerald-500 text-white shadow-sm shadow-amber-500/20">
+                <MapPin className="size-4" />
               </span>
               Stops & Fares
             </CardTitle>
@@ -464,12 +443,12 @@ export function AddTransportRoutePage() {
               {stops.length > 0 && (
                 <div className="flex flex-wrap gap-2">
                   {stops.map((stop, index) => (
-                    <Badge key={`${stop.name}-${index}`} variant="secondary" className="gap-1.5 px-3 py-1.5 text-sm">
+                    <Badge key={`${stop.name}-${index}`} variant="secondary" className="gap-1.5 border-amber-500/25 bg-amber-500/[0.08] px-3 py-1.5 text-sm">
                       <MapPin className="size-3" />
-                      {stop.name}: {stop.fare}
+                      <strong>{stop.name}</strong>: ₹{Number(stop.fare).toLocaleString('en-IN')}
                       <button
                         type="button"
-                        className="ml-0.5 rounded-full p-0.5 transition-colors hover:bg-muted-foreground/20"
+                        className="ml-0.5 rounded-full p-0.5 transition-colors hover:bg-amber-500/20"
                         onClick={() => removeStop(index)}
                         aria-label={`Remove stop ${stop.name}`}
                       >
@@ -483,20 +462,19 @@ export function AddTransportRoutePage() {
           </CardContent>
         </Card>
 
-        <Card className="gap-0 overflow-hidden py-0">
-          <CardHeader className="border-b bg-muted/30 px-4 py-2.5 sm:px-5">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <span className="bg-brand-soft flex size-7 shrink-0 items-center justify-center rounded-lg text-white shadow-sm">
-                <User className="size-3.5" />
+        {/* Driver Assignment */}
+        <Card className="gap-0 overflow-hidden border-rose-500/15 bg-gradient-to-br from-card via-card to-rose-500/[0.035] py-0 shadow-sm">
+          <CardHeader className="border-b border-rose-500/15 bg-gradient-to-r from-rose-500/[0.10] via-primary/[0.05] to-sky-500/[0.08] px-4 py-3 sm:px-5">
+            <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+              <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-rose-500 to-sky-500 text-white shadow-sm shadow-rose-500/20">
+                <User className="size-4" />
               </span>
               Driver Assignment
             </CardTitle>
           </CardHeader>
           <CardContent className="px-4 pb-4 pt-3 sm:px-5">
             <div className="space-y-2">
-              <Label htmlFor="driver" className="text-xs font-medium">
-                Driver
-              </Label>
+              <Label htmlFor="driver" className="text-xs font-medium">Driver</Label>
               <Select value={driverId} onValueChange={setDriverId} disabled={loadingDrivers || submitting}>
                 <SelectTrigger id="driver" className="h-10">
                   <SelectValue placeholder={loadingDrivers ? 'Loading drivers...' : 'Choose driver later or now'} />
@@ -516,7 +494,8 @@ export function AddTransportRoutePage() {
           </CardContent>
         </Card>
 
-        <div className="sticky bottom-0 -mx-4 border-t bg-background/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:mx-0">
+        {/* Sticky Footer */}
+        <div className="sticky bottom-0 -mx-4 border-t border-primary/10 bg-gradient-to-br from-primary/[0.02] via-background to-cyan-500/[0.03] px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:mx-0 sm:rounded-lg sm:border">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-xs text-muted-foreground">
               Route name, code, fee months, and at least one stop are required.

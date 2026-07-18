@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useCallback, Fragment, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { PageHeader, EmptyState, LoadingState } from '@/components/shared'
+import { EmptyState, LoadingState } from '@/components/shared'
 import { api } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
+import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -17,7 +18,26 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { PlusCircle, Package, MoreVertical, Pencil, Trash2, PackagePlus, AlertTriangle, ShoppingCart, Search, ChevronDown, ChevronRight, X, Boxes, Tags } from 'lucide-react'
+import {
+  PlusCircle,
+  Package,
+  MoreVertical,
+  Pencil,
+  Trash2,
+  PackagePlus,
+  AlertTriangle,
+  ShoppingCart,
+  Search,
+  ChevronDown,
+  ChevronRight,
+  X,
+  Boxes,
+  Tags,
+  Box,
+  Store,
+  AlertCircle,
+  type LucideIcon,
+} from 'lucide-react'
 
 interface Variant {
   id: string
@@ -56,6 +76,66 @@ const emptyForm = () => ({
 
 function isLowVariant(v: Variant): boolean {
   return v.reorderLevel > 0 && v.quantity <= v.reorderLevel
+}
+
+function StatCard({
+  title,
+  value,
+  description,
+  icon: Icon,
+  tone,
+}: {
+  title: string
+  value: string | number
+  description: string
+  icon: LucideIcon
+  tone: 'sky' | 'emerald' | 'rose' | 'violet'
+}) {
+  const styles = {
+    sky: {
+      card: 'border-sky-500/20 bg-gradient-to-br from-sky-500/[0.15] via-card to-sky-500/[0.05]',
+      icon: 'bg-gradient-to-br from-sky-500 to-sky-600 shadow-sky-500/20',
+      accent: 'from-sky-500 via-sky-400',
+      bubble: 'bg-sky-500/[0.10]',
+    },
+    emerald: {
+      card: 'border-emerald-500/20 bg-gradient-to-br from-emerald-500/[0.15] via-card to-emerald-500/[0.05]',
+      icon: 'bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-emerald-500/20',
+      accent: 'from-emerald-500 via-emerald-400',
+      bubble: 'bg-emerald-500/[0.10]',
+    },
+    rose: {
+      card: 'border-rose-500/20 bg-gradient-to-br from-rose-500/[0.14] via-card to-rose-500/[0.05]',
+      icon: 'bg-gradient-to-br from-rose-500 to-rose-600 shadow-rose-500/20',
+      accent: 'from-rose-500 via-rose-400',
+      bubble: 'bg-rose-500/[0.10]',
+    },
+    violet: {
+      card: 'border-violet-500/20 bg-gradient-to-br from-violet-500/[0.14] via-card to-violet-500/[0.05]',
+      icon: 'bg-gradient-to-br from-violet-500 to-violet-600 shadow-violet-500/20',
+      accent: 'from-violet-500 via-violet-400',
+      bubble: 'bg-violet-500/[0.10]',
+    },
+  }[tone]
+
+  return (
+    <Card className={cn('group relative w-full overflow-hidden rounded-xl py-0 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md', styles.card)}>
+      <div className={cn('absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r to-transparent', styles.accent)} />
+      <div aria-hidden className={cn('absolute -bottom-7 -right-5 size-16 rounded-full transition-transform group-hover:scale-125', styles.bubble)} />
+      <CardContent className="relative p-3">
+        <div className="flex items-center justify-between gap-2">
+          <div className="min-w-0">
+            <p className="truncate text-[11px] font-medium leading-4 text-muted-foreground">{title}</p>
+            <p className="text-lg font-bold leading-6 tracking-tight tabular-nums">{value}</p>
+            <p className="truncate text-[10px] leading-3 text-muted-foreground">{description}</p>
+          </div>
+          <div className={cn('flex size-9 shrink-0 items-center justify-center rounded-lg text-white shadow-sm', styles.icon)}>
+            <Icon className="size-4" />
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  )
 }
 
 export function InventoryPage() {
@@ -208,123 +288,292 @@ export function InventoryPage() {
 
   return (
     <div className="space-y-4">
-      <PageHeader
-        title="Inventory"
-        description="Manage stock, variants, reorder levels, and sellable store items."
-        action={{ label: 'Add Item', icon: PlusCircle, onClick: openAdd }}
-        secondaryAction={{ label: 'Sell to Student', icon: ShoppingCart, onClick: () => router.push('/inventory/sell') }}
-      />
-
-      <div className="flex flex-wrap items-center gap-2 rounded-md border bg-background px-3 py-2 shadow-sm">
-        {[
-          { label: 'Items', value: stats.total.toLocaleString('en-IN') },
-          { label: 'Units', value: stats.totalStock.toLocaleString('en-IN') },
-          { label: 'Low Stock', value: stats.lowStock.toLocaleString('en-IN') },
-          { label: 'Sellable', value: stats.sellable.toLocaleString('en-IN') },
-          { label: 'Variants', value: stats.variants.toLocaleString('en-IN') },
-        ].map((item) => (
-          <div key={item.label} className="flex items-center gap-2 rounded-md bg-muted/35 px-2.5 py-1.5 text-xs">
-            <span className="text-muted-foreground">{item.label}</span>
-            <span className="font-semibold tabular-nums">{item.value}</span>
+      {/* Gradient Header Banner */}
+      <div className="relative flex flex-col gap-3 overflow-hidden rounded-xl border border-primary/25 bg-gradient-to-r from-primary via-teal-600 to-cyan-600 px-4 py-3 text-white shadow-lg shadow-primary/15 sm:flex-row sm:items-center sm:justify-between">
+        <div aria-hidden className="absolute -right-8 -top-14 size-36 rounded-full border-[18px] border-cyan-200/15" />
+        <div aria-hidden className="absolute bottom-0 right-1/4 h-px w-48 bg-gradient-to-r from-transparent via-white/45 to-transparent" />
+        <div aria-hidden className="absolute -bottom-14 right-28 size-24 rounded-full bg-sky-300/10" />
+        <div className="relative flex min-w-0 items-center gap-3">
+          <span className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-white/25 bg-white/15 shadow-md shadow-black/10 backdrop-blur-sm">
+            <Package className="size-5.5" strokeWidth={1.8} />
+          </span>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-xl font-bold tracking-tight">Inventory</h1>
+              <span className="rounded-full border border-white/20 bg-white/10 px-2 py-0.5 text-[10px] font-semibold text-white/85 backdrop-blur-sm">
+                {stats.total.toLocaleString('en-IN')} items
+              </span>
+            </div>
+            <p className="mt-0.5 text-xs text-white/80">Manage stock, variants, reorder levels, and sellable store items.</p>
           </div>
-        ))}
+        </div>
+        <div className="relative flex shrink-0 items-center gap-2">
+          <Button
+            variant="secondary"
+            onClick={() => router.push('/inventory/sell')}
+            className="relative shrink-0 gap-2 border border-white/60 shadow-md transition-all hover:-translate-y-0.5 hover:shadow-lg"
+            style={{ backgroundColor: 'white', color: 'var(--primary)' }}
+          >
+            <ShoppingCart className="size-4" strokeWidth={2.2} />
+            <span>Sell to Student</span>
+          </Button>
+          <Button
+            onClick={openAdd}
+            className="relative shrink-0 gap-2 border border-white/30 bg-gradient-to-r from-primary via-teal-600 to-cyan-600 text-white shadow-md transition-all hover:-translate-y-0.5 hover:shadow-lg"
+          >
+            <PlusCircle className="size-4" strokeWidth={2.2} />
+            <span className="font-semibold">Add Item</span>
+          </Button>
+        </div>
       </div>
 
-      <Card className="gap-0 py-0 shadow-sm">
-        <CardContent className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative w-full sm:max-w-md">
-          <Search className="absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
-          <Input className="pl-8" placeholder="Search items…" value={search} onChange={(e) => setSearch(e.target.value)} />
-        </div>
-        <label className="flex items-center gap-2 text-sm">
-          <Checkbox checked={lowStockOnly} onCheckedChange={(c) => setLowStockOnly(!!c)} /> Low stock only
-        </label>
-        </CardContent>
-      </Card>
+      {/* Stats Cards */}
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard
+          title="Total Items"
+          value={stats.total.toLocaleString('en-IN')}
+          description="All inventory items"
+          icon={Box}
+          tone="sky"
+        />
+        <StatCard
+          title="Total Units"
+          value={stats.totalStock.toLocaleString('en-IN')}
+          description="Combined stock count"
+          icon={Package}
+          tone="emerald"
+        />
+        <StatCard
+          title="Low Stock"
+          value={stats.lowStock.toLocaleString('en-IN')}
+          description="Items below reorder level"
+          icon={AlertCircle}
+          tone="rose"
+        />
+        <StatCard
+          title="Sellable Items"
+          value={stats.sellable.toLocaleString('en-IN')}
+          description={`${stats.variants} variants across items`}
+          icon={Store}
+          tone="violet"
+        />
+      </div>
 
       {items.length === 0 ? (
         <EmptyState icon={Package} title="No items" description="Add inventory items to track stock and sell to students." action={{ label: 'Add Item', onClick: openAdd }} />
       ) : (
-        <Card className="gap-0 overflow-hidden py-0 shadow-sm">
-          <CardHeader className="border-b bg-muted/30 px-4 py-3">
-            <CardTitle className="flex items-center gap-2 text-sm font-semibold">
-              <Package className="size-4 text-primary" />
-              Inventory Items
-              <Badge variant="secondary" className="ml-auto text-xs">
-                {items.length.toLocaleString('en-IN')} records
-              </Badge>
-            </CardTitle>
+        <Card className="gap-0 overflow-hidden border-sky-500/15 bg-gradient-to-br from-card via-card to-sky-500/[0.035] py-0 shadow-sm">
+          <CardHeader className="border-b border-sky-500/15 bg-gradient-to-r from-sky-500/[0.10] via-primary/[0.05] to-violet-500/[0.08] px-4 py-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-2">
+                <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-primary text-white shadow-sm shadow-sky-500/20">
+                  <Package className="size-4" />
+                </span>
+                <span className="text-sm font-semibold">Inventory Items</span>
+                <Badge variant="secondary" className="text-xs">
+                  {items.length.toLocaleString('en-IN')}
+                </Badge>
+                {stats.lowStock > 0 && (
+                  <Badge variant="outline" className="border-rose-300 bg-rose-50 text-rose-700 text-[10px] dark:border-rose-800 dark:bg-rose-950/30 dark:text-rose-400">
+                    {stats.lowStock} low
+                  </Badge>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    className="h-8 w-48 pl-7 text-xs"
+                    placeholder="Search by name, SKU…"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                  />
+                </div>
+                <label className="flex cursor-pointer items-center gap-1.5 text-xs">
+                  <Checkbox
+                    checked={lowStockOnly}
+                    onCheckedChange={(c) => setLowStockOnly(!!c)}
+                    className="size-3.5 border-rose-400 data-[state=checked]:bg-rose-500 data-[state=checked]:border-rose-500"
+                  />
+                  <span className="font-medium text-rose-600 dark:text-rose-400">Low stock</span>
+                </label>
+              </div>
+            </div>
           </CardHeader>
           <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-8"></TableHead>
-                <TableHead>Item</TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead>Stock</TableHead>
-                <TableHead>Variants</TableHead>
-                <TableHead></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {items.map((i) => {
-                const multi = i.variantLabel != null || i.variants.length > 1
-                const isOpen = expanded.has(i.id)
-                return (
-                  <Fragment key={i.id}>
-                    <TableRow className={i.isLowStock ? 'bg-amber-50/50 dark:bg-amber-950/10' : ''}>
-                      <TableCell className="py-2">
-                        {multi && (
-                          <Button variant="ghost" size="icon" className="size-6" onClick={() => toggleExpand(i.id)}>
-                            {isOpen ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
-                          </Button>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <div className="font-medium">{i.name}</div>
-                        <div className="text-xs text-muted-foreground">{i.sku || ''} {i.isSellable && <Badge variant="secondary" className="ml-1">Sellable</Badge>}</div>
-                      </TableCell>
-                      <TableCell>{i.categoryRef?.name || i.category || '—'}</TableCell>
-                      <TableCell>
-                        <span className="tabular-nums">{i.totalStock} {i.unit || ''}</span>
-                        {i.isLowStock && <Badge variant="outline" className="ml-2 border-amber-400 text-amber-700"><AlertTriangle className="mr-1 size-3" />Low</Badge>}
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {multi ? `${i.variants.length} ${(i.variantLabel || 'variant').toLowerCase()}${i.variants.length === 1 ? '' : 's'}` : '—'}
-                      </TableCell>
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="size-8"><MoreVertical className="size-4" /></Button></DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => openStock(i)}><PackagePlus className="mr-2 size-4" />Adjust Stock</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => openEdit(i)}><Pencil className="mr-2 size-4" />Edit</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setDeleteItem(i)} className="text-destructive"><Trash2 className="mr-2 size-4" />Delete</DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                    {multi && isOpen && i.variants.map((v) => (
-                      <TableRow key={v.id} className="bg-muted/30">
-                        <TableCell></TableCell>
-                        <TableCell colSpan={2} className="py-1.5 pl-8 text-sm">
-                          <span className="font-medium">{i.variantLabel}: {v.label}</span>
-                          {v.sku && <span className="ml-2 text-xs text-muted-foreground">{v.sku}</span>}
-                        </TableCell>
-                        <TableCell className="py-1.5">
-                          <span className="tabular-nums">{v.quantity}</span>
-                          {isLowVariant(v) && <Badge variant="outline" className="ml-2 border-amber-400 text-amber-700">Low</Badge>}
-                        </TableCell>
-                        <TableCell colSpan={2} className="py-1.5 text-xs text-muted-foreground">
-                          Sell {v.sellingPrice != null ? `₹${v.sellingPrice}` : '—'}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </Fragment>
-                )
-              })}
-            </TableBody>
-          </Table>
+            <div className="mx-4 mt-4 mb-4 overflow-x-auto rounded-xl border border-sky-500/15 shadow-sm">
+              <Table>
+                <TableHeader className="bg-gradient-to-r from-sky-500/[0.08] via-primary/[0.04] to-violet-500/[0.07]">
+                  <TableRow>
+                    <TableHead className="w-8"></TableHead>
+                    <TableHead className="py-2.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Item</TableHead>
+                    <TableHead className="py-2.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Category</TableHead>
+                    <TableHead className="py-2.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Stock</TableHead>
+                    <TableHead className="py-2.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Variants</TableHead>
+                    <TableHead className="w-14 py-2.5"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {items.map((i) => {
+                    const multi = i.variantLabel != null || i.variants.length > 1
+                    const isOpen = expanded.has(i.id)
+                    const stockPct = i.variants.length > 0
+                      ? Math.min(100, Math.round(Math.max(i.variants.reduce((s, v) => {
+                          const alert = v.reorderLevel > 0 ? v.reorderLevel : 5
+                          return s + (v.quantity / alert) * 100
+                        }, 0) / i.variants.length, 0)))
+                      : 100
+                    const barColor = i.isLowStock
+                      ? 'bg-rose-400'
+                      : stockPct > 50
+                        ? 'bg-emerald-400'
+                        : 'bg-amber-400'
+                    return (
+                      <Fragment key={i.id}>
+                        <TableRow className={cn(
+                          'transition-colors group',
+                          i.isLowStock ? 'bg-rose-50/60 dark:bg-rose-950/10 hover:bg-rose-100/60 dark:hover:bg-rose-950/20' : 'hover:bg-sky-500/[0.04]'
+                        )}>
+                          <TableCell className="py-2.5">
+                            {multi && (
+                              <Button variant="ghost" size="icon" className="size-6 text-muted-foreground" onClick={() => toggleExpand(i.id)}>
+                                {isOpen ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
+                              </Button>
+                            )}
+                          </TableCell>
+                          <TableCell className="py-2.5">
+                            <div className="flex items-center gap-3">
+                              <div className={cn(
+                                'flex size-9 shrink-0 items-center justify-center rounded-lg transition-colors',
+                                i.isLowStock
+                                  ? 'bg-rose-100 text-rose-600 dark:bg-rose-950/40'
+                                  : 'bg-sky-100 text-sky-600 dark:bg-sky-950/40'
+                              )}>
+                                <Box className="size-4.5" />
+                              </div>
+                              <div>
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-sm font-semibold">{i.name}</span>
+                                  {i.isSellable && (
+                                    <Badge variant="secondary" className="h-4.5 px-1.5 text-[9px] font-medium uppercase tracking-wider">
+                                      Sellable
+                                    </Badge>
+                                  )}
+                                </div>
+                                <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
+                                  {i.sku && <span className="font-mono text-[10px]">{i.sku}</span>}
+                                </div>
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell className="py-2.5">
+                            <span className="inline-flex items-center gap-1.5 rounded-md bg-muted/50 px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                              {i.categoryRef?.name || i.category || 'Uncategorized'}
+                            </span>
+                          </TableCell>
+                          <TableCell className="py-2.5">
+                            <div className="flex items-center gap-2">
+                              <div className="flex flex-col items-start gap-0.5">
+                                <span className={cn('text-sm tabular-nums font-semibold', i.isLowStock ? 'text-rose-600 dark:text-rose-400' : '')}>
+                                  {i.totalStock} {i.unit || ''}
+                                </span>
+                                <div className="flex items-center gap-1.5">
+                                  <div className="h-1.5 w-16 overflow-hidden rounded-full bg-muted">
+                                    <div
+                                      className={cn('h-full rounded-full transition-all', barColor)}
+                                      style={{ width: `${Math.min(100, stockPct)}%` }}
+                                    />
+                                  </div>
+                                  {i.isLowStock && (
+                                    <Badge variant="outline" className="h-4.5 border-rose-300 bg-rose-50 px-1 text-[9px] font-semibold text-rose-700 dark:border-rose-800 dark:bg-rose-950/30 dark:text-rose-400">
+                                      <AlertTriangle className="mr-0.5 size-2.5" />Low
+                                    </Badge>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell className="py-2.5">
+                            {multi ? (
+                              <span className="inline-flex items-center gap-1 rounded-md bg-violet-50 px-2 py-0.5 text-xs font-medium text-violet-700 dark:bg-violet-950/30 dark:text-violet-400">
+                                <Boxes className="size-3" />
+                                {i.variants.length}
+                              </span>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">—</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="py-2.5">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="size-7 opacity-60 transition-opacity group-hover:opacity-100">
+                                  <MoreVertical className="size-3.5" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="min-w-36">
+                                <DropdownMenuItem onClick={() => openStock(i)} className="gap-2">
+                                  <span className="flex size-5 items-center justify-center rounded bg-emerald-100 text-emerald-600 dark:bg-emerald-950/50">
+                                    <PackagePlus className="size-3" />
+                                  </span>
+                                  Adjust Stock
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => openEdit(i)} className="gap-2">
+                                  <span className="flex size-5 items-center justify-center rounded bg-sky-100 text-sky-600 dark:bg-sky-950/50">
+                                    <Pencil className="size-3" />
+                                  </span>
+                                  Edit
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => setDeleteItem(i)} className="gap-2 text-destructive focus:text-destructive">
+                                  <span className="flex size-5 items-center justify-center rounded bg-rose-100 text-rose-600 dark:bg-rose-950/50">
+                                    <Trash2 className="size-3" />
+                                  </span>
+                                  Delete
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        </TableRow>
+                        {multi && isOpen && i.variants.map((v) => (
+                          <TableRow key={v.id} className="bg-muted/15 dark:bg-muted/5 border-t-0">
+                            <TableCell className="w-8 border-l-2 border-sky-200 dark:border-sky-800" />
+                            <TableCell colSpan={2} className="py-2 pl-10">
+                              <div className="flex items-center gap-2">
+                                <span className="flex size-5 items-center justify-center rounded bg-muted text-[10px] font-semibold text-muted-foreground">
+                                  {i.variants.indexOf(v) + 1}
+                                </span>
+                                <span className="text-sm font-medium">{v.label}</span>
+                                {v.sku && <span className="text-[10px] text-muted-foreground font-mono">{v.sku}</span>}
+                              </div>
+                            </TableCell>
+                            <TableCell className="py-2">
+                              <div className="flex items-center gap-1.5">
+                                <span className={cn('text-sm tabular-nums', isLowVariant(v) ? 'font-semibold text-rose-600 dark:text-rose-400' : '')}>
+                                  {v.quantity}
+                                </span>
+                                {isLowVariant(v) && (
+                                  <Badge variant="outline" className="h-4.5 border-rose-300 bg-rose-50 px-1 text-[9px] text-rose-700 dark:border-rose-800 dark:bg-rose-950/30 dark:text-rose-400">
+                                    Low
+                                  </Badge>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell colSpan={2} className="py-2 text-xs text-muted-foreground">
+                              {v.sellingPrice != null ? (
+                                <span className="inline-flex items-center gap-1 rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400">
+                                  <span className="tabular-nums">₹{v.sellingPrice}</span>
+                                </span>
+                              ) : (
+                                <span className="text-muted-foreground/50">—</span>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </Fragment>
+                    )
+                  })}
+                </TableBody>
+              </Table>
+            </div>
           </CardContent>
         </Card>
       )}
@@ -332,9 +581,9 @@ export function InventoryPage() {
       {/* Add / Edit dialog */}
       <Dialog open={showForm} onOpenChange={setShowForm}>
         <DialogContent className="flex max-h-[92svh] flex-col gap-0 overflow-hidden p-0 sm:max-w-3xl">
-          <DialogHeader className="shrink-0 border-b bg-muted/30 px-5 py-4 pr-12 text-left sm:px-6">
+          <DialogHeader className="shrink-0 border-b bg-gradient-to-r from-sky-500/[0.08] via-primary/[0.04] to-violet-500/[0.06] px-5 py-4 pr-12 text-left sm:px-6">
             <div className="flex items-start gap-3">
-              <div className="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-md border bg-background text-primary">
+              <div className="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-md bg-gradient-to-br from-sky-500 to-primary text-white shadow-sm">
                 <PackagePlus className="size-5" />
               </div>
               <div className="min-w-0 space-y-1">
@@ -347,7 +596,9 @@ export function InventoryPage() {
             <div className="space-y-6">
               <section className="space-y-4">
                 <div className="flex items-center gap-2 text-sm font-semibold">
-                  <Tags className="size-4 text-primary" />
+                  <span className="flex size-6 items-center justify-center rounded-md bg-gradient-to-br from-sky-500 to-primary text-white shadow-xs">
+                    <Tags className="size-3.5" />
+                  </span>
                   Item details
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2">
@@ -370,16 +621,22 @@ export function InventoryPage() {
               </section>
 
               <section className="grid gap-3 sm:grid-cols-2">
-                <div className="flex items-center justify-between gap-4 rounded-md border bg-background p-4">
+                <div className="flex items-center justify-between gap-4 rounded-xl border border-emerald-500/15 bg-gradient-to-br from-emerald-500/[0.06] via-card to-emerald-500/[0.02] p-4">
                   <div className="space-y-1">
-                    <div className="text-sm font-medium">Sellable item</div>
+                    <div className="flex items-center gap-2 text-sm font-medium">
+                      <Store className="size-4 text-emerald-600" />
+                      Sellable item
+                    </div>
                     <p className="text-xs text-muted-foreground">Show this item in Sell to Student.</p>
                   </div>
                   <Switch checked={form.isSellable} onCheckedChange={(c) => setForm((f) => ({ ...f, isSellable: c }))} aria-label="Toggle sellable item" />
                 </div>
-                <div className="flex items-center justify-between gap-4 rounded-md border bg-background p-4">
+                <div className="flex items-center justify-between gap-4 rounded-xl border border-violet-500/15 bg-gradient-to-br from-violet-500/[0.06] via-card to-violet-500/[0.02] p-4">
                   <div className="space-y-1">
-                    <div className="text-sm font-medium">Variants</div>
+                    <div className="flex items-center gap-2 text-sm font-medium">
+                      <Boxes className="size-4 text-violet-600" />
+                      Variants
+                    </div>
                     <p className="text-xs text-muted-foreground">Use for sizes, classes, or editions.</p>
                   </div>
                   <Switch
@@ -395,9 +652,11 @@ export function InventoryPage() {
                 </div>
               </section>
 
-              <section className="space-y-4 rounded-md border bg-muted/20 p-4">
+              <section className="space-y-4 rounded-xl border border-primary/10 bg-gradient-to-br from-primary/[0.03] via-card to-primary/[0.02] p-4">
                 <div className="flex items-center gap-2 text-sm font-semibold">
-                  <Boxes className="size-4 text-primary" />
+                  <span className="flex size-6 items-center justify-center rounded-md bg-gradient-to-br from-primary to-teal-600 text-white shadow-xs">
+                    <Boxes className="size-3.5" />
+                  </span>
                   Stock and pricing
                 </div>
 
@@ -408,14 +667,14 @@ export function InventoryPage() {
                 </div>
               )}
 
-              <div className="-mx-1 overflow-x-auto rounded-md border bg-background">
+              <div className="-mx-1 overflow-x-auto rounded-lg border bg-background shadow-xs">
                 <Table>
-                  <TableHeader>
+                  <TableHeader className="bg-gradient-to-r from-primary/[0.06] to-teal-600/[0.04]">
                     <TableRow>
-                      {form.hasVariants && <TableHead className="min-w-24">{form.variantLabel.trim() || 'Label'}</TableHead>}
-                      <TableHead>{editingId ? 'Stock' : 'Opening Qty'}</TableHead>
-                      <TableHead>Low Stock Alert</TableHead>
-                      <TableHead>Sell Price</TableHead>
+                      {form.hasVariants && <TableHead className="min-w-24 text-xs font-semibold uppercase tracking-wider text-muted-foreground">{form.variantLabel.trim() || 'Label'}</TableHead>}
+                      <TableHead className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{editingId ? 'Stock' : 'Opening Qty'}</TableHead>
+                      <TableHead className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Low Stock Alert</TableHead>
+                      <TableHead className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Sell Price</TableHead>
                       {form.hasVariants && <TableHead className="w-8"></TableHead>}
                     </TableRow>
                   </TableHeader>
@@ -440,7 +699,7 @@ export function InventoryPage() {
               </div>
 
               {form.hasVariants && (
-                <Button variant="outline" size="sm" className="mt-2" onClick={addVariantRow}><PlusCircle className="mr-1 size-4" />Add {form.variantLabel.trim() || 'variant'}</Button>
+                <Button variant="outline" size="sm" className="mt-2 gap-1.5 border-primary/20 text-primary" onClick={addVariantRow}><PlusCircle className="size-4" />Add {form.variantLabel.trim() || 'variant'}</Button>
               )}
               {editingId && <p className="mt-2 text-xs text-muted-foreground">Changing a stock figure here records a recount adjustment. Use Adjust Stock for restocking.</p>}
               </section>
@@ -448,7 +707,9 @@ export function InventoryPage() {
           </div>
           <DialogFooter className="shrink-0 border-t bg-background px-5 py-4 sm:px-6">
             <Button variant="outline" onClick={() => setShowForm(false)}>Cancel</Button>
-            <Button onClick={handleSave} disabled={saving || !form.name.trim()}>{saving ? 'Saving...' : editingId ? 'Save changes' : 'Add item'}</Button>
+            <Button onClick={handleSave} disabled={saving || !form.name.trim()} className="gap-2">
+              {saving ? 'Saving...' : editingId ? 'Save changes' : 'Add item'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -457,8 +718,15 @@ export function InventoryPage() {
       <Dialog open={!!stockItem} onOpenChange={(o) => !o && setStockItem(null)}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>Adjust Stock — {stockItem?.name}</DialogTitle>
-            <DialogDescription>Record a restock, consumption, or recount.</DialogDescription>
+            <div className="flex items-center gap-3">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-sm">
+                <PackagePlus className="size-5" />
+              </span>
+              <div>
+                <DialogTitle>Adjust Stock</DialogTitle>
+                <DialogDescription>{stockItem?.name}</DialogDescription>
+              </div>
+            </div>
           </DialogHeader>
           <div className="grid gap-3 py-2">
             {stockItem && (stockItem.variantLabel != null || stockItem.variants.length > 1) && (
@@ -477,18 +745,41 @@ export function InventoryPage() {
               <Select value={stockForm.type} onValueChange={(v) => setStockForm((f) => ({ ...f, type: v }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="IN">Stock In (restock)</SelectItem>
-                  <SelectItem value="OUT">Stock Out (consume/waste)</SelectItem>
-                  <SelectItem value="ADJUST">Set exact count (recount)</SelectItem>
+                  <SelectItem value="IN">
+                    <div className="flex items-center gap-2">
+                      <PackagePlus className="size-4 text-emerald-600" />
+                      <span>Stock In (restock)</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="OUT">
+                    <div className="flex items-center gap-2">
+                      <Package className="size-4 text-rose-600" />
+                      <span>Stock Out (consume/waste)</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="ADJUST">
+                    <div className="flex items-center gap-2">
+                      <Boxes className="size-4 text-amber-600" />
+                      <span>Set exact count (recount)</span>
+                    </div>
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2"><Label>{stockForm.type === 'ADJUST' ? 'New count' : 'Quantity'}</Label><Input type="number" value={stockForm.quantity} onChange={(e) => setStockForm((f) => ({ ...f, quantity: e.target.value }))} /></div>
-            <div className="space-y-2"><Label>Reason (optional)</Label><Input value={stockForm.reason} onChange={(e) => setStockForm((f) => ({ ...f, reason: e.target.value }))} /></div>
+            <div className="space-y-2">
+              <Label>{stockForm.type === 'ADJUST' ? 'New count' : 'Quantity'}</Label>
+              <Input type="number" value={stockForm.quantity} onChange={(e) => setStockForm((f) => ({ ...f, quantity: e.target.value }))} />
+            </div>
+            <div className="space-y-2">
+              <Label>Reason (optional)</Label>
+              <Input value={stockForm.reason} onChange={(e) => setStockForm((f) => ({ ...f, reason: e.target.value }))} />
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setStockItem(null)}>Cancel</Button>
-            <Button onClick={handleStock} disabled={stockForm.quantity === '' || !stockForm.variantId}>Apply</Button>
+            <Button onClick={handleStock} disabled={stockForm.quantity === '' || !stockForm.variantId} className="gap-2">
+              <PackagePlus className="size-4" /> Apply
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -496,12 +787,19 @@ export function InventoryPage() {
       <AlertDialog open={!!deleteItem} onOpenChange={(o) => !o && setDeleteItem(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete {deleteItem?.name}?</AlertDialogTitle>
-            <AlertDialogDescription>This soft-deletes the item and all its variants. Its sales history is preserved.</AlertDialogDescription>
+            <div className="flex items-center gap-3">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-rose-500 to-rose-600 text-white shadow-sm">
+                <Trash2 className="size-5" />
+              </span>
+              <div>
+                <AlertDialogTitle>Delete {deleteItem?.name}?</AlertDialogTitle>
+                <AlertDialogDescription>This soft-deletes the item and all its variants. Its sales history is preserved.</AlertDialogDescription>
+              </div>
+            </div>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete}>Delete</AlertDialogAction>
+            <AlertDialogAction onClick={handleDelete} className="bg-rose-600 hover:bg-rose-700">Delete</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

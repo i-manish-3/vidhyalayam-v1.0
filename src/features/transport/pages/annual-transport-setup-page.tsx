@@ -6,7 +6,8 @@ import { api } from '@/lib/api'
 import { useAppStore } from '@/lib/store'
 import { useToast } from '@/hooks/use-toast'
 import { getCurrentAcademicYear, toAcademicYearOptions } from '@/lib/academic-years'
-import { PageHeader, EmptyState, LoadingState } from '@/components/shared'
+import { cn } from '@/lib/utils'
+import { EmptyState, LoadingState } from '@/components/shared'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -732,25 +733,39 @@ export function AnnualTransportSetupPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Annual Transport Setup"
-        description="Roll forward transport routes and stop fares from one session to the next. Edit fares side-by-side, add new routes, or discontinue old ones."
-      />
+      {/* Gradient Header Banner */}
+      <div className="relative flex flex-col gap-3 overflow-hidden rounded-xl border border-primary/25 bg-gradient-to-r from-primary via-teal-600 to-cyan-600 px-4 py-3 text-white shadow-lg shadow-primary/15 sm:flex-row sm:items-center sm:justify-between">
+        <div aria-hidden className="absolute -right-8 -top-14 size-36 rounded-full border-[18px] border-cyan-200/15" />
+        <div aria-hidden className="absolute bottom-0 right-1/4 h-px w-48 bg-gradient-to-r from-transparent via-white/45 to-transparent" />
+        <div aria-hidden className="absolute -bottom-14 right-28 size-24 rounded-full bg-sky-300/10" />
+        <div className="relative flex min-w-0 items-center gap-3">
+          <span className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-white/25 bg-white/15 shadow-md shadow-black/10 backdrop-blur-sm">
+            <CalendarDays className="size-5.5 text-white" strokeWidth={1.8} />
+          </span>
+          <div className="min-w-0">
+            <h1 className="text-xl font-bold tracking-tight">Annual Transport Setup</h1>
+            <p className="mt-0.5 text-xs text-white/80">
+              Roll forward routes and stop fares from one session to the next.
+            </p>
+          </div>
+        </div>
+      </div>
 
-      <Card className="gap-0 overflow-hidden py-0">
-        <CardHeader className="border-b bg-muted/30 px-4 py-2.5 sm:px-5">
-          <CardTitle className="flex items-center gap-2 text-base">
-            <span className="bg-brand-soft flex size-7 shrink-0 items-center justify-center rounded-lg text-white shadow-sm">
-              <CalendarDays className="size-3.5" />
+      {/* Sessions Selector */}
+      <Card className="gap-0 overflow-hidden border-sky-500/15 bg-gradient-to-br from-card via-card to-sky-500/[0.035] py-0 shadow-sm">
+        <CardHeader className="border-b border-sky-500/15 bg-gradient-to-r from-sky-500/[0.10] via-primary/[0.05] to-violet-500/[0.08] px-4 py-3 sm:px-5">
+          <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+            <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-primary text-white shadow-sm shadow-sky-500/20">
+              <CalendarDays className="size-4" />
             </span>
             Sessions
           </CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4 px-4 pb-4 pt-3 sm:grid-cols-2 sm:px-5">
           <div className="space-y-1.5">
-            <Label>From Session</Label>
+            <Label className="text-xs font-medium">From Session</Label>
             <Select value={fromYear} onValueChange={setFromYear} disabled={loadingYears}>
-              <SelectTrigger><SelectValue placeholder="Source session" /></SelectTrigger>
+              <SelectTrigger className="h-10"><SelectValue placeholder="Source session" /></SelectTrigger>
               <SelectContent>
                 {yearOptions.map((opt) => (
                   <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
@@ -759,9 +774,9 @@ export function AnnualTransportSetupPage() {
             </Select>
           </div>
           <div className="space-y-1.5">
-            <Label>To Session</Label>
+            <Label className="text-xs font-medium">To Session</Label>
             <Select value={toYear} onValueChange={setToYear} disabled={loadingYears}>
-              <SelectTrigger><SelectValue placeholder="Target session" /></SelectTrigger>
+              <SelectTrigger className="h-10"><SelectValue placeholder="Target session" /></SelectTrigger>
               <SelectContent>
                 {yearOptions
                   .filter((opt) => !fromYear || opt.value > fromYear)
@@ -773,9 +788,10 @@ export function AnnualTransportSetupPage() {
           </div>
           {sameYear && (
             <div className="sm:col-span-2">
-              <Alert variant="destructive">
-                <AlertTitle>Pick Two Different Sessions</AlertTitle>
-                <AlertDescription>
+              <Alert variant="destructive" className="border-rose-500/30 bg-rose-500/[0.08]">
+                <AlertTriangle className="size-4" />
+                <AlertTitle className="text-sm font-semibold">Pick Two Different Sessions</AlertTitle>
+                <AlertDescription className="text-xs">
                   Source and target session can&apos;t be the same. Choose the next session in the To Session dropdown.
                 </AlertDescription>
               </Alert>
@@ -808,14 +824,20 @@ export function AnnualTransportSetupPage() {
             )}
           </div>
 
-          {existingPlans.map((plan, planIndex) => (
-            <Card key={plan.routeId} className="gap-0 overflow-hidden py-0">
-              <CardHeader className="border-b bg-muted/30 px-4 py-2.5 sm:px-5">
+          {existingPlans.map((plan, planIndex) => {
+            const tone = plan.action === 'discontinue' ? 'rose' : 'violet'
+            const toneStyles = tone === 'rose'
+              ? { border: 'border-rose-500/15', bg: 'bg-gradient-to-br from-rose-500/[0.10] via-primary/[0.05] to-amber-500/[0.08]', icon: 'from-rose-500 to-amber-500', shadow: 'shadow-rose-500/20' }
+              : { border: 'border-violet-500/15', bg: 'bg-gradient-to-r from-violet-500/[0.10] via-primary/[0.05] to-rose-500/[0.08]', icon: 'from-violet-500 to-rose-500', shadow: 'shadow-violet-500/20' }
+
+            return (
+            <Card key={plan.routeId} className={cn('gap-0 overflow-hidden py-0 shadow-sm', `border-${tone === 'rose' ? 'rose' : 'violet'}-500/15 bg-gradient-to-br from-card via-card to-${tone === 'rose' ? 'rose' : 'violet'}-500/[0.035]`)}>
+              <CardHeader className={cn('border-b px-4 py-3 sm:px-5', toneStyles.border, toneStyles.bg)}>
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <CardTitle className="flex items-center gap-2 text-base">
-                      <span className="bg-brand-soft flex size-7 shrink-0 items-center justify-center rounded-lg text-white shadow-sm">
-                        <Bus className="size-3.5" />
+                    <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+                      <span className={`flex size-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br ${toneStyles.icon} text-white shadow-sm ${toneStyles.shadow}`}>
+                        <Bus className="size-4" />
                       </span>
                       {plan.routeName}
                       {plan.routeNumber && (
@@ -835,7 +857,7 @@ export function AnnualTransportSetupPage() {
                       value={plan.action}
                       onValueChange={(v: RouteAction) => updateExisting(planIndex, { action: v })}
                     >
-                      <SelectTrigger className="w-[180px]">
+                      <SelectTrigger className="w-[180px] h-9 text-xs">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -849,7 +871,7 @@ export function AnnualTransportSetupPage() {
                         variant="outline"
                         size="sm"
                         onClick={() => applyAllSameAsSource(planIndex)}
-                        className="gap-1"
+                        className="gap-1 h-8 text-xs"
                       >
                         <RefreshCw className="size-3" />
                         Same as {fromYear}
@@ -860,14 +882,14 @@ export function AnnualTransportSetupPage() {
               </CardHeader>
               {plan.action === 'copy' && (
                 <CardContent className="space-y-4 px-4 pb-4 pt-3 sm:px-5">
-                  <div className="rounded-md border">
+                  <div className="overflow-hidden rounded-xl border border-violet-500/15 shadow-sm">
                     <Table>
-                      <TableHeader>
+                      <TableHeader className="bg-gradient-to-r from-violet-500/[0.08] via-primary/[0.04] to-rose-500/[0.07]">
                         <TableRow>
-                          <TableHead className="w-[30%]">Stop</TableHead>
-                          <TableHead className="w-[20%]">{fromYear} Fare</TableHead>
-                          <TableHead className="w-[15%]">Same?</TableHead>
-                          <TableHead className="w-[35%]">
+                          <TableHead className="w-[30%] py-2.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Stop</TableHead>
+                          <TableHead className="w-[20%] py-2.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">{fromYear} Fare</TableHead>
+                          <TableHead className="w-[15%] py-2.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Same?</TableHead>
+                          <TableHead className="w-[35%] py-2.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                             {toYear} Fare
                             <ArrowRight className="ml-1 inline size-3" />
                           </TableHead>
@@ -877,14 +899,14 @@ export function AnnualTransportSetupPage() {
                         {plan.targetStops.map((stop, stopIndex) => {
                           const sourceStop = plan.sourceStops.find((s) => s.name === stop.name)
                           return (
-                            <TableRow key={stop.name}>
-                              <TableCell className="font-medium">{stop.name}</TableCell>
-                              <TableCell className="text-muted-foreground">
+                            <TableRow key={stop.name} className="transition-colors hover:bg-violet-500/[0.04]">
+                              <TableCell className="py-2.5 font-medium text-sm">{stop.name}</TableCell>
+                              <TableCell className="py-2.5 text-muted-foreground text-sm">
                                 {sourceStop
                                   ? `Rs. ${sourceStop.fare.toLocaleString('en-IN')}`
                                   : <Badge variant="outline" className="text-[10px]">new</Badge>}
                               </TableCell>
-                              <TableCell>
+                              <TableCell className="py-2.5">
                                 {sourceStop && (
                                   <Checkbox
                                     checked={stop.sameAsSource}
@@ -892,7 +914,7 @@ export function AnnualTransportSetupPage() {
                                   />
                                 )}
                               </TableCell>
-                              <TableCell>
+                              <TableCell className="py-2.5">
                                 <Input
                                   type="number"
                                   inputMode="decimal"
@@ -923,9 +945,9 @@ export function AnnualTransportSetupPage() {
                     </Table>
                   </div>
 
-                  <div className="space-y-2">
+                  <div className="rounded-xl border border-amber-500/20 bg-amber-500/[0.04] p-4 space-y-3">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                      <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                      <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                         Fee Months for {toYear}
                       </Label>
                       <div className="flex flex-wrap items-center gap-3">
@@ -965,11 +987,12 @@ export function AnnualTransportSetupPage() {
                             type="button"
                             key={month}
                             onClick={() => toggleTargetFeeMonth(planIndex, month)}
-                            className={`rounded-full border px-3 py-1 text-xs transition ${
+                            className={cn(
+                              'rounded-full border px-3 py-1 text-xs font-medium transition',
                               checked
-                                ? 'border-primary bg-primary text-primary-foreground'
-                                : 'border-input bg-background text-muted-foreground hover:border-primary/40'
-                            }`}
+                                ? 'border-amber-500/40 bg-gradient-to-br from-amber-500/[0.15] via-card to-rose-500/[0.08] text-amber-700 shadow-sm'
+                                : 'border-input bg-background text-muted-foreground hover:border-amber-500/30 hover:bg-amber-50 dark:hover:bg-amber-950/20'
+                            )}
                           >
                             {month}
                           </button>
@@ -981,9 +1004,10 @@ export function AnnualTransportSetupPage() {
               )}
               {plan.action === 'discontinue' && (
                 <CardContent className="px-4 pb-4 pt-3 sm:px-5">
-                  <Alert>
-                    <AlertTitle>Will be discontinued in {toYear}</AlertTitle>
-                    <AlertDescription>
+                  <Alert className="border-rose-500/20 bg-rose-500/[0.06]">
+                    <CircleSlash className="size-4 text-rose-500" />
+                    <AlertTitle className="text-sm font-semibold text-rose-700 dark:text-rose-300">Will be discontinued in {toYear}</AlertTitle>
+                    <AlertDescription className="text-xs text-muted-foreground">
                       All stop fares for this route in {toYear} will be deactivated. Existing student allocations are
                       not modified — handle them separately if needed.
                     </AlertDescription>
@@ -991,20 +1015,20 @@ export function AnnualTransportSetupPage() {
                 </CardContent>
               )}
             </Card>
-          ))}
+            )})}
         </div>
       )}
 
       {!loadingPlan && fromYear && toYear && !sameYear && (
-        <Card className="gap-0 overflow-hidden py-0">
-          <CardHeader className="flex flex-row items-center justify-between gap-3 border-b bg-muted/30 px-4 py-2.5 sm:px-5">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <span className="bg-brand-soft flex size-7 shrink-0 items-center justify-center rounded-lg text-white shadow-sm">
-                <Bus className="size-3.5" />
+        <Card className="gap-0 overflow-hidden border-emerald-500/15 bg-gradient-to-br from-card via-card to-emerald-500/[0.035] py-0 shadow-sm">
+          <CardHeader className="flex flex-row items-center justify-between gap-3 border-b border-emerald-500/15 bg-gradient-to-r from-emerald-500/[0.10] via-primary/[0.05] to-cyan-500/[0.08] px-4 py-3 sm:px-5">
+            <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+              <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-cyan-500 text-white shadow-sm shadow-emerald-500/20">
+                <Bus className="size-4" />
               </span>
               New routes for {toYear || '—'}
             </CardTitle>
-            <Button type="button" variant="outline" size="sm" onClick={addNewRoute} className="gap-1">
+            <Button type="button" variant="outline" size="sm" onClick={addNewRoute} className="gap-1 h-8 text-xs">
               <PlusCircle className="size-3.5" />
               Add Route
             </Button>
@@ -1017,127 +1041,71 @@ export function AnnualTransportSetupPage() {
               </p>
             )}
             {newRoutes.map((route, routeIndex) => (
-              <div key={route.tempId} className="rounded-md border p-4 space-y-4">
+              <div key={route.tempId} className="rounded-xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/[0.04] via-card to-cyan-500/[0.04] p-4 space-y-4 shadow-sm">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 grid gap-3 sm:grid-cols-2">
                     <div className="space-y-1.5">
-                      <Label>Route Name</Label>
-                      <Input
-                        value={route.routeName}
-                        onChange={(e) => updateNewRoute(routeIndex, { routeName: e.target.value })}
-                        placeholder="City Center to School"
-                      />
+                      <Label className="text-xs font-medium">Route Name</Label>
+                      <Input value={route.routeName} onChange={(e) => updateNewRoute(routeIndex, { routeName: e.target.value })} placeholder="City Center to School" className="h-9" />
                     </div>
                     <div className="space-y-1.5">
-                      <Label>Route Number</Label>
-                      <Input
-                        value={route.routeNumber}
-                        onChange={(e) => updateNewRoute(routeIndex, { routeNumber: e.target.value })}
-                        placeholder="R-07"
-                      />
+                      <Label className="text-xs font-medium">Route Number</Label>
+                      <Input value={route.routeNumber} onChange={(e) => updateNewRoute(routeIndex, { routeNumber: e.target.value })} placeholder="R-07" className="h-9" />
                     </div>
                     <div className="space-y-1.5">
-                      <Label>Start Point</Label>
-                      <Input
-                        value={route.startPoint}
-                        onChange={(e) => updateNewRoute(routeIndex, { startPoint: e.target.value })}
-                      />
+                      <Label className="text-xs font-medium">Start Point</Label>
+                      <Input value={route.startPoint} onChange={(e) => updateNewRoute(routeIndex, { startPoint: e.target.value })} className="h-9" />
                     </div>
                     <div className="space-y-1.5">
-                      <Label>End Point</Label>
-                      <Input
-                        value={route.endPoint}
-                        onChange={(e) => updateNewRoute(routeIndex, { endPoint: e.target.value })}
-                      />
+                      <Label className="text-xs font-medium">End Point</Label>
+                      <Input value={route.endPoint} onChange={(e) => updateNewRoute(routeIndex, { endPoint: e.target.value })} className="h-9" />
                     </div>
                     <div className="space-y-1.5">
-                      <Label>Distance (km)</Label>
-                      <Input
-                        type="number"
-                        inputMode="decimal"
-                        min="0"
-                        step="0.1"
-                        value={route.distance}
-                        onChange={(e) => updateNewRoute(routeIndex, { distance: e.target.value })}
-                      />
+                      <Label className="text-xs font-medium">Distance (km)</Label>
+                      <Input type="number" inputMode="decimal" min="0" step="0.1" value={route.distance} onChange={(e) => updateNewRoute(routeIndex, { distance: e.target.value })} className="h-9" />
                     </div>
                     <div className="space-y-1.5">
-                      <Label>Vehicle Number</Label>
-                      <Input
-                        value={route.vehicleNumber}
-                        onChange={(e) => updateNewRoute(routeIndex, { vehicleNumber: e.target.value })}
-                      />
+                      <Label className="text-xs font-medium">Vehicle Number</Label>
+                      <Input value={route.vehicleNumber} onChange={(e) => updateNewRoute(routeIndex, { vehicleNumber: e.target.value })} className="h-9" />
                     </div>
                   </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="text-destructive"
-                    onClick={() => removeNewRoute(routeIndex)}
-                    aria-label="Remove new route"
-                  >
+                  <Button type="button" variant="ghost" size="icon" className="size-8 shrink-0 text-rose-500 hover:text-rose-600 hover:bg-rose-50" onClick={() => removeNewRoute(routeIndex)} aria-label="Remove new route">
                     <Trash2 className="size-4" />
                   </Button>
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="text-xs uppercase tracking-wide text-muted-foreground">Stops</Label>
-                  <div className="rounded-md border">
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Stops</Label>
+                  <div className="overflow-hidden rounded-xl border border-emerald-500/15 shadow-sm">
                     <Table>
-                      <TableHeader>
+                      <TableHeader className="bg-gradient-to-r from-emerald-500/[0.08] to-cyan-500/[0.07]">
                         <TableRow>
-                          <TableHead>Stop Name</TableHead>
-                          <TableHead className="w-[180px]">Fare (₹)</TableHead>
-                          <TableHead className="w-[60px]"></TableHead>
+                          <TableHead className="py-2.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Stop Name</TableHead>
+                          <TableHead className="w-[180px] py-2.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Fare (₹)</TableHead>
+                          <TableHead className="w-[60px] py-2.5"></TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {route.stops.map((stop, stopIndex) => (
-                          <TableRow key={`${stop.name}-${stopIndex}`}>
-                            <TableCell>{stop.name}</TableCell>
-                            <TableCell>{Number(stop.fare).toLocaleString('en-IN')}</TableCell>
-                            <TableCell>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className="text-destructive"
-                                onClick={() => removeStopFromNewRoute(routeIndex, stopIndex)}
-                              >
-                                <X className="size-4" />
+                          <TableRow key={`${stop.name}-${stopIndex}`} className="transition-colors hover:bg-emerald-500/[0.04]">
+                            <TableCell className="py-2 text-sm font-medium">{stop.name}</TableCell>
+                            <TableCell className="py-2 tabular-nums">{Number(stop.fare).toLocaleString('en-IN')}</TableCell>
+                            <TableCell className="py-2">
+                              <Button type="button" variant="ghost" size="icon" className="size-7 text-rose-500 hover:text-rose-600 hover:bg-rose-50" onClick={() => removeStopFromNewRoute(routeIndex, stopIndex)}>
+                                <X className="size-3.5" />
                               </Button>
                             </TableCell>
                           </TableRow>
                         ))}
                         <TableRow>
-                          <TableCell>
-                            <Input
-                              value={route.newStopName}
-                              onChange={(e) => updateNewRoute(routeIndex, { newStopName: e.target.value })}
-                              placeholder="Stop name"
-                              className="h-9"
-                            />
+                          <TableCell className="py-2">
+                            <Input value={route.newStopName} onChange={(e) => updateNewRoute(routeIndex, { newStopName: e.target.value })} placeholder="Stop name" className="h-9" />
                           </TableCell>
-                          <TableCell>
-                            <Input
-                              type="number"
-                              inputMode="decimal"
-                              min="0"
-                              step="1"
-                              value={route.newStopFare}
-                              onChange={(e) => updateNewRoute(routeIndex, { newStopFare: e.target.value })}
-                              placeholder="Fare"
-                              className="h-9"
-                            />
+                          <TableCell className="py-2">
+                            <Input type="number" inputMode="decimal" min="0" step="1" value={route.newStopFare} onChange={(e) => updateNewRoute(routeIndex, { newStopFare: e.target.value })} placeholder="Fare" className="h-9" />
                           </TableCell>
-                          <TableCell>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => addStopToNewRoute(routeIndex)}
-                            >
+                          <TableCell className="py-2">
+                            <Button type="button" variant="outline" size="sm" onClick={() => addStopToNewRoute(routeIndex)} className="h-9 text-xs">
                               Add
                             </Button>
                           </TableCell>
@@ -1147,9 +1115,9 @@ export function AnnualTransportSetupPage() {
                   </div>
                 </div>
 
-                <div className="space-y-2">
+                <div className="rounded-xl border border-amber-500/20 bg-amber-500/[0.04] p-4 space-y-3">
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <Label className="text-xs uppercase tracking-wide text-muted-foreground">Fee Months</Label>
+                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Fee Months</Label>
                     <div className="flex flex-wrap items-center gap-3">
                       <label className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
                         <Checkbox
@@ -1167,14 +1135,7 @@ export function AnnualTransportSetupPage() {
                         />
                         All months
                       </label>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setNewRouteFeeMonths(routeIndex, [])}
-                        disabled={route.feeMonths.length === 0}
-                        className="h-7 px-2 text-xs"
-                      >
+                      <Button type="button" variant="ghost" size="sm" onClick={() => setNewRouteFeeMonths(routeIndex, [])} disabled={route.feeMonths.length === 0} className="h-7 px-2 text-xs">
                         Clear all
                       </Button>
                     </div>
@@ -1187,11 +1148,12 @@ export function AnnualTransportSetupPage() {
                           type="button"
                           key={month}
                           onClick={() => toggleNewRouteFeeMonth(routeIndex, month)}
-                          className={`rounded-full border px-3 py-1 text-xs transition ${
+                          className={cn(
+                            'rounded-full border px-3 py-1 text-xs font-medium transition',
                             checked
-                              ? 'border-primary bg-primary text-primary-foreground'
-                              : 'border-input bg-background text-muted-foreground hover:border-primary/40'
-                          }`}
+                              ? 'border-amber-500/40 bg-gradient-to-br from-amber-500/[0.15] via-card to-rose-500/[0.08] text-amber-700 shadow-sm'
+                              : 'border-input bg-background text-muted-foreground hover:border-amber-500/30 hover:bg-amber-50 dark:hover:bg-amber-950/20'
+                          )}
                         >
                           {month}
                         </button>
@@ -1206,7 +1168,7 @@ export function AnnualTransportSetupPage() {
       )}
 
       {!loadingPlan && fromYear && toYear && !sameYear && (
-        <div className="sticky bottom-0 -mx-4 sm:mx-0 border-t bg-background/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+        <div className="sticky bottom-0 -mx-4 border-t border-primary/10 bg-gradient-to-br from-primary/[0.02] via-background to-cyan-500/[0.03] px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:mx-0 sm:rounded-lg sm:border">
           <div className="flex items-center justify-between gap-3">
             <p className="text-xs text-muted-foreground">
               Stop fares for <span className="font-medium text-foreground">{toYear}</span> will be saved. Old{' '}
@@ -1221,41 +1183,59 @@ export function AnnualTransportSetupPage() {
       )}
 
       <Dialog open={previewOpen} onOpenChange={(open) => { if (!submitting) setPreviewOpen(open) }}>
-        <DialogContent className="flex h-[100dvh] max-w-3xl flex-col overflow-hidden">
-          <DialogHeader className="shrink-0">
-            <DialogTitle>Review Annual Transport Setup</DialogTitle>
-            <DialogDescription>
-              These are the changes that will be applied to <span className="font-medium text-foreground">{toYear}</span>.
-              Existing <span className="font-medium text-foreground">{fromYear}</span> data is not modified.
-            </DialogDescription>
+        <DialogContent className="flex h-[100dvh] max-w-3xl flex-col overflow-hidden border-primary/20 bg-card p-0 shadow-2xl shadow-primary/15 [&>button]:right-3 [&>button]:top-3 [&>button]:rounded-full [&>button]:text-white [&>button]:opacity-85 [&>button]:hover:bg-white/15 [&>button]:hover:opacity-100">
+          <DialogHeader className="relative shrink-0 overflow-hidden border-b border-white/15 bg-[linear-gradient(135deg,var(--primary)_0%,#0d9488_48%,#2563eb_100%)] px-5 py-4 pr-12 text-white sm:px-6">
+            <div aria-hidden className="absolute -right-10 -top-16 size-40 rounded-full border-[18px] border-white/10" />
+            <div aria-hidden className="absolute -bottom-14 left-10 size-28 rounded-full bg-emerald-300/20 blur-2xl" />
+            <div aria-hidden className="absolute bottom-0 right-24 h-24 w-44 rounded-full bg-sky-300/15 blur-2xl" />
+            <div className="relative flex items-center gap-3">
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-white/25 bg-white/15 text-white shadow-md backdrop-blur-sm">
+                <Save className="size-5 text-white" />
+              </span>
+              <div>
+                <DialogTitle className="text-lg font-bold tracking-normal text-white">Review Annual Transport Setup</DialogTitle>
+                <DialogDescription className="mt-0.5 text-xs text-white/75">
+                  These are the changes that will be applied to <strong>{toYear}</strong>.
+                  Existing <strong>{fromYear}</strong> data is not modified.
+                </DialogDescription>
+              </div>
+            </div>
           </DialogHeader>
 
           {previewDiff && (
-            <div className="themed-scrollbar flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain pr-1">
-              <div className="grid grid-cols-3 gap-2 text-sm">
-                <div className="rounded-md border p-3">
-                  <div className="text-xs uppercase text-muted-foreground">Routes</div>
-                  <div className="font-semibold">
-                    {previewDiff.totals.routesCreated} new · {previewDiff.totals.routesCopied} updated · {previewDiff.totals.routesDiscontinued} discontinued
+            <div className="themed-scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain bg-gradient-to-br from-primary/[0.03] via-background to-cyan-500/[0.055] p-4 sm:p-5">
+              <div className="grid grid-cols-3 gap-2">
+                <div className="rounded-xl border border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-violet-50 p-3 shadow-sm dark:border-sky-500/25 dark:from-sky-500/15 dark:via-card dark:to-violet-500/10">
+                  <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Routes</div>
+                  <div className="mt-1 text-sm font-bold tabular-nums">
+                    <span className="text-emerald-600">{previewDiff.totals.routesCreated} new</span>
+                    <span className="mx-1 text-muted-foreground">·</span>
+                    <span className="text-sky-600">{previewDiff.totals.routesCopied} updated</span>
+                    <span className="mx-1 text-muted-foreground">·</span>
+                    <span className="text-rose-600">{previewDiff.totals.routesDiscontinued} discontinued</span>
                   </div>
                 </div>
-                <div className="rounded-md border p-3">
-                  <div className="text-xs uppercase text-muted-foreground">Stops</div>
-                  <div className="font-semibold">
-                    +{previewDiff.totals.stopsAdded} added · −{previewDiff.totals.stopsRemoved} removed
+                <div className="rounded-xl border border-emerald-200/80 bg-gradient-to-br from-emerald-50 via-white to-cyan-50 p-3 shadow-sm dark:border-emerald-500/25 dark:from-emerald-500/15 dark:via-card dark:to-cyan-500/10">
+                  <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Stops</div>
+                  <div className="mt-1 text-sm font-bold tabular-nums">
+                    <span className="text-emerald-600">+{previewDiff.totals.stopsAdded} added</span>
+                    <span className="mx-1 text-muted-foreground">·</span>
+                    <span className="text-rose-600">−{previewDiff.totals.stopsRemoved} removed</span>
                   </div>
                 </div>
-                <div className="rounded-md border p-3">
-                  <div className="text-xs uppercase text-muted-foreground">Fare Changes</div>
-                  <div className="font-semibold">{previewDiff.totals.stopsRepriced} stop(s) repriced</div>
+                <div className="rounded-xl border border-amber-200/80 bg-gradient-to-br from-amber-50 via-white to-rose-50 p-3 shadow-sm dark:border-amber-500/25 dark:from-amber-500/15 dark:via-card dark:to-rose-500/10">
+                  <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Fare Changes</div>
+                  <div className="mt-1 text-sm font-bold tabular-nums">
+                    <span className="text-amber-600">{previewDiff.totals.stopsRepriced} stop(s) repriced</span>
+                  </div>
                 </div>
               </div>
 
               {previewDiff.existing.some((r) => r.alreadyConfiguredInTarget) && (
-                <Alert variant="destructive">
+                <Alert variant="destructive" className="border-rose-500/30 bg-rose-500/[0.08]">
                   <AlertTriangle className="size-4" />
-                  <AlertTitle>Some routes already have {toYear} stops</AlertTitle>
-                  <AlertDescription>
+                  <AlertTitle className="text-sm font-semibold">Some routes already have {toYear} stops</AlertTitle>
+                  <AlertDescription className="text-xs">
                     Saving will overwrite the current stop fares for those routes in {toYear}. Existing student
                     allocations keep the fare they were saved with — only future allocations use the new values.
                   </AlertDescription>
@@ -1270,12 +1250,13 @@ export function AnnualTransportSetupPage() {
                   {previewDiff.existing.map((diff) => {
                     const sourceAllocCount = allocationCountFor(diff.routeId, fromYear)
                     const targetAllocCount = allocationCountFor(diff.routeId, toYear)
+                    const diffTone = diff.action === 'discontinue' ? 'rose' : 'violet'
                     return (
-                      <div key={diff.routeId} className="rounded-md border p-3 space-y-2">
+                      <div key={diff.routeId} className={cn('rounded-xl border p-4 space-y-2 shadow-sm', diffTone === 'rose' ? 'border-rose-200/80 bg-gradient-to-br from-rose-50 via-white to-amber-50 dark:border-rose-500/25 dark:from-rose-500/15 dark:via-card dark:to-amber-500/10' : 'border-violet-200/80 bg-gradient-to-br from-violet-50 via-white to-rose-50 dark:border-violet-500/25 dark:from-violet-500/15 dark:via-card dark:to-rose-500/10')}>
                         <div className="flex flex-wrap items-center justify-between gap-2">
-                          <div className="font-medium flex items-center gap-2">
-                            <span className="bg-brand-soft flex size-7 shrink-0 items-center justify-center rounded-lg text-white shadow-sm">
-                              <Bus className="size-3.5" />
+                          <div className="font-semibold flex items-center gap-2">
+                            <span className={cn('flex size-7 shrink-0 items-center justify-center rounded-lg text-white shadow-sm', diffTone === 'rose' ? 'bg-gradient-to-br from-rose-500 to-amber-500 shadow-rose-500/20' : 'bg-gradient-to-br from-violet-500 to-rose-500 shadow-violet-500/20')}>
+                              <Bus className="size-4" />
                             </span>
                             {diff.routeName}
                             {diff.routeNumber && (
@@ -1288,7 +1269,7 @@ export function AnnualTransportSetupPage() {
                               Discontinue in {toYear}
                             </Badge>
                           ) : (
-                            <Badge variant="secondary" className="gap-1">
+                            <Badge variant="secondary" className="gap-1 border-violet-500/25 bg-violet-500/[0.08]">
                               <RefreshCw className="size-3" />
                               {diff.alreadyConfiguredInTarget ? 'Update' : 'Copy to'} {toYear}
                             </Badge>
@@ -1359,7 +1340,7 @@ export function AnnualTransportSetupPage() {
                                   <span
                                     className={
                                       diff.action === 'discontinue'
-                                        ? 'text-destructive font-medium'
+                                        ? 'text-rose-600 font-medium'
                                         : 'text-muted-foreground'
                                     }
                                   >
@@ -1381,18 +1362,18 @@ export function AnnualTransportSetupPage() {
                   })}
 
                   {previewDiff.created.map((diff) => (
-                    <div key={diff.tempId} className="rounded-md border p-3">
+                    <div key={diff.tempId} className="rounded-xl border border-emerald-200/80 bg-gradient-to-br from-emerald-50 via-white to-cyan-50 p-4 shadow-sm dark:border-emerald-500/25 dark:from-emerald-500/15 dark:via-card dark:to-cyan-500/10">
                       <div className="flex flex-wrap items-center justify-between gap-2">
-                        <div className="font-medium flex items-center gap-2">
-                          <span className="bg-brand-soft flex size-7 shrink-0 items-center justify-center rounded-lg text-white shadow-sm">
-                            <PlusCircle className="size-3.5" />
+                        <div className="font-semibold flex items-center gap-2">
+                          <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-cyan-500 text-white shadow-sm shadow-emerald-500/20">
+                            <PlusCircle className="size-4" />
                           </span>
                           {diff.routeName}
                           {diff.routeNumber && (
                             <Badge variant="outline" className="font-mono text-[10px]">{diff.routeNumber}</Badge>
                           )}
                         </div>
-                        <Badge variant="secondary">New in {toYear}</Badge>
+                        <Badge className="border-emerald-500/25 bg-emerald-500/[0.10] text-emerald-700 dark:text-emerald-400">New in {toYear}</Badge>
                       </div>
                       <div className="text-xs text-muted-foreground mt-1">
                         {diff.stopCount} stop(s) · {diff.feeMonthCount} fee month(s)
@@ -1403,12 +1384,12 @@ export function AnnualTransportSetupPage() {
             </div>
           )}
 
-          <DialogFooter className="shrink-0 gap-2">
-            <Button type="button" variant="outline" onClick={() => setPreviewOpen(false)} disabled={submitting}>
+          <DialogFooter className="shrink-0 flex-wrap gap-2 border-t border-primary/10 bg-gradient-to-br from-primary/[0.02] to-transparent px-5 py-3 sm:px-6">
+            <Button type="button" variant="outline" size="sm" className="h-8 px-4 text-xs" onClick={() => setPreviewOpen(false)} disabled={submitting}>
               Back to Edit
             </Button>
-            <Button type="button" onClick={handleConfirmApply} disabled={submitting} className="gap-2">
-              {submitting ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
+            <Button type="button" size="sm" className="h-8 gap-1.5 px-4 text-xs" onClick={handleConfirmApply} disabled={submitting}>
+              {submitting ? <Loader2 className="size-3.5 animate-spin" /> : <Save className="size-3.5" />}
               Confirm &amp; Apply
             </Button>
           </DialogFooter>

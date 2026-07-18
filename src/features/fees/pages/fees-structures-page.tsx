@@ -817,8 +817,8 @@ export function FeesStructuresPage() {
             <PlusCircle className="size-4" />
             Add Structure
           </Button>
-        </div>
-      </div>
+            </div>
+          </div>
 
       <Card className="gap-0 overflow-hidden border-sky-500/15 bg-gradient-to-br from-card via-card to-sky-500/[0.035] py-0 shadow-sm">
         <CardHeader className="border-b border-sky-500/15 bg-gradient-to-r from-sky-500/[0.10] via-primary/[0.05] to-violet-500/[0.08] px-4 !pb-2 !pt-2">
@@ -842,8 +842,9 @@ export function FeesStructuresPage() {
           </div>
         </CardHeader>
         <CardContent className="space-y-4 px-4 pb-2 pt-0">
-          <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200">
-            <Info className="mt-0.5 size-3.5 shrink-0" />
+          <div className="relative flex items-start gap-2 overflow-hidden rounded-xl border border-amber-200 bg-gradient-to-br from-amber-50 via-white to-amber-50/60 px-3 py-2 text-sm text-amber-950 shadow-sm dark:border-amber-900/60 dark:from-amber-950/30 dark:via-card dark:to-amber-950/20 dark:text-amber-200">
+            <div aria-hidden className="absolute left-0 top-0 h-full w-0.5 bg-gradient-to-b from-amber-400 via-amber-500 to-amber-600 dark:from-amber-500 dark:via-amber-400 dark:to-amber-300" />
+            <Info className="mt-0.5 size-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
             <div className="space-y-1">
               <p className="font-medium">Before Updating Fee Structure</p>
               <p>
@@ -857,7 +858,14 @@ export function FeesStructuresPage() {
             </div>
           </div>
 
-          <div className="grid gap-3 rounded-lg border bg-muted/20 p-3 md:grid-cols-3">
+          <div className="rounded-xl border border-sky-500/15 bg-gradient-to-br from-sky-50 via-white to-cyan-50 p-3 shadow-sm dark:from-sky-500/10 dark:via-card dark:to-cyan-500/10">
+            <div className="mb-3 flex items-center gap-2 border-b border-sky-500/15 pb-2.5 text-sm font-semibold">
+              <span className="flex size-7 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-cyan-600 text-white shadow-sm">
+                <Settings2 className="size-3.5" />
+              </span>
+              Select context
+            </div>
+            <div className="grid gap-3 md:grid-cols-3">
             <div className="space-y-2">
               <Label className="flex items-center gap-2">
                 <Calendar className="size-3.5 text-muted-foreground" />
@@ -980,10 +988,13 @@ export function FeesStructuresPage() {
               </Select>
             </div>
           </div>
+          </div>
 
           {classStructureForm.classIds.length === 0 ? (
-            <div className="flex items-center gap-3 rounded-lg border border-dashed bg-muted/20 p-4 text-sm text-muted-foreground">
-              <School className="size-4 shrink-0" />
+            <div className="flex items-center gap-3 rounded-xl border border-dashed border-sky-300/50 bg-gradient-to-br from-sky-50 via-white to-cyan-50 p-4 text-sm text-sky-700 shadow-sm dark:border-sky-500/30 dark:from-sky-500/10 dark:via-card dark:to-cyan-500/10 dark:text-sky-300">
+              <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-cyan-600 text-white shadow-sm">
+                <School className="size-4" />
+              </div>
               <span>Select one or more classes to configure fee heads.</span>
             </div>
           ) : (
@@ -1017,8 +1028,14 @@ export function FeesStructuresPage() {
               <TableBody>
                 {feeHeads.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={4} className="py-8 text-center text-sm text-muted-foreground">
-                      No active fee heads found. Create Fee Heads first.
+                    <TableCell colSpan={4} className="py-10 text-center">
+                      <div className="flex flex-col items-center justify-center gap-2">
+                        <div className="flex size-12 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-100 to-cyan-100 shadow-sm dark:from-sky-900/50 dark:to-cyan-900/50">
+                          <FileText className="size-6 text-sky-600 dark:text-sky-400" />
+                        </div>
+                        <p className="text-sm font-medium text-sky-900 dark:text-sky-200">No active fee heads found</p>
+                        <p className="text-xs text-sky-700/70 dark:text-sky-300/70">Create Fee Heads first, then come back here.</p>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -1040,7 +1057,7 @@ export function FeesStructuresPage() {
                             <div className="flex items-center gap-2">
                               <span className={cn(
                                 'flex size-7 shrink-0 items-center justify-center rounded-md',
-                                isSelected ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
+                                isSelected ? 'bg-gradient-to-br from-sky-500 to-cyan-600 text-white shadow-sm' : 'bg-muted text-muted-foreground'
                               )}>
                                 <FileText className="size-3.5" />
                               </span>
@@ -1074,18 +1091,18 @@ export function FeesStructuresPage() {
                           </TableCell>
                         </TableRow>
                         {isSelected && isExpanded && (
-                          <TableRow key={`${head.id}-setup`} className="bg-muted/20 hover:bg-muted/20">
+                          <TableRow key={`${head.id}-setup`} className="bg-gradient-to-br from-sky-500/[0.04] via-card to-cyan-500/[0.04] hover:from-sky-500/[0.06] hover:via-card hover:to-cyan-500/[0.06]">
                             <TableCell colSpan={4}>
-                              <div className="space-y-3 rounded-lg border bg-background p-3 shadow-sm">
+                              <div className="space-y-3 rounded-xl border border-sky-200/80 bg-gradient-to-br from-white via-sky-50/45 to-cyan-50/60 p-3 shadow-sm dark:border-sky-500/25 dark:from-card dark:via-sky-500/10 dark:to-cyan-500/10">
                                 <div className="flex flex-wrap items-center justify-between gap-3">
                                   <div className="flex flex-wrap items-center gap-2">
-                                    <Badge variant="outline">{FREQUENCY_LABELS[head.frequency]}</Badge>
+                                    <Badge className={cn('text-xs', FREQUENCY_BADGE_CLASSES[head.frequency])}>{FREQUENCY_LABELS[head.frequency]}</Badge>
                                     <span className="text-sm font-medium">{head.name} amount schedule</span>
                                   </div>
                                   <Input
                                     type="number"
                                     placeholder="Copy amount to all rows"
-                                    className="h-8 w-48"
+                                    className="h-8 w-48 border-sky-200/70 focus-visible:border-sky-400 focus-visible:ring-sky-400/20 dark:border-sky-500/30"
                                     onBlur={(event) => {
                                       if (event.currentTarget.value) fillHeadAmounts(head.id, event.currentTarget.value)
                                     }}
@@ -1105,7 +1122,7 @@ export function FeesStructuresPage() {
                                         type="button"
                                         variant="outline"
                                         size="sm"
-                                        className="gap-2"
+                                        className="gap-2 border-sky-200/70 text-sky-700 hover:bg-sky-100 dark:border-sky-500/30 dark:text-sky-300 dark:hover:bg-sky-500/20"
                                         onClick={() => addClassStructurePeriodRow(head.id)}
                                       >
                                         <PlusCircle className="size-3.5" />
@@ -1116,10 +1133,10 @@ export function FeesStructuresPage() {
                                 </div>
                                 <div className="overflow-x-auto">
                                   <div className="min-w-[600px] space-y-1.5">
-                                    <div className="grid grid-cols-[120px_minmax(160px,1fr)_minmax(160px,1fr)_32px] gap-2 px-1 text-xs font-medium text-muted-foreground">
-                                      <span>Period</span>
-                                      <span>Amount</span>
-                                      <span>Due Date</span>
+                                    <div className="grid grid-cols-[120px_minmax(160px,1fr)_minmax(160px,1fr)_32px] gap-2 px-1 text-xs font-medium">
+                                      <span className="flex items-center gap-1.5 text-sky-700 dark:text-sky-300"><Calendar className="size-3" />Period</span>
+                                      <span className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-300">Amount</span>
+                                      <span className="flex items-center gap-1.5 text-amber-700 dark:text-amber-300">Due Date</span>
                                       <span />
                                     </div>
                                   {rows.map((row) => {
@@ -1186,7 +1203,7 @@ export function FeesStructuresPage() {
           </div>
           )}
 
-          <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-sky-500/15 bg-gradient-to-br from-sky-50 via-white to-cyan-50 p-3 shadow-sm dark:from-sky-500/10 dark:via-card dark:to-cyan-500/10">
             <div className="flex flex-wrap gap-2 text-xs">
               {classStructureForm.classIds.length > 0 && (
                 <Badge variant="secondary">
@@ -1203,6 +1220,7 @@ export function FeesStructuresPage() {
             <Button
               onClick={saveClassFeeStructure}
               disabled={savingClassStructure || classStructureForm.classIds.length === 0 || !classStructureForm.feeGroupId}
+              className="gap-1.5 bg-gradient-to-r from-primary to-cyan-600 shadow-sm shadow-primary/20"
             >
               {savingClassStructure ? 'Saving...' : 'Save Fee Structure'}
             </Button>
@@ -1310,8 +1328,14 @@ export function FeesStructuresPage() {
               <TableBody>
                 {filteredStructures.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="py-8 text-center text-sm text-muted-foreground">
-                      No saved structures match the selected filters.
+                    <TableCell colSpan={7} className="py-10 text-center">
+                      <div className="flex flex-col items-center justify-center gap-2">
+                        <div className="flex size-12 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-100 to-cyan-100 shadow-sm dark:from-sky-900/50 dark:to-cyan-900/50">
+                          <LayoutGrid className="size-6 text-sky-600 dark:text-sky-400" />
+                        </div>
+                        <p className="text-sm font-medium text-sky-900 dark:text-sky-200">No saved structures match</p>
+                        <p className="text-xs text-sky-700/70 dark:text-sky-300/70">Try adjusting the search or filters.</p>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ) : paginatedStructures.map((structure) => {
@@ -1323,7 +1347,7 @@ export function FeesStructuresPage() {
                       <TableRow className="transition-colors hover:bg-sky-500/[0.055]">
                         <TableCell className="px-4 py-3">
                           <div className="flex items-center gap-3">
-                            <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+                            <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-gradient-to-br from-sky-500 to-cyan-600 text-white shadow-sm">
                               <FileText className="size-4" />
                             </span>
                             <span className="font-medium text-foreground">{structure.name}</span>
@@ -1348,7 +1372,7 @@ export function FeesStructuresPage() {
                         </TableCell>
                         <TableCell className="px-4 py-3">
                           {structure.isActive !== undefined ? (
-                            <Badge variant={structure.isActive ? 'default' : 'destructive'} className="gap-1">
+                            <Badge variant={structure.isActive ? 'default' : 'destructive'} className={cn('gap-1', structure.isActive ? 'bg-gradient-to-r from-emerald-600 to-emerald-500 border-0' : '')}>
                               {structure.isActive && <CheckCircle2 className="size-3" />}
                               {structure.isActive ? 'Active' : 'Inactive'}
                             </Badge>
@@ -1360,7 +1384,7 @@ export function FeesStructuresPage() {
                           <Button
                             variant="outline"
                             size="sm"
-                            className="h-8 gap-1.5 px-3"
+                            className="h-8 gap-1.5 px-3 border-sky-200/70 text-sky-700 hover:bg-sky-100 dark:border-sky-500/30 dark:text-sky-300 dark:hover:bg-sky-500/20"
                             onClick={() => toggleExpanded(structure.id)}
                           >
                             {isExpanded ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
@@ -1369,12 +1393,15 @@ export function FeesStructuresPage() {
                         </TableCell>
                       </TableRow>
                       {isExpanded && (
-                        <TableRow className="bg-muted/20 hover:bg-muted/20">
+                        <TableRow className="bg-gradient-to-br from-sky-500/[0.04] via-card to-cyan-500/[0.04] hover:from-sky-500/[0.06] hover:via-card hover:to-cyan-500/[0.06]">
                           <TableCell colSpan={7} className="p-4">
                             {groupedItems.length === 0 ? (
-                              <p className="py-4 text-center text-sm text-muted-foreground">
-                                No installment details available
-                              </p>
+                              <div className="flex flex-col items-center justify-center gap-2 py-6">
+                                <div className="flex size-10 items-center justify-center rounded-xl bg-gradient-to-br from-sky-100 to-cyan-100 shadow-sm dark:from-sky-900/50 dark:to-cyan-900/50">
+                                  <FileText className="size-5 text-sky-600 dark:text-sky-400" />
+                                </div>
+                                <p className="text-sm font-medium text-sky-900 dark:text-sky-200">No installment details available</p>
+                              </div>
                             ) : (
                               <div className="space-y-5">
                                 {groupedItems.map((group, gIdx) => (
@@ -1578,7 +1605,7 @@ export function FeesStructuresPage() {
             </div>
 
             {form.feeGroupId && (
-              <div className="space-y-3 rounded-lg border bg-muted/20 p-3">
+              <div className="space-y-3 rounded-xl border border-sky-500/15 bg-gradient-to-br from-sky-50 via-white to-cyan-50 p-3 shadow-sm dark:from-sky-500/10 dark:via-card dark:to-cyan-500/10">
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <Label className="text-base font-semibold">Select Fee Heads</Label>
@@ -1596,6 +1623,7 @@ export function FeesStructuresPage() {
                           ? clearStructureHeads
                           : selectAllStructureHeads
                       }
+                      className="border-sky-200/70 text-sky-700 hover:bg-sky-100 dark:border-sky-500/30 dark:text-sky-300 dark:hover:bg-sky-500/20"
                     >
                       {selectedStructureHeadIds.length === availableStructureHeads.length ? 'Clear All' : 'Select All'}
                     </Button>
@@ -1603,9 +1631,13 @@ export function FeesStructuresPage() {
                 </div>
 
                 {availableStructureHeads.length === 0 ? (
-                  <p className="rounded-md border border-dashed bg-background p-3 text-sm text-muted-foreground">
-                    No active fee heads found. Create fee heads first, then come back here.
-                  </p>
+                  <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-sky-300/50 bg-gradient-to-br from-sky-50 via-white to-cyan-50 p-6 text-center shadow-sm dark:border-sky-500/30 dark:from-sky-500/10 dark:via-card dark:to-cyan-500/10">
+                    <div className="flex size-10 items-center justify-center rounded-xl bg-gradient-to-br from-sky-100 to-cyan-100 shadow-sm dark:from-sky-900/50 dark:to-cyan-900/50">
+                      <FileText className="size-5 text-sky-600 dark:text-sky-400" />
+                    </div>
+                    <p className="text-sm font-medium text-sky-900 dark:text-sky-200">No active fee heads found</p>
+                    <p className="text-xs text-sky-700/70 dark:text-sky-300/70">Create fee heads first, then come back here.</p>
+                  </div>
                 ) : (
                   <div className="grid gap-2 sm:grid-cols-2">
                     {availableStructureHeads.map((head) => {
@@ -1623,8 +1655,8 @@ export function FeesStructuresPage() {
                             }
                           }}
                           className={cn(
-                            'flex items-center justify-between gap-3 rounded-md border bg-background px-3 py-2 text-left transition-colors',
-                            selected && 'border-primary bg-primary/5'
+                            'flex items-center justify-between gap-3 rounded-lg border bg-background px-3 py-2 text-left transition-all',
+                            selected ? 'border-sky-400/60 bg-gradient-to-br from-sky-50 via-white to-sky-50/60 shadow-sm dark:border-sky-400/40 dark:from-sky-500/15 dark:via-card dark:to-sky-500/5' : 'border-sky-200/60 hover:border-sky-300/60 dark:border-sky-500/20 dark:hover:border-sky-400/30'
                           )}
                         >
                           <div className="flex items-center gap-3">
@@ -1651,7 +1683,7 @@ export function FeesStructuresPage() {
             {installmentRows.length > 0 && (
               <div className="space-y-3">
                 <Label className="text-base font-semibold">Amount Schedule</Label>
-                <ScrollArea className="h-72 rounded-lg border">
+                <ScrollArea className="h-72 rounded-xl border border-sky-200/80 bg-gradient-to-br from-sky-50/20 via-white to-cyan-50/20 shadow-sm dark:border-sky-500/25 dark:from-sky-500/5 dark:via-card dark:to-cyan-500/5">
                   <div className="p-3 space-y-4">
                     {/* Group rows by fee head for display */}
                     {(() => {

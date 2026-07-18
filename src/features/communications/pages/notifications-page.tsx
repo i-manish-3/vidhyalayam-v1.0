@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { PageHeader, EmptyState, LoadingState } from '@/components/shared'
+import { EmptyState, LoadingState } from '@/components/shared'
 import { api } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
 import { Button } from '@/components/ui/button'
@@ -10,12 +10,30 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Textarea } from '@/components/ui/textarea'
-import { PlusCircle, Bell, BellOff, Archive, Search, Inbox, MailOpen } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import {
+  PlusCircle,
+  Bell,
+  BellOff,
+  Archive,
+  Search,
+  Inbox,
+  MailOpen,
+  X,
+  Info,
+  AlertTriangle,
+  CheckCircle2,
+  XCircle,
+  Megaphone,
+  GraduationCap,
+  Calculator,
+  Clock,
+  Flame,
+  ArrowDown,
+} from 'lucide-react'
 
 interface Notification {
   id: string
@@ -30,42 +48,45 @@ interface Notification {
   archivedAt?: string | null
 }
 
-const typeBadge = (type: string) => {
-  const colors: Record<string, string> = {
-    info: 'border-teal-200 bg-teal-50 text-teal-700',
-    fee: 'border-indigo-200 bg-indigo-50 text-indigo-700',
-    attendance: 'border-sky-200 bg-sky-50 text-sky-700',
-    exam: 'border-violet-200 bg-violet-50 text-violet-700',
-    announcement: 'border-blue-200 bg-blue-50 text-blue-700',
-    warning: 'border-amber-200 bg-amber-50 text-amber-700',
-    success: 'border-emerald-200 bg-emerald-50 text-emerald-700',
-    alert: 'border-red-200 bg-red-50 text-red-700',
-    error: 'border-red-200 bg-red-50 text-red-700',
-    general: 'border-border bg-muted/40 text-muted-foreground',
-  }
-  return <Badge variant="outline" className={cn('capitalize', colors[type] || colors.general)}>{type}</Badge>
+const TYPE_CONFIG: Record<string, { icon: typeof Bell; gradient: string; label: string; dot: string }> = {
+  info: { icon: Info, gradient: 'from-teal-500 to-cyan-500', label: 'Info', dot: 'bg-teal-500' },
+  fee: { icon: Calculator, gradient: 'from-indigo-500 to-violet-500', label: 'Fee', dot: 'bg-indigo-500' },
+  attendance: { icon: Clock, gradient: 'from-sky-500 to-blue-500', label: 'Attendance', dot: 'bg-sky-500' },
+  exam: { icon: GraduationCap, gradient: 'from-violet-500 to-fuchsia-500', label: 'Exam', dot: 'bg-violet-500' },
+  announcement: { icon: Megaphone, gradient: 'from-blue-500 to-cyan-500', label: 'Announcement', dot: 'bg-blue-500' },
+  warning: { icon: AlertTriangle, gradient: 'from-amber-500 to-orange-500', label: 'Warning', dot: 'bg-amber-500' },
+  success: { icon: CheckCircle2, gradient: 'from-emerald-500 to-teal-500', label: 'Success', dot: 'bg-emerald-500' },
+  alert: { icon: AlertTriangle, gradient: 'from-red-500 to-rose-500', label: 'Alert', dot: 'bg-red-500' },
+  error: { icon: XCircle, gradient: 'from-red-600 to-rose-600', label: 'Error', dot: 'bg-red-600' },
+  general: { icon: Bell, gradient: 'from-primary to-teal-600', label: 'General', dot: 'bg-primary' },
 }
 
-const priorityBadge = (priority?: string) => {
-  if (!priority || priority === 'normal') return null
-  const colors: Record<string, string> = {
-    urgent: 'border-red-200 bg-red-50 text-red-700',
-    high: 'border-amber-200 bg-amber-50 text-amber-700',
-    low: 'border-border bg-muted/40 text-muted-foreground',
-  }
-  return <Badge variant="outline" className={cn('capitalize', colors[priority] || colors.low)}>{priority}</Badge>
+const PRIORITY_CONFIG: Record<string, { badge: string; icon: typeof Flame; label: string }> = {
+  urgent: { badge: 'bg-red-500/10 text-red-600 border-red-500/30 dark:text-red-400', icon: Flame, label: 'Urgent' },
+  high: { badge: 'bg-amber-500/10 text-amber-600 border-amber-500/30 dark:text-amber-400', icon: AlertTriangle, label: 'High' },
+  normal: { badge: 'bg-primary/5 text-muted-foreground border-primary/10', icon: Bell, label: 'Normal' },
+  low: { badge: 'bg-muted/30 text-muted-foreground border-border', icon: ArrowDown, label: 'Low' },
 }
 
 function formatDateTime(value?: string) {
   if (!value) return ''
   return new Date(value).toLocaleString('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: true,
+    day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true,
   })
+}
+
+function getTimeAgo(value: string): string {
+  const now = Date.now()
+  const then = new Date(value).getTime()
+  const diffMs = now - then
+  const mins = Math.floor(diffMs / 60000)
+  if (mins < 1) return 'Just now'
+  if (mins < 60) return `${mins}m ago`
+  const hrs = Math.floor(mins / 60)
+  if (hrs < 24) return `${hrs}h ago`
+  const days = Math.floor(hrs / 24)
+  if (days < 7) return `${days}d ago`
+  return formatDateTime(value)
 }
 
 export function NotificationsPage() {
@@ -76,7 +97,6 @@ export function NotificationsPage() {
   const [showAdd, setShowAdd] = useState(false)
   const [form, setForm] = useState({ title: '', message: '', type: 'general' })
 
-  // Filters.
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState('all')
   const [priorityFilter, setPriorityFilter] = useState('all')
@@ -90,11 +110,8 @@ export function NotificationsPage() {
       if (typeFilter !== 'all') params.type = typeFilter
       if (priorityFilter !== 'all') params.priority = priorityFilter
       if (readFilter !== 'all') params.isRead = readFilter === 'read' ? 'true' : 'false'
-      if (archiveFilter === 'archived') {
-        params.archivedOnly = 'true'
-      } else if (archiveFilter === 'all') {
-        params.includeArchived = 'true'
-      }
+      if (archiveFilter === 'archived') params.archivedOnly = 'true'
+      else if (archiveFilter === 'all') params.includeArchived = 'true'
       const res = await api.get<{ notifications: Notification[] }>('/api/school/notifications', params)
       setNotifications(res.notifications || [])
     } catch {
@@ -102,7 +119,6 @@ export function NotificationsPage() {
     } finally { setLoading(false) }
   }, [toast, search, typeFilter, priorityFilter, readFilter, archiveFilter])
 
-  // Debounce search; immediate for select changes.
   useEffect(() => {
     const t = setTimeout(() => { fetchData() }, search ? 350 : 0)
     return () => clearTimeout(t)
@@ -152,231 +168,285 @@ export function NotificationsPage() {
   }
 
   const unreadCount = notifications.filter(n => !n.isRead).length
+  const archivedCount = notifications.filter(n => n.archivedAt).length
+  const readCount = notifications.length - unreadCount - archivedCount
+  const hasActiveFilters = search || typeFilter !== 'all' || priorityFilter !== 'all' || readFilter !== 'all' || archiveFilter !== 'active'
+
+  const clearFilters = () => {
+    setSearch('')
+    setTypeFilter('all')
+    setPriorityFilter('all')
+    setReadFilter('all')
+    setArchiveFilter('active')
+  }
 
   return (
-    <div className="space-y-4">
-      <PageHeader
-        title="Notifications"
-        description="Review alerts, reminders, and system messages."
-        extraActions={
-          unreadCount > 0 ? (
-            <Button variant="outline" onClick={handleMarkAllRead} className="gap-2">
-              <BellOff className="size-4" />
-              Mark All Read
+    <div className="space-y-5">
+      {/* Gradient Header */}
+      <div className="relative overflow-hidden rounded-2xl bg-[linear-gradient(135deg,var(--primary)_0%,#0d9488_48%,#2563eb_100%)] px-5 py-5 text-white shadow-lg">
+        <div aria-hidden className="absolute -right-10 -top-10 size-36 rounded-full border-[20px] border-cyan-200/15" />
+        <div aria-hidden className="absolute -bottom-8 right-16 size-20 rounded-full bg-cyan-300/8" />
+        <div aria-hidden className="absolute left-12 top-4 size-16 rounded-full bg-white/5 blur-md" />
+        <div aria-hidden className="absolute bottom-0 left-1/4 h-px w-48 bg-gradient-to-r from-transparent via-white/30 to-transparent" />
+        <div className="relative flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <span className="flex size-10 items-center justify-center rounded-xl border border-white/20 bg-white/15 shadow-md backdrop-blur-sm">
+              <Bell className="size-5 text-white" />
+            </span>
+            <div>
+              <h1 className="text-lg font-bold tracking-tight">Notifications</h1>
+              <p className="mt-0.5 text-xs text-white/75">Alerts, reminders, and system messages</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {unreadCount > 0 && (
+              <Button variant="secondary" size="sm" style={{ backgroundColor: 'white', color: 'var(--primary)' }} onClick={handleMarkAllRead} className="h-8 gap-1.5 text-xs shadow-md">
+                <BellOff className="size-3.5" /> Mark Read
+              </Button>
+            )}
+            <Button variant="secondary" size="sm" style={{ backgroundColor: 'white', color: 'var(--primary)' }} onClick={() => setShowAdd(true)} className="h-8 gap-1.5 text-xs shadow-md">
+              <PlusCircle className="size-3.5" /> Add
             </Button>
-          ) : null
-        }
-        action={{ label: 'Add Notification', icon: PlusCircle, onClick: () => setShowAdd(true) }}
-      />
+          </div>
+        </div>
+      </div>
 
-      <div className="flex flex-wrap items-center gap-2 rounded-md border bg-background px-3 py-2 shadow-sm">
+      {/* Slim Stats */}
+      <div className="grid grid-cols-4 gap-2">
         {[
-          { label: 'Showing', value: notifications.length.toLocaleString('en-IN') },
-          { label: 'Unread', value: unreadCount.toLocaleString('en-IN') },
-          { label: 'Read', value: (notifications.length - unreadCount).toLocaleString('en-IN') },
-          { label: 'Archived', value: notifications.filter(n => n.archivedAt).length.toLocaleString('en-IN') },
-        ].map((item) => (
-          <div key={item.label} className="flex items-center gap-2 rounded-md bg-muted/35 px-2.5 py-1.5 text-xs">
-            <span className="text-muted-foreground">{item.label}</span>
-            <span className="font-semibold tabular-nums">{item.value}</span>
+          { label: 'Total', value: notifications.length, icon: Inbox, gradient: 'from-primary to-teal-600', text: 'text-foreground' },
+          { label: 'Read', value: readCount, icon: MailOpen, gradient: 'from-sky-500 to-blue-500', text: 'text-sky-600 dark:text-sky-400' },
+          { label: 'Unread', value: unreadCount, icon: Bell, gradient: 'from-amber-500 to-orange-500', text: 'text-amber-600 dark:text-amber-400' },
+          { label: 'Archived', value: archivedCount, icon: Archive, gradient: 'from-violet-500 to-fuchsia-500', text: 'text-violet-600 dark:text-violet-400' },
+        ].map(s => (
+          <div key={s.label} className="flex items-center gap-2 rounded-xl border border-primary/5 bg-card p-3 shadow-sm">
+            <span className={cn('flex size-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br text-white shadow-sm', s.gradient)}>
+              <s.icon className="size-4" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-muted-foreground">{s.label}</p>
+              <p className={cn('text-base font-bold leading-tight', s.text)}>{s.value}</p>
+            </div>
           </div>
         ))}
       </div>
 
-      <Card className="gap-0 py-0 shadow-sm">
-        <CardContent className="grid gap-3 px-4 py-3 lg:grid-cols-[minmax(240px,1fr)_150px_150px_170px_170px]">
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Search notifications..."
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              className="h-9 pl-9"
-            />
+      {/* Filters Bar */}
+      <div className="relative overflow-hidden rounded-xl border border-primary/10 bg-gradient-to-br from-primary/[0.03] via-card to-sky-500/[0.03] p-3 shadow-sm">
+        <div aria-hidden className="absolute -right-6 -top-6 size-16 rounded-full border-[12px] border-sky-500/5" />
+        <div className="relative flex flex-col gap-3 lg:flex-row lg:items-center">
+          <div className="flex shrink-0 items-center gap-2 text-sm font-medium">
+            <span className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary/[0.08] to-teal-600/[0.06] text-primary shadow-sm">
+              <Search className="size-4" />
+            </span>
+            <span>Filters</span>
           </div>
-          <Select value={readFilter} onValueChange={setReadFilter}>
-            <SelectTrigger className="h-9">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All</SelectItem>
-              <SelectItem value="unread">Unread</SelectItem>
-              <SelectItem value="read">Read</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={archiveFilter} onValueChange={(value) => setArchiveFilter(value as 'active' | 'archived' | 'all')}>
-            <SelectTrigger className="h-9">
-              <SelectValue placeholder="Archive" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="active">Active</SelectItem>
-              <SelectItem value="archived">Archived</SelectItem>
-              <SelectItem value="all">All</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={typeFilter} onValueChange={setTypeFilter}>
-            <SelectTrigger className="h-9">
-              <SelectValue placeholder="Type" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All types</SelectItem>
-              <SelectItem value="info">Info</SelectItem>
-              <SelectItem value="fee">Fee</SelectItem>
-              <SelectItem value="attendance">Attendance</SelectItem>
-              <SelectItem value="exam">Exam</SelectItem>
-              <SelectItem value="announcement">Announcement</SelectItem>
-              <SelectItem value="alert">Alert</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-            <SelectTrigger className="h-9">
-              <SelectValue placeholder="Priority" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All priorities</SelectItem>
-              <SelectItem value="urgent">Urgent</SelectItem>
-              <SelectItem value="high">High</SelectItem>
-              <SelectItem value="normal">Normal</SelectItem>
-              <SelectItem value="low">Low</SelectItem>
-            </SelectContent>
-          </Select>
-        </CardContent>
-      </Card>
 
-      <Card className="gap-0 overflow-hidden py-0 shadow-sm">
-        <CardHeader className="border-b bg-muted/30 px-4 py-3">
-          <CardTitle className="flex items-center gap-2 text-sm font-semibold">
-            <Inbox className="size-4 text-primary" />
-            Notification Inbox
-            {!loading && (
-              <Badge variant="secondary" className="ml-auto text-xs">
-                {notifications.length.toLocaleString('en-IN')} records
-              </Badge>
+          <div className="grid flex-1 gap-2 sm:grid-cols-2 xl:grid-cols-[minmax(220px,1.5fr)_1fr_1fr_1fr_1fr]">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Search notifications..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="h-9 border-primary/15 bg-background pl-9 pr-9 transition-all focus-visible:border-primary/30"
+              />
+              {search && (
+                <button type="button" onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground">
+                  <X className="size-3.5" />
+                </button>
+              )}
+            </div>
+            <Select value={readFilter} onValueChange={setReadFilter}>
+              <SelectTrigger className="h-9 border-primary/15 bg-background"><SelectValue placeholder="Status" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="unread"><span className="flex items-center gap-2"><span className="size-2 rounded-full bg-amber-500" />Unread</span></SelectItem>
+                <SelectItem value="read"><span className="flex items-center gap-2"><span className="size-2 rounded-full bg-sky-500" />Read</span></SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={typeFilter} onValueChange={setTypeFilter}>
+              <SelectTrigger className="h-9 border-primary/15 bg-background"><SelectValue placeholder="Type" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Types</SelectItem>
+                {Object.entries(TYPE_CONFIG).map(([k, c]) => (
+                  <SelectItem key={k} value={k}><span className="flex items-center gap-2"><span className={cn('size-2 rounded-full', c.dot)} />{c.label}</span></SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+              <SelectTrigger className="h-9 border-primary/15 bg-background"><SelectValue placeholder="Priority" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Priority</SelectItem>
+                <SelectItem value="urgent"><span className="flex items-center gap-2"><span className="size-2 rounded-full bg-red-500" />Urgent</span></SelectItem>
+                <SelectItem value="high"><span className="flex items-center gap-2"><span className="size-2 rounded-full bg-amber-500" />High</span></SelectItem>
+                <SelectItem value="normal"><span className="flex items-center gap-2"><span className="size-2 rounded-full bg-primary" />Normal</span></SelectItem>
+                <SelectItem value="low"><span className="flex items-center gap-2"><span className="size-2 rounded-full bg-muted-foreground" />Low</span></SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={archiveFilter} onValueChange={(v) => setArchiveFilter(v as 'active' | 'archived' | 'all')}>
+              <SelectTrigger className="h-9 border-primary/15 bg-background"><SelectValue placeholder="Archive" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="active"><span className="flex items-center gap-2"><span className="size-2 rounded-full bg-emerald-500" />Active</span></SelectItem>
+                <SelectItem value="archived"><span className="flex items-center gap-2"><span className="size-2 rounded-full bg-violet-500" />Archived</span></SelectItem>
+                <SelectItem value="all">All</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex shrink-0 items-center justify-between gap-2 lg:justify-end">
+            <p className="text-xs text-muted-foreground">
+              <span className="font-semibold text-foreground/80">{notifications.length}</span> shown
+            </p>
+            {hasActiveFilters && (
+              <Button type="button" variant="ghost" size="sm" className="h-8 gap-1.5 text-xs text-rose-500 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/20" onClick={clearFilters}>
+                <X className="size-3.5" /> Clear
+              </Button>
             )}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
+          </div>
+        </div>
+      </div>
+
+      {/* Inbox */}
+      <div className="overflow-hidden rounded-xl border border-primary/10 bg-card shadow-sm">
+        <div className="flex items-center gap-2 border-b border-primary/10 bg-gradient-to-r from-primary/[0.04] via-teal-600/[0.03] to-cyan-600/[0.04] px-4 py-2.5">
+          <span className="flex size-7 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-teal-600 text-white shadow-sm">
+            <Inbox className="size-3.5" />
+          </span>
+          <span className="text-xs font-bold text-foreground/80">Inbox</span>
+          <Badge variant="secondary" className="h-4 gap-1 border-primary/20 bg-primary/10 px-1.5 text-[9px] font-bold text-primary ml-auto">
+            {notifications.length}
+          </Badge>
+        </div>
+
+        <div className="p-0">
           {loading ? (
             <LoadingState />
           ) : notifications.length === 0 ? (
-            <div className="p-8">
-              <EmptyState
-                icon={Bell}
-                title="No Notifications"
-                description="Nothing matches your filters yet."
-                action={{ label: 'Add Notification', onClick: () => setShowAdd(true) }}
-              />
+            <div className="px-4 py-10">
+              <EmptyState icon={Bell} title="No Notifications" description="Nothing matches your filters yet."
+                action={hasActiveFilters ? { label: 'Clear Filters', onClick: clearFilters } : { label: 'Add Notification', onClick: () => setShowAdd(true) }} />
             </div>
           ) : (
-            <ScrollArea className="max-h-[640px]">
-              <div className="divide-y">
-                {notifications.map(n => (
-                  <div
-                    key={n.id}
-                    role="button"
-                    tabIndex={0}
-                    className={cn(
-                      'group flex w-full cursor-pointer items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/35',
-                      !n.isRead && 'bg-primary/5'
-                    )}
-                    onClick={() => handleMarkRead(n)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault()
-                        void handleMarkRead(n)
-                      }
-                    }}
-                  >
-                    <span
+            <ScrollArea className="max-h-[540px]">
+              <div>
+                {notifications.map(n => {
+                  const typeCfg = TYPE_CONFIG[n.type] || TYPE_CONFIG.general
+                  const TypeIcon = typeCfg.icon
+                  const priorityCfg = n.priority && n.priority !== 'normal' ? PRIORITY_CONFIG[n.priority] : null
+                  const PrioIcon = priorityCfg?.icon
+                  return (
+                    <div
+                      key={n.id}
                       className={cn(
-                        'flex size-9 shrink-0 items-center justify-center rounded-md',
-                        !n.isRead ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
+                        'group flex cursor-pointer items-start gap-3 border-b border-primary/5 px-4 py-2.5 text-left transition-all last:border-b-0 hover:bg-primary/[0.02]',
+                        !n.isRead && 'bg-gradient-to-r from-primary/[0.02] via-transparent to-transparent'
                       )}
+                      onClick={() => handleMarkRead(n)}
                     >
-                      {n.isRead ? <MailOpen className="size-4" /> : <Bell className="size-4" />}
-                    </span>
-                    <span className="min-w-0 flex-1 space-y-1">
-                      <span className="flex flex-wrap items-center gap-2">
-                        <span className={cn('truncate text-sm font-medium', !n.isRead && 'font-semibold')}>
-                          {n.title}
-                        </span>
-                        {typeBadge(n.type)}
-                        {priorityBadge(n.priority)}
-                        {n.archivedAt && (
-                          <Badge variant="outline" className="border-border bg-muted/40 text-muted-foreground">
-                            Archived
-                          </Badge>
-                        )}
-                        {!n.isRead && <span className="size-2 shrink-0 rounded-full bg-primary" />}
+                      <span className={cn(
+                        'flex size-8 shrink-0 items-center justify-center rounded-lg shadow-sm transition-all',
+                        !n.isRead ? cn('bg-gradient-to-br text-white', typeCfg.gradient) : 'bg-muted/50 text-muted-foreground'
+                      )}>
+                        <TypeIcon className="size-4" />
                       </span>
-                      <span className="line-clamp-2 block text-sm text-muted-foreground">{n.message}</span>
-                      <span className="block text-xs text-muted-foreground">{formatDateTime(n.createdAt)}</span>
-                    </span>
-                    {n.archivedAt ? null : (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="size-8 shrink-0 opacity-100 lg:opacity-0 lg:transition-opacity lg:group-hover:opacity-100"
-                        aria-label="Archive notification"
-                        onClick={(e) => { e.stopPropagation(); void handleArchive(n.id) }}
-                      >
-                        <Archive className="size-4" />
-                      </Button>
-                    )}
-                  </div>
-                ))}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className={cn('truncate text-sm', !n.isRead ? 'font-bold text-foreground' : 'font-medium text-foreground/70')}>
+                            {n.title}
+                          </span>
+                          {!n.isRead && <span className="size-2 shrink-0 rounded-full bg-primary shadow-sm" />}
+                        </div>
+                        <p className={cn('line-clamp-1 text-xs leading-relaxed', !n.isRead ? 'text-foreground/70' : 'text-muted-foreground')}>
+                          {n.message}
+                        </p>
+                        <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                          <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                            <Clock className="size-2.5" />
+                            {getTimeAgo(n.createdAt)}
+                          </span>
+                          {/* Type dot */}
+                          <span className={cn('size-1.5 rounded-full', typeCfg.dot)} />
+                          <span className="text-[10px] font-medium text-muted-foreground">{typeCfg.label}</span>
+                          {priorityCfg && (
+                            <Badge className={cn('h-4 gap-0.5 border px-1.5 text-[8px] font-bold', priorityCfg.badge)}>
+                              {PrioIcon && <PrioIcon className="size-2.5" />}
+                              {priorityCfg.label}
+                            </Badge>
+                          )}
+                          {n.archivedAt && (
+                            <Badge className="h-4 gap-0.5 border-violet-500/20 bg-violet-500/5 px-1.5 text-[8px] text-violet-600 dark:text-violet-300">
+                              <Archive className="size-2" />Archived
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                      {!n.archivedAt && (
+                        <Button
+                          variant="ghost" size="icon"
+                          className="size-7 shrink-0 self-start text-muted-foreground/50 opacity-100 transition-all hover:scale-105 hover:bg-violet-500/10 hover:text-violet-600 lg:opacity-0 lg:group-hover:opacity-100"
+                          onClick={(e) => { e.stopPropagation(); void handleArchive(n.id) }}
+                        >
+                          <Archive className="size-3.5" />
+                        </Button>
+                      )}
+                    </div>
+                  )
+                })}
               </div>
             </ScrollArea>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
+      {/* Add Dialog */}
       <Dialog open={showAdd} onOpenChange={setShowAdd}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Add Notification</DialogTitle>
-          </DialogHeader>
-          <div className="grid gap-4 py-2">
-            <div className="space-y-2">
-              <Label htmlFor="notification-title">Title</Label>
-              <Input
-                id="notification-title"
-                value={form.title}
-                onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
-                placeholder="Enter notification title"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="notification-message">Message</Label>
-              <Textarea
-                id="notification-message"
-                value={form.message}
-                onChange={e => setForm(f => ({ ...f, message: e.target.value }))}
-                placeholder="Write the message"
-                rows={4}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Type</Label>
-              <Select value={form.type} onValueChange={v => setForm(f => ({ ...f, type: v }))}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="general">General</SelectItem>
-                  <SelectItem value="info">Info</SelectItem>
-                  <SelectItem value="warning">Warning</SelectItem>
-                  <SelectItem value="success">Success</SelectItem>
-                  <SelectItem value="error">Error</SelectItem>
-                </SelectContent>
-              </Select>
+        <DialogContent className="gap-0 overflow-hidden border-0 p-0 shadow-2xl shadow-primary/20 sm:max-w-md">
+          <div className="relative bg-[linear-gradient(135deg,var(--primary)_0%,#0d9488_48%,#2563eb_100%)] px-5 py-4 text-white">
+            <div aria-hidden className="absolute -right-6 -top-6 size-24 rounded-full border-[15px] border-cyan-200/15" />
+            <div aria-hidden className="absolute -bottom-6 right-12 size-16 rounded-full bg-cyan-300/8" />
+            <div aria-hidden className="absolute left-8 top-2 size-10 rounded-full bg-white/5 blur-md" />
+            <div className="relative flex items-center gap-3">
+              <span className="flex size-9 items-center justify-center rounded-xl border border-white/20 bg-white/15 shadow-md backdrop-blur-sm">
+                <PlusCircle className="size-4.5 text-white" />
+              </span>
+              <div>
+                <DialogTitle className="text-base font-bold text-white">Add Notification</DialogTitle>
+                <DialogDescription className="mt-0.5 text-xs text-white/70">Create a new notification.</DialogDescription>
+              </div>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAdd(false)}>Cancel</Button>
-            <Button onClick={handleAdd} disabled={!form.title.trim()} className="gap-2">
-              <PlusCircle className="size-4" />
-              Create
+          <div className="bg-gradient-to-br from-primary/[0.03] via-background to-cyan-500/[0.06] p-4">
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <Label className="text-xs font-medium">Title</Label>
+                <Input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="Enter title" className="h-9 border-primary/15" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs font-medium">Message</Label>
+                <Textarea value={form.message} onChange={e => setForm(f => ({ ...f, message: e.target.value }))} placeholder="Write the message" rows={3} className="border-primary/15 resize-none" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs font-medium">Type</Label>
+                <Select value={form.type} onValueChange={v => setForm(f => ({ ...f, type: v }))}>
+                  <SelectTrigger className="h-9 border-primary/15">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(TYPE_CONFIG).map(([k, c]) => (
+                      <SelectItem key={k} value={k}><span className="flex items-center gap-2"><span className={cn('size-2 rounded-full', c.dot)} />{c.label}</span></SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="border-t border-primary/10 bg-gradient-to-r from-primary/[0.02] via-background to-cyan-500/[0.02] px-4 py-3">
+            <Button variant="outline" size="sm" onClick={() => setShowAdd(false)} className="h-8 gap-1.5 text-xs border-primary/15 shadow-sm">
+              <X className="size-3.5" /> Cancel
+            </Button>
+            <Button size="sm" onClick={handleAdd} disabled={!form.title.trim()} className="h-8 gap-1.5 text-xs shadow-lg shadow-primary/20">
+              <PlusCircle className="size-3.5" /> Create
             </Button>
           </DialogFooter>
         </DialogContent>

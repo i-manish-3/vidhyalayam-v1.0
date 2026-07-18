@@ -441,26 +441,26 @@ export function FeeDemandSlipsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex min-w-0 items-stretch gap-3">
-          <span aria-hidden className="bg-brand mt-0.5 w-1 shrink-0 self-stretch rounded-full" />
+      <div className="relative flex flex-col gap-3 overflow-hidden rounded-xl border border-primary/25 bg-gradient-to-r from-primary via-teal-600 to-cyan-600 px-4 py-3 text-white shadow-lg shadow-primary/15 sm:flex-row sm:items-center sm:justify-between">
+        <div className="relative z-10 flex min-w-0 items-stretch gap-3">
+          <span aria-hidden className="mt-0.5 flex w-1 shrink-0 self-stretch rounded-full bg-white/80" />
           <div className="min-w-0">
-            <h1 className="text-xl font-semibold tracking-tight text-foreground/90">Fee Demand Slips</h1>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <h1 className="text-xl font-semibold tracking-tight text-white">Fee Demand Slips</h1>
+            <p className="mt-1 text-sm text-white/80">
               {slips.length > 0
                 ? `${slips.length} slips · ${formatCurrency(totalDemanded)} demanded for ${MONTHS[month - 1].label} ${year}`
                 : `Generate monthly demand slips for ${MONTHS[month - 1].label} ${year}`}
             </p>
           </div>
         </div>
-        <div className="flex shrink-0 flex-wrap items-center gap-2">
+        <div className="relative z-10 flex shrink-0 flex-wrap items-center gap-2">
           {waConfig?.whatsappEnabled && (waConfig?.whatsappProvider === 'META_CLOUD' || waConfig?.whatsappProvider === 'BAILEYS') && slips.length > 0 && (
-            <Button variant="outline" onClick={() => setBulkSendOpen(true)} className="gap-2">
+            <Button variant="secondary" onClick={() => setBulkSendOpen(true)} className="gap-2 bg-white/20 text-white hover:bg-white/30">
               <Send className="size-4" />
               Send All ({slips.length})
             </Button>
           )}
-          <Button onClick={() => setGeneratorOpen(true)} className="gap-2">
+          <Button variant="secondary" onClick={() => setGeneratorOpen(true)} className="gap-2 bg-white/20 text-white hover:bg-white/30">
             <Sparkles className="size-4" />
             Generate Slips
           </Button>
@@ -468,7 +468,7 @@ export function FeeDemandSlipsPage() {
       </div>
 
       {/* Filter row */}
-      <div className="rounded-lg border bg-background p-4 shadow-sm">
+      <div className="rounded-xl border border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-cyan-50 p-4 shadow-sm dark:border-sky-500/25 dark:from-sky-500/10 dark:via-card dark:to-cyan-500/10">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4">
           <div className="space-y-1.5">
             <Label className="text-xs">Month</Label>
@@ -531,18 +531,27 @@ export function FeeDemandSlipsPage() {
         />
       ) : (
         <div className="space-y-4">
-          <div className="overflow-hidden rounded-lg border bg-background shadow-sm">
+          <div className="overflow-hidden rounded-xl border border-sky-500/15 bg-gradient-to-br from-card via-card to-sky-500/[0.035] shadow-sm dark:border-sky-500/20">
+            <div className="flex items-center gap-2 border-b border-sky-500/15 bg-gradient-to-r from-sky-500/[0.10] via-primary/[0.05] to-violet-500/[0.08] p-3">
+              <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-primary text-white shadow-sm shadow-sky-500/20">
+                <Receipt className="size-4" />
+              </span>
+              <div>
+                <p className="text-sm font-semibold">Demand Slips</p>
+                <p className="text-xs text-muted-foreground">{slips.length} entries</p>
+              </div>
+            </div>
             <Table>
-              <TableHeader className="bg-muted/50">
+              <TableHeader className="bg-gradient-to-r from-sky-500/[0.08] via-primary/[0.04] to-violet-500/[0.06]">
                 <TableRow className="hover:bg-transparent">
-                  <TableHead className="h-11 px-4 text-xs font-semibold uppercase text-muted-foreground">Slip No</TableHead>
-                  <TableHead className="h-11 px-4 text-xs font-semibold uppercase text-muted-foreground">Student</TableHead>
-                  <TableHead className="h-11 px-4 text-xs font-semibold uppercase text-muted-foreground">Class</TableHead>
-                  <TableHead className="h-11 px-4 text-right text-xs font-semibold uppercase text-muted-foreground">Items</TableHead>
-                  <TableHead className="h-11 px-4 text-right text-xs font-semibold uppercase text-muted-foreground">Prev Bal</TableHead>
-                  <TableHead className="h-11 px-4 text-right text-xs font-semibold uppercase text-muted-foreground">Total</TableHead>
-                  <TableHead className="h-11 px-4 text-xs font-semibold uppercase text-muted-foreground">Status</TableHead>
-                  <TableHead className="h-11 w-24 px-4 text-right text-xs font-semibold uppercase text-muted-foreground">Action</TableHead>
+                  <TableHead className="h-11 px-4 text-xs font-semibold uppercase text-sky-700 dark:text-sky-300">Slip No</TableHead>
+                  <TableHead className="h-11 px-4 text-xs font-semibold uppercase text-sky-700 dark:text-sky-300">Student</TableHead>
+                  <TableHead className="h-11 px-4 text-xs font-semibold uppercase text-sky-700 dark:text-sky-300">Class</TableHead>
+                  <TableHead className="h-11 px-4 text-right text-xs font-semibold uppercase text-sky-700 dark:text-sky-300">Items</TableHead>
+                  <TableHead className="h-11 px-4 text-right text-xs font-semibold uppercase text-sky-700 dark:text-sky-300">Prev Bal</TableHead>
+                  <TableHead className="h-11 px-4 text-right text-xs font-semibold uppercase text-sky-700 dark:text-sky-300">Total</TableHead>
+                  <TableHead className="h-11 px-4 text-xs font-semibold uppercase text-sky-700 dark:text-sky-300">Status</TableHead>
+                  <TableHead className="h-11 w-24 px-4 text-right text-xs font-semibold uppercase text-sky-700 dark:text-sky-300">Action</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -566,7 +575,7 @@ export function FeeDemandSlipsPage() {
                     </TableCell>
                     <TableCell className="px-4 py-3">
                       <div className="flex justify-end">
-                        <Button size="sm" variant="outline" className="h-8 gap-1.5 px-3" onClick={() => setViewingId(slip.id)}>
+                        <Button size="sm" variant="outline" className="h-8 gap-1.5 border-sky-200/70 px-3 text-sky-700 hover:bg-sky-100 dark:border-sky-500/30 dark:text-sky-300 dark:hover:bg-sky-500/20" onClick={() => setViewingId(slip.id)}>
                           <Eye className="size-4" /> View
                         </Button>
                       </div>
@@ -578,7 +587,7 @@ export function FeeDemandSlipsPage() {
           </div>
 
           {/* Pagination Controls */}
-          <div className="flex items-center justify-between rounded-lg border bg-background p-3 shadow-sm">
+          <div className="flex items-center justify-between rounded-xl border border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-cyan-50 p-3 shadow-sm dark:border-sky-500/25 dark:from-sky-500/10 dark:via-card dark:to-cyan-500/10">
             <div className="flex items-center gap-2">
               <Label className="text-xs text-muted-foreground">Show:</Label>
               <Select value={String(limit)} onValueChange={(v) => handleLimitChange(Number(v))}>
@@ -626,7 +635,7 @@ export function FeeDemandSlipsPage() {
       )}
 
       {/* Run history */}
-      <Collapsible open={historyOpen} onOpenChange={setHistoryOpen} className="rounded-lg border bg-background shadow-sm">
+      <Collapsible open={historyOpen} onOpenChange={setHistoryOpen} className="rounded-xl border border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-cyan-50 shadow-sm dark:border-sky-500/25 dark:from-sky-500/10 dark:via-card dark:to-cyan-500/10">
         <CollapsibleTrigger asChild>
           <button className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-muted/40">
             <span className="flex items-center gap-2 text-sm font-medium">
@@ -643,17 +652,17 @@ export function FeeDemandSlipsPage() {
               <div className="px-4 py-6 text-center text-sm text-muted-foreground">No runs yet.</div>
             ) : (
               <Table>
-                <TableHeader className="bg-muted/30">
-                  <TableRow className="hover:bg-transparent">
-                    <TableHead className="h-10 px-4 text-xs">When</TableHead>
-                    <TableHead className="h-10 px-4 text-xs">Period</TableHead>
-                    <TableHead className="h-10 px-4 text-xs">Trigger</TableHead>
-                    <TableHead className="h-10 px-4 text-right text-xs">Created</TableHead>
-                    <TableHead className="h-10 px-4 text-right text-xs">Skipped</TableHead>
-                    <TableHead className="h-10 px-4 text-right text-xs">Failed</TableHead>
-                    <TableHead className="h-10 px-4 text-right text-xs">Total</TableHead>
-                    <TableHead className="h-10 px-4 text-xs">Status</TableHead>
-                    <TableHead className="h-10 w-32 px-4 text-right text-xs">Action</TableHead>
+                  <TableHeader className="bg-gradient-to-r from-sky-500/[0.08] via-primary/[0.04] to-violet-500/[0.06]">
+                    <TableRow className="hover:bg-transparent">
+                      <TableHead className="h-10 px-4 text-xs font-semibold uppercase text-sky-700 dark:text-sky-300">When</TableHead>
+                      <TableHead className="h-10 px-4 text-xs font-semibold uppercase text-sky-700 dark:text-sky-300">Period</TableHead>
+                      <TableHead className="h-10 px-4 text-xs font-semibold uppercase text-sky-700 dark:text-sky-300">Trigger</TableHead>
+                      <TableHead className="h-10 px-4 text-right text-xs font-semibold uppercase text-sky-700 dark:text-sky-300">Created</TableHead>
+                      <TableHead className="h-10 px-4 text-right text-xs font-semibold uppercase text-sky-700 dark:text-sky-300">Skipped</TableHead>
+                      <TableHead className="h-10 px-4 text-right text-xs font-semibold uppercase text-sky-700 dark:text-sky-300">Failed</TableHead>
+                      <TableHead className="h-10 px-4 text-right text-xs font-semibold uppercase text-sky-700 dark:text-sky-300">Total</TableHead>
+                      <TableHead className="h-10 px-4 text-xs font-semibold uppercase text-sky-700 dark:text-sky-300">Status</TableHead>
+                      <TableHead className="h-10 w-32 px-4 text-right text-xs font-semibold uppercase text-sky-700 dark:text-sky-300">Action</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>

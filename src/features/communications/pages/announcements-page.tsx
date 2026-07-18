@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState, type ElementType } from 'react'
-import { PageHeader, LoadingState } from '@/components/shared'
+import { LoadingState } from '@/components/shared'
 import { api } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
 import { Button } from '@/components/ui/button'
@@ -10,13 +10,11 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogFooter,
-  DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
 import {
@@ -30,8 +28,19 @@ import {
   Send,
   UserRoundCheck,
   UsersRound,
+  X,
+  MessageSquareText,
+  Target,
+  Gauge,
+  BarChart3,
+  Globe,
+  GraduationCap,
+  UserCheck,
+  Shield,
+  Heart,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { ScrollArea } from '@/components/ui/scroll-area'
 
 interface Announcement {
   id: string
@@ -62,30 +71,53 @@ const PRIORITY_OPTIONS = [
   { value: 'urgent', label: 'Urgent' },
 ]
 
-const audienceMeta: Record<string, { label: string; className: string }> = {
-  all: { label: 'Everyone', className: 'border-teal-200 bg-teal-50 text-teal-700' },
-  teachers: { label: 'Teachers', className: 'border-violet-200 bg-violet-50 text-violet-700' },
-  students: { label: 'Students', className: 'border-blue-200 bg-blue-50 text-blue-700' },
-  parents: { label: 'Parents', className: 'border-amber-200 bg-amber-50 text-amber-700' },
-  staff: { label: 'Staff', className: 'border-border bg-muted/40 text-muted-foreground' },
+const AUDIENCE_CONFIG: Record<string, { icon: typeof Globe; gradient: string; dot: string; label: string }> = {
+  all: { icon: Globe, gradient: 'from-teal-500 to-emerald-500', dot: 'bg-teal-500', label: 'Everyone' },
+  teachers: { icon: GraduationCap, gradient: 'from-violet-500 to-fuchsia-500', dot: 'bg-violet-500', label: 'Teachers' },
+  students: { icon: UsersRound, gradient: 'from-sky-500 to-blue-500', dot: 'bg-sky-500', label: 'Students' },
+  parents: { icon: Heart, gradient: 'from-amber-500 to-orange-500', dot: 'bg-amber-500', label: 'Parents' },
+  staff: { icon: Shield, gradient: 'from-cyan-500 to-teal-500', dot: 'bg-cyan-500', label: 'Staff' },
 }
 
-const priorityMeta: Record<string, { label: string; className: string; iconClass: string }> = {
+const PRIORITY_CONFIG: Record<string, { icon: typeof Gauge; gradient: string; dot: string; label: string; badge: string }> = {
   normal: {
-    label: 'Normal',
-    className: 'border-border bg-muted/40 text-muted-foreground',
-    iconClass: 'bg-muted text-muted-foreground',
+    icon: Gauge, gradient: 'from-primary to-teal-600', dot: 'bg-primary', label: 'Normal',
+    badge: 'border-primary/20 bg-primary/5 text-primary dark:text-primary',
   },
   high: {
-    label: 'High',
-    className: 'border-amber-200 bg-amber-50 text-amber-700',
-    iconClass: 'bg-amber-50 text-amber-700',
+    icon: BarChart3, gradient: 'from-amber-500 to-orange-500', dot: 'bg-amber-500', label: 'High',
+    badge: 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-400',
   },
   urgent: {
-    label: 'Urgent',
-    className: 'border-red-200 bg-red-50 text-red-700',
-    iconClass: 'bg-red-50 text-red-700',
+    icon: AlertTriangle, gradient: 'from-red-500 to-rose-500', dot: 'bg-red-500', label: 'Urgent',
+    badge: 'border-red-200 bg-red-50 text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-400',
   },
+}
+
+function formatDateTime(value?: string | null) {
+  if (!value) return '-'
+  return new Date(value).toLocaleString('en-IN', {
+    day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
+  })
+}
+
+function getTimeAgo(value: string): string {
+  const now = Date.now()
+  const then = new Date(value).getTime()
+  const diffMs = now - then
+  const mins = Math.floor(diffMs / 60000)
+  if (mins < 1) return 'Just now'
+  if (mins < 60) return `${mins}m ago`
+  const hrs = Math.floor(mins / 60)
+  if (hrs < 24) return `${hrs}h ago`
+  const days = Math.floor(hrs / 24)
+  if (days < 7) return `${days}d ago`
+  return formatDateTime(value)
+}
+
+function statusLabel(status?: string) {
+  if (!status) return 'Sent'
+  return status.split('_').map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(' ')
 }
 
 export function AnnouncementsPage() {
@@ -104,25 +136,16 @@ export function AnnouncementsPage() {
       const res = await api.get<{ announcements: Announcement[] }>('/api/school/announcements', { limit: '60' })
       setAnnouncements(res.announcements || [])
     } catch {
-      toast({
-        title: "Couldn't Load Announcements",
-        description: "We couldn't load the announcements. Please refresh the page.",
-        variant: 'destructive',
-      })
-    } finally {
-      setLoading(false)
-    }
+      toast({ title: "Couldn't Load Announcements", description: "We couldn't load the announcements. Please refresh the page.", variant: 'destructive' })
+    } finally { setLoading(false) }
   }, [toast])
 
-  useEffect(() => {
-    void fetchData()
-  }, [fetchData])
+  useEffect(() => { void fetchData() }, [fetchData])
 
   const filteredAnnouncements = useMemo(() => {
     const query = search.trim().toLowerCase()
     return announcements.filter((item) => {
-      const matchesQuery =
-        !query || item.title.toLowerCase().includes(query) || item.content.toLowerCase().includes(query)
+      const matchesQuery = !query || item.title.toLowerCase().includes(query) || item.content.toLowerCase().includes(query)
       const matchesAudience = audienceFilter === 'all_audiences' || item.audience === audienceFilter
       const matchesPriority = priorityFilter === 'all_priorities' || item.priority === priorityFilter
       return matchesQuery && matchesAudience && matchesPriority
@@ -137,211 +160,269 @@ export function AnnouncementsPage() {
     return { total: announcements.length, important: urgent + high, recipients, delivered }
   }, [announcements])
 
+  const hasActiveFilters = search || audienceFilter !== 'all_audiences' || priorityFilter !== 'all_priorities'
+
+  const clearFilters = () => {
+    setSearch('')
+    setAudienceFilter('all_audiences')
+    setPriorityFilter('all_priorities')
+  }
+
   const handleAdd = async () => {
     if (!form.title.trim() || !form.content.trim()) return
     setCreating(true)
     try {
       await api.post('/api/school/announcements', {
-        ...form,
-        title: form.title.trim(),
-        content: form.content.trim(),
+        ...form, title: form.title.trim(), content: form.content.trim(),
       })
       toast({ title: 'Announcement sent', description: 'Your update has been published.' })
       setShowAdd(false)
       setForm({ title: '', content: '', audience: 'all', priority: 'normal' })
       await fetchData()
     } catch (err) {
-      toast({
-        title: "Couldn't Create Announcement",
-        description: err instanceof Error ? err.message : 'Something went wrong. Please try again.',
-        variant: 'destructive',
-      })
-    } finally {
-      setCreating(false)
-    }
+      toast({ title: "Couldn't Create Announcement", description: err instanceof Error ? err.message : 'Something went wrong. Please try again.', variant: 'destructive' })
+    } finally { setCreating(false) }
   }
 
   if (loading) return <LoadingState />
 
   return (
-    <div className="space-y-4">
-      <PageHeader
-        title="Announcements"
-        description="Broadcast school updates to staff, students, and parents."
-        action={{ label: 'New Announcement', icon: PlusCircle, onClick: () => setShowAdd(true) }}
-      />
+    <div className="space-y-5">
+      {/* Gradient Header */}
+      <div className="relative overflow-hidden rounded-2xl bg-[linear-gradient(135deg,var(--primary)_0%,#0d9488_48%,#2563eb_100%)] px-5 py-5 text-white shadow-lg">
+        <div aria-hidden className="absolute -right-10 -top-10 size-36 rounded-full border-[20px] border-cyan-200/15" />
+        <div aria-hidden className="absolute -bottom-8 right-16 size-20 rounded-full bg-cyan-300/8" />
+        <div aria-hidden className="absolute left-12 top-4 size-16 rounded-full bg-white/5 blur-md" />
+        <div aria-hidden className="absolute bottom-0 left-1/4 h-px w-48 bg-gradient-to-r from-transparent via-white/30 to-transparent" />
+        <div className="relative flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <span className="flex size-10 items-center justify-center rounded-xl border border-white/20 bg-white/15 shadow-md backdrop-blur-sm">
+              <Megaphone className="size-5 text-white" />
+            </span>
+            <div>
+              <h1 className="text-lg font-bold tracking-tight">Announcements</h1>
+              <p className="mt-0.5 text-xs text-white/75">Broadcast school updates to staff, students, and parents</p>
+            </div>
+          </div>
+          <Button variant="secondary" size="sm" style={{ backgroundColor: 'white', color: 'var(--primary)' }} onClick={() => setShowAdd(true)} className="h-8 gap-1.5 text-xs shadow-md">
+            <PlusCircle className="size-3.5" /> New
+          </Button>
+        </div>
+      </div>
 
-      <div className="flex flex-wrap items-center gap-2 rounded-md border bg-background px-3 py-2 shadow-sm">
+      {/* Stats Cards */}
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {[
-          { label: 'Total', value: stats.total.toLocaleString('en-IN') },
-          { label: 'High Priority', value: stats.important.toLocaleString('en-IN') },
-          { label: 'Recipients', value: stats.recipients.toLocaleString('en-IN') },
-          { label: 'Delivered', value: stats.delivered.toLocaleString('en-IN') },
-        ].map((item) => (
-          <div key={item.label} className="flex items-center gap-2 rounded-md bg-muted/35 px-2.5 py-1.5 text-xs">
-            <span className="text-muted-foreground">{item.label}</span>
-            <span className="font-semibold tabular-nums">{item.value}</span>
+          { label: 'Total', value: stats.total.toLocaleString('en-IN'), icon: Megaphone, gradient: 'from-primary to-teal-600', text: 'text-foreground' },
+          { label: 'High Priority', value: stats.important.toLocaleString('en-IN'), icon: AlertTriangle, gradient: 'from-red-500 to-rose-500', text: 'text-red-600 dark:text-red-400' },
+          { label: 'Recipients', value: stats.recipients.toLocaleString('en-IN'), icon: UsersRound, gradient: 'from-sky-500 to-blue-500', text: 'text-sky-600 dark:text-sky-400' },
+          { label: 'Delivered', value: stats.delivered.toLocaleString('en-IN'), icon: CheckCircle2, gradient: 'from-emerald-500 to-teal-500', text: 'text-emerald-600 dark:text-emerald-400' },
+        ].map((s) => (
+          <div key={s.label} className="flex items-center gap-2 rounded-xl border border-primary/5 bg-card p-3 shadow-sm">
+            <span className={cn('flex size-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br text-white shadow-sm', s.gradient)}>
+              <s.icon className="size-4" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-muted-foreground">{s.label}</p>
+              <p className={cn('text-base font-bold leading-tight', s.text)}>{s.value}</p>
+            </div>
           </div>
         ))}
       </div>
 
-      <Card className="gap-0 py-0 shadow-sm">
-        <CardContent className="grid gap-3 px-4 py-3 lg:grid-cols-[minmax(240px,1fr)_180px_170px]">
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search announcements..."
-              className="h-9 pl-9"
-            />
+      {/* Filters Bar */}
+      <div className="relative overflow-hidden rounded-xl border border-primary/10 bg-gradient-to-br from-primary/[0.03] via-card to-sky-500/[0.03] p-3 shadow-sm">
+        <div aria-hidden className="absolute -right-6 -top-6 size-16 rounded-full border-[12px] border-sky-500/5" />
+        <div className="relative flex flex-col gap-3 lg:flex-row lg:items-center">
+          <div className="flex shrink-0 items-center gap-2 text-sm font-medium">
+            <span className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary/[0.08] to-teal-600/[0.06] text-primary shadow-sm">
+              <Search className="size-4" />
+            </span>
+            <span>Filters</span>
           </div>
-          <Select value={audienceFilter} onValueChange={setAudienceFilter}>
-            <SelectTrigger className="h-9">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all_audiences">All audiences</SelectItem>
-              {AUDIENCE_OPTIONS.map((item) => (
-                <SelectItem key={item.value} value={item.value}>
-                  {item.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-            <SelectTrigger className="h-9">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all_priorities">All priorities</SelectItem>
-              {PRIORITY_OPTIONS.map((item) => (
-                <SelectItem key={item.value} value={item.value}>
-                  {item.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </CardContent>
-      </Card>
 
-      <Card className="gap-0 overflow-hidden py-0 shadow-sm">
-        <CardHeader className="border-b bg-muted/30 px-4 py-3">
-          <CardTitle className="flex items-center gap-2 text-sm font-semibold">
-            <Megaphone className="size-4 text-primary" />
-            Announcement Board
-            <Badge variant="secondary" className="ml-auto text-xs">
-              {filteredAnnouncements.length.toLocaleString('en-IN')} records
-            </Badge>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          {announcements.length === 0 ? (
-            <InlineEmpty
-              icon={Megaphone}
-              title="No announcements yet"
-              description="Create your first announcement to broadcast important school updates."
-              actionLabel="New Announcement"
-              onAction={() => setShowAdd(true)}
-            />
-          ) : filteredAnnouncements.length === 0 ? (
-            <InlineEmpty icon={Search} title="No matching announcements" description="Try changing your search or filters." />
-          ) : (
-            <div className="divide-y">
-              {filteredAnnouncements.map((announcement) => (
-                <AnnouncementRow key={announcement.id} announcement={announcement} />
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      <Dialog open={showAdd} onOpenChange={setShowAdd}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Send className="size-4 text-primary" />
-              New Announcement
-            </DialogTitle>
-            <DialogDescription>Send a clear update to the selected audience.</DialogDescription>
-          </DialogHeader>
-
-          <div className="grid gap-4 py-2">
-            <div className="space-y-2">
-              <Label htmlFor="announcement-title">Title</Label>
+          <div className="grid flex-1 gap-2 sm:grid-cols-2 xl:grid-cols-[minmax(220px,1.5fr)_1fr_1fr]">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                id="announcement-title"
-                value={form.title}
-                onChange={(event) => setForm((prev) => ({ ...prev, title: event.target.value }))}
-                placeholder="Example: Parent-teacher meeting on Friday"
+                placeholder="Search announcements..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="h-9 border-primary/15 bg-background pl-9 pr-9 transition-all focus-visible:border-primary/30"
               />
+              {search && (
+                <button type="button" onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground">
+                  <X className="size-3.5" />
+                </button>
+              )}
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="announcement-message">Message</Label>
-              <Textarea
-                id="announcement-message"
-                value={form.content}
-                onChange={(event) => setForm((prev) => ({ ...prev, content: event.target.value }))}
-                placeholder="Write the announcement clearly..."
-                rows={6}
-              />
-              <div className="text-right text-[11px] text-muted-foreground">
-                {form.content.trim().length} characters
+            <Select value={audienceFilter} onValueChange={setAudienceFilter}>
+              <SelectTrigger className="h-9 border-primary/15 bg-background"><SelectValue placeholder="Audience" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all_audiences">All audiences</SelectItem>
+                {AUDIENCE_OPTIONS.map((item) => (
+                  <SelectItem key={item.value} value={item.value}>
+                    <span className="flex items-center gap-2">
+                      <span className={cn('size-2 rounded-full', AUDIENCE_CONFIG[item.value]?.dot)} />
+                      {item.label}
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+              <SelectTrigger className="h-9 border-primary/15 bg-background"><SelectValue placeholder="Priority" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all_priorities">All priorities</SelectItem>
+                {PRIORITY_OPTIONS.map((item) => (
+                  <SelectItem key={item.value} value={item.value}>
+                    <span className="flex items-center gap-2">
+                      <span className={cn('size-2 rounded-full', PRIORITY_CONFIG[item.value]?.dot)} />
+                      {item.label}
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex shrink-0 items-center justify-between gap-2 lg:justify-end">
+            <p className="text-xs text-muted-foreground">
+              <span className="font-semibold text-foreground/80">{filteredAnnouncements.length}</span> shown
+            </p>
+            {hasActiveFilters && (
+              <Button type="button" variant="ghost" size="sm" className="h-8 gap-1.5 text-xs text-rose-500 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/20" onClick={clearFilters}>
+                <X className="size-3.5" /> Clear
+              </Button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Announcement Cards */}
+      <div className="overflow-hidden rounded-xl border border-primary/10 bg-card shadow-sm">
+        <div className="flex items-center gap-2 border-b border-primary/10 bg-gradient-to-r from-primary/[0.04] via-teal-600/[0.03] to-cyan-600/[0.04] px-4 py-2.5">
+          <span className="flex size-7 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-teal-600 text-white shadow-sm">
+            <MessageSquareText className="size-3.5" />
+          </span>
+          <span className="text-xs font-bold text-foreground/80">Announcement Board</span>
+          <Badge variant="secondary" className="ml-auto h-4 gap-1 border-primary/20 bg-primary/10 px-1.5 text-[9px] font-bold text-primary">
+            {filteredAnnouncements.length}
+          </Badge>
+        </div>
+        <div className="p-0">
+          {announcements.length === 0 ? (
+            <div className="flex flex-col items-center gap-3 px-4 py-12 text-center">
+              <span className="flex size-11 items-center justify-center rounded-lg bg-gradient-to-br from-primary/[0.1] to-teal-600/[0.08] text-primary">
+                <Megaphone className="size-5" />
+              </span>
+              <div>
+                <h3 className="text-sm font-semibold">No announcements yet</h3>
+                <p className="mt-1 max-w-sm text-sm text-muted-foreground">Create your first announcement to broadcast important school updates.</p>
               </div>
+              <Button size="sm" onClick={() => setShowAdd(true)} className="gap-1.5 text-xs shadow-lg shadow-primary/20">
+                <PlusCircle className="size-3.5" /> New Announcement
+              </Button>
             </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label>Audience</Label>
-                <Select
-                  value={form.audience}
-                  onValueChange={(value) => setForm((prev) => ({ ...prev, audience: value }))}
-                >
-                  <SelectTrigger className="h-9">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {AUDIENCE_OPTIONS.map((item) => (
-                      <SelectItem key={item.value} value={item.value}>
-                        {item.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+          ) : filteredAnnouncements.length === 0 ? (
+            <div className="flex flex-col items-center gap-3 px-4 py-12 text-center">
+              <span className="flex size-11 items-center justify-center rounded-lg bg-gradient-to-br from-primary/[0.1] to-teal-600/[0.08] text-primary">
+                <Search className="size-5" />
+              </span>
+              <div>
+                <h3 className="text-sm font-semibold">No matching announcements</h3>
+                <p className="mt-1 max-w-sm text-sm text-muted-foreground">Try changing your search or filters.</p>
               </div>
-              <div className="space-y-2">
-                <Label>Priority</Label>
-                <Select
-                  value={form.priority}
-                  onValueChange={(value) => setForm((prev) => ({ ...prev, priority: value }))}
-                >
-                  <SelectTrigger className="h-9">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {PRIORITY_OPTIONS.map((item) => (
-                      <SelectItem key={item.value} value={item.value}>
-                        {item.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <Button variant="outline" size="sm" onClick={clearFilters} className="gap-1.5 text-xs">
+                <X className="size-3.5" /> Clear Filters
+              </Button>
+            </div>
+          ) : (
+            <ScrollArea className="max-h-[540px]">
+              <div>
+                {filteredAnnouncements.map((announcement) => (
+                  <AnnouncementRow key={announcement.id} announcement={announcement} />
+                ))}
+              </div>
+            </ScrollArea>
+          )}
+        </div>
+      </div>
+
+      {/* Add Dialog */}
+      <Dialog open={showAdd} onOpenChange={setShowAdd}>
+        <DialogContent className="gap-0 overflow-hidden border-0 p-0 shadow-2xl shadow-primary/20 sm:max-w-lg">
+          <div className="relative bg-[linear-gradient(135deg,var(--primary)_0%,#0d9488_48%,#2563eb_100%)] px-5 py-4 text-white">
+            <div aria-hidden className="absolute -right-6 -top-6 size-24 rounded-full border-[15px] border-cyan-200/15" />
+            <div aria-hidden className="absolute -bottom-6 right-12 size-16 rounded-full bg-cyan-300/8" />
+            <div aria-hidden className="absolute left-8 top-2 size-10 rounded-full bg-white/5 blur-md" />
+            <div className="relative flex items-center gap-3">
+              <span className="flex size-9 items-center justify-center rounded-xl border border-white/20 bg-white/15 shadow-md backdrop-blur-sm">
+                <Send className="size-4.5 text-white" />
+              </span>
+              <div>
+                <DialogTitle className="text-base font-bold text-white">New Announcement</DialogTitle>
+                <DialogDescription className="mt-0.5 text-xs text-white/70">Send a clear update to the selected audience.</DialogDescription>
               </div>
             </div>
           </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAdd(false)}>
-              Cancel
+          <div className="bg-gradient-to-br from-primary/[0.03] via-background to-cyan-500/[0.06] p-4">
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <Label className="text-xs font-medium">Title</Label>
+                <Input value={form.title} onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))} placeholder="Example: Parent-teacher meeting on Friday" className="h-9 border-primary/15" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs font-medium">Message</Label>
+                <Textarea value={form.content} onChange={(e) => setForm((p) => ({ ...p, content: e.target.value }))} placeholder="Write the announcement clearly..." rows={4} className="border-primary/15 resize-none" />
+                <p className="text-right text-[10px] text-muted-foreground">{form.content.trim().length} characters</p>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium">Audience</Label>
+                  <Select value={form.audience} onValueChange={(v) => setForm((p) => ({ ...p, audience: v }))}>
+                    <SelectTrigger className="h-9 border-primary/15">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {AUDIENCE_OPTIONS.map((item) => (
+                        <SelectItem key={item.value} value={item.value}>
+                          <span className="flex items-center gap-2">
+                            <span className={cn('size-2 rounded-full', AUDIENCE_CONFIG[item.value]?.dot)} />
+                            {item.label}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium">Priority</Label>
+                  <Select value={form.priority} onValueChange={(v) => setForm((p) => ({ ...p, priority: v }))}>
+                    <SelectTrigger className="h-9 border-primary/15">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PRIORITY_OPTIONS.map((item) => (
+                        <SelectItem key={item.value} value={item.value}>
+                          <span className="flex items-center gap-2">
+                            <span className={cn('size-2 rounded-full', PRIORITY_CONFIG[item.value]?.dot)} />
+                            {item.label}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="border-t border-primary/10 bg-gradient-to-r from-primary/[0.02] via-background to-cyan-500/[0.02] px-4 py-3">
+            <Button variant="outline" size="sm" onClick={() => setShowAdd(false)} className="h-8 gap-1.5 text-xs border-primary/15 shadow-sm">
+              <X className="size-3.5" /> Cancel
             </Button>
-            <Button className="gap-2" onClick={handleAdd} disabled={!form.title.trim() || !form.content.trim() || creating}>
-              {creating ? (
-                'Sending...'
-              ) : (
-                <>
-                  <Send className="size-4" />
-                  Send Announcement
-                </>
-              )}
+            <Button size="sm" onClick={handleAdd} disabled={!form.title.trim() || !form.content.trim() || creating} className="h-8 gap-1.5 text-xs shadow-lg shadow-primary/20">
+              {creating ? 'Sending...' : <><Send className="size-3.5" /> Send Announcement</>}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -351,110 +432,52 @@ export function AnnouncementsPage() {
 }
 
 function AnnouncementRow({ announcement }: { announcement: Announcement }) {
-  const priority = priorityMeta[announcement.priority] || priorityMeta.normal
-  const audience = audienceMeta[announcement.audience] || audienceMeta.all
+  const priority = PRIORITY_CONFIG[announcement.priority] || PRIORITY_CONFIG.normal
+  const audience = AUDIENCE_CONFIG[announcement.audience] || AUDIENCE_CONFIG.all
+  const AudienceIcon = audience.icon
   const deliveryTotal = Number(announcement.recipientCount || 0)
   const delivered = Number(announcement.deliveredCount || 0)
   const deliveryRate = deliveryTotal > 0 ? Math.round((delivered / deliveryTotal) * 100) : null
 
   return (
-    <div className="flex items-start gap-3 px-4 py-3 transition-colors hover:bg-muted/30">
-      <span className={cn('flex size-9 shrink-0 items-center justify-center rounded-md', priority.iconClass)}>
-        {announcement.priority === 'urgent' ? <AlertTriangle className="size-4" /> : <Megaphone className="size-4" />}
+    <div className="group flex items-start gap-3 border-b border-primary/5 px-4 py-3 transition-all last:border-b-0 hover:bg-primary/[0.02]">
+      <span className={cn(
+        'flex size-9 shrink-0 items-center justify-center rounded-lg shadow-sm transition-all group-hover:scale-110',
+        announcement.priority === 'urgent'
+          ? 'bg-gradient-to-br from-red-500 to-rose-500 text-white'
+          : announcement.priority === 'high'
+            ? 'bg-gradient-to-br from-amber-500 to-orange-500 text-white'
+            : 'bg-gradient-to-br from-primary to-teal-600 text-white'
+      )}>
+        {announcement.priority === 'urgent' ? <AlertTriangle className="size-4.5" /> : announcement.priority === 'high' ? <BarChart3 className="size-4.5" /> : <Megaphone className="size-4.5" />}
       </span>
-      <div className="min-w-0 flex-1 space-y-2">
-        <div className="flex flex-wrap items-start gap-2">
-          <h3 className="min-w-[180px] flex-1 text-sm font-semibold leading-5">{announcement.title}</h3>
-          <Badge variant="outline" className={priority.className}>
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <h3 className="flex-1 text-sm font-bold text-foreground min-w-[160px]">{announcement.title}</h3>
+          <Badge className={cn('h-5 gap-1 border px-1.5 text-[10px] font-bold', priority.badge)}>
             {priority.label}
           </Badge>
-          <Badge variant="outline" className={audience.className}>
-            {audience.label}
-          </Badge>
+          <span className="flex items-center gap-1 rounded-md border border-primary/5 bg-muted/30 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+            <AudienceIcon className="size-3" /> {audience.label}
+          </span>
         </div>
 
-        <p className="line-clamp-2 text-sm leading-6 text-muted-foreground">{announcement.content}</p>
+        <p className="mt-1 line-clamp-2 text-sm leading-relaxed text-muted-foreground">{announcement.content}</p>
 
-        <div className="grid gap-2 text-xs text-muted-foreground sm:grid-cols-3">
-          <MetaItem icon={Clock3} label="Created" value={formatDateTime(announcement.createdAt)} />
-          <MetaItem
-            icon={CalendarClock}
-            label={announcement.sentAt ? 'Sent' : announcement.scheduledAt ? 'Scheduled' : 'Status'}
-            value={
-              announcement.sentAt
-                ? formatDateTime(announcement.sentAt)
-                : announcement.scheduledAt
-                  ? formatDateTime(announcement.scheduledAt)
-                  : statusLabel(announcement.status)
-            }
-          />
-          <MetaItem
-            icon={UserRoundCheck}
-            label="Delivery"
-            value={deliveryRate === null ? 'Pending' : `${delivered}/${deliveryTotal} (${deliveryRate}%)`}
-          />
+        <div className="mt-2 flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground">
+          <span className="flex items-center gap-1">
+            <Clock3 className="size-3" /> {getTimeAgo(announcement.createdAt)}
+          </span>
+          <span className="flex items-center gap-1">
+            <CalendarClock className="size-3" />
+            {announcement.sentAt ? `Sent ${getTimeAgo(announcement.sentAt)}` : announcement.scheduledAt ? `Scheduled ${formatDateTime(announcement.scheduledAt)}` : statusLabel(announcement.status)}
+          </span>
+          <span className="flex items-center gap-1">
+            <UserRoundCheck className="size-3" />
+            {deliveryRate === null ? 'Pending' : `${delivered}/${deliveryTotal} (${deliveryRate}%)`}
+          </span>
         </div>
       </div>
     </div>
   )
-}
-
-function InlineEmpty({
-  icon: Icon,
-  title,
-  description,
-  actionLabel,
-  onAction,
-}: {
-  icon: ElementType
-  title: string
-  description: string
-  actionLabel?: string
-  onAction?: () => void
-}) {
-  return (
-    <div className="flex flex-col items-center gap-3 px-4 py-12 text-center">
-      <span className="flex size-11 items-center justify-center rounded-md bg-primary/10 text-primary">
-        <Icon className="size-5" />
-      </span>
-      <div>
-        <h3 className="text-sm font-semibold">{title}</h3>
-        <p className="mt-1 max-w-sm text-sm text-muted-foreground">{description}</p>
-      </div>
-      {actionLabel && onAction && (
-        <Button size="sm" onClick={onAction}>
-          <PlusCircle className="size-4" />
-          {actionLabel}
-        </Button>
-      )}
-    </div>
-  )
-}
-
-function MetaItem({ icon: Icon, label, value }: { icon: ElementType; label: string; value: string }) {
-  return (
-    <div className="flex min-w-0 items-center gap-2">
-      <Icon className="size-3.5 shrink-0" />
-      <span className="shrink-0 font-medium">{label}:</span>
-      <span className="min-w-0 truncate">{value}</span>
-    </div>
-  )
-}
-
-function formatDateTime(value?: string | null) {
-  if (!value) return '-'
-  return new Date(value).toLocaleString('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}
-
-function statusLabel(status?: string) {
-  if (!status) return 'Sent'
-  return status
-    .split('_')
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ')
 }

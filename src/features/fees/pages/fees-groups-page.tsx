@@ -238,10 +238,15 @@ export function FeesGroupsPage() {
           </Button>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-lg border border-cyan-200/80 bg-card shadow-sm dark:border-cyan-500/20">
-          <div className="border-b border-cyan-500/15 bg-gradient-to-r from-cyan-500/10 via-sky-500/5 to-violet-500/10 p-3">
-            <p className="text-sm font-semibold">All Fee Groups</p>
-            <p className="text-xs text-muted-foreground">{feeGroups.length} groups configured</p>
+        <div className="overflow-hidden rounded-xl border border-sky-500/15 bg-gradient-to-br from-card via-card to-sky-500/[0.035] shadow-sm dark:border-sky-500/20">
+          <div className="flex items-center gap-2 border-b border-sky-500/15 bg-gradient-to-r from-sky-500/[0.10] via-primary/[0.05] to-violet-500/[0.08] p-3">
+            <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-primary text-white shadow-sm shadow-sky-500/20">
+              <Layers className="size-4" />
+            </span>
+            <div>
+              <p className="text-sm font-semibold">All Fee Groups</p>
+              <p className="text-xs text-muted-foreground">{feeGroups.length} groups configured</p>
+            </div>
           </div>
           <div className="overflow-x-auto">
             <Table>
@@ -261,8 +266,8 @@ export function FeesGroupsPage() {
                       <TableCell className="px-4 py-3">
                         <div className="flex items-center gap-3">
                           <span className={cn(
-                            'flex size-8 shrink-0 items-center justify-center rounded-md border',
-                            isDefaultGroup ? 'border-amber-200/80 bg-amber-50 text-amber-600 dark:border-amber-500/30 dark:bg-amber-500/20 dark:text-amber-400' : 'border-primary/20 bg-primary/10 text-primary'
+                            'flex size-8 shrink-0 items-center justify-center rounded-md border shadow-sm',
+                            isDefaultGroup ? 'border-amber-200/80 bg-gradient-to-br from-amber-100 to-amber-50 text-amber-600 shadow-amber-200/30 dark:border-amber-500/30 dark:from-amber-500/20 dark:to-amber-500/10 dark:text-amber-400' : 'border-sky-300/60 bg-gradient-to-br from-sky-500 to-cyan-600 text-white shadow-sky-500/20 dark:border-sky-500/40'
                           )}>
                             <Layers className="size-4" />
                           </span>
@@ -282,7 +287,7 @@ export function FeesGroupsPage() {
                           <Button
                             variant="outline"
                             size="sm"
-                            className="h-8 gap-1.5 px-3"
+                            className="h-8 gap-1.5 border-sky-200/70 px-3 text-sky-700 hover:bg-sky-100 dark:border-sky-500/30 dark:text-sky-300 dark:hover:bg-sky-500/20"
                             onClick={() => openEdit(group)}
                             aria-label={`Edit ${group.name}`}
                           >
@@ -293,7 +298,7 @@ export function FeesGroupsPage() {
                             <Button
                               variant="outline"
                               size="sm"
-                              className="h-8 gap-1.5 border-destructive/30 px-3 text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                              className="h-8 gap-1.5 border-destructive/30 px-3 text-destructive hover:bg-destructive/10 hover:text-destructive"
                               onClick={() => setDeletingGroup(group)}
                               aria-label={`Delete ${group.name}`}
                             >
