@@ -8,14 +8,14 @@ import { useAppStore } from '@/lib/store'
 import { useEffectiveRole } from '@/hooks/use-effective-role'
 import { getCurrentAcademicYear, type AcademicYear } from '@/lib/academic-years'
 import { useToast } from '@/hooks/use-toast'
-import { PageHeader } from '@/components/shared'
+import { GradientHero, GradientDialogHeader } from '@/components/shared'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogFooter } from '@/components/ui/dialog'
 import { DatePicker } from '@/components/date-picker'
 
 interface AcademicYearImpactPreview {
@@ -71,7 +71,7 @@ function ImpactCounts({ preview }: { preview: AcademicYearImpactPreview }) {
   return (
     <div className="grid gap-2 sm:grid-cols-2">
       {rows.map(([label, value]) => (
-        <div key={label} className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
+        <div key={label} className="flex items-center justify-between rounded-xl border border-sky-200/70 bg-white/60 px-3 py-2 text-sm dark:bg-card/60">
           <span className="text-muted-foreground">{label}</span>
           <span className="font-semibold">{value}</span>
         </div>
@@ -407,29 +407,24 @@ export function AcademicYearsPage() {
 
   return (
     <div className="space-y-4">
-      <PageHeader
+      <GradientHero
+        icon={CalendarDays}
         title="Academic Years"
         description="Manage current, inactive, deleted, and restored academic sessions with impact review."
-        extraActions={
-          currentAcademicYear ? (
-            <Badge variant="secondary" className="rounded-md px-2.5 py-1 text-xs">
-              Current: {currentAcademicYear.name}
-            </Badge>
-          ) : null
-        }
+        badge={currentAcademicYear ? `Current: ${currentAcademicYear.name}` : undefined}
       />
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <CalendarDays className="size-5 text-primary" />
+      <Card className="gap-0 overflow-hidden border-sky-200/80 bg-gradient-to-br from-sky-50/60 via-card to-violet-50/60 py-0 shadow-sm dark:border-sky-500/25 dark:from-sky-500/10 dark:via-card dark:to-violet-500/10">
+        <CardHeader className="border-b border-current/10 px-4 py-3">
+          <CardTitle className="flex items-center gap-2.5">
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-violet-600 text-white shadow-sm"><CalendarDays className="size-4" /></span>
             Year Setup
           </CardTitle>
           <CardDescription>
             Academic years drive admissions, fees, attendance, timetable, transport, exams, and reports.
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-5">
+        <CardContent className="space-y-5 p-4 sm:p-5">
           <div className="grid items-end gap-3 md:grid-cols-[200px_200px_200px_180px]">
             <div className="space-y-2">
               <Label htmlFor="academic-year-name">Academic Year</Label>
@@ -479,8 +474,8 @@ export function AcademicYearsPage() {
             </AlertDescription>
           </Alert>
 
-          <div className="overflow-hidden rounded-lg border">
-            <div className="hidden gap-3 border-b bg-muted/40 px-4 py-3 text-xs font-medium uppercase text-muted-foreground sm:grid sm:grid-cols-[minmax(140px,1fr)_150px_150px_130px_280px]">
+          <div className="overflow-hidden rounded-xl border border-sky-200/80 bg-white/70 shadow-sm dark:border-sky-500/25 dark:bg-card/60">
+            <div className="hidden gap-3 border-b bg-sky-100/40 px-4 py-3 text-xs font-medium uppercase text-muted-foreground dark:bg-sky-500/10 sm:grid sm:grid-cols-[minmax(140px,1fr)_150px_150px_130px_280px]">
               <span>Year</span>
               <span>Start</span>
               <span>End</span>
@@ -567,7 +562,7 @@ export function AcademicYearsPage() {
                 <h3 className="text-sm font-semibold">Deleted Academic Years</h3>
                 <p className="text-xs text-muted-foreground">Restore a deleted year to make it available again. Restoring does not make it current.</p>
               </div>
-              <div className="overflow-hidden rounded-lg border border-dashed">
+              <div className="overflow-hidden rounded-xl border border-dashed border-sky-200/80 bg-white/70 shadow-sm dark:border-sky-500/25 dark:bg-card/60">
                 <div className="hidden gap-3 border-b bg-muted/30 px-4 py-3 text-xs font-medium uppercase text-muted-foreground sm:grid sm:grid-cols-[minmax(140px,1fr)_150px_150px_130px_280px]">
                   <span>Year</span>
                   <span>Start</span>
@@ -616,52 +611,48 @@ export function AcademicYearsPage() {
       />
 
       <Dialog open={statusDialog.open} onOpenChange={(open) => { if (!open) closeStatusDialog() }}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              {statusDialog.targetActive ? (
-                <CheckCircle2 className="size-5 text-emerald-600" />
-              ) : (
-                <PauseCircle className="size-5 text-amber-600" />
-              )}
-              {statusDialog.targetActive ? 'Reactivate academic year?' : 'Deactivate academic year?'}
-            </DialogTitle>
-            <DialogDescription>
-              {statusDialog.targetActive
+        <DialogContent className="overflow-hidden border-primary/20 bg-card p-0 shadow-2xl shadow-primary/15 sm:max-w-lg [&>button]:right-3 [&>button]:top-3 [&>button]:rounded-full [&>button]:text-white [&>button]:opacity-80 [&>button]:hover:bg-white/15 [&>button]:hover:opacity-100">
+          <GradientDialogHeader
+            icon={statusDialog.targetActive ? CheckCircle2 : PauseCircle}
+            title={statusDialog.targetActive ? 'Reactivate academic year?' : 'Deactivate academic year?'}
+            description={
+              statusDialog.targetActive
                 ? `${statusDialog.year?.name || 'This year'} will be available again in normal year selections for new records.`
-                : `${statusDialog.year?.name || 'This year'} will remain visible for history and reports, but it will be removed from normal new-record dropdowns.`}
-            </DialogDescription>
-          </DialogHeader>
+                : `${statusDialog.year?.name || 'This year'} will remain visible for history and reports, but it will be removed from normal new-record dropdowns.`
+            }
+          />
 
-          <Alert className="border-blue-300 bg-blue-50 text-blue-900 dark:border-blue-900/50 dark:bg-blue-950/30 dark:text-blue-100 [&>svg]:text-blue-600 dark:[&>svg]:text-blue-400">
-            <Info className="size-4" />
-            <AlertTitle className="text-blue-900 dark:text-blue-100">{statusDialog.year?.name || 'Academic year'}</AlertTitle>
-            <AlertDescription className="text-blue-800/90 dark:text-blue-200/90">
-              {statusDialog.targetActive
-                ? 'Use reactivate only when users should be allowed to create new admissions, fees, timetable, transport, or other year-wise records for this session.'
-                : 'This is usually the safest option for past years because existing records stay accessible while fresh data entry is discouraged.'}
-            </AlertDescription>
-          </Alert>
+          <div className="themed-scrollbar grid max-h-[68svh] gap-3 overflow-y-auto bg-gradient-to-br from-primary/[0.025] via-background to-violet-500/[0.035] p-4 sm:p-5">
+            <Alert className="border-blue-300 bg-blue-50 text-blue-900 dark:border-blue-900/50 dark:bg-blue-950/30 dark:text-blue-100 [&>svg]:text-blue-600 dark:[&>svg]:text-blue-400">
+              <Info className="size-4" />
+              <AlertTitle className="text-blue-900 dark:text-blue-100">{statusDialog.year?.name || 'Academic year'}</AlertTitle>
+              <AlertDescription className="text-blue-800/90 dark:text-blue-200/90">
+                {statusDialog.targetActive
+                  ? 'Use reactivate only when users should be allowed to create new admissions, fees, timetable, transport, or other year-wise records for this session.'
+                  : 'This is usually the safest option for past years because existing records stay accessible while fresh data entry is discouraged.'}
+              </AlertDescription>
+            </Alert>
 
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={closeStatusDialog} disabled={statusDialog.busy}>
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              onClick={confirmStatusChange}
-              disabled={statusDialog.busy}
-            >
-              {statusDialog.busy ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : statusDialog.targetActive ? (
-                <CheckCircle2 className="size-4" />
-              ) : (
-                <PauseCircle className="size-4" />
-              )}
-              {statusDialog.targetActive ? 'Reactivate Year' : 'Deactivate Year'}
-            </Button>
-          </DialogFooter>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={closeStatusDialog} disabled={statusDialog.busy}>
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                onClick={confirmStatusChange}
+                disabled={statusDialog.busy}
+              >
+                {statusDialog.busy ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : statusDialog.targetActive ? (
+                  <CheckCircle2 className="size-4" />
+                ) : (
+                  <PauseCircle className="size-4" />
+                )}
+                {statusDialog.targetActive ? 'Reactivate Year' : 'Deactivate Year'}
+              </Button>
+            </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -689,61 +680,59 @@ export function AcademicYearsPage() {
       />
 
       <Dialog open={editDialog.open} onOpenChange={(open) => { if (!open) closeEditDialog() }}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Pencil className="size-5 text-primary" />
-              Edit academic year
-            </DialogTitle>
-            <DialogDescription>
-              Update the start and end dates for this academic year. The year name is used as a reference across admissions, fees, attendance, timetable, and reports and cannot be renamed.
-            </DialogDescription>
-          </DialogHeader>
+        <DialogContent className="overflow-hidden border-primary/20 bg-card p-0 shadow-2xl shadow-primary/15 sm:max-w-md [&>button]:right-3 [&>button]:top-3 [&>button]:rounded-full [&>button]:text-white [&>button]:opacity-80 [&>button]:hover:bg-white/15 [&>button]:hover:opacity-100">
+          <GradientDialogHeader
+            icon={Pencil}
+            title="Edit academic year"
+            description="Update the start and end dates for this academic year. The year name is used as a reference across admissions, fees, attendance, timetable, and reports and cannot be renamed."
+          />
 
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Academic Year</Label>
-              <Input
-                value={editDialog.year?.name || ''}
-                readOnly
-                className="bg-muted/50 font-mono font-semibold cursor-not-allowed border-dashed"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
+          <div className="themed-scrollbar grid max-h-[68svh] gap-3 overflow-y-auto bg-gradient-to-br from-primary/[0.025] via-background to-violet-500/[0.035] p-4 sm:p-5">
+            <div className="space-y-4">
               <div className="space-y-2">
-                <Label>Start Date</Label>
-                <DatePicker
-                  value={editDialog.startDate}
-                  onChange={(v) => setEditDialog((current) => ({ ...current, startDate: v }))}
-                  yearDropdown
-                  yearsBack={5}
-                  placeholder="Select start date"
-                  triggerClassName="w-full"
+                <Label>Academic Year</Label>
+                <Input
+                  value={editDialog.year?.name || ''}
+                  readOnly
+                  className="bg-muted/50 font-mono font-semibold cursor-not-allowed border-dashed"
                 />
               </div>
-              <div className="space-y-2">
-                <Label>End Date</Label>
-                <DatePicker
-                  value={editDialog.endDate}
-                  onChange={(v) => setEditDialog((current) => ({ ...current, endDate: v }))}
-                  yearDropdown
-                  yearsBack={5}
-                  placeholder="Select end date"
-                  triggerClassName="w-full"
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label>Start Date</Label>
+                  <DatePicker
+                    value={editDialog.startDate}
+                    onChange={(v) => setEditDialog((current) => ({ ...current, startDate: v }))}
+                    yearDropdown
+                    yearsBack={5}
+                    placeholder="Select start date"
+                    triggerClassName="w-full"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>End Date</Label>
+                  <DatePicker
+                    value={editDialog.endDate}
+                    onChange={(v) => setEditDialog((current) => ({ ...current, endDate: v }))}
+                    yearDropdown
+                    yearsBack={5}
+                    placeholder="Select end date"
+                    triggerClassName="w-full"
+                  />
+                </div>
               </div>
             </div>
+
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={closeEditDialog} disabled={editDialog.busy}>
+                Cancel
+              </Button>
+              <Button type="button" onClick={confirmEdit} disabled={editDialog.busy}>
+                {editDialog.busy ? <Loader2 className="size-4 animate-spin" /> : <Pencil className="size-4" />}
+                Save Changes
+              </Button>
+            </DialogFooter>
           </div>
-
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={closeEditDialog} disabled={editDialog.busy}>
-              Cancel
-            </Button>
-            <Button type="button" onClick={confirmEdit} disabled={editDialog.busy}>
-              {editDialog.busy ? <Loader2 className="size-4 animate-spin" /> : <Pencil className="size-4" />}
-              Save Changes
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
@@ -772,19 +761,14 @@ function YearActionDialog({
   onConfirm: () => void
 }) {
   const Icon = actionIcon === 'delete' ? Trash2 : actionIcon === 'restore' ? RotateCcw : ShieldCheck
+  const headerIcon = danger ? AlertTriangle : actionIcon === 'restore' ? RotateCcw : ShieldCheck
 
   return (
     <Dialog open={state.open} onOpenChange={(open) => { if (!open) onCancel() }}>
-      <DialogContent className="grid max-h-[calc(100vh-2rem)] grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden sm:max-w-2xl">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            {danger ? <AlertTriangle className="size-5 text-destructive" /> : <Icon className="size-5 text-primary" />}
-            {title}
-          </DialogTitle>
-          <DialogDescription>{description}</DialogDescription>
-        </DialogHeader>
+      <DialogContent className="grid max-h-[calc(100vh-2rem)] grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden border-primary/20 bg-card p-0 shadow-2xl shadow-primary/15 sm:max-w-2xl [&>button]:right-3 [&>button]:top-3 [&>button]:rounded-full [&>button]:text-white [&>button]:opacity-80 [&>button]:hover:bg-white/15 [&>button]:hover:opacity-100">
+        <GradientDialogHeader icon={headerIcon} title={title} description={description} />
 
-        <div className="min-h-0 overflow-y-auto pr-1">
+        <div className="themed-scrollbar min-h-0 overflow-y-auto bg-gradient-to-br from-primary/[0.025] via-background to-violet-500/[0.035] pr-1">
           {state.loading ? (
             <div className="flex items-center justify-center gap-2 rounded-lg border py-10 text-sm text-muted-foreground">
               <Loader2 className="size-4 animate-spin" />
@@ -801,7 +785,7 @@ function YearActionDialog({
                       After switching, screens that use the current year will load {state.year.name}. If records for that year are missing, users may see no fee dues, missing timetable entries, no attendance history, no transport allocation, or incomplete reports. Old data is not deleted, but normal filters will point to the new year.
                     </AlertDescription>
                   </Alert>
-                  <div className="grid gap-3 rounded-lg border bg-muted/30 p-4 sm:grid-cols-2">
+                  <div className="grid gap-3 rounded-xl border border-sky-200/80 bg-gradient-to-r from-sky-50/70 via-white to-violet-50/70 p-4 shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10 sm:grid-cols-2">
                     <div>
                       <p className="text-xs font-medium uppercase text-muted-foreground">Current year</p>
                       <p className="mt-1 text-lg font-semibold">{state.preview.currentYear || '-'}</p>

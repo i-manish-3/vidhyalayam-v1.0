@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { Banknote, Calendar, CheckCircle2, Loader2, Lock, MessageCircle, QrCode, Save, Sparkles, Unplug } from 'lucide-react'
+import { GradientHero, GradientDialogHeader } from '@/components/shared'
 import { api } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
 import { Button } from '@/components/ui/button'
@@ -12,7 +13,7 @@ import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogFooter } from '@/components/ui/dialog'
 
 type ConfigState = {
   dueDay: number
@@ -180,21 +181,12 @@ export function FeeDemandConfigPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex min-w-0 items-stretch gap-3">
-          <span aria-hidden className="bg-brand mt-0.5 w-1 shrink-0 self-stretch rounded-full" />
-          <div className="min-w-0">
-            <h1 className="text-xl font-semibold tracking-tight text-foreground/90">Fee Demand &amp; Reminders</h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              Configure when monthly demand slips are due, late fee policy, and WhatsApp delivery for parents.
-            </p>
-          </div>
-        </div>
-        <Button onClick={save} disabled={!hasChanges || saving}>
-          {saving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
-          Save Changes
-        </Button>
-      </div>
+      <GradientHero
+        icon={Banknote}
+        title="Fee Demand & Reminders"
+        description="Configure when monthly demand slips are due, late fee policy, and WhatsApp delivery for parents."
+        primaryAction={{ label: 'Save Changes', icon: Save, onClick: save, disabled: !hasChanges || saving }}
+      />
 
       <Tabs defaultValue="general" className="space-y-4">
         <TabsList className="grid w-full grid-cols-3 h-11 p-1 bg-muted/60">
@@ -237,10 +229,12 @@ function GeneralTab({
   setConfig: (next: ConfigState) => void
 }) {
   return (
-    <Card className="gap-3 py-4">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Sparkles className="size-5 text-primary" />
+    <Card className="gap-0 overflow-hidden border-sky-200/80 bg-gradient-to-br from-sky-50/60 via-card to-violet-50/60 py-0 shadow-sm dark:border-sky-500/25 dark:from-sky-500/10 dark:via-card dark:to-violet-500/10">
+      <CardHeader className="border-b border-current/10 px-4 py-3">
+        <CardTitle className="flex items-center gap-2.5">
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-violet-600 text-white shadow-sm">
+            <Sparkles className="size-4" />
+          </span>
           Monthly Demand Slip
         </CardTitle>
         <CardDescription>
@@ -263,7 +257,7 @@ function GeneralTab({
               Parents receive the slip on the 1st and have until this day to pay. Allowed range: 1-28.
             </p>
           </div>
-          <div className="rounded-lg border bg-muted/30 p-3 text-sm">
+          <div className="rounded-xl border border-sky-200/80 bg-gradient-to-r from-sky-50/70 via-white to-violet-50/70 p-3 text-sm shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10">
             <p className="font-medium">Sample timeline</p>
             <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
               <li>• <strong>1st</strong> — admin generates slip for the month</li>
@@ -285,7 +279,7 @@ function GeneralTab({
           <p className="text-xs text-muted-foreground">
             Available variables: <code className="rounded bg-muted px-1 py-0.5">{'{academicYear}'}</code>, <code className="rounded bg-muted px-1 py-0.5">{'{month}'}</code>, <code className="rounded bg-muted px-1 py-0.5">{'{year}'}</code>, <code className="rounded bg-muted px-1 py-0.5">{'{sequence}'}</code>
           </p>
-          <div className="rounded-md border bg-muted/20 p-2 text-xs">
+          <div className="rounded-md border border-sky-200/80 bg-gradient-to-r from-sky-50/70 via-white to-violet-50/70 p-2 text-xs shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10">
             <span className="text-muted-foreground">Preview: </span>
             <span className="font-mono">
               {config.slipNumberFormat
@@ -303,12 +297,14 @@ function GeneralTab({
 
 function LateFeeTab({ config }: { config: ConfigState }) {
   return (
-    <Card className="gap-3 py-4">
-      <CardHeader>
+    <Card className="gap-0 overflow-hidden border-amber-200/80 bg-gradient-to-br from-amber-50/60 via-card to-orange-50/60 py-0 shadow-sm dark:border-amber-500/25 dark:from-amber-500/10 dark:via-card dark:to-orange-500/10">
+      <CardHeader className="border-b border-current/10 px-4 py-3">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <CardTitle className="flex items-center gap-2">
-              <Banknote className="size-5 text-primary" />
+            <CardTitle className="flex items-center gap-2.5">
+              <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 text-white shadow-sm">
+                <Banknote className="size-4" />
+              </span>
               Late Fine Policy
             </CardTitle>
             <CardDescription>
@@ -322,12 +318,12 @@ function LateFeeTab({ config }: { config: ConfigState }) {
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="rounded-lg border border-dashed bg-muted/30 p-3 text-xs text-muted-foreground">
+        <div className="rounded-lg border border-dashed border-amber-200/80 bg-gradient-to-r from-amber-50/70 via-white to-orange-50/70 p-3 text-xs text-muted-foreground shadow-sm dark:border-amber-500/25 dark:from-amber-500/12 dark:via-card dark:to-orange-500/10">
           Late fine collection will activate in a future release. The fields below are previewed so you can see the planned options.
         </div>
 
         <fieldset disabled className="space-y-4 opacity-60">
-          <div className="flex items-center justify-between rounded-md border bg-muted/30 px-3 py-2">
+          <div className="flex items-center justify-between rounded-md border border-amber-200/80 bg-gradient-to-r from-amber-50/70 via-white to-orange-50/70 px-3 py-2 shadow-sm dark:border-amber-500/25 dark:from-amber-500/12 dark:via-card dark:to-orange-500/10">
             <Label htmlFor="late-fee-enabled" className="text-sm">Charge late fine after due date</Label>
             <Switch id="late-fee-enabled" checked={config.lateFeeEnabled} />
           </div>
@@ -392,12 +388,14 @@ function WhatsAppTab({
   }
 
   return (
-    <Card className="gap-3 py-4">
-      <CardHeader>
+    <Card className="gap-0 overflow-hidden border-emerald-200/80 bg-gradient-to-br from-emerald-50/60 via-card to-cyan-50/60 py-0 shadow-sm dark:border-emerald-500/25 dark:from-emerald-500/10 dark:via-card dark:to-cyan-500/10">
+      <CardHeader className="border-b border-current/10 px-4 py-3">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <CardTitle className="flex items-center gap-2">
-              <MessageCircle className="size-5 text-primary" />
+            <CardTitle className="flex items-center gap-2.5">
+              <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-cyan-600 text-white shadow-sm">
+                <MessageCircle className="size-4" />
+              </span>
               WhatsApp Delivery
             </CardTitle>
             <CardDescription>
@@ -413,7 +411,7 @@ function WhatsAppTab({
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="flex items-center justify-between rounded-md border bg-muted/30 px-3 py-2">
+        <div className="flex items-center justify-between rounded-md border border-emerald-200/80 bg-gradient-to-r from-emerald-50/70 via-white to-cyan-50/70 px-3 py-2 shadow-sm dark:border-emerald-500/25 dark:from-emerald-500/12 dark:via-card dark:to-cyan-500/10">
           <div>
             <Label htmlFor="wa-enabled" className="text-sm">Enable WhatsApp delivery</Label>
             <p className="text-xs text-muted-foreground">When on, the slip page shows a Send button next to each slip.</p>
@@ -433,7 +431,7 @@ function WhatsAppTab({
             className="mt-2 gap-3"
           >
             <Label
-              className="flex cursor-pointer items-start gap-3 rounded-md border p-3 hover:bg-muted/30"
+              className="flex cursor-pointer items-start gap-3 rounded-xl border border-emerald-200/80 bg-gradient-to-r from-emerald-50/70 via-white to-cyan-50/70 p-3 shadow-sm transition-colors hover:border-emerald-400/60 dark:border-emerald-500/25 dark:from-emerald-500/12 dark:via-card dark:to-cyan-500/10"
               htmlFor="prov-meta"
             >
               <RadioGroupItem value="META_CLOUD" id="prov-meta" className="mt-1" />
@@ -445,7 +443,7 @@ function WhatsAppTab({
               </div>
             </Label>
             <Label
-              className="flex cursor-pointer items-start gap-3 rounded-md border p-3 hover:bg-muted/40"
+              className="flex cursor-pointer items-start gap-3 rounded-xl border border-emerald-200/80 bg-gradient-to-r from-emerald-50/70 via-white to-cyan-50/70 p-3 shadow-sm transition-colors hover:border-emerald-400/60 dark:border-emerald-500/25 dark:from-emerald-500/12 dark:via-card dark:to-cyan-500/10"
               htmlFor="prov-baileys"
             >
               <RadioGroupItem value="BAILEYS" id="prov-baileys" className="mt-1" />
@@ -472,7 +470,7 @@ function WhatsAppTab({
         )}
 
         {config.whatsappProvider === 'META_CLOUD' && (
-          <div className="space-y-3 rounded-md border bg-muted/20 p-3">
+          <div className="space-y-3 rounded-xl border border-emerald-200/80 bg-gradient-to-r from-emerald-50/70 via-white to-cyan-50/70 p-3 shadow-sm dark:border-emerald-500/25 dark:from-emerald-500/12 dark:via-card dark:to-cyan-500/10">
             <p className="text-xs text-muted-foreground">
               Get these from your <a href="https://developers.facebook.com/apps" target="_blank" rel="noreferrer" className="underline">Meta Developer App</a> &rarr; WhatsApp &rarr; API Setup.
             </p>
@@ -499,7 +497,7 @@ function WhatsAppTab({
             <div className="space-y-1.5">
               <Label htmlFor="meta-token" className="text-xs">Access Token</Label>
               {!editingToken && config.metaAccessTokenSet && config.metaAccessToken === UNCHANGED_TOKEN ? (
-                <div className="flex items-center justify-between rounded-md border bg-background px-3 py-2">
+                <div className="flex items-center justify-between rounded-md border border-emerald-200/80 bg-gradient-to-r from-emerald-50/70 via-white to-cyan-50/70 px-3 py-2 shadow-sm dark:border-emerald-500/25 dark:from-emerald-500/12 dark:via-card dark:to-cyan-500/10">
                   <div className="text-xs">
                     <span className="text-muted-foreground">Configured · </span>
                     <span className="font-mono">{config.metaAccessTokenMask}</span>
@@ -530,7 +528,7 @@ function WhatsAppTab({
               />
               <p className="text-xs text-muted-foreground">Required for cold outreach outside Meta&apos;s 24h customer-care window.</p>
             </div>
-            <div className="rounded-md border bg-background p-3 space-y-2">
+            <div className="rounded-md border border-emerald-200/80 bg-gradient-to-r from-emerald-50/70 via-white to-cyan-50/70 p-3 shadow-sm space-y-2 dark:border-emerald-500/25 dark:from-emerald-500/12 dark:via-card dark:to-cyan-500/10">
               <Label htmlFor="test-phone" className="text-xs font-medium">Test connection</Label>
               <div className="flex gap-2">
                 <Input
@@ -655,7 +653,7 @@ function BaileysConnectBlock({
   useEffect(() => () => stopPolling(), [])
 
   return (
-    <div className="space-y-3 rounded-md border bg-muted/20 p-3">
+    <div className="space-y-3 rounded-xl border border-emerald-200/80 bg-gradient-to-r from-emerald-50/70 via-white to-cyan-50/70 p-3 shadow-sm dark:border-emerald-500/25 dark:from-emerald-500/12 dark:via-card dark:to-cyan-500/10">
       {connected ? (
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-start gap-2">
@@ -704,14 +702,13 @@ function BaileysConnectBlock({
           if (!next) { stopPolling(); setQrDataUrl(null); setSuccess(false) }
         }}
       >
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Connect WhatsApp via QR</DialogTitle>
-            <DialogDescription>
-              Open WhatsApp on the school phone &rarr; Settings &rarr; Linked Devices &rarr; Link a Device, then scan this code.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex flex-col items-center justify-center min-h-[280px] py-2">
+        <DialogContent className="overflow-hidden border-primary/20 bg-card p-0 shadow-2xl shadow-primary/15 sm:max-w-md [&>button]:right-3 [&>button]:top-3 [&>button]:rounded-full [&>button]:text-white [&>button]:opacity-80 [&>button]:hover:bg-white/15 [&>button]:hover:opacity-100">
+          <GradientDialogHeader
+            icon={QrCode}
+            title="Connect WhatsApp via QR"
+            description="Open WhatsApp on the school phone → Settings → Linked Devices → Link a Device, then scan this code."
+          />
+          <div className="flex min-h-[280px] flex-col items-center justify-center gap-3 bg-gradient-to-br from-primary/[0.025] via-background to-violet-500/[0.035] p-4 sm:p-5">
             {success ? (
               <div className="flex flex-col items-center gap-2 text-center">
                 <CheckCircle2 className="size-12 text-emerald-600" />
@@ -728,12 +725,12 @@ function BaileysConnectBlock({
             {polling && !success && qrDataUrl && (
               <p className="text-[11px] text-muted-foreground mt-2">Waiting for scan&hellip;</p>
             )}
+            <DialogFooter>
+              <Button type="button" variant="outline" size="sm" onClick={() => setOpen(false)}>
+                Close
+              </Button>
+            </DialogFooter>
           </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" size="sm" onClick={() => setOpen(false)}>
-              Close
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

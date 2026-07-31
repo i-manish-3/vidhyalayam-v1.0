@@ -11,11 +11,11 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogFooter } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { DatePicker } from '@/components/date-picker'
-import { EmptyState } from '@/components/shared'
+import { GradientHero, GradientDialogHeader, GradientEmptyState } from '@/components/shared'
 import { cn } from '@/lib/utils'
 
 type Holiday = {
@@ -335,39 +335,47 @@ export function HolidaysPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <CardTitle>Academic Calendar</CardTitle>
-            <CardDescription>Manage holidays and vacation periods for each academic year.</CardDescription>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Select value={academicYear} onValueChange={setAcademicYear}>
-              <SelectTrigger className="w-36">
-                <SelectValue placeholder="Year" />
-              </SelectTrigger>
-              <SelectContent>
-                {academicYears.map((y) => (
-                  <SelectItem key={y} value={y}>{y}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {isAdmin && (
-              <Button onClick={openSchoolingDialog} size="sm" variant="outline">
-                <CalendarRange className="mr-2 size-4" />
-                Schooling Days
-              </Button>
-            )}
-            {isAdmin && (
-              <Button onClick={() => openAdd()} size="sm">
-                <PlusCircle className="mr-2 size-4" />
-                Add Holiday
-              </Button>
-            )}
-          </div>
+    <div className="space-y-4">
+      <GradientHero
+        icon={CalendarDays}
+        title="Academic Calendar"
+        badge={academicYear || undefined}
+        description="Manage holidays and vacation periods for each academic year."
+        extraActions={
+          <Select value={academicYear} onValueChange={setAcademicYear}>
+            <SelectTrigger className="h-10 w-36 border-white/60 bg-white/15 text-white shadow-md backdrop-blur-sm hover:border-white/80 data-[placeholder]:text-white/85 [&_svg]:text-white">
+              <SelectValue placeholder="Year" />
+            </SelectTrigger>
+            <SelectContent>
+              {academicYears.map((y) => (
+                <SelectItem key={y} value={y}>{y}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        }
+        secondaryAction={
+          isAdmin
+            ? { label: 'Schooling Days', icon: CalendarRange, onClick: openSchoolingDialog }
+            : undefined
+        }
+        primaryAction={
+          isAdmin
+            ? { label: 'Add Holiday', icon: PlusCircle, onClick: () => openAdd() }
+            : undefined
+        }
+      />
+
+      <Card className="gap-0 overflow-hidden border-sky-200/80 bg-gradient-to-br from-sky-50/60 via-card to-violet-50/60 py-0 shadow-sm dark:border-sky-500/25 dark:from-sky-500/10 dark:via-card dark:to-violet-500/10">
+        <CardHeader className="border-b border-current/10 px-4 py-3">
+          <CardTitle className="flex items-center gap-2.5">
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-violet-600 text-white shadow-sm"><CalendarDays className="size-4" /></span>
+            Holidays
+          </CardTitle>
+          <CardDescription>
+            Browse holidays by month grid or list, and manage entries for the selected academic year.
+          </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-4 sm:p-5">
           {loading ? (
             <div className="flex justify-center py-10"><Loader2 className="size-6 animate-spin text-muted-foreground" /></div>
           ) : (
@@ -413,8 +421,8 @@ export function HolidaysPage() {
                   </div>
                 </div>
 
-                <div className="overflow-hidden rounded-xl border bg-card">
-                  <div className="grid grid-cols-7 border-b bg-muted/30 text-center text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                <div className="overflow-hidden rounded-xl border border-sky-200/80 bg-white/70 shadow-sm dark:border-sky-500/25 dark:bg-card/60">
+                  <div className="grid grid-cols-7 border-b bg-sky-100/40 text-center text-[11px] font-semibold uppercase tracking-wide text-muted-foreground dark:bg-sky-500/10">
                     {WEEKDAY_LABELS.map((d) => (
                       <div key={d} className="px-2 py-2">{d}</div>
                     ))}
@@ -495,7 +503,7 @@ export function HolidaysPage() {
 
               <TabsContent value="list">
                 {holidays.length === 0 ? (
-                  <EmptyState icon={CalendarDays} title="No holidays added" description={`No holidays configured for ${academicYear}.`} />
+                  <GradientEmptyState icon={CalendarDays} title="No holidays added" description={`No holidays configured for ${academicYear}.`} />
                 ) : (
                   <div className="space-y-2">
                     {holidays.map((h) => (
@@ -550,11 +558,13 @@ export function HolidaysPage() {
       </Card>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>{editing ? 'Edit Holiday' : 'Add Holiday'}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
+        <DialogContent className="overflow-hidden border-primary/20 bg-card p-0 shadow-2xl shadow-primary/15 sm:max-w-md [&>button]:right-3 [&>button]:top-3 [&>button]:rounded-full [&>button]:text-white [&>button]:opacity-80 [&>button]:hover:bg-white/15 [&>button]:hover:opacity-100">
+          <GradientDialogHeader
+            icon={editing ? Pencil : PlusCircle}
+            title={editing ? 'Edit Holiday' : 'Add Holiday'}
+          />
+          <div className="themed-scrollbar grid max-h-[68svh] gap-3 overflow-y-auto bg-gradient-to-br from-primary/[0.025] via-background to-violet-500/[0.035] p-4 sm:p-5">
+            <div className="space-y-4">
             <div className="space-y-1.5">
               <Label>Name</Label>
               <Input placeholder="e.g. Diwali" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
@@ -584,65 +594,67 @@ export function HolidaysPage() {
               <Label>Description <span className="text-muted-foreground">(optional)</span></Label>
               <Input placeholder="Short note" value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} />
             </div>
-          </div>
-          <DialogFooter>
-            {editing && isAdmin && (
-              <Button
-                variant="ghost"
-                className="mr-auto text-destructive hover:text-destructive"
-                onClick={() => { handleDelete(editing.id); setDialogOpen(false) }}
-                disabled={deleting === editing.id}
-              >
-                <Trash2 className="mr-2 size-4" />
-                Delete
+            </div>
+            <DialogFooter>
+              {editing && isAdmin && (
+                <Button
+                  variant="ghost"
+                  className="mr-auto text-destructive hover:text-destructive"
+                  onClick={() => { handleDelete(editing.id); setDialogOpen(false) }}
+                  disabled={deleting === editing.id}
+                >
+                  <Trash2 className="mr-2 size-4" />
+                  Delete
+                </Button>
+              )}
+              <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
+              <Button onClick={handleSave} disabled={saving}>
+                {saving && <Loader2 className="mr-2 size-4 animate-spin" />}
+                {editing ? 'Save Changes' : 'Add Holiday'}
               </Button>
-            )}
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleSave} disabled={saving}>
-              {saving && <Loader2 className="mr-2 size-4 animate-spin" />}
-              {editing ? 'Save Changes' : 'Add Holiday'}
-            </Button>
-          </DialogFooter>
+            </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
 
       <Dialog open={schoolingDialogOpen} onOpenChange={setSchoolingDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Schooling Days</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3 py-2">
-            <p className="text-sm text-muted-foreground">
-              Choose the days school is open. Attendance and timetable follow this schedule; unselected days appear as weekly off.
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {ALL_WEEKDAYS.map((day) => {
-                const active = schoolingDays.includes(day)
-                return (
-                  <button
-                    key={day}
-                    type="button"
-                    onClick={() => setSchoolingDays((prev) => active ? prev.filter((d) => d !== day) : [...prev, day])}
-                    className={`rounded-lg border px-4 py-2 text-sm font-medium transition-colors ${active ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-card text-muted-foreground hover:border-primary/50'}`}
-                  >
-                    {day.slice(0, 3)}
-                  </button>
-                )
-              })}
+        <DialogContent className="overflow-hidden border-primary/20 bg-card p-0 shadow-2xl shadow-primary/15 sm:max-w-lg [&>button]:right-3 [&>button]:top-3 [&>button]:rounded-full [&>button]:text-white [&>button]:opacity-80 [&>button]:hover:bg-white/15 [&>button]:hover:opacity-100">
+          <GradientDialogHeader
+            icon={CalendarRange}
+            title="Schooling Days"
+            description="Choose the days school is open. Attendance and timetable follow this schedule; unselected days appear as weekly off."
+          />
+          <div className="themed-scrollbar grid max-h-[68svh] gap-3 overflow-y-auto bg-gradient-to-br from-primary/[0.025] via-background to-violet-500/[0.035] p-4 sm:p-5">
+            <div className="space-y-3 py-2">
+              <div className="flex flex-wrap gap-2">
+                {ALL_WEEKDAYS.map((day) => {
+                  const active = schoolingDays.includes(day)
+                  return (
+                    <button
+                      key={day}
+                      type="button"
+                      onClick={() => setSchoolingDays((prev) => active ? prev.filter((d) => d !== day) : [...prev, day])}
+                      className={`rounded-lg border px-4 py-2 text-sm font-medium transition-colors ${active ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-card text-muted-foreground hover:border-primary/50'}`}
+                    >
+                      {day.slice(0, 3)}
+                    </button>
+                  )
+                })}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {schoolingDays.length === 0
+                  ? 'No days selected.'
+                  : `${schoolingDays.length} schooling day${schoolingDays.length === 1 ? '' : 's'}: ${schoolingDays.join(', ')}`}
+              </p>
             </div>
-            <p className="text-xs text-muted-foreground">
-              {schoolingDays.length === 0
-                ? 'No days selected.'
-                : `${schoolingDays.length} schooling day${schoolingDays.length === 1 ? '' : 's'}: ${schoolingDays.join(', ')}`}
-            </p>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setSchoolingDialogOpen(false)}>Cancel</Button>
+              <Button onClick={saveSchoolingDays} disabled={schoolingSaving}>
+                {schoolingSaving && <Loader2 className="mr-2 size-4 animate-spin" />}
+                Save
+              </Button>
+            </DialogFooter>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setSchoolingDialogOpen(false)}>Cancel</Button>
-            <Button onClick={saveSchoolingDays} disabled={schoolingSaving}>
-              {schoolingSaving && <Loader2 className="mr-2 size-4 animate-spin" />}
-              Save
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
