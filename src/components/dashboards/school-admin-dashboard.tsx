@@ -72,17 +72,21 @@ const notices = [
   { title: 'Field Trip Consent Forms Due', audience: 'Class 6-8 Students', due: '15 Jul, 2026', tone: 'amber' },
 ]
 
-const eventItems = [
-  { label: 'Annual Sports Competition', time: '08:30 AM - 12:00 PM', tag: 'Jul 8' },
-  { label: 'Parent-Teacher Meeting', time: '02:00 PM - 04:00 PM', tag: 'Jul 12' },
-  { label: 'Annual Science Fair', time: '09:00 AM - 03:00 PM', tag: 'Jul 20' },
-]
-
 const tooltipStyle = {
   borderRadius: '10px',
   borderColor: 'var(--border)',
   background: 'var(--popover)',
   color: 'var(--popover-foreground)',
+}
+
+interface SchoolEventData {
+  id: string
+  title: string
+  description: string | null
+  startDate: string
+  endDate: string | null
+  allDay: boolean
+  color: string
 }
 
 interface DashboardData {
@@ -699,8 +703,19 @@ function getCalendarDays(date: Date): CalendarDay[] {
 }
 
 function CalendarEventsCard({ calendarDays }: { calendarDays: CalendarDay[] }) {
-  const monthLabel = new Intl.DateTimeFormat('en-IN', { month: 'long', year: 'numeric' }).format(new Date())
-  const eventDates = new Set([8, 12, 20])
+  const [events, setEvents] = useState<SchoolEventData[]>([])
+  const currentDate = calendarDays.find((d) => d.isToday)?.date || new Date()
+  const monthLabel = new Intl.DateTimeFormat('en-IN', { month: 'long', year: 'numeric' }).format(currentDate)
+
+  useEffect(() => {
+    const year = currentDate.getFullYear()
+    const month = currentDate.getMonth() + 1
+    api.get<{ events: SchoolEventData[] }>('/api/school/events', { year: String(year), month: String(month) })
+      .then((res) => setEvents(res.events || []))
+      .catch(() => setEvents([]))
+  }, [])
+
+  const eventDates = new Set(events.map((e) => new Date(e.startDate).getDate()))
 
   return (
     <DashboardPanel title={monthLabel} description="Events calendar" icon={Calendar} tone="sky">
@@ -710,32 +725,48 @@ function CalendarEventsCard({ calendarDays }: { calendarDays: CalendarDay[] }) {
         ))}
       </div>
       <div className="mt-2 grid grid-cols-7 gap-1">
-        {calendarDays.map((day) => (
-          <div
-            key={day.date.toISOString()}
-            className={cn(
-              'relative flex aspect-square items-center justify-center rounded-lg text-xs transition-colors',
-              day.inCurrentMonth ? 'text-foreground/80 hover:bg-sky-500/10' : 'text-muted-foreground/35',
-              day.isToday && 'bg-primary text-primary-foreground shadow-sm shadow-primary/20',
-              eventDates.has(day.label) && day.inCurrentMonth && !day.isToday && 'bg-pink-500/10 text-pink-700 dark:text-pink-300',
-            )}
-          >
-            {day.label}
-            {eventDates.has(day.label) && day.inCurrentMonth && (
-              <span className={cn('absolute bottom-1 size-1 rounded-full bg-pink-500', day.isToday && 'bg-white')} />
-            )}
-          </div>
-        ))}
+        {calendarDays.map((day) => {
+          const hasEvent = eventDates.has(day.label) && day.inCurrentMonth
+          return (
+            <div
+              key={day.date.toISOString()}
+              className={cn(
+                'relative flex aspect-square items-center justify-center rounded-lg text-xs transition-colors',
+                day.inCurrentMonth ? 'text-foreground/80 hover:bg-sky-500/10' : 'text-muted-foreground/35',
+                day.isToday && 'bg-primary text-primary-foreground shadow-sm shadow-primary/20',
+                hasEvent && !day.isToday && 'bg-pink-500/10 text-pink-700 dark:text-pink-300',
+              )}
+            >
+              {day.label}
+              {hasEvent && (
+                <span className={cn('absolute bottom-1 size-1 rounded-full bg-pink-500', day.isToday && 'bg-white')} />
+              )}
+            </div>
+          )
+        })}
       </div>
       <div className="mt-4 space-y-2">
         <p className="text-xs font-semibold text-muted-foreground">Events</p>
-        {eventItems.map((event) => (
-          <div key={event.label} className="rounded-xl border border-sky-500/10 bg-white/70 p-2.5 shadow-sm dark:bg-background/40">
-            <Badge variant="secondary" className="mb-1 h-5 bg-pink-500/10 px-1.5 text-[10px] text-pink-700 dark:text-pink-300">{event.tag}</Badge>
-            <p className="text-xs font-semibold text-foreground/85">{event.label}</p>
-            <p className="text-[10px] text-muted-foreground">{event.time}</p>
-          </div>
-        ))}
+        {events.length === 0 && (
+          <p className="text-xs text-muted-foreground">No events this month</p>
+        )}
+        {events.map((event) => {
+          const d = new Date(event.startDate)
+          const timeStr = event.allDay
+            ? 'All day'
+            : d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
+          const tag = d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
+          return (
+            <div key={event.id} className="rounded-xl border border-sky-500/10 bg-white/70 p-2.5 shadow-sm dark:bg-background/40">
+              <Badge variant="secondary" className="mb-1 h-5 bg-pink-500/10 px-1.5 text-[10px] text-pink-700 dark:text-pink-300">{tag}</Badge>
+              <p className="text-xs font-semibold text-foreground/85">{event.title}</p>
+              {event.description && (
+                <p className="text-[10px] text-muted-foreground">{event.description}</p>
+              )}
+              <p className="text-[10px] text-muted-foreground">{timeStr}</p>
+            </div>
+          )
+        })}
       </div>
     </DashboardPanel>
   )

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { api } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
-import { PageHeader } from '@/components/shared'
+import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -25,7 +25,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { CheckCircle2, Clock3, LifeBuoy, Plus } from 'lucide-react'
+import {
+  AlertCircle,
+  CheckCircle2,
+  Clock3,
+  LifeBuoy,
+  MessageSquare,
+  Plus,
+  Sparkles,
+  Ticket,
+} from 'lucide-react'
 import {
   TICKET_PRIORITIES,
   TICKET_CATEGORIES,
@@ -145,34 +154,95 @@ export function SupportRequestPage() {
     }
   }, [form, fetchTickets, toast])
 
-  return (
-    <div className="space-y-4">
-      <PageHeader
-        title="Help & Support"
-        description="Raise a ticket and track our responses."
-        action={{ label: 'New ticket', icon: Plus, onClick: () => setOpen(true) }}
-      />
+  const statCards = [
+    {
+      label: 'Total Tickets',
+      value: stats.total.toLocaleString('en-IN'),
+      icon: Ticket,
+      gradient: 'from-sky-500/20 via-sky-400/10 to-transparent',
+      border: 'border-sky-200/50 dark:border-sky-500/20',
+      iconBg: 'bg-sky-500/15 text-sky-600 dark:text-sky-400',
+    },
+    {
+      label: 'Open',
+      value: stats.open.toLocaleString('en-IN'),
+      icon: AlertCircle,
+      gradient: 'from-amber-500/20 via-amber-400/10 to-transparent',
+      border: 'border-amber-200/50 dark:border-amber-500/20',
+      iconBg: 'bg-amber-500/15 text-amber-600 dark:text-amber-400',
+    },
+    {
+      label: 'Resolved',
+      value: stats.resolved.toLocaleString('en-IN'),
+      icon: CheckCircle2,
+      gradient: 'from-emerald-500/20 via-emerald-400/10 to-transparent',
+      border: 'border-emerald-200/50 dark:border-emerald-500/20',
+      iconBg: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
+    },
+  ]
 
-      <div className="flex flex-wrap items-center gap-2 rounded-md border bg-background px-3 py-2 shadow-sm">
-        {[
-          { label: 'Total Tickets', value: stats.total.toLocaleString('en-IN') },
-          { label: 'Open', value: stats.open.toLocaleString('en-IN') },
-          { label: 'Resolved', value: stats.resolved.toLocaleString('en-IN') },
-        ].map((item) => (
-          <div key={item.label} className="flex items-center gap-2 rounded-md bg-muted/35 px-2.5 py-1.5 text-xs">
-            <span className="text-muted-foreground">{item.label}</span>
-            <span className="font-semibold tabular-nums">{item.value}</span>
+  return (
+    <div className="space-y-5">
+      <div className="relative overflow-hidden rounded-2xl border border-indigo-200/60 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 shadow-lg shadow-indigo-500/20 dark:border-indigo-500/30 dark:from-indigo-600 dark:via-purple-600 dark:to-pink-600">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.3),transparent_60%)] dark:hidden" />
+        <div className="absolute right-0 top-0 opacity-10">
+          <Sparkles className="size-32 text-white" />
+        </div>
+        <div className="relative flex flex-col gap-4 px-6 py-6 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-1">
+            <h1 className="flex items-center gap-2.5 text-xl font-bold tracking-tight text-white">
+              <span className="flex size-9 items-center justify-center rounded-xl bg-white/20 text-white shadow-sm backdrop-blur-sm">
+                <LifeBuoy className="size-5" />
+              </span>
+              Help & Support
+            </h1>
+            <p className="text-sm text-white/80">
+              Raise a ticket and our team will get back to you.
+            </p>
+          </div>
+          <Button
+            className="gap-2 border-0 bg-white text-indigo-700 shadow-md shadow-black/10 hover:bg-white/90 hover:text-indigo-800"
+            size="default"
+            onClick={() => setOpen(true)}
+          >
+            <Plus className="size-4" />
+            New Ticket
+          </Button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        {statCards.map((stat) => (
+          <div
+            key={stat.label}
+            className={cn(
+              'relative overflow-hidden rounded-xl border bg-gradient-to-br p-4 shadow-sm transition-shadow hover:shadow-md',
+              stat.border,
+              stat.gradient,
+            )}
+          >
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-xs font-medium text-muted-foreground">{stat.label}</p>
+                <p className="mt-1 text-2xl font-bold tracking-tight">{stat.value}</p>
+              </div>
+              <span className={cn('flex size-9 items-center justify-center rounded-lg', stat.iconBg)}>
+                <stat.icon className="size-4" />
+              </span>
+            </div>
           </div>
         ))}
       </div>
 
-      <Card className="gap-0 overflow-hidden py-0 shadow-sm">
-        <CardHeader className="border-b bg-muted/30 px-4 py-3">
+      <Card className="gap-0 overflow-hidden rounded-xl border border-indigo-200/50 py-0 shadow-sm dark:border-indigo-500/20">
+        <CardHeader className="border-b border-indigo-100 bg-gradient-to-r from-indigo-500/5 via-purple-500/5 to-pink-500/5 px-5 py-3.5 dark:border-indigo-500/15">
           <CardTitle className="flex items-center gap-2 text-sm font-semibold">
-            <LifeBuoy className="size-4 text-primary" />
+            <span className="flex size-7 items-center justify-center rounded-md bg-gradient-to-br from-indigo-500 to-purple-500 text-white shadow-sm">
+              <MessageSquare className="size-3.5" />
+            </span>
             My Support Tickets
             {!loading && (
-              <Badge variant="secondary" className="ml-auto text-xs">
+              <Badge variant="secondary" className="ml-auto bg-indigo-500/10 text-indigo-700 dark:text-indigo-300">
                 {tickets.length.toLocaleString('en-IN')} records
               </Badge>
             )}
@@ -180,14 +250,14 @@ export function SupportRequestPage() {
         </CardHeader>
         <CardContent className="p-0">
           {loading ? (
-            <div className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground">
-              <span className="size-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-              Loading...
+            <div className="flex items-center justify-center gap-3 py-14 text-sm text-muted-foreground">
+              <span className="size-5 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent" />
+              Loading tickets...
             </div>
           ) : tickets.length === 0 ? (
-            <div className="flex flex-col items-center gap-3 px-4 py-12 text-center">
-              <span className="flex size-11 items-center justify-center rounded-md bg-primary/10 text-primary">
-                <LifeBuoy className="size-5" />
+            <div className="flex flex-col items-center gap-4 px-4 py-14 text-center">
+              <span className="flex size-14 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-100 to-purple-100 text-indigo-500 shadow-sm dark:from-indigo-500/20 dark:to-purple-500/20">
+                <Ticket className="size-6" />
               </span>
               <div>
                 <h3 className="text-sm font-semibold">No tickets yet</h3>
@@ -195,32 +265,45 @@ export function SupportRequestPage() {
                   Facing an issue or have a question? Raise a ticket and our team will help.
                 </p>
               </div>
-              <Button size="sm" onClick={() => setOpen(true)}>
+              <Button size="sm" className="gap-2" onClick={() => setOpen(true)}>
                 <Plus className="size-4" />
                 New ticket
               </Button>
             </div>
           ) : (
-            <div className="divide-y">
+            <div className="divide-y divide-indigo-100 dark:divide-indigo-500/10">
               {tickets.map((ticket) => {
                 const status = ticket.status as TicketStatus
                 const priority = ticket.priority as TicketPriority
                 const StatusIcon = status === 'resolved' || status === 'closed' ? CheckCircle2 : Clock3
+                const statusAccent = status === 'open'
+                  ? 'from-amber-500 to-orange-500'
+                  : status === 'in_progress'
+                    ? 'from-teal-500 to-cyan-500'
+                    : status === 'resolved'
+                      ? 'from-emerald-500 to-green-500'
+                      : 'from-slate-400 to-slate-500'
 
                 return (
-                  <div key={ticket.id} className="flex items-start gap-3 px-4 py-3">
-                    <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+                  <div
+                    key={ticket.id}
+                    className="group relative flex items-start gap-3.5 px-5 py-4 transition-colors hover:bg-indigo-500/[0.02]"
+                  >
+                    <div className={cn(
+                      'flex size-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br text-white shadow-sm',
+                      statusAccent,
+                    )}>
                       <StatusIcon className="size-4" />
-                    </span>
+                    </div>
                     <div className="min-w-0 flex-1 space-y-2">
                       <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="min-w-0 flex-1 truncate text-sm font-semibold">{ticket.subject}</h3>
-                        <Badge variant="outline" className={STATUS_CLS[status] || STATUS_CLS.closed}>
+                        <h3 className="min-w-0 flex-1 truncate text-sm font-semibold text-foreground/90">{ticket.subject}</h3>
+                        <Badge variant="outline" className={cn('shrink-0 border-0', STATUS_CLS[status] || STATUS_CLS.closed)}>
                           {STATUS_LABEL[status] || ticket.status}
                         </Badge>
                       </div>
                       <div className="flex flex-wrap items-center gap-2 text-xs">
-                        <Badge variant="secondary">
+                        <Badge variant="secondary" className="bg-indigo-500/10 text-indigo-700 dark:text-indigo-300">
                           {CATEGORY_LABEL[ticket.category as TicketCategory] || ticket.category}
                         </Badge>
                         <Badge variant="outline" className={PRIORITY_CLS[priority] || PRIORITY_CLS.low}>
@@ -230,11 +313,12 @@ export function SupportRequestPage() {
                       </div>
                       <p className="line-clamp-2 text-sm text-muted-foreground">{ticket.description}</p>
                       {ticket.resolution && (
-                        <div className="rounded-md border border-emerald-200 bg-emerald-50/70 p-3 text-sm dark:bg-emerald-500/10">
-                          <p className="mb-0.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+                        <div className="rounded-lg border border-emerald-200 bg-gradient-to-br from-emerald-50 to-green-50/50 p-3 text-sm dark:border-emerald-500/20 dark:from-emerald-500/10 dark:to-green-500/5">
+                          <p className="mb-0.5 flex items-center gap-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+                            <CheckCircle2 className="size-3" />
                             Resolution
                           </p>
-                          <p>{ticket.resolution}</p>
+                          <p className="text-foreground/80">{ticket.resolution}</p>
                         </div>
                       )}
                     </div>
@@ -249,28 +333,34 @@ export function SupportRequestPage() {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Raise a support ticket</DialogTitle>
-            <DialogDescription>Tell us what's going on and we'll get back to you.</DialogDescription>
+            <DialogTitle className="flex items-center gap-2 text-lg">
+              <span className="flex size-7 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-purple-500 text-white shadow-sm">
+                <Plus className="size-3.5" />
+              </span>
+              Raise a support ticket
+            </DialogTitle>
+            <DialogDescription>Tell us what&apos;s going on and we&apos;ll get back to you.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
-              <Label htmlFor="st-subject">Subject</Label>
+              <Label htmlFor="st-subject" className="text-sm font-medium">Subject</Label>
               <Input
                 id="st-subject"
                 value={form.subject}
                 maxLength={150}
                 placeholder="Short summary of the issue"
+                className="border-indigo-200/60 focus-visible:ring-indigo-500/30 dark:border-indigo-500/30"
                 onChange={(e) => setForm((prev) => ({ ...prev, subject: e.target.value }))}
               />
             </div>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
-                <Label>Category</Label>
+                <Label className="text-sm font-medium">Category</Label>
                 <Select
                   value={form.category}
                   onValueChange={(value) => setForm((prev) => ({ ...prev, category: value as TicketCategory }))}
                 >
-                  <SelectTrigger className="h-9">
+                  <SelectTrigger className="h-9 border-indigo-200/60 focus:ring-indigo-500/30 dark:border-indigo-500/30">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -283,12 +373,12 @@ export function SupportRequestPage() {
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label>Priority</Label>
+                <Label className="text-sm font-medium">Priority</Label>
                 <Select
                   value={form.priority}
                   onValueChange={(value) => setForm((prev) => ({ ...prev, priority: value as TicketPriority }))}
                 >
-                  <SelectTrigger className="h-9">
+                  <SelectTrigger className="h-9 border-indigo-200/60 focus:ring-indigo-500/30 dark:border-indigo-500/30">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -302,23 +392,31 @@ export function SupportRequestPage() {
               </div>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="st-desc">Description</Label>
+              <Label htmlFor="st-desc" className="text-sm font-medium">Description</Label>
               <Textarea
                 id="st-desc"
                 rows={5}
                 value={form.description}
                 placeholder="Describe the problem, what you expected, and any steps to reproduce it."
+                className="border-indigo-200/60 focus-visible:ring-indigo-500/30 dark:border-indigo-500/30"
                 onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
               />
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setOpen(false)} disabled={submitting}>
               Cancel
             </Button>
-            <Button className="gap-2" onClick={() => void submit()} disabled={submitting}>
+            <Button
+              className="gap-2 bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-md shadow-indigo-500/20 hover:from-indigo-600 hover:to-purple-600"
+              onClick={() => void submit()}
+              disabled={submitting}
+            >
               {submitting ? (
-                'Submitting...'
+                <span className="flex items-center gap-2">
+                  <span className="size-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                  Submitting...
+                </span>
               ) : (
                 <>
                   <Plus className="size-4" />
