@@ -104,10 +104,10 @@ export function ExamParadigmsPage() {
     try {
       const [paradigmsRes, yearsRes] = await Promise.all([
         api.get<{ paradigms: Paradigm[] }>('/api/school/exams/paradigms'),
-        api.get<{ academicYears: AcademicYear[] }>('/api/school/academic-years'),
+        api.get<{ years: AcademicYear[] }>('/api/school/academic-years'),
       ])
       setParadigms(paradigmsRes.paradigms)
-      setYears(yearsRes.academicYears)
+      setYears(yearsRes.years)
     } catch (err) {
       toast({
         variant: 'destructive',
@@ -201,7 +201,7 @@ export function ExamParadigmsPage() {
                       <DropdownMenuItem onClick={() => setEditing(p)}>
                         <Pencil className="mr-2 size-4" /> Edit
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => router.push(`/exams/paradigms/${p.id}/groups`)}>
+                      <DropdownMenuItem onClick={() => router.push(`/exams/patterns/${p.id}/groups`)}>
                         <Layers className="mr-2 size-4" /> Manage groups
                       </DropdownMenuItem>
                       <DropdownMenuItem
@@ -223,7 +223,7 @@ export function ExamParadigmsPage() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => router.push(`/exams/paradigms/${p.id}/groups`)}
+                    onClick={() => router.push(`/exams/patterns/${p.id}/groups`)}
                   >
                     Open
                   </Button>

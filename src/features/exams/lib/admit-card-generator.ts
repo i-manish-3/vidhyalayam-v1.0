@@ -14,6 +14,7 @@
 export interface AdmitCardSchoolDef {
   name: string
   logo: string | null
+  printHeader: string | null
   address: string
   phone: string | null
   email: string | null
@@ -79,6 +80,7 @@ export interface AdmitCardData {
   school: {
     name: string
     logo: string | null
+    printHeader: string | null
     address: string
     contact: string | null // "Ph: ... · email · website" collapsed
     affiliationNumber: string | null
@@ -214,6 +216,7 @@ export function buildAdmitCard(input: BuildAdmitCardInput): AdmitCardData {
     school: {
       name: school.name,
       logo: school.logo,
+      printHeader: school.printHeader,
       address: school.address || '',
       contact: collapseContact(school),
       affiliationNumber: school.affiliationNumber,

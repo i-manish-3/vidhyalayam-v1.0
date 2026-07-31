@@ -122,6 +122,7 @@ function PrintAdmitCardsContent() {
         }
         @media print {
           html, body { background: white !important; }
+          * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
           .no-print { display: none !important; }
           .admit-page { page-break-after: always; }
           .admit-page:last-child { page-break-after: auto; }

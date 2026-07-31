@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
         contactPhone: true, contactEmail: true, website: true,
         board: true, registrationNumber: true, udiseNumber: true, affiliationNumber: true,
         establishedYear: true, principalSignature: true, principalName: true, trustName: true,
-        academicYear: true, admitCardInstructions: true, admitCardTemplate: true,
+        academicYear: true, admitCardInstructions: true, admitCardTemplate: true, printHeader: true,
       },
     })
     if (!school) return apiError(404, 'School not found.')
@@ -45,6 +45,7 @@ export async function GET(req: NextRequest) {
         principalName: school.principalName,
         trustName: school.trustName,
         academicYear: school.academicYear,
+        printHeader: school.printHeader,
       },
       instructions: parseInstructionsToArray(school.admitCardInstructions),
     })

@@ -122,7 +122,7 @@ export function ExamsPage() {
         secondaryAction={{
           label: 'Manage exam patterns',
           icon: Layers,
-          onClick: () => router.push('/exams/paradigms'),
+          onClick: () => router.push('/exams/patterns'),
         }}
       />
 
@@ -209,7 +209,7 @@ export function ExamsPage() {
                   <li
                     key={p.id}
                     className="flex cursor-pointer items-center justify-between rounded-lg border border-violet-100/80 bg-white/70 p-2.5 text-sm shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md dark:border-violet-500/20 dark:bg-card/60"
-                    onClick={() => router.push(`/exams/paradigms/${p.id}/groups`)}
+                    onClick={() => router.push(`/exams/patterns/${p.id}/groups`)}
                   >
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5">
@@ -233,7 +233,7 @@ export function ExamsPage() {
               variant="outline"
               size="sm"
               className="mt-3 w-full"
-              onClick={() => router.push('/exams/paradigms')}
+              onClick={() => router.push('/exams/patterns')}
             >
               Manage exam patterns
             </Button>
@@ -254,7 +254,7 @@ export function ExamsPage() {
               Start by creating an exam pattern.
             </p>
             <div className="mt-4 flex justify-center gap-2">
-              <Button onClick={() => router.push('/exams/paradigms')} className="gap-1.5">
+              <Button onClick={() => router.push('/exams/patterns')} className="gap-1.5">
                 <Layers className="size-4" /> Create exam pattern
               </Button>
               <Button

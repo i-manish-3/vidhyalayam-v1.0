@@ -17,7 +17,6 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Save, RotateCcw, Loader2, TicketCheck } from 'lucide-react'
 import { AdmitCardRenderer } from '../components/admit-card-renderer'
 import {
@@ -29,6 +28,7 @@ import type { AdmitCardData } from '../lib/admit-card-generator'
 interface Branding {
   name: string
   logo: string | null
+  printHeader: string | null
   address: string
   board: string | null
   registrationNumber: string | null
@@ -156,15 +156,11 @@ export function AdmitCardTemplatePage() {
                 </div>
               </div>
               <div className="space-y-1.5">
-                <Label>Header style</Label>
-                <Select value={cfg.headerStyle} onValueChange={(v) => set('headerStyle', v as AdmitCardTemplateConfig['headerStyle'])}>
-                  <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="logo-left">Logo left + details right</SelectItem>
-                    <SelectItem value="centered">Centered (logo on top)</SelectItem>
-                    <SelectItem value="banner">Banner image (uses logo full-width)</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Label>Header</Label>
+                <p className="rounded-md border border-sky-200/80 bg-gradient-to-r from-sky-50 via-white to-violet-50 px-3 py-2 text-xs text-muted-foreground dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10">
+                  The admit card uses the school&apos;s standard print header — the same one used on fee receipts and other documents.{' '}
+                  Upload the banner in <strong>Settings → School Identity → Print Header Banner</strong>. Without a banner, the logo, name, address, contact, and board are shown automatically.
+                </p>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="title">Title text</Label>
@@ -274,6 +270,7 @@ function buildPreviewData(b: Branding | null, trustName: string, principalName: 
     school: {
       name: b?.name || 'Your School Name',
       logo: b?.logo ?? null,
+      printHeader: b?.printHeader ?? null,
       address: b?.address || 'School address, City, State',
       contact: null,
       affiliationNumber: b?.affiliationNumber ?? null,

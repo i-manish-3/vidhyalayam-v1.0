@@ -64,8 +64,6 @@ export function AdmitCardRenderer({ data, template, className }: Props) {
   }, [qrPayload, cfg.showQr])
 
   const titleSuffix = examMeta.name ? `${cfg.titlePrefix} — ${examMeta.name}` : cfg.titlePrefix
-  const centeredHeader = cfg.headerStyle === 'centered'
-  const bannerHeader = cfg.headerStyle === 'banner' && !!school.logo
 
   // Student info rows, gated by config visibility.
   const infoRows: Array<{ label: string; value: string }> = []
@@ -95,45 +93,35 @@ export function AdmitCardRenderer({ data, template, className }: Props) {
         margin: '0 auto',
         position: 'relative',
         padding: '24px 28px 28px',
+        printColorAdjust: 'exact',
+        WebkitPrintColorAdjust: 'exact',
       }}
     >
       <div style={{ position: 'absolute', inset: 10, border: `1.5px solid ${accent}33`, pointerEvents: 'none' }} />
 
       <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column' }}>
         {/* ── HEADER ── */}
-        {bannerHeader ? (
+        {/* Standard school print header — same as fee receipts and other
+            printed documents: a full-width banner when the admin has uploaded
+            one in Settings, otherwise the auto-built logo + name + address +
+            contact + board block. */}
+        {school.printHeader ? (
           <div style={{ borderBottom: `2px solid ${accent}`, paddingBottom: 12 }}>
-            <img src={school.logo!} alt="" style={{ display: 'block', width: '100%' }} />
+            <img src={school.printHeader} alt="" style={{ display: 'block', width: '100%' }} />
           </div>
         ) : (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingBottom: 12, borderBottom: `2px solid ${accent}` }}>
-            {!centeredHeader && <HeaderLogo logo={school.logo} name={school.name} accent={accent} />}
-            <div style={{ textAlign: 'center', flex: 1 }}>
-              {centeredHeader && school.logo ? (
-                <img src={school.logo} alt="" style={{ height: 56, objectFit: 'contain', margin: '0 auto 6px' }} />
-              ) : null}
-              <div style={{ fontFamily: "'Merriweather', Georgia, serif", fontSize: 19, color: accent, fontWeight: 700, letterSpacing: 0.3, lineHeight: 1.3 }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, paddingBottom: 10, borderBottom: `2px solid ${accent}` }}>
+            {school.logo ? (
+              <img src={school.logo} alt="" style={{ height: 60, width: 60, flexShrink: 0, objectFit: 'contain' }} />
+            ) : null}
+            <div style={{ flex: 1, textAlign: 'center' }}>
+              <div style={{ fontSize: 18, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, lineHeight: 1.25 }}>
                 {school.name}
               </div>
-              {school.address ? <div style={{ fontSize: 11.5, color: '#444', marginTop: 3 }}>{school.address}</div> : null}
-              {school.trustName ? <div style={{ fontSize: 11.5, color: RED, fontWeight: 700, marginTop: 3 }}>Run by: {school.trustName}</div> : null}
-              {school.board ? <div style={{ fontSize: 11.5, color: '#25519e', marginTop: 2 }}>{school.board}</div> : null}
+              {school.address ? <div style={{ fontSize: 11, marginTop: 2 }}>{school.address}</div> : null}
+              {school.contact ? <div style={{ fontSize: 11, marginTop: 2 }}>{school.contact}</div> : null}
+              {school.board ? <div style={{ fontSize: 11, fontStyle: 'italic', marginTop: 2 }}>Affiliated to {school.board}</div> : null}
             </div>
-            {!centeredHeader && (
-              <div style={{ textAlign: 'right', fontSize: 10.5, color: '#666', lineHeight: 1.7, flexShrink: 0, maxWidth: 150 }}>
-                {school.establishedYear ? <div><strong style={{ color: '#333' }}>Estd:</strong> {school.establishedYear}</div> : null}
-                {school.registrationNumber ? (
-                  <div style={{ marginTop: 6, fontSize: 9.5, wordBreak: 'break-all' }}>
-                    <strong style={{ color: '#333' }}>Reg. No:</strong><br />{school.registrationNumber}
-                  </div>
-                ) : null}
-                {school.affiliationNumber ? (
-                  <div style={{ marginTop: 6, fontSize: 9.5, wordBreak: 'break-all' }}>
-                    <strong style={{ color: '#333' }}>Affl. No:</strong><br />{school.affiliationNumber}
-                  </div>
-                ) : null}
-              </div>
-            )}
           </div>
         )}
 
@@ -235,20 +223,6 @@ export function AdmitCardRenderer({ data, template, className }: Props) {
           {school.principalName ? <> &nbsp;|&nbsp; Principal: {school.principalName}</> : null}
         </div>
       </div>
-    </div>
-  )
-}
-
-function HeaderLogo({ logo, name, accent }: { logo: string | null; name: string; accent: string }) {
-  // White background behind a real logo so a dark/transparent logo stays visible;
-  // navy fill + white initials only for the no-logo fallback.
-  return (
-    <div style={{ width: 72, height: 72, borderRadius: '50%', border: `2px solid ${accent}`, background: logo ? '#fff' : accent, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden', fontSize: 9, fontWeight: 700, textAlign: 'center', lineHeight: 1.3, padding: logo ? 4 : 6 }}>
-      {logo ? (
-        <img src={logo} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-      ) : (
-        name.split(/\s+/).map((w) => w.charAt(0)).join('').slice(0, 4).toUpperCase() || 'SCH'
-      )}
     </div>
   )
 }

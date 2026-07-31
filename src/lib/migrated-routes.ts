@@ -75,9 +75,9 @@ export const MIGRATED_PAGES: Partial<Record<PageName, (...args: string[]) => str
   'exam-results': () => '/exams/results',
   // Exam Module (Phase 1 wires URL stubs; pages land in Phase 2+).
   'exam-dashboard': () => '/exams',
-  'exam-paradigms': () => '/exams/paradigms',
-  'exam-paradigm-edit': (id?: string) => (id ? `/exams/paradigms/${id}/edit` : '/exams/paradigms'),
-  'exam-groups': (paradigmId?: string) => (paradigmId ? `/exams/paradigms/${paradigmId}/groups` : '/exams/paradigms'),
+  'exam-paradigms': () => '/exams/patterns',
+  'exam-paradigm-edit': (id?: string) => (id ? `/exams/patterns/${id}/edit` : '/exams/patterns'),
+  'exam-groups': (paradigmId?: string) => (paradigmId ? `/exams/patterns/${paradigmId}/groups` : '/exams/patterns'),
   'exam-list': () => '/exams/list',
   'exam-create': () => '/exams/new',
   'exam-edit': (id?: string) => (id ? `/exams/${id}/edit` : '/exams/list'),

@@ -62,6 +62,7 @@ export async function POST(
         select: {
           name: true,
           logo: true,
+          printHeader: true,
           address: true,
           city: true,
           state: true,
@@ -132,6 +133,7 @@ export async function POST(
     const schoolDef: AdmitCardSchoolDef = {
       name: school.name,
       logo: school.logo,
+      printHeader: school.printHeader,
       address: [school.address, school.city, school.state, school.pincode].filter(Boolean).join(', '),
       phone: school.contactPhone,
       email: school.contactEmail,
