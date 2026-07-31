@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { PageHeader, LoadingState } from '@/components/shared'
+import { GradientHero, LoadingState } from '@/components/shared'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
+import { Card, CardContent, CardTitle, CardDescription } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
@@ -18,7 +18,7 @@ import {
 import { Checkbox } from '@/components/ui/checkbox'
 import { api } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
-import { Save, Trash2 } from 'lucide-react'
+import { Save, Trash2, ClipboardList, Users, ArrowLeft } from 'lucide-react'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -29,6 +29,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { examStatusMeta } from '@/features/exams/lib/status-meta'
 
 interface GroupOption {
   id: string
@@ -271,35 +272,50 @@ export function ExamFormPage({ examId }: Props) {
 
   if (loading) return <LoadingState />
 
+  const status = examStatusMeta(exam?.status ?? 'draft')
+
   return (
-    <div className="space-y-6">
-      <PageHeader
+    <div className="space-y-4">
+      <GradientHero
+        icon={ClipboardList}
         title={isEdit ? `Edit ${exam?.name ?? 'exam'}` : 'New exam'}
+        badge={academicYear || undefined}
         description={
           isEdit
             ? `${exam?.group.paradigm.name} · ${exam?.group.name}`
             : 'Set the basics. Subjects and schedule come next.'
         }
-        backAction={{ onClick: () => router.push(isEdit && examId ? `/exams/${examId}/configure` : '/exams/list') }}
+        secondaryAction={{
+          label: 'Back',
+          icon: ArrowLeft,
+          onClick: () => router.push(isEdit && examId ? `/exams/${examId}/configure` : '/exams/list'),
+        }}
       />
 
-      <Card>
-        <CardContent className="space-y-4 p-5">
-          {isEdit && (
-            <div className="flex items-center gap-2 rounded-md border bg-muted/30 p-2.5 text-xs">
-              <span className="text-muted-foreground">Status:</span>
-              <Badge>{exam?.status.replace('_', ' ')}</Badge>
-              {isLocked && (
-                <Badge variant="outline" className="text-amber-600">
-                  Locked — only metadata edits allowed
-                </Badge>
-              )}
-            </div>
+      {isEdit && (
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-sky-200/80 bg-gradient-to-r from-sky-50 via-white to-violet-50 px-3 py-2 text-xs shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10">
+          <span className="text-muted-foreground">Status:</span>
+          <Badge variant="outline" className={status.tone}>{status.label}</Badge>
+          {isLocked && (
+            <Badge variant="outline" className="border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-300">
+              Locked — only metadata edits allowed
+            </Badge>
           )}
+        </div>
+      )}
 
+      <Card className="gap-0 overflow-hidden border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-violet-50 py-0 shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10">
+        <div className="border-b bg-muted/30 px-4 py-2.5">
+          <div className="flex items-center gap-2">
+            <ClipboardList className="size-4 text-muted-foreground" />
+            <CardTitle className="text-base">Details</CardTitle>
+          </div>
+          <CardDescription className="text-xs">Basic exam information.</CardDescription>
+        </div>
+        <CardContent className="space-y-4 p-5">
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="sm:col-span-2">
-              <Label className="text-xs">Term</Label>
+              <Label className="text-xs font-medium">Term</Label>
               <Select value={examGroupId} onValueChange={setExamGroupId} disabled={isEdit}>
                 <SelectTrigger className="h-9">
                   <SelectValue placeholder="Pick a term" />
@@ -319,7 +335,7 @@ export function ExamFormPage({ examId }: Props) {
               )}
             </div>
             <div>
-              <Label className="text-xs">Name</Label>
+              <Label className="text-xs font-medium">Name</Label>
               <Input
                 className="h-9"
                 placeholder="Half Yearly"
@@ -328,7 +344,7 @@ export function ExamFormPage({ examId }: Props) {
               />
             </div>
             <div>
-              <Label className="text-xs">Short code (optional)</Label>
+              <Label className="text-xs font-medium">Short code (optional)</Label>
               <Input
                 className="h-9"
                 placeholder="HY"
@@ -337,7 +353,7 @@ export function ExamFormPage({ examId }: Props) {
               />
             </div>
             <div>
-              <Label className="text-xs">Exam type</Label>
+              <Label className="text-xs font-medium">Exam type</Label>
               <Select value={examType} onValueChange={(v) => setExamType(v as typeof examType)}>
                 <SelectTrigger className="h-9 capitalize"><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -348,11 +364,11 @@ export function ExamFormPage({ examId }: Props) {
               </Select>
             </div>
             <div>
-              <Label className="text-xs">Academic year</Label>
+              <Label className="text-xs font-medium">Academic year</Label>
               <Input className="h-9" value={academicYear} disabled />
             </div>
             <div>
-              <Label className="text-xs">Start date</Label>
+              <Label className="text-xs font-medium">Start date</Label>
               <Input
                 type="date"
                 className="h-9"
@@ -361,7 +377,7 @@ export function ExamFormPage({ examId }: Props) {
               />
             </div>
             <div>
-              <Label className="text-xs">End date</Label>
+              <Label className="text-xs font-medium">End date</Label>
               <Input
                 type="date"
                 className="h-9"
@@ -370,80 +386,89 @@ export function ExamFormPage({ examId }: Props) {
               />
             </div>
             <div className="flex items-end gap-2 pb-1.5 sm:col-span-2">
-              <input
+              <Checkbox
                 id="includeInResult"
-                type="checkbox"
                 checked={includeInResult}
-                onChange={(e) => setIncludeInResult(e.target.checked)}
+                onCheckedChange={(checked) => setIncludeInResult(Boolean(checked))}
               />
-              <Label htmlFor="includeInResult" className="text-xs">
+              <Label htmlFor="includeInResult" className="text-xs font-medium">
                 Include this exam in result aggregation
               </Label>
             </div>
           </div>
+        </CardContent>
+      </Card>
 
-          <div className="space-y-2">
-            <Label className="text-xs">Classes</Label>
-            <p className="text-xs text-muted-foreground">
-              Pick the classes this exam runs for. Leave sections unselected to apply to all sections of a class.
-            </p>
-            <div className="grid gap-2 sm:grid-cols-2">
-              {classes.map((c) => {
-                const sel = selectedClasses.find((s) => s.classId === c.id)
-                const allSections = sel?.sectionIds === null
-                return (
-                  <div key={c.id} className="rounded-md border bg-card p-2.5">
-                    <label className="flex cursor-pointer items-center gap-2 text-sm font-medium">
-                      <Checkbox
-                        checked={Boolean(sel)}
-                        onCheckedChange={() => toggleClass(c.id)}
-                      />
-                      {c.name}
-                    </label>
-                    {sel && c.sections && c.sections.length > 0 && (
-                      <div className="mt-2 ml-6 space-y-1">
-                        <label className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
-                          <input
-                            type="checkbox"
-                            checked={allSections}
-                            onChange={(e) =>
-                              e.target.checked
-                                ? setAllSections(c.id)
-                                : setSelectedClasses((prev) =>
-                                    prev.map((p) =>
-                                      p.classId === c.id ? { ...p, sectionIds: [] } : p,
-                                    ),
-                                  )
-                            }
-                          />
-                          All sections
-                        </label>
-                        {!allSections && (
-                          <div className="flex flex-wrap gap-1.5">
-                            {c.sections.map((s) => {
-                              const checked = (sel.sectionIds ?? []).includes(s.id)
-                              return (
-                                <label
-                                  key={s.id}
-                                  className="flex cursor-pointer items-center gap-1.5 rounded border bg-background px-2 py-0.5 text-xs"
-                                >
-                                  <input
-                                    type="checkbox"
-                                    checked={checked}
-                                    onChange={() => toggleSection(c.id, s.id)}
-                                  />
-                                  {s.name}
-                                </label>
-                              )
-                            })}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
+      <Card className="gap-0 overflow-hidden border-violet-200/80 bg-gradient-to-br from-violet-50 via-white to-purple-50 py-0 shadow-sm dark:border-violet-500/25 dark:from-violet-500/12 dark:via-card dark:to-purple-500/10">
+        <div className="border-b bg-muted/30 px-4 py-2.5">
+          <div className="flex items-center gap-2">
+            <Users className="size-4 text-muted-foreground" />
+            <CardTitle className="text-base">Classes</CardTitle>
+          </div>
+          <CardDescription className="text-xs">
+            Pick the classes this exam runs for. Leave sections unselected to apply to all sections of a class.
+          </CardDescription>
+        </div>
+        <CardContent className="p-5">
+          <div className="grid gap-2 sm:grid-cols-2">
+            {classes.map((c) => {
+              const sel = selectedClasses.find((s) => s.classId === c.id)
+              const allSections = sel?.sectionIds === null
+              return (
+                <div
+                  key={c.id}
+                  className="rounded-md border border-violet-200/60 bg-white/70 p-2.5 shadow-sm dark:border-violet-500/20 dark:bg-card/60"
+                >
+                  <label className="flex cursor-pointer items-center gap-2 text-sm font-medium">
+                    <Checkbox
+                      checked={Boolean(sel)}
+                      onCheckedChange={() => toggleClass(c.id)}
+                    />
+                    {c.name}
+                  </label>
+                  {sel && c.sections && c.sections.length > 0 && (
+                    <div className="mt-2 ml-6 space-y-1">
+                      <label className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
+                        <input
+                          type="checkbox"
+                          checked={allSections}
+                          onChange={(e) =>
+                            e.target.checked
+                              ? setAllSections(c.id)
+                              : setSelectedClasses((prev) =>
+                                  prev.map((p) =>
+                                    p.classId === c.id ? { ...p, sectionIds: [] } : p,
+                                  ),
+                                )
+                          }
+                        />
+                        All sections
+                      </label>
+                      {!allSections && (
+                        <div className="flex flex-wrap gap-1.5">
+                          {c.sections.map((s) => {
+                            const checked = (sel.sectionIds ?? []).includes(s.id)
+                            return (
+                              <label
+                                key={s.id}
+                                className="flex cursor-pointer items-center gap-1.5 rounded border border-primary/15 bg-white/70 px-2 py-0.5 text-xs"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  onChange={() => toggleSection(c.id, s.id)}
+                                />
+                                {s.name}
+                              </label>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
           </div>
         </CardContent>
       </Card>
@@ -452,7 +477,7 @@ export function ExamFormPage({ examId }: Props) {
         {isEdit ? (
           <Button
             variant="outline"
-            className="gap-1.5 text-destructive"
+            className="h-8 gap-1.5 border-red-200 bg-red-50 text-red-700 hover:bg-red-100 dark:border-red-500/25 dark:bg-red-500/10 dark:text-red-300"
             disabled={deleting || isLocked || (exam?.status !== 'draft' && exam?.status !== 'scheduled')}
             onClick={() => setShowDelete(true)}
           >

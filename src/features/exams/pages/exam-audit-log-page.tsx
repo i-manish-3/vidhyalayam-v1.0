@@ -1,8 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { PageHeader, LoadingState, EmptyState } from '@/components/shared'
+import { GradientHero, LoadingState, GradientEmptyState } from '@/components/shared'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -18,7 +17,7 @@ import {
 import { api } from '@/lib/api'
 import { useAppStore } from '@/lib/store'
 import { useToast } from '@/hooks/use-toast'
-import { ChevronDown, ChevronRight, Download, History } from 'lucide-react'
+import { ChevronDown, ChevronRight, Download, History, ScrollText } from 'lucide-react'
 
 interface ExamAuditLog {
   id: string
@@ -110,8 +109,10 @@ const ACTION_BADGE: Record<string, string> = {
   report_downloaded: 'bg-slate-100 text-slate-700',
 }
 
+const TINTED_CARD =
+  'border-sky-200/80 bg-gradient-to-r from-sky-50 via-white to-violet-50 shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10'
+
 export function ExamAuditLogPage() {
-  const router = useRouter()
   const { toast } = useToast()
   const savedListState = useAppStore((state) => state.pageState[EXAM_AUDIT_LIST_STATE_KEY] as ExamAuditListState | undefined)
   const setPageState = useAppStore((state) => state.setPageState)
@@ -235,14 +236,14 @@ export function ExamAuditLogPage() {
 
   return (
     <div className="space-y-5">
-      <PageHeader
+      <GradientHero
+        icon={ScrollText}
         title="Exam audit log"
         description="Every mutation to exams, marks, results, and publishing. Kept for compliance."
-        backAction={{ onClick: () => router.push('/exams') }}
-        action={{ label: 'Export CSV', icon: Download, onClick: () => void exportCsv() }}
+        primaryAction={{ label: 'Export CSV', icon: Download, onClick: () => void exportCsv() }}
       />
 
-      <Card>
+      <Card className={TINTED_CARD}>
         <CardContent className="grid gap-3 p-3 sm:grid-cols-3 lg:grid-cols-6">
           <FilterSelect
             label="Entity"
@@ -320,13 +321,13 @@ export function ExamAuditLogPage() {
       {loading && logs.length === 0 ? (
         <LoadingState />
       ) : logs.length === 0 ? (
-        <EmptyState
+        <GradientEmptyState
           icon={History}
           title="No audit entries"
           description="No exam mutations match the current filters."
         />
       ) : (
-        <Card>
+        <Card className={TINTED_CARD}>
           <CardContent className="p-0">
             <ul className="divide-y">
               {logs.map((log) => {

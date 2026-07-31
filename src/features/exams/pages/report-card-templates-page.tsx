@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { PageHeader, LoadingState, EmptyState } from '@/components/shared'
+import { GradientHero, LoadingState, GradientEmptyState } from '@/components/shared'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -162,11 +162,11 @@ export function ReportCardTemplatesPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
+      <GradientHero
+        icon={LayoutTemplate}
         title="Report card templates"
         description="Per-school layouts that drive report card generation. Clone the default and tweak — never edit the original to keep a safe fallback."
-        backAction={{ onClick: () => router.push('/exams') }}
-        action={{
+        primaryAction={{
           label: 'New template',
           icon: Plus,
           onClick: handleCreate,
@@ -174,19 +174,23 @@ export function ReportCardTemplatesPage() {
       />
 
       {templates.length === 0 ? (
-        <EmptyState
+        <GradientEmptyState
           icon={LayoutTemplate}
           title="No report card templates yet"
           description="Create one or seed the defaults (CBSE, Simple, Coaching) to start generating report cards."
-          action={{ label: 'Create template', onClick: handleCreate }}
+          actionLabel="Create template"
+          onAction={handleCreate}
         />
       ) : (
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {templates.map((t) => {
             const fmt = FORMAT_BADGES[t.format] ?? FORMAT_BADGES.simple
             return (
-              <Card key={t.id} className="transition hover:border-primary/40">
-                <CardHeader className="pb-2">
+              <Card
+                key={t.id}
+                className="gap-0 overflow-hidden rounded-lg border border-sky-200/80 bg-gradient-to-r from-sky-50 via-white to-violet-50 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10"
+              >
+                <CardHeader className="border-b border-current/10 pb-2">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5">

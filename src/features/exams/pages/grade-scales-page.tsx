@@ -4,7 +4,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { PageHeader, LoadingState, EmptyState } from '@/components/shared'
+import { GradientHero, LoadingState, GradientEmptyState } from '@/components/shared'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -167,11 +167,11 @@ export function GradeScalesPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
+      <GradientHero
+        icon={Award}
         title="Grade scales"
         description="Percentage/marks ranges that map to letter grades. Assignable per exam pattern, term, or class."
-        backAction={{ onClick: () => router.push('/exams') }}
-        action={{
+        primaryAction={{
           label: 'New scale',
           icon: Plus,
           onClick: () => setEditing('new'),
@@ -179,17 +179,21 @@ export function GradeScalesPage() {
       />
 
       {scales.length === 0 ? (
-        <EmptyState
+        <GradientEmptyState
           icon={Award}
           title="No grade scales yet"
           description="Create a grading scale — CBSE 9-point, state 5-point, or your own custom bands."
-          action={{ label: 'Create scale', onClick: () => setEditing('new') }}
+          actionLabel="Create scale"
+          onAction={() => setEditing('new')}
         />
       ) : (
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {scales.map((scale) => (
-            <Card key={scale.id} className="transition hover:border-primary/40">
-              <CardHeader className="pb-2">
+            <Card
+              key={scale.id}
+              className="gap-0 overflow-hidden rounded-lg border border-sky-200/80 bg-gradient-to-r from-sky-50 via-white to-violet-50 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10"
+            >
+              <CardHeader className="border-b border-current/10 pb-2">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <div className="flex items-center gap-1.5">
@@ -458,7 +462,7 @@ function GradeScaleEditDialog({
             )}
             <div className="space-y-1">
               {bands.map((b, idx) => (
-                <div key={idx} className="grid grid-cols-12 gap-1 items-center rounded-md border bg-card p-1.5">
+                <div key={idx} className="grid grid-cols-12 gap-1 items-center rounded-md border border-sky-200/80 bg-gradient-to-r from-sky-50 via-white to-violet-50 p-1.5 dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10">
                   <div className="col-span-3 sm:col-span-2">
                     <Input
                       className="h-8 text-xs font-mono"

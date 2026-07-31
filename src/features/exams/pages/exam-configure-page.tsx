@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { PageHeader, LoadingState, EmptyState } from '@/components/shared'
+import { GradientHero, LoadingState, GradientEmptyState, GradientDialogHeader } from '@/components/shared'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import {
@@ -18,18 +18,27 @@ import { Checkbox } from '@/components/ui/checkbox'
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
-  DialogHeader,
-  DialogTitle,
 } from '@/components/ui/dialog'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { api } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
 import {
   ComponentEditor,
   type ExamComponentRow,
 } from '@/features/exams/components/component-editor'
-import { Pencil, Plus, Settings2, Trash2, Calendar as CalIcon } from 'lucide-react'
+import { Pencil, Plus, Settings2, Trash2, Calendar as CalIcon, Layers3, BookOpen } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { examStatusMeta } from '@/features/exams/lib/status-meta'
 
 interface SubjectConfig {
   id: string
@@ -73,6 +82,13 @@ interface Props {
   examId: string
 }
 
+const CLASS_TONES = [
+  'border-sky-200/80 from-sky-50 via-white to-cyan-50 dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-cyan-500/10',
+  'border-violet-200/80 from-violet-50 via-white to-purple-50 dark:border-violet-500/25 dark:from-violet-500/12 dark:via-card dark:to-purple-500/10',
+  'border-emerald-200/80 from-emerald-50 via-white to-teal-50 dark:border-emerald-500/25 dark:from-emerald-500/12 dark:via-card dark:to-teal-500/10',
+  'border-amber-200/80 from-amber-50 via-white to-orange-50 dark:border-amber-500/25 dark:from-amber-500/12 dark:via-card dark:to-orange-500/10',
+]
+
 export function ExamConfigurePage({ examId }: Props) {
   const router = useRouter()
   const { toast } = useToast()
@@ -86,6 +102,8 @@ export function ExamConfigurePage({ examId }: Props) {
   const [editing, setEditing] = useState<SubjectConfig | null>(null)
   const [componentEditing, setComponentEditing] = useState<SubjectConfig | null>(null)
   const [savingComponents, setSavingComponents] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState<SubjectConfig | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -141,11 +159,13 @@ export function ExamConfigurePage({ examId }: Props) {
     return ids.size > 0 ? ids : new Set(classes.map((c) => c.id))
   }, [exam, classes])
 
-  async function handleDeleteConfig(c: SubjectConfig) {
-    if (!confirm(`Remove ${subjectLookup.get(c.subjectId)?.name ?? 'this subject'} from ${classLookup.get(c.classId)?.name ?? 'class'}?`)) return
+  async function handleDeleteConfig() {
+    if (!deleteTarget) return
+    setDeleting(true)
     try {
-      await api.delete(`/api/school/exams/subject-configs/${c.id}`)
+      await api.delete(`/api/school/exams/subject-configs/${deleteTarget.id}`)
       toast({ title: 'Subject removed' })
+      setDeleteTarget(null)
       void load()
     } catch (err) {
       toast({
@@ -153,6 +173,8 @@ export function ExamConfigurePage({ examId }: Props) {
         title: 'Could not remove',
         description: err instanceof Error ? err.message : 'Please try again.',
       })
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -197,13 +219,16 @@ export function ExamConfigurePage({ examId }: Props) {
   if (loading) return <LoadingState />
   if (!exam) return null
 
+  const status = examStatusMeta(exam.status)
+
   return (
-    <div className="space-y-5">
-      <PageHeader
+    <div className="space-y-4">
+      <GradientHero
+        icon={Settings2}
         title={`Configure: ${exam.name}`}
+        badge={status.label}
         description={`${exam.group.paradigm.name} · ${exam.group.name}`}
-        backAction={{ onClick: () => router.push('/exams/list') }}
-        action={{
+        primaryAction={{
           label: 'Add subjects',
           icon: Plus,
           onClick: () => setAddOpen(true),
@@ -216,27 +241,32 @@ export function ExamConfigurePage({ examId }: Props) {
       />
 
       {configs.length === 0 ? (
-        <EmptyState
+        <GradientEmptyState
           icon={Settings2}
           title="No subjects configured yet"
           description="Pick the classes and subjects this exam covers, then split each into components."
-          action={{ label: 'Add subjects', onClick: () => setAddOpen(true) }}
+          actionLabel="Add subjects"
+          onAction={() => setAddOpen(true)}
         />
       ) : (
         <div className="space-y-4">
-          {Array.from(grouped.entries()).map(([classId, configsForClass]) => {
+          {Array.from(grouped.entries()).map(([classId, configsForClass], groupIndex) => {
             const klass = classLookup.get(classId)
             return (
-              <Card key={classId}>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm">
-                    {klass?.name ?? classId}{' '}
-                    <span className="text-xs font-normal text-muted-foreground">
-                      · {configsForClass.length} subject{configsForClass.length === 1 ? '' : 's'}
-                    </span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
+              <Card
+                key={classId}
+                className={cn('gap-0 overflow-hidden border bg-gradient-to-br py-0 shadow-sm', CLASS_TONES[groupIndex % CLASS_TONES.length])}
+              >
+                <div className="flex items-center gap-2 border-b border-current/10 bg-gradient-to-r from-sky-500/[0.08] via-white/40 to-violet-500/[0.08] px-4 py-2.5">
+                  <span className="flex size-5 items-center justify-center rounded-md bg-gradient-to-br from-primary to-cyan-600 text-white">
+                    <Layers3 className="size-3 text-white" />
+                  </span>
+                  <h3 className="text-sm font-semibold">{klass?.name ?? classId}</h3>
+                  <span className="text-xs text-muted-foreground">
+                    · {configsForClass.length} subject{configsForClass.length === 1 ? '' : 's'}
+                  </span>
+                </div>
+                <CardContent className="space-y-2 p-3">
                   {configsForClass.map((c) => {
                     const subject = subjectLookup.get(c.subjectId)
                     const componentSum = c.components.reduce((s, x) => s + x.maxMarks, 0)
@@ -244,18 +274,28 @@ export function ExamConfigurePage({ examId }: Props) {
                     return (
                       <div
                         key={c.id}
-                        className="flex flex-col gap-2 rounded-md border bg-card p-3 sm:flex-row sm:items-center sm:justify-between"
+                        className="flex flex-col gap-2 rounded-md border border-current/10 bg-white/70 p-3 shadow-sm transition-all hover:shadow-md dark:bg-card/60 sm:flex-row sm:items-center sm:justify-between"
                       >
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2">
                             <span className="font-medium">{subject?.name ?? c.subjectId}</span>
                             {c.gradeOnly && (
-                              <Badge variant="secondary" className="text-[10px]">Grade only</Badge>
+                              <Badge variant="outline" className="h-5 rounded-md px-1.5 text-[10px] border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-500/25 dark:bg-violet-500/10 dark:text-violet-300">
+                                Grade only
+                              </Badge>
                             )}
-                            {c.isOptional && <Badge variant="outline" className="text-[10px]">Optional</Badge>}
-                            {c.isAdditional && <Badge variant="outline" className="text-[10px]">Additional</Badge>}
+                            {c.isOptional && (
+                              <Badge variant="outline" className="h-5 rounded-md px-1.5 text-[10px] border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-300">
+                                Optional
+                              </Badge>
+                            )}
+                            {c.isAdditional && (
+                              <Badge variant="outline" className="h-5 rounded-md px-1.5 text-[10px] border-teal-200 bg-teal-50 text-teal-700 dark:border-teal-500/25 dark:bg-teal-500/10 dark:text-teal-300">
+                                Additional
+                              </Badge>
+                            )}
                             {c.sectionId && (
-                              <Badge variant="outline" className="text-[10px]">
+                              <Badge variant="outline" className="h-5 rounded-md px-1.5 text-[10px]">
                                 Section: {klass?.sections?.find((s) => s.id === c.sectionId)?.name ?? c.sectionId}
                               </Badge>
                             )}
@@ -282,24 +322,26 @@ export function ExamConfigurePage({ examId }: Props) {
                           <Button
                             variant="outline"
                             size="sm"
-                            className="gap-1.5"
+                            className="h-8 gap-1.5 border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100 dark:border-sky-500/25 dark:bg-sky-500/10 dark:text-sky-300"
                             onClick={() => setComponentEditing(c)}
                           >
                             <Settings2 className="size-3.5" /> Components
                           </Button>
                           <Button
-                            variant="ghost"
-                            size="icon"
-                            className="size-8"
+                            variant="outline"
+                            size="sm"
+                            className="size-8 border-sky-200 bg-sky-50 p-0 text-sky-700 hover:bg-sky-100 dark:border-sky-500/25 dark:bg-sky-500/10 dark:text-sky-300"
                             onClick={() => setEditing(c)}
+                            aria-label="Edit config"
                           >
                             <Pencil className="size-3.5" />
                           </Button>
                           <Button
-                            variant="ghost"
-                            size="icon"
-                            className="size-8 text-destructive"
-                            onClick={() => void handleDeleteConfig(c)}
+                            variant="outline"
+                            size="sm"
+                            className="size-8 border-red-200 bg-red-50 p-0 text-red-700 hover:bg-red-100 dark:border-red-500/25 dark:bg-red-500/10 dark:text-red-300"
+                            onClick={() => setDeleteTarget(c)}
+                            aria-label="Remove subject"
                           >
                             <Trash2 className="size-3.5" />
                           </Button>
@@ -347,6 +389,32 @@ export function ExamConfigurePage({ examId }: Props) {
           onSave={handleSaveComponents}
         />
       )}
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !deleting && !o && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove this subject?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {subjectLookup.get(deleteTarget?.subjectId ?? '')?.name ?? 'This subject'} will be removed from{' '}
+              {classLookup.get(deleteTarget?.classId ?? '')?.name ?? 'this class'}. Existing marks for this subject
+              will be deleted too.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={deleting}
+              onClick={(e) => {
+                e.preventDefault()
+                void handleDeleteConfig()
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? 'Removing…' : 'Remove'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
@@ -449,105 +517,108 @@ function AddSubjectsDialog({
 
   return (
     <Dialog open={open} onOpenChange={(o) => !saving && !o && onClose()}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>Add subjects</DialogTitle>
-          <DialogDescription>
-            Bulk-add a subject set across multiple classes. Defaults can be tuned per row afterwards.
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent className="max-h-[90svh] overflow-hidden border-primary/20 bg-card p-0 shadow-2xl shadow-primary/15 sm:max-w-2xl [&>button]:right-3 [&>button]:top-3 [&>button]:rounded-full [&>button]:text-white [&>button]:opacity-80 [&>button]:hover:bg-white/15 [&>button]:hover:opacity-100">
+        <GradientDialogHeader
+          icon={Plus}
+          title="Add subjects"
+          description="Bulk-add a subject set across multiple classes. Defaults can be tuned per row afterwards."
+        />
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <p className="mb-2 text-xs font-medium text-muted-foreground">Classes</p>
-            <div className="max-h-60 space-y-1 overflow-y-auto rounded-md border bg-card p-2">
-              {eligibleClasses.map((c) => (
-                <label
-                  key={c.id}
-                  className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 text-sm hover:bg-muted/50"
-                >
-                  <Checkbox
-                    checked={selectedClassIds.includes(c.id)}
-                    onCheckedChange={(v) =>
-                      setSelectedClassIds((prev) =>
-                        v ? [...prev, c.id] : prev.filter((id) => id !== c.id),
-                      )
-                    }
-                  />
-                  {c.name}
-                </label>
-              ))}
+        <div className="themed-scrollbar grid max-h-[68svh] gap-3 overflow-y-auto bg-gradient-to-br from-primary/[0.025] via-background to-violet-500/[0.035] p-4 sm:p-5">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <p className="mb-2 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                <span className="flex size-5 items-center justify-center rounded-md bg-gradient-to-br from-sky-500 to-cyan-600 text-white"><Layers3 className="size-3 text-white" /></span>
+                Classes
+              </p>
+              <div className="max-h-60 space-y-1 overflow-y-auto rounded-md border border-sky-200/80 bg-white/70 p-2 shadow-sm dark:border-sky-500/25 dark:bg-card/60">
+                {eligibleClasses.map((c) => (
+                  <label
+                    key={c.id}
+                    className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 text-sm hover:bg-muted/50"
+                  >
+                    <Checkbox
+                      checked={selectedClassIds.includes(c.id)}
+                      onCheckedChange={(v) =>
+                        setSelectedClassIds((prev) =>
+                          v ? [...prev, c.id] : prev.filter((id) => id !== c.id),
+                        )
+                      }
+                    />
+                    {c.name}
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div>
+              <p className="mb-2 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                <span className="flex size-5 items-center justify-center rounded-md bg-gradient-to-br from-violet-500 to-purple-600 text-white"><BookOpen className="size-3 text-white" /></span>
+                Subjects
+              </p>
+              <div className="max-h-60 space-y-1 overflow-y-auto rounded-md border border-violet-200/80 bg-white/70 p-2 shadow-sm dark:border-violet-500/25 dark:bg-card/60">
+                {subjects.map((s) => (
+                  <label
+                    key={s.id}
+                    className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 text-sm hover:bg-muted/50"
+                  >
+                    <Checkbox
+                      checked={selectedSubjectIds.includes(s.id)}
+                      onCheckedChange={(v) =>
+                        setSelectedSubjectIds((prev) =>
+                          v ? [...prev, s.id] : prev.filter((id) => id !== s.id),
+                        )
+                      }
+                    />
+                    {s.name}
+                    {s.shortCode && <span className="text-xs text-muted-foreground">({s.shortCode})</span>}
+                  </label>
+                ))}
+              </div>
             </div>
           </div>
-          <div>
-            <p className="mb-2 text-xs font-medium text-muted-foreground">Subjects</p>
-            <div className="max-h-60 space-y-1 overflow-y-auto rounded-md border bg-card p-2">
-              {subjects.map((s) => (
-                <label
-                  key={s.id}
-                  className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 text-sm hover:bg-muted/50"
-                >
-                  <Checkbox
-                    checked={selectedSubjectIds.includes(s.id)}
-                    onCheckedChange={(v) =>
-                      setSelectedSubjectIds((prev) =>
-                        v ? [...prev, s.id] : prev.filter((id) => id !== s.id),
-                      )
-                    }
-                  />
-                  {s.name}
-                  {s.shortCode && <span className="text-xs text-muted-foreground">({s.shortCode})</span>}
-                </label>
-              ))}
+
+          <div className="grid gap-3 rounded-xl border border-emerald-200/80 bg-gradient-to-r from-emerald-50 via-white to-cyan-50 p-3 shadow-sm dark:border-emerald-500/25 dark:from-emerald-500/12 dark:via-card dark:to-cyan-500/10 sm:grid-cols-3">
+            <div>
+              <label className="text-[10px] font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-300">Total marks</label>
+              <Input
+                type="number"
+                min={0}
+                className="h-9"
+                disabled={gradeOnly}
+                value={totalMarks}
+                onChange={(e) => setTotalMarks(Math.max(0, Number(e.target.value) || 0))}
+              />
             </div>
+            <div>
+              <label className="text-[10px] font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-300">Passing marks</label>
+              <Input
+                type="number"
+                min={0}
+                className="h-9"
+                disabled={gradeOnly}
+                value={passingMarks}
+                onChange={(e) => setPassingMarks(Math.max(0, Number(e.target.value) || 0))}
+              />
+            </div>
+            <label className="flex cursor-pointer items-end gap-2 pb-1.5 text-sm">
+              <Checkbox checked={gradeOnly} onCheckedChange={(v) => setGradeOnly(Boolean(v))} />
+              Grade only
+            </label>
+          </div>
+
+          <p className="text-xs text-muted-foreground">
+            Will create {willCreate.length} subject config(s).
+            {willCreate.length < selectedClassIds.length * selectedSubjectIds.length &&
+              ` ${selectedClassIds.length * selectedSubjectIds.length - willCreate.length} already exist and will be skipped.`}
+          </p>
+
+          <div className="flex justify-end gap-2 pt-1">
+            <Button variant="outline" onClick={onClose} disabled={saving}>Cancel</Button>
+            <Button onClick={() => void handleSave()} disabled={!valid || saving || willCreate.length === 0}>
+              {saving ? 'Adding…' : `Add ${willCreate.length} subject${willCreate.length === 1 ? '' : 's'}`}
+            </Button>
           </div>
         </div>
-
-        <div className="grid gap-3 sm:grid-cols-3">
-          <div>
-            <label className="text-xs">Total marks</label>
-            <Input
-              type="number"
-              min={0}
-              className="h-9"
-              disabled={gradeOnly}
-              value={totalMarks}
-              onChange={(e) => setTotalMarks(Math.max(0, Number(e.target.value) || 0))}
-            />
-          </div>
-          <div>
-            <label className="text-xs">Passing marks</label>
-            <Input
-              type="number"
-              min={0}
-              className="h-9"
-              disabled={gradeOnly}
-              value={passingMarks}
-              onChange={(e) => setPassingMarks(Math.max(0, Number(e.target.value) || 0))}
-            />
-          </div>
-          <label className="flex cursor-pointer items-end gap-2 pb-1.5 text-sm">
-            <input
-              type="checkbox"
-              checked={gradeOnly}
-              onChange={(e) => setGradeOnly(e.target.checked)}
-            />
-            Grade only
-          </label>
-        </div>
-
-        <p className="text-xs text-muted-foreground">
-          Will create {willCreate.length} subject config(s).
-          {willCreate.length < selectedClassIds.length * selectedSubjectIds.length &&
-            ` ${selectedClassIds.length * selectedSubjectIds.length - willCreate.length} already exist and will be skipped.`}
-        </p>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={saving}>Cancel</Button>
-          <Button onClick={() => void handleSave()} disabled={!valid || saving || willCreate.length === 0}>
-            {saving ? 'Adding…' : `Add ${willCreate.length} subject${willCreate.length === 1 ? '' : 's'}`}
-          </Button>
-        </DialogFooter>
       </DialogContent>
     </Dialog>
   )
@@ -590,22 +661,21 @@ function EditSubjectConfigDialog({ open, config, onClose, onSave }: EditSubjectC
 
   return (
     <Dialog open={open} onOpenChange={(o) => !saving && !o && onClose()}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>Edit subject config</DialogTitle>
-          <DialogDescription>
-            Adjust marks ceiling, grace allowance, and optional/additional flags.
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent className="max-h-[90svh] overflow-hidden border-primary/20 bg-card p-0 shadow-2xl shadow-primary/15 sm:max-w-md [&>button]:right-3 [&>button]:top-3 [&>button]:rounded-full [&>button]:text-white [&>button]:opacity-80 [&>button]:hover:bg-white/15 [&>button]:hover:opacity-100">
+        <GradientDialogHeader
+          icon={Settings2}
+          title="Edit subject config"
+          description="Adjust marks ceiling, grace allowance, and optional/additional flags."
+        />
 
-        <div className="space-y-3">
+        <div className="themed-scrollbar grid max-h-[68svh] gap-3 overflow-y-auto bg-gradient-to-br from-primary/[0.025] via-background to-violet-500/[0.035] p-4 sm:p-5">
           <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={gradeOnly} onChange={(e) => setGradeOnly(e.target.checked)} />
+            <Checkbox checked={gradeOnly} onCheckedChange={(v) => setGradeOnly(Boolean(v))} />
             Grade only (no numeric marks)
           </label>
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid gap-3 rounded-xl border border-sky-200/80 bg-gradient-to-r from-sky-50 via-white to-violet-50 p-3 shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10 sm:grid-cols-3">
             <div>
-              <label className="text-xs">Total</label>
+              <label className="text-[10px] font-semibold uppercase tracking-wider text-sky-700 dark:text-sky-300">Total</label>
               <Input
                 type="number"
                 min={0}
@@ -616,7 +686,7 @@ function EditSubjectConfigDialog({ open, config, onClose, onSave }: EditSubjectC
               />
             </div>
             <div>
-              <label className="text-xs">Passing</label>
+              <label className="text-[10px] font-semibold uppercase tracking-wider text-sky-700 dark:text-sky-300">Passing</label>
               <Input
                 type="number"
                 min={0}
@@ -627,7 +697,7 @@ function EditSubjectConfigDialog({ open, config, onClose, onSave }: EditSubjectC
               />
             </div>
             <div>
-              <label className="text-xs">Grace max</label>
+              <label className="text-[10px] font-semibold uppercase tracking-wider text-sky-700 dark:text-sky-300">Grace max</label>
               <Input
                 type="number"
                 min={0}
@@ -640,22 +710,22 @@ function EditSubjectConfigDialog({ open, config, onClose, onSave }: EditSubjectC
           </div>
           <div className="flex gap-4">
             <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={isOptional} onChange={(e) => setIsOptional(e.target.checked)} />
+              <Checkbox checked={isOptional} onCheckedChange={(v) => setIsOptional(Boolean(v))} />
               Optional
             </label>
             <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={isAdditional} onChange={(e) => setIsAdditional(e.target.checked)} />
+              <Checkbox checked={isAdditional} onCheckedChange={(v) => setIsAdditional(Boolean(v))} />
               Additional
             </label>
           </div>
-        </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={saving}>Cancel</Button>
-          <Button onClick={() => void handleSave()} disabled={saving}>
-            {saving ? 'Saving…' : 'Save'}
-          </Button>
-        </DialogFooter>
+          <div className="flex justify-end gap-2 pt-1">
+            <Button variant="outline" onClick={onClose} disabled={saving}>Cancel</Button>
+            <Button onClick={() => void handleSave()} disabled={saving}>
+              {saving ? 'Saving…' : 'Save'}
+            </Button>
+          </div>
+        </div>
       </DialogContent>
     </Dialog>
   )

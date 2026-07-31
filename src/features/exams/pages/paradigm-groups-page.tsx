@@ -4,7 +4,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { PageHeader, LoadingState, EmptyState } from '@/components/shared'
+import { GradientHero, LoadingState, GradientEmptyState } from '@/components/shared'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -132,11 +132,12 @@ export function ParadigmGroupsPage({ paradigmId }: Props) {
 
   return (
     <div className="space-y-6">
-      <PageHeader
+      <GradientHero
+        icon={Layers}
         title={`Terms under "${paradigm.name}"`}
+        badge={`${paradigm.examGroups.length} term${paradigm.examGroups.length === 1 ? '' : 's'}`}
         description={`${paradigm.academicYear} · organise exams under each term for term-level and final aggregation.`}
-        backAction={{ onClick: () => router.push('/exams/paradigms') }}
-        action={{
+        primaryAction={{
           label: 'New term',
           icon: Plus,
           onClick: () => setEditing('new'),
@@ -144,16 +145,20 @@ export function ParadigmGroupsPage({ paradigmId }: Props) {
       />
 
       {paradigm.examGroups.length === 0 ? (
-        <EmptyState
+        <GradientEmptyState
           icon={Layers}
           title="No terms yet"
           description='Add a term — e.g. "Term 1" — to start defining exams under this pattern.'
-          action={{ label: 'Create term', onClick: () => setEditing('new') }}
+          actionLabel="Create term"
+          onAction={() => setEditing('new')}
         />
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {paradigm.examGroups.map((g) => (
-            <Card key={g.id} className="transition hover:border-primary/40">
+            <Card
+              key={g.id}
+              className="gap-0 overflow-hidden border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-violet-50 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10"
+            >
               <CardContent className="p-4">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">

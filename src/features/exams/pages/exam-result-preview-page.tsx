@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { PageHeader, LoadingState, EmptyState } from '@/components/shared'
+import { GradientHero, LoadingState, GradientEmptyState, TintedStatCard } from '@/components/shared'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -26,7 +26,21 @@ import {
 import { api } from '@/lib/api'
 import { useAppStore } from '@/lib/store'
 import { useToast } from '@/hooks/use-toast'
-import { Award, BarChart3, Calculator, FileText, Printer, Send, Trophy, Undo2 } from 'lucide-react'
+import {
+  Award,
+  BarChart3,
+  Calculator,
+  CircleAlert,
+  CircleCheck,
+  CircleX,
+  FileText,
+  Percent,
+  Printer,
+  Send,
+  Trophy,
+  Undo2,
+  Users,
+} from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -257,11 +271,12 @@ export function ExamResultPreviewPage({ examId }: Props) {
 
   return (
     <div className="space-y-5">
-      <PageHeader
+      <GradientHero
+        icon={BarChart3}
         title={`Results: ${exam.name}`}
+        badge={results.length > 0 ? `${results.length} student${results.length === 1 ? '' : 's'}` : undefined}
         description={`${exam.group.paradigm.name} · ${exam.group.name}`}
-        backAction={{ onClick: () => router.push('/exams/list') }}
-        action={
+        primaryAction={
           exam.visibleToParent
             ? {
                 label: publishing ? 'Working…' : 'Unpublish',
@@ -281,7 +296,7 @@ export function ExamResultPreviewPage({ examId }: Props) {
         }}
       />
 
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-sky-200/80 bg-gradient-to-r from-sky-50 via-white to-violet-50 px-3 py-2 shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10">
         {exam.visibleToParent ? (
           <Badge className="bg-emerald-100 text-emerald-700">
             PUBLISHED · visible to parents
@@ -313,7 +328,7 @@ export function ExamResultPreviewPage({ examId }: Props) {
         </Button>
       </div>
 
-      <Card>
+      <Card className="gap-0 overflow-hidden border-sky-200/80 bg-gradient-to-r from-sky-50 via-white to-violet-50 py-0 shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10">
         <CardContent className="flex flex-wrap items-end gap-3 p-3">
           <div>
             <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Class</span>
@@ -351,23 +366,24 @@ export function ExamResultPreviewPage({ examId }: Props) {
       </Card>
 
       {results.length === 0 ? (
-        <EmptyState
+        <GradientEmptyState
           icon={Award}
           title="No results computed yet"
           description="Run the calculator to compute results from the marks entered."
-          action={{ label: 'Compute results', onClick: () => setConfirmingRecompute(true) }}
+          actionLabel="Compute results"
+          onAction={() => setConfirmingRecompute(true)}
         />
       ) : (
         <>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-            <Card><CardContent className="p-3 text-center"><div className="text-2xl font-bold">{stats.total}</div><div className="text-xs text-muted-foreground">Total</div></CardContent></Card>
-            <Card><CardContent className="p-3 text-center"><div className="text-2xl font-bold text-emerald-600">{stats.passed}</div><div className="text-xs text-muted-foreground">Passed</div></CardContent></Card>
-            <Card><CardContent className="p-3 text-center"><div className="text-2xl font-bold text-amber-600">{stats.partial}</div><div className="text-xs text-muted-foreground">Partial</div></CardContent></Card>
-            <Card><CardContent className="p-3 text-center"><div className="text-2xl font-bold text-red-600">{stats.failed}</div><div className="text-xs text-muted-foreground">Failed</div></CardContent></Card>
-            <Card><CardContent className="p-3 text-center"><div className="text-2xl font-bold">{stats.avg.toFixed(1)}%</div><div className="text-xs text-muted-foreground">Average</div></CardContent></Card>
+            <TintedStatCard icon={Users} label="Total" value={stats.total} tone="sky" />
+            <TintedStatCard icon={CircleCheck} label="Passed" value={stats.passed} tone="emerald" />
+            <TintedStatCard icon={CircleAlert} label="Partial" value={stats.partial} tone="violet" />
+            <TintedStatCard icon={CircleX} label="Failed" value={stats.failed} tone="amber" />
+            <TintedStatCard icon={Percent} label="Average" value={`${stats.avg.toFixed(1)}%`} tone="sky" />
           </div>
 
-          <Card>
+          <Card className="gap-0 overflow-hidden border-sky-200/80 bg-gradient-to-r from-sky-50 via-white to-violet-50 py-0 shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10">
             <CardContent className="p-0">
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">

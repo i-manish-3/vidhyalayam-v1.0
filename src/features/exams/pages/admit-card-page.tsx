@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { PageHeader, LoadingState, EmptyState } from '@/components/shared'
+import { GradientHero, LoadingState, GradientEmptyState } from '@/components/shared'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -66,6 +66,9 @@ interface PreviewResponse {
 interface Props {
   examId: string
 }
+
+const TINTED_CARD =
+  'border-sky-200/80 bg-gradient-to-r from-sky-50 via-white to-violet-50 shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10'
 
 export function AdmitCardPage({ examId }: Props) {
   const router = useRouter()
@@ -216,10 +219,10 @@ export function AdmitCardPage({ examId }: Props) {
 
   return (
     <div className="space-y-4">
-      <PageHeader
+      <GradientHero
+        icon={TicketCheck}
         title={`Admit Cards: ${exam.name}`}
         description={`${exam.group.paradigm.name} · ${exam.group.name} · ${exam.academicYear}`}
-        backAction={{ onClick: () => router.push('/exams/list') }}
         extraActions={
           <Button variant="outline" onClick={() => router.push('/exams/admit-card-template')} className="gap-2">
             <Palette className="size-4" /> Customize template
@@ -251,7 +254,7 @@ export function AdmitCardPage({ examId }: Props) {
         </TabsList>
 
         <TabsContent value="select" className="mt-4 space-y-4">
-          <Card>
+          <Card className={TINTED_CARD}>
             <CardContent className="grid gap-3 p-4 md:grid-cols-2 lg:grid-cols-3">
               <FilterField label="Class">
                 <Select
@@ -296,7 +299,7 @@ export function AdmitCardPage({ examId }: Props) {
           </Card>
 
           {/* Selection bar */}
-          <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-card px-4 py-2.5">
+          <div className={`flex flex-wrap items-center justify-between gap-2 rounded-lg border px-4 py-2.5 ${TINTED_CARD}`}>
             <div className="flex items-center gap-3">
               <Checkbox
                 checked={allFilteredSelected ? true : someFilteredSelected ? 'indeterminate' : false}
@@ -332,15 +335,15 @@ export function AdmitCardPage({ examId }: Props) {
           </div>
 
           {loadingStudents ? (
-            <Card><CardContent className="p-8 text-center text-sm text-muted-foreground">Loading students…</CardContent></Card>
+            <Card className={TINTED_CARD}><CardContent className="p-8 text-center text-sm text-muted-foreground">Loading students…</CardContent></Card>
           ) : students.length === 0 ? (
-            <EmptyState
+            <GradientEmptyState
               icon={Users}
               title="No matching students"
               description="Adjust the class, section, or search filters."
             />
           ) : (
-            <Card>
+            <Card className={TINTED_CARD}>
               <ScrollArea className="h-[min(600px,calc(100vh-380px))]">
                 <ul className="divide-y">
                   {students.map((s) => {
@@ -399,7 +402,7 @@ export function AdmitCardPage({ examId }: Props) {
                   <Printer className="mr-1.5 size-4" /> Print
                 </Button>
               </div>
-              <div className="space-y-6 rounded-xl border bg-muted/30 p-4">
+              <div className={`space-y-6 rounded-xl border p-4 ${TINTED_CARD}`}>
                 {preview.cards.map((c) => (
                   <div key={c.studentId} className="bg-white p-3 shadow-sm">
                     <AdmitCardRenderer data={c.data} template={preview.template} />

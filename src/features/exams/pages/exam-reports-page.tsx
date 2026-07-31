@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
-import { PageHeader, LoadingState, EmptyState } from '@/components/shared'
+import { GradientHero, LoadingState, GradientEmptyState, TintedStatCard } from '@/components/shared'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -170,30 +170,18 @@ export function ExamReportsPage() {
 
   return (
     <div className="space-y-5">
-      <PageHeader
+      <GradientHero
+        icon={BarChart3}
         title={examName ? `Reports: ${examName}` : 'Exam reports'}
         description="Pass/fail breakdown, subject stats, and top/bottom performers."
-        backAction={{ onClick: () => router.push(`/exams/${examId}/results`) }}
       />
 
       {/* Roll-up tiles */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Tile icon={<Users className="size-4" />} label="Total students" value={totals.total} />
-        <Tile
-          icon={<Activity className="size-4 text-emerald-600" />}
-          label="Pass rate"
-          value={`${passRate}%`}
-        />
-        <Tile
-          icon={<ArrowUp className="size-4 text-emerald-500" />}
-          label="Passed"
-          value={totals.pass}
-        />
-        <Tile
-          icon={<ArrowDown className="size-4 text-red-500" />}
-          label="Failed"
-          value={totals.fail}
-        />
+        <TintedStatCard icon={Users} tone="sky" label="Total students" value={totals.total} />
+        <TintedStatCard icon={Activity} tone="emerald" label="Pass rate" value={`${passRate}%`} />
+        <TintedStatCard icon={ArrowUp} tone="emerald" label="Passed" value={totals.pass} />
+        <TintedStatCard icon={ArrowDown} tone="amber" label="Failed" value={totals.fail} />
       </div>
 
       <Tabs value={tab} onValueChange={handleTabChange}>
@@ -208,13 +196,13 @@ export function ExamReportsPage() {
 
         <TabsContent value="class" className="mt-3">
           {classSummary.length === 0 ? (
-            <EmptyState
+            <GradientEmptyState
               icon={BarChart3}
               title="No computed results yet"
               description="Compute results on the Results page first."
             />
           ) : (
-            <Card>
+            <Card className="gap-0 overflow-hidden rounded-lg border border-sky-200/80 bg-gradient-to-r from-sky-50 via-white to-violet-50 shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10">
               <CardContent className="p-0">
                 <table className="w-full text-sm">
                   <thead>
@@ -260,7 +248,7 @@ export function ExamReportsPage() {
         </TabsContent>
 
         <TabsContent value="subject" className="mt-3 space-y-3">
-          <Card>
+          <Card className="gap-0 overflow-hidden rounded-lg border border-sky-200/80 bg-gradient-to-r from-sky-50 via-white to-violet-50 shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10">
             <CardContent className="flex flex-wrap items-end gap-3 p-3">
               <div>
                 <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Class</div>
@@ -301,7 +289,7 @@ export function ExamReportsPage() {
           </Card>
 
           {subjects.length === 0 ? (
-            <EmptyState
+            <GradientEmptyState
               icon={Trophy}
               title="No subject data"
               description="Subject summaries are derived from computed results. Run the calculator on the Results page first."
@@ -309,7 +297,7 @@ export function ExamReportsPage() {
           ) : (
             <div className="grid gap-3 md:grid-cols-2">
               {subjects.map((s) => (
-                <Card key={s.subjectId}>
+                <Card key={s.subjectId} className="gap-0 overflow-hidden rounded-lg border border-sky-200/80 bg-gradient-to-r from-sky-50 via-white to-violet-50 shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10">
                   <CardHeader className="pb-2">
                     <div className="flex items-center justify-between">
                       <CardTitle className="text-sm">{s.subjectName}</CardTitle>
@@ -344,20 +332,6 @@ export function ExamReportsPage() {
         </TabsContent>
       </Tabs>
     </div>
-  )
-}
-
-function Tile({ icon, label, value }: { icon: React.ReactNode; label: string; value: string | number }) {
-  return (
-    <Card>
-      <CardContent className="flex items-center gap-3 p-3">
-        <span className="flex size-9 items-center justify-center rounded-md bg-muted">{icon}</span>
-        <div>
-          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</div>
-          <div className="text-lg font-semibold tabular-nums">{value}</div>
-        </div>
-      </CardContent>
-    </Card>
   )
 }
 

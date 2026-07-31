@@ -14,6 +14,7 @@ import {
 import { api } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
 import { PERMISSIONS, usePermissions } from '@/hooks/use-permissions'
+import { TintedStatCard } from '@/components/shared'
 import { cn } from '@/lib/utils'
 import {
   Save,
@@ -94,6 +95,7 @@ export function MarksGrid({ examId, examStatus }: MarksGridProps) {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [grid, setGrid] = useState<GridData>({ subjectConfig: null, students: [] })
+  const gridRef = useRef(grid)
   const [dirty, setDirty] = useState<Map<string, DirtyEntry>>(new Map())
   const dirtyRef = useRef<Map<string, DirtyEntry>>(new Map())
   const savingRef = useRef(false)
@@ -106,6 +108,10 @@ export function MarksGrid({ examId, examStatus }: MarksGridProps) {
   const [classOptions, setClassOptions] = useState<{ id: string; name: string }[]>([])
   const [sectionOptions, setSectionOptions] = useState<{ id: string; name: string }[]>([])
   const [subjectOptions, setSubjectOptions] = useState<{ id: string; name: string }[]>([])
+
+  useEffect(() => {
+    gridRef.current = grid
+  }, [grid])
 
   useEffect(() => {
     void (async () => {
@@ -176,6 +182,15 @@ export function MarksGrid({ examId, examStatus }: MarksGridProps) {
       )
       setSavedCount((count) => count + res.saved)
     } catch (err) {
+      if ((err as Error & { status?: number }).status === 409) {
+        toast({
+          variant: 'destructive',
+          title: 'Marks changed by someone else',
+          description: 'Your unsaved changes were discarded and the latest values were loaded.',
+        })
+        void loadGrid()
+        return
+      }
       toast({
         variant: 'destructive',
         title: 'Auto-save failed',
@@ -233,6 +248,7 @@ export function MarksGrid({ examId, examStatus }: MarksGridProps) {
           status: cell?.status ?? 'entered',
           graceMarks: cell?.graceMarks ?? 0,
           remarks: cell?.remarks ?? null,
+          version: cell?.version ?? 0,
         }
       }),
     )
@@ -255,6 +271,15 @@ export function MarksGrid({ examId, examStatus }: MarksGridProps) {
       toast({ title: 'Marks submitted', description: res.message })
       void loadGrid()
     } catch (err) {
+      if ((err as Error & { status?: number }).status === 409) {
+        toast({
+          variant: 'destructive',
+          title: 'Marks changed by someone else',
+          description: 'The latest values were loaded. Review and submit again.',
+        })
+        void loadGrid()
+        return
+      }
       toast({
         variant: 'destructive',
         title: 'Could not submit',
@@ -357,15 +382,101 @@ export function MarksGrid({ examId, examStatus }: MarksGridProps) {
           }
         }),
       }))
-      scheduleSave(`${studentId}::${compId ?? '__config__'}`, { studentId, componentId: compId, patch })
+      const current = gridRef.current.students.find((student) => student.id === studentId)?.marks[compId ?? '__config__']
+      scheduleSave(`${studentId}::${compId ?? '__config__'}`, {
+        studentId,
+        componentId: compId,
+        patch: { ...patch, version: current?.version ?? 0 },
+      })
     },
     [scheduleSave],
   )
 
+  const cellIdFor = (studentId: string, componentKey: string) => `marks-cell-${studentId}-${componentKey}`
+
+  const focusCell = (studentIndex: number, labelIndex: number) => {
+    const student = grid.students[studentIndex]
+    const label = allLabels[labelIndex]
+    if (!student || !label) return
+    const el = document.getElementById(cellIdFor(student.id, label.id)) as HTMLInputElement | null
+    if (el && !el.disabled) {
+      el.focus()
+      el.select()
+    }
+  }
+
+  const moveFocus = (
+    event: React.KeyboardEvent<HTMLInputElement>,
+    rowIndex: number,
+    colIndex: number,
+  ) => {
+    const rows = grid.students.length
+    const cols = allLabels.length
+    let nextRow = rowIndex
+    let nextCol = colIndex
+    if (event.key === 'ArrowDown' || event.key === 'Enter') nextRow = Math.min(rows - 1, rowIndex + 1)
+    else if (event.key === 'ArrowUp') nextRow = Math.max(0, rowIndex - 1)
+    else if (event.key === 'ArrowRight') nextCol = Math.min(cols - 1, colIndex + 1)
+    else if (event.key === 'ArrowLeft') nextCol = Math.max(0, colIndex - 1)
+    else return
+    event.preventDefault()
+    if (nextRow !== rowIndex || nextCol !== colIndex) focusCell(nextRow, nextCol)
+  }
+
+  const handlePaste = (
+    event: React.ClipboardEvent<HTMLInputElement>,
+    rowIndex: number,
+    colIndex: number,
+  ) => {
+    const text = event.clipboardData.getData('text')
+    if (!text) return
+    event.preventDefault()
+    const lines = text.replace(/\r\n?/g, '\n').split('\n')
+    if (lines.length > 0 && lines[lines.length - 1] === '') lines.pop()
+    if (lines.length === 0) return
+    let pasted = 0
+    for (let di = 0; di < lines.length; di++) {
+      const targetRow = rowIndex + di
+      if (targetRow >= grid.students.length) break
+      const cols = lines[di].split('\t')
+      for (let dj = 0; dj < cols.length; dj++) {
+        const targetCol = colIndex + dj
+        if (targetCol >= allLabels.length) break
+        const student = grid.students[targetRow]
+        const label = allLabels[targetCol]
+        const cell = student.marks[label.id]
+        if (Boolean(cell?.lockedAt) || !canEditCells) continue
+        const raw = cols[dj].trim()
+        const componentId = label.id === '__config__' ? null : label.id
+        if (label.gradeOnly) {
+          updateCell(student.id, componentId, {
+            gradeValue: raw || null,
+            status: raw ? 'entered' : (cell?.status ?? 'entered'),
+          })
+        } else if (raw === '' || raw === '-') {
+          updateCell(student.id, componentId, { numericValue: null })
+        } else {
+          const num = Number(raw)
+          if (!Number.isFinite(num)) continue
+          updateCell(student.id, componentId, {
+            numericValue: Math.min(label.maxMarks, Math.max(0, num)),
+            status: 'entered',
+          })
+        }
+        pasted++
+      }
+    }
+    if (pasted > 0) {
+      const lastRow = Math.min(grid.students.length - 1, rowIndex + lines.length - 1)
+      const lastCol = Math.min(allLabels.length - 1, colIndex + lines[lines.length - 1].split('\t').length - 1)
+      focusCell(lastRow, lastCol)
+    }
+  }
+
   return (
     <div className="space-y-4">
-      <div className="rounded-md border bg-background">
-        <div className="grid gap-3 border-b p-3 lg:grid-cols-[1fr_1fr_1.2fr_auto]">
+      <div className="rounded-lg border border-sky-200/80 bg-gradient-to-r from-sky-50 via-white to-violet-50 shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10">
+        <div className="grid gap-3 border-b border-current/10 p-3 lg:grid-cols-[1fr_1fr_1.2fr_auto]">
           <div className="space-y-1.5">
             <span className="flex items-center gap-1.5 text-[10px] font-medium uppercase text-muted-foreground">
               <Users className="size-3" /> Class
@@ -456,42 +567,34 @@ export function MarksGrid({ examId, examStatus }: MarksGridProps) {
       ) : (
         <>
           <div className="grid gap-3 md:grid-cols-4">
-            <div className="rounded-md border bg-background p-3">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-xs text-muted-foreground">Students</span>
-                <Users className="size-4 text-muted-foreground" />
-              </div>
-              <p className="mt-1 text-xl font-semibold">{grid.students.length}</p>
-            </div>
-            <div className="rounded-md border bg-background p-3">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-xs text-muted-foreground">Submitted</span>
-                <CheckCircle2 className="size-4 text-emerald-600" />
-              </div>
-              <p className="mt-1 text-xl font-semibold">{submittedCount}</p>
-            </div>
-            <div className="rounded-md border bg-background p-3">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-xs text-muted-foreground">Locked</span>
-                <Lock className="size-4 text-amber-600" />
-              </div>
-              <p className="mt-1 text-xl font-semibold">{lockedCount}</p>
-            </div>
-            <div className="rounded-md border bg-background p-3">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-xs text-muted-foreground">Progress</span>
-                <CircleDot className="size-4 text-muted-foreground" />
-              </div>
-              <div className="mt-2 flex items-center gap-2">
-                <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
-                  <div className="h-full rounded-full bg-emerald-500" style={{ width: `${completionPercent}%` }} />
-                </div>
-                <span className="w-9 text-right text-xs font-medium">{completionPercent}%</span>
-              </div>
-            </div>
+            <TintedStatCard
+              icon={Users}
+              label="Students"
+              value={String(grid.students.length)}
+              tone="sky"
+            />
+            <TintedStatCard
+              icon={CheckCircle2}
+              label="Submitted"
+              value={String(submittedCount)}
+              tone="emerald"
+            />
+            <TintedStatCard
+              icon={Lock}
+              label="Locked"
+              value={String(lockedCount)}
+              tone="amber"
+            />
+            <TintedStatCard
+              icon={CircleDot}
+              label="Progress"
+              value={`${completionPercent}%`}
+              note={`${submittedEntries}/${totalEntries} entries`}
+              tone="violet"
+            />
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 rounded-md border bg-background px-3 py-2 text-xs">
+          <div className="flex flex-wrap items-center gap-2 rounded-lg border border-sky-200/80 bg-gradient-to-r from-sky-50 via-white to-violet-50 px-3 py-2 text-xs shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10">
             {dirtyCount > 0 ? (
               <Badge variant="outline" className="gap-1 border-amber-300 text-amber-700">
                 <AlertCircle className="size-3" /> {dirtyCount} unsaved
@@ -584,7 +687,7 @@ export function MarksGrid({ examId, examStatus }: MarksGridProps) {
                         </div>
                       </td>
 
-                      {allLabels.map((component) => {
+                      {allLabels.map((component, colIndex) => {
                         const cell = student.marks[component.id]
                         const locked = Boolean(cell?.lockedAt) || !canEditCells
                         const isDirty = dirty.has(`${student.id}::${component.id}`)
@@ -593,10 +696,13 @@ export function MarksGrid({ examId, examStatus }: MarksGridProps) {
                           return (
                             <td key={component.id} className="px-1.5 py-1.5 text-center">
                               <Input
+                                id={cellIdFor(student.id, component.id)}
                                 className="mx-auto h-9 w-20 text-center text-xs"
                                 placeholder="A1"
                                 disabled={locked}
                                 value={cell?.gradeValue ?? ''}
+                                onKeyDown={(event) => moveFocus(event, index, colIndex)}
+                                onPaste={(event) => handlePaste(event, index, colIndex)}
                                 onChange={(event) =>
                                   updateCell(student.id, component.id === '__config__' ? null : component.id, {
                                     gradeValue: event.target.value || null,
@@ -610,6 +716,7 @@ export function MarksGrid({ examId, examStatus }: MarksGridProps) {
                         return (
                           <td key={component.id} className="px-1.5 py-1.5 text-center">
                             <Input
+                              id={cellIdFor(student.id, component.id)}
                               type="number"
                               min={0}
                               max={component.maxMarks}
@@ -620,6 +727,8 @@ export function MarksGrid({ examId, examStatus }: MarksGridProps) {
                               )}
                               disabled={locked || cell?.status !== 'entered'}
                               value={cell?.status === 'entered' ? (cell?.numericValue ?? '') : ''}
+                              onKeyDown={(event) => moveFocus(event, index, colIndex)}
+                              onPaste={(event) => handlePaste(event, index, colIndex)}
                               onChange={(event) => {
                                 const value = event.target.value
                                 updateCell(student.id, component.id === '__config__' ? null : component.id, {
@@ -653,10 +762,24 @@ export function MarksGrid({ examId, examStatus }: MarksGridProps) {
                               value={cell?.status ?? 'entered'}
                               disabled={locked}
                               onValueChange={(value) => {
+                                const hasEnteredMarks = allLabels.some((component) => {
+                                  const entry = student.marks[component.id]
+                                  if (!entry) return false
+                                  const hasNumber = entry.numericValue !== null && entry.numericValue !== undefined
+                                  const hasGrade = entry.gradeValue !== null && entry.gradeValue !== undefined && entry.gradeValue !== ''
+                                  return hasNumber || hasGrade
+                                })
+                                if (value !== 'entered' && hasEnteredMarks) {
+                                  const ok = window.confirm(
+                                    `Changing this student's status to "${value}" will clear their entered marks. Continue?`,
+                                  )
+                                  if (!ok) return
+                                }
                                 for (const component of allLabels) {
                                   updateCell(student.id, component.id === '__config__' ? null : component.id, {
                                     status: value,
                                     numericValue: null,
+                                    gradeValue: null,
                                   })
                                 }
                               }}
@@ -706,7 +829,7 @@ export function MarksGrid({ examId, examStatus }: MarksGridProps) {
             </table>
           </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border bg-background px-3 py-2">
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-sky-200/80 bg-gradient-to-r from-sky-50 via-white to-violet-50 px-3 py-2 shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10">
             <div className="text-xs text-muted-foreground">
               {!canEnterMarks
                 ? 'You can view marks for this scope.'

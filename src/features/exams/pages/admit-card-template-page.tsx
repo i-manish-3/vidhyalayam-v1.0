@@ -8,10 +8,9 @@
  */
 
 import { useEffect, useMemo, useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
-import { PageHeader, LoadingState } from '@/components/shared'
+import { GradientHero, LoadingState } from '@/components/shared'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -19,7 +18,7 @@ import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Save, RotateCcw, Loader2 } from 'lucide-react'
+import { Save, RotateCcw, Loader2, TicketCheck } from 'lucide-react'
 import { AdmitCardRenderer } from '../components/admit-card-renderer'
 import {
   type AdmitCardTemplateConfig,
@@ -48,8 +47,10 @@ interface LoadResponse {
   instructions: string[]
 }
 
+const TINTED_CARD =
+  'border-sky-200/80 bg-gradient-to-r from-sky-50 via-white to-violet-50 shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10'
+
 export function AdmitCardTemplatePage() {
-  const router = useRouter()
   const { toast } = useToast()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -115,17 +116,21 @@ export function AdmitCardTemplatePage() {
 
   return (
     <div className="space-y-4 pb-20 sm:pb-0">
-      <PageHeader
+      <GradientHero
+        icon={TicketCheck}
         title="Admit Card Template"
         description="Customize how admit cards look and what they show. Changes apply to every admit card you print."
-        backAction={{ onClick: () => router.back() }}
-        action={{ label: saving ? 'Saving…' : 'Save template', icon: saving ? Loader2 : Save, onClick: handleSave }}
+        primaryAction={{
+          label: saving ? 'Saving…' : 'Save template',
+          icon: saving ? Loader2 : Save,
+          onClick: handleSave,
+        }}
       />
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,360px)_1fr]">
         {/* ── Controls ── */}
         <div className="space-y-4">
-          <Card>
+          <Card className={TINTED_CARD}>
             <CardHeader className="pb-2"><CardTitle className="text-sm">Appearance</CardTitle></CardHeader>
             <CardContent className="space-y-3">
               <div className="flex items-center justify-between gap-3">
@@ -171,7 +176,7 @@ export function AdmitCardTemplatePage() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className={TINTED_CARD}>
             <CardHeader className="pb-2"><CardTitle className="text-sm">Student fields to show</CardTitle></CardHeader>
             <CardContent className="grid grid-cols-2 gap-2">
               <ToggleRow label="Roll No" checked={cfg.fields.rollNumber} onChange={(v) => setField('rollNumber', v)} compact />
@@ -185,7 +190,7 @@ export function AdmitCardTemplatePage() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className={TINTED_CARD}>
             <CardHeader className="pb-2"><CardTitle className="text-sm">Schedule columns</CardTitle></CardHeader>
             <CardContent className="grid grid-cols-2 gap-2">
               <ToggleRow label="Day" checked={cfg.scheduleColumns.day} onChange={(v) => setCol('day', v)} compact />
@@ -195,7 +200,7 @@ export function AdmitCardTemplatePage() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className={TINTED_CARD}>
             <CardHeader className="pb-2"><CardTitle className="text-sm">Signatures</CardTitle></CardHeader>
             <CardContent className="space-y-2">
               <LabeledInput label="Left label" value={cfg.signatures.left} onChange={(v) => setSig('left', v)} />
@@ -204,7 +209,7 @@ export function AdmitCardTemplatePage() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className={TINTED_CARD}>
             <CardHeader className="pb-2"><CardTitle className="text-sm">Branding &amp; instructions</CardTitle></CardHeader>
             <CardContent className="space-y-3">
               <LabeledInput label="Trust / Society name" value={trustName} onChange={setTrustName} placeholder="e.g. Dayaramka Educational & Charitable Trust" />
@@ -233,7 +238,7 @@ export function AdmitCardTemplatePage() {
         {/* ── Live preview ── */}
         <div>
           <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Live preview (sample data)</div>
-          <div className="overflow-x-auto rounded-lg border bg-muted/30 p-4">
+          <div className={`overflow-x-auto rounded-lg border p-4 ${TINTED_CARD}`}>
             <div className="mx-auto bg-white shadow-sm" style={{ width: 794, maxWidth: '100%' }}>
               <AdmitCardRenderer data={previewData} template={cfg} />
             </div>

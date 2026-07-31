@@ -2,13 +2,13 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { PageHeader, LoadingState, EmptyState } from '@/components/shared'
+import { GradientHero, LoadingState, GradientEmptyState } from '@/components/shared'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { api } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
-import { Award, BarChart3, ExternalLink } from 'lucide-react'
+import { Award, BarChart3, ExternalLink, Megaphone } from 'lucide-react'
 
 interface PublishedExam {
   id: string
@@ -17,6 +17,9 @@ interface PublishedExam {
   publishedAt: string | null
   group: { name: string; paradigm: { name: string } | null } | null
 }
+
+const TINTED_CARD =
+  'border-sky-200/80 bg-gradient-to-r from-sky-50 via-white to-violet-50 shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10'
 
 /**
  * Admin-side view of all exams that have been published to parents/students.
@@ -54,14 +57,14 @@ export function PublishedResultsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
+      <GradientHero
+        icon={Megaphone}
         title="Published results"
         description="Exams whose results are currently visible to parents and students."
-        backAction={{ onClick: () => router.push('/exams') }}
       />
 
       {exams.length === 0 ? (
-        <EmptyState
+        <GradientEmptyState
           icon={Award}
           title="Nothing published yet"
           description="Compute exam results, review them, then click Publish on the results screen to surface them to parents."
@@ -69,7 +72,7 @@ export function PublishedResultsPage() {
       ) : (
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {exams.map((e) => (
-            <Card key={e.id} className="transition hover:border-primary/40">
+            <Card key={e.id} className={`${TINTED_CARD} transition hover:-translate-y-0.5 hover:shadow-md`}>
               <CardHeader className="pb-2">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">

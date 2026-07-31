@@ -6,16 +6,14 @@ import { useEffect, useMemo, useState } from 'react'
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
-  DialogHeader,
-  DialogTitle,
 } from '@/components/ui/dialog'
+import { GradientDialogHeader } from '@/components/shared'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Plus, Trash2, AlertCircle } from 'lucide-react'
+import { Plus, Trash2, AlertCircle, Settings2 } from 'lucide-react'
 
 export interface ExamComponentRow {
   id?: string
@@ -160,40 +158,42 @@ export function ComponentEditor({
 
   return (
     <Dialog open={open} onOpenChange={(o) => !saving && onOpenChange(o)}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>Components{subjectLabel ? ` — ${subjectLabel}` : ''}</DialogTitle>
-          <DialogDescription>
-            {isGradeOnlySubject
+      <DialogContent className="max-h-[90svh] overflow-hidden border-primary/20 bg-card p-0 shadow-2xl shadow-primary/15 sm:max-w-2xl [&>button]:right-3 [&>button]:top-3 [&>button]:rounded-full [&>button]:text-white [&>button]:opacity-80 [&>button]:hover:bg-white/15 [&>button]:hover:opacity-100">
+        <GradientDialogHeader
+          icon={Settings2}
+          title={`Components${subjectLabel ? ` — ${subjectLabel}` : ''}`}
+          description={
+            isGradeOnlySubject
               ? 'Grade-only subject. Add channels that capture grades (no numeric marks).'
-              : `Split the ${totalMarks}-mark total across scoring channels. Component max marks must sum to ${totalMarks}.`}
-          </DialogDescription>
-        </DialogHeader>
+              : `Split the ${totalMarks}-mark total across scoring channels. Component max marks must sum to ${totalMarks}.`
+          }
+        />
 
-        {!isGradeOnlySubject && rows.length === 0 && (
-          <div className="grid gap-2 rounded-md border bg-muted/30 p-3 sm:grid-cols-2">
-            <p className="col-span-full text-xs text-muted-foreground">Start from a preset:</p>
-            {PRESETS.map((p) => (
-              <Button
-                key={p.name}
-                type="button"
-                variant="outline"
-                size="sm"
-                className="justify-start text-xs"
-                onClick={() => applyPreset(p)}
+        <div className="themed-scrollbar grid max-h-[68svh] gap-3 overflow-y-auto bg-gradient-to-br from-primary/[0.025] via-background to-violet-500/[0.035] p-4 sm:p-5">
+          {!isGradeOnlySubject && rows.length === 0 && (
+            <div className="grid gap-2 rounded-md border border-sky-200/80 bg-gradient-to-r from-sky-50 via-white to-violet-50 p-3 shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10 sm:grid-cols-2">
+              <p className="col-span-full text-xs text-muted-foreground">Start from a preset:</p>
+              {PRESETS.map((p) => (
+                <Button
+                  key={p.name}
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="justify-start text-xs"
+                  onClick={() => applyPreset(p)}
+                >
+                  {p.name}
+                </Button>
+              ))}
+            </div>
+          )}
+
+          <div className="space-y-2">
+            {rows.map((row, idx) => (
+              <div
+                key={idx}
+                className="grid grid-cols-12 gap-2 rounded-md border border-current/10 bg-white/70 p-2 shadow-sm dark:bg-card/60"
               >
-                {p.name}
-              </Button>
-            ))}
-          </div>
-        )}
-
-        <div className="space-y-2">
-          {rows.map((row, idx) => (
-            <div
-              key={idx}
-              className="grid grid-cols-12 gap-2 rounded-md border bg-card p-2"
-            >
               <div className="col-span-12 sm:col-span-4">
                 <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Name</Label>
                 <Input
@@ -266,6 +266,7 @@ export function ComponentEditor({
               )}
             </div>
           ))}
+          </div>
 
           <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
             <div className="flex gap-2">
@@ -288,16 +289,16 @@ export function ComponentEditor({
               </span>
             )}
           </div>
-        </div>
 
-        <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
-            Cancel
-          </Button>
-          <Button type="button" disabled={!canSave} onClick={() => void handleSave()}>
-            {saving ? 'Saving…' : 'Save components'}
-          </Button>
-        </DialogFooter>
+          <DialogFooter className="flex justify-end gap-2 pt-1">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
+              Cancel
+            </Button>
+            <Button type="button" disabled={!canSave} onClick={() => void handleSave()}>
+              {saving ? 'Saving…' : 'Save components'}
+            </Button>
+          </DialogFooter>
+        </div>
       </DialogContent>
     </Dialog>
   )

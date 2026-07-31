@@ -369,7 +369,9 @@ class ApiClient {
       } catch {
         message = STATUS_MESSAGES[response.status] || `We ran into an unexpected issue. Please try again.`
       }
-      throw new Error(message)
+      const error = new Error(message)
+      ;(error as Error & { status?: number }).status = response.status
+      throw error
     }
 
     return response.json()

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { PageHeader, LoadingState } from '@/components/shared'
+import { GradientHero, LoadingState } from '@/components/shared'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -19,7 +19,7 @@ import {
 } from '@/components/ui/select'
 import { api } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
-import { Save, Eye, AlertCircle } from 'lucide-react'
+import { Save, Eye, AlertCircle, FileText } from 'lucide-react'
 import { ReportCardRenderer } from '@/features/exams/components/report-card-renderer'
 import {
   buildExamReportCard,
@@ -404,11 +404,11 @@ export function ReportCardTemplateEditPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
+      <GradientHero
+        icon={FileText}
         title={template.name || 'Edit template'}
         description="Tweak the layout below and watch the preview update live. Changes save when you click Save."
-        backAction={{ onClick: () => router.push('/exams/report-card-templates') }}
-        action={{
+        primaryAction={{
           label: saving ? 'Saving…' : 'Save changes',
           icon: Save,
           onClick: () => void handleSave(),
@@ -417,8 +417,8 @@ export function ReportCardTemplateEditPage() {
 
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="space-y-4">
-          <Card>
-            <CardHeader className="pb-3">
+          <Card className="gap-0 overflow-hidden rounded-lg border border-sky-200/80 bg-gradient-to-r from-sky-50 via-white to-violet-50 shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10">
+            <CardHeader className="border-b border-current/10 pb-3">
               <CardTitle className="text-sm">Basic info</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -472,8 +472,8 @@ export function ReportCardTemplateEditPage() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="pb-3">
+          <Card className="gap-0 overflow-hidden rounded-lg border border-sky-200/80 bg-gradient-to-r from-sky-50 via-white to-violet-50 shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10">
+            <CardHeader className="border-b border-current/10 pb-3">
               <CardTitle className="text-sm">Sections to include</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
@@ -505,8 +505,8 @@ export function ReportCardTemplateEditPage() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="pb-3">
+          <Card className="gap-0 overflow-hidden rounded-lg border border-sky-200/80 bg-gradient-to-r from-sky-50 via-white to-violet-50 shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10">
+            <CardHeader className="border-b border-current/10 pb-3">
               <CardTitle className="text-sm">Header</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
@@ -539,8 +539,8 @@ export function ReportCardTemplateEditPage() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="pb-3">
+          <Card className="gap-0 overflow-hidden rounded-lg border border-sky-200/80 bg-gradient-to-r from-sky-50 via-white to-violet-50 shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10">
+            <CardHeader className="border-b border-current/10 pb-3">
               <CardTitle className="text-sm">Student block</CardTitle>
             </CardHeader>
             <CardContent>
@@ -562,8 +562,8 @@ export function ReportCardTemplateEditPage() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="pb-3">
+          <Card className="gap-0 overflow-hidden rounded-lg border border-sky-200/80 bg-gradient-to-r from-sky-50 via-white to-violet-50 shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10">
+            <CardHeader className="border-b border-current/10 pb-3">
               <CardTitle className="text-sm">Subject table</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
@@ -605,8 +605,8 @@ export function ReportCardTemplateEditPage() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="pb-3">
+          <Card className="gap-0 overflow-hidden rounded-lg border border-sky-200/80 bg-gradient-to-r from-sky-50 via-white to-violet-50 shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10">
+            <CardHeader className="border-b border-current/10 pb-3">
               <CardTitle className="text-sm">Footer</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -652,15 +652,15 @@ export function ReportCardTemplateEditPage() {
         </div>
 
         <div className="lg:sticky lg:top-4 lg:self-start">
-          <Card>
-            <CardHeader className="pb-2">
+          <Card className="gap-0 overflow-hidden rounded-lg border border-sky-200/80 bg-gradient-to-r from-sky-50 via-white to-violet-50 shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10">
+            <CardHeader className="border-b border-current/10 pb-2">
               <CardTitle className="flex items-center gap-1.5 text-sm">
                 <Eye className="size-4" /> Live preview (mocked data)
               </CardTitle>
             </CardHeader>
             <CardContent>
               {previewData ? (
-                <div className="overflow-hidden rounded-md border bg-muted/30 p-3">
+                <div className="overflow-hidden rounded-lg border border-sky-200/80 bg-gradient-to-r from-sky-50 via-white to-violet-50 p-3 shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10">
                   <ReportCardRenderer data={previewData} />
                 </div>
               ) : (

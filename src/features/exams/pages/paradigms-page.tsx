@@ -4,7 +4,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { PageHeader, LoadingState, EmptyState } from '@/components/shared'
+import { GradientHero, LoadingState, GradientEmptyState } from '@/components/shared'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -146,11 +146,12 @@ export function ExamParadigmsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
+      <GradientHero
+        icon={Layers}
         title="Exam patterns"
+        badge={`${paradigms.length} pattern${paradigms.length === 1 ? '' : 's'}`}
         description="An exam pattern defines an academic year's exam framework — its terms, weighting, and passing rules."
-        backAction={{ onClick: () => router.push('/exams'), label: 'Back to exams' }}
-        action={{
+        primaryAction={{
           label: 'New exam pattern',
           icon: Plus,
           onClick: () => setEditing('new'),
@@ -158,16 +159,20 @@ export function ExamParadigmsPage() {
       />
 
       {paradigms.length === 0 ? (
-        <EmptyState
+        <GradientEmptyState
           icon={Layers}
           title="No exam patterns yet"
           description='Create your first exam pattern — e.g. "CBSE Term Pattern 2026-27".'
-          action={{ label: 'Create exam pattern', onClick: () => setEditing('new') }}
+          actionLabel="Create exam pattern"
+          onAction={() => setEditing('new')}
         />
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {paradigms.map((p) => (
-            <Card key={p.id} className="group transition hover:border-primary/40 hover:shadow-sm">
+            <Card
+              key={p.id}
+              className="group gap-0 overflow-hidden border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-violet-50 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10"
+            >
               <CardContent className="p-4">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
@@ -401,7 +406,7 @@ function ParadigmEditDialog({ open, target, years, saving, onClose, onSave }: Pa
             itemNoun="group"
           />
 
-          <div className="rounded-lg border bg-card p-4">
+          <div className="rounded-lg border border-sky-200/80 bg-gradient-to-r from-sky-50 via-white to-violet-50 p-4 shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10">
             <Label className="text-sm font-medium">Passing rule</Label>
             <p className="text-xs text-muted-foreground mt-0.5">
               Minimum percentages and grace allowance.

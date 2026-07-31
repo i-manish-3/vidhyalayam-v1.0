@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { PageHeader, EmptyState, LoadingState } from '@/components/shared'
+import { GradientHero, GradientEmptyState, LoadingState } from '@/components/shared'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
@@ -108,6 +108,9 @@ const STATUS_TONE: Record<string, string> = {
   absent: 'bg-slate-100 text-slate-700 dark:bg-slate-500/10 dark:text-slate-300',
 }
 
+const TINTED_CARD =
+  'border-sky-200/80 bg-gradient-to-r from-sky-50 via-white to-violet-50 shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10'
+
 function initials(name: string) {
   return name
     .split(' ')
@@ -196,8 +199,12 @@ export function ParentExamDetailsPage() {
   if (children.length === 0) {
     return (
       <div className="space-y-5">
-        <PageHeader title="Exam Details" description="Exam schedule, admit cards, and report cards for your children" />
-        <EmptyState
+        <GradientHero
+          icon={GraduationCap}
+          title="Exam Details"
+          description="Exam schedule, admit cards, and report cards for your children"
+        />
+        <GradientEmptyState
           icon={Award}
           title="No active children"
           description="No students are linked to your parent account yet."
@@ -208,9 +215,13 @@ export function ParentExamDetailsPage() {
 
   return (
     <div className="space-y-4">
-      <PageHeader title="Exam Details" description="View ward exams, admit cards, and published report cards" />
+      <GradientHero
+        icon={GraduationCap}
+        title="Exam Details"
+        description="View ward exams, admit cards, and published report cards"
+      />
 
-      <div className="rounded-xl border bg-card">
+      <div className={`rounded-xl border ${TINTED_CARD}`}>
         <div className="flex flex-col gap-3 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold">{selectedChild?.fullName || 'Student'}</p>
@@ -236,12 +247,12 @@ export function ParentExamDetailsPage() {
           )}
         </div>
 
-        <div className="grid grid-cols-3 border-t text-xs">
-          <div className="border-r px-3 py-2">
+        <div className="grid grid-cols-3 border-t border-current/10 text-xs">
+          <div className="border-r border-current/10 px-3 py-2">
             <p className="text-muted-foreground">Exams</p>
             <p className="mt-0.5 text-lg font-bold">{stats.total}</p>
           </div>
-          <div className="border-r px-3 py-2">
+          <div className="border-r border-current/10 px-3 py-2">
             <p className="text-muted-foreground">Admit Cards</p>
             <p className="mt-0.5 text-lg font-bold text-sky-600">{stats.admitReady}</p>
           </div>
@@ -253,11 +264,11 @@ export function ParentExamDetailsPage() {
       </div>
 
       {loadingData ? (
-        <div className="flex justify-center rounded-xl border py-10">
+        <div className={`flex justify-center rounded-xl border py-10 ${TINTED_CARD}`}>
           <div className="size-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
         </div>
       ) : exams.length === 0 ? (
-        <EmptyState
+        <GradientEmptyState
           icon={CalendarDays}
           title="No exams found"
           description="No scheduled or published exams are available for this child yet."
@@ -271,8 +282,8 @@ export function ParentExamDetailsPage() {
             const resultPercent = result ? Math.max(0, Math.min(100, Math.round(result.percentage))) : 0
 
             return (
-              <section key={exam.id} className="overflow-hidden rounded-xl border bg-card">
-                <div className="flex flex-col gap-3 border-b px-3 py-3 lg:flex-row lg:items-center lg:justify-between">
+              <section key={exam.id} className={`overflow-hidden rounded-xl border ${TINTED_CARD}`}>
+                <div className="flex flex-col gap-3 border-b border-current/10 px-3 py-3 lg:flex-row lg:items-center lg:justify-between">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <h2 className="truncate text-base font-bold">{exam.name}</h2>
@@ -306,7 +317,7 @@ export function ParentExamDetailsPage() {
                 </div>
 
                 <div className="grid gap-0 lg:grid-cols-[0.95fr_1.05fr]">
-                  <div className="border-b p-3 lg:border-b-0 lg:border-r">
+                  <div className="border-b border-current/10 p-3 lg:border-b-0 lg:border-r lg:border-current/10">
                     <div className="mb-2 flex items-center gap-2 text-sm font-semibold">
                       <CalendarDays className="size-4 text-primary" />
                       Schedule

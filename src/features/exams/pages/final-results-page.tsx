@@ -2,8 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { PageHeader, LoadingState, EmptyState } from '@/components/shared'
-import { Button } from '@/components/ui/button'
+import { GradientHero, LoadingState, GradientEmptyState, TintedStatCard } from '@/components/shared'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -26,7 +25,7 @@ import {
 import { api } from '@/lib/api'
 import { useAppStore } from '@/lib/store'
 import { useToast } from '@/hooks/use-toast'
-import { Award, Calculator, Trophy } from 'lucide-react'
+import { Award, Calculator, CircleCheck, CircleX, Percent, Trophy, Users } from 'lucide-react'
 
 interface FinalResultRow {
   id: string
@@ -183,18 +182,19 @@ export function FinalResultsPage({ paradigmId }: Props) {
 
   return (
     <div className="space-y-5">
-      <PageHeader
+      <GradientHero
+        icon={Award}
         title={`Final results: ${paradigm.name}`}
+        badge={results.length > 0 ? `${results.length} student${results.length === 1 ? '' : 's'}` : undefined}
         description={`Academic year ${paradigm.academicYear} · year-level rollup with promotion preview`}
-        backAction={{ onClick: () => router.push('/exams/paradigms') }}
-        action={{
+        primaryAction={{
           label: computing ? 'Computing…' : 'Recompute final',
           icon: Calculator,
           onClick: () => setConfirmingRecompute(true),
         }}
       />
 
-      <Card>
+      <Card className="gap-0 overflow-hidden border-sky-200/80 bg-gradient-to-r from-sky-50 via-white to-violet-50 py-0 shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10">
         <CardContent className="flex flex-wrap items-end gap-3 p-3">
           <div>
             <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Class</span>
@@ -232,22 +232,23 @@ export function FinalResultsPage({ paradigmId }: Props) {
       </Card>
 
       {results.length === 0 ? (
-        <EmptyState
+        <GradientEmptyState
           icon={Award}
           title={emptyMessage ? 'No final results yet' : 'No results found'}
           description={emptyMessage ?? 'Try a different class or section, or recompute.'}
-          action={{ label: 'Compute final results', onClick: () => setConfirmingRecompute(true) }}
+          actionLabel="Compute final results"
+          onAction={() => setConfirmingRecompute(true)}
         />
       ) : (
         <>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <Card><CardContent className="p-3 text-center"><div className="text-2xl font-bold">{stats.total}</div><div className="text-xs text-muted-foreground">Total</div></CardContent></Card>
-            <Card><CardContent className="p-3 text-center"><div className="text-2xl font-bold text-emerald-600">{stats.promoted}</div><div className="text-xs text-muted-foreground">Promoted</div></CardContent></Card>
-            <Card><CardContent className="p-3 text-center"><div className="text-2xl font-bold text-red-600">{stats.detained}</div><div className="text-xs text-muted-foreground">Detained</div></CardContent></Card>
-            <Card><CardContent className="p-3 text-center"><div className="text-2xl font-bold">{stats.avg.toFixed(1)}%</div><div className="text-xs text-muted-foreground">Average</div></CardContent></Card>
+            <TintedStatCard icon={Users} label="Total" value={stats.total} tone="sky" />
+            <TintedStatCard icon={CircleCheck} label="Promoted" value={stats.promoted} tone="emerald" />
+            <TintedStatCard icon={CircleX} label="Detained" value={stats.detained} tone="amber" />
+            <TintedStatCard icon={Percent} label="Average" value={`${stats.avg.toFixed(1)}%`} tone="violet" />
           </div>
 
-          <Card>
+          <Card className="gap-0 overflow-hidden border-sky-200/80 bg-gradient-to-r from-sky-50 via-white to-violet-50 py-0 shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10">
             <CardContent className="p-0">
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">

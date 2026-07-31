@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { PageHeader, LoadingState } from '@/components/shared'
+import { GradientHero, LoadingState } from '@/components/shared'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { api } from '@/lib/api'
@@ -11,6 +11,7 @@ import { PERMISSIONS, usePermissions } from '@/hooks/use-permissions'
 import { MarksGrid } from '@/features/exams/components/marks-grid'
 import { ExamInstructionsButton } from '@/features/exams/components/exam-instructions-button'
 import { Settings2, ClipboardCheck, Lock, BookOpen } from 'lucide-react'
+import { examStatusMeta } from '@/features/exams/lib/status-meta'
 
 interface ExamInfo {
   id: string
@@ -24,14 +25,6 @@ interface ExamInfo {
 
 interface Props {
   examId: string
-}
-
-const STATUS_TONE: Record<string, string> = {
-  draft: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200',
-  scheduled: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-200',
-  ongoing: 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200',
-  completed: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200',
-  result_published: 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-200',
 }
 
 export function MarksEntryPage({ examId }: Props) {
@@ -62,7 +55,7 @@ export function MarksEntryPage({ examId }: Props) {
   if (loading) return <LoadingState />
   if (!exam) return null
 
-  const statusTone = STATUS_TONE[exam.status] ?? STATUS_TONE.draft
+  const status = examStatusMeta(exam.status)
   const canManageExam = hasAnyPermission([
     PERMISSIONS.EXAM_MANAGE,
     'exam:configure',
@@ -70,11 +63,12 @@ export function MarksEntryPage({ examId }: Props) {
   ])
 
   return (
-    <div className="space-y-5">
-      <PageHeader
+    <div className="space-y-4">
+      <GradientHero
+        icon={ClipboardCheck}
         title={`Marks: ${exam.name}`}
+        badge={exam.academicYear}
         description={`${exam.group.paradigm.name} / ${exam.group.name}`}
-        backAction={{ onClick: () => router.push('/exams/list') }}
         secondaryAction={canManageExam
           ? {
               label: 'Configure',
@@ -82,36 +76,29 @@ export function MarksEntryPage({ examId }: Props) {
               onClick: () => router.push(`/exams/${examId}/configure`),
             }
           : undefined}
+        extraActions={<ExamInstructionsButton />}
       />
 
-      <div className="rounded-md border bg-background">
-        <div className="flex flex-wrap items-center gap-3 border-b px-4 py-3">
-          <Badge className={statusTone}>{exam.status.replace('_', ' ')}</Badge>
-          <Badge variant="outline" className="gap-1.5">
-            <BookOpen className="size-3" />
-            {exam.subjectConfigs.length} subject{exam.subjectConfigs.length === 1 ? '' : 's'}
-          </Badge>
-          <Badge variant="outline" className="gap-1.5">
-            <ClipboardCheck className="size-3" />
-            {exam.academicYear}
-          </Badge>
-          {exam.lockedAt && (
-            <Badge className="gap-1.5 bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200">
-              <Lock className="size-3" />
-              Locked
-            </Badge>
-          )}
-          <div className="ml-auto">
-            <ExamInstructionsButton />
-          </div>
-        </div>
-        <div className="px-4 py-3 text-sm text-muted-foreground">
+      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-sky-200/80 bg-gradient-to-r from-sky-50 via-white to-violet-50 px-3 py-2 shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10">
+        <Badge variant="outline" className={status.tone}>{status.label}</Badge>
+        <Badge variant="outline" className="gap-1.5">
+          <BookOpen className="size-3" />
+          {exam.subjectConfigs.length} subject{exam.subjectConfigs.length === 1 ? '' : 's'}
+        </Badge>
+        <Badge variant="outline" className="gap-1.5">
+          <ClipboardCheck className="size-3" />
           {exam.group.paradigm.name} / {exam.group.name}
-        </div>
+        </Badge>
+        {exam.lockedAt && (
+          <Badge variant="outline" className="gap-1.5 border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-300">
+            <Lock className="size-3" />
+            Locked
+          </Badge>
+        )}
       </div>
 
       {exam.subjectConfigs.length === 0 && (
-        <div className="rounded-md border border-amber-500/30 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:bg-amber-950/20 dark:text-amber-200">
+        <div className="rounded-lg border border-amber-300/70 bg-amber-50/60 px-4 py-3 text-sm text-amber-700 dark:bg-amber-950/20 dark:text-amber-200">
           No subjects have been configured for this exam yet.
           {canManageExam && (
             <>

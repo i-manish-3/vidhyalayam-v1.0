@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { PageHeader, LoadingState, EmptyState } from '@/components/shared'
+import { GradientHero, LoadingState, GradientEmptyState } from '@/components/shared'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -232,12 +232,13 @@ export function ExamSchedulePage({ examId }: Props) {
   if (!exam) return null
 
   return (
-    <div className="space-y-5">
-      <PageHeader
+    <div className="space-y-4">
+      <GradientHero
+        icon={CalIcon}
         title={`Schedule: ${exam.name}`}
+        badge={`${rows.length} paper${rows.length === 1 ? '' : 's'}`}
         description={`${exam.group.paradigm.name} · ${exam.group.name}`}
-        backAction={{ onClick: () => router.push(`/exams/${examId}/configure`) }}
-        action={{
+        primaryAction={{
           label: 'Save schedule',
           icon: Save,
           onClick: () => void handleSaveAll(),
@@ -250,7 +251,7 @@ export function ExamSchedulePage({ examId }: Props) {
       />
 
       {conflicts.length > 0 && (
-        <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm">
+        <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm">
           <div className="flex items-center gap-2 font-medium text-destructive">
             <AlertTriangle className="size-4" /> {conflicts.length} conflict{conflicts.length === 1 ? '' : 's'} detected
           </div>
@@ -264,19 +265,20 @@ export function ExamSchedulePage({ examId }: Props) {
       )}
 
       {rows.length === 0 ? (
-        <EmptyState
+        <GradientEmptyState
           icon={CalIcon}
           title="No schedule yet"
           description="Add a row per paper. The conflict checker runs as you type."
-          action={{ label: 'Add first row', onClick: addRow }}
+          actionLabel="Add first row"
+          onAction={addRow}
         />
       ) : (
-        <Card>
+        <Card className="gap-0 overflow-hidden border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-violet-50 py-0 shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10">
           <CardContent className="space-y-2 p-3">
             {rows.map((r, idx) => {
               const klass = classLookup.get(r.classId)
               return (
-                <div key={r.id ?? `new-${idx}`} className="grid grid-cols-12 gap-2 rounded-md border bg-card p-2">
+                <div key={r.id ?? `new-${idx}`} className="grid grid-cols-12 gap-2 rounded-md border border-current/10 bg-white/70 p-2 shadow-sm dark:bg-card/60">
                   <div className="col-span-12 sm:col-span-3">
                     <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Class</Label>
                     <Select value={r.classId} onValueChange={(v) => updateRow(idx, { classId: v, sectionId: null })}>

@@ -3,13 +3,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  PageHeader,
-  StatsCard,
+  GradientHero,
+  TintedStatCard,
   LoadingState,
-  EmptyState,
+  GradientEmptyState,
 } from '@/components/shared'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { api } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
@@ -22,8 +22,10 @@ import {
   FileText,
   Award,
   ChevronRight,
+  GraduationCap,
 } from 'lucide-react'
 import { ExamInstructionsButton } from '@/features/exams/components/exam-instructions-button'
+import { examStatusMeta } from '@/features/exams/lib/status-meta'
 
 interface ExamSummary {
   id: string
@@ -44,14 +46,6 @@ interface ParadigmSummary {
   isActive: boolean
   isDefault: boolean
   _count: { examGroups: number }
-}
-
-const STATUS_META: Record<string, { label: string; tone: string }> = {
-  draft: { label: 'Draft', tone: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200' },
-  scheduled: { label: 'Scheduled', tone: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-200' },
-  ongoing: { label: 'Ongoing', tone: 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200' },
-  completed: { label: 'Completed', tone: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200' },
-  result_published: { label: 'Published', tone: 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-200' },
 }
 
 function formatDate(iso: string | null): string {
@@ -113,12 +107,14 @@ export function ExamsPage() {
   const hasAnything = exams.length > 0 || paradigms.length > 0
 
   return (
-    <div className="space-y-6">
-      <PageHeader
+    <div className="space-y-4">
+      <GradientHero
+        icon={ClipboardList}
         title="Exams"
+        badge={`${exams.length} exam${exams.length === 1 ? '' : 's'}`}
         description="Set up exam patterns, configure subjects, schedule papers, and publish results."
         extraActions={<ExamInstructionsButton />}
-        action={{
+        primaryAction={{
           label: 'New exam',
           icon: Plus,
           onClick: () => router.push('/exams/new'),
@@ -130,30 +126,30 @@ export function ExamsPage() {
         }}
       />
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-        <StatsCard icon={ClipboardList} title="Draft" value={counts.draft} />
-        <StatsCard icon={Calendar} title="Scheduled" value={counts.scheduled} />
-        <StatsCard icon={Settings2} title="Ongoing" value={counts.ongoing} />
-        <StatsCard icon={FileText} title="Completed" value={counts.completed} />
-        <StatsCard icon={Award} title="Published" value={counts.result_published} />
+      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
+        <TintedStatCard tone="sky" icon={ClipboardList} label="Draft" value={counts.draft} note="Not yet scheduled" />
+        <TintedStatCard tone="violet" icon={Calendar} label="Scheduled" value={counts.scheduled} note="Datesheet ready" />
+        <TintedStatCard tone="amber" icon={Settings2} label="Ongoing" value={counts.ongoing} note="Marks being entered" />
+        <TintedStatCard tone="emerald" icon={FileText} label="Completed" value={counts.completed} note="Awaiting publish" />
+        <TintedStatCard tone="sky" icon={Award} label="Published" value={counts.result_published} note="Visible to parents" />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0">
-            <CardTitle className="text-base">Upcoming exams</CardTitle>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="gap-1"
-              onClick={() => router.push('/exams/list')}
-            >
+        <Card className="gap-0 overflow-hidden border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-violet-50 py-0 shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10 lg:col-span-2">
+          <div className="flex items-center justify-between border-b border-current/10 bg-gradient-to-r from-sky-500/[0.08] via-white/40 to-violet-500/[0.08] px-4 py-2.5">
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+              <span className="flex size-5 items-center justify-center rounded-md bg-gradient-to-br from-primary to-cyan-600 text-white">
+                <Calendar className="size-3 text-white" />
+              </span>
+              Upcoming exams
+            </div>
+            <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs" onClick={() => router.push('/exams/list')}>
               View all <ChevronRight className="size-3.5" />
             </Button>
-          </CardHeader>
-          <CardContent>
+          </div>
+          <CardContent className="p-3">
             {upcoming.length === 0 ? (
-              <EmptyState
+              <GradientEmptyState
                 icon={Calendar}
                 title="Nothing scheduled yet"
                 description="Create an exam and set its start date to see it here."
@@ -161,11 +157,11 @@ export function ExamsPage() {
             ) : (
               <ul className="space-y-2">
                 {upcoming.map((e) => {
-                  const status = STATUS_META[e.status] ?? STATUS_META.draft
+                  const status = examStatusMeta(e.status)
                   return (
                     <li
                       key={e.id}
-                      className="flex cursor-pointer items-center justify-between gap-3 rounded-lg border bg-card p-3 hover:border-primary/40"
+                      className="flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-sky-100/80 bg-white/70 p-3 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md dark:border-sky-500/20 dark:bg-card/60"
                       onClick={() => router.push(`/exams/${e.id}/configure`)}
                     >
                       <div className="min-w-0 flex-1">
@@ -182,7 +178,7 @@ export function ExamsPage() {
                           {e.endDate && e.endDate !== e.startDate ? ` – ${formatDate(e.endDate)}` : ''}
                         </p>
                       </div>
-                      <Badge className={status.tone}>{status.label}</Badge>
+                      <Badge variant="outline" className={status.tone}>{status.label}</Badge>
                     </li>
                   )
                 })}
@@ -191,13 +187,18 @@ export function ExamsPage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Exam patterns</CardTitle>
-          </CardHeader>
-          <CardContent>
+        <Card className="gap-0 overflow-hidden border-violet-200/80 bg-gradient-to-br from-violet-50 via-white to-purple-50 py-0 shadow-sm dark:border-violet-500/25 dark:from-violet-500/12 dark:via-card dark:to-purple-500/10">
+          <div className="flex items-center justify-between border-b border-current/10 bg-gradient-to-r from-violet-500/[0.08] via-white/40 to-purple-500/[0.08] px-4 py-2.5">
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+              <span className="flex size-5 items-center justify-center rounded-md bg-gradient-to-br from-violet-500 to-purple-600 text-white">
+                <Layers className="size-3 text-white" />
+              </span>
+              Exam patterns
+            </div>
+          </div>
+          <CardContent className="p-3">
             {paradigms.length === 0 ? (
-              <EmptyState
+              <GradientEmptyState
                 icon={Layers}
                 title="No exam patterns yet"
                 description="Create an exam pattern to start setting up exams."
@@ -207,14 +208,16 @@ export function ExamsPage() {
                 {paradigms.slice(0, 6).map((p) => (
                   <li
                     key={p.id}
-                    className="flex cursor-pointer items-center justify-between rounded-md border bg-card p-2.5 text-sm hover:border-primary/40"
+                    className="flex cursor-pointer items-center justify-between rounded-lg border border-violet-100/80 bg-white/70 p-2.5 text-sm shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md dark:border-violet-500/20 dark:bg-card/60"
                     onClick={() => router.push(`/exams/paradigms/${p.id}/groups`)}
                   >
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5">
                         <span className="truncate font-medium">{p.name}</span>
                         {p.isDefault && (
-                          <Badge variant="secondary" className="text-[10px]">Default</Badge>
+                          <Badge variant="outline" className="border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-500/25 dark:bg-violet-500/10 dark:text-violet-300">
+                            Default
+                          </Badge>
                         )}
                       </div>
                       <p className="text-xs text-muted-foreground">
@@ -239,8 +242,11 @@ export function ExamsPage() {
       </div>
 
       {!hasAnything && (
-        <Card>
-          <CardContent className="py-10 text-center">
+        <Card className="gap-0 overflow-hidden border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-violet-50 py-0 shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10">
+          <CardContent className="relative py-10 text-center">
+            <span className="mx-auto mb-3 flex size-12 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500 to-violet-600 text-white shadow-md">
+              <GraduationCap className="size-6 text-white" />
+            </span>
             <h3 className="text-base font-semibold">Get started</h3>
             <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
               Exams are organised in three layers: an <strong>exam pattern</strong> (your school&apos;s overall framework for the year),

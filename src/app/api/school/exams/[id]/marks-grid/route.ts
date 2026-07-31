@@ -338,7 +338,7 @@ export async function PUT(
       classId?: string
       sectionId?: string | null
       subjectId?: string
-      entries?: MarksEntryInput[]
+      entries?: Array<MarksEntryInput & { version?: number | null }>
       submit?: boolean
     }
 
@@ -471,8 +471,16 @@ export async function PUT(
         const key = `${entry.studentId}::${componentId ?? '__config__'}`
         const existing = existingByKey.get(key)
 
-        if (existing?.lockedAt) {
-          throw { status: 423, message: `Marks for student ${entry.studentId} are locked and cannot be edited.` }
+        if (existing) {
+          if (typeof entry.version === 'number' && existing.version !== entry.version) {
+            throw {
+              status: 409,
+              message: `Marks for this student were changed by someone else. Reload the grid to see the latest values.`,
+            }
+          }
+          if (existing.lockedAt) {
+            throw { status: 423, message: `Marks for student ${entry.studentId} are locked and cannot be edited.` }
+          }
         }
 
         const status = entry.status ?? 'entered'
