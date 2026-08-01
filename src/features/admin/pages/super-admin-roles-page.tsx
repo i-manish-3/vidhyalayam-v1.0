@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo, type ElementType } from 'rea
 import { api } from '@/lib/api'
 import { useAppStore } from '@/lib/store'
 import { useToast } from '@/hooks/use-toast'
+import { GradientHero } from '@/components/shared'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -522,18 +523,11 @@ export function SuperAdminRolesPage() {
   // ── Render ──
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex min-w-0 items-stretch gap-3">
-          <span aria-hidden className="bg-brand mt-0.5 w-1 shrink-0 self-stretch rounded-full" />
-          <div className="min-w-0">
-            <h1 className="text-xl font-bold tracking-tight">Roles Studio</h1>
-            <p className="mt-0.5 text-sm text-muted-foreground">
-              Build school-level roles, tune permission bundles, and audit inherited access.
-            </p>
-          </div>
-        </div>
-      </div>
+      <GradientHero
+        icon={ShieldCheck}
+        title="Roles Studio"
+        description="Build school-level roles, tune permission bundles, and audit inherited access."
+      />
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <SummaryStat label="Roles" value={roles.length} note="Across schools" icon={ShieldCheck} />

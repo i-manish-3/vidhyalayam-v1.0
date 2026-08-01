@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { api } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
-import { PageHeader } from '@/components/shared'
+import { GradientHero } from '@/components/shared'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { ImagePlus, Trash2, GraduationCap } from 'lucide-react'
@@ -91,7 +91,8 @@ export function PlatformBrandingPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
+      <GradientHero
+        icon={GraduationCap}
         title="Branding"
         description="Set the platform logo shown in the admin panel and on the login screen."
       />
@@ -102,7 +103,6 @@ export function PlatformBrandingPage() {
             {loading ? (
               <span className="text-xs text-muted-foreground">…</span>
             ) : logo ? (
-              // eslint-disable-next-line @next/next/no-img-element
               <img src={logo} alt="Platform logo" className="size-full object-contain" />
             ) : (
               <GraduationCap className="size-9 text-muted-foreground" />

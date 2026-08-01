@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { api } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
-import { PageHeader } from '@/components/shared'
+import { PageHeader, GradientHero, GradientEmptyState } from '@/components/shared'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -312,10 +312,11 @@ export function PlatformAnnouncementsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
+      <GradientHero
+        icon={Megaphone}
         title="Platform Broadcasts"
         description="Send platform-wide banners to every school (maintenance windows, new features, outages)."
-        action={{ label: 'New broadcast', icon: Plus, onClick: openCreate }}
+        primaryAction={{ label: 'New broadcast', icon: Plus, onClick: openCreate }}
       />
 
       {activeCount > 0 && (
@@ -330,21 +331,13 @@ export function PlatformAnnouncementsPage() {
           <CardContent className="py-12 text-center text-sm text-muted-foreground">Loading…</CardContent>
         </Card>
       ) : items.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center gap-3 py-14 text-center">
-            <Megaphone className="size-7 text-muted-foreground" />
-            <div>
-              <h3 className="font-semibold">No broadcasts yet</h3>
-              <p className="max-w-sm text-sm text-muted-foreground">
-                Create a broadcast to show a banner across every school — perfect for maintenance
-                notices and feature announcements.
-              </p>
-            </div>
-            <Button onClick={openCreate}>
-              <Plus className="mr-1 size-4" /> New broadcast
-            </Button>
-          </CardContent>
-        </Card>
+        <GradientEmptyState
+          icon={Megaphone}
+          title="No broadcasts yet"
+          description="Create a broadcast to show a banner across every school — perfect for maintenance notices and feature announcements."
+          actionLabel="New broadcast"
+          onAction={openCreate}
+        />
       ) : (
         <div className="space-y-3">
           {items.map((item) => {

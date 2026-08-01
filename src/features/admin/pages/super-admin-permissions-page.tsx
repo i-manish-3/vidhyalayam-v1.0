@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { api } from '@/lib/api'
 import { useAppStore } from '@/lib/store'
 import { useToast } from '@/hooks/use-toast'
+import { GradientHero } from '@/components/shared'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -614,18 +615,12 @@ export function SuperAdminPermissionsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex min-w-0 items-stretch gap-3">
-          <span aria-hidden className="bg-brand mt-0.5 w-1 shrink-0 self-stretch rounded-full" />
-          <div className="min-w-0">
-            <h1 className="text-xl font-bold tracking-tight">School Access Matrix</h1>
-            <p className="mt-0.5 text-sm text-muted-foreground">
-              Decide which platform modules every school can use before roles distribute access inside the school.
-            </p>
-          </div>
-        </div>
-      </div>
+      <GradientHero
+        icon={ShieldCheck}
+        title="School Access Matrix"
+        badge={`${grantedPercent}% selected`}
+        description="Decide which platform modules every school can use before roles distribute access inside the school."
+      />
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <SummaryStat label="Schools" value={schools.length} note="Registered schools" icon={Building2} />

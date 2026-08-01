@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { api } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
-import { PageHeader } from '@/components/shared'
+import { GradientHero } from '@/components/shared'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
@@ -184,7 +184,8 @@ export function TenantExportsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
+      <GradientHero
+        icon={DatabaseBackup}
         title="Data Exports"
         description="Back up a single school's full data to a downloadable, compressed file. Export-only — restoring is not supported."
       />
