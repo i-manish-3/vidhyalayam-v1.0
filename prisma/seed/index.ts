@@ -33,24 +33,10 @@ async function seed() {
       subdomain: 'dps-delhi', status: 'active', onboardingDate: new Date('2024-04-01'),
     },
   })
-  const school2 = await db.school.create({
-    data: {
-      name: "St. Mary's Convent School", address: 'MG Road, Bangalore', city: 'Bangalore', state: 'Karnataka', pincode: '560001', country: 'India',
-      contactPhone: '+91-80-25581234', contactEmail: 'info@stmarysblr.in', academicYear: '2026-2027', board: 'ICSE', timezone: 'Asia/Kolkata', currency: 'INR',
-      subdomain: 'st-marys-blr', status: 'trial', trialEndsAt: new Date('2026-08-01'), onboardingDate: new Date('2026-06-01'),
-    },
-  })
-  const school3 = await db.school.create({
-    data: {
-      name: 'Kendriya Vidyalaya', address: 'JNU Campus, New Delhi', city: 'New Delhi', state: 'Delhi', pincode: '110067', country: 'India',
-      contactPhone: '+91-11-26741234', contactEmail: 'info@kvdelhi.in', academicYear: '2026-2027', board: 'CBSE', timezone: 'Asia/Kolkata', currency: 'INR',
-      subdomain: 'kv-delhi', status: 'active', onboardingDate: new Date('2024-07-01'),
-    },
-  })
-  console.log('✅ Created 3 demo schools')
+  console.log('✅ Created demo school')
 
   // Academic Year — one current session per school
-  const allSchoolsForYear = [school, school2, school3]
+  const allSchoolsForYear = [school]
   for (const sch of allSchoolsForYear) {
     await db.academicYear.create({
       data: {
@@ -892,7 +878,7 @@ async function seed() {
   }
 
   // Create default roles for each school
-  const allSchools = [school, school2, school3]
+  const allSchools = [school]
 
   // Define role templates with their permission codes
   const roleTemplates = [

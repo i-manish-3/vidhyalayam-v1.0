@@ -74,16 +74,22 @@ export async function PUT(
       return notFoundError('School')
     }
 
-    // Validate that all permission IDs exist
-    if (permissionIds.length > 0) {
+    // Keep only permission IDs that exist and are active; silently drop stale ones
+    // (legacy/inactive permissions may still be referenced by old grants and are
+    // not visible in the catalog, so rejecting the whole save on them is wrong)
+    const validPermissionIds = permissionIds.filter(
+      (permissionId: string) => typeof permissionId === 'string'
+    )
+    if (validPermissionIds.length > 0) {
       const validPermissions = await db.permission.findMany({
-        where: { id: { in: permissionIds }, isActive: true },
+        where: { id: { in: validPermissionIds }, isActive: true },
         select: { id: true },
       })
       const validIds = new Set(validPermissions.map((p) => p.id))
-      const invalidIds = permissionIds.filter((pid: string) => !validIds.has(pid))
-      if (invalidIds.length > 0) {
-        return apiError(400, 'Some of the permissions you selected don\'t exist. Please refresh and try again.')
+      for (let i = validPermissionIds.length - 1; i >= 0; i--) {
+        if (!validIds.has(validPermissionIds[i])) {
+          validPermissionIds.splice(i, 1)
+        }
       }
     }
 
@@ -95,9 +101,9 @@ export async function PUT(
       })
 
       // Create new permissions
-      if (permissionIds.length > 0) {
+      if (validPermissionIds.length > 0) {
         await tx.schoolPermission.createMany({
-          data: permissionIds.map((permissionId: string) => ({
+          data: validPermissionIds.map((permissionId: string) => ({
             schoolId: id,
             permissionId,
             grantedBy: user.userId,
@@ -108,7 +114,7 @@ export async function PUT(
       await tx.rolePermission.deleteMany({
         where: {
           role: { schoolId: id },
-          permissionId: { notIn: permissionIds },
+          permissionId: { notIn: validPermissionIds },
         },
       })
 
