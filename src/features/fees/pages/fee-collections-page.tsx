@@ -7,6 +7,7 @@ import { api } from '@/lib/api'
 import { useAppStore } from '@/lib/store'
 import { getCurrentAcademicYear } from '@/lib/academic-years'
 import { useToast } from '@/hooks/use-toast'
+import { usePermissions, PERMISSIONS } from '@/hooks/use-permissions'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -525,6 +526,8 @@ const FEE_COLLECTIONS_LIST_STATE_KEY = 'fees:collections:list'
 
 export function FeeCollectionsPage() {
   const { toast } = useToast()
+  const { hasPermission } = usePermissions()
+  const canCollect = hasPermission(PERMISSIONS.FEES_COLLECT)
   const currentSchool = useAppStore((state) => state.currentSchool)
   const currentUser = useAppStore((state) => state.user)
   const savedListState = useAppStore((state) => state.pageState[FEE_COLLECTIONS_LIST_STATE_KEY] as FeeCollectionsListState | undefined)
@@ -1744,7 +1747,7 @@ export function FeeCollectionsPage() {
                 size="sm"
                 className="h-8 bg-emerald-600 text-white hover:bg-emerald-700"
                 onClick={() => handleApplyAdvance(selectedStudent.id)}
-                disabled={applyingAdvance}
+                disabled={applyingAdvance || !canCollect}
               >
                 {applyingAdvance ? <Loader2 className="mr-1 size-4 animate-spin" /> : <Wallet className="mr-1 size-4" />}
                 Apply to Dues
@@ -2515,7 +2518,7 @@ export function FeeCollectionsPage() {
                 <Button
                   className="h-11 w-full text-sm font-semibold"
                   onClick={collectNow}
-                  disabled={saving || collectionItems.length === 0}
+                  disabled={saving || collectionItems.length === 0 || !canCollect}
                 >
                   {saving ? 'Collecting…' : `Collect ${money(paymentValue)}`}
                 </Button>
@@ -2666,7 +2669,7 @@ export function FeeCollectionsPage() {
                       size="sm"
                       className="h-8 text-xs"
                       onClick={submitSpecialComment}
-                      disabled={commentSaving || !remarks.trim()}
+                      disabled={commentSaving || !remarks.trim() || !canCollect}
                     >
                       {commentSaving ? 'Submitting...' : 'Submit Comment'}
                     </Button>

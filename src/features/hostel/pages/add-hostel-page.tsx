@@ -6,6 +6,7 @@ import { api } from '@/lib/api'
 import { useAppStore } from '@/lib/store'
 import { getCurrentAcademicYear } from '@/lib/academic-years'
 import { useToast } from '@/hooks/use-toast'
+import { usePermissions, PERMISSIONS } from '@/hooks/use-permissions'
 import { cn } from '@/lib/utils'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -45,6 +46,8 @@ const HOSTEL_TYPE_OPTIONS = [
 export function AddHostelPage() {
   const { toast } = useToast()
   const router = useRouter()
+  const { hasPermission } = usePermissions()
+  const canCreate = hasPermission(PERMISSIONS.HOSTEL_CREATE)
   const currentSchoolAcademicYear = useAppStore((s) => s.currentSchool?.academicYear)
   const viewingAcademicYear = useAppStore((s) => s.viewingAcademicYear)
   const academicYear = viewingAcademicYear || currentSchoolAcademicYear || getCurrentAcademicYear()
@@ -381,7 +384,7 @@ export function AddHostelPage() {
               Hostel name, at least one fee month, and one room are required.
             </p>
             <div className="flex items-center gap-3">
-              <Button type="submit" disabled={submitting || !name.trim() || feeMonths.length === 0 || rooms.length === 0} className="min-w-[150px] gap-2">
+              <Button type="submit" disabled={submitting || !name.trim() || feeMonths.length === 0 || rooms.length === 0 || !canCreate} className="min-w-[150px] gap-2">
                 {submitting ? <><Loader2 className="size-4 animate-spin" /> Creating...</> : <><Building2 className="size-4" /> Create Hostel</>}
               </Button>
               <Button type="button" variant="outline" onClick={() => router.push('/hostel/hostels')} disabled={submitting}>

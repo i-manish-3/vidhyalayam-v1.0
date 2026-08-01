@@ -40,6 +40,9 @@ export async function GET(request: NextRequest) {
     const user = requireRole(request, ['SCHOOL_ADMIN', 'TEACHER', 'STAFF'])
     if (!user || !user.schoolId) return unauthorizedError()
 
+    const permitted = await requirePermission(request, 'inventory:read')
+    if (!permitted) return forbiddenError()
+
     const { searchParams } = new URL(request.url)
     const studentId = searchParams.get('studentId') || ''
     const status = searchParams.get('status') || ''

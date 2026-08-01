@@ -6,6 +6,7 @@ import { LoadingState } from '@/components/shared'
 import { cn } from '@/lib/utils'
 import { api } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
+import { usePermissions, PERMISSIONS } from '@/hooks/use-permissions'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -50,6 +51,10 @@ const DEFAULT_FEE_GROUP_NAME = '_DEFAULT'
 export function FeesGroupsPage() {
   const router = useRouter()
   const { toast } = useToast()
+  const { hasPermission } = usePermissions()
+  const canCreate = hasPermission(PERMISSIONS.FEES_CREATE)
+  const canUpdate = hasPermission(PERMISSIONS.FEES_UPDATE)
+  const canDelete = hasPermission(PERMISSIONS.FEES_DELETE)
 
   // Data
   const [feeGroups, setFeeGroups] = useState<FeeGroup[]>([])
@@ -208,15 +213,17 @@ export function FeesGroupsPage() {
             <Layers className="size-4" />
             Fees Structure
           </Button>
-          <Button
-            variant="secondary"
-            onClick={() => setShowAdd(true)}
-            className="gap-2 border border-white/60 shadow-md"
-            style={{ backgroundColor: 'white', color: 'var(--primary)' }}
-          >
-            <PlusCircle className="size-4" />
-            Add Fee Group
-          </Button>
+          {canCreate && (
+            <Button
+              variant="secondary"
+              onClick={() => setShowAdd(true)}
+              className="gap-2 border border-white/60 shadow-md"
+              style={{ backgroundColor: 'white', color: 'var(--primary)' }}
+            >
+              <PlusCircle className="size-4" />
+              Add Fee Group
+            </Button>
+          )}
         </div>
       </div>
 
@@ -229,13 +236,15 @@ export function FeesGroupsPage() {
             <h3 className="text-lg font-semibold text-sky-900 dark:text-sky-200">No Fee Groups</h3>
             <p className="mt-1 text-sm text-sky-700/70 dark:text-sky-300/70">Create fee groups such as New Admission, Regular Student, or Staff Ward.</p>
           </div>
-          <Button
-            onClick={() => setShowAdd(true)}
-            className="gap-2 bg-gradient-to-r from-primary to-cyan-600 shadow-md shadow-primary/20"
-          >
-            <PlusCircle className="size-4" />
-            Add Fee Group
-          </Button>
+          {canCreate && (
+            <Button
+              onClick={() => setShowAdd(true)}
+              className="gap-2 bg-gradient-to-r from-primary to-cyan-600 shadow-md shadow-primary/20"
+            >
+              <PlusCircle className="size-4" />
+              Add Fee Group
+            </Button>
+          )}
         </div>
       ) : (
         <div className="overflow-hidden rounded-xl border border-sky-500/15 bg-gradient-to-br from-card via-card to-sky-500/[0.035] shadow-sm dark:border-sky-500/20">
@@ -284,17 +293,19 @@ export function FeesGroupsPage() {
                       </TableCell>
                       <TableCell className="px-4 py-3">
                         <div className="flex justify-end gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-8 gap-1.5 border-sky-200/70 px-3 text-sky-700 hover:bg-sky-100 dark:border-sky-500/30 dark:text-sky-300 dark:hover:bg-sky-500/20"
-                            onClick={() => openEdit(group)}
-                            aria-label={`Edit ${group.name}`}
-                          >
-                            <Edit2 className="size-4" />
-                            Edit
-                          </Button>
-                          {!isDefaultGroup && (
+                          {canUpdate && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8 gap-1.5 border-sky-200/70 px-3 text-sky-700 hover:bg-sky-100 dark:border-sky-500/30 dark:text-sky-300 dark:hover:bg-sky-500/20"
+                              onClick={() => openEdit(group)}
+                              aria-label={`Edit ${group.name}`}
+                            >
+                              <Edit2 className="size-4" />
+                              Edit
+                            </Button>
+                          )}
+                          {canDelete && !isDefaultGroup && (
                             <Button
                               variant="outline"
                               size="sm"
@@ -382,7 +393,7 @@ export function FeesGroupsPage() {
                 </Button>
                 <Button
                   onClick={handleAdd}
-                  disabled={saving || !form.name.trim()}
+                  disabled={saving || !form.name.trim() || !canCreate}
                   className="gap-1.5 bg-gradient-to-r from-primary to-cyan-600 shadow-sm shadow-primary/20"
                 >
                   {saving ? 'Adding...' : 'Add Fee Group'}
@@ -461,7 +472,7 @@ export function FeesGroupsPage() {
                 </Button>
                 <Button
                   onClick={handleEdit}
-                  disabled={saving || !editForm.name.trim()}
+                  disabled={saving || !editForm.name.trim() || !canUpdate}
                   className="gap-1.5 bg-gradient-to-r from-primary to-cyan-600 shadow-sm shadow-primary/20"
                 >
                   {saving ? 'Saving...' : 'Save Changes'}
@@ -513,7 +524,7 @@ export function FeesGroupsPage() {
                     event.preventDefault()
                     handleDelete()
                   }}
-                  disabled={deleting}
+                  disabled={deleting || !canDelete}
                   className="gap-1.5 bg-gradient-to-r from-rose-600 to-rose-500 text-white shadow-md shadow-rose-300/30 hover:from-rose-500 hover:to-rose-400 disabled:from-gray-400 disabled:to-gray-400"
                 >
                   {deleting ? 'Deleting...' : 'Delete Group'}

@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation'
 import { api } from '@/lib/api'
 import { useAppStore } from '@/lib/store'
 import { useToast } from '@/hooks/use-toast'
+import { usePermissions, PERMISSIONS } from '@/hooks/use-permissions'
 import { LoadingState } from '@/components/shared'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -125,6 +126,8 @@ export function EditHostelPage() {
   const params = useParams()
   const id = String(params.id || '')
   const { toast } = useToast()
+  const { hasPermission } = usePermissions()
+  const canUpdate = hasPermission(PERMISSIONS.HOSTEL_UPDATE)
   const viewingAcademicYear = useAppStore((s) => s.viewingAcademicYear)
   const currentSchool = useAppStore((s) => s.currentSchool)
   const academicYear = viewingAcademicYear || currentSchool?.academicYear
@@ -491,7 +494,7 @@ export function EditHostelPage() {
       <div className="fixed inset-x-0 bottom-0 z-50 border-t border-primary/10 bg-gradient-to-r from-primary/[0.02] via-background to-cyan-500/[0.02] backdrop-blur-md">
         <div className="mx-auto flex max-w-7xl items-center justify-end gap-3 px-6 py-3">
           <Button variant="outline" size="sm" onClick={() => router.push('/hostel/hostels')}>Cancel</Button>
-          <Button size="sm" onClick={handleSubmit} disabled={submitting} className="gap-2">
+          <Button size="sm" onClick={handleSubmit} disabled={submitting || !canUpdate} className="gap-2">
             {submitting && <Loader2 className="size-4 animate-spin" />}
             Save Changes
           </Button>

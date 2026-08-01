@@ -7,6 +7,7 @@ import { api } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { useAppStore } from '@/lib/store'
 import { useToast } from '@/hooks/use-toast'
+import { usePermissions, PERMISSIONS } from '@/hooks/use-permissions'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -105,6 +106,9 @@ const FEE_HEADS_LIST_STATE_KEY = 'fees:heads:list'
 export function FeesHeadsPage() {
   const router = useRouter()
   const { toast } = useToast()
+  const { hasPermission } = usePermissions()
+  const canCreate = hasPermission(PERMISSIONS.FEES_CREATE)
+  const canUpdate = hasPermission(PERMISSIONS.FEES_UPDATE)
   const savedListState = useAppStore((state) => state.pageState[FEE_HEADS_LIST_STATE_KEY] as FeeHeadsListState | undefined)
   const setPageState = useAppStore((state) => state.setPageState)
 
@@ -231,15 +235,17 @@ export function FeesHeadsPage() {
             <Layers3 className="size-4" />
             Fee Groups
           </Button>
-          <Button
-            variant="secondary"
-            onClick={() => setShowAdd(true)}
-            className="gap-2 border border-white/60 shadow-md"
-            style={{ backgroundColor: 'white', color: 'var(--primary)' }}
-          >
-            <PlusCircle className="size-4" />
-            Add Fee Head
-          </Button>
+          {canCreate && (
+            <Button
+              variant="secondary"
+              onClick={() => setShowAdd(true)}
+              className="gap-2 border border-white/60 shadow-md"
+              style={{ backgroundColor: 'white', color: 'var(--primary)' }}
+            >
+              <PlusCircle className="size-4" />
+              Add Fee Head
+            </Button>
+          )}
         </div>
       </div>
 
@@ -252,13 +258,15 @@ export function FeesHeadsPage() {
             <h3 className="text-lg font-semibold text-sky-900 dark:text-sky-200">No Fee Heads</h3>
             <p className="mt-1 text-sm text-sky-700/70 dark:text-sky-300/70">Create fee heads such as Tuition Fee, Lab Fee, Annual Charge, or Security Deposit.</p>
           </div>
-          <Button
-            onClick={() => setShowAdd(true)}
-            className="gap-2 bg-gradient-to-r from-primary to-cyan-600 shadow-md shadow-primary/20"
-          >
-            <PlusCircle className="size-4" />
-            Add Fee Head
-          </Button>
+          {canCreate && (
+            <Button
+              onClick={() => setShowAdd(true)}
+              className="gap-2 bg-gradient-to-r from-primary to-cyan-600 shadow-md shadow-primary/20"
+            >
+              <PlusCircle className="size-4" />
+              Add Fee Head
+            </Button>
+          )}
         </div>
       ) : (
         <div className="overflow-hidden rounded-xl border border-sky-500/15 bg-gradient-to-br from-card via-card to-sky-500/[0.035] shadow-sm dark:border-sky-500/20">
@@ -403,16 +411,18 @@ export function FeesHeadsPage() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="border-sky-200/60 dark:border-sky-500/25">
-                              <DropdownMenuItem
-                                onClick={() => handleToggleActive(head)}
-                                className={cn(
-                                  'gap-2 focus:bg-sky-50 dark:focus:bg-sky-900/30',
-                                  head.isActive ? 'text-amber-600 focus:text-amber-700 dark:text-amber-400 dark:focus:text-amber-300' : 'text-emerald-600 focus:text-emerald-700 dark:text-emerald-400 dark:focus:text-emerald-300'
-                                )}
-                              >
-                                {head.isActive ? <XCircle className="size-4" /> : <CheckCircle2 className="size-4" />}
-                                {head.isActive ? 'Deactivate' : 'Activate'}
-                              </DropdownMenuItem>
+                              {canUpdate && (
+                                <DropdownMenuItem
+                                  onClick={() => handleToggleActive(head)}
+                                  className={cn(
+                                    'gap-2 focus:bg-sky-50 dark:focus:bg-sky-900/30',
+                                    head.isActive ? 'text-amber-600 focus:text-amber-700 dark:text-amber-400 dark:focus:text-amber-300' : 'text-emerald-600 focus:text-emerald-700 dark:text-emerald-400 dark:focus:text-emerald-300'
+                                  )}
+                                >
+                                  {head.isActive ? <XCircle className="size-4" /> : <CheckCircle2 className="size-4" />}
+                                  {head.isActive ? 'Deactivate' : 'Activate'}
+                                </DropdownMenuItem>
+                              )}
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </TableCell>
@@ -512,7 +522,7 @@ export function FeesHeadsPage() {
                 </Button>
                 <Button
                   onClick={handleAdd}
-                  disabled={saving || !form.name.trim()}
+                  disabled={saving || !form.name.trim() || !canCreate}
                   className="gap-1.5 bg-gradient-to-r from-primary to-cyan-600 shadow-sm shadow-primary/20"
                 >
                   {saving ? 'Adding...' : 'Add Fee Head'}

@@ -6,6 +6,7 @@ import { LoadingState } from '@/components/shared'
 import { api } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { useAppStore } from '@/lib/store'
+import { usePermissions, PERMISSIONS } from '@/hooks/use-permissions'
 import { useToast } from '@/hooks/use-toast'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -92,6 +93,10 @@ const SUBJECTS_LIST_STATE_KEY = 'academics:subjects:list'
 export function SubjectsPage() {
   const router = useRouter()
   const { toast } = useToast()
+  const { hasPermission } = usePermissions()
+  const canCreate = hasPermission(PERMISSIONS.SUBJECT_CREATE)
+  const canUpdate = hasPermission(PERMISSIONS.SUBJECT_UPDATE)
+  const canDelete = hasPermission(PERMISSIONS.SUBJECT_DELETE)
   const savedListState = useAppStore((s) => s.pageState[SUBJECTS_LIST_STATE_KEY] as SubjectsListState | undefined)
   const setPageState = useAppStore((s) => s.setPageState)
   const [subjects, setSubjects] = useState<Subject[]>([])
@@ -237,14 +242,16 @@ export function SubjectsPage() {
               <p className="mt-0.5 text-xs text-white/80">Manage curriculum subjects, types, order, and class assignments.</p>
             </div>
           </div>
-          <Button
-            variant="secondary"
-            onClick={() => router.push('/academics/subjects/new')}
-            className="relative gap-2 border border-white/60 shadow-md"
-            style={{ backgroundColor: 'white', color: 'var(--primary)' }}
-          >
-            <PlusCircle className="size-4" /> Add Subject
-          </Button>
+          {canCreate && (
+            <Button
+              variant="secondary"
+              onClick={() => router.push('/academics/subjects/new')}
+              className="relative gap-2 border border-white/60 shadow-md"
+              style={{ backgroundColor: 'white', color: 'var(--primary)' }}
+            >
+              <PlusCircle className="size-4" /> Add Subject
+            </Button>
+          )}
         </div>
       </section>
 
@@ -339,7 +346,7 @@ export function SubjectsPage() {
             icon={BookMarked}
             title="No Subjects Yet"
             description="Add subjects to set up your school's curriculum."
-            actionLabel="Add Subject"
+            actionLabel={canCreate ? 'Add Subject' : undefined}
             onAction={() => router.push('/academics/subjects/new')}
           />
         ) : subjects.length === 0 && hasActiveFilters ? (
@@ -395,18 +402,24 @@ export function SubjectsPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-36">
-                        <DropdownMenuItem onClick={() => handleEdit(subject)}>
-                          <Pencil className="mr-2 size-3.5" />
-                          Edit
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          onClick={() => setDeleteSubject(subject)}
-                          className="text-destructive focus:text-destructive"
-                        >
-                          <Trash2 className="mr-2 size-3.5" />
-                          Delete
-                        </DropdownMenuItem>
+                        {canUpdate && (
+                          <DropdownMenuItem onClick={() => handleEdit(subject)}>
+                            <Pencil className="mr-2 size-3.5" />
+                            Edit
+                          </DropdownMenuItem>
+                        )}
+                        {canDelete && (
+                          <>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={() => setDeleteSubject(subject)}
+                              className="text-destructive focus:text-destructive"
+                            >
+                              <Trash2 className="mr-2 size-3.5" />
+                              Delete
+                            </DropdownMenuItem>
+                          </>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
@@ -443,19 +456,23 @@ export function SubjectsPage() {
                       Curriculum item
                     </div>
                     <div className="flex gap-2">
-                      <Button variant="outline" size="sm" className="h-8 gap-1.5 border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100 dark:border-sky-500/25 dark:bg-sky-500/10 dark:text-sky-300" onClick={() => handleEdit(subject)}>
-                        <Pencil className="size-3.5" />
-                        Edit
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-8 gap-1.5 border-red-200 bg-red-50 text-red-700 hover:bg-red-100 hover:text-red-800 dark:border-red-500/25 dark:bg-red-500/10 dark:text-red-300"
-                        onClick={() => setDeleteSubject(subject)}
-                      >
-                        <Trash2 className="size-3.5" />
-                        Delete
-                      </Button>
+                      {canUpdate && (
+                        <Button variant="outline" size="sm" className="h-8 gap-1.5 border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100 dark:border-sky-500/25 dark:bg-sky-500/10 dark:text-sky-300" onClick={() => handleEdit(subject)}>
+                          <Pencil className="size-3.5" />
+                          Edit
+                        </Button>
+                      )}
+                      {canDelete && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 gap-1.5 border-red-200 bg-red-50 text-red-700 hover:bg-red-100 hover:text-red-800 dark:border-red-500/25 dark:bg-red-500/10 dark:text-red-300"
+                          onClick={() => setDeleteSubject(subject)}
+                        >
+                          <Trash2 className="size-3.5" />
+                          Delete
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </CardContent>
@@ -478,7 +495,7 @@ export function SubjectsPage() {
             <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
-              disabled={deleting}
+              disabled={deleting || !canDelete}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {deleting && <Loader2 className="mr-2 size-4 animate-spin" />}
@@ -537,7 +554,7 @@ function EmptySearch({ icon: Icon, title, description, actionLabel, onAction }: 
   icon: typeof Search
   title: string
   description: string
-  actionLabel: string
+  actionLabel?: string
   onAction: () => void
 }) {
   return (
@@ -547,9 +564,7 @@ function EmptySearch({ icon: Icon, title, description, actionLabel, onAction }: 
         <span className="mb-3 flex size-12 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500 to-violet-600 text-white shadow-md"><Icon className="size-6 text-white" /></span>
         <p className="text-sm font-semibold">{title}</p>
         <p className="mt-1 text-sm text-muted-foreground">{description}</p>
-        <Button size="sm" onClick={onAction} className="mt-3 h-8 gap-1.5 px-3 text-xs">
-          {actionLabel}
-        </Button>
+        {actionLabel ? <Button size="sm" onClick={onAction} className="mt-3 h-8 gap-1.5 px-3 text-xs">{actionLabel}</Button> : null}
       </CardContent>
     </Card>
   )

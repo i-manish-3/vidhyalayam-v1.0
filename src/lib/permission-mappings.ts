@@ -14,12 +14,12 @@
 // A sidebar item is visible if the user has at least one permission with the matching module prefix
 const MODULE_PERMISSION_MAP: Record<string, string[]> = {
   // Students & Admissions
-  'admission-form': ['admission:read', 'admission:create', 'student:create'],
-  'bulk-admission': ['admission:create', 'student:create'],
+  'admission-form': ['admission:create', 'student:create'],
+  'bulk-admission': ['admission:create'],
   'students': ['student:read', 'student:create'],
   'student-houses': ['student:read', 'student:update'],
   'student-detail': ['student:read'],
-  'edit-student': ['student:read', 'student:update'],
+  'edit-student': ['student:update'],
   'alumni': ['student:read'],
 
   // People
@@ -29,15 +29,15 @@ const MODULE_PERMISSION_MAP: Record<string, string[]> = {
 
   // Academic
   'classes': ['class:read', 'class:create'],
-  'promote-student': ['class:read', 'student:update', 'admission:update'],
-  'assign-roll-numbers': ['class:read', 'student:update'],
+  'promote-student': ['admission:update'],
+  'assign-roll-numbers': ['student:update'],
   'subjects': ['subject:read', 'subject:create'],
-  'academic-years': ['settings:read', 'settings:update'],
-  'holidays': ['holiday:read', 'holiday:manage', 'settings:read', 'settings:update'],
-  'add-subject': ['subject:read', 'subject:create'],
-  'edit-subject': ['subject:read', 'subject:update'],
-  'add-class': ['class:read', 'class:create'],
-  'edit-class': ['class:read', 'class:update'],
+  'academic-years': ['settings:update'],
+  'holidays': ['holiday:read', 'holiday:manage'],
+  'add-subject': ['subject:create'],
+  'edit-subject': ['subject:update'],
+  'add-class': ['class:create'],
+  'edit-class': ['class:update'],
   'attendance': ['attendance:read', 'attendance:mark'],
   'mark-attendance': ['attendance:mark'],
   'view-attendance': ['attendance:read'],
@@ -71,7 +71,7 @@ const MODULE_PERMISSION_MAP: Record<string, string[]> = {
   'exam-published-results': ['exam:results', 'exam:result:view'],
   'exam-report-card-templates': ['exam:manage', 'exam:reportcard:manage'],
   'exam-report-card-template-edit': ['exam:manage', 'exam:reportcard:manage'],
-  'exam-admit-cards': ['exam:view', 'exam:admitcard:download'],
+  'exam-admit-cards': ['exam:manage', 'exam:admitcard:download'],
   'exam-audit-log': ['exam:audit', 'exam:audit:view'],
   'teacher-subject-assignments': ['exam:manage', 'exam:configure', 'role:read'],
   'student-subject-mappings': ['exam:manage', 'exam:configure', 'student:read'],
@@ -100,6 +100,7 @@ const MODULE_PERMISSION_MAP: Record<string, string[]> = {
   // Resources
   'transport': ['transport:read', 'transport:create'],
   'add-transport-route': ['transport:create'],
+  'edit-transport-route': ['transport:update'],
   'transport-annual-setup': ['transport:annual-setup'],
   'drivers': ['transport:read', 'transport:create'],
   'add-driver': ['transport:create'],

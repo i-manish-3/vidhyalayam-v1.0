@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { EmptyState, LoadingState } from '@/components/shared'
 import { api } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
+import { usePermissions, PERMISSIONS } from '@/hooks/use-permissions'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -208,6 +209,8 @@ const FEE_DEMAND_SLIPS_LIST_STATE_KEY = 'fees:demand-slips:list'
 
 export function FeeDemandSlipsPage() {
   const { toast } = useToast()
+  const { hasPermission } = usePermissions()
+  const canCreate = hasPermission(PERMISSIONS.FEES_CREATE)
   const savedListState = useAppStore((state) => state.pageState[FEE_DEMAND_SLIPS_LIST_STATE_KEY] as FeeDemandSlipsListState | undefined)
   const setPageState = useAppStore((state) => state.setPageState)
 
@@ -454,16 +457,18 @@ export function FeeDemandSlipsPage() {
           </div>
         </div>
         <div className="relative z-10 flex shrink-0 flex-wrap items-center gap-2">
-          {waConfig?.whatsappEnabled && (waConfig?.whatsappProvider === 'META_CLOUD' || waConfig?.whatsappProvider === 'BAILEYS') && slips.length > 0 && (
+          {canCreate && waConfig?.whatsappEnabled && (waConfig?.whatsappProvider === 'META_CLOUD' || waConfig?.whatsappProvider === 'BAILEYS') && slips.length > 0 && (
             <Button variant="secondary" onClick={() => setBulkSendOpen(true)} className="gap-2 bg-white/20 text-white hover:bg-white/30">
               <Send className="size-4" />
               Send All ({slips.length})
             </Button>
           )}
-          <Button variant="secondary" onClick={() => setGeneratorOpen(true)} className="gap-2 bg-white/20 text-white hover:bg-white/30">
-            <Sparkles className="size-4" />
-            Generate Slips
-          </Button>
+          {canCreate && (
+            <Button variant="secondary" onClick={() => setGeneratorOpen(true)} className="gap-2 bg-white/20 text-white hover:bg-white/30">
+              <Sparkles className="size-4" />
+              Generate Slips
+            </Button>
+          )}
         </div>
       </div>
 
@@ -527,7 +532,7 @@ export function FeeDemandSlipsPage() {
           icon={Receipt}
           title="No demand slips yet"
           description={`No slips generated for ${MONTHS[month - 1].label} ${year}${classId ? ' in the selected class' : ''}.`}
-          action={{ label: 'Generate Slips', onClick: () => setGeneratorOpen(true) }}
+          action={canCreate ? { label: 'Generate Slips', onClick: () => setGeneratorOpen(true) } : undefined}
         />
       ) : (
         <div className="space-y-4">
@@ -756,7 +761,7 @@ export function FeeDemandSlipsPage() {
             <AlertDialogCancel disabled={bulkSending}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={(event) => { event.preventDefault(); runBulkSend() }}
-              disabled={bulkSending}
+              disabled={bulkSending || !canCreate}
             >
               {bulkSending ? 'Queueing…' : 'Send All'}
             </AlertDialogAction>
@@ -811,6 +816,8 @@ interface GeneratorDialogProps {
 
 function GeneratorDialog({ open, onOpenChange, month, year, classes, sections, onGenerated }: GeneratorDialogProps) {
   const { toast } = useToast()
+  const { hasPermission } = usePermissions()
+  const canCreate = hasPermission(PERMISSIONS.FEES_CREATE)
   const [tab, setTab] = useState<'bulk' | 'single'>('bulk')
 
   // Bulk mode
@@ -1131,27 +1138,27 @@ function GeneratorDialog({ open, onOpenChange, month, year, classes, sections, o
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>Cancel</Button>
           {tab === 'bulk' && !bulkPreview && (
-            <Button onClick={() => submit(true)} disabled={busy || !canPreviewBulk}>
+            <Button onClick={() => submit(true)} disabled={busy || !canPreviewBulk || !canCreate}>
               {busy ? 'Loading…' : 'Preview'}
             </Button>
           )}
           {tab === 'bulk' && bulkPreview && (
             <>
               <Button variant="outline" onClick={() => setBulkPreview(null)} disabled={busy}>Back</Button>
-              <Button onClick={() => submit(false)} disabled={busy}>
+              <Button onClick={() => submit(false)} disabled={busy || !canCreate}>
                 {busy ? 'Generating…' : `Confirm & Generate (${bulkPreview.successCount || 0})`}
               </Button>
             </>
           )}
           {tab === 'single' && !singlePreview && (
-            <Button onClick={() => submit(true)} disabled={busy || !canPreviewSingle}>
+            <Button onClick={() => submit(true)} disabled={busy || !canPreviewSingle || !canCreate}>
               {busy ? 'Loading…' : 'Preview'}
             </Button>
           )}
           {tab === 'single' && singlePreview && (
             <>
               <Button variant="outline" onClick={() => setSinglePreview(null)} disabled={busy}>Back</Button>
-              <Button onClick={() => submit(false)} disabled={busy || singlePreview.itemCount === 0}>
+              <Button onClick={() => submit(false)} disabled={busy || singlePreview.itemCount === 0 || !canCreate}>
                 {busy ? 'Generating…' : 'Confirm & Generate'}
               </Button>
             </>
@@ -1323,6 +1330,8 @@ interface SlipDetailDialogProps {
 function SlipDetailDialog({ slipId, onClose, whatsappEnabled, onAfterSend }: SlipDetailDialogProps) {
   const { toast } = useToast()
   const currentSchool = useAppStore((state) => state.currentSchool)
+  const { hasPermission } = usePermissions()
+  const canCreate = hasPermission(PERMISSIONS.FEES_CREATE)
   const [slip, setSlip] = useState<SlipDetail | null>(null)
   const [loading, setLoading] = useState(false)
   const [lastNotification, setLastNotification] = useState<NotificationRow | null>(null)
@@ -1492,7 +1501,7 @@ function SlipDetailDialog({ slipId, onClose, whatsappEnabled, onAfterSend }: Sli
             <Printer className="size-4" />
             Print / PDF
           </Button>
-          {whatsappEnabled && (
+          {canCreate && whatsappEnabled && (
             <Button
               onClick={() => sendWhatsApp(lastNotification?.status === 'sent')}
               disabled={!slip || sending}

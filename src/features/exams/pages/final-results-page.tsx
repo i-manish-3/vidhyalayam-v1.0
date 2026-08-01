@@ -25,6 +25,7 @@ import {
 import { api } from '@/lib/api'
 import { useAppStore } from '@/lib/store'
 import { useToast } from '@/hooks/use-toast'
+import { PERMISSIONS, usePermissions } from '@/hooks/use-permissions'
 import { Award, Calculator, CircleCheck, CircleX, Percent, Trophy, Users } from 'lucide-react'
 
 interface FinalResultRow {
@@ -82,6 +83,7 @@ interface FinalResultsListState {
 export function FinalResultsPage({ paradigmId }: Props) {
   const router = useRouter()
   const { toast } = useToast()
+  const { hasAnyPermission } = usePermissions()
   const listStateKey = `exams:final-results:${paradigmId}:list`
   const savedListState = useAppStore((state) => state.pageState[listStateKey] as FinalResultsListState | undefined)
   const setPageState = useAppStore((state) => state.setPageState)
@@ -187,11 +189,15 @@ export function FinalResultsPage({ paradigmId }: Props) {
         title={`Final results: ${paradigm.name}`}
         badge={results.length > 0 ? `${results.length} student${results.length === 1 ? '' : 's'}` : undefined}
         description={`Academic year ${paradigm.academicYear} · year-level rollup with promotion preview`}
-        primaryAction={{
-          label: computing ? 'Computing…' : 'Recompute final',
-          icon: Calculator,
-          onClick: () => setConfirmingRecompute(true),
-        }}
+        primaryAction={
+          hasAnyPermission([PERMISSIONS.EXAM_RESULTS])
+            ? {
+                label: computing ? 'Computing…' : 'Recompute final',
+                icon: Calculator,
+                onClick: () => setConfirmingRecompute(true),
+              }
+            : undefined
+        }
       />
 
       <Card className="gap-0 overflow-hidden border-sky-200/80 bg-gradient-to-r from-sky-50 via-white to-violet-50 py-0 shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10">
@@ -236,8 +242,9 @@ export function FinalResultsPage({ paradigmId }: Props) {
           icon={Award}
           title={emptyMessage ? 'No final results yet' : 'No results found'}
           description={emptyMessage ?? 'Try a different class or section, or recompute.'}
-          actionLabel="Compute final results"
-          onAction={() => setConfirmingRecompute(true)}
+          {...(hasAnyPermission([PERMISSIONS.EXAM_RESULTS])
+            ? { actionLabel: 'Compute final results', onAction: () => setConfirmingRecompute(true) }
+            : {})}
         />
       ) : (
         <>

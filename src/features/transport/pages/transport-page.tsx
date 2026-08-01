@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { LoadingState } from '@/components/shared'
 import { api } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
+import { usePermissions, PERMISSIONS } from '@/hooks/use-permissions'
 import { useAppStore } from '@/lib/store'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -70,6 +71,10 @@ const TRANSPORT_ROUTE_LIST_STATE_KEY = 'transport:routes:list'
 export function TransportPage() {
   const router = useRouter()
   const { toast } = useToast()
+  const { hasPermission } = usePermissions()
+  const canCreate = hasPermission(PERMISSIONS.TRANSPORT_CREATE)
+  const canUpdate = hasPermission(PERMISSIONS.TRANSPORT_UPDATE)
+  const canDelete = hasPermission(PERMISSIONS.TRANSPORT_DELETE)
   const viewingAcademicYear = useAppStore((state) => state.viewingAcademicYear)
   const currentSchool = useAppStore((state) => state.currentSchool)
   const savedListState = useAppStore((state) => state.pageState[TRANSPORT_ROUTE_LIST_STATE_KEY] as TransportRouteListState | undefined)
@@ -234,15 +239,17 @@ export function TransportPage() {
             <p className="mt-0.5 text-xs text-white/80">Manage routes, stops, fees, and driver assignments.</p>
           </div>
         </div>
-        <Button
-          variant="secondary"
-          onClick={() => router.push('/transport/routes/new')}
-          className="relative shrink-0 gap-2 border border-white/60 shadow-md transition-all hover:-translate-y-0.5 hover:shadow-lg"
-          style={{ backgroundColor: 'white', color: 'var(--primary)' }}
-        >
-          <PlusCircle className="size-4" strokeWidth={2.2} />
-          <span className="font-semibold">Add Route</span>
-        </Button>
+        {canCreate && (
+          <Button
+            variant="secondary"
+            onClick={() => router.push('/transport/routes/new')}
+            className="relative shrink-0 gap-2 border border-white/60 shadow-md transition-all hover:-translate-y-0.5 hover:shadow-lg"
+            style={{ backgroundColor: 'white', color: 'var(--primary)' }}
+          >
+            <PlusCircle className="size-4" strokeWidth={2.2} />
+            <span className="font-semibold">Add Route</span>
+          </Button>
+        )}
       </div>
 
       {/* Stats */}
@@ -304,10 +311,12 @@ export function TransportPage() {
           </div>
           <h3 className="mt-4 text-base font-semibold">No Transport Routes</h3>
           <p className="mt-1 text-sm text-muted-foreground">Add transport routes to manage student commuting and vehicle assignments.</p>
-          <Button onClick={() => router.push('/transport/routes/new')} className="mt-4 gap-2">
-            <PlusCircle className="size-4" />
-            Add Route
-          </Button>
+          {canCreate && (
+            <Button onClick={() => router.push('/transport/routes/new')} className="mt-4 gap-2">
+              <PlusCircle className="size-4" />
+              Add Route
+            </Button>
+          )}
         </div>
       ) : (
         <Card className="gap-0 overflow-hidden border-sky-500/15 bg-gradient-to-br from-card via-card to-sky-500/[0.035] py-0 shadow-sm">
@@ -487,24 +496,30 @@ export function TransportPage() {
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end" className="w-36">
-                                <DropdownMenuItem onClick={(event) => {
-                                  event.stopPropagation()
-                                  handleEdit(route)
-                                }}>
-                                  <Pencil className="mr-2 size-3.5" />
-                                  Edit
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem
-                                  onClick={(event) => {
+                                {canUpdate && (
+                                  <DropdownMenuItem onClick={(event) => {
                                     event.stopPropagation()
-                                    setDeleteRoute(route)
-                                  }}
-                                  className="text-destructive focus:text-destructive"
-                                >
-                                  <Trash2 className="mr-2 size-3.5" />
-                                  Delete
-                                </DropdownMenuItem>
+                                    handleEdit(route)
+                                  }}>
+                                    <Pencil className="mr-2 size-3.5" />
+                                    Edit
+                                  </DropdownMenuItem>
+                                )}
+                                {canDelete && (
+                                  <>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem
+                                      onClick={(event) => {
+                                        event.stopPropagation()
+                                        setDeleteRoute(route)
+                                      }}
+                                      className="text-destructive focus:text-destructive"
+                                    >
+                                      <Trash2 className="mr-2 size-3.5" />
+                                      Delete
+                                    </DropdownMenuItem>
+                                  </>
+                                )}
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </TableCell>
@@ -622,7 +637,7 @@ export function TransportPage() {
             <Button variant="outline" size="sm" className="h-8 px-4 text-xs" onClick={() => setSelectedRoute(null)}>
               Close
             </Button>
-            {selectedRoute && (
+            {selectedRoute && canUpdate && (
               <Button size="sm" className="h-8 gap-1.5 px-4 text-xs" onClick={() => { setSelectedRoute(null); handleEdit(selectedRoute) }}>
                 <Pencil className="size-3.5" />
                 Edit Route

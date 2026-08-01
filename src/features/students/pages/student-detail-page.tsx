@@ -1171,6 +1171,8 @@ export function StudentDetailPage({ studentId }: { studentId: string }) {
   const canVerifyDocs = hasPermission(PERMISSIONS.ADMISSION_APPROVE)
   const canManageDocs = hasPermission(PERMISSIONS.ADMISSION_UPDATE)
   const currentSchool = useAppStore((s) => s.currentSchool)
+  const user = useAppStore((s) => s.user)
+  const canResetParentPassword = user?.role === 'SUPER_ADMIN' || user?.role === 'SCHOOL_ADMIN'
 
   const currentSchoolAcademicYear = currentSchool?.academicYear
 
@@ -1817,7 +1819,7 @@ export function StudentDetailPage({ studentId }: { studentId: string }) {
           <DiscontinueRefundsSection
             studentId={studentId}
             refreshKey={billingRefreshKey}
-            canSettle={canIssueRefund}
+            canSettle={canManageTransport || canManageHostel}
             onChanged={() => setBillingRefreshKey((n) => n + 1)}
           />
 
@@ -2018,7 +2020,7 @@ export function StudentDetailPage({ studentId }: { studentId: string }) {
             <SectionCard
               title="Father's Details"
               icon={CircleUser}
-              headerAction={canEdit && fatherParentLink?.parent.userId ? (
+              headerAction={canResetParentPassword && fatherParentLink?.parent.userId ? (
                 <Button
                   variant="outline"
                   size="sm"
@@ -2050,7 +2052,7 @@ export function StudentDetailPage({ studentId }: { studentId: string }) {
             <SectionCard
               title="Mother's Details"
               icon={CircleUserRound}
-              headerAction={canEdit && motherParentLink?.parent.userId ? (
+              headerAction={canResetParentPassword && motherParentLink?.parent.userId ? (
                 <Button
                   variant="outline"
                   size="sm"

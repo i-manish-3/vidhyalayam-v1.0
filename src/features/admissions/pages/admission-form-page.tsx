@@ -6,6 +6,7 @@ import { useAppStore } from '@/lib/store'
 import { api } from '@/lib/api'
 import { compressImage } from '@/lib/image-compress'
 import { getCurrentAcademicYear } from '@/lib/academic-years'
+import { usePermissions, PERMISSIONS } from '@/hooks/use-permissions'
 import { useToast } from '@/hooks/use-toast'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -541,6 +542,8 @@ export function AdmissionFormPage() {
   const { currentSchool } = useAppStore()
   const schoolId = currentSchool?.id
   const { toast } = useToast()
+  const { hasPermission } = usePermissions()
+  const canAdmit = hasPermission(PERMISSIONS.ADMISSION_CREATE)
 
   // Step state
   const [currentStep, setCurrentStep] = useState(1)
@@ -2925,7 +2928,7 @@ export function AdmissionFormPage() {
             </Button>
           )}
           {currentStep === 6 && (
-            <Button onClick={handleSubmit} disabled={submitting} className="h-9 gap-1 px-6 shadow-sm shadow-primary/20">
+            <Button onClick={handleSubmit} disabled={submitting || !canAdmit} title={!canAdmit ? 'You need the "Create Admission" permission to admit a student.' : undefined} className="h-9 gap-1 px-6 shadow-sm shadow-primary/20">
               {submitting ? (
                 <div className="size-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
               ) : (

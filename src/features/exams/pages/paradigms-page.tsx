@@ -44,6 +44,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { api } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
+import { PERMISSIONS, usePermissions } from '@/hooks/use-permissions'
 import {
   AggregationRuleBuilder,
   type AggregationRule,
@@ -91,6 +92,7 @@ const DEFAULT_PASSING: PassingRule = { perSubject: 33, overall: 33, allowGrace: 
 export function ExamParadigmsPage() {
   const router = useRouter()
   const { toast } = useToast()
+  const { hasAnyPermission } = usePermissions()
   const [loading, setLoading] = useState(true)
   const [paradigms, setParadigms] = useState<Paradigm[]>([])
   const [years, setYears] = useState<AcademicYear[]>([])
@@ -151,11 +153,15 @@ export function ExamParadigmsPage() {
         title="Exam patterns"
         badge={`${paradigms.length} pattern${paradigms.length === 1 ? '' : 's'}`}
         description="An exam pattern defines an academic year's exam framework — its terms, weighting, and passing rules."
-        primaryAction={{
-          label: 'New exam pattern',
-          icon: Plus,
-          onClick: () => setEditing('new'),
-        }}
+        primaryAction={
+          hasAnyPermission([PERMISSIONS.EXAM_MANAGE])
+            ? {
+                label: 'New exam pattern',
+                icon: Plus,
+                onClick: () => setEditing('new'),
+              }
+            : undefined
+        }
       />
 
       {paradigms.length === 0 ? (
@@ -163,8 +169,9 @@ export function ExamParadigmsPage() {
           icon={Layers}
           title="No exam patterns yet"
           description='Create your first exam pattern — e.g. "CBSE Term Pattern 2026-27".'
-          actionLabel="Create exam pattern"
-          onAction={() => setEditing('new')}
+          {...(hasAnyPermission([PERMISSIONS.EXAM_MANAGE])
+            ? { actionLabel: 'Create exam pattern', onAction: () => setEditing('new') }
+            : {})}
         />
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -198,18 +205,22 @@ export function ExamParadigmsPage() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => setEditing(p)}>
-                        <Pencil className="mr-2 size-4" /> Edit
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => router.push(`/exams/patterns/${p.id}/groups`)}>
-                        <Layers className="mr-2 size-4" /> Manage groups
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        className="text-destructive focus:text-destructive"
-                        onClick={() => setDeleteTarget(p)}
-                      >
-                        <Trash2 className="mr-2 size-4" /> Delete
-                      </DropdownMenuItem>
+                      {hasAnyPermission([PERMISSIONS.EXAM_MANAGE]) && (
+                        <>
+                          <DropdownMenuItem onClick={() => setEditing(p)}>
+                            <Pencil className="mr-2 size-4" /> Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => router.push(`/exams/patterns/${p.id}/groups`)}>
+                            <Layers className="mr-2 size-4" /> Manage groups
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className="text-destructive focus:text-destructive"
+                            onClick={() => setDeleteTarget(p)}
+                          >
+                            <Trash2 className="mr-2 size-4" /> Delete
+                          </DropdownMenuItem>
+                        </>
+                      )}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
@@ -223,7 +234,10 @@ export function ExamParadigmsPage() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => router.push(`/exams/patterns/${p.id}/groups`)}
+                    onClick={() =>
+                      hasAnyPermission([PERMISSIONS.EXAM_MANAGE]) &&
+                      router.push(`/exams/patterns/${p.id}/groups`)
+                    }
                   >
                     Open
                   </Button>

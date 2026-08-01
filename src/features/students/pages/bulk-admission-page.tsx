@@ -3,6 +3,7 @@
 import { Fragment, useMemo, useRef, useState } from 'react'
 import Papa from 'papaparse'
 import { api } from '@/lib/api'
+import { usePermissions, PERMISSIONS } from '@/hooks/use-permissions'
 import { useToast } from '@/hooks/use-toast'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -96,6 +97,8 @@ const SAMPLE_ROWS: Array<Partial<Record<(typeof BULK_TEMPLATE_COLUMNS)[number], 
 
 export function BulkAdmissionPage() {
   const { toast } = useToast()
+  const { hasPermission } = usePermissions()
+  const canImport = hasPermission(PERMISSIONS.ADMISSION_CREATE)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [phase, setPhase] = useState<Phase>('upload')
@@ -414,6 +417,7 @@ export function BulkAdmissionPage() {
           fileName={fileName}
           onReset={resetUpload}
           onCommit={startCommit}
+          canImport={canImport}
         />
       )}
 
@@ -497,6 +501,7 @@ function PreviewSection({
   fileName,
   onReset,
   onCommit,
+  canImport,
 }: {
   validation: ValidateResponse
   filter: 'all' | 'valid' | 'warning' | 'invalid'
@@ -507,6 +512,7 @@ function PreviewSection({
   fileName: string | null
   onReset: () => void
   onCommit: () => void
+  canImport: boolean
 }) {
   const importable = validation.counts.valid + validation.counts.warning
   return (
@@ -521,7 +527,7 @@ function PreviewSection({
             <Button variant="outline" size="sm" onClick={onReset}>
               Upload Another
             </Button>
-            <Button size="sm" disabled={importable === 0} onClick={onCommit} className="gap-1">
+            <Button size="sm" disabled={!canImport || importable === 0} onClick={onCommit} className="gap-1" title={!canImport ? 'You need the "Create Admission" permission to import students.' : undefined}>
               <Upload className="size-3.5" />
               Import {importable} row{importable === 1 ? '' : 's'}
             </Button>

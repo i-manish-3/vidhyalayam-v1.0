@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { requireRole } from '@/lib/api-auth'
+import { requirePermission } from '@/lib/api-auth'
 import { apiError, internalError, unauthorizedError, validationError } from '@/lib/api-errors'
 import { decryptToken } from '@/lib/encryption'
 import { sendTextMessage, normalizePhoneE164 } from '@/lib/whatsapp/meta-cloud'
@@ -11,7 +11,7 @@ interface PostBody {
 
 export async function POST(request: NextRequest) {
   try {
-    const user = requireRole(request, ['SUPER_ADMIN', 'SCHOOL_ADMIN'])
+    const user = await requirePermission(request, 'settings:update')
     if (!user?.schoolId) return unauthorizedError()
 
     const body = (await request.json().catch(() => ({}))) as PostBody

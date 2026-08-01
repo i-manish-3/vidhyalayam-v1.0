@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { requireRole, requirePermission } from '@/lib/api-auth'
-import { unauthorizedError, internalError, apiError } from '@/lib/api-errors'
+import { unauthorizedError, internalError, apiError, forbiddenError } from '@/lib/api-errors'
 
 const DEFAULT_FEE_GROUP_NAME = '_DEFAULT'
 const DEFAULT_FEE_GROUP_DESCRIPTION = 'Default fee group. This group is required and cannot be deleted.'
@@ -36,6 +36,10 @@ export async function GET(request: NextRequest) {
     const user = requireRole(request, ['SCHOOL_ADMIN', 'TEACHER', 'STAFF'])
     if (!user || !user.schoolId) {
       return unauthorizedError()
+    }
+    const permitted = await requirePermission(request, 'fees:read')
+    if (!permitted) {
+      return forbiddenError()
     }
 
     await ensureDefaultFeeGroup(user.schoolId)

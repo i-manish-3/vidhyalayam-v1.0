@@ -5,6 +5,7 @@ import { api } from '@/lib/api'
 import { compareClassNames } from '@/lib/class-order'
 import { cn } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
+import { usePermissions, PERMISSIONS } from '@/hooks/use-permissions'
 import { LoadingState } from '@/components/shared'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -50,6 +51,8 @@ const DEFAULT_COLORS = ['#ef4444', '#2563eb', '#16a34a', '#eab308', '#9333ea', '
 
 export function StudentHousesPage() {
   const { toast } = useToast()
+  const { hasPermission } = usePermissions()
+  const canManage = hasPermission(PERMISSIONS.STUDENT_UPDATE)
   const [houses, setHouses] = useState<StudentHouse[]>([])
   const [students, setStudents] = useState<StudentRow[]>([])
   const [loading, setLoading] = useState(true)
@@ -343,9 +346,11 @@ export function StudentHousesPage() {
             <p className="mt-0.5 text-xs text-white/80">Create colorful houses and assign students in one place</p>
           </div>
         </div>
-        <Button variant="secondary" onClick={openCreateDialog} className="relative shrink-0 gap-2 border border-white/60 shadow-md" style={{ backgroundColor: 'white', color: 'var(--primary)' }}>
-          <Plus className="size-4" /> Create House
-        </Button>
+        {canManage && (
+          <Button variant="secondary" onClick={openCreateDialog} className="relative shrink-0 gap-2 border border-white/60 shadow-md" style={{ backgroundColor: 'white', color: 'var(--primary)' }}>
+            <Plus className="size-4" /> Create House
+          </Button>
+        )}
       </div>
 
       <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
@@ -426,17 +431,19 @@ export function StudentHousesPage() {
                       </Badge>
                     </div>
                     <div className="flex shrink-0 gap-1">
-                      <Button variant="outline" size="sm" onClick={() => openEditDialog(house)}>Edit</Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="size-8 text-destructive"
-                        disabled={saving || (house._count?.students || 0) > 0}
-                        onClick={() => setDeleteTarget(house)}
-                        title={(house._count?.students || 0) > 0 ? 'Unassign students before deleting this house' : 'Delete house'}
-                      >
-                        <Trash2 className="size-4" />
-                      </Button>
+                      {canManage && <Button variant="outline" size="sm" onClick={() => openEditDialog(house)}>Edit</Button>}
+                      {canManage && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="size-8 text-destructive"
+                          disabled={saving || (house._count?.students || 0) > 0}
+                          onClick={() => setDeleteTarget(house)}
+                          title={(house._count?.students || 0) > 0 ? 'Unassign students before deleting this house' : 'Delete house'}
+                        >
+                          <Trash2 className="size-4" />
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -600,11 +607,11 @@ export function StudentHousesPage() {
                   )}
                 </div>
                 <div className="mt-3 grid gap-2">
-                  <Button onClick={() => assignStudents(false)} disabled={assigning || scopeStudentIds.length === 0 || !targetHouseId} className="gap-1">
+                  <Button onClick={() => assignStudents(false)} disabled={!canManage || assigning || scopeStudentIds.length === 0 || !targetHouseId} className="gap-1">
                     {assigning ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
                     Assign House
                   </Button>
-                  <Button variant="outline" onClick={() => assignStudents(true)} disabled={assigning || scopeStudentIds.length === 0} className="gap-1">
+                  <Button variant="outline" onClick={() => assignStudents(true)} disabled={!canManage || assigning || scopeStudentIds.length === 0} className="gap-1">
                     <X className="size-4" /> Remove House
                   </Button>
                 </div>
@@ -792,7 +799,7 @@ export function StudentHousesPage() {
           <AlertDialogFooter>
             <AlertDialogCancel disabled={saving}>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              disabled={saving || !deleteTarget}
+              disabled={saving || !deleteTarget || !canManage}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={() => deleteTarget && deleteHouse(deleteTarget)}
             >

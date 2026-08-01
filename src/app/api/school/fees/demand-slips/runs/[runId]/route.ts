@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireRole } from '@/lib/api-auth'
-import { unauthorizedError, notFoundError, internalError } from '@/lib/api-errors'
+import { requireRole, requirePermission } from '@/lib/api-auth'
+import { unauthorizedError, notFoundError, internalError, forbiddenError } from '@/lib/api-errors'
 import { getDemandSlipJobStatus } from '@/lib/queue'
 import { db } from '@/lib/db'
 
@@ -11,6 +11,8 @@ export async function GET(
   try {
     const user = requireRole(request, ['SUPER_ADMIN', 'SCHOOL_ADMIN', 'STAFF'])
     if (!user?.schoolId) return unauthorizedError()
+    const permitted = await requirePermission(request, 'fees:read')
+    if (!permitted) return forbiddenError()
 
     const { runId } = await params
 

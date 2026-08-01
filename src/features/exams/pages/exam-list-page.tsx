@@ -17,6 +17,7 @@ import {
 import { api } from '@/lib/api'
 import { useAppStore } from '@/lib/store'
 import { useToast } from '@/hooks/use-toast'
+import { PERMISSIONS, usePermissions } from '@/hooks/use-permissions'
 import {
   ClipboardCheck,
   ClipboardList,
@@ -98,6 +99,7 @@ export function ExamListPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { toast } = useToast()
+  const { hasAnyPermission } = usePermissions()
   const initialGroup = searchParams.get('examGroupId') ?? ''
   const savedListState = useAppStore((state) => state.pageState[EXAM_LIST_STATE_KEY] as ExamListState | undefined)
   const setPageState = useAppStore((state) => state.setPageState)
@@ -163,11 +165,15 @@ export function ExamListPage() {
         title="Exams"
         badge={`${exams.length} exam${exams.length === 1 ? '' : 's'}`}
         description="All exams across patterns and terms."
-        primaryAction={{
-          label: 'New exam',
-          icon: Plus,
-          onClick: () => router.push('/exams/new'),
-        }}
+        primaryAction={
+          hasAnyPermission([PERMISSIONS.EXAM_MANAGE])
+            ? {
+                label: 'New exam',
+                icon: Plus,
+                onClick: () => router.push('/exams/new'),
+              }
+            : undefined
+        }
       />
 
       <Card className="gap-0 overflow-hidden border-sky-200/80 bg-gradient-to-r from-sky-50 via-white to-violet-50 py-0 shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10">
@@ -263,8 +269,9 @@ export function ExamListPage() {
               ? 'Create your first exam to get started.'
               : 'Try adjusting the filters above.'
           }
-          actionLabel={exams.length === 0 ? 'Create exam' : undefined}
-          onAction={exams.length === 0 ? () => router.push('/exams/new') : undefined}
+          {...(exams.length === 0 && hasAnyPermission([PERMISSIONS.EXAM_MANAGE])
+            ? { actionLabel: 'Create exam', onAction: () => router.push('/exams/new') }
+            : {})}
         />
       ) : (
         <div className="grid gap-3 xl:grid-cols-2">
@@ -275,7 +282,10 @@ export function ExamListPage() {
               <Card
                 key={e.id}
                 className={cn('group cursor-pointer gap-0 overflow-hidden border bg-gradient-to-br py-0 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md', tone.card)}
-                onClick={() => router.push(`/exams/${e.id}/marks-entry`)}
+                onClick={() =>
+                  hasAnyPermission([PERMISSIONS.EXAM_MARKS, PERMISSIONS.EXAM_MANAGE]) &&
+                  router.push(`/exams/${e.id}/marks-entry`)
+                }
               >
                 <div className={cn('flex items-start gap-3 border-b border-current/10 bg-gradient-to-r p-3.5', tone.header)}>
                   <div className={cn('flex size-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br text-white shadow-md', tone.icon)}>
@@ -306,61 +316,71 @@ export function ExamListPage() {
                     {e._count.schedules} schedule row{e._count.schedules === 1 ? '' : 's'}
                   </p>
                   <div className="flex flex-wrap gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-8 gap-1.5 border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100 dark:border-sky-500/25 dark:bg-sky-500/10 dark:text-sky-300"
-                      onClick={(ev) => {
-                        ev.stopPropagation()
-                        router.push(`/exams/${e.id}/configure`)
-                      }}
-                    >
-                      <Settings2 className="size-3.5" /> Configure
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-8 gap-1.5 border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100 dark:border-violet-500/25 dark:bg-violet-500/10 dark:text-violet-300"
-                      onClick={(ev) => {
-                        ev.stopPropagation()
-                        router.push(`/exams/${e.id}/schedule`)
-                      }}
-                    >
-                      <CalIcon className="size-3.5" /> Schedule
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-8 gap-1.5 border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-500/25 dark:bg-emerald-500/10 dark:text-emerald-300"
-                      onClick={(ev) => {
-                        ev.stopPropagation()
-                        router.push(`/exams/${e.id}/results`)
-                      }}
-                    >
-                      <BarChart3 className="size-3.5" /> Results
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-8 gap-1.5 border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-300"
-                      onClick={(ev) => {
-                        ev.stopPropagation()
-                        router.push(`/exams/${e.id}/admit-cards`)
-                      }}
-                    >
-                      <TicketCheck className="size-3.5" /> Admit cards
-                    </Button>
-                    <Button
-                      variant="default"
-                      size="sm"
-                      className="h-8 gap-1.5"
-                      onClick={(ev) => {
-                        ev.stopPropagation()
-                        router.push(`/exams/${e.id}/marks-entry`)
-                      }}
-                    >
-                      <ClipboardCheck className="size-3.5" /> Enter marks
-                    </Button>
+                    {hasAnyPermission([PERMISSIONS.EXAM_MANAGE]) && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 gap-1.5 border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100 dark:border-sky-500/25 dark:bg-sky-500/10 dark:text-sky-300"
+                        onClick={(ev) => {
+                          ev.stopPropagation()
+                          router.push(`/exams/${e.id}/configure`)
+                        }}
+                      >
+                        <Settings2 className="size-3.5" /> Configure
+                      </Button>
+                    )}
+                    {hasAnyPermission([PERMISSIONS.EXAM_MANAGE]) && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 gap-1.5 border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100 dark:border-violet-500/25 dark:bg-violet-500/10 dark:text-violet-300"
+                        onClick={(ev) => {
+                          ev.stopPropagation()
+                          router.push(`/exams/${e.id}/schedule`)
+                        }}
+                      >
+                        <CalIcon className="size-3.5" /> Schedule
+                      </Button>
+                    )}
+                    {hasAnyPermission([PERMISSIONS.EXAM_RESULTS]) && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 gap-1.5 border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-500/25 dark:bg-emerald-500/10 dark:text-emerald-300"
+                        onClick={(ev) => {
+                          ev.stopPropagation()
+                          router.push(`/exams/${e.id}/results`)
+                        }}
+                      >
+                        <BarChart3 className="size-3.5" /> Results
+                      </Button>
+                    )}
+                    {hasAnyPermission([PERMISSIONS.EXAM_MANAGE]) && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 gap-1.5 border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-300"
+                        onClick={(ev) => {
+                          ev.stopPropagation()
+                          router.push(`/exams/${e.id}/admit-cards`)
+                        }}
+                      >
+                        <TicketCheck className="size-3.5" /> Admit cards
+                      </Button>
+                    )}
+                    {hasAnyPermission([PERMISSIONS.EXAM_MARKS, PERMISSIONS.EXAM_MANAGE]) && (
+                      <Button
+                        variant="default"
+                        size="sm"
+                        className="h-8 gap-1.5"
+                        onClick={(ev) => {
+                          ev.stopPropagation()
+                          router.push(`/exams/${e.id}/marks-entry`)
+                        }}
+                      >
+                        <ClipboardCheck className="size-3.5" /> Enter marks
+                      </Button>
+                    )}
                   </div>
                 </div>
               </Card>

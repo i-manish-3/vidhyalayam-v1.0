@@ -24,6 +24,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { api } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
+import { PERMISSIONS, usePermissions } from '@/hooks/use-permissions'
 import { LayoutTemplate, MoreVertical, Pencil, Plus, Copy, Star, Trash2 } from 'lucide-react'
 
 interface ReportCardTemplate {
@@ -52,6 +53,7 @@ const FORMAT_BADGES: Record<string, { label: string; cls: string }> = {
 export function ReportCardTemplatesPage() {
   const router = useRouter()
   const { toast } = useToast()
+  const { hasAnyPermission } = usePermissions()
   const [loading, setLoading] = useState(true)
   const [templates, setTemplates] = useState<ReportCardTemplate[]>([])
   const [deleteTarget, setDeleteTarget] = useState<ReportCardTemplate | null>(null)
@@ -166,11 +168,15 @@ export function ReportCardTemplatesPage() {
         icon={LayoutTemplate}
         title="Report card templates"
         description="Per-school layouts that drive report card generation. Clone the default and tweak — never edit the original to keep a safe fallback."
-        primaryAction={{
-          label: 'New template',
-          icon: Plus,
-          onClick: handleCreate,
-        }}
+        primaryAction={
+          hasAnyPermission([PERMISSIONS.EXAM_MANAGE])
+            ? {
+                label: 'New template',
+                icon: Plus,
+                onClick: handleCreate,
+              }
+            : undefined
+        }
       />
 
       {templates.length === 0 ? (
@@ -178,8 +184,9 @@ export function ReportCardTemplatesPage() {
           icon={LayoutTemplate}
           title="No report card templates yet"
           description="Create one or seed the defaults (CBSE, Simple, Coaching) to start generating report cards."
-          actionLabel="Create template"
-          onAction={handleCreate}
+          {...(hasAnyPermission([PERMISSIONS.EXAM_MANAGE])
+            ? { actionLabel: 'Create template', onAction: handleCreate }
+            : {})}
         />
       ) : (
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -227,31 +234,32 @@ export function ReportCardTemplatesPage() {
                           <MoreVertical className="size-4" />
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem
-                          onClick={() => router.push(`/exams/report-card-templates/${t.id}/edit`)}
-                        >
-                          <Pencil className="mr-2 size-4" /> Edit
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => void handleClone(t)} disabled={busy}>
-                          <Copy className="mr-2 size-4" /> Clone
-                        </DropdownMenuItem>
-                        {!t.isDefault && (
+                      {hasAnyPermission([PERMISSIONS.EXAM_MANAGE]) && (
+                        <DropdownMenuContent align="end">
                           <DropdownMenuItem
-                            onClick={() => void handleSetDefault(t)}
-                            disabled={busy}
+                            onClick={() => router.push(`/exams/report-card-templates/${t.id}/edit`)}
                           >
-                            <Star className="mr-2 size-4" /> Set as default
+                            <Pencil className="mr-2 size-4" /> Edit
                           </DropdownMenuItem>
-                        )}
-                        <DropdownMenuItem
-                          className="text-destructive focus:text-destructive"
-                          onClick={() => setDeleteTarget(t)}
-                          disabled={t.isDefault}
-                        >
-                          <Trash2 className="mr-2 size-4" /> Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
+                          <DropdownMenuItem onClick={() => void handleClone(t)} disabled={busy}>
+                            <Copy className="mr-2 size-4" /> Clone
+                          </DropdownMenuItem>
+                          {!t.isDefault && (
+                            <DropdownMenuItem
+                              onClick={() => void handleSetDefault(t)}
+                              disabled={busy}
+                            >
+                              <Star className="mr-2 size-4" /> Set as default
+                            </DropdownMenuItem>
+                          )}
+                          <DropdownMenuItem
+                            className="text-destructive focus:text-destructive"
+                            onClick={() => setDeleteTarget(t)}
+                          >
+                            <Trash2 className="mr-2 size-4" /> Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      )}
                     </DropdownMenu>
                   </div>
                 </CardHeader>

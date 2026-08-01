@@ -102,7 +102,7 @@ export async function GET(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
-    const user = requireRole(request, ['SUPER_ADMIN', 'SCHOOL_ADMIN'])
+    const user = await requirePermission(request, 'settings:update')
     if (!user?.schoolId) return unauthorizedError()
 
     const body = await request.json()

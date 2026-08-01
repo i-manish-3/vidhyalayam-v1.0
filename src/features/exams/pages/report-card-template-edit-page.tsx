@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/select'
 import { api } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
+import { PERMISSIONS, usePermissions } from '@/hooks/use-permissions'
 import { Save, Eye, AlertCircle, FileText } from 'lucide-react'
 import { ReportCardRenderer } from '@/features/exams/components/report-card-renderer'
 import {
@@ -131,6 +132,7 @@ export function ReportCardTemplateEditPage() {
   const params = useParams<{ id: string }>()
   const id = params?.id ?? ''
   const { toast } = useToast()
+  const { hasAnyPermission } = usePermissions()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [template, setTemplate] = useState<ReportCardTemplate | null>(null)
@@ -408,11 +410,15 @@ export function ReportCardTemplateEditPage() {
         icon={FileText}
         title={template.name || 'Edit template'}
         description="Tweak the layout below and watch the preview update live. Changes save when you click Save."
-        primaryAction={{
-          label: saving ? 'Saving…' : 'Save changes',
-          icon: Save,
-          onClick: () => void handleSave(),
-        }}
+        primaryAction={
+          hasAnyPermission([PERMISSIONS.EXAM_MANAGE])
+            ? {
+                label: saving ? 'Saving…' : 'Save changes',
+                icon: Save,
+                onClick: () => void handleSave(),
+              }
+            : undefined
+        }
       />
 
       <div className="grid gap-6 lg:grid-cols-2">
@@ -551,8 +557,8 @@ export function ReportCardTemplateEditPage() {
                     <Badge
                       key={f.key}
                       variant={active ? 'default' : 'outline'}
-                      className="cursor-pointer select-none"
-                      onClick={() => toggleField(f.key)}
+                      className={hasAnyPermission([PERMISSIONS.EXAM_MANAGE]) ? 'cursor-pointer select-none' : ''}
+                      onClick={() => hasAnyPermission([PERMISSIONS.EXAM_MANAGE]) && toggleField(f.key)}
                     >
                       {f.label}
                     </Badge>
@@ -638,12 +644,19 @@ export function ReportCardTemplateEditPage() {
                       variant="ghost"
                       size="sm"
                       onClick={() => removeSignature(i)}
+                      disabled={!hasAnyPermission([PERMISSIONS.EXAM_MANAGE])}
                     >
                       Remove
                     </Button>
                   </div>
                 ))}
-                <Button type="button" variant="outline" size="sm" onClick={addSignature}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={addSignature}
+                  disabled={!hasAnyPermission([PERMISSIONS.EXAM_MANAGE])}
+                >
                   + Add signature
                 </Button>
               </div>

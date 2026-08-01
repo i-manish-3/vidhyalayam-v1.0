@@ -6,6 +6,7 @@ import { api } from '@/lib/api'
 import { getCurrentAcademicYear } from '@/lib/academic-years'
 import { useAppStore } from '@/lib/store'
 import { useToast } from '@/hooks/use-toast'
+import { usePermissions, PERMISSIONS } from '@/hooks/use-permissions'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
@@ -74,6 +75,8 @@ function avatarTint(seed: string) {
 export function AssignRollNumbersPage() {
   const router = useRouter()
   const { toast } = useToast()
+  const { hasPermission } = usePermissions()
+  const canAssign = hasPermission(PERMISSIONS.STUDENT_UPDATE)
   const currentSchoolAcademicYear = useAppStore((s) => s.currentSchool?.academicYear)
   const viewingAcademicYear = useAppStore((s) => s.viewingAcademicYear)
   const academicYear = viewingAcademicYear || currentSchoolAcademicYear || getCurrentAcademicYear()
@@ -533,7 +536,7 @@ export function AssignRollNumbersPage() {
               <Button variant="outline" size="sm" className="h-9 gap-1.5 border-primary/20" disabled={dirtyCount === 0 || saving} onClick={resetDraft}>
                 <RotateCcw className="size-3.5" /> Reset
               </Button>
-              <Button size="sm" className="h-9 gap-1.5 bg-gradient-to-r from-primary to-teal-600 px-4 text-white shadow-md shadow-primary/20 hover:opacity-90" disabled={dirtyCount === 0 || saving} onClick={handleSave}>
+              <Button size="sm" className="h-9 gap-1.5 bg-gradient-to-r from-primary to-teal-600 px-4 text-white shadow-md shadow-primary/20 hover:opacity-90" disabled={dirtyCount === 0 || saving || !canAssign} onClick={handleSave}>
                 <Save className="size-3.5 text-white" /> {saving ? 'Saving…' : 'Save Roll Numbers'}
               </Button>
             </div>

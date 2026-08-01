@@ -6,6 +6,7 @@ import { api } from '@/lib/api'
 import { useAppStore } from '@/lib/store'
 import { getCurrentAcademicYear } from '@/lib/academic-years'
 import { useToast } from '@/hooks/use-toast'
+import { usePermissions, PERMISSIONS } from '@/hooks/use-permissions'
 import { PageHeader } from '@/components/shared'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
@@ -45,6 +46,8 @@ function sortAcademicMonths(months: string[]): string[] {
 export function AddTransportRoutePage() {
   const { toast } = useToast()
   const router = useRouter()
+  const { hasPermission } = usePermissions()
+  const canCreate = hasPermission(PERMISSIONS.TRANSPORT_CREATE)
   const currentSchoolAcademicYear = useAppStore((s) => s.currentSchool?.academicYear)
   const viewingAcademicYear = useAppStore((s) => s.viewingAcademicYear)
 
@@ -501,7 +504,7 @@ export function AddTransportRoutePage() {
               Route name, code, fee months, and at least one stop are required.
             </p>
             <div className="flex items-center gap-3">
-              <Button type="submit" disabled={!canSubmit} className="min-w-[140px] gap-2">
+              <Button type="submit" disabled={!canSubmit || !canCreate} className="min-w-[140px] gap-2">
                 {submitting ? (
                   <>
                     <Loader2 className="size-4 animate-spin" />

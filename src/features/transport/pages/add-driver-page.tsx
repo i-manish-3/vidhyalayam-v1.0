@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
 import { compressImage } from '@/lib/image-compress'
 import { useToast } from '@/hooks/use-toast'
+import { usePermissions, PERMISSIONS } from '@/hooks/use-permissions'
 import { cn } from '@/lib/utils'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -24,6 +25,8 @@ interface CreatedDriver {
 export function AddDriverPage() {
   const { toast } = useToast()
   const router = useRouter()
+  const { hasPermission } = usePermissions()
+  const canCreate = hasPermission(PERMISSIONS.TRANSPORT_CREATE)
 
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
@@ -335,7 +338,7 @@ export function AddDriverPage() {
                   All fields marked with <span className="text-destructive">*</span> are required.
                 </p>
                 <div className="flex items-center gap-3">
-                  <Button type="submit" disabled={!isFormValid} className="min-w-[130px] gap-2">
+                  <Button type="submit" disabled={!isFormValid || !canCreate} className="min-w-[130px] gap-2">
                     {submitting ? (
                       <><Loader2 className="size-4 animate-spin" /> Saving...</>
                     ) : (

@@ -168,6 +168,8 @@ export const PERMISSIONS = {
   FEES_COLLECT: 'fees:collect',
   FEES_REFUND: 'fees:refund',
   FEES_DELETE: 'fees:delete',
+  FEES_CHANGE_GROUP: 'fees:change-group',
+  FEES_AUDIT: 'fees:audit',
 
   // Salary
   SALARY_READ: 'salary:read',
@@ -197,6 +199,7 @@ export const PERMISSIONS = {
   TRANSPORT_UPDATE: 'transport:update',
   TRANSPORT_ALLOCATION_UPDATE: 'transport:allocation:update',
   TRANSPORT_DELETE: 'transport:delete',
+  TRANSPORT_ANNUAL_SETUP: 'transport:annual-setup',
 
   // Hostel
   HOSTEL_READ: 'hostel:read',
@@ -204,6 +207,7 @@ export const PERMISSIONS = {
   HOSTEL_UPDATE: 'hostel:update',
   HOSTEL_ALLOCATION_UPDATE: 'hostel:allocation:update',
   HOSTEL_DELETE: 'hostel:delete',
+  HOSTEL_ANNUAL_SETUP: 'hostel:annual-setup',
 
   // Library
   LIBRARY_READ: 'library:read',
@@ -217,6 +221,7 @@ export const PERMISSIONS = {
   INVENTORY_CREATE: 'inventory:create',
   INVENTORY_UPDATE: 'inventory:update',
   INVENTORY_DELETE: 'inventory:delete',
+  INVENTORY_SELL: 'inventory:sell',
 
   // Notifications
   NOTIFICATION_READ: 'notification:read',

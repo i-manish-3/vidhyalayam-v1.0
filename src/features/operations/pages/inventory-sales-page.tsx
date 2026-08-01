@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { EmptyState, LoadingState } from '@/components/shared'
 import { api } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
+import { usePermissions, PERMISSIONS } from '@/hooks/use-permissions'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -161,6 +162,8 @@ function StatCard({
 
 export function InventorySalesPage() {
   const { toast } = useToast()
+  const { hasPermission } = usePermissions()
+  const canSell = hasPermission(PERMISSIONS.INVENTORY_SELL) || hasPermission(PERMISSIONS.FEES_COLLECT)
   const [sales, setSales] = useState<SaleListRow[]>([])
   const [loading, setLoading] = useState(true)
   const [detail, setDetail] = useState<SaleDetail | null>(null)
@@ -434,7 +437,7 @@ export function InventorySalesPage() {
                       <TableCell className="py-2.5">{(() => { const b = dueBadge(s); return <Badge variant="outline" className={cn('text-[10px] px-1.5 py-0.5', b.cls)}>{b.label}</Badge> })()}</TableCell>
                       <TableCell className="py-2.5">
                         <div className="flex items-center justify-end gap-1.5">
-                          {s.status !== 'voided' && s.totalAmount - s.amountPaid > 0.001 && (
+                          {s.status !== 'voided' && s.totalAmount - s.amountPaid > 0.001 && canSell && (
                             <Button
                               size="sm"
                               className="h-7 gap-1 border-amber-200 bg-amber-50 text-amber-700 text-xs shadow-xs hover:bg-amber-100 dark:border-amber-900/30 dark:bg-amber-950/20 dark:text-amber-300"
@@ -617,7 +620,7 @@ export function InventorySalesPage() {
                                   : 'Cash refund pending — collect from counter'}
                             </p>
                           </div>
-                          {detail.refundStatus !== 'settled' && detail.refundStatus !== 'advanced' && (
+                          {detail.refundStatus !== 'settled' && detail.refundStatus !== 'advanced' && canSell && (
                             <Button size="sm" variant="outline" className="h-8 shrink-0 gap-1.5 border-rose-200 bg-white text-xs font-semibold text-rose-600 hover:bg-rose-50 dark:border-rose-900/30 dark:bg-transparent dark:text-rose-400" onClick={() => { setSettleMethod('cash'); setSettleTarget({ target: 'void', amount: detail.refundAmount || 0, label: `reversal refund for #${detail.receiptNumber}` }) }}>
                               <IndianRupee className="size-3.5" />Mark Paid
                             </Button>
@@ -655,11 +658,11 @@ export function InventorySalesPage() {
                                 <span className="tabular-nums font-medium">{inr(r.cashRefund)}</span>
                                 {r.refundStatus === 'settled' ? (
                                   <Badge variant="outline" className="border-emerald-300 bg-emerald-50 text-emerald-700 text-[9px] px-1.5 dark:bg-emerald-950/20 dark:text-emerald-300">Paid{r.refundMethod ? ` · ${r.refundMethod}` : ''}</Badge>
-                                ) : (
+                                ) : canSell ? (
                                   <Button size="sm" variant="outline" className="h-6 gap-1 border-amber-200 text-[10px]" onClick={() => { setSettleMethod('cash'); setSettleTarget({ target: 'return', returnId: r.id, amount: r.cashRefund, label: `return refund on #${detail.receiptNumber}` }) }}>
                                     <IndianRupee className="size-3" />Pay
                                   </Button>
-                                )}
+                                ) : null}
                               </span>
                             </div>
                           )}
@@ -692,7 +695,7 @@ export function InventorySalesPage() {
 
               <DialogFooter className="flex-wrap gap-2 border-t border-primary/10 bg-gradient-to-br from-primary/[0.02] to-transparent px-5 py-3 sm:px-6">
                 <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={printReceipt}><Printer className="size-3.5" />Print</Button>
-                {detail.status !== 'voided' && (
+                {detail.status !== 'voided' && canSell && (
                   <>
                     {returnMode ? (
                       <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={handleReturn} disabled={returning}>
@@ -780,7 +783,7 @@ export function InventorySalesPage() {
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setCollectFor(null)} disabled={collecting}>Cancel</Button>
-            <Button onClick={handleCollect} disabled={collecting} className="gap-2">
+            <Button onClick={handleCollect} disabled={collecting || !canSell} className="gap-2">
               {collecting ? <Loader2 className="size-4 animate-spin" /> : <IndianRupee className="size-4" />}
               Collect
             </Button>
@@ -848,7 +851,7 @@ export function InventorySalesPage() {
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setVoidOpen(false)} disabled={voiding}>Cancel</Button>
-            <Button variant="destructive" onClick={handleVoid} disabled={voiding} className="gap-2">
+            <Button variant="destructive" onClick={handleVoid} disabled={voiding || !canSell} className="gap-2">
               {voiding ? <Loader2 className="size-4 animate-spin" /> : <Ban className="size-4" />}
               Confirm Reverse
             </Button>
@@ -903,7 +906,7 @@ export function InventorySalesPage() {
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setSettleTarget(null)} disabled={settling}>Cancel</Button>
-            <Button onClick={handleSettleRefund} disabled={settling} className="gap-2">
+            <Button onClick={handleSettleRefund} disabled={settling || !canSell} className="gap-2">
               {settling ? <Loader2 className="size-4 animate-spin" /> : <IndianRupee className="size-4" />}
               Confirm Paid
             </Button>

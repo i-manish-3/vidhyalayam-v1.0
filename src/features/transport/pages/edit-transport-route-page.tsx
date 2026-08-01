@@ -6,6 +6,7 @@ import { api } from '@/lib/api'
 import { useAppStore } from '@/lib/store'
 import { getCurrentAcademicYear } from '@/lib/academic-years'
 import { useToast } from '@/hooks/use-toast'
+import { usePermissions, PERMISSIONS } from '@/hooks/use-permissions'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -102,6 +103,8 @@ function parseStops(value: string | null | undefined): TransportRouteStop[] {
 export function EditTransportRoutePage({ routeId }: { routeId: string }) {
   const router = useRouter()
   const { toast } = useToast()
+  const { hasPermission } = usePermissions()
+  const canUpdate = hasPermission(PERMISSIONS.TRANSPORT_UPDATE)
   const currentSchoolAcademicYear = useAppStore((s) => s.currentSchool?.academicYear)
   const viewingAcademicYear = useAppStore((s) => s.viewingAcademicYear)
 
@@ -620,7 +623,7 @@ export function EditTransportRoutePage({ routeId }: { routeId: string }) {
               Route name, code, fee months, and at least one stop are required.
             </p>
             <div className="flex items-center gap-3">
-              <Button type="submit" disabled={!canSubmit} className="min-w-[160px] gap-2">
+              <Button type="submit" disabled={!canSubmit || !canUpdate} className="min-w-[160px] gap-2">
                 {submitting ? (
                   <>
                     <Loader2 className="size-4 animate-spin" />

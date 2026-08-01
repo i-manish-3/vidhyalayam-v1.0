@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { requireRole, requirePermission } from '@/lib/api-auth'
-import { unauthorizedError, internalError, apiError } from '@/lib/api-errors'
+import { unauthorizedError, internalError, apiError, forbiddenError } from '@/lib/api-errors'
 
 // GET /api/school/fees/heads - List fee heads
 export async function GET(request: NextRequest) {
@@ -9,6 +9,10 @@ export async function GET(request: NextRequest) {
     const user = requireRole(request, ['SCHOOL_ADMIN', 'TEACHER', 'STAFF'])
     if (!user || !user.schoolId) {
       return unauthorizedError()
+    }
+    const permitted = await requirePermission(request, 'fees:read')
+    if (!permitted) {
+      return forbiddenError()
     }
 
     const feeHeads = await db.feesHead.findMany({

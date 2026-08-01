@@ -5,7 +5,7 @@ import type { Dispatch, SetStateAction } from 'react'
 import { AlertTriangle, CalendarDays, CheckCircle2, Info, Loader2, PauseCircle, Pencil, PlusCircle, RotateCcw, ShieldCheck, Trash2 } from 'lucide-react'
 import { api } from '@/lib/api'
 import { useAppStore } from '@/lib/store'
-import { useEffectiveRole } from '@/hooks/use-effective-role'
+import { usePermissions, PERMISSIONS } from '@/hooks/use-permissions'
 import { getCurrentAcademicYear, type AcademicYear } from '@/lib/academic-years'
 import { useToast } from '@/hooks/use-toast'
 import { GradientHero, GradientDialogHeader } from '@/components/shared'
@@ -83,7 +83,8 @@ function ImpactCounts({ preview }: { preview: AcademicYearImpactPreview }) {
 export function AcademicYearsPage() {
   const { toast } = useToast()
   const { currentSchool, setCurrentSchool, setViewingAcademicYear, user } = useAppStore()
-  const effectiveRole = useEffectiveRole()
+  const { hasPermission } = usePermissions()
+  const canManageYears = hasPermission(PERMISSIONS.SETTINGS_UPDATE)
   const [academicYears, setAcademicYears] = useState<AcademicYear[]>([])
   const [deletedAcademicYears, setDeletedAcademicYears] = useState<AcademicYear[]>([])
   const [yearName, setYearName] = useState(getCurrentAcademicYear())
@@ -139,10 +140,10 @@ export function AcademicYearsPage() {
   }
 
   useEffect(() => {
-    if (effectiveRole === 'SCHOOL_ADMIN') {
+    if (canManageYears) {
       fetchAcademicYears()
     }
-  }, [user?.role])
+  }, [user?.role, canManageYears])
 
   const formatDate = (value: string | null) => {
     if (!value) return '-'
@@ -394,12 +395,12 @@ export function AcademicYearsPage() {
     }
   }
 
-  if (effectiveRole !== 'SCHOOL_ADMIN') {
+  if (!canManageYears) {
     return (
       <Card>
         <CardContent className="flex flex-col items-center justify-center py-16 text-center">
           <CalendarDays className="mb-3 size-10 text-muted-foreground/50" />
-          <h2 className="text-lg font-semibold">Academic year setup is available for school admins.</h2>
+          <h2 className="text-lg font-semibold">Academic year setup requires the settings:update permission.</h2>
         </CardContent>
       </Card>
     )

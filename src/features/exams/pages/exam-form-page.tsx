@@ -18,6 +18,7 @@ import {
 import { Checkbox } from '@/components/ui/checkbox'
 import { api } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
+import { PERMISSIONS, usePermissions } from '@/hooks/use-permissions'
 import { Save, Trash2, ClipboardList, Users, ArrowLeft } from 'lucide-react'
 import {
   AlertDialog,
@@ -102,6 +103,7 @@ interface ClassSelection {
 export function ExamFormPage({ examId }: Props) {
   const router = useRouter()
   const { toast } = useToast()
+  const { hasAnyPermission } = usePermissions()
   const isEdit = Boolean(examId)
 
   const [loading, setLoading] = useState(true)
@@ -474,7 +476,7 @@ export function ExamFormPage({ examId }: Props) {
       </Card>
 
       <div className="flex flex-wrap items-center justify-between gap-2">
-        {isEdit ? (
+        {isEdit && hasAnyPermission([PERMISSIONS.EXAM_MANAGE]) ? (
           <Button
             variant="outline"
             className="h-8 gap-1.5 border-red-200 bg-red-50 text-red-700 hover:bg-red-100 dark:border-red-500/25 dark:bg-red-500/10 dark:text-red-300"
@@ -490,7 +492,11 @@ export function ExamFormPage({ examId }: Props) {
           <Button variant="outline" onClick={() => router.back()} disabled={saving}>
             Cancel
           </Button>
-          <Button onClick={() => void handleSave()} disabled={!valid || saving} className="gap-1.5">
+          <Button
+            onClick={() => void handleSave()}
+            disabled={!valid || saving || !hasAnyPermission([PERMISSIONS.EXAM_MANAGE])}
+            className="gap-1.5"
+          >
             <Save className="size-4" /> {saving ? 'Saving…' : isEdit ? 'Save changes' : 'Create exam'}
           </Button>
         </div>

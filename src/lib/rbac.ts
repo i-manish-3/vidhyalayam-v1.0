@@ -143,7 +143,14 @@ export const DEFAULT_ROLE_TEMPLATES: RoleTemplate[] = [
     description: 'Manages hostels, rooms, beds, and student allocations',
     color: '#0ea5e9',
     isSystem: true,
-    permissionCodes: ['hostel:read', 'hostel:create', 'hostel:update'],
+    permissionCodes: [
+      'hostel:read',
+      'hostel:create',
+      'hostel:update',
+      'hostel:allocation:update',
+      'student:read',
+      'notification:read',
+    ],
   },
   {
     name: 'Accountant',

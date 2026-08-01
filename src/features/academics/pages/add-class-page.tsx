@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
 import { getCurrentAcademicYear } from '@/lib/academic-years'
 import { useAppStore } from '@/lib/store'
+import { usePermissions, PERMISSIONS } from '@/hooks/use-permissions'
 import { useToast } from '@/hooks/use-toast'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -83,6 +84,8 @@ function getTeacherName(teacher: TeacherOption) {
 export function AddClassPage() {
   const { toast } = useToast()
   const router = useRouter()
+  const { hasPermission } = usePermissions()
+  const canCreate = hasPermission(PERMISSIONS.CLASS_CREATE)
   const currentSchoolAcademicYear = useAppStore((s) => s.currentSchool?.academicYear)
   const viewingAcademicYear = useAppStore((s) => s.viewingAcademicYear)
   const academicYear = viewingAcademicYear || currentSchoolAcademicYear || getCurrentAcademicYear()
@@ -648,7 +651,7 @@ export function AddClassPage() {
         <div className="flex flex-col-reverse gap-2 rounded-xl border border-primary/10 bg-gradient-to-r from-muted/40 via-white to-primary/5 p-3 sm:flex-row sm:items-center dark:via-card">
           <Button
             type="submit"
-            disabled={!isFormValid}
+            disabled={!isFormValid || !canCreate}
             className="h-9 min-w-[140px] gap-2 shadow-sm"
           >
             {submitting ? (

@@ -26,6 +26,7 @@ import {
 import { api } from '@/lib/api'
 import { useAppStore } from '@/lib/store'
 import { useToast } from '@/hooks/use-toast'
+import { PERMISSIONS, usePermissions } from '@/hooks/use-permissions'
 import {
   Award,
   BarChart3,
@@ -118,6 +119,7 @@ interface ExamResultPreviewListState {
 export function ExamResultPreviewPage({ examId }: Props) {
   const router = useRouter()
   const { toast } = useToast()
+  const { hasAnyPermission } = usePermissions()
   const listStateKey = `exams:result-preview:${examId}:list`
   const savedListState = useAppStore((state) => state.pageState[listStateKey] as ExamResultPreviewListState | undefined)
   const setPageState = useAppStore((state) => state.setPageState)
@@ -277,17 +279,19 @@ export function ExamResultPreviewPage({ examId }: Props) {
         badge={results.length > 0 ? `${results.length} student${results.length === 1 ? '' : 's'}` : undefined}
         description={`${exam.group.paradigm.name} · ${exam.group.name}`}
         primaryAction={
-          exam.visibleToParent
-            ? {
-                label: publishing ? 'Working…' : 'Unpublish',
-                icon: Undo2,
-                onClick: () => setUnpublishOpen(true),
-              }
-            : {
-                label: publishing ? 'Publishing…' : 'Publish',
-                icon: Send,
-                onClick: () => void handlePublish(),
-              }
+          hasAnyPermission([PERMISSIONS.EXAM_PUBLISH])
+            ? exam.visibleToParent
+              ? {
+                  label: publishing ? 'Working…' : 'Unpublish',
+                  icon: Undo2,
+                  onClick: () => setUnpublishOpen(true),
+                }
+              : {
+                  label: publishing ? 'Publishing…' : 'Publish',
+                  icon: Send,
+                  onClick: () => void handlePublish(),
+                }
+            : undefined
         }
         secondaryAction={{
           label: 'Print report cards',
@@ -304,14 +308,16 @@ export function ExamResultPreviewPage({ examId }: Props) {
         ) : (
           <Badge variant="outline">DRAFT · not visible to parents</Badge>
         )}
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setConfirmingRecompute(true)}
-          disabled={computing}
-        >
-          <Calculator className="mr-1.5 size-3.5" /> {computing ? 'Computing…' : 'Recompute'}
-        </Button>
+        {hasAnyPermission([PERMISSIONS.EXAM_RESULTS]) && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setConfirmingRecompute(true)}
+            disabled={computing}
+          >
+            <Calculator className="mr-1.5 size-3.5" /> {computing ? 'Computing…' : 'Recompute'}
+          </Button>
+        )}
         <Button
           variant="outline"
           size="sm"
@@ -370,8 +376,9 @@ export function ExamResultPreviewPage({ examId }: Props) {
           icon={Award}
           title="No results computed yet"
           description="Run the calculator to compute results from the marks entered."
-          actionLabel="Compute results"
-          onAction={() => setConfirmingRecompute(true)}
+          {...(hasAnyPermission([PERMISSIONS.EXAM_RESULTS])
+            ? { actionLabel: 'Compute results', onAction: () => setConfirmingRecompute(true) }
+            : {})}
         />
       ) : (
         <>

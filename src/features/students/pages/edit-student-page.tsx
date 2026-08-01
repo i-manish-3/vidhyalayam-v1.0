@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
 import { compressImage } from '@/lib/image-compress'
 import { useAppStore } from '@/lib/store'
+import { usePermissions, PERMISSIONS } from '@/hooks/use-permissions'
 import { useToast } from '@/hooks/use-toast'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -377,6 +378,8 @@ interface EditForm {
 export function EditStudentPage({ studentId }: { studentId: string }) {
   const router = useRouter()
   const { toast } = useToast()
+  const { hasPermission } = usePermissions()
+  const canEdit = hasPermission(PERMISSIONS.STUDENT_UPDATE)
   const viewingAcademicYear = useAppStore((s) => s.viewingAcademicYear)
   const currentSchoolAcademicYear = useAppStore((s) => s.currentSchool?.academicYear)
   const resolvedYear = viewingAcademicYear || currentSchoolAcademicYear || ''
@@ -2050,7 +2053,7 @@ export function EditStudentPage({ studentId }: { studentId: string }) {
               Next <ChevronRight className="size-4" />
             </Button>
           )}
-          {currentTab === 5 && (
+          {currentTab === 5 && canEdit && (
             <Button onClick={handleSave} disabled={saving} className="h-9 gap-1 px-6 shadow-sm shadow-primary/20">
               {saving ? (
                 <div className="size-4 animate-spin rounded-full border-2 border-current border-t-transparent" />

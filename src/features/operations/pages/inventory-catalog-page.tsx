@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { LoadingState } from '@/components/shared'
 import { api } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
+import { usePermissions, PERMISSIONS } from '@/hooks/use-permissions'
 import { cn } from '@/lib/utils'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -96,6 +97,10 @@ function StatCard({
 
 export function InventoryCatalogPage() {
   const { toast } = useToast()
+  const { hasPermission } = usePermissions()
+  const canCreate = hasPermission(PERMISSIONS.INVENTORY_CREATE)
+  const canUpdate = hasPermission(PERMISSIONS.INVENTORY_UPDATE)
+  const canDelete = hasPermission(PERMISSIONS.INVENTORY_DELETE)
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
   const [catDialog, setCatDialog] = useState<{ id: string | null; name: string; description: string } | null>(null)
@@ -187,15 +192,17 @@ export function InventoryCatalogPage() {
             </p>
           </div>
         </div>
-        <Button
-          variant="secondary"
-          onClick={() => setCatDialog({ id: null, name: '', description: '' })}
-          className="relative shrink-0 gap-2 border border-white/60 shadow-md transition-all hover:-translate-y-0.5 hover:shadow-lg"
-          style={{ backgroundColor: 'white', color: 'var(--primary)' }}
-        >
-          <PlusCircle className="size-4" strokeWidth={2.2} />
-          <span className="font-semibold">Add Category</span>
-        </Button>
+        {canCreate && (
+          <Button
+            variant="secondary"
+            onClick={() => setCatDialog({ id: null, name: '', description: '' })}
+            className="relative shrink-0 gap-2 border border-white/60 shadow-md transition-all hover:-translate-y-0.5 hover:shadow-lg"
+            style={{ backgroundColor: 'white', color: 'var(--primary)' }}
+          >
+            <PlusCircle className="size-4" strokeWidth={2.2} />
+            <span className="font-semibold">Add Category</span>
+          </Button>
+        )}
       </div>
 
       {/* Stats Cards */}
@@ -264,22 +271,26 @@ export function InventoryCatalogPage() {
                     </TableCell>
                     <TableCell className="py-2.5">
                       <div className="flex items-center justify-end gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="size-7 text-muted-foreground hover:text-sky-600 hover:bg-sky-50 dark:hover:bg-sky-950/30"
-                          onClick={() => setCatDialog({ id: category.id, name: category.name, description: category.description || '' })}
-                        >
-                          <Pencil className="size-3.5" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="size-7 text-muted-foreground hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
-                          onClick={() => setDeleteTarget(category)}
-                        >
-                          <Trash2 className="size-3.5" />
-                        </Button>
+                        {canUpdate && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="size-7 text-muted-foreground hover:text-sky-600 hover:bg-sky-50 dark:hover:bg-sky-950/30"
+                            onClick={() => setCatDialog({ id: category.id, name: category.name, description: category.description || '' })}
+                          >
+                            <Pencil className="size-3.5" />
+                          </Button>
+                        )}
+                        {canDelete && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="size-7 text-muted-foreground hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
+                            onClick={() => setDeleteTarget(category)}
+                          >
+                            <Trash2 className="size-3.5" />
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
@@ -352,7 +363,7 @@ export function InventoryCatalogPage() {
             <Button variant="outline" size="sm" className="h-8 px-4 text-xs" onClick={() => setCatDialog(null)}>
               Cancel
             </Button>
-            <Button size="sm" className="h-8 gap-1.5 px-4 text-xs" onClick={() => void saveCategory()} disabled={!catDialog?.name.trim()}>
+            <Button size="sm" className="h-8 gap-1.5 px-4 text-xs" onClick={() => void saveCategory()} disabled={!catDialog?.name.trim() || !(catDialog?.id ? canUpdate : canCreate)}>
               <PlusCircle className="size-3.5" />
               {catDialog?.id ? 'Save Changes' : 'Add Category'}
             </Button>

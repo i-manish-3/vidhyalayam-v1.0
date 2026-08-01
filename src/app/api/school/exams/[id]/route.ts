@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { requireRole, requirePermission } from '@/lib/api-auth'
-import { unauthorizedError, notFoundError, internalError, apiError } from '@/lib/api-errors'
+import { unauthorizedError, notFoundError, internalError, apiError, forbiddenError } from '@/lib/api-errors'
 import { logExamChange, extractExamAuditContext } from '@/lib/audit/exam-audit'
 
 const VALID_EXAM_TYPES = [
@@ -63,6 +63,10 @@ export async function GET(
   try {
     const user = requireRole(request, ['SCHOOL_ADMIN', 'TEACHER', 'STAFF'])
     if (!user || !user.schoolId) return unauthorizedError()
+
+    const permitted = await requirePermission(request, 'exam:view')
+    if (!permitted) return forbiddenError()
+
     const { id } = await params
 
     const exam = await db.exam.findFirst({

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { requireRole, requirePermission } from '@/lib/api-auth'
-import { unauthorizedError, internalError, apiError } from '@/lib/api-errors'
+import { unauthorizedError, internalError, apiError, forbiddenError } from '@/lib/api-errors'
 
 function optionalText(v: unknown): string | null {
   if (typeof v !== 'string') return null
@@ -14,6 +14,9 @@ export async function GET(request: NextRequest) {
   try {
     const user = requireRole(request, ['SCHOOL_ADMIN', 'TEACHER', 'STAFF'])
     if (!user || !user.schoolId) return unauthorizedError()
+
+    const permitted = await requirePermission(request, 'inventory:read')
+    if (!permitted) return forbiddenError()
 
     const categories = await db.inventoryCategory.findMany({
       where: { schoolId: user.schoolId, deletedAt: null },

@@ -6,6 +6,7 @@ import { api } from '@/lib/api'
 import { getCurrentAcademicYear } from '@/lib/academic-years'
 import { useAppStore } from '@/lib/store'
 import { useToast } from '@/hooks/use-toast'
+import { usePermissions, PERMISSIONS } from '@/hooks/use-permissions'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -86,6 +87,8 @@ function fatherName(student: StudentRow) {
 export function PromoteStudentPage() {
   const { toast } = useToast()
   const router = useRouter()
+  const { hasPermission } = usePermissions()
+  const canPromote = hasPermission(PERMISSIONS.ADMISSION_UPDATE)
   const { currentSchool } = useAppStore()
   const savedListState = useAppStore((state) => state.pageState[PROMOTE_STUDENT_LIST_STATE_KEY] as PromoteStudentListState | undefined)
   const setPageState = useAppStore((state) => state.setPageState)
@@ -591,7 +594,7 @@ export function PromoteStudentPage() {
             </CardTitle>
             <div className="flex items-center gap-2">
               <Badge className="border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-500/25 dark:bg-emerald-500/10 dark:text-emerald-300">{selectedIds.length} selected</Badge>
-              <Button onClick={validateBeforeConfirm} disabled={submitting || selectedIds.length === 0}>
+              <Button onClick={validateBeforeConfirm} disabled={submitting || selectedIds.length === 0 || !canPromote}>
                 {submitting ? <Loader2 className="size-4 animate-spin" /> : <TrendingUp className="size-4" />}
                 Promote
               </Button>
@@ -730,7 +733,7 @@ export function PromoteStudentPage() {
 
           <AlertDialogFooter className="border-t border-primary/10 bg-gradient-to-r from-muted/40 via-background to-primary/5 px-4 py-3 sm:px-5">
             <AlertDialogCancel className="h-9" disabled={submitting}>Cancel</AlertDialogCancel>
-            <AlertDialogAction className="h-9 gap-1.5 px-4" onClick={submitPromotion} disabled={submitting}>
+            <AlertDialogAction className="h-9 gap-1.5 px-4" onClick={submitPromotion} disabled={submitting || !canPromote}>
               {submitting ? <Loader2 className="size-4 animate-spin" /> : <CheckCircle2 className="size-4" />}
               Promote Selected Students
             </AlertDialogAction>

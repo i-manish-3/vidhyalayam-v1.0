@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
+import { usePermissions, PERMISSIONS } from '@/hooks/use-permissions'
 import { cn } from '@/lib/utils'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -123,6 +124,8 @@ function StatCard({
 export function InventorySellPage() {
   const { toast } = useToast()
   const router = useRouter()
+  const { hasPermission } = usePermissions()
+  const canSell = hasPermission(PERMISSIONS.INVENTORY_SELL) || hasPermission(PERMISSIONS.FEES_COLLECT)
 
   const [studentQuery, setStudentQuery] = useState('')
   const [studentResults, setStudentResults] = useState<Student[]>([])
@@ -667,7 +670,7 @@ export function InventorySellPage() {
                     : 'from-emerald-600 to-primary hover:from-emerald-500 hover:to-primary'
               )}
               onClick={handleCheckout}
-              disabled={submitting || !student || cart.length === 0 || total <= 0 || (paymentMode === 'partial' && collectNow <= 0)}
+              disabled={submitting || !canSell || !student || cart.length === 0 || total <= 0 || (paymentMode === 'partial' && collectNow <= 0)}
             >
               {submitting ? <Loader2 className="size-4 animate-spin" /> : <Receipt className="size-4" />}
               {paymentMode === 'due'

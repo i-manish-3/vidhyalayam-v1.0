@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { EmptyState, LoadingState } from '@/components/shared'
 import { api } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
+import { usePermissions, PERMISSIONS } from '@/hooks/use-permissions'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -141,6 +142,10 @@ function StatCard({
 export function InventoryPage() {
   const { toast } = useToast()
   const router = useRouter()
+  const { hasPermission } = usePermissions()
+  const canCreate = hasPermission(PERMISSIONS.INVENTORY_CREATE)
+  const canUpdate = hasPermission(PERMISSIONS.INVENTORY_UPDATE)
+  const canDelete = hasPermission(PERMISSIONS.INVENTORY_DELETE)
   const [items, setItems] = useState<ApiItem[]>([])
   const [categories, setCategories] = useState<CategoryOption[]>([])
   const [loading, setLoading] = useState(true)
@@ -317,13 +322,15 @@ export function InventoryPage() {
             <ShoppingCart className="size-4" strokeWidth={2.2} />
             <span>Sell to Student</span>
           </Button>
-          <Button
-            onClick={openAdd}
-            className="relative shrink-0 gap-2 border border-white/30 bg-gradient-to-r from-primary via-teal-600 to-cyan-600 text-white shadow-md transition-all hover:-translate-y-0.5 hover:shadow-lg"
-          >
-            <PlusCircle className="size-4" strokeWidth={2.2} />
-            <span className="font-semibold">Add Item</span>
-          </Button>
+          {canCreate && (
+            <Button
+              onClick={openAdd}
+              className="relative shrink-0 gap-2 border border-white/30 bg-gradient-to-r from-primary via-teal-600 to-cyan-600 text-white shadow-md transition-all hover:-translate-y-0.5 hover:shadow-lg"
+            >
+              <PlusCircle className="size-4" strokeWidth={2.2} />
+              <span className="font-semibold">Add Item</span>
+            </Button>
+          )}
         </div>
       </div>
 
@@ -360,7 +367,7 @@ export function InventoryPage() {
       </div>
 
       {items.length === 0 ? (
-        <EmptyState icon={Package} title="No items" description="Add inventory items to track stock and sell to students." action={{ label: 'Add Item', onClick: openAdd }} />
+        <EmptyState icon={Package} title="No items" description="Add inventory items to track stock and sell to students." action={canCreate ? { label: 'Add Item', onClick: openAdd } : undefined} />
       ) : (
         <Card className="gap-0 overflow-hidden border-sky-500/15 bg-gradient-to-br from-card via-card to-sky-500/[0.035] py-0 shadow-sm">
           <CardHeader className="border-b border-sky-500/15 bg-gradient-to-r from-sky-500/[0.10] via-primary/[0.05] to-violet-500/[0.08] px-4 py-3">
@@ -511,24 +518,30 @@ export function InventoryPage() {
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end" className="min-w-36">
-                                <DropdownMenuItem onClick={() => openStock(i)} className="gap-2">
-                                  <span className="flex size-5 items-center justify-center rounded bg-emerald-100 text-emerald-600 dark:bg-emerald-950/50">
-                                    <PackagePlus className="size-3" />
-                                  </span>
-                                  Adjust Stock
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => openEdit(i)} className="gap-2">
-                                  <span className="flex size-5 items-center justify-center rounded bg-sky-100 text-sky-600 dark:bg-sky-950/50">
-                                    <Pencil className="size-3" />
-                                  </span>
-                                  Edit
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => setDeleteItem(i)} className="gap-2 text-destructive focus:text-destructive">
-                                  <span className="flex size-5 items-center justify-center rounded bg-rose-100 text-rose-600 dark:bg-rose-950/50">
-                                    <Trash2 className="size-3" />
-                                  </span>
-                                  Delete
-                                </DropdownMenuItem>
+                                {canUpdate && (
+                                  <>
+                                    <DropdownMenuItem onClick={() => openStock(i)} className="gap-2">
+                                      <span className="flex size-5 items-center justify-center rounded bg-emerald-100 text-emerald-600 dark:bg-emerald-950/50">
+                                        <PackagePlus className="size-3" />
+                                      </span>
+                                      Adjust Stock
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => openEdit(i)} className="gap-2">
+                                      <span className="flex size-5 items-center justify-center rounded bg-sky-100 text-sky-600 dark:bg-sky-950/50">
+                                        <Pencil className="size-3" />
+                                      </span>
+                                      Edit
+                                    </DropdownMenuItem>
+                                  </>
+                                )}
+                                {canDelete && (
+                                  <DropdownMenuItem onClick={() => setDeleteItem(i)} className="gap-2 text-destructive focus:text-destructive">
+                                    <span className="flex size-5 items-center justify-center rounded bg-rose-100 text-rose-600 dark:bg-rose-950/50">
+                                      <Trash2 className="size-3" />
+                                    </span>
+                                    Delete
+                                  </DropdownMenuItem>
+                                )}
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </TableCell>
@@ -707,7 +720,7 @@ export function InventoryPage() {
           </div>
           <DialogFooter className="shrink-0 border-t bg-background px-5 py-4 sm:px-6">
             <Button variant="outline" onClick={() => setShowForm(false)}>Cancel</Button>
-            <Button onClick={handleSave} disabled={saving || !form.name.trim()} className="gap-2">
+            <Button onClick={handleSave} disabled={saving || !form.name.trim() || !(editingId ? canUpdate : canCreate)} className="gap-2">
               {saving ? 'Saving...' : editingId ? 'Save changes' : 'Add item'}
             </Button>
           </DialogFooter>
@@ -777,7 +790,7 @@ export function InventoryPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setStockItem(null)}>Cancel</Button>
-            <Button onClick={handleStock} disabled={stockForm.quantity === '' || !stockForm.variantId} className="gap-2">
+            <Button onClick={handleStock} disabled={stockForm.quantity === '' || !stockForm.variantId || !canUpdate} className="gap-2">
               <PackagePlus className="size-4" /> Apply
             </Button>
           </DialogFooter>

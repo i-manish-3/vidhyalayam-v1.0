@@ -32,6 +32,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { api } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
+import { PERMISSIONS, usePermissions } from '@/hooks/use-permissions'
 import {
   ComponentEditor,
   type ExamComponentRow,
@@ -92,6 +93,7 @@ const CLASS_TONES = [
 export function ExamConfigurePage({ examId }: Props) {
   const router = useRouter()
   const { toast } = useToast()
+  const { hasAnyPermission } = usePermissions()
 
   const [loading, setLoading] = useState(true)
   const [exam, setExam] = useState<ExamDetail | null>(null)
@@ -228,11 +230,15 @@ export function ExamConfigurePage({ examId }: Props) {
         title={`Configure: ${exam.name}`}
         badge={status.label}
         description={`${exam.group.paradigm.name} · ${exam.group.name}`}
-        primaryAction={{
-          label: 'Add subjects',
-          icon: Plus,
-          onClick: () => setAddOpen(true),
-        }}
+        primaryAction={
+          hasAnyPermission([PERMISSIONS.EXAM_MANAGE])
+            ? {
+                label: 'Add subjects',
+                icon: Plus,
+                onClick: () => setAddOpen(true),
+              }
+            : undefined
+        }
         secondaryAction={{
           label: 'Schedule',
           icon: CalIcon,
@@ -245,8 +251,9 @@ export function ExamConfigurePage({ examId }: Props) {
           icon={Settings2}
           title="No subjects configured yet"
           description="Pick the classes and subjects this exam covers, then split each into components."
-          actionLabel="Add subjects"
-          onAction={() => setAddOpen(true)}
+          {...(hasAnyPermission([PERMISSIONS.EXAM_MANAGE])
+            ? { actionLabel: 'Add subjects', onAction: () => setAddOpen(true) }
+            : {})}
         />
       ) : (
         <div className="space-y-4">
@@ -319,32 +326,38 @@ export function ExamConfigurePage({ examId }: Props) {
                           </p>
                         </div>
                         <div className="flex gap-1.5">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-8 gap-1.5 border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100 dark:border-sky-500/25 dark:bg-sky-500/10 dark:text-sky-300"
-                            onClick={() => setComponentEditing(c)}
-                          >
-                            <Settings2 className="size-3.5" /> Components
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="size-8 border-sky-200 bg-sky-50 p-0 text-sky-700 hover:bg-sky-100 dark:border-sky-500/25 dark:bg-sky-500/10 dark:text-sky-300"
-                            onClick={() => setEditing(c)}
-                            aria-label="Edit config"
-                          >
-                            <Pencil className="size-3.5" />
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="size-8 border-red-200 bg-red-50 p-0 text-red-700 hover:bg-red-100 dark:border-red-500/25 dark:bg-red-500/10 dark:text-red-300"
-                            onClick={() => setDeleteTarget(c)}
-                            aria-label="Remove subject"
-                          >
-                            <Trash2 className="size-3.5" />
-                          </Button>
+                          {hasAnyPermission([PERMISSIONS.EXAM_MANAGE]) && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8 gap-1.5 border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100 dark:border-sky-500/25 dark:bg-sky-500/10 dark:text-sky-300"
+                              onClick={() => setComponentEditing(c)}
+                            >
+                              <Settings2 className="size-3.5" /> Components
+                            </Button>
+                          )}
+                          {hasAnyPermission([PERMISSIONS.EXAM_MANAGE]) && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="size-8 border-sky-200 bg-sky-50 p-0 text-sky-700 hover:bg-sky-100 dark:border-sky-500/25 dark:bg-sky-500/10 dark:text-sky-300"
+                              onClick={() => setEditing(c)}
+                              aria-label="Edit config"
+                            >
+                              <Pencil className="size-3.5" />
+                            </Button>
+                          )}
+                          {hasAnyPermission([PERMISSIONS.EXAM_MANAGE]) && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="size-8 border-red-200 bg-red-50 p-0 text-red-700 hover:bg-red-100 dark:border-red-500/25 dark:bg-red-500/10 dark:text-red-300"
+                              onClick={() => setDeleteTarget(c)}
+                              aria-label="Remove subject"
+                            >
+                              <Trash2 className="size-3.5" />
+                            </Button>
+                          )}
                         </div>
                       </div>
                     )

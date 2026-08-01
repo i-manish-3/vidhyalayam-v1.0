@@ -6,6 +6,7 @@ import { api } from '@/lib/api'
 import { useAppStore } from '@/lib/store'
 import { getCurrentAcademicYear, toAcademicYearOptions } from '@/lib/academic-years'
 import { useToast } from '@/hooks/use-toast'
+import { usePermissions, PERMISSIONS } from '@/hooks/use-permissions'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -103,6 +104,8 @@ function initials(name: string) {
 
 export function ChangeFeeGroupPage() {
   const { toast } = useToast()
+  const { hasPermission } = usePermissions()
+  const canChangeGroup = hasPermission(PERMISSIONS.FEES_CHANGE_GROUP)
   const currentSchoolAcademicYear = useAppStore((state) => state.currentSchool?.academicYear)
 
   const [loading, setLoading] = useState(true)
@@ -837,7 +840,7 @@ export function ChangeFeeGroupPage() {
                       </span>
                       <Button
                         onClick={() => setAssignConfirmOpen(true)}
-                        disabled={!assignGroupId || selectedStudentIds.size === 0}
+                        disabled={!assignGroupId || selectedStudentIds.size === 0 || !canChangeGroup}
                         className="gap-2"
                       >
                         <UserPlus className="size-4" />
@@ -877,7 +880,7 @@ export function ChangeFeeGroupPage() {
             <Button variant="outline" onClick={() => setAssignConfirmOpen(false)} disabled={assigning}>
               Cancel
             </Button>
-            <Button onClick={handleBulkAssign} disabled={assigning} className="gap-2">
+            <Button onClick={handleBulkAssign} disabled={assigning || !canChangeGroup} className="gap-2">
               {assigning ? <RefreshCw className="size-4 animate-spin" /> : <CheckCircle2 className="size-4" />}
               Confirm Assign
             </Button>
@@ -942,7 +945,7 @@ export function ChangeFeeGroupPage() {
             <Button variant="outline" onClick={closeDialog} disabled={saving}>
               Cancel
             </Button>
-            <Button onClick={handleConfirm} disabled={saving || !newGroupId} className="gap-2">
+            <Button onClick={handleConfirm} disabled={saving || !newGroupId || !canChangeGroup} className="gap-2">
               {saving ? <RefreshCw className="size-4 animate-spin" /> : <CheckCircle2 className="size-4" />}
               Confirm Change
             </Button>
@@ -982,7 +985,7 @@ export function ChangeFeeGroupPage() {
             <Button variant="outline" onClick={closeFullYearDialog} disabled={billingFullYear}>
               Cancel
             </Button>
-            <Button onClick={handleConfirmFullYear} disabled={billingFullYear} className="gap-2">
+            <Button onClick={handleConfirmFullYear} disabled={billingFullYear || !canChangeGroup} className="gap-2">
               {billingFullYear ? (
                 <CalendarRange className="size-4 animate-spin" />
               ) : (

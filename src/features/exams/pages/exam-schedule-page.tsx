@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/select'
 import { api } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
+import { PERMISSIONS, usePermissions } from '@/hooks/use-permissions'
 import { detectScheduleConflicts, type ScheduleRow } from '@/features/exams/lib/schedule-conflict-checker'
 import { Calendar as CalIcon, Plus, Save, Trash2, AlertTriangle, TicketCheck } from 'lucide-react'
 
@@ -85,6 +86,7 @@ interface Props {
 export function ExamSchedulePage({ examId }: Props) {
   const router = useRouter()
   const { toast } = useToast()
+  const { hasAnyPermission } = usePermissions()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [exam, setExam] = useState<ExamDetail | null>(null)
@@ -238,16 +240,24 @@ export function ExamSchedulePage({ examId }: Props) {
         title={`Schedule: ${exam.name}`}
         badge={`${rows.length} paper${rows.length === 1 ? '' : 's'}`}
         description={`${exam.group.paradigm.name} · ${exam.group.name}`}
-        primaryAction={{
-          label: 'Save schedule',
-          icon: Save,
-          onClick: () => void handleSaveAll(),
-        }}
-        secondaryAction={{
-          label: 'Add row',
-          icon: Plus,
-          onClick: addRow,
-        }}
+        primaryAction={
+          hasAnyPermission([PERMISSIONS.EXAM_MANAGE])
+            ? {
+                label: 'Save schedule',
+                icon: Save,
+                onClick: () => void handleSaveAll(),
+              }
+            : undefined
+        }
+        secondaryAction={
+          hasAnyPermission([PERMISSIONS.EXAM_MANAGE])
+            ? {
+                label: 'Add row',
+                icon: Plus,
+                onClick: addRow,
+              }
+            : undefined
+        }
       />
 
       {conflicts.length > 0 && (
@@ -269,8 +279,9 @@ export function ExamSchedulePage({ examId }: Props) {
           icon={CalIcon}
           title="No schedule yet"
           description="Add a row per paper. The conflict checker runs as you type."
-          actionLabel="Add first row"
-          onAction={addRow}
+          {...(hasAnyPermission([PERMISSIONS.EXAM_MANAGE])
+            ? { actionLabel: 'Add first row', onAction: addRow }
+            : {})}
         />
       ) : (
         <Card className="gap-0 overflow-hidden border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-violet-50 py-0 shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10">
@@ -396,6 +407,7 @@ export function ExamSchedulePage({ examId }: Props) {
                       size="icon"
                       className="ml-auto size-8 text-destructive"
                       onClick={() => removeRow(idx)}
+                      disabled={!hasAnyPermission([PERMISSIONS.EXAM_MANAGE])}
                     >
                       <Trash2 className="size-3.5" />
                     </Button>
@@ -419,7 +431,11 @@ export function ExamSchedulePage({ examId }: Props) {
         <Button variant="outline" onClick={() => router.push(`/exams/${examId}/configure`)} disabled={saving}>
           Back to configure
         </Button>
-        <Button onClick={() => void handleSaveAll()} disabled={saving || conflicts.length > 0} className="gap-1.5">
+        <Button
+          onClick={() => void handleSaveAll()}
+          disabled={saving || conflicts.length > 0 || !hasAnyPermission([PERMISSIONS.EXAM_MANAGE])}
+          className="gap-1.5"
+        >
           <Save className="size-4" /> {saving ? 'Saving…' : 'Save schedule'}
         </Button>
       </div>

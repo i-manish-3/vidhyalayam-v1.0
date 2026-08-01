@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { requireRole } from '@/lib/api-auth'
-import { apiError, internalError, unauthorizedError } from '@/lib/api-errors'
+import { requireRole, requirePermission } from '@/lib/api-auth'
+import { apiError, internalError, unauthorizedError, forbiddenError } from '@/lib/api-errors'
 import {
   parseAdmitCardTemplate,
   normalizeAdmitCardTemplate,
@@ -17,6 +17,9 @@ export async function GET(req: NextRequest) {
   try {
     const user = requireRole(req, ['SCHOOL_ADMIN', 'TEACHER', 'STAFF'])
     if (!user || !user.schoolId) return unauthorizedError()
+
+    const permitted = await requirePermission(req, 'exam:view')
+    if (!permitted) return forbiddenError()
 
     const school = await db.school.findUnique({
       where: { id: user.schoolId },
@@ -63,6 +66,9 @@ export async function PATCH(req: NextRequest) {
   try {
     const user = requireRole(req, ['SCHOOL_ADMIN'])
     if (!user || !user.schoolId) return unauthorizedError()
+
+    const permitted = await requirePermission(req, 'exam:manage')
+    if (!permitted) return forbiddenError()
 
     const body = await req.json().catch(() => ({}))
 

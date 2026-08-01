@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
 import { getCurrentAcademicYear } from '@/lib/academic-years'
 import { useAppStore } from '@/lib/store'
+import { usePermissions, PERMISSIONS } from '@/hooks/use-permissions'
 import { useToast } from '@/hooks/use-toast'
 import { PageHeader } from '@/components/shared'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -123,6 +124,8 @@ interface NewSectionInput {
 export function EditClassPage({ classId }: { classId: string }) {
   const router = useRouter()
   const { toast } = useToast()
+  const { hasPermission } = usePermissions()
+  const canUpdate = hasPermission(PERMISSIONS.CLASS_UPDATE)
   const currentSchoolAcademicYear = useAppStore((s) => s.currentSchool?.academicYear)
   const viewingAcademicYear = useAppStore((s) => s.viewingAcademicYear)
   const academicYear = viewingAcademicYear || currentSchoolAcademicYear || getCurrentAcademicYear()
@@ -368,7 +371,7 @@ export function EditClassPage({ classId }: { classId: string }) {
           icon: saving ? Loader2 : Save,
           iconClassName: saving ? 'animate-spin' : undefined,
           onClick: handleSave,
-          disabled: !name.trim() || saving,
+          disabled: !name.trim() || saving || !canUpdate,
         }}
         secondaryAction={{
           label: 'Class List',
@@ -435,7 +438,7 @@ export function EditClassPage({ classId }: { classId: string }) {
               size="sm"
               className="gap-1.5 shrink-0"
               onClick={addNewSection}
-              disabled={saving}
+              disabled={saving || !canUpdate}
             >
               <PlusCircle className="size-3.5" />
               Add Section
@@ -470,7 +473,7 @@ export function EditClassPage({ classId }: { classId: string }) {
                       size="icon"
                       className="size-8 text-muted-foreground hover:text-destructive shrink-0"
                       onClick={() => setDeleteSectionId(section.id)}
-                      disabled={saving}
+                      disabled={saving || !canUpdate}
                       title="Delete section"
                     >
                       <Trash2 className="size-3.5" />
@@ -772,7 +775,7 @@ export function EditClassPage({ classId }: { classId: string }) {
       <div className="flex items-center gap-3 pt-1">
         <Button
           onClick={handleSave}
-          disabled={!name.trim() || saving}
+          disabled={!name.trim() || saving || !canUpdate}
           className="gap-2 min-w-[140px]"
         >
           {saving ? (

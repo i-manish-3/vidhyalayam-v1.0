@@ -6,6 +6,7 @@ import { LoadingState } from '@/components/shared'
 import { cn } from '@/lib/utils'
 import { api } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
+import { usePermissions, PERMISSIONS } from '@/hooks/use-permissions'
 import { useAppStore } from '@/lib/store'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -43,6 +44,11 @@ interface ApiHostel {
 export function HostelPage() {
   const router = useRouter()
   const { toast } = useToast()
+  const { hasPermission } = usePermissions()
+  const canCreate = hasPermission(PERMISSIONS.HOSTEL_CREATE)
+  const canUpdate = hasPermission(PERMISSIONS.HOSTEL_UPDATE)
+  const canDelete = hasPermission(PERMISSIONS.HOSTEL_DELETE)
+  const canAnnualSetup = hasPermission(PERMISSIONS.HOSTEL_ANNUAL_SETUP)
   const viewingAcademicYear = useAppStore((s) => s.viewingAcademicYear)
   const currentSchool = useAppStore((s) => s.currentSchool)
   const academicYear = viewingAcademicYear || currentSchool?.academicYear
@@ -111,24 +117,28 @@ export function HostelPage() {
           </div>
         </div>
         <div className="flex shrink-0 gap-2">
-          <Button
-            variant="secondary"
-            onClick={() => router.push('/hostel/hostels/new')}
-            className="relative shrink-0 gap-2 border border-white/60 shadow-md transition-all hover:-translate-y-0.5 hover:shadow-lg"
-            style={{ backgroundColor: 'white', color: 'var(--primary)' }}
-          >
-            <PlusCircle className="size-4" strokeWidth={2.2} />
-            <span className="font-semibold">Add Hostel</span>
-          </Button>
-          <Button
-            variant="secondary"
-            onClick={() => router.push('/hostel/annual-setup')}
-            className="relative shrink-0 gap-2 border border-white/60 shadow-md transition-all hover:-translate-y-0.5 hover:shadow-lg"
-            style={{ backgroundColor: 'rgba(255,255,255,0.15)', color: 'white', borderColor: 'rgba(255,255,255,0.5)' }}
-          >
-            <RefreshCw className="size-4" strokeWidth={2.2} />
-            <span className="font-semibold">Annual Setup</span>
-          </Button>
+          {canCreate && (
+            <Button
+              variant="secondary"
+              onClick={() => router.push('/hostel/hostels/new')}
+              className="relative shrink-0 gap-2 border border-white/60 shadow-md transition-all hover:-translate-y-0.5 hover:shadow-lg"
+              style={{ backgroundColor: 'white', color: 'var(--primary)' }}
+            >
+              <PlusCircle className="size-4" strokeWidth={2.2} />
+              <span className="font-semibold">Add Hostel</span>
+            </Button>
+          )}
+          {canAnnualSetup && (
+            <Button
+              variant="secondary"
+              onClick={() => router.push('/hostel/annual-setup')}
+              className="relative shrink-0 gap-2 border border-white/60 shadow-md transition-all hover:-translate-y-0.5 hover:shadow-lg"
+              style={{ backgroundColor: 'rgba(255,255,255,0.15)', color: 'white', borderColor: 'rgba(255,255,255,0.5)' }}
+            >
+              <RefreshCw className="size-4" strokeWidth={2.2} />
+              <span className="font-semibold">Annual Setup</span>
+            </Button>
+          )}
         </div>
       </div>
 
@@ -141,10 +151,12 @@ export function HostelPage() {
             <h3 className="text-lg font-semibold">No hostels yet</h3>
             <p className="mt-1 max-w-[280px] text-sm text-muted-foreground">Create your first hostel with rooms and beds to start allocating students.</p>
           </div>
-          <Button onClick={() => router.push('/hostel/hostels/new')} className="mt-1 gap-2">
-            <PlusCircle className="size-4" />
-            Add Hostel
-          </Button>
+          {canCreate && (
+            <Button onClick={() => router.push('/hostel/hostels/new')} className="mt-1 gap-2">
+              <PlusCircle className="size-4" />
+              Add Hostel
+            </Button>
+          )}
         </div>
       ) : (
         <>
@@ -240,12 +252,16 @@ export function HostelPage() {
                       )}
                     </div>
                     <div className="relative flex items-center gap-1.5">
-                      <Button variant="ghost" size="sm" className="h-8 gap-1.5 px-2.5 text-xs font-medium text-amber-600 hover:bg-amber-50 hover:text-amber-700 dark:text-amber-400 dark:hover:bg-amber-950/20" onClick={() => router.push(`/hostel/hostels/${hostel.id}/edit`)}>
-                        <Pencil className="size-3.5" />Edit
-                      </Button>
-                      <Button variant="ghost" size="sm" className="h-8 gap-1.5 px-2.5 text-xs font-medium text-rose-500 hover:bg-rose-50 hover:text-rose-600 dark:text-rose-400 dark:hover:bg-rose-950/20" onClick={() => setDeleteTarget(hostel)}>
-                        <Trash2 className="size-3.5" />Delete
-                      </Button>
+                      {canUpdate && (
+                        <Button variant="ghost" size="sm" className="h-8 gap-1.5 px-2.5 text-xs font-medium text-amber-600 hover:bg-amber-50 hover:text-amber-700 dark:text-amber-400 dark:hover:bg-amber-950/20" onClick={() => router.push(`/hostel/hostels/${hostel.id}/edit`)}>
+                          <Pencil className="size-3.5" />Edit
+                        </Button>
+                      )}
+                      {canDelete && (
+                        <Button variant="ghost" size="sm" className="h-8 gap-1.5 px-2.5 text-xs font-medium text-rose-500 hover:bg-rose-50 hover:text-rose-600 dark:text-rose-400 dark:hover:bg-rose-950/20" onClick={() => setDeleteTarget(hostel)}>
+                          <Trash2 className="size-3.5" />Delete
+                        </Button>
+                      )}
                     </div>
                   </div>
 
@@ -346,7 +362,7 @@ export function HostelPage() {
                     ) : (
                       <div className="flex items-center gap-2.5 rounded-xl border border-dashed border-primary/15 bg-gradient-to-r from-primary/[0.02] to-transparent px-4 py-3 text-xs text-muted-foreground">
                         <Building2 className="size-4 shrink-0 text-primary/30" />
-                        No rooms configured yet — <Button variant="link" size="sm" className="h-auto p-0 text-xs font-medium" onClick={() => router.push(`/hostel/hostels/${hostel.id}/edit`)}>edit this hostel</Button> to add rooms.
+                        No rooms configured yet — {canUpdate && <Button variant="link" size="sm" className="h-auto p-0 text-xs font-medium" onClick={() => router.push(`/hostel/hostels/${hostel.id}/edit`)}>edit this hostel</Button>} to add rooms.
                       </div>
                     )}
                   </CardContent>

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
+import { usePermissions, PERMISSIONS } from '@/hooks/use-permissions'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -70,6 +71,8 @@ interface ClassItem {
 export function EditSubjectPage({ subjectId }: { subjectId: string }) {
   const router = useRouter()
   const { toast } = useToast()
+  const { hasPermission } = usePermissions()
+  const canUpdate = hasPermission(PERMISSIONS.SUBJECT_UPDATE)
 
   // Subject data
   const [subjectData, setSubjectData] = useState<SubjectData | null>(null)
@@ -234,12 +237,12 @@ export function EditSubjectPage({ subjectId }: { subjectId: string }) {
             variant="outline"
             className="gap-1.5 text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/20"
             onClick={() => setShowDeleteDialog(true)}
-            disabled={saving}
+            disabled={saving || !canUpdate}
           >
             <Trash2 className="size-3.5" />
             Delete
           </Button>
-          <Button onClick={handleSave} disabled={!name.trim() || saving} className="gap-1.5 min-w-[120px]">
+          <Button onClick={handleSave} disabled={!name.trim() || saving || !canUpdate} className="gap-1.5 min-w-[120px]">
             {saving ? (
               <>
                 <Loader2 className="size-3.5 animate-spin" />
@@ -445,7 +448,7 @@ export function EditSubjectPage({ subjectId }: { subjectId: string }) {
       <div className="flex items-center gap-3">
         <Button
           onClick={handleSave}
-          disabled={!name.trim() || saving}
+          disabled={!name.trim() || saving || !canUpdate}
           className="gap-2 min-w-[140px]"
         >
           {saving ? (
@@ -483,7 +486,7 @@ export function EditSubjectPage({ subjectId }: { subjectId: string }) {
             <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
-              disabled={deleting}
+              disabled={deleting || !canUpdate}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {deleting ? 'Deleting...' : 'Yes, Delete'}

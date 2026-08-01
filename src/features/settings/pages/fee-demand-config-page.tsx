@@ -5,6 +5,7 @@ import { Banknote, Calendar, CheckCircle2, Loader2, Lock, MessageCircle, QrCode,
 import { GradientHero, GradientDialogHeader } from '@/components/shared'
 import { api } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
+import { usePermissions, PERMISSIONS } from '@/hooks/use-permissions'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -57,6 +58,8 @@ const DEFAULTS: ConfigState = {
 
 export function FeeDemandConfigPage() {
   const { toast } = useToast()
+  const { hasPermission } = usePermissions()
+  const canManage = hasPermission(PERMISSIONS.SETTINGS_UPDATE)
   const [config, setConfig] = useState<ConfigState>(DEFAULTS)
   const [original, setOriginal] = useState<ConfigState>(DEFAULTS)
   const [loading, setLoading] = useState(true)
@@ -185,7 +188,7 @@ export function FeeDemandConfigPage() {
         icon={Banknote}
         title="Fee Demand & Reminders"
         description="Configure when monthly demand slips are due, late fee policy, and WhatsApp delivery for parents."
-        primaryAction={{ label: 'Save Changes', icon: Save, onClick: save, disabled: !hasChanges || saving }}
+        primaryAction={{ label: 'Save Changes', icon: Save, onClick: save, disabled: !hasChanges || saving || !canManage }}
       />
 
       <Tabs defaultValue="general" className="space-y-4">
@@ -538,7 +541,7 @@ function WhatsAppTab({
                   placeholder="+919876543210"
                   className="h-9"
                 />
-                <Button type="button" onClick={runTest} disabled={testing} className="shrink-0">
+                <Button type="button" onClick={runTest} disabled={testing || !canManage} className="shrink-0">
                   {testing ? <Loader2 className="size-4 animate-spin" /> : 'Send Test'}
                 </Button>
               </div>
@@ -671,7 +674,7 @@ function BaileysConnectBlock({
             size="sm"
             className="h-8 text-xs"
             onClick={handleDisconnect}
-            disabled={disconnecting}
+            disabled={disconnecting || !canManage}
           >
             {disconnecting ? <Loader2 className="size-3 animate-spin" /> : <Unplug className="size-3" />}
             Disconnect
@@ -688,7 +691,7 @@ function BaileysConnectBlock({
               </p>
             </div>
           </div>
-          <Button type="button" size="sm" className="h-8 text-xs" onClick={handleConnectClick}>
+          <Button type="button" size="sm" className="h-8 text-xs" onClick={handleConnectClick} disabled={!canManage}>
             <QrCode className="size-3" />
             Connect via QR
           </Button>

@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireRole } from '@/lib/api-auth'
+import { requirePermission } from '@/lib/api-auth'
 import { forbiddenError, internalError, unauthorizedError } from '@/lib/api-errors'
 import { connectBaileys, disconnectBaileys } from '@/lib/whatsapp/baileys'
 
 export async function POST(request: NextRequest) {
   try {
-    const user = requireRole(request, ['SUPER_ADMIN', 'SCHOOL_ADMIN'])
+    const user = await requirePermission(request, 'settings:update')
     if (!user?.schoolId) return unauthorizedError()
 
     const status = await connectBaileys(user.schoolId)
@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const user = requireRole(request, ['SUPER_ADMIN', 'SCHOOL_ADMIN'])
+    const user = await requirePermission(request, 'settings:update')
     if (!user?.schoolId) return unauthorizedError()
 
     await disconnectBaileys(user.schoolId)

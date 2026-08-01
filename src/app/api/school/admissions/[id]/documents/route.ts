@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { requireRole } from '@/lib/api-auth'
+import { requireRole, requirePermission } from '@/lib/api-auth'
 import { unauthorizedError, internalError, apiError } from '@/lib/api-errors'
 import { uploadIfDataUrl, DOCUMENT_MIME_TYPES } from '@/lib/storage'
 
@@ -47,6 +47,10 @@ export async function POST(
   try {
     const user = requireRole(request, ['SCHOOL_ADMIN'])
     if (!user || !user.schoolId) {
+      return unauthorizedError()
+    }
+    const authorized = await requirePermission(request, 'admission:update')
+    if (!authorized) {
       return unauthorizedError()
     }
 

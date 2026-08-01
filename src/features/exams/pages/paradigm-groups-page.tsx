@@ -36,6 +36,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { api } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
+import { PERMISSIONS, usePermissions } from '@/hooks/use-permissions'
 import {
   AggregationRuleBuilder,
   type AggregationRule,
@@ -79,6 +80,7 @@ interface Props {
 export function ParadigmGroupsPage({ paradigmId }: Props) {
   const router = useRouter()
   const { toast } = useToast()
+  const { hasAnyPermission } = usePermissions()
   const [loading, setLoading] = useState(true)
   const [paradigm, setParadigm] = useState<ParadigmDetail | null>(null)
   const [editing, setEditing] = useState<ExamGroup | 'new' | null>(null)
@@ -137,11 +139,15 @@ export function ParadigmGroupsPage({ paradigmId }: Props) {
         title={`Terms under "${paradigm.name}"`}
         badge={`${paradigm.examGroups.length} term${paradigm.examGroups.length === 1 ? '' : 's'}`}
         description={`${paradigm.academicYear} · organise exams under each term for term-level and final aggregation.`}
-        primaryAction={{
-          label: 'New term',
-          icon: Plus,
-          onClick: () => setEditing('new'),
-        }}
+        primaryAction={
+          hasAnyPermission([PERMISSIONS.EXAM_MANAGE])
+            ? {
+                label: 'New term',
+                icon: Plus,
+                onClick: () => setEditing('new'),
+              }
+            : undefined
+        }
       />
 
       {paradigm.examGroups.length === 0 ? (
@@ -149,8 +155,9 @@ export function ParadigmGroupsPage({ paradigmId }: Props) {
           icon={Layers}
           title="No terms yet"
           description='Add a term — e.g. "Term 1" — to start defining exams under this pattern.'
-          actionLabel="Create term"
-          onAction={() => setEditing('new')}
+          {...(hasAnyPermission([PERMISSIONS.EXAM_MANAGE])
+            ? { actionLabel: 'Create term', onAction: () => setEditing('new') }
+            : {})}
         />
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -184,15 +191,19 @@ export function ParadigmGroupsPage({ paradigmId }: Props) {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => setEditing(g)}>
-                        <Pencil className="mr-2 size-4" /> Edit
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        className="text-destructive focus:text-destructive"
-                        onClick={() => setDeleteTarget(g)}
-                      >
-                        <Trash2 className="mr-2 size-4" /> Delete
-                      </DropdownMenuItem>
+                      {hasAnyPermission([PERMISSIONS.EXAM_MANAGE]) && (
+                        <>
+                          <DropdownMenuItem onClick={() => setEditing(g)}>
+                            <Pencil className="mr-2 size-4" /> Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className="text-destructive focus:text-destructive"
+                            onClick={() => setDeleteTarget(g)}
+                          >
+                            <Trash2 className="mr-2 size-4" /> Delete
+                          </DropdownMenuItem>
+                        </>
+                      )}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>

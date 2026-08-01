@@ -13,6 +13,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { api } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
+import { PERMISSIONS, usePermissions } from '@/hooks/use-permissions'
 import {
   ClipboardList,
   Layers,
@@ -58,6 +59,7 @@ function formatDate(iso: string | null): string {
 export function ExamsPage() {
   const router = useRouter()
   const { toast } = useToast()
+  const { hasAnyPermission } = usePermissions()
   const [loading, setLoading] = useState(true)
   const [exams, setExams] = useState<ExamSummary[]>([])
   const [paradigms, setParadigms] = useState<ParadigmSummary[]>([])
@@ -114,16 +116,24 @@ export function ExamsPage() {
         badge={`${exams.length} exam${exams.length === 1 ? '' : 's'}`}
         description="Set up exam patterns, configure subjects, schedule papers, and publish results."
         extraActions={<ExamInstructionsButton />}
-        primaryAction={{
-          label: 'New exam',
-          icon: Plus,
-          onClick: () => router.push('/exams/new'),
-        }}
-        secondaryAction={{
-          label: 'Manage exam patterns',
-          icon: Layers,
-          onClick: () => router.push('/exams/patterns'),
-        }}
+        primaryAction={
+          hasAnyPermission([PERMISSIONS.EXAM_MANAGE])
+            ? {
+                label: 'New exam',
+                icon: Plus,
+                onClick: () => router.push('/exams/new'),
+              }
+            : undefined
+        }
+        secondaryAction={
+          hasAnyPermission([PERMISSIONS.EXAM_MANAGE])
+            ? {
+                label: 'Manage exam patterns',
+                icon: Layers,
+                onClick: () => router.push('/exams/patterns'),
+              }
+            : undefined
+        }
       />
 
       <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
@@ -162,7 +172,9 @@ export function ExamsPage() {
                     <li
                       key={e.id}
                       className="flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-sky-100/80 bg-white/70 p-3 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md dark:border-sky-500/20 dark:bg-card/60"
-                      onClick={() => router.push(`/exams/${e.id}/configure`)}
+                      onClick={() =>
+                        hasAnyPermission([PERMISSIONS.EXAM_MANAGE]) && router.push(`/exams/${e.id}/configure`)
+                      }
                     >
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
@@ -209,7 +221,9 @@ export function ExamsPage() {
                   <li
                     key={p.id}
                     className="flex cursor-pointer items-center justify-between rounded-lg border border-violet-100/80 bg-white/70 p-2.5 text-sm shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md dark:border-violet-500/20 dark:bg-card/60"
-                    onClick={() => router.push(`/exams/patterns/${p.id}/groups`)}
+                    onClick={() =>
+                      hasAnyPermission([PERMISSIONS.EXAM_MANAGE]) && router.push(`/exams/patterns/${p.id}/groups`)
+                    }
                   >
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5">
@@ -233,7 +247,7 @@ export function ExamsPage() {
               variant="outline"
               size="sm"
               className="mt-3 w-full"
-              onClick={() => router.push('/exams/patterns')}
+              onClick={() => hasAnyPermission([PERMISSIONS.EXAM_MANAGE]) && router.push('/exams/patterns')}
             >
               Manage exam patterns
             </Button>
@@ -254,16 +268,20 @@ export function ExamsPage() {
               Start by creating an exam pattern.
             </p>
             <div className="mt-4 flex justify-center gap-2">
-              <Button onClick={() => router.push('/exams/patterns')} className="gap-1.5">
-                <Layers className="size-4" /> Create exam pattern
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => router.push('/exams/grade-scales')}
-                className="gap-1.5"
-              >
-                <Award className="size-4" /> Set up grade scales
-              </Button>
+              {hasAnyPermission([PERMISSIONS.EXAM_MANAGE]) && (
+                <Button onClick={() => router.push('/exams/patterns')} className="gap-1.5">
+                  <Layers className="size-4" /> Create exam pattern
+                </Button>
+              )}
+              {hasAnyPermission([PERMISSIONS.EXAM_MANAGE]) && (
+                <Button
+                  variant="outline"
+                  onClick={() => router.push('/exams/grade-scales')}
+                  className="gap-1.5"
+                >
+                  <Award className="size-4" /> Set up grade scales
+                </Button>
+              )}
             </div>
           </CardContent>
         </Card>

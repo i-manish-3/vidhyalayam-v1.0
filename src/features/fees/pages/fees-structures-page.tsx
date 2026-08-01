@@ -7,6 +7,7 @@ import { api } from '@/lib/api'
 import { useAppStore } from '@/lib/store'
 import { getCurrentAcademicYear, toAcademicYearOptions } from '@/lib/academic-years'
 import { useToast } from '@/hooks/use-toast'
+import { usePermissions, PERMISSIONS } from '@/hooks/use-permissions'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -244,6 +245,8 @@ const FEE_STRUCTURES_LIST_STATE_KEY = 'fees:structures:list'
 export function FeesStructuresPage() {
   const router = useRouter()
   const { toast } = useToast()
+  const { hasPermission } = usePermissions()
+  const canCreate = hasPermission(PERMISSIONS.FEES_CREATE)
   const currentSchoolAcademicYear = useAppStore((s) => s.currentSchool?.academicYear)
   const viewingAcademicYear = useAppStore((s) => s.viewingAcademicYear)
   const savedListState = useAppStore((s) => s.pageState[FEE_STRUCTURES_LIST_STATE_KEY] as FeeStructuresListState | undefined)
@@ -813,10 +816,12 @@ export function FeesStructuresPage() {
             <Tags className="size-4" />
             Fee Groups
           </Button>
-          <Button variant="secondary" onClick={() => setShowAdd(true)} className="gap-2 border border-white/60 shadow-md" style={{ backgroundColor: 'white', color: 'var(--primary)' }}>
-            <PlusCircle className="size-4" />
-            Add Structure
-          </Button>
+          {canCreate && (
+            <Button variant="secondary" onClick={() => setShowAdd(true)} className="gap-2 border border-white/60 shadow-md" style={{ backgroundColor: 'white', color: 'var(--primary)' }}>
+              <PlusCircle className="size-4" />
+              Add Structure
+            </Button>
+          )}
             </div>
           </div>
 
@@ -1219,7 +1224,7 @@ export function FeesStructuresPage() {
             </div>
             <Button
               onClick={saveClassFeeStructure}
-              disabled={savingClassStructure || classStructureForm.classIds.length === 0 || !classStructureForm.feeGroupId}
+              disabled={savingClassStructure || classStructureForm.classIds.length === 0 || !classStructureForm.feeGroupId || !canCreate}
               className="gap-1.5 bg-gradient-to-r from-primary to-cyan-600 shadow-sm shadow-primary/20"
             >
               {savingClassStructure ? 'Saving...' : 'Save Fee Structure'}
@@ -1233,7 +1238,7 @@ export function FeesStructuresPage() {
           icon={LayoutGrid}
           title="No Fee Structures"
           description="Create fee structures to define installment plans for different classes and groups."
-          action={{ label: 'Add Structure', onClick: () => setShowAdd(true) }}
+          action={canCreate ? { label: 'Add Structure', onClick: () => setShowAdd(true) } : undefined}
         />
       ) : (
         <div className="space-y-3">
@@ -1802,7 +1807,7 @@ export function FeesStructuresPage() {
                 </Button>
                 <Button
                   onClick={handleAdd}
-                  disabled={saving || !form.name.trim() || !form.feeGroupId || !form.classId}
+                  disabled={saving || !form.name.trim() || !form.feeGroupId || !form.classId || !canCreate}
                   className="gap-1.5 bg-gradient-to-r from-primary to-cyan-600 shadow-sm shadow-primary/20"
                 >
                   {saving ? 'Creating...' : 'Create Structure'}

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
 import { useAppStore } from '@/lib/store'
 import { useToast } from '@/hooks/use-toast'
+import { usePermissions, PERMISSIONS } from '@/hooks/use-permissions'
 import { getCurrentAcademicYear, toAcademicYearOptions } from '@/lib/academic-years'
 import { cn } from '@/lib/utils'
 import { EmptyState, LoadingState } from '@/components/shared'
@@ -294,6 +295,8 @@ interface AllocationCountRow {
 export function AnnualTransportSetupPage() {
   const router = useRouter()
   const { toast } = useToast()
+  const { hasPermission } = usePermissions()
+  const canSetup = hasPermission(PERMISSIONS.TRANSPORT_ANNUAL_SETUP)
   const currentSchoolYear = useAppStore((s) => s.currentSchool?.academicYear)
 
   const [academicYears, setAcademicYears] = useState<string[]>([])
@@ -1174,7 +1177,7 @@ export function AnnualTransportSetupPage() {
               Stop fares for <span className="font-medium text-foreground">{toYear}</span> will be saved. Old{' '}
               <span className="font-medium text-foreground">{fromYear}</span> data is not modified.
             </p>
-            <Button type="button" onClick={openPreview} disabled={!canSubmit} className="gap-2">
+            <Button type="button" onClick={openPreview} disabled={!canSubmit || !canSetup} className="gap-2">
               <Save className="size-4" />
               Preview &amp; Save
             </Button>
@@ -1388,7 +1391,7 @@ export function AnnualTransportSetupPage() {
             <Button type="button" variant="outline" size="sm" className="h-8 px-4 text-xs" onClick={() => setPreviewOpen(false)} disabled={submitting}>
               Back to Edit
             </Button>
-            <Button type="button" size="sm" className="h-8 gap-1.5 px-4 text-xs" onClick={handleConfirmApply} disabled={submitting}>
+            <Button type="button" size="sm" className="h-8 gap-1.5 px-4 text-xs" onClick={handleConfirmApply} disabled={submitting || !canSetup}>
               {submitting ? <Loader2 className="size-3.5 animate-spin" /> : <Save className="size-3.5" />}
               Confirm &amp; Apply
             </Button>

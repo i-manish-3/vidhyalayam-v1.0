@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
 import { useAppStore } from '@/lib/store'
 import { useToast } from '@/hooks/use-toast'
+import { usePermissions, PERMISSIONS } from '@/hooks/use-permissions'
 import { getCurrentAcademicYear, toAcademicYearOptions } from '@/lib/academic-years'
 import { LoadingState } from '@/components/shared'
 import { cn } from '@/lib/utils'
@@ -36,6 +37,8 @@ function parseFeeMonths(value: string): string[] {
 export function AnnualHostelSetupPage() {
   const router = useRouter()
   const { toast } = useToast()
+  const { hasPermission } = usePermissions()
+  const canSetup = hasPermission(PERMISSIONS.HOSTEL_ANNUAL_SETUP)
   const currentSchool = useAppStore((s) => s.currentSchool)
   const current = currentSchool?.academicYear || getCurrentAcademicYear()
 
@@ -382,7 +385,7 @@ export function AnnualHostelSetupPage() {
             </div>
             <div className="flex items-center gap-3">
               <Button variant="outline" onClick={() => router.push('/hostel/hostels')} disabled={submitting}>Cancel</Button>
-              <Button onClick={handleSubmit} disabled={submitting || !fromYear} className="min-w-[160px] gap-2">
+              <Button onClick={handleSubmit} disabled={submitting || !fromYear || !canSetup} className="min-w-[160px] gap-2">
                 {submitting ? <><Loader2 className="size-4 animate-spin" /> Applying…</> : <><RefreshCw className="size-4" /> Apply to {toYear}</>}
               </Button>
             </div>

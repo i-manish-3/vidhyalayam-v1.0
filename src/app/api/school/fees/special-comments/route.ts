@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { requirePermission, requireRole } from '@/lib/api-auth'
-import { apiError, internalError, unauthorizedError } from '@/lib/api-errors'
+import { apiError, internalError, unauthorizedError, forbiddenError } from '@/lib/api-errors'
 
 const ENTITY_TYPE = 'StudentFeeSpecialComment'
 const ACTION = 'special_comment_added'
@@ -20,6 +20,8 @@ export async function GET(request: NextRequest) {
   try {
     const user = requireRole(request, ['SCHOOL_ADMIN', 'TEACHER', 'STAFF'])
     if (!user?.schoolId) return unauthorizedError()
+    const permitted = await requirePermission(request, 'fees:read')
+    if (!permitted) return forbiddenError()
 
     const { searchParams } = new URL(request.url)
     const studentId = searchParams.get('studentId') || ''

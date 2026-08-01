@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { CalendarDays, CalendarRange, ChevronLeft, ChevronRight, LayoutGrid, List, Loader2, Pencil, PlusCircle, Trash2 } from 'lucide-react'
 import { api } from '@/lib/api'
 import { useAppStore } from '@/lib/store'
-import { useEffectiveRole } from '@/hooks/use-effective-role'
+import { usePermissions, PERMISSIONS } from '@/hooks/use-permissions'
 import { useToast } from '@/hooks/use-toast'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -106,7 +106,9 @@ function parseAcademicYearBounds(year: string): { start: Date; end: Date } | nul
 
 export function HolidaysPage() {
   const { user, currentSchool, setCurrentSchool } = useAppStore()
-  const effectiveRole = useEffectiveRole()
+  const { hasPermission } = usePermissions()
+  const canManageHolidays = hasPermission(PERMISSIONS.HOLIDAY_MANAGE)
+  const canManageSchoolingDays = hasPermission(PERMISSIONS.SETTINGS_UPDATE)
   const { toast } = useToast()
   const [holidays, setHolidays] = useState<Holiday[]>([])
   const [loading, setLoading] = useState(true)
@@ -133,8 +135,6 @@ export function HolidaysPage() {
     }
   })
   const [schoolingSaving, setSchoolingSaving] = useState(false)
-
-  const isAdmin = effectiveRole === 'SCHOOL_ADMIN'
 
   // Effective schooling days drives "weekly off" tinting on the calendar.
   const effectiveSchoolingDays = useMemo<string[]>(() => {
@@ -326,7 +326,7 @@ export function HolidaysPage() {
   }
 
   function handleCellClick(iso: string, dayHolidays: Holiday[]) {
-    if (!isAdmin) return
+    if (!canManageHolidays) return
     if (dayHolidays.length > 0) {
       openEdit(dayHolidays[0])
     } else {
@@ -354,12 +354,12 @@ export function HolidaysPage() {
           </Select>
         }
         secondaryAction={
-          isAdmin
+          canManageSchoolingDays
             ? { label: 'Schooling Days', icon: CalendarRange, onClick: openSchoolingDialog }
             : undefined
         }
         primaryAction={
-          isAdmin
+          canManageHolidays
             ? { label: 'Add Holiday', icon: PlusCircle, onClick: () => openAdd() }
             : undefined
         }
@@ -446,13 +446,13 @@ export function HolidaysPage() {
                           key={`${cell.iso}-${idx}`}
                           type="button"
                           onClick={() => handleCellClick(cell.iso, dayHolidays)}
-                          disabled={!isAdmin && dayHolidays.length === 0}
+                          disabled={!canManageHolidays && dayHolidays.length === 0}
                           title={
                             primaryHoliday
                               ? `${primaryHoliday.name}${dayHolidays.length > 1 ? ` +${dayHolidays.length - 1} more` : ''}`
                               : isWeeklyOff
                                 ? `${weekdayName} — Weekly Off`
-                                : isAdmin
+                                : canManageHolidays
                                   ? 'Click to add holiday'
                                   : ''
                           }
@@ -462,8 +462,8 @@ export function HolidaysPage() {
                             (idx + 1) % 7 === 0 && 'border-r-0',
                             idx >= 35 && 'border-b-0',
                             !cell.inMonth && 'bg-muted/10',
-                            isAdmin && 'cursor-pointer hover:bg-primary/5',
-                            !isAdmin && dayHolidays.length === 0 && 'cursor-default',
+                            canManageHolidays && 'cursor-pointer hover:bg-primary/5',
+                            !canManageHolidays && dayHolidays.length === 0 && 'cursor-default',
                             tint,
                           )}
                         >
@@ -496,7 +496,7 @@ export function HolidaysPage() {
 
                 {holidays.length === 0 && (
                   <p className="text-center text-xs text-muted-foreground">
-                    No holidays configured for {academicYear}. {isAdmin ? 'Click any date to add one.' : ''}
+                    No holidays configured for {academicYear}. {canManageHolidays ? 'Click any date to add one.' : ''}
                   </p>
                 )}
               </TabsContent>
@@ -537,7 +537,7 @@ export function HolidaysPage() {
                             {h.description ? ` · ${h.description}` : ''}
                           </p>
                         </div>
-                        {isAdmin && (
+                        {canManageHolidays && (
                           <div className="flex shrink-0 items-center gap-1">
                             <Button variant="ghost" size="icon" className="size-8" onClick={() => openEdit(h)}>
                               <Pencil className="size-3.5" />
@@ -596,7 +596,7 @@ export function HolidaysPage() {
             </div>
             </div>
             <DialogFooter>
-              {editing && isAdmin && (
+              {editing && canManageHolidays && (
                 <Button
                   variant="ghost"
                   className="mr-auto text-destructive hover:text-destructive"
@@ -608,7 +608,7 @@ export function HolidaysPage() {
                 </Button>
               )}
               <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-              <Button onClick={handleSave} disabled={saving}>
+              <Button onClick={handleSave} disabled={saving || !canManageHolidays}>
                 {saving && <Loader2 className="mr-2 size-4 animate-spin" />}
                 {editing ? 'Save Changes' : 'Add Holiday'}
               </Button>
@@ -649,7 +649,7 @@ export function HolidaysPage() {
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setSchoolingDialogOpen(false)}>Cancel</Button>
-              <Button onClick={saveSchoolingDays} disabled={schoolingSaving}>
+              <Button onClick={saveSchoolingDays} disabled={schoolingSaving || !canManageSchoolingDays}>
                 {schoolingSaving && <Loader2 className="mr-2 size-4 animate-spin" />}
                 Save
               </Button>

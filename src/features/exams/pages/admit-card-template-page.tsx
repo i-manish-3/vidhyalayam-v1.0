@@ -10,6 +10,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { api } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
+import { PERMISSIONS, usePermissions } from '@/hooks/use-permissions'
 import { GradientHero, LoadingState } from '@/components/shared'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -52,6 +53,7 @@ const TINTED_CARD =
 
 export function AdmitCardTemplatePage() {
   const { toast } = useToast()
+  const { hasAnyPermission } = usePermissions()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [branding, setBranding] = useState<Branding | null>(null)
@@ -120,11 +122,15 @@ export function AdmitCardTemplatePage() {
         icon={TicketCheck}
         title="Admit Card Template"
         description="Customize how admit cards look and what they show. Changes apply to every admit card you print."
-        primaryAction={{
-          label: saving ? 'Saving…' : 'Save template',
-          icon: saving ? Loader2 : Save,
-          onClick: handleSave,
-        }}
+        primaryAction={
+          hasAnyPermission([PERMISSIONS.EXAM_MANAGE])
+            ? {
+                label: saving ? 'Saving…' : 'Save template',
+                icon: saving ? Loader2 : Save,
+                onClick: handleSave,
+              }
+            : undefined
+        }
       />
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,360px)_1fr]">
@@ -222,7 +228,11 @@ export function AdmitCardTemplatePage() {
           </Card>
 
           <div className="flex gap-2">
-            <Button onClick={handleSave} disabled={saving} className="gap-1.5">
+            <Button
+              onClick={handleSave}
+              disabled={saving || !hasAnyPermission([PERMISSIONS.EXAM_MANAGE])}
+              className="gap-1.5"
+            >
               {saving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />} Save template
             </Button>
             <Button variant="outline" onClick={() => { setCfg(DEFAULT_ADMIT_CARD_TEMPLATE); setAccentText(DEFAULT_ADMIT_CARD_TEMPLATE.accentColor) }} className="gap-1.5">

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
+import { usePermissions, PERMISSIONS } from '@/hooks/use-permissions'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -34,6 +35,8 @@ interface ClassItem {
 export function AddSubjectPage() {
   const { toast } = useToast()
   const router = useRouter()
+  const { hasPermission } = usePermissions()
+  const canCreate = hasPermission(PERMISSIONS.SUBJECT_CREATE)
 
   // Form state
   const [name, setName] = useState('')
@@ -354,7 +357,7 @@ export function AddSubjectPage() {
             <div className="flex flex-col-reverse gap-2 rounded-xl border border-primary/10 bg-gradient-to-r from-muted/40 via-white to-primary/5 p-3 sm:flex-row sm:items-center dark:via-card">
               <Button
                 type="submit"
-                disabled={!isFormValid}
+                disabled={!isFormValid || !canCreate}
                 className="h-9 min-w-[140px] gap-2 shadow-sm"
               >
                 {submitting ? (

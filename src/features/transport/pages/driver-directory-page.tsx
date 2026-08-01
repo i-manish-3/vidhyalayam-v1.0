@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils'
 import { api } from '@/lib/api'
 import { useAppStore } from '@/lib/store'
 import { useToast } from '@/hooks/use-toast'
+import { usePermissions, PERMISSIONS } from '@/hooks/use-permissions'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -104,6 +105,9 @@ function DetailItem({
 export function DriverDirectoryPage() {
   const router = useRouter()
   const { toast } = useToast()
+  const { hasPermission } = usePermissions()
+  const canCreate = hasPermission(PERMISSIONS.TRANSPORT_CREATE)
+  const canUpdate = hasPermission(PERMISSIONS.TRANSPORT_UPDATE)
   const savedListState = useAppStore((state) => state.pageState[DRIVER_DIRECTORY_LIST_STATE_KEY] as DriverDirectoryListState | undefined)
   const setPageState = useAppStore((state) => state.setPageState)
   const [drivers, setDrivers] = useState<Driver[]>([])
@@ -297,15 +301,17 @@ export function DriverDirectoryPage() {
             <p className="mt-0.5 text-xs text-white/80">Manage transport drivers and route assignments.</p>
           </div>
         </div>
-        <Button
-          variant="secondary"
-          onClick={() => router.push('/transport/drivers/new')}
-          className="relative shrink-0 gap-2 border border-white/60 shadow-md transition-all hover:-translate-y-0.5 hover:shadow-lg"
-          style={{ backgroundColor: 'white', color: 'var(--primary)' }}
-        >
-          <PlusCircle className="size-4" strokeWidth={2.2} />
-          <span className="font-semibold">Add Driver</span>
-        </Button>
+        {canCreate && (
+          <Button
+            variant="secondary"
+            onClick={() => router.push('/transport/drivers/new')}
+            className="relative shrink-0 gap-2 border border-white/60 shadow-md transition-all hover:-translate-y-0.5 hover:shadow-lg"
+            style={{ backgroundColor: 'white', color: 'var(--primary)' }}
+          >
+            <PlusCircle className="size-4" strokeWidth={2.2} />
+            <span className="font-semibold">Add Driver</span>
+          </Button>
+        )}
       </div>
 
       {drivers.length === 0 ? (
@@ -315,10 +321,12 @@ export function DriverDirectoryPage() {
           </div>
           <h3 className="mt-4 text-base font-semibold">No Drivers</h3>
           <p className="mt-1 text-sm text-muted-foreground">Add transport drivers to assign them to routes.</p>
-          <Button onClick={() => router.push('/transport/drivers/new')} className="mt-4 gap-2">
-            <PlusCircle className="size-4" />
-            Add Driver
-          </Button>
+          {canCreate && (
+            <Button onClick={() => router.push('/transport/drivers/new')} className="mt-4 gap-2">
+              <PlusCircle className="size-4" />
+              Add Driver
+            </Button>
+          )}
         </div>
       ) : (
         <>
@@ -576,23 +584,27 @@ export function DriverDirectoryPage() {
                                   <DropdownMenuItem onClick={(event) => { event.stopPropagation(); setSelectedDriver(driver) }}>
                                     <Eye className="mr-2 size-3.5" /> View Details
                                   </DropdownMenuItem>
-                                  <DropdownMenuItem disabled={!driver.userId} onClick={(event) => { event.stopPropagation(); setResetTarget(driver) }}>
-                                    <KeyRound className="mr-2 size-3.5" /> Reset Password
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    disabled={isUpdating}
-                                    onClick={(event) => { event.stopPropagation(); void handleToggleStatus(driver) }}
-                                    className={isActive ? 'text-destructive focus:text-destructive' : ''}
-                                  >
-                                    {isUpdating ? (
-                                      <Loader2 className="mr-2 size-3.5 animate-spin" />
-                                    ) : isActive ? (
-                                      <UserX className="mr-2 size-3.5" />
-                                    ) : (
-                                      <UserCheck className="mr-2 size-3.5" />
-                                    )}
-                                    {isUpdating ? 'Updating...' : isActive ? 'Disable' : 'Enable'}
-                                  </DropdownMenuItem>
+                                  {canUpdate && (
+                                    <>
+                                      <DropdownMenuItem disabled={!driver.userId} onClick={(event) => { event.stopPropagation(); setResetTarget(driver) }}>
+                                        <KeyRound className="mr-2 size-3.5" /> Reset Password
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem
+                                        disabled={isUpdating}
+                                        onClick={(event) => { event.stopPropagation(); void handleToggleStatus(driver) }}
+                                        className={isActive ? 'text-destructive focus:text-destructive' : ''}
+                                      >
+                                        {isUpdating ? (
+                                          <Loader2 className="mr-2 size-3.5 animate-spin" />
+                                        ) : isActive ? (
+                                          <UserX className="mr-2 size-3.5" />
+                                        ) : (
+                                          <UserCheck className="mr-2 size-3.5" />
+                                        )}
+                                        {isUpdating ? 'Updating...' : isActive ? 'Disable' : 'Enable'}
+                                      </DropdownMenuItem>
+                                    </>
+                                  )}
                                 </DropdownMenuContent>
                               </DropdownMenu>
                             </TableCell>

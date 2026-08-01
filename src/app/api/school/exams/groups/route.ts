@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { requireRole, requirePermission } from '@/lib/api-auth'
-import { unauthorizedError, internalError, apiError } from '@/lib/api-errors'
+import { unauthorizedError, internalError, apiError, forbiddenError } from '@/lib/api-errors'
 import { logExamChange, extractExamAuditContext } from '@/lib/audit/exam-audit'
 
 const VALID_AGG_TYPES = ['weighted', 'best_of_n', 'sum_all']
@@ -37,6 +37,11 @@ export async function GET(request: NextRequest) {
     const user = requireRole(request, ['SCHOOL_ADMIN', 'TEACHER', 'STAFF'])
     if (!user || !user.schoolId) {
       return unauthorizedError()
+    }
+
+    const permitted = await requirePermission(request, 'exam:view')
+    if (!permitted) {
+      return forbiddenError()
     }
 
     const { searchParams } = new URL(request.url)

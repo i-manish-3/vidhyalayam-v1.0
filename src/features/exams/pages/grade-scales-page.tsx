@@ -43,6 +43,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { api } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
+import { PERMISSIONS, usePermissions } from '@/hooks/use-permissions'
 import { Award, MoreVertical, Pencil, Plus, Star, Trash2 } from 'lucide-react'
 
 interface GradeBand {
@@ -112,6 +113,7 @@ function validateBands(bands: GradeBand[]): string | null {
 export function GradeScalesPage() {
   const router = useRouter()
   const { toast } = useToast()
+  const { hasAnyPermission } = usePermissions()
   const [loading, setLoading] = useState(true)
   const [scales, setScales] = useState<GradeScale[]>([])
   const [classes, setClasses] = useState<ClassOption[]>([])
@@ -171,11 +173,15 @@ export function GradeScalesPage() {
         icon={Award}
         title="Grade scales"
         description="Percentage/marks ranges that map to letter grades. Assignable per exam pattern, term, or class."
-        primaryAction={{
-          label: 'New scale',
-          icon: Plus,
-          onClick: () => setEditing('new'),
-        }}
+        primaryAction={
+          hasAnyPermission([PERMISSIONS.EXAM_MANAGE])
+            ? {
+                label: 'New scale',
+                icon: Plus,
+                onClick: () => setEditing('new'),
+              }
+            : undefined
+        }
       />
 
       {scales.length === 0 ? (
@@ -183,8 +189,9 @@ export function GradeScalesPage() {
           icon={Award}
           title="No grade scales yet"
           description="Create a grading scale — CBSE 9-point, state 5-point, or your own custom bands."
-          actionLabel="Create scale"
-          onAction={() => setEditing('new')}
+          {...(hasAnyPermission([PERMISSIONS.EXAM_MANAGE])
+            ? { actionLabel: 'Create scale', onAction: () => setEditing('new') }
+            : {})}
         />
       ) : (
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -218,15 +225,19 @@ export function GradeScalesPage() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => setEditing(scale)}>
-                        <Pencil className="mr-2 size-4" /> Edit
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        className="text-destructive focus:text-destructive"
-                        onClick={() => setDeleteTarget(scale)}
-                      >
-                        <Trash2 className="mr-2 size-4" /> Delete
-                      </DropdownMenuItem>
+                      {hasAnyPermission([PERMISSIONS.EXAM_MANAGE]) && (
+                        <>
+                          <DropdownMenuItem onClick={() => setEditing(scale)}>
+                            <Pencil className="mr-2 size-4" /> Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className="text-destructive focus:text-destructive"
+                            onClick={() => setDeleteTarget(scale)}
+                          >
+                            <Trash2 className="mr-2 size-4" /> Delete
+                          </DropdownMenuItem>
+                        </>
+                      )}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
