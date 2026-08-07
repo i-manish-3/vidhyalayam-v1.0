@@ -576,12 +576,23 @@ async function ensureAdmissionForChild(args: {
 async function main() {
   console.log('Seeding direct admissions with parents and siblings...')
 
-  const school = await db.school.findFirst({
+  let school = await db.school.findFirst({
     where: { subdomain: 'dps-delhi', deletedAt: null },
   })
 
   if (!school) {
-    throw new Error('Seed school "dps-delhi" was not found. Run the core seed first.')
+    school = await db.school.findFirst({
+      where: { deletedAt: null },
+      orderBy: { createdAt: 'asc' },
+    })
+  }
+
+  if (!school) {
+    throw new Error('No active school was found. Run the core seed first.')
+  }
+
+  if (school.subdomain !== 'dps-delhi') {
+    console.log(`Using fallback school "${school.name}" (${school.subdomain}) for admissions seed.`)
   }
 
   const createdByUser = await db.user.findFirst({

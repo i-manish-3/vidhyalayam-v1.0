@@ -10,8 +10,11 @@ async function seed() {
   const existingSuperAdmin = await db.user.findFirst({
     where: { role: 'SUPER_ADMIN', deletedAt: null },
   })
+  const existingSchool = await db.school.findFirst({
+    where: { deletedAt: null },
+  })
 
-  if (existingSuperAdmin) {
+  if (existingSuperAdmin && existingSchool) {
     console.log('Core demo data already exists, skipping.')
     return
   }
