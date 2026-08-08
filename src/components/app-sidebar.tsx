@@ -67,6 +67,7 @@ import {
   DatabaseBackup,
   Palette,
   Home,
+  Trash2,
 } from 'lucide-react'
 
 export interface MenuChild {
@@ -110,6 +111,7 @@ export const MENUS: Record<string, MenuItem[]> = {
     { label: 'Contact Requests', page: 'contact-requests', icon: Mail },
     { label: 'Broadcasts', page: 'platform-announcements', icon: Megaphone },
     { label: 'Data Exports', page: 'tenant-exports', icon: DatabaseBackup },
+    { label: 'Student Wipe', page: 'student-wipe', icon: Trash2 },
     { label: 'Branding', page: 'platform-branding', icon: Palette },
     {
       label: 'Landing Page',

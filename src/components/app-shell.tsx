@@ -144,6 +144,7 @@ const SEARCH_ITEMS: { label: string; page: PageName; keywords: string[] }[] = [
   { label: 'School Details', page: 'school-detail', keywords: ['school info', 'school edit', 'school view'] },
   { label: 'School Permissions', page: 'super-admin-permissions', keywords: ['permission', 'module access', 'school access'] },
   { label: 'Roles', page: 'super-admin-roles', keywords: ['role', 'custom role', 'create role', 'role management'] },
+  { label: 'Student Wipe', page: 'student-wipe', keywords: ['wipe', 'bulk delete students', 'permanent delete', 'clear students', 'erase school data'] },
   { label: 'Support Tickets', page: 'support', keywords: ['help', 'issue', 'complaint'] },
   { label: 'Contact Requests', page: 'contact-requests', keywords: ['contact', 'demo', 'request', 'inquiry', 'lead'] },
   { label: 'Testimonials', page: 'testimonials', keywords: ['testimonial', 'review', 'feedback', 'rating'] },

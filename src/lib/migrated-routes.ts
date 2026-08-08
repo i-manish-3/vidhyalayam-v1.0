@@ -115,6 +115,7 @@ export const MIGRATED_PAGES: Partial<Record<PageName, (...args: string[]) => str
   'platform-announcements': () => '/super-admin/announcements',
   'tenant-exports': () => '/super-admin/exports',
   'platform-branding': () => '/super-admin/branding',
+  'student-wipe': () => '/super-admin/student-wipe',
   'schools': () => '/admin/schools',
   'add-school': () => '/admin/schools/new',
   'edit-school': (id?: string) => (id ? `/admin/schools/${id}/edit` : '/admin/schools'),

@@ -25,7 +25,7 @@ export type PageName =
   | 'my-classes' | 'my-attendance' | 'my-children' | 'fee-details'
   | 'parent-children' | 'parent-fees' | 'parent-attendance' | 'parent-exams'
   | 'super-admin-permissions' | 'super-admin-roles' | 'school-roles' | 'school-permissions' | 'school-users' | 'staff' | 'staff-create' | 'staff-detail' | 'contact-requests' | 'testimonials' | 'pricing-plans' | 'team-members' | 'edit-student'
-  | 'platform-announcements' | 'tenant-exports' | 'platform-branding'
+  | 'platform-announcements' | 'tenant-exports' | 'platform-branding' | 'student-wipe'
   | 'id-cards' | 'id-card-templates' | 'id-card-template-new' | 'id-card-template-edit' | 'id-card-generate' | 'id-card-showcase'
 
 export interface User {
