@@ -102,6 +102,14 @@ interface DashboardData {
     nonTeachingReason?: 'non-working-day' | 'holiday'
     holidayName?: string
   }
+  attendanceWeek: Array<{
+    date: string
+    day: string
+    present: number
+    absent: number
+    leave: number
+    total: number
+  }>
   feeStats: {
     totalCollected: number
     totalPending: number
@@ -176,6 +184,9 @@ export function SchoolAdminDashboard() {
           totalClasses: Number(stats.totalClasses || 0),
           totalSections: Number(stats.totalSections || 0),
           attendanceToday: (dashboardData.attendance as DashboardData['attendanceToday']) || { present: 0, absent: 0, leave: 0, total: 0 },
+          attendanceWeek: Array.isArray(dashboardData.attendanceWeek)
+            ? (dashboardData.attendanceWeek as DashboardData['attendanceWeek'])
+            : [],
           feeStats: {
             totalCollected: Number(stats.collectedFees || 0),
             totalPending: Number(stats.pendingFees || 0),
@@ -224,6 +235,7 @@ export function SchoolAdminDashboard() {
     totalClasses: 0,
     totalSections: 0,
     attendanceToday: { present: 0, absent: 0, leave: 0, total: 0 },
+    attendanceWeek: [],
     feeStats: { totalCollected: 0, totalPending: 0, totalFees: 0, overdueFees: 0, collectionRate: 0 },
     recentActivities: [],
   }
@@ -252,14 +264,10 @@ export function SchoolAdminDashboard() {
     { name: 'Boys', value: boysCount, color: '#0ea5e9' },
     { name: 'Girls', value: girlsCount, color: '#ec4899' },
   ]
-  const attendanceBase = Math.max(dashboard.attendanceToday.present, 1)
-  const weeklyAttendanceData = [
-    { day: 'Mon', present: Math.round(attendanceBase * 0.88) },
-    { day: 'Tue', present: Math.round(attendanceBase * 0.94) },
-    { day: 'Wed', present: Math.round(attendanceBase * 0.9) },
-    { day: 'Thu', present: Math.round(attendanceBase * 0.97) },
-    { day: 'Fri', present: dashboard.attendanceToday.present },
-  ]
+  const weeklyAttendanceData = dashboard.attendanceWeek.map((d) => ({
+    day: d.day,
+    present: d.present,
+  }))
   const calendarDays = getCalendarDays(new Date())
 
   const metrics: MetricItem[] = [
@@ -737,7 +745,7 @@ function parseHolidayDate(value: string | Date): Date {
   return new Date(source.getFullYear(), source.getMonth(), source.getDate())
 }
 
-function ymd(value: string): string {
+function ymd(value: string | Date): string {
   const d = parseHolidayDate(value)
   const y = d.getFullYear()
   const m = String(d.getMonth() + 1).padStart(2, '0')

@@ -162,6 +162,54 @@ async function getAdminDashboard(schoolId: string, perms: string[]) {
     holidayName: !teachingInfo.teaching && teachingInfo.reason === 'holiday' ? teachingInfo.holiday?.name : undefined,
   }
 
+  // Weekly attendance series for the dashboard trend chart — the last 5 days
+  // with attendance records (real data, unlike the old synthetic multipliers).
+  const recentAttendanceDates = canAttendance
+    ? await db.attendance.findMany({
+        where: { schoolId, date: { lte: today } },
+        select: { date: true },
+        distinct: ['date'],
+        orderBy: { date: 'desc' },
+        take: 5,
+      })
+    : []
+  const attendanceWeekDates = recentAttendanceDates
+    .map((r) => r.date)
+    // Order the grouped rows back to oldest → newest for the chart
+    .sort((a, b) => a.getTime() - b.getTime())
+
+  const attendanceWeekRows = canAttendance && attendanceWeekDates.length > 0
+    ? await db.attendance.groupBy({
+        by: ['date', 'status'],
+        where: { schoolId, date: { in: attendanceWeekDates } },
+        _count: { _all: true },
+      })
+    : []
+
+  const attendanceWeekMap = new Map<string, { present: number; absent: number; leave: number; total: number }>()
+  for (const g of attendanceWeekRows) {
+    const key = `${g.date.getFullYear()}-${String(g.date.getMonth() + 1).padStart(2, '0')}-${String(g.date.getDate()).padStart(2, '0')}`
+    const entry = attendanceWeekMap.get(key) || { present: 0, absent: 0, leave: 0, total: 0 }
+    if (g.status === 'present') entry.present = g._count._all
+    else if (g.status === 'absent') entry.absent = g._count._all
+    else if (g.status === 'leave') entry.leave = g._count._all
+    entry.total += g._count._all
+    attendanceWeekMap.set(key, entry)
+  }
+
+  const attendanceWeek = attendanceWeekDates.map((d) => {
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    const s = attendanceWeekMap.get(key)
+    return {
+      date: key,
+      day: d.toLocaleDateString('en-IN', { weekday: 'short' }),
+      present: s?.present ?? 0,
+      absent: s?.absent ?? 0,
+      leave: s?.leave ?? 0,
+      total: s?.total ?? 0,
+    }
+  })
+
   // Overdue fees
   const overdueFees = canFees
     ? await db.feeCollection.aggregate({
@@ -267,6 +315,7 @@ async function getAdminDashboard(schoolId: string, perms: string[]) {
       collectionRate: totalFeeAmount > 0 ? ((collectedFeeAmount / totalFeeAmount) * 100).toFixed(1) : '0',
     },
     attendance: attendanceStats,
+    attendanceWeek,
     recentActivities,
   })
 }
