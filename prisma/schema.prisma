@@ -341,7 +341,7 @@ model Student {
   classId           String?
   sectionId         String?
   houseId           String?
-  admissionNumber   String?   @unique
+  admissionNumber   String?
   rollNumber        String?
   firstName         String
   lastName          String?
@@ -402,7 +402,7 @@ model Student {
   @@index([classId])
   @@index([sectionId])
   @@index([houseId])
-  @@index([admissionNumber])
+  @@unique([schoolId, admissionNumber])
   @@index([admissionStatus])
   @@index([familyId])
   @@index([schoolId, classId, sectionId])
