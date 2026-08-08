@@ -2082,7 +2082,7 @@ export function FeeCollectionsPage() {
                               checked && 'border-primary bg-primary/10 ring-1 ring-primary/20',
                               isOverdue && !checked && 'border-red-300 bg-red-50/70 text-red-900 hover:border-red-400 hover:bg-red-50 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-200',
                               isCurrentCal && !checked && !isOverdue && 'border-primary/40 bg-primary/5',
-                              isSettled && 'cursor-default border-emerald-300 bg-emerald-100 text-emerald-900 hover:border-emerald-300 dark:bg-emerald-500/20 dark:text-emerald-200',
+                              isSettled && 'cursor-default border-emerald-200 bg-emerald-50 text-emerald-900 hover:border-emerald-200 hover:bg-emerald-50 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200',
                               !hasFee && 'cursor-default bg-muted/40 text-muted-foreground hover:border-border hover:bg-muted/40'
                             )}
                           >
@@ -2200,7 +2200,7 @@ export function FeeCollectionsPage() {
                               checked && 'border-primary bg-primary/10 ring-1 ring-primary/20',
                               isOverdue && !checked && 'border-red-300 bg-red-50/70 text-red-900 hover:border-red-400 hover:bg-red-50 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-200',
                               isCurrentCal && !checked && !isOverdue && 'border-primary/40 bg-primary/5',
-                              isSettled && 'cursor-default border-emerald-300 bg-emerald-100 text-emerald-900 hover:border-emerald-300 dark:bg-emerald-500/20 dark:text-emerald-200',
+                              isSettled && 'cursor-default border-emerald-200 bg-emerald-50 text-emerald-900 hover:border-emerald-200 hover:bg-emerald-50 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200',
                               !hasFee && 'cursor-default bg-muted/40 text-muted-foreground hover:border-border hover:bg-muted/40'
                             )}
                           >
