@@ -181,7 +181,6 @@ model School {
   idCardGenerationLogs        IdCardGenerationLog[]
   exportJobs                  ExportJob[]
   chatConversations           ChatConversation[]
-  schoolEvents                SchoolEvent[]
 
   @@index([subdomain])
   @@index([status])
@@ -3803,22 +3802,3 @@ model ChatMessage {
 // ============================================
 // SCHOOL EVENTS CALENDAR
 // ============================================
-
-model SchoolEvent {
-  id          String   @id @default(cuid())
-  schoolId    String
-  title       String
-  description String?
-  startDate   DateTime
-  endDate     DateTime?
-  allDay      Boolean  @default(true)
-  color       String   @default("#ec4899") // tailwind pink-500 as default
-  createdBy   String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-
-  @@index([schoolId, startDate])
-  @@index([schoolId, createdAt])
-}

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   AlertCircle,
   ArrowRight,
@@ -79,14 +79,13 @@ const tooltipStyle = {
   color: 'var(--popover-foreground)',
 }
 
-interface SchoolEventData {
+interface HolidayData {
   id: string
-  title: string
-  description: string | null
-  startDate: string
+  name: string
+  type: string
+  date: string
   endDate: string | null
-  allDay: boolean
-  color: string
+  description: string | null
 }
 
 interface DashboardData {
@@ -152,6 +151,9 @@ export function SchoolAdminDashboard() {
   const router = useRouter()
   const { hasPermission } = usePermissions()
   const user = useAppStore((state) => state.user)
+  const viewingAcademicYear = useAppStore((state) => state.viewingAcademicYear)
+  const currentSchoolAcademicYear = useAppStore((state) => state.currentSchool?.academicYear)
+  const resolvedAcademicYear = viewingAcademicYear || currentSchoolAcademicYear || ''
 
   // Widget-level access. SCHOOL_ADMIN with full permissions sees everything;
   // custom STAFF roles only see widgets they have permissions for.
@@ -534,7 +536,7 @@ export function SchoolAdminDashboard() {
           </div>
 
           <div className="grid content-start gap-4">
-            <CalendarEventsCard calendarDays={calendarDays} />
+            <CalendarEventsCard calendarDays={calendarDays} academicYear={resolvedAcademicYear} />
             <RecentActivityCard activities={dashboard.recentActivities} />
           </div>
         </section>
@@ -702,23 +704,85 @@ function getCalendarDays(date: Date): CalendarDay[] {
   })
 }
 
-function CalendarEventsCard({ calendarDays }: { calendarDays: CalendarDay[] }) {
-  const [events, setEvents] = useState<SchoolEventData[]>([])
+const DEFAULT_SCHOOLING_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+
+// Calendar cell tinting per holiday type — mirrors the Academic Calendar page
+// (holidays page) so the dashboard reads the same way.
+const HOLIDAY_CELL_STYLES: Record<string, string> = {
+  public: 'bg-rose-50 text-rose-900 ring-1 ring-rose-200 dark:bg-rose-500/15 dark:text-rose-100 dark:ring-rose-500/30',
+  school: 'bg-sky-50 text-sky-900 ring-1 ring-sky-200 dark:bg-sky-500/15 dark:text-sky-100 dark:ring-sky-500/30',
+  vacation: 'bg-violet-50 text-violet-900 ring-1 ring-violet-200 dark:bg-violet-500/15 dark:text-violet-100 dark:ring-violet-500/30',
+}
+
+const HOLIDAY_DOT_STYLES: Record<string, string> = {
+  public: 'bg-rose-500',
+  school: 'bg-sky-500',
+  vacation: 'bg-violet-500',
+}
+
+const HOLIDAY_BADGE_STYLES: Record<string, string> = {
+  public: 'border-rose-300 bg-rose-50 text-rose-800 dark:border-rose-500/40 dark:bg-rose-500/20 dark:text-rose-100',
+  school: 'border-sky-300 bg-sky-50 text-sky-800 dark:border-sky-500/40 dark:bg-sky-500/20 dark:text-sky-100',
+  vacation: 'border-violet-300 bg-violet-50 text-violet-800 dark:border-violet-500/40 dark:bg-violet-500/20 dark:text-violet-100',
+}
+
+const HOLIDAY_TYPE_LABELS: Record<string, string> = {
+  public: 'Public',
+  school: 'School',
+  vacation: 'Vacation',
+}
+
+function parseHolidayDate(value: string | Date): Date {
+  const source = value instanceof Date ? value : new Date(value.slice(0, 10))
+  return new Date(source.getFullYear(), source.getMonth(), source.getDate())
+}
+
+function ymd(value: string): string {
+  const d = parseHolidayDate(value)
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+function CalendarEventsCard({
+  calendarDays,
+  academicYear,
+}: {
+  calendarDays: CalendarDay[]
+  academicYear: string
+}) {
+  const [holidays, setHolidays] = useState<HolidayData[]>([])
+  const [workingDays, setWorkingDays] = useState<string[]>(DEFAULT_SCHOOLING_DAYS)
   const currentDate = calendarDays.find((d) => d.isToday)?.date || new Date()
   const monthLabel = new Intl.DateTimeFormat('en-IN', { month: 'long', year: 'numeric' }).format(currentDate)
 
   useEffect(() => {
-    const year = currentDate.getFullYear()
-    const month = currentDate.getMonth() + 1
-    api.get<{ events: SchoolEventData[] }>('/api/school/events', { year: String(year), month: String(month) })
-      .then((res) => setEvents(res.events || []))
-      .catch(() => setEvents([]))
-  }, [])
+    if (!academicYear) return
+    api.get<{ holidays: HolidayData[]; workingDays: string[] }>(`/api/school/holidays?academicYear=${academicYear}`)
+      .then((res) => {
+        setHolidays(res.holidays ?? [])
+        if (Array.isArray(res.workingDays) && res.workingDays.length > 0) setWorkingDays(res.workingDays)
+      })
+      .catch(() => setHolidays([]))
+  }, [academicYear])
 
-  const eventDates = new Set(events.map((e) => new Date(e.startDate).getDate()))
+  const monthHolidays = useMemo(() => holidays.filter((h) => {
+    const d = parseHolidayDate(h.date)
+    return d.getMonth() === currentDate.getMonth() && d.getFullYear() === currentDate.getFullYear()
+  }), [holidays, currentDate])
+
+  // Map YYYY-MM-DD → holiday for that day. Holiday rows carry a single start
+  // date (the Academic Calendar page stores multi-day ranges on one row), so
+  // only the start day is tinted here.
+  const holidayByDay = useMemo(() => {
+    const map = new Map<string, HolidayData>()
+    for (const h of holidays) map.set(ymd(h.date), h)
+    return map
+  }, [holidays])
 
   return (
-    <DashboardPanel title={monthLabel} description="Events calendar" icon={Calendar} tone="sky">
+    <DashboardPanel title={monthLabel} description="Holidays & off days" icon={Calendar} tone="sky">
       <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-semibold text-muted-foreground">
         {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, index) => (
           <span key={`${day}-${index}`}>{day}</span>
@@ -726,44 +790,63 @@ function CalendarEventsCard({ calendarDays }: { calendarDays: CalendarDay[] }) {
       </div>
       <div className="mt-2 grid grid-cols-7 gap-1">
         {calendarDays.map((day) => {
-          const hasEvent = eventDates.has(day.label) && day.inCurrentMonth
+          const holiday = day.inCurrentMonth ? holidayByDay.get(ymd(day.date)) : undefined
+          const isWeeklyOff = day.inCurrentMonth && !workingDays.includes(
+            day.date.toLocaleDateString('en-IN', { weekday: 'long' })
+          )
           return (
             <div
               key={day.date.toISOString()}
               className={cn(
                 'relative flex aspect-square items-center justify-center rounded-lg text-xs transition-colors',
                 day.inCurrentMonth ? 'text-foreground/80 hover:bg-sky-500/10' : 'text-muted-foreground/35',
+                holiday && HOLIDAY_CELL_STYLES[holiday.type],
+                isWeeklyOff && !holiday && 'bg-slate-50 text-slate-500 dark:bg-slate-500/10 dark:text-slate-400',
                 day.isToday && 'bg-primary text-primary-foreground shadow-sm shadow-primary/20',
-                hasEvent && !day.isToday && 'bg-pink-500/10 text-pink-700 dark:text-pink-300',
               )}
+              title={holiday ? holiday.name : undefined}
             >
               {day.label}
-              {hasEvent && (
-                <span className={cn('absolute bottom-1 size-1 rounded-full bg-pink-500', day.isToday && 'bg-white')} />
+              {holiday && (
+                <span className={cn(
+                  'absolute bottom-1 size-1 rounded-full',
+                  HOLIDAY_DOT_STYLES[holiday.type],
+                  day.isToday && 'bg-white'
+                )} />
               )}
             </div>
           )
         })}
       </div>
       <div className="mt-4 space-y-2">
-        <p className="text-xs font-semibold text-muted-foreground">Events</p>
-        {events.length === 0 && (
-          <p className="text-xs text-muted-foreground">No events this month</p>
+        <p className="text-xs font-semibold text-muted-foreground">Holidays this month</p>
+        {monthHolidays.length === 0 && (
+          <p className="text-xs text-muted-foreground">No holidays this month</p>
         )}
-        {events.map((event) => {
-          const d = new Date(event.startDate)
-          const timeStr = event.allDay
-            ? 'All day'
-            : d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
+        {monthHolidays.map((holiday) => {
+          if (!holidayByDay.has(ymd(holiday.date))) return null
+          const d = parseHolidayDate(holiday.date)
           const tag = d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
           return (
-            <div key={event.id} className="rounded-xl border border-sky-500/10 bg-white/70 p-2.5 shadow-sm dark:bg-background/40">
-              <Badge variant="secondary" className="mb-1 h-5 bg-pink-500/10 px-1.5 text-[10px] text-pink-700 dark:text-pink-300">{tag}</Badge>
-              <p className="text-xs font-semibold text-foreground/85">{event.title}</p>
-              {event.description && (
-                <p className="text-[10px] text-muted-foreground">{event.description}</p>
+            <div key={holiday.id} className="rounded-xl border border-sky-500/10 bg-white/70 p-2.5 shadow-sm dark:bg-background/40">
+              <div className="mb-1 flex items-center gap-1.5">
+                <Badge
+                  variant="outline"
+                  className={cn('h-5 px-1.5 text-[10px]', HOLIDAY_BADGE_STYLES[holiday.type] || HOLIDAY_BADGE_STYLES.school)}
+                >
+                  {tag}
+                </Badge>
+                <Badge
+                  variant="outline"
+                  className={cn('h-5 px-1.5 text-[10px]', HOLIDAY_BADGE_STYLES[holiday.type] || HOLIDAY_BADGE_STYLES.school)}
+                >
+                  {HOLIDAY_TYPE_LABELS[holiday.type] || holiday.type}
+                </Badge>
+              </div>
+              <p className="text-xs font-semibold text-foreground/85">{holiday.name}</p>
+              {holiday.description && (
+                <p className="text-[10px] text-muted-foreground">{holiday.description}</p>
               )}
-              <p className="text-[10px] text-muted-foreground">{timeStr}</p>
             </div>
           )
         })}
