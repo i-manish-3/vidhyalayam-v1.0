@@ -203,6 +203,22 @@ export async function DELETE(
       await tx.admission.deleteMany({ where: { studentId: { in: studentIds } } })
 
       const res = await tx.student.deleteMany({ where: { id: { in: studentIds }, schoolId } })
+
+      // If the wipe emptied the school's admission ledger, reset the sequence
+      // counters for student numbers (admission + registration, every year
+      // bucket). Otherwise the counters would keep counting up from the wiped
+      // students' numbers (next number would be 207 instead of 1). Only safe
+      // when zero admissions remain — otherwise new numbers would collide.
+      // Employee counters (kind 'employee') are left untouched.
+      const remaining = await tx.admission.count({
+        where: { schoolId, deletedAt: null },
+      })
+      if (remaining === 0) {
+        await tx.numberCounter.deleteMany({
+          where: { schoolId, kind: { in: ['admission', 'registration'] } },
+        })
+      }
+
       return res.count
     })
 

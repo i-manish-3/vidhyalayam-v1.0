@@ -436,7 +436,10 @@ export function StudentWipePage() {
           <p>
             This tool is restricted to Super Admin and performs a hard delete — rows are removed from the database,
             not soft-deleted. Neither the school staff nor the platform can recover them afterwards. Always export
-            the school&apos;s data (<Badge variant="outline">Data Exports</Badge>) before running a wipe.
+            the school&apos;s data (<Badge variant="outline">Data Exports</Badge>) before running a wipe. When a wipe
+            removes <em>every</em> admission of a school, its admission and registration number sequences restart from
+            their configured <Badge variant="outline">sequence starts</Badge>; if any admissions remain, the sequences
+            carry on to avoid duplicate numbers.
           </p>
         </CardContent>
       </Card>
