@@ -223,6 +223,49 @@ async function getAdminDashboard(schoolId: string, perms: string[]) {
       })
     : { _sum: { amount: 0, paidAmount: 0 } }
 
+  // Monthly fee trend — collected vs pending for the last 6 months (including
+  // the current one). Collected buckets by payment date; pending buckets by
+  // due date, so a bill shows up as pending in the month it was due and any
+  // payment lands in the month it was actually paid.
+  const FEE_TREND_MONTHS = 6
+  let feeTrend: Array<{ month: string; collected: number; pending: number }> = []
+  if (canFees) {
+    const now = new Date()
+    const windowStart = new Date(now.getFullYear(), now.getMonth() - (FEE_TREND_MONTHS - 1), 1)
+    const trendRows = await db.feeCollection.findMany({
+      where: {
+        schoolId,
+        deletedAt: null,
+        paymentStatus: { in: ['paid', 'partial', 'unpaid'] },
+        OR: [{ paymentDate: { gte: windowStart } }, { dueDate: { gte: windowStart } }],
+      },
+      select: { paymentDate: true, dueDate: true, amount: true, paidAmount: true, paymentStatus: true },
+    })
+    const buckets = new Map<string, { collected: number; pending: number }>()
+    for (let i = FEE_TREND_MONTHS - 1; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+      buckets.set(`${d.getFullYear()}-${d.getMonth()}`, { collected: 0, pending: 0 })
+    }
+    for (const r of trendRows) {
+      if ((r.paymentStatus === 'paid' || r.paymentStatus === 'partial') && r.paymentDate) {
+        const key = `${r.paymentDate.getFullYear()}-${r.paymentDate.getMonth()}`
+        const bucket = buckets.get(key)
+        if (bucket) bucket.collected += r.paidAmount || 0
+      }
+      if ((r.paymentStatus === 'unpaid' || r.paymentStatus === 'partial') && r.dueDate) {
+        const key = `${r.dueDate.getFullYear()}-${r.dueDate.getMonth()}`
+        const bucket = buckets.get(key)
+        if (bucket) bucket.pending += (r.amount || 0) - (r.paidAmount || 0)
+      }
+    }
+    feeTrend = [...buckets.entries()].map(([key, bucket]) => ({
+      month: new Intl.DateTimeFormat('en-IN', { month: 'short' })
+        .format(new Date(Number(key.split('-')[0]), Number(key.split('-')[1]), 1)),
+      collected: Math.round(bucket.collected),
+      pending: Math.round(bucket.pending),
+    }))
+  }
+
   // Salary stats
   const salaryPaymentsThisMonth = canSalary
     ? await db.salaryPayment.aggregate({
@@ -237,7 +280,7 @@ async function getAdminDashboard(schoolId: string, perms: string[]) {
     : { _sum: { netPayable: 0 } }
 
   // Recent activities — only pull from sources the user can see
-  const [recentFeePayments, recentStudents, recentAnnouncements] = await Promise.all([
+  const [recentFeePayments, recentStudents, recentAnnouncements, recentAttendanceLogs, recentHolidays, recentTeachers, recentSalaries] = await Promise.all([
     canFees
       ? db.feeCollection.findMany({
           where: { schoolId, paymentStatus: { in: ['paid', 'partial'] }, deletedAt: null },
@@ -258,17 +301,64 @@ async function getAdminDashboard(schoolId: string, perms: string[]) {
       ? db.announcement.findMany({
           where: { schoolId, isActive: true, deletedAt: null },
           orderBy: { createdAt: 'desc' },
+          take: 4,
+          select: { id: true, title: true, audience: true, priority: true, scheduledAt: true, sentAt: true, expiresAt: true, createdAt: true },
+        })
+      : Promise.resolve([]),
+    canAttendance
+      ? db.attendanceAuditLog.findMany({
+          where: { schoolId, action: 'finalize' },
+          orderBy: { createdAt: 'desc' },
+          take: 5,
+          select: { id: true, classId: true, date: true, createdAt: true },
+        })
+      : Promise.resolve([]),
+    canAttendance
+      ? db.holiday.findMany({
+          where: { schoolId, deletedAt: null },
+          orderBy: { createdAt: 'desc' },
           take: 3,
-          select: { id: true, title: true, priority: true, createdAt: true },
+          select: { id: true, name: true, createdAt: true },
+        })
+      : Promise.resolve([]),
+    canTeachers
+      ? db.teacher.findMany({
+          where: { schoolId, deletedAt: null },
+          orderBy: { createdAt: 'desc' },
+          take: 3,
+          select: { id: true, firstName: true, lastName: true, createdAt: true },
+        })
+      : Promise.resolve([]),
+    canSalary
+      ? db.salaryPayment.findMany({
+          where: { schoolId, paymentStatus: 'paid' },
+          orderBy: { paymentDate: 'desc' },
+          take: 3,
+          select: { id: true, month: true, year: true, paymentDate: true },
         })
       : Promise.resolve([]),
   ])
+
+  // Attendance audit logs store classId without a relation — resolve names.
+  const attendanceClassIds = [...new Set(recentAttendanceLogs.map((l) => l.classId))]
+  const classMap = new Map<string, string>()
+  if (attendanceClassIds.length > 0) {
+    const classes = await db.class.findMany({
+      where: { id: { in: attendanceClassIds } },
+      select: { id: true, name: true },
+    })
+    for (const c of classes) classMap.set(c.id, c.name)
+  }
+
+  const MONTH_NAMES = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
   const totalFeeAmount = totalFees._sum.amount || 0
   const collectedFeeAmount = collectedFees._sum.paidAmount || 0
   const pendingFeeAmount = (pendingFees._sum.amount || 0) - (pendingFees._sum.paidAmount || 0)
   const overdueFeeAmount = (overdueFees._sum.amount || 0) - (overdueFees._sum.paidAmount || 0)
 
+  // Merge everything newest-first so the panel always shows the freshest
+  // events regardless of which module produced them.
   const recentActivities: Array<{ id: string; type: string; message: string; time: string }> = []
 
   recentFeePayments.forEach((p) => {
@@ -276,7 +366,7 @@ async function getAdminDashboard(schoolId: string, perms: string[]) {
       id: p.id,
       type: 'fee',
       message: `Fee payment of ₹${(p.paidAmount || 0).toLocaleString()} received from ${p.student ? `${p.student.firstName} ${p.student.lastName}` : 'Unknown'}`,
-      time: p.paymentDate ? new Date(p.paymentDate).toLocaleDateString() : 'Recently',
+      time: (p.paymentDate || new Date()).toISOString(),
     })
   })
 
@@ -284,8 +374,8 @@ async function getAdminDashboard(schoolId: string, perms: string[]) {
     recentActivities.push({
       id: s.id,
       type: 'student',
-      message: `New student ${s.firstName} ${s.lastName} enrolled`,
-      time: s.createdAt ? new Date(s.createdAt).toLocaleDateString() : 'Recently',
+      message: `New student ${s.firstName}${s.lastName ? ` ${s.lastName}` : ''} enrolled`,
+      time: (s.createdAt || new Date()).toISOString(),
     })
   })
 
@@ -294,11 +384,47 @@ async function getAdminDashboard(schoolId: string, perms: string[]) {
       id: a.id,
       type: 'announcement',
       message: `Announcement: ${a.title}`,
-      time: a.createdAt ? new Date(a.createdAt).toLocaleDateString() : 'Recently',
+      time: (a.createdAt || new Date()).toISOString(),
     })
   })
 
-  recentActivities.reverse()
+  recentAttendanceLogs.forEach((l) => {
+    recentActivities.push({
+      id: l.id,
+      type: 'attendance',
+      message: `${classMap.get(l.classId) || 'Class'} attendance finalized for ${l.date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}`,
+      time: l.createdAt.toISOString(),
+    })
+  })
+
+  recentHolidays.forEach((h) => {
+    recentActivities.push({
+      id: h.id,
+      type: 'holiday',
+      message: `Holiday declared: ${h.name}`,
+      time: (h.createdAt || new Date()).toISOString(),
+    })
+  })
+
+  recentTeachers.forEach((t) => {
+    recentActivities.push({
+      id: t.id,
+      type: 'teacher',
+      message: `${t.firstName}${t.lastName ? ` ${t.lastName}` : ''} joined as teacher`,
+      time: (t.createdAt || new Date()).toISOString(),
+    })
+  })
+
+  recentSalaries.forEach((s) => {
+    recentActivities.push({
+      id: s.id,
+      type: 'salary',
+      message: `Salary paid for ${MONTH_NAMES[s.month] || s.month} ${s.year}`,
+      time: (s.paymentDate || new Date()).toISOString(),
+    })
+  })
+
+  recentActivities.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
 
   return NextResponse.json({
     role: 'SCHOOL_ADMIN',
@@ -316,7 +442,18 @@ async function getAdminDashboard(schoolId: string, perms: string[]) {
     },
     attendance: attendanceStats,
     attendanceWeek,
+    feeTrend,
     recentActivities,
+    notices: canAnnouncements
+      ? recentAnnouncements.map((a) => ({
+          id: a.id,
+          title: a.title,
+          audience: a.audience,
+          priority: a.priority,
+          publishedAt: (a.sentAt || a.scheduledAt || a.createdAt).toISOString(),
+          expiresAt: a.expiresAt ? a.expiresAt.toISOString() : null,
+        }))
+      : [],
   })
 }
 

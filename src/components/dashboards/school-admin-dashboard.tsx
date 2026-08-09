@@ -47,15 +47,6 @@ import { usePermissions } from '@/hooks/use-permissions'
 import { cn } from '@/lib/utils'
 import { useAppStore } from '@/lib/store'
 
-const feeTrendData = [
-  { month: 'Jul', collected: 85000, pending: 42000 },
-  { month: 'Aug', collected: 92000, pending: 38000 },
-  { month: 'Sep', collected: 105000, pending: 35000 },
-  { month: 'Oct', collected: 118000, pending: 30000 },
-  { month: 'Nov', collected: 125000, pending: 28000 },
-  { month: 'Dec', collected: 132000, pending: 25000 },
-]
-
 const studentPerformanceData = [
   { month: 'Jul', gradeA: 62, gradeB: 54, gradeC: 43 },
   { month: 'Aug', gradeA: 66, gradeB: 58, gradeC: 46 },
@@ -63,13 +54,6 @@ const studentPerformanceData = [
   { month: 'Oct', gradeA: 74, gradeB: 64, gradeC: 52 },
   { month: 'Nov', gradeA: 78, gradeB: 67, gradeC: 55 },
   { month: 'Dec', gradeA: 82, gradeB: 70, gradeC: 58 },
-]
-
-const notices = [
-  { title: 'Science Fair Registration Opens', audience: 'All Students', due: '05 Jul, 2026', tone: 'sky' },
-  { title: 'Teacher Development Workshop', audience: 'All Teachers', due: '10 Jul, 2026', tone: 'violet' },
-  { title: 'New Library Books Arrived', audience: 'Students & Teachers', due: '12 Jul, 2026', tone: 'emerald' },
-  { title: 'Field Trip Consent Forms Due', audience: 'Class 6-8 Students', due: '15 Jul, 2026', tone: 'amber' },
 ]
 
 const tooltipStyle = {
@@ -117,7 +101,16 @@ interface DashboardData {
     overdueFees: number
     collectionRate: number
   }
+  feeTrend: Array<{ month: string; collected: number; pending: number }>
   recentActivities: Array<{ id: string; type: string; message: string; time: string }>
+  notices: Array<{
+    id: string
+    title: string
+    audience: string
+    priority: string
+    publishedAt: string
+    expiresAt: string | null
+  }>
 }
 
 interface MetricItem {
@@ -194,8 +187,14 @@ export function SchoolAdminDashboard() {
             overdueFees: Number(stats.overdueFees || 0),
             collectionRate,
           },
+          feeTrend: Array.isArray(dashboardData.feeTrend)
+            ? (dashboardData.feeTrend as DashboardData['feeTrend'])
+            : [],
           recentActivities: Array.isArray(dashboardData.recentActivities)
             ? (dashboardData.recentActivities as DashboardData['recentActivities'])
+            : [],
+          notices: Array.isArray(dashboardData.notices)
+            ? (dashboardData.notices as DashboardData['notices'])
             : [],
         })
       } finally {
@@ -237,7 +236,9 @@ export function SchoolAdminDashboard() {
     attendanceToday: { present: 0, absent: 0, leave: 0, total: 0 },
     attendanceWeek: [],
     feeStats: { totalCollected: 0, totalPending: 0, totalFees: 0, overdueFees: 0, collectionRate: 0 },
+    feeTrend: [],
     recentActivities: [],
+    notices: [],
   }
 
   const dashboard = data || fallbackData
@@ -268,6 +269,8 @@ export function SchoolAdminDashboard() {
     day: d.day,
     present: d.present,
   }))
+  const feeTrendData = dashboard.feeTrend
+  const latestFeeMonth = feeTrendData[feeTrendData.length - 1] || { month: '', collected: 0, pending: 0 }
   const calendarDays = getCalendarDays(new Date())
 
   const metrics: MetricItem[] = [
@@ -501,8 +504,10 @@ export function SchoolAdminDashboard() {
 
               {canSeeFees && (
                 <DashboardPanel
-                  title="Earnings"
-                  description="Collected versus pending fee trend"
+                  title="Fee Collection"
+                  description={dashboard.feeStats.totalCollected > 0 || dashboard.feeStats.totalPending > 0
+                    ? `${formatMoney(dashboard.feeStats.totalCollected)} collected · ${formatMoney(dashboard.feeStats.totalPending)} pending this year`
+                    : 'Collected versus pending fee trend'}
                   icon={IndianRupee}
                   tone="emerald"
                   action={(
@@ -512,34 +517,55 @@ export function SchoolAdminDashboard() {
                     </Button>
                   )}
                 >
-                  <div className="h-56">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={feeTrendData} margin={{ left: -10, right: 8, top: 8 }}>
-                        <defs>
-                          <linearGradient id="dashboardEarningsCollected" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.32} />
-                            <stop offset="95%" stopColor="var(--primary)" stopOpacity={0} />
-                          </linearGradient>
-                          <linearGradient id="dashboardEarningsPending" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="var(--warning)" stopOpacity={0.28} />
-                            <stop offset="95%" stopColor="var(--warning)" stopOpacity={0} />
-                          </linearGradient>
-                        </defs>
-                        <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-                        <XAxis dataKey="month" tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} axisLine={false} tickLine={false} />
-                        <YAxis tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} axisLine={false} tickLine={false} tickFormatter={(v) => `${Number(v) / 1000}k`} />
-                        <Tooltip formatter={(value: number, name: string) => [formatMoney(value), name === 'collected' ? 'Earnings' : 'Expenses']} contentStyle={tooltipStyle} />
-                        <Area type="monotone" dataKey="collected" stroke="var(--primary)" strokeWidth={2.5} fillOpacity={1} fill="url(#dashboardEarningsCollected)" />
-                        <Area type="monotone" dataKey="pending" stroke="var(--warning)" strokeWidth={2.5} fillOpacity={1} fill="url(#dashboardEarningsPending)" />
-                      </AreaChart>
-                    </ResponsiveContainer>
-                  </div>
+                  {feeTrendData.every((m) => m.collected === 0 && m.pending === 0) ? (
+                    <div className="flex h-56 flex-col items-center justify-center gap-2 text-center">
+                      <IndianRupee className="size-7 text-muted-foreground/40" />
+                      <p className="text-sm text-muted-foreground">No fee activity in the last 6 months</p>
+                      <p className="max-w-xs text-xs text-muted-foreground/70">Records of collected and pending fees will appear here as soon as fees are billed or paid.</p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="h-56">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <AreaChart data={feeTrendData} margin={{ left: -10, right: 8, top: 8 }}>
+                            <defs>
+                              <linearGradient id="dashboardEarningsCollected" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.32} />
+                                <stop offset="95%" stopColor="var(--primary)" stopOpacity={0} />
+                              </linearGradient>
+                              <linearGradient id="dashboardEarningsPending" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="var(--warning)" stopOpacity={0.28} />
+                                <stop offset="95%" stopColor="var(--warning)" stopOpacity={0} />
+                              </linearGradient>
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                            <XAxis dataKey="month" tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} axisLine={false} tickLine={false} />
+                            <YAxis tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} axisLine={false} tickLine={false} tickFormatter={(v) => money.format(Number(v))} />
+                            <Tooltip formatter={(value: number, name: string) => [formatMoney(value), name === 'collected' ? 'Collected' : 'Pending']} contentStyle={tooltipStyle} />
+                            <Area type="monotone" dataKey="collected" name="collected" stroke="var(--primary)" strokeWidth={2.5} fillOpacity={1} fill="url(#dashboardEarningsCollected)" />
+                            <Area type="monotone" dataKey="pending" name="pending" stroke="var(--warning)" strokeWidth={2.5} fillOpacity={1} fill="url(#dashboardEarningsPending)" />
+                          </AreaChart>
+                        </ResponsiveContainer>
+                      </div>
+                      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs">
+                        <div className="flex items-center gap-3 text-muted-foreground">
+                          <span className="flex items-center gap-1.5"><span className="size-2 rounded-full bg-primary" /> Collected</span>
+                          <span className="flex items-center gap-1.5"><span className="size-2 rounded-full" style={{ backgroundColor: 'var(--warning)' }} /> Pending</span>
+                        </div>
+                        {latestFeeMonth.month && (
+                          <p className="font-medium text-foreground/80">
+                            {latestFeeMonth.month}: <span className="text-primary">{formatMoney(latestFeeMonth.collected)}</span> collected · <span style={{ color: 'var(--warning)' }}>{formatMoney(latestFeeMonth.pending)}</span> pending
+                          </p>
+                        )}
+                      </div>
+                    </>
+                  )}
                 </DashboardPanel>
               )}
             </div>
 
             <div>
-              <NoticeBoardCard canSeeClasses={canSeeClasses} classDensity={classDensity} pendingRate={pendingRate} />
+              <NoticeBoardCard canSeeClasses={canSeeClasses} classDensity={classDensity} pendingRate={pendingRate} notices={dashboard.notices} />
             </div>
           </div>
 
@@ -810,7 +836,9 @@ function CalendarEventsCard({
                 day.inCurrentMonth ? 'text-foreground/80 hover:bg-sky-500/10' : 'text-muted-foreground/35',
                 holiday && HOLIDAY_CELL_STYLES[holiday.type],
                 isWeeklyOff && !holiday && 'bg-slate-50 text-slate-500 dark:bg-slate-500/10 dark:text-slate-400',
-                day.isToday && 'bg-primary text-primary-foreground shadow-sm shadow-primary/20',
+                day.isToday
+                  ? 'bg-primary text-primary-foreground shadow-sm shadow-primary/20 hover:bg-primary/90'
+                  : '',
               )}
               title={holiday ? holiday.name : undefined}
             >
@@ -867,48 +895,78 @@ function NoticeBoardCard({
   canSeeClasses,
   classDensity,
   pendingRate,
+  notices,
 }: {
   canSeeClasses: boolean
   classDensity: number
   pendingRate: number
+  notices: DashboardData['notices']
 }) {
+  const router = useRouter()
+  const AUDIENCE_LABELS: Record<string, string> = {
+    all: 'Everyone',
+    teachers: 'Teachers',
+    students: 'Students',
+    parents: 'Parents',
+  }
+  const TONE_BY_PRIORITY: Record<string, string> = {
+    normal: 'bg-sky-500',
+    high: 'bg-violet-500',
+    urgent: 'bg-amber-500',
+  }
+  const displayNotices = notices.slice(0, 4)
+
   return (
     <DashboardPanel
       title="Notice Board"
       description="Important school updates"
       icon={Megaphone}
       tone="amber"
-      action={<Badge variant="secondary" className="bg-amber-500/10 text-amber-700 dark:text-amber-300">Popular</Badge>}
+      action={(
+        <Button className="h-7 gap-1.5 bg-amber-500 px-2.5 text-xs text-white shadow-sm hover:bg-amber-600" size="sm" onClick={() => router.push('/announcements')}>
+          View All
+          <ArrowRight className="size-3.5" />
+        </Button>
+      )}
     >
-      <div className="overflow-hidden rounded-xl border border-amber-500/15 bg-white/75 dark:bg-background/40">
-        {notices.map((notice, index) => (
-          <div key={notice.title} className={cn('grid gap-3 border-b p-3 text-sm last:border-b-0 sm:grid-cols-[minmax(0,1.5fr)_1fr_110px]', index % 2 === 0 ? 'bg-white/55 dark:bg-white/[0.02]' : 'bg-transparent')}>
-            <div className="flex min-w-0 items-center gap-2.5">
-              <span className={cn(
-                'flex size-8 shrink-0 items-center justify-center rounded-lg text-white',
-                notice.tone === 'sky' && 'bg-sky-500',
-                notice.tone === 'violet' && 'bg-violet-500',
-                notice.tone === 'emerald' && 'bg-emerald-500',
-                notice.tone === 'amber' && 'bg-amber-500',
-              )}>
-                <Bell className="size-4" />
-              </span>
-              <div className="min-w-0">
-                <p className="truncate font-semibold text-foreground/85">{notice.title}</p>
-                <p className="text-xs text-muted-foreground">Announcement</p>
+      {displayNotices.length === 0 ? (
+        <div className="flex flex-col items-center justify-center gap-2 py-8 text-center">
+          <Megaphone className="size-6 text-muted-foreground/40" />
+          <p className="text-sm text-muted-foreground">No announcements yet</p>
+          <p className="max-w-[240px] text-xs text-muted-foreground/70">
+            Publish an announcement and it will appear here for everyone to see.
+          </p>
+        </div>
+      ) : (
+        <div className="overflow-hidden rounded-xl border border-amber-500/15 bg-white/75 dark:bg-background/40">
+          {displayNotices.map((notice, index) => (
+            <div key={notice.id} className={cn('grid gap-3 border-b p-3 text-sm last:border-b-0 sm:grid-cols-[minmax(0,1.5fr)_1fr_110px]', index % 2 === 0 ? 'bg-white/55 dark:bg-white/[0.02]' : 'bg-transparent')}>
+              <div className="flex min-w-0 items-center gap-2.5">
+                <span className={cn(
+                  'flex size-8 shrink-0 items-center justify-center rounded-lg text-white',
+                  TONE_BY_PRIORITY[notice.priority] || TONE_BY_PRIORITY.normal,
+                )}>
+                  <Bell className="size-4" />
+                </span>
+                <div className="min-w-0">
+                  <p className="truncate font-semibold text-foreground/85">{notice.title}</p>
+                  <p className="text-xs capitalize text-muted-foreground">
+                    {notice.priority === 'urgent' ? 'Urgent' : notice.priority === 'high' ? 'High priority' : 'Announcement'}
+                  </p>
+                </div>
+              </div>
+              <div className="text-xs text-muted-foreground">
+                <p className="font-medium text-foreground/75">Audience</p>
+                <p>{AUDIENCE_LABELS[notice.audience] || 'Everyone'}</p>
+              </div>
+              <div className="text-xs text-muted-foreground">
+                <p className="font-medium text-foreground/75">{notice.expiresAt ? 'Expires' : 'Published'}</p>
+                <p>{relativeTime(notice.expiresAt || notice.publishedAt)}</p>
               </div>
             </div>
-            <div className="text-xs text-muted-foreground">
-              <p className="font-medium text-foreground/75">Audience</p>
-              <p>{notice.audience}</p>
-            </div>
-            <div className="text-xs text-muted-foreground">
-              <p className="font-medium text-foreground/75">Due</p>
-              <p>{notice.due}</p>
-            </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
       <div className="mt-3 grid gap-2 sm:grid-cols-2">
         <div className="rounded-xl border border-primary/10 bg-primary/[0.05] p-3 text-xs text-primary">
           <p className="font-semibold">{canSeeClasses ? `${classDensity} students` : 'Classes'}</p>
@@ -923,34 +981,62 @@ function NoticeBoardCard({
   )
 }
 
+const ACTIVITY_STYLES: Record<string, { icon: React.ElementType; badge: string }> = {
+  fee: { icon: IndianRupee, badge: 'bg-emerald-500' },
+  student: { icon: GraduationCap, badge: 'bg-primary' },
+  announcement: { icon: Megaphone, badge: 'bg-pink-500' },
+  attendance: { icon: CalendarCheck, badge: 'bg-sky-500' },
+  holiday: { icon: Calendar, badge: 'bg-violet-500' },
+  teacher: { icon: Users, badge: 'bg-amber-500' },
+  salary: { icon: Award, badge: 'bg-teal-500' },
+}
+
+function relativeTime(iso: string): string {
+  const then = new Date(iso).getTime()
+  if (Number.isNaN(then)) return iso || ''
+  const diff = Date.now() - then
+  if (diff < 60_000) return 'Just now'
+  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m ago`
+  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h ago`
+  if (diff < 604_800_000) return `${Math.floor(diff / 86_400_000)}d ago`
+  return new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
+}
+
 function RecentActivityCard({ activities }: { activities: DashboardData['recentActivities'] }) {
-  const displayActivities = activities.length > 0
-    ? activities.slice(0, 4)
-    : [
-      { id: 'fallback-1', type: 'student', message: 'New student admission updated', time: 'Today' },
-      { id: 'fallback-2', type: 'fees', message: 'Fee receipt generated successfully', time: 'Today' },
-      { id: 'fallback-3', type: 'attendance', message: 'Attendance marked for classes', time: 'Today' },
-    ]
+  const displayActivities = activities.slice(0, 4)
+
+  if (displayActivities.length === 0) {
+    return (
+      <DashboardPanel title="Recent Activity" description="Latest updates" icon={Bell} tone="violet">
+        <div className="flex flex-col items-center justify-center gap-2 py-8 text-center">
+          <Bell className="size-6 text-muted-foreground/40" />
+          <p className="text-sm text-muted-foreground">No recent activity yet</p>
+          <p className="max-w-[220px] text-xs text-muted-foreground/70">
+            Updates appear here as fees are paid, students are added, and attendance is finalized.
+          </p>
+        </div>
+      </DashboardPanel>
+    )
+  }
 
   return (
     <DashboardPanel title="Recent Activity" description="Latest updates" icon={Bell} tone="violet">
       <div className="space-y-2">
-        {displayActivities.map((activity, index) => (
-          <div key={activity.id || `${activity.message}-${index}`} className="flex gap-2.5 rounded-xl border border-violet-500/10 bg-white/70 p-2.5 shadow-sm dark:bg-background/40">
-            <span className={cn(
-              'mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full text-white',
-              index % 3 === 0 && 'bg-primary',
-              index % 3 === 1 && 'bg-pink-500',
-              index % 3 === 2 && 'bg-sky-500',
-            )}>
-              <Bell className="size-3.5" />
-            </span>
-            <div className="min-w-0">
-              <p className="line-clamp-2 text-xs font-medium text-foreground/85">{activity.message}</p>
-              <p className="mt-0.5 text-[10px] text-muted-foreground">{activity.time}</p>
+        {displayActivities.map((activity, index) => {
+          const style = ACTIVITY_STYLES[activity.type] || { icon: Bell, badge: 'bg-muted-foreground/60' }
+          const ActivityIcon = style.icon
+          return (
+            <div key={activity.id || `${activity.message}-${index}`} className="flex gap-2.5 rounded-xl border border-violet-500/10 bg-white/70 p-2.5 shadow-sm dark:bg-background/40">
+              <span className={cn('mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full text-white', style.badge)}>
+                <ActivityIcon className="size-3.5" />
+              </span>
+              <div className="min-w-0">
+                <p className="line-clamp-2 text-xs font-medium text-foreground/85">{activity.message}</p>
+                <p className="mt-0.5 text-[10px] text-muted-foreground">{relativeTime(activity.time)}</p>
+              </div>
             </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
     </DashboardPanel>
   )
