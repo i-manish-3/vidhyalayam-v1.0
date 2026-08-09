@@ -32,8 +32,8 @@ import {
   LifeBuoy,
   MessageSquare,
   Plus,
-  Sparkles,
   Ticket,
+  type LucideIcon,
 } from 'lucide-react'
 import {
   TICKET_PRIORITIES,
@@ -69,6 +69,60 @@ const PRIORITY_CLS: Record<TicketPriority, string> = {
   medium: 'border-amber-200 bg-amber-50 text-amber-700',
   high: 'border-orange-200 bg-orange-50 text-orange-700',
   critical: 'border-red-200 bg-red-50 text-red-700',
+}
+
+function StatCard({
+  title,
+  value,
+  description,
+  icon: Icon,
+  tone,
+}: {
+  title: string
+  value: string | number
+  description: string
+  icon: LucideIcon
+  tone: 'sky' | 'amber' | 'emerald'
+}) {
+  const styles = {
+    sky: {
+      card: 'border-sky-500/20 bg-gradient-to-br from-sky-500/[0.15] via-card to-sky-500/[0.05]',
+      icon: 'bg-gradient-to-br from-sky-500 to-sky-600 shadow-sky-500/20',
+      accent: 'from-sky-500 via-sky-400',
+      bubble: 'bg-sky-500/[0.10]',
+    },
+    amber: {
+      card: 'border-amber-500/20 bg-gradient-to-br from-amber-500/[0.15] via-card to-amber-500/[0.05]',
+      icon: 'bg-gradient-to-br from-amber-500 to-orange-500 shadow-amber-500/20',
+      accent: 'from-amber-500 via-amber-400',
+      bubble: 'bg-amber-500/[0.10]',
+    },
+    emerald: {
+      card: 'border-emerald-500/20 bg-gradient-to-br from-emerald-500/[0.15] via-card to-emerald-500/[0.05]',
+      icon: 'bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-emerald-500/20',
+      accent: 'from-emerald-500 via-emerald-400',
+      bubble: 'bg-emerald-500/[0.10]',
+    },
+  }[tone]
+
+  return (
+    <Card className={cn('group relative w-full overflow-hidden rounded-xl py-0 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md', styles.card)}>
+      <div className={cn('absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r to-transparent', styles.accent)} />
+      <div aria-hidden className={cn('absolute -bottom-7 -right-5 size-16 rounded-full transition-transform group-hover:scale-125', styles.bubble)} />
+      <CardContent className="relative p-3">
+        <div className="flex items-center justify-between gap-2">
+          <div className="min-w-0">
+            <p className="truncate text-[11px] font-medium leading-4 text-muted-foreground">{title}</p>
+            <p className="text-lg font-bold leading-6 tracking-tight tabular-nums">{value}</p>
+            <p className="truncate text-[10px] leading-3 text-muted-foreground">{description}</p>
+          </div>
+          <div className={cn('flex size-9 shrink-0 items-center justify-center rounded-lg text-white shadow-sm', styles.icon)}>
+            <Icon className="size-4" />
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  )
 }
 
 interface FormState {
@@ -156,93 +210,74 @@ export function SupportRequestPage() {
 
   const statCards = [
     {
-      label: 'Total Tickets',
+      title: 'Total Tickets',
       value: stats.total.toLocaleString('en-IN'),
+      description: 'All time',
       icon: Ticket,
-      gradient: 'from-sky-500/20 via-sky-400/10 to-transparent',
-      border: 'border-sky-200/50 dark:border-sky-500/20',
-      iconBg: 'bg-sky-500/15 text-sky-600 dark:text-sky-400',
+      tone: 'sky' as const,
     },
     {
-      label: 'Open',
+      title: 'Open',
       value: stats.open.toLocaleString('en-IN'),
+      description: 'Needs attention',
       icon: AlertCircle,
-      gradient: 'from-amber-500/20 via-amber-400/10 to-transparent',
-      border: 'border-amber-200/50 dark:border-amber-500/20',
-      iconBg: 'bg-amber-500/15 text-amber-600 dark:text-amber-400',
+      tone: 'amber' as const,
     },
     {
-      label: 'Resolved',
+      title: 'Resolved',
       value: stats.resolved.toLocaleString('en-IN'),
+      description: 'Resolved & closed',
       icon: CheckCircle2,
-      gradient: 'from-emerald-500/20 via-emerald-400/10 to-transparent',
-      border: 'border-emerald-200/50 dark:border-emerald-500/20',
-      iconBg: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
+      tone: 'emerald' as const,
     },
   ]
 
   return (
     <div className="space-y-5">
-      <div className="relative overflow-hidden rounded-2xl border border-indigo-200/60 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 shadow-lg shadow-indigo-500/20 dark:border-indigo-500/30 dark:from-indigo-600 dark:via-purple-600 dark:to-pink-600">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.3),transparent_60%)] dark:hidden" />
-        <div className="absolute right-0 top-0 opacity-10">
-          <Sparkles className="size-32 text-white" />
-        </div>
-        <div className="relative flex flex-col gap-4 px-6 py-6 sm:flex-row sm:items-center sm:justify-between">
-          <div className="space-y-1">
-            <h1 className="flex items-center gap-2.5 text-xl font-bold tracking-tight text-white">
-              <span className="flex size-9 items-center justify-center rounded-xl bg-white/20 text-white shadow-sm backdrop-blur-sm">
-                <LifeBuoy className="size-5" />
-              </span>
-              Help & Support
-            </h1>
-            <p className="text-sm text-white/80">
-              Raise a ticket and our team will get back to you.
-            </p>
-          </div>
-          <Button
-            className="gap-2 border-0 bg-white text-indigo-700 shadow-md shadow-black/10 hover:bg-white/90 hover:text-indigo-800"
-            size="default"
-            onClick={() => setOpen(true)}
-          >
-            <Plus className="size-4" />
-            New Ticket
-          </Button>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        {statCards.map((stat) => (
-          <div
-            key={stat.label}
-            className={cn(
-              'relative overflow-hidden rounded-xl border bg-gradient-to-br p-4 shadow-sm transition-shadow hover:shadow-md',
-              stat.border,
-              stat.gradient,
-            )}
-          >
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-xs font-medium text-muted-foreground">{stat.label}</p>
-                <p className="mt-1 text-2xl font-bold tracking-tight">{stat.value}</p>
-              </div>
-              <span className={cn('flex size-9 items-center justify-center rounded-lg', stat.iconBg)}>
-                <stat.icon className="size-4" />
+      {/* Header */}
+      <div className="relative flex flex-col gap-3 overflow-hidden rounded-xl border border-primary/25 bg-gradient-to-r from-primary via-teal-600 to-cyan-600 px-4 py-3 text-white shadow-lg shadow-primary/15 sm:flex-row sm:items-center sm:justify-between">
+        <div aria-hidden className="absolute -right-8 -top-14 size-36 rounded-full border-[18px] border-cyan-200/15" />
+        <div aria-hidden className="absolute bottom-0 right-1/4 h-px w-48 bg-gradient-to-r from-transparent via-white/45 to-transparent" />
+        <div aria-hidden className="absolute -bottom-14 right-28 size-24 rounded-full bg-sky-300/10" />
+        <div className="relative flex min-w-0 items-center gap-3">
+          <span className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-white/25 bg-white/15 shadow-md shadow-black/10 backdrop-blur-sm">
+            <LifeBuoy className="size-5.5" strokeWidth={1.8} />
+          </span>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-xl font-bold tracking-tight">Help & Support</h1>
+              <span className="rounded-full border border-white/20 bg-white/10 px-2 py-0.5 text-[10px] font-semibold text-white/85 backdrop-blur-sm">
+                {stats.total.toLocaleString('en-IN')} records
               </span>
             </div>
+            <p className="mt-0.5 text-xs text-white/80">Raise a ticket and our team will get back to you</p>
           </div>
+        </div>
+        <Button
+          variant="secondary"
+          onClick={() => setOpen(true)}
+          className="relative shrink-0 gap-2 border border-white/60 shadow-md transition-transform hover:-translate-y-0.5 hover:shadow-lg"
+          style={{ backgroundColor: 'white', color: 'var(--primary)' }}
+        >
+          <Plus className="size-4" /> New Ticket
+        </Button>
+      </div>
+
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        {statCards.map((stat) => (
+          <StatCard key={stat.title} {...stat} />
         ))}
       </div>
 
-      <Card className="gap-0 overflow-hidden rounded-xl border border-indigo-200/50 py-0 shadow-sm dark:border-indigo-500/20">
-        <CardHeader className="border-b border-indigo-100 bg-gradient-to-r from-indigo-500/5 via-purple-500/5 to-pink-500/5 px-5 py-3.5 dark:border-indigo-500/15">
+      <Card className="gap-0 overflow-hidden rounded-xl border-sky-500/15 bg-gradient-to-br from-card via-card to-sky-500/[0.035] py-0 shadow-sm dark:border-sky-500/20">
+        <CardHeader className="border-b border-sky-500/15 bg-gradient-to-r from-sky-500/[0.10] via-primary/[0.05] to-violet-500/[0.08] px-5 py-3.5 dark:border-sky-500/15">
           <CardTitle className="flex items-center gap-2 text-sm font-semibold">
-            <span className="flex size-7 items-center justify-center rounded-md bg-gradient-to-br from-indigo-500 to-purple-500 text-white shadow-sm">
+            <span className="flex size-7 items-center justify-center rounded-md bg-gradient-to-br from-sky-500 to-primary text-white shadow-sm shadow-sky-500/20">
               <MessageSquare className="size-3.5" />
             </span>
             My Support Tickets
             {!loading && (
-              <Badge variant="secondary" className="ml-auto bg-indigo-500/10 text-indigo-700 dark:text-indigo-300">
+              <Badge variant="secondary" className="ml-auto bg-primary/10 text-primary dark:text-primary">
                 {tickets.length.toLocaleString('en-IN')} records
               </Badge>
             )}
@@ -251,12 +286,12 @@ export function SupportRequestPage() {
         <CardContent className="p-0">
           {loading ? (
             <div className="flex items-center justify-center gap-3 py-14 text-sm text-muted-foreground">
-              <span className="size-5 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent" />
+              <span className="size-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
               Loading tickets...
             </div>
           ) : tickets.length === 0 ? (
             <div className="flex flex-col items-center gap-4 px-4 py-14 text-center">
-              <span className="flex size-14 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-100 to-purple-100 text-indigo-500 shadow-sm dark:from-indigo-500/20 dark:to-purple-500/20">
+              <span className="flex size-14 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/15 to-cyan-500/20 text-primary shadow-sm">
                 <Ticket className="size-6" />
               </span>
               <div>
@@ -271,7 +306,7 @@ export function SupportRequestPage() {
               </Button>
             </div>
           ) : (
-            <div className="divide-y divide-indigo-100 dark:divide-indigo-500/10">
+            <div className="divide-y divide-sky-500/10 dark:divide-sky-500/10">
               {tickets.map((ticket) => {
                 const status = ticket.status as TicketStatus
                 const priority = ticket.priority as TicketPriority
@@ -287,7 +322,7 @@ export function SupportRequestPage() {
                 return (
                   <div
                     key={ticket.id}
-                    className="group relative flex items-start gap-3.5 px-5 py-4 transition-colors hover:bg-indigo-500/[0.02]"
+                    className="group relative flex items-start gap-3.5 px-5 py-4 transition-colors hover:bg-sky-500/[0.02]"
                   >
                     <div className={cn(
                       'flex size-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br text-white shadow-sm',
@@ -303,7 +338,7 @@ export function SupportRequestPage() {
                         </Badge>
                       </div>
                       <div className="flex flex-wrap items-center gap-2 text-xs">
-                        <Badge variant="secondary" className="bg-indigo-500/10 text-indigo-700 dark:text-indigo-300">
+                        <Badge variant="secondary" className="bg-primary/10 text-primary dark:text-primary">
                           {CATEGORY_LABEL[ticket.category as TicketCategory] || ticket.category}
                         </Badge>
                         <Badge variant="outline" className={PRIORITY_CLS[priority] || PRIORITY_CLS.low}>
@@ -334,7 +369,7 @@ export function SupportRequestPage() {
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-lg">
-              <span className="flex size-7 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-purple-500 text-white shadow-sm">
+              <span className="flex size-7 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-primary text-white shadow-sm shadow-sky-500/20">
                 <Plus className="size-3.5" />
               </span>
               Raise a support ticket
@@ -349,7 +384,7 @@ export function SupportRequestPage() {
                 value={form.subject}
                 maxLength={150}
                 placeholder="Short summary of the issue"
-                className="border-indigo-200/60 focus-visible:ring-indigo-500/30 dark:border-indigo-500/30"
+                className="border-sky-200/60 focus-visible:ring-primary/30 dark:border-sky-500/30"
                 onChange={(e) => setForm((prev) => ({ ...prev, subject: e.target.value }))}
               />
             </div>
@@ -360,7 +395,7 @@ export function SupportRequestPage() {
                   value={form.category}
                   onValueChange={(value) => setForm((prev) => ({ ...prev, category: value as TicketCategory }))}
                 >
-                  <SelectTrigger className="h-9 border-indigo-200/60 focus:ring-indigo-500/30 dark:border-indigo-500/30">
+                  <SelectTrigger className="h-9 border-sky-200/60 focus:ring-primary/30 dark:border-sky-500/30">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -378,7 +413,7 @@ export function SupportRequestPage() {
                   value={form.priority}
                   onValueChange={(value) => setForm((prev) => ({ ...prev, priority: value as TicketPriority }))}
                 >
-                  <SelectTrigger className="h-9 border-indigo-200/60 focus:ring-indigo-500/30 dark:border-indigo-500/30">
+                  <SelectTrigger className="h-9 border-sky-200/60 focus:ring-primary/30 dark:border-sky-500/30">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -398,7 +433,7 @@ export function SupportRequestPage() {
                 rows={5}
                 value={form.description}
                 placeholder="Describe the problem, what you expected, and any steps to reproduce it."
-                className="border-indigo-200/60 focus-visible:ring-indigo-500/30 dark:border-indigo-500/30"
+                className="border-sky-200/60 focus-visible:ring-primary/30 dark:border-sky-500/30"
                 onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
               />
             </div>
@@ -408,7 +443,6 @@ export function SupportRequestPage() {
               Cancel
             </Button>
             <Button
-              className="gap-2 bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-md shadow-indigo-500/20 hover:from-indigo-600 hover:to-purple-600"
               onClick={() => void submit()}
               disabled={submitting}
             >

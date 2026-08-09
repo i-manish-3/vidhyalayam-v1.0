@@ -7,7 +7,7 @@ import { useToast } from '@/hooks/use-toast'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
-import { Dialog, DialogContent } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -503,10 +503,10 @@ export function ParentsPage() {
                 </AvatarFallback>
               </Avatar>
               <div>
-                <Dialog.Title className="text-lg font-bold text-white">Children of {selectedParent?.fatherName || 'Parent'}</Dialog.Title>
-                <Dialog.Description className="mt-0.5 text-sm text-white/70">
+                <DialogTitle className="text-lg font-bold text-white">Children of {selectedParent?.fatherName || 'Parent'}</DialogTitle>
+                <DialogDescription className="mt-0.5 text-sm text-white/70">
                   {selectedParent?.children?.length || 0} student{selectedParent?.children?.length !== 1 ? 's' : ''} linked &bull; {selectedParent?.motherName || ''}
-                </Dialog.Description>
+                </DialogDescription>
               </div>
             </div>
           </div>

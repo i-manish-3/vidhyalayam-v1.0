@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { api } from '@/lib/api'
 import { useAppStore } from '@/lib/store'
 import { useToast } from '@/hooks/use-toast'
+import { GradientHero } from '@/components/shared'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -358,48 +359,57 @@ function RoleListItemCard({
   return (
     <button
       onClick={onClick}
-      className={`group w-full flex items-center gap-3 p-3 rounded-lg text-left transition-all duration-150 ${
+      className={`group w-full flex items-center gap-2.5 p-2 rounded-md text-left transition-all duration-150 border ${
         isSelected
-          ? 'bg-primary/10 border border-primary/25 shadow-sm'
-          : 'hover:bg-muted/70 border border-transparent'
+          ? 'bg-gradient-to-r from-primary/10 via-transparent to-transparent border-primary/30 shadow-sm'
+          : 'border-transparent hover:bg-muted/70'
       }`}
+      style={role.color && isSelected ? { borderColor: `${role.color}55` } : undefined}
     >
       <div
-        className={`size-10 rounded-lg flex items-center justify-center shrink-0 ring-1 ring-inset ${
-          isSelected ? 'bg-primary/20' : 'bg-muted'
+        className={`size-8 rounded-md flex items-center justify-center shrink-0 ring-1 ring-inset transition-all ${
+          isSelected ? 'shadow-md' : 'bg-muted group-hover:scale-105'
         }`}
-        style={role.color && !isSelected ? { backgroundColor: `${role.color}20` } : undefined}
+        style={role.color ? { backgroundColor: `${role.color}20`, boxShadow: isSelected ? `0 4px 12px ${role.color}40` : undefined, borderColor: `${role.color}40` } : undefined}
       >
         <ShieldCheck
-          className={`size-4 ${isSelected ? 'text-primary' : role.color ? '' : 'text-muted-foreground'}`}
-          style={role.color && !isSelected ? { color: role.color } : undefined}
+          className="size-3.5"
+          style={role.color ? { color: role.color } : undefined}
         />
       </div>
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <p className={`text-sm font-semibold truncate ${isSelected ? 'text-primary' : ''}`}>
+        <div className="flex items-center gap-1.5">
+          <span
+            aria-hidden
+            className={`size-1.5 rounded-full shrink-0 transition-transform ${isSelected ? 'scale-125' : 'group-hover:scale-125'}`}
+            style={{ backgroundColor: role.color || 'var(--muted-foreground)' }}
+          />
+          <p
+            className="text-[13px] font-semibold truncate"
+            style={role.color && isSelected ? { color: role.color } : undefined}
+          >
             {role.name}
           </p>
           {role.isSystem && (
-            <Badge variant="secondary" className="h-5 px-1.5 text-[10px] shrink-0">
+            <Badge variant="secondary" className="h-4 px-1.5 text-[9px] shrink-0">
               System
             </Badge>
           )}
         </div>
-        <div className="flex items-center gap-2 mt-0.5">
-          <span className="text-[11px] text-muted-foreground flex items-center gap-1">
-            <ShieldCheck className="size-3" />
+        <div className="flex items-center gap-1.5 mt-0.5">
+          <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+            <ShieldCheck className="size-2.5" />
             {role.permissionCount} perms
           </span>
           <span className="text-muted-foreground/40">·</span>
-          <span className="text-[11px] text-muted-foreground flex items-center gap-1">
-            <Users className="size-3" />
+          <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+            <Users className="size-2.5" />
             {role.userCount} users
           </span>
         </div>
       </div>
       <ChevronRight
-        className={`size-4 shrink-0 transition-transform ${
+        className={`size-3.5 shrink-0 transition-transform ${
           isSelected
             ? 'translate-x-0 text-primary'
             : 'text-muted-foreground/40 group-hover:translate-x-0.5 group-hover:text-muted-foreground'
@@ -531,6 +541,50 @@ function ModulePermissionsCard({
             </Button>
           </div>
         </>
+      </CardContent>
+    </Card>
+  )
+}
+
+const SUMMARY_TONES = {
+  blue: 'from-blue-500 to-cyan-500',
+  violet: 'from-violet-500 to-fuchsia-500',
+  green: 'from-emerald-500 to-teal-500',
+  amber: 'from-amber-500 to-orange-500',
+} as const
+
+type SummaryStatTone = keyof typeof SUMMARY_TONES
+
+function SummaryStat({
+  label,
+  value,
+  note,
+  icon,
+  tone,
+}: {
+  label: string
+  value: string | number
+  note: string
+  icon: LucideIcon
+  tone: SummaryStatTone
+}) {
+  const Icon = icon
+
+  return (
+    <Card className="group overflow-hidden border py-0 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
+      <CardContent className="px-3.5 py-3">
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-xs font-medium text-muted-foreground">{label}</p>
+            <p className="mt-0.5 text-xl font-bold tracking-tight tabular-nums">{value}</p>
+            <p className="mt-0.5 text-[11px] text-muted-foreground">{note}</p>
+          </div>
+          <div
+            className={`flex size-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br ${SUMMARY_TONES[tone]} text-white shadow-md transition-transform duration-200 group-hover:scale-105`}
+          >
+            <Icon className="size-4" />
+          </div>
+        </div>
       </CardContent>
     </Card>
   )
@@ -874,6 +928,16 @@ export function SchoolRolesPage() {
     [schoolPermissions]
   )
 
+  const systemRoleCount = useMemo(
+    () => roles.filter((role) => role.isSystem).length,
+    [roles]
+  )
+
+  const assignedUsers = useMemo(
+    () => roles.reduce((sum, role) => sum + role.userCount, 0),
+    [roles]
+  )
+
   // Filter users for the "Add User" dialog: exclude already assigned
   const availableUsers = useMemo(() => {
     const assignedIds = new Set((roleDetail?.users || []).map((u) => u.id))
@@ -930,49 +994,46 @@ export function SchoolRolesPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex min-w-0 items-stretch gap-3">
-            <span aria-hidden className="bg-brand mt-0.5 w-1 shrink-0 self-stretch rounded-full" />
-            <div className="min-w-0">
-              <h1 className="text-xl font-semibold tracking-tight text-foreground/90">Roles &amp; Permissions</h1>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Manage role access, permission inheritance, and user assignments.
-              </p>
-            </div>
-          </div>
-          <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+      <GradientHero
+        icon={ShieldCheck}
+        title="Roles & Permissions"
+        description="Manage role access, permission inheritance, and user assignments."
+        secondaryAction={{
+          label: 'Instructions',
+          icon: HelpCircle,
+          onClick: () => setShowInstructionsDialog(true),
+        }}
+        primaryAction={
+          canCreateRole
+            ? {
+                label: 'Create Role',
+                icon: Plus,
+                onClick: () => setShowCreateDialog(true),
+              }
+            : undefined
+        }
+        extraActions={
+          selectedRoleId ? (
             <Button
-              variant="outline"
+              variant="secondary"
               size="sm"
-              className="gap-2"
-              onClick={() => setShowInstructionsDialog(true)}
+              className="gap-2 border border-white/60 bg-white/15 text-white shadow-md backdrop-blur-sm hover:bg-white/25"
+              onClick={() => setActiveTab('users')}
             >
-              <HelpCircle className="size-4" />
-              Instructions
+              <Users className="size-4" />
+              Assign Users
             </Button>
-            {selectedRoleId && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-2"
-                onClick={() => setActiveTab('users')}
-              >
-                <Users className="size-4" />
-                Assign Users
-              </Button>
-            )}
-            {canCreateRole && (
-              <Button
-                onClick={() => setShowCreateDialog(true)}
-                className="gap-2 shrink-0"
-                size="sm"
-              >
-                <Plus className="size-4" />
-                Create Role
-              </Button>
-            )}
-          </div>
-        </div>
+          ) : undefined
+        }
+      />
+
+      {/* Summary stats */}
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <SummaryStat label="Roles" value={roles.length} note="In this school" icon={Shield} tone="blue" />
+        <SummaryStat label="System Roles" value={systemRoleCount} note="Protected roles" icon={Lock} tone="violet" />
+        <SummaryStat label="Assigned Users" value={assignedUsers} note="Role memberships" icon={Users} tone="green" />
+        <SummaryStat label="Permissions" value={totalSchoolPerms} note="Available in grant" icon={ShieldCheck} tone="amber" />
+      </div>
 
       {/* Two-panel layout */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -1038,12 +1099,14 @@ export function SchoolRolesPage() {
         {/* Right panel: Role Detail / Edit */}
         <div className="lg:col-span-8 xl:col-span-9">
           {!selectedRoleId ? (
-            <Card className="flex flex-col items-center justify-center py-20 text-center">
-              <div className="size-14 rounded-full bg-muted flex items-center justify-center mb-4">
-                <ShieldCheck className="size-7 text-muted-foreground/50" />
+            <Card className="relative flex flex-col items-center justify-center overflow-hidden py-20 text-center">
+              <div aria-hidden className="absolute -top-16 -right-16 size-48 rounded-full bg-gradient-to-br from-primary/15 via-teal-500/10 to-cyan-500/20 blur-2xl" />
+              <div aria-hidden className="absolute -bottom-20 -left-16 size-44 rounded-full bg-gradient-to-tr from-violet-500/10 to-fuchsia-500/10 blur-2xl" />
+              <div className="relative flex size-14 items-center justify-center rounded-full bg-gradient-to-br from-primary/15 via-teal-500/15 to-cyan-500/20 ring-1 ring-primary/20 mb-4">
+                <ShieldCheck className="size-7 text-primary/80" />
               </div>
-              <h3 className="text-lg font-semibold text-muted-foreground">Select a Role</h3>
-              <p className="text-sm text-muted-foreground/70 mt-1 max-w-sm">
+              <h3 className="relative text-lg font-semibold text-muted-foreground">Select a Role</h3>
+              <p className="relative text-sm text-muted-foreground/70 mt-1 max-w-sm">
                 Choose a role to manage its permissions and assigned users. Users inherit permissions exclusively through roles.
               </p>
             </Card>
@@ -1052,13 +1115,21 @@ export function SchoolRolesPage() {
           ) : roleDetail ? (
             <div className="space-y-4">
               {/* Role info card */}
-              <Card>
+              <Card className="overflow-hidden">
+                <div
+                  aria-hidden
+                  className="h-1 w-full"
+                  style={{ background: `linear-gradient(90deg, ${roleDetail.color || '#6b7280'}, ${roleDetail.color || '#6b7280'}33, transparent)` }}
+                />
                 <CardContent className="px-4 py-3">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex min-w-0 items-center gap-3">
                       <div
-                        className="size-8 rounded-md flex items-center justify-center shrink-0"
-                        style={{ backgroundColor: `${roleDetail.color || '#6b7280'}20` }}
+                        className="size-8 rounded-md flex items-center justify-center shrink-0 shadow-sm"
+                        style={{
+                          backgroundColor: `${roleDetail.color || '#6b7280'}20`,
+                          boxShadow: roleDetail.color ? `0 2px 8px ${roleDetail.color}33` : undefined,
+                        }}
                       >
                         <ShieldCheck className="size-4" style={{ color: roleDetail.color || '#6b7280' }} />
                       </div>
@@ -1206,42 +1277,50 @@ export function SchoolRolesPage() {
                 </TabsList>
 
                 <TabsContent value="permissions" className="mt-4">
-                  <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-muted/50 border mb-3">
-                    <Info className="size-3.5 text-muted-foreground shrink-0" />
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-gradient-to-r from-primary/5 via-teal-500/5 to-cyan-500/10 border border-primary/10 mb-3">
+                    <Info className="size-3.5 text-primary/70 shrink-0" />
                     <span className="text-xs text-muted-foreground">
                       These permissions are automatically inherited by all {roleDetail.users.length} user{roleDetail.users.length !== 1 ? 's' : ''} assigned to this role
                     </span>
                   </div>
-                  <div className="mb-3 flex flex-col gap-2 rounded-lg border bg-card px-3 py-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <p className="text-sm font-medium">Permission Matrix</p>
-                      <p className="text-xs text-muted-foreground">
-                        {grantedPermissionIds.size} selected from {totalSchoolPerms} available permissions
-                      </p>
+                  <div className="relative mb-3 overflow-hidden rounded-lg border bg-card px-3 py-3">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="text-sm font-medium">Permission Matrix</p>
+                        <p className="text-xs text-muted-foreground">
+                          {grantedPermissionIds.size} selected from {totalSchoolPerms} available permissions
+                        </p>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 text-xs"
+                          disabled={isSchoolAdminRoleProtected}
+                          onClick={() =>
+                            setGrantedPermissionIds(
+                              new Set(Object.values(schoolPermissions).flat().map((permission) => permission.id))
+                            )
+                          }
+                        >
+                          Select All
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 text-xs"
+                          disabled={isSchoolAdminRoleProtected}
+                          onClick={() => setGrantedPermissionIds(new Set())}
+                        >
+                          Clear
+                        </Button>
+                      </div>
                     </div>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-8 text-xs"
-                        disabled={isSchoolAdminRoleProtected}
-                        onClick={() =>
-                          setGrantedPermissionIds(
-                            new Set(Object.values(schoolPermissions).flat().map((permission) => permission.id))
-                          )
-                        }
-                      >
-                        Select All
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-8 text-xs"
-                        disabled={isSchoolAdminRoleProtected}
-                        onClick={() => setGrantedPermissionIds(new Set())}
-                      >
-                        Clear
-                      </Button>
+                    <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-muted/60">
+                      <div
+                        className="h-full rounded-full bg-gradient-to-r from-primary via-teal-500 to-cyan-500 transition-all duration-300"
+                        style={{ width: `${totalSchoolPerms > 0 ? (grantedPermissionIds.size / totalSchoolPerms) * 100 : 0}%` }}
+                      />
                     </div>
                   </div>
                   <ScrollArea className="h-[calc(100vh-500px)] min-h-[420px]">
