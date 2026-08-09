@@ -75,7 +75,7 @@ export function StudentHousesPage() {
     try {
       const [houseData, studentData] = await Promise.all([
         api.get<{ houses: StudentHouse[] }>('/api/school/student-houses', undefined, { skipLogoutOn401: true }),
-        api.get<{ students: StudentRow[] }>('/api/school/students', { limit: 'all', isActive: 'true' }, { skipLogoutOn401: true }),
+        api.get<{ students: StudentRow[] }>('/api/school/students', { limit: 'all', isActive: 'true', minimal: 'true' }, { skipLogoutOn401: true }),
       ])
       setHouses(houseData?.houses || [])
       setStudents(studentData?.students || [])

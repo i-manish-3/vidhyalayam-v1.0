@@ -804,28 +804,22 @@ export function StudentsPage() {
     viewingAcademicYear,
   ])
 
-  // Fetch stats separately (all students, no filters)
+  // Fetch stats separately (aggregated server-side; no student rows downloaded)
   const fetchStats = useCallback(async () => {
     try {
       const resolvedYear = viewingAcademicYear || currentSchoolAcademicYear || ''
-      const statsParams: Record<string, string> = { limit: '500' }
+      const statsParams: Record<string, string> = {}
       if (resolvedYear) statsParams.academicYear = resolvedYear
-      const data = await api.get<{ students: Student[]; pagination: { total: number } }>(
-        '/api/school/students',
+      const data = await api.get<{ total: number; active: number; inactive: number; admittedThisMonth: number }>(
+        '/api/school/students/stats',
         statsParams,
         { skipLogoutOn401: true }
       )
-      const allStudents = Array.isArray(data?.students) ? data.students : []
-      const now = new Date()
       setStats({
-        total: data?.pagination?.total ?? allStudents.length,
-        active: allStudents.filter(s => s.isActive).length,
-        disabled: allStudents.filter(s => !s.isActive).length,
-        thisMonth: allStudents.filter(s => {
-          const admDate = s.admissionDate ? new Date(s.admissionDate) : null
-          if (!admDate) return false
-          return admDate.getMonth() === now.getMonth() && admDate.getFullYear() === now.getFullYear()
-        }).length,
+        total: data?.total ?? 0,
+        active: data?.active ?? 0,
+        disabled: data?.inactive ?? 0,
+        thisMonth: data?.admittedThisMonth ?? 0,
       })
     } catch {
       // Stats may not be available

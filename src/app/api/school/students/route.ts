@@ -36,6 +36,10 @@ export async function GET(request: NextRequest) {
     const isActiveParam = searchParams.get('isActive') || ''
     const transportFilter = searchParams.get('transport') || 'all'
     const hostelFilter = searchParams.get('hostel') || 'all'
+    // Minimal mode: pages that only need identity + class/section/house (e.g.
+    // the Student Houses page) skip parents, admission, hostel and transport
+    // lookups entirely — a huge win when `limit=all` is requested.
+    const minimal = searchParams.get('minimal') === 'true'
     const academicYear = await resolveAcademicYear(user.schoolId, searchParams.get('academicYear'))
     const page = parseInt(searchParams.get('page') || '1')
     const limitParam = searchParams.get('limit') || '20'
@@ -144,6 +148,39 @@ export async function GET(request: NextRequest) {
     const effectiveLimit = isAllLimit ? Math.max(total, 1) : limit
     const effectivePage = isAllLimit ? 1 : Math.max(page, 1)
     const skip = isAllLimit ? 0 : (effectivePage - 1) * effectiveLimit
+
+    if (minimal) {
+      const minimalRows = await db.student.findMany({
+        where,
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          admissionNumber: true,
+          rollNumber: true,
+          isActive: true,
+          class: { select: { id: true, name: true } },
+          section: { select: { id: true, name: true } },
+          houseMembership: { select: { id: true, name: true, color: true } },
+        },
+        orderBy: [{ createdAt: 'desc' }],
+        skip,
+        take: effectiveLimit,
+      })
+      return NextResponse.json({
+        students: minimalRows.map((s) => ({
+          ...s,
+          fullName: `${s.firstName} ${s.lastName}`,
+          assignedHouse: s.houseMembership,
+        })),
+        pagination: {
+          page: effectivePage,
+          limit,
+          total,
+          totalPages: isAllLimit ? 1 : Math.ceil(total / effectiveLimit),
+        },
+      })
+    }
 
     const students = await db.student.findMany({
       where,
