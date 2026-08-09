@@ -2,7 +2,28 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Banknote, ChevronRight, Hash, ImagePlus, Loader2, Package, Palette, Save, School, Settings2, Sparkles, X } from 'lucide-react'
+import {
+  ArrowRight,
+  ArrowUpRight,
+  Banknote,
+  Calendar,
+  CalendarDays,
+  CalendarRange,
+  ChevronRight,
+  Hash,
+  ImagePlus,
+  Loader2,
+  MessageCircle,
+  Package,
+  Palette,
+  Save,
+  School,
+  Settings2,
+  ShieldCheck,
+  Sparkles,
+  Users,
+  X,
+} from 'lucide-react'
 import { GradientHero } from '@/components/shared'
 import { api } from '@/lib/api'
 import { compressImage } from '@/lib/image-compress'
@@ -15,6 +36,8 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { cn } from '@/lib/utils'
 
 type AdmissionSettings = {
   admissionNumberPrefix: string
@@ -52,6 +75,20 @@ const DEFAULT_ADMISSION_SETTINGS: AdmissionSettings = {
   employeeResetYearly: false,
 }
 
+type FeeDemandSummary = {
+  dueDay: number
+  lateFeeEnabled: boolean
+  lateFeeType: 'FLAT' | 'PER_DAY'
+  lateFeeAmount: number
+  lateFeeGraceDays: number
+  whatsappEnabled: boolean
+  whatsappProvider: 'BAILEYS' | 'META_CLOUD' | null
+  baileysConnected: boolean
+  baileysPhoneNumber: string
+  metaAccessTokenSet: boolean
+  metaAccessTokenMask: string
+}
+
 export function SettingsPage() {
   const router = useRouter()
   const { toast } = useToast()
@@ -77,6 +114,8 @@ export function SettingsPage() {
   const [settingsSaving, setSettingsSaving] = useState(false)
   const [inventoryDuesOnFeePage, setInventoryDuesOnFeePage] = useState<boolean>(currentSchool?.inventoryDuesOnFeePage ?? false)
   const [savingInventoryDues, setSavingInventoryDues] = useState(false)
+  const [feeConfig, setFeeConfig] = useState<FeeDemandSummary | null>(null)
+  const [feeConfigLoading, setFeeConfigLoading] = useState(true)
 
   useEffect(() => {
     if (!currentSchool || saving) return
@@ -130,6 +169,29 @@ export function SettingsPage() {
     }
 
     loadSettings()
+    return () => {
+      mounted = false
+    }
+  }, [effectiveRole])
+
+  useEffect(() => {
+    if (effectiveRole !== 'SCHOOL_ADMIN') return
+
+    let mounted = true
+    const loadFeeConfig = async () => {
+      setFeeConfigLoading(true)
+      try {
+        const data = await api.get<{ config: Partial<FeeDemandSummary> }>('/api/school/fees/demand-config', undefined, { skipLogoutOn401: true })
+        if (!mounted) return
+        setFeeConfig(data.config as FeeDemandSummary | null)
+      } catch {
+        // Non-fatal; the summary card falls back to its neutral state.
+      } finally {
+        if (mounted) setFeeConfigLoading(false)
+      }
+    }
+
+    loadFeeConfig()
     return () => {
       mounted = false
     }
@@ -308,7 +370,28 @@ export function SettingsPage() {
         primaryAction={{ label: 'Save Branding', icon: Save, onClick: saveTheme, disabled: !hasChanges || saving }}
       />
 
-      <Card className="gap-0 overflow-hidden border-sky-200/80 bg-gradient-to-br from-sky-50/60 via-card to-violet-50/60 py-0 shadow-sm dark:border-sky-500/25 dark:from-sky-500/10 dark:via-card dark:to-violet-500/10">
+      <Tabs defaultValue="branding" className="space-y-4">
+        <TabsList className="h-auto w-full flex-wrap gap-1.5 rounded-xl border bg-card/80 p-1.5 shadow-sm backdrop-blur">
+          <TabsTrigger value="branding" className="h-9 flex-1 gap-1.5 rounded-lg px-3 data-[state=active]:text-sky-600 dark:data-[state=active]:text-sky-300">
+            <School className="size-4" />
+            Branding
+          </TabsTrigger>
+          <TabsTrigger value="numbering" className="h-9 flex-1 gap-1.5 rounded-lg px-3 data-[state=active]:text-violet-600 dark:data-[state=active]:text-violet-300">
+            <Hash className="size-4" />
+            Numbering
+          </TabsTrigger>
+          <TabsTrigger value="fees" className="h-9 flex-1 gap-1.5 rounded-lg px-3 data-[state=active]:text-emerald-600 dark:data-[state=active]:text-emerald-300">
+            <Banknote className="size-4" />
+            Fee Demand
+          </TabsTrigger>
+          <TabsTrigger value="inventory" className="h-9 flex-1 gap-1.5 rounded-lg px-3 data-[state=active]:text-amber-600 dark:data-[state=active]:text-amber-300">
+            <Package className="size-4" />
+            Store
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="branding" className="space-y-4">
+          <Card className="gap-0 overflow-hidden border-sky-200/80 bg-gradient-to-br from-sky-50/60 via-card to-violet-50/60 py-0 shadow-sm dark:border-sky-500/25 dark:from-sky-500/10 dark:via-card dark:to-violet-500/10">
         <CardHeader className="border-b border-current/10 px-4 py-3">
           <CardTitle className="flex items-center gap-2.5">
             <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-violet-600 text-white shadow-sm">
@@ -320,7 +403,7 @@ export function SettingsPage() {
             School name, logo, favicon, and browser title are used across school branding surfaces.
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-4 p-4">
           <div className="space-y-2">
             <Label htmlFor="school-name">School Name</Label>
             <Input id="school-name" value={schoolName} onChange={(event) => setSchoolName(event.target.value)} placeholder="Enter school name" />
@@ -365,7 +448,7 @@ export function SettingsPage() {
             </div>
           </div>
 
-          <div className="rounded-xl border border-dashed border-sky-200/80 bg-gradient-to-r from-sky-50/70 via-white to-violet-50/70 p-3 text-sm shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10">
+          <div className="rounded-xl border border-dashed border-sky-300/70 bg-sky-50/50 p-3 text-sm shadow-sm dark:border-sky-500/25 dark:bg-sky-500/5">
             <p className="font-medium">Admit card branding moved</p>
             <p className="mt-0.5 text-xs text-muted-foreground">
               Trust name, principal name, instructions and the full admit-card design are now managed in
@@ -378,7 +461,7 @@ export function SettingsPage() {
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
-            <div className="rounded-xl border border-sky-200/80 bg-gradient-to-r from-sky-50/70 via-white to-violet-50/70 p-3 shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10">
+            <div className="rounded-xl border border-sky-200/70 bg-white/70 p-3 shadow-sm dark:bg-background/40">
               <div className="mb-2 flex items-center justify-between">
                 <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">School Logo</Label>
                 <Badge variant="outline" className="text-[10px]">Max 200 KB</Badge>
@@ -422,7 +505,7 @@ export function SettingsPage() {
               <p className="mt-2 text-[11px] text-muted-foreground">Square JPG, PNG, WebP, or GIF.</p>
             </div>
 
-            <div className="rounded-xl border border-sky-200/80 bg-gradient-to-r from-sky-50/70 via-white to-violet-50/70 p-3 shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10">
+            <div className="rounded-xl border border-sky-200/70 bg-white/70 p-3 shadow-sm dark:bg-background/40">
               <div className="mb-2 flex items-center justify-between">
                 <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Browser Favicon</Label>
                 <Badge variant="outline" className="text-[10px]">Max 200 KB</Badge>
@@ -473,7 +556,7 @@ export function SettingsPage() {
             </div>
           </div>
 
-          <div className="rounded-xl border border-sky-200/80 bg-gradient-to-r from-sky-50/70 via-white to-violet-50/70 p-3 shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10">
+          <div className="rounded-xl border border-sky-200/70 bg-white/70 p-3 shadow-sm dark:bg-background/40">
             <div className="mb-2 flex items-center justify-between">
               <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Print Header Banner</Label>
               <Badge variant="outline" className="text-[10px]">Max 200 KB</Badge>
@@ -527,7 +610,7 @@ export function SettingsPage() {
             </p>
           </div>
 
-          <div className="rounded-xl border border-sky-200/80 bg-gradient-to-r from-sky-50/70 via-white to-violet-50/70 p-3 shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10">
+          <div className="rounded-xl border border-sky-200/70 bg-white/70 p-3 shadow-sm dark:bg-background/40">
             <div className="mb-2 flex items-center justify-between">
               <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Principal Signature</Label>
               <Badge variant="outline" className="text-[10px]">Max 200 KB</Badge>
@@ -594,7 +677,7 @@ export function SettingsPage() {
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2">
-              <div className="overflow-hidden rounded-xl border border-sky-200/80 bg-gradient-to-r from-sky-50/70 via-white to-violet-50/70 p-3 shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10">
+              <div className="overflow-hidden rounded-xl border border-sky-200/70 bg-white/70 p-3 shadow-sm dark:bg-background/40">
                 <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Sidebar</p>
                 <div className="flex items-center gap-2.5 rounded-md border bg-sidebar p-2.5 text-sidebar-foreground">
                   <div className="flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-md bg-sidebar-primary text-sidebar-primary-foreground">
@@ -606,7 +689,7 @@ export function SettingsPage() {
                 </div>
               </div>
 
-              <div className="overflow-hidden rounded-xl border border-sky-200/80 bg-gradient-to-r from-sky-50/70 via-white to-violet-50/70 p-3 shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10">
+              <div className="overflow-hidden rounded-xl border border-sky-200/70 bg-white/70 p-3 shadow-sm dark:bg-background/40">
                 <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Browser Tab</p>
                 <div className="flex items-center gap-2 rounded-md border bg-background px-2.5 py-2">
                   <div className="flex size-4 shrink-0 items-center justify-center overflow-hidden rounded-sm bg-muted">
@@ -625,8 +708,10 @@ export function SettingsPage() {
           </div>
         </CardContent>
       </Card>
+      </TabsContent>
 
-      <Card className="gap-0 overflow-hidden border-violet-200/80 bg-gradient-to-br from-violet-50/60 via-card to-purple-50/60 py-0 shadow-sm dark:border-violet-500/25 dark:from-violet-500/10 dark:via-card dark:to-purple-500/10">
+        <TabsContent value="numbering" className="space-y-4">
+        <Card className="gap-0 overflow-hidden border-violet-200/80 bg-gradient-to-br from-violet-50/60 via-card to-purple-50/60 py-0 shadow-sm dark:border-violet-500/25 dark:from-violet-500/10 dark:via-card dark:to-purple-500/10">
         <CardHeader className="border-b border-current/10 px-4 py-3">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
@@ -646,9 +731,9 @@ export function SettingsPage() {
             </Button>
           </div>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-4 p-4">
           <div className="grid gap-3 lg:grid-cols-3">
-            <div className="space-y-3 rounded-xl border border-violet-200/80 bg-gradient-to-r from-violet-50/70 via-white to-purple-50/70 p-3 shadow-sm dark:border-violet-500/25 dark:from-violet-500/12 dark:via-card dark:to-purple-500/10">
+            <div className="space-y-3 rounded-xl border border-violet-200/70 bg-white/70 p-3 shadow-sm dark:bg-background/40">
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <h3 className="text-sm font-semibold">Admission Number</h3>
@@ -694,7 +779,7 @@ export function SettingsPage() {
                   />
                 </div>
               </div>
-              <div className="flex items-center justify-between rounded-md border bg-gradient-to-r from-violet-50/70 via-white to-purple-50/70 px-3 py-2">
+              <div className="flex items-center justify-between rounded-md border bg-white/70 px-3 py-2 dark:bg-background/40">
                 <Label htmlFor="reset-admission-number" className="text-sm">Reset serial every year</Label>
                 <Switch
                   id="reset-admission-number"
@@ -704,7 +789,7 @@ export function SettingsPage() {
               </div>
             </div>
 
-            <div className="space-y-3 rounded-xl border border-violet-200/80 bg-gradient-to-r from-violet-50/70 via-white to-purple-50/70 p-3 shadow-sm dark:border-violet-500/25 dark:from-violet-500/12 dark:via-card dark:to-purple-500/10">
+            <div className="space-y-3 rounded-xl border border-violet-200/70 bg-white/70 p-3 shadow-sm dark:bg-background/40">
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <h3 className="text-sm font-semibold">Registration Number</h3>
@@ -750,7 +835,7 @@ export function SettingsPage() {
                   />
                 </div>
               </div>
-              <div className="flex items-center justify-between rounded-md border bg-gradient-to-r from-violet-50/70 via-white to-purple-50/70 px-3 py-2">
+              <div className="flex items-center justify-between rounded-md border bg-white/70 px-3 py-2 dark:bg-background/40">
                 <Label htmlFor="reset-registration-number" className="text-sm">Reset serial every year</Label>
                 <Switch
                   id="reset-registration-number"
@@ -760,7 +845,7 @@ export function SettingsPage() {
               </div>
             </div>
 
-            <div className="space-y-3 rounded-xl border border-violet-200/80 bg-gradient-to-r from-violet-50/70 via-white to-purple-50/70 p-3 shadow-sm dark:border-violet-500/25 dark:from-violet-500/12 dark:via-card dark:to-purple-500/10">
+            <div className="space-y-3 rounded-xl border border-violet-200/70 bg-white/70 p-3 shadow-sm dark:bg-background/40">
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <h3 className="text-sm font-semibold">Employee ID</h3>
@@ -806,7 +891,7 @@ export function SettingsPage() {
                   />
                 </div>
               </div>
-              <div className="flex items-center justify-between rounded-md border bg-gradient-to-r from-violet-50/70 via-white to-purple-50/70 px-3 py-2">
+              <div className="flex items-center justify-between rounded-md border bg-white/70 px-3 py-2 dark:bg-background/40">
                 <Label htmlFor="reset-employee-number" className="text-sm">Reset serial every year</Label>
                 <Switch
                   id="reset-employee-number"
@@ -822,8 +907,10 @@ export function SettingsPage() {
           </p>
         </CardContent>
       </Card>
+        </TabsContent>
 
-      <Card className="gap-0 overflow-hidden border-emerald-200/80 bg-gradient-to-br from-emerald-50/60 via-card to-cyan-50/60 py-0 shadow-sm dark:border-emerald-500/25 dark:from-emerald-500/10 dark:via-card dark:to-cyan-500/10">
+        <TabsContent value="fees" className="space-y-4">
+        <Card className="gap-0 overflow-hidden border-emerald-200/80 bg-gradient-to-br from-emerald-50/60 via-card to-cyan-50/60 py-0 shadow-sm dark:border-emerald-500/25 dark:from-emerald-500/10 dark:via-card dark:to-cyan-500/10">
         <CardHeader className="border-b border-current/10 px-4 py-3">
           <CardTitle className="flex items-center gap-2.5">
             <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-cyan-600 text-white shadow-sm">
@@ -835,24 +922,111 @@ export function SettingsPage() {
             Configure when monthly demand slips are due, late fee policy, and WhatsApp delivery for parents.
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <button
-            type="button"
-            onClick={() => router.push('/settings/fee-demand-config')}
-            className="group flex w-full items-center justify-between rounded-xl border border-emerald-200/80 bg-gradient-to-r from-emerald-50/70 via-white to-cyan-50/70 p-3 text-left shadow-sm transition-colors hover:border-primary/40 dark:border-emerald-500/25 dark:from-emerald-500/12 dark:via-card dark:to-cyan-500/10"
-          >
-            <div className="space-y-0.5">
-              <p className="text-sm font-medium">Open fee demand settings</p>
-              <p className="text-xs text-muted-foreground">
-                Set due day, preview late fine policy, and configure your school's WhatsApp number.
+        <CardContent className="space-y-3 p-4">
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div className="rounded-xl border border-sky-200/70 bg-white/70 p-3 shadow-sm dark:border-sky-500/20 dark:bg-background/40">
+              <div className="flex items-center justify-between gap-2">
+                <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-sky-500/10 text-sky-600 dark:text-sky-300">
+                  <Calendar className="size-3.5" />
+                </span>
+                <Badge variant="outline" className="text-[10px] font-medium">Monthly</Badge>
+              </div>
+              <p className="mt-2.5 text-lg font-semibold leading-none tracking-tight">
+                {feeConfigLoading
+                  ? <span className="text-muted-foreground/50">–</span>
+                  : `${feeConfig?.dueDay ?? 10}${getDaySuffix(feeConfig?.dueDay ?? 10)}`}
+              </p>
+              <p className="mt-1.5 text-[11px] leading-snug text-muted-foreground">Due day · slips issued on the 1st</p>
+            </div>
+
+            <div className="rounded-xl border border-amber-200/70 bg-white/70 p-3 shadow-sm dark:border-amber-500/20 dark:bg-background/40">
+              <div className="flex items-center justify-between gap-2">
+                <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-300">
+                  <Sparkles className="size-3.5" />
+                </span>
+                <Badge
+                  variant="outline"
+                  className={cn(
+                    'text-[10px] font-medium',
+                    feeConfig?.lateFeeEnabled ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' : 'text-muted-foreground'
+                  )}
+                >
+                  {feeConfigLoading ? '…' : feeConfig?.lateFeeEnabled ? 'Active' : 'Off'}
+                </Badge>
+              </div>
+              <p className="mt-2.5 text-lg font-semibold leading-none tracking-tight">
+                {feeConfigLoading
+                  ? <span className="text-muted-foreground/50">–</span>
+                  : feeConfig?.lateFeeEnabled
+                    ? feeConfig.lateFeeType === 'PER_DAY'
+                      ? `₹${feeConfig.lateFeeAmount}/day`
+                      : `Flat ₹${feeConfig.lateFeeAmount}`
+                    : 'No late fee'}
+              </p>
+              <p className="mt-1.5 truncate text-[11px] leading-snug text-muted-foreground">
+                {feeConfig?.lateFeeEnabled
+                  ? `After ${feeConfig.lateFeeGraceDays || 0} grace day${feeConfig.lateFeeGraceDays === 1 ? '' : 's'} past due`
+                  : 'No charge after the due date'}
               </p>
             </div>
-            <ChevronRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
-          </button>
+
+            <div className="rounded-xl border border-emerald-200/70 bg-white/70 p-3 shadow-sm dark:border-emerald-500/20 dark:bg-background/40">
+              <div className="flex items-center justify-between gap-2">
+                <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-300">
+                  <MessageCircle className="size-3.5" />
+                </span>
+                <Badge
+                  variant="outline"
+                  className={cn(
+                    'text-[10px] font-medium',
+                    feeConfig?.whatsappEnabled ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' : 'text-muted-foreground'
+                  )}
+                >
+                  {feeConfigLoading ? '…' : feeConfig?.whatsappEnabled ? 'On' : 'Off'}
+                </Badge>
+              </div>
+              <p className="mt-2.5 truncate text-lg font-semibold leading-none tracking-tight">
+                {feeConfigLoading
+                  ? <span className="text-muted-foreground/50">–</span>
+                  : feeConfig?.whatsappProvider === 'META_CLOUD'
+                    ? 'Meta Cloud'
+                    : feeConfig?.whatsappProvider === 'BAILEYS'
+                      ? 'QR (Baileys)'
+                      : 'Not configured'}
+              </p>
+              <p className="mt-1.5 truncate text-[11px] leading-snug text-muted-foreground">
+                {feeConfig?.whatsappProvider === 'BAILEYS'
+                  ? feeConfig.baileysConnected
+                    ? `Sending as ${feeConfig.baileysPhoneNumber || 'connected number'}`
+                    : 'Linked device not connected'
+                  : feeConfig?.whatsappProvider === 'META_CLOUD'
+                    ? feeConfig.metaAccessTokenSet ? 'API token configured' : 'API token not set'
+                    : 'Slips stay in-app only'}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-emerald-200/70 bg-white/70 p-2.5 pl-3 shadow-sm dark:border-emerald-500/20 dark:bg-background/40">
+            <p className="truncate text-[11px] text-muted-foreground">
+              Covers late fine policy and WhatsApp numbers too.
+            </p>
+            <Button
+              type="button"
+              size="sm"
+              className="h-8 shrink-0 gap-1.5 bg-emerald-600 px-3 text-xs text-white shadow-sm hover:bg-emerald-700"
+              onClick={() => router.push('/settings/fee-demand-config')}
+            >
+              <Settings2 className="size-3.5" />
+              Manage
+              <ArrowRight className="size-3.5" />
+            </Button>
+          </div>
         </CardContent>
       </Card>
+        </TabsContent>
 
-      <Card className="gap-0 overflow-hidden border-amber-200/80 bg-gradient-to-br from-amber-50/60 via-card to-orange-50/60 py-0 shadow-sm dark:border-amber-500/25 dark:from-amber-500/10 dark:via-card dark:to-orange-500/10">
+        <TabsContent value="inventory" className="space-y-4">
+          <Card className="gap-0 overflow-hidden border-amber-200/80 bg-gradient-to-br from-amber-50/60 via-card to-orange-50/60 py-0 shadow-sm dark:border-amber-500/25 dark:from-amber-500/10 dark:via-card dark:to-orange-500/10">
         <CardHeader className="border-b border-current/10 px-4 py-3">
           <CardTitle className="flex items-center gap-2.5">
             <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 text-white shadow-sm">
@@ -864,8 +1038,8 @@ export function SettingsPage() {
             Control where unpaid dues from store (inventory) sales are collected.
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="flex items-start justify-between gap-4 rounded-xl border border-amber-200/80 bg-gradient-to-r from-amber-50/70 via-white to-orange-50/70 p-3 shadow-sm dark:border-amber-500/25 dark:from-amber-500/12 dark:via-card dark:to-orange-500/10">
+        <CardContent className="p-4">
+          <div className="flex items-start justify-between gap-4 rounded-xl border border-amber-200/70 bg-white/70 p-3 shadow-sm dark:bg-background/40">
             <div className="space-y-0.5">
               <Label htmlFor="inventory-dues-on-fee-page" className="text-sm font-medium">
                 Show store dues on the Collect Fee page
@@ -887,7 +1061,57 @@ export function SettingsPage() {
             </div>
           </div>
         </CardContent>
-      </Card>
+          </Card>
+        </TabsContent>
+
+        <div className="rounded-xl border bg-card/80 shadow-sm backdrop-blur">
+          <div className="flex flex-col gap-2 border-b px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h3 className="flex items-center gap-2 text-sm font-semibold">
+                <Sparkles className="size-4 text-primary" />
+                Related Settings
+              </h3>
+              <p className="text-xs text-muted-foreground">Quick access to other school configuration pages.</p>
+            </div>
+          </div>
+          <div className="grid gap-3 p-4 sm:grid-cols-2">
+            {[
+              { icon: CalendarRange, label: 'Academic Years', note: 'Create sessions and set the active academic year.', href: '/academics/years', tone: 'text-sky-500 bg-sky-500/10' },
+              { icon: CalendarDays, label: 'Academic Calendar', note: 'Plan holidays, exam weeks, and special events.', href: '/settings/holidays', tone: 'text-violet-500 bg-violet-500/10' },
+              { icon: ShieldCheck, label: 'Roles & Permissions', note: 'Define access for staff and teacher accounts.', href: '/settings/roles', tone: 'text-emerald-500 bg-emerald-500/10' },
+              { icon: Users, label: 'Users', note: 'Manage admin, teacher, and staff logins.', href: '/settings/users', tone: 'text-amber-500 bg-amber-500/10' },
+            ].map((item) => (
+              <button
+                key={item.label}
+                type="button"
+                onClick={() => router.push(item.href)}
+                className="group flex items-start gap-3 rounded-xl border border-border/70 bg-white/70 p-3.5 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md dark:bg-background/40"
+              >
+                <span className={cn('flex size-9 shrink-0 items-center justify-center rounded-lg', item.tone)}>
+                  <item.icon className="size-4" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-center justify-between gap-2">
+                    <span className="text-sm font-semibold text-foreground/85">{item.label}</span>
+                    <ArrowUpRight className="size-3.5 text-muted-foreground transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+                  </span>
+                  <span className="mt-0.5 block text-xs text-muted-foreground">{item.note}</span>
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </Tabs>
     </div>
   )
+}
+
+function getDaySuffix(day: number): string {
+  if (day >= 11 && day <= 13) return 'th'
+  switch (day % 10) {
+    case 1: return 'st'
+    case 2: return 'nd'
+    case 3: return 'rd'
+    default: return 'th'
+  }
 }

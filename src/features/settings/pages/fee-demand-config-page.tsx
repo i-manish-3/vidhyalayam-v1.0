@@ -217,7 +217,7 @@ export function FeeDemandConfigPage() {
         </TabsContent>
 
         <TabsContent value="whatsapp">
-          <WhatsAppTab config={config} setConfig={setConfig} />
+          <WhatsAppTab config={config} setConfig={setConfig} canManage={canManage} />
         </TabsContent>
       </Tabs>
     </div>
@@ -244,8 +244,8 @@ function GeneralTab({
           Each month a demand slip will be generated for every active student. The slip totals current month fees plus any unpaid dues from previous months.
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="grid gap-4 sm:grid-cols-2">
+      <CardContent className="space-y-4 p-4">
+        <div className="grid gap-3 sm:grid-cols-2">
           <div className="space-y-2">
             <Label htmlFor="due-day">Due Day of Month</Label>
             <Input
@@ -260,14 +260,34 @@ function GeneralTab({
               Parents receive the slip on the 1st and have until this day to pay. Allowed range: 1-28.
             </p>
           </div>
-          <div className="rounded-xl border border-sky-200/80 bg-gradient-to-r from-sky-50/70 via-white to-violet-50/70 p-3 text-sm shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10">
-            <p className="font-medium">Sample timeline</p>
-            <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
-              <li>• <strong>1st</strong> — admin generates slip for the month</li>
-              <li>• Slip shows up on parent portal + WhatsApp (when enabled)</li>
-              <li>• <strong>{config.dueDay}{getDaySuffix(config.dueDay)}</strong> — payment due date</li>
-              <li>• After due date — late fine kicks in (when enabled)</li>
-            </ul>
+          <div className="rounded-xl border border-sky-200/70 bg-white/70 p-3.5 shadow-sm dark:border-sky-500/20 dark:bg-background/40">
+            <p className="text-xs font-semibold text-foreground/75">Monthly timeline</p>
+            <ol className="mt-2.5 space-y-2">
+              <li className="flex gap-2.5">
+                <span className="mt-0.5 size-2 shrink-0 rounded-full bg-sky-500/80" />
+                <p className="text-[11px] leading-snug text-muted-foreground">
+                  <strong className="font-semibold text-foreground/80">1st</strong> — slip generated for the month
+                </p>
+              </li>
+              <li className="flex gap-2.5">
+                <span className="mt-0.5 size-2 shrink-0 rounded-full bg-sky-500/80" />
+                <p className="text-[11px] leading-snug text-muted-foreground">
+                  Slip shows on parent portal + WhatsApp (when enabled)
+                </p>
+              </li>
+              <li className="flex gap-2.5">
+                <span className="mt-0.5 size-2 shrink-0 rounded-full bg-violet-500/80" />
+                <p className="text-[11px] leading-snug text-muted-foreground">
+                  <strong className="font-semibold text-foreground/80">{config.dueDay}{getDaySuffix(config.dueDay)}</strong> — payment due date
+                </p>
+              </li>
+              <li className="flex gap-2.5">
+                <span className="mt-0.5 size-2 shrink-0 rounded-full bg-amber-500/80" />
+                <p className="text-[11px] leading-snug text-muted-foreground">
+                  After due date — late fine applies (when enabled)
+                </p>
+              </li>
+            </ol>
           </div>
         </div>
 
@@ -282,9 +302,9 @@ function GeneralTab({
           <p className="text-xs text-muted-foreground">
             Available variables: <code className="rounded bg-muted px-1 py-0.5">{'{academicYear}'}</code>, <code className="rounded bg-muted px-1 py-0.5">{'{month}'}</code>, <code className="rounded bg-muted px-1 py-0.5">{'{year}'}</code>, <code className="rounded bg-muted px-1 py-0.5">{'{sequence}'}</code>
           </p>
-          <div className="rounded-md border border-sky-200/80 bg-gradient-to-r from-sky-50/70 via-white to-violet-50/70 p-2 text-xs shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10">
-            <span className="text-muted-foreground">Preview: </span>
-            <span className="font-mono">
+          <div className="flex items-center justify-between gap-3 rounded-md border border-sky-200/70 bg-white/70 px-3 py-2 shadow-sm dark:border-sky-500/20 dark:bg-background/40">
+            <span className="shrink-0 text-[11px] text-muted-foreground">Preview</span>
+            <span className="truncate font-mono text-xs">
               {config.slipNumberFormat
                 .replace('{academicYear}', '2026-2027')
                 .replace('{month}', 'MAY')
@@ -320,18 +340,18 @@ function LateFeeTab({ config }: { config: ConfigState }) {
           </Badge>
         </div>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="rounded-lg border border-dashed border-amber-200/80 bg-gradient-to-r from-amber-50/70 via-white to-orange-50/70 p-3 text-xs text-muted-foreground shadow-sm dark:border-amber-500/25 dark:from-amber-500/12 dark:via-card dark:to-orange-500/10">
-          Late fine collection will activate in a future release. The fields below are previewed so you can see the planned options.
+      <CardContent className="space-y-3 p-4">
+        <div className="rounded-lg border border-dashed border-amber-300/70 bg-amber-50/50 p-3 text-xs leading-relaxed text-muted-foreground dark:border-amber-500/25 dark:bg-amber-500/5">
+          Late fine collection will activate in a future release. The options below are previewed so you can see the planned policy.
         </div>
 
-        <fieldset disabled className="space-y-4 opacity-60">
-          <div className="flex items-center justify-between rounded-md border border-amber-200/80 bg-gradient-to-r from-amber-50/70 via-white to-orange-50/70 px-3 py-2 shadow-sm dark:border-amber-500/25 dark:from-amber-500/12 dark:via-card dark:to-orange-500/10">
+        <fieldset disabled className="space-y-3 opacity-60">
+          <div className="flex items-center justify-between gap-4 rounded-md border border-amber-200/70 bg-white/70 px-3 py-2 dark:border-amber-500/20 dark:bg-background/40">
             <Label htmlFor="late-fee-enabled" className="text-sm">Charge late fine after due date</Label>
             <Switch id="late-fee-enabled" checked={config.lateFeeEnabled} />
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-3">
             <div className="space-y-2">
               <Label>Type</Label>
               <Input value={config.lateFeeType === 'FLAT' ? 'Flat amount' : 'Per day'} readOnly />
@@ -354,9 +374,11 @@ function LateFeeTab({ config }: { config: ConfigState }) {
 function WhatsAppTab({
   config,
   setConfig,
+  canManage,
 }: {
   config: ConfigState
   setConfig: (next: ConfigState) => void
+  canManage: boolean
 }) {
   const { toast } = useToast()
   const [testPhone, setTestPhone] = useState('')
@@ -413,11 +435,11 @@ function WhatsAppTab({
           )}
         </div>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="flex items-center justify-between rounded-md border border-emerald-200/80 bg-gradient-to-r from-emerald-50/70 via-white to-cyan-50/70 px-3 py-2 shadow-sm dark:border-emerald-500/25 dark:from-emerald-500/12 dark:via-card dark:to-cyan-500/10">
+      <CardContent className="space-y-4 p-4">
+        <div className="flex items-center justify-between rounded-md border border-emerald-200/70 bg-white/70 px-3 py-2.5 dark:border-emerald-500/20 dark:bg-background/40">
           <div>
             <Label htmlFor="wa-enabled" className="text-sm">Enable WhatsApp delivery</Label>
-            <p className="text-xs text-muted-foreground">When on, the slip page shows a Send button next to each slip.</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">When on, the slip page shows a Send button next to each slip.</p>
           </div>
           <Switch
             id="wa-enabled"
@@ -434,7 +456,7 @@ function WhatsAppTab({
             className="mt-2 gap-3"
           >
             <Label
-              className="flex cursor-pointer items-start gap-3 rounded-xl border border-emerald-200/80 bg-gradient-to-r from-emerald-50/70 via-white to-cyan-50/70 p-3 shadow-sm transition-colors hover:border-emerald-400/60 dark:border-emerald-500/25 dark:from-emerald-500/12 dark:via-card dark:to-cyan-500/10"
+              className="flex cursor-pointer items-start gap-3 rounded-xl border border-emerald-200/70 bg-white/70 p-3.5 shadow-sm transition-colors hover:border-emerald-400/60 dark:border-emerald-500/20 dark:bg-background/40"
               htmlFor="prov-meta"
             >
               <RadioGroupItem value="META_CLOUD" id="prov-meta" className="mt-1" />
@@ -446,7 +468,7 @@ function WhatsAppTab({
               </div>
             </Label>
             <Label
-              className="flex cursor-pointer items-start gap-3 rounded-xl border border-emerald-200/80 bg-gradient-to-r from-emerald-50/70 via-white to-cyan-50/70 p-3 shadow-sm transition-colors hover:border-emerald-400/60 dark:border-emerald-500/25 dark:from-emerald-500/12 dark:via-card dark:to-cyan-500/10"
+              className="flex cursor-pointer items-start gap-3 rounded-xl border border-emerald-200/70 bg-white/70 p-3.5 shadow-sm transition-colors hover:border-emerald-400/60 dark:border-emerald-500/20 dark:bg-background/40"
               htmlFor="prov-baileys"
             >
               <RadioGroupItem value="BAILEYS" id="prov-baileys" className="mt-1" />
@@ -464,6 +486,7 @@ function WhatsAppTab({
           <BaileysConnectBlock
             connected={config.baileysConnected}
             phoneNumber={config.baileysPhoneNumber}
+            canManage={canManage}
             onChange={(next) => setConfig({
               ...config,
               baileysConnected: next.connected,
@@ -473,7 +496,7 @@ function WhatsAppTab({
         )}
 
         {config.whatsappProvider === 'META_CLOUD' && (
-          <div className="space-y-3 rounded-xl border border-emerald-200/80 bg-gradient-to-r from-emerald-50/70 via-white to-cyan-50/70 p-3 shadow-sm dark:border-emerald-500/25 dark:from-emerald-500/12 dark:via-card dark:to-cyan-500/10">
+          <div className="space-y-3 rounded-xl border border-emerald-200/70 bg-white/70 p-3.5 shadow-sm dark:border-emerald-500/20 dark:bg-background/40">
             <p className="text-xs text-muted-foreground">
               Get these from your <a href="https://developers.facebook.com/apps" target="_blank" rel="noreferrer" className="underline">Meta Developer App</a> &rarr; WhatsApp &rarr; API Setup.
             </p>
@@ -500,7 +523,7 @@ function WhatsAppTab({
             <div className="space-y-1.5">
               <Label htmlFor="meta-token" className="text-xs">Access Token</Label>
               {!editingToken && config.metaAccessTokenSet && config.metaAccessToken === UNCHANGED_TOKEN ? (
-                <div className="flex items-center justify-between rounded-md border border-emerald-200/80 bg-gradient-to-r from-emerald-50/70 via-white to-cyan-50/70 px-3 py-2 shadow-sm dark:border-emerald-500/25 dark:from-emerald-500/12 dark:via-card dark:to-cyan-500/10">
+                <div className="flex items-center justify-between rounded-md border border-emerald-200/70 bg-white/70 px-3 py-2 dark:border-emerald-500/20 dark:bg-background/40">
                   <div className="text-xs">
                     <span className="text-muted-foreground">Configured · </span>
                     <span className="font-mono">{config.metaAccessTokenMask}</span>
@@ -531,7 +554,7 @@ function WhatsAppTab({
               />
               <p className="text-xs text-muted-foreground">Required for cold outreach outside Meta&apos;s 24h customer-care window.</p>
             </div>
-            <div className="rounded-md border border-emerald-200/80 bg-gradient-to-r from-emerald-50/70 via-white to-cyan-50/70 p-3 shadow-sm space-y-2 dark:border-emerald-500/25 dark:from-emerald-500/12 dark:via-card dark:to-cyan-500/10">
+            <div className="rounded-md border border-emerald-200/70 bg-white/70 p-3 shadow-sm space-y-2 dark:border-emerald-500/20 dark:bg-background/40">
               <Label htmlFor="test-phone" className="text-xs font-medium">Test connection</Label>
               <div className="flex gap-2">
                 <Input
@@ -573,10 +596,12 @@ interface BaileysStatus {
 function BaileysConnectBlock({
   connected,
   phoneNumber,
+  canManage,
   onChange,
 }: {
   connected: boolean
   phoneNumber: string
+  canManage: boolean
   onChange: (next: { connected: boolean; phoneNumber: string | null }) => void
 }) {
   const { toast } = useToast()
@@ -656,7 +681,7 @@ function BaileysConnectBlock({
   useEffect(() => () => stopPolling(), [])
 
   return (
-    <div className="space-y-3 rounded-xl border border-emerald-200/80 bg-gradient-to-r from-emerald-50/70 via-white to-cyan-50/70 p-3 shadow-sm dark:border-emerald-500/25 dark:from-emerald-500/12 dark:via-card dark:to-cyan-500/10">
+    <div className="space-y-3 rounded-xl border border-emerald-200/70 bg-white/70 p-3.5 shadow-sm dark:border-emerald-500/20 dark:bg-background/40">
       {connected ? (
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-start gap-2">
