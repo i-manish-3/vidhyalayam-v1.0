@@ -22,6 +22,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator } from '@/components/ui/dropdown-menu'
 import { DatePicker } from '@/components/date-picker'
 import {
+  AlertCircle,
   Bus,
   CalendarDays,
   ChevronDown,
@@ -949,6 +950,7 @@ export function FeeCollectionsPage() {
   const splitTotal = paymentSplits.reduce((sum, split) => sum + Number(split.amount || 0), 0)
   const paymentValue = splitTotal || payableTotal
   const balanceDue = Math.max(0, payableTotal - paymentValue)
+  const splitExceedsPayable = splitTotal > payableTotal + 0.001
 
   // Live allocation preview: as the cashier types amounts into the payment
   // split rows (or the Discount input), each selected particular shows how
@@ -1451,6 +1453,14 @@ export function FeeCollectionsPage() {
     }
     if ((!paymentValue || paymentValue <= 0) && discount <= 0) {
       toast({ title: 'Invalid Amount', description: 'Please enter a valid payment amount.', variant: 'destructive' })
+      return
+    }
+    if (splitExceedsPayable) {
+      toast({
+        title: 'Amount Exceeds Total Payable',
+        description: `Split total (${money(splitTotal)}) exceeds Total Payable (${money(payableTotal)}). Reduce the payment amounts.`,
+        variant: 'destructive',
+      })
       return
     }
 
@@ -2497,9 +2507,29 @@ export function FeeCollectionsPage() {
                     </div>
                   ))}
                   {paymentSplits.length > 1 && (
-                    <div className="flex items-center justify-between rounded-md bg-muted/40 px-2 py-1 text-[11px]">
-                      <span className="text-muted-foreground">Split total</span>
-                      <span className="font-semibold tabular-nums">{money(splitTotal)}</span>
+                    <div
+                      className={`flex items-center justify-between rounded-md bg-muted/40 px-2 py-1 text-[11px] ${
+                        splitExceedsPayable
+                          ? 'border border-red-300 bg-red-50 dark:border-red-500/40 dark:bg-red-500/10'
+                          : ''
+                      }`}
+                    >
+                      <span className={splitExceedsPayable ? 'font-medium text-red-700 dark:text-red-300' : 'text-muted-foreground'}>
+                        Split total
+                      </span>
+                      <span className={`font-semibold tabular-nums ${splitExceedsPayable ? 'text-red-700 dark:text-red-300' : ''}`}>
+                        {money(splitTotal)}
+                      </span>
+                    </div>
+                  )}
+                  {splitExceedsPayable && (
+                    <div className="flex items-center gap-2 rounded-md border border-red-300 bg-red-50 px-2.5 py-2 text-xs dark:border-red-500/40 dark:bg-red-500/10">
+                      <AlertCircle className="size-3.5 shrink-0 text-red-600 dark:text-red-400" />
+                      <span className="text-red-700 dark:text-red-300">
+                        Split total exceeds Total Payable by{' '}
+                        <span className="font-semibold tabular-nums">{money(splitTotal - payableTotal)}</span>. Reduce the
+                        payment amounts before collecting.
+                      </span>
                     </div>
                   )}
                 </div>
