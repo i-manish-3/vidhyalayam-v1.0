@@ -101,6 +101,10 @@ async function getAdminDashboard(schoolId: string, perms: string[]) {
   const canSalary = hasPerm(perms, 'salary:read')
   const canAnnouncements = hasPerm(perms, 'announcement:read')
 
+  // Day boundary (server-local midnight) used by attendance & daily fee stats
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+
   // Core stats — each guarded by the matching read permission
   const [totalStudents, totalTeachers, totalClasses, totalSections] = await Promise.all([
     canStudents ? db.student.count({ where: { schoolId, deletedAt: null, isActive: true } }) : Promise.resolve(0),
@@ -109,8 +113,10 @@ async function getAdminDashboard(schoolId: string, perms: string[]) {
     canClasses ? db.section.count({ where: { schoolId, deletedAt: null } }) : Promise.resolve(0),
   ])
 
-  // Fee stats
-  const [totalFees, collectedFees, pendingFees] = canFees
+// Fee stats
+  const monthStart = new Date(today.getFullYear(), today.getMonth(), 1)
+  const nextMonthStart = new Date(today.getFullYear(), today.getMonth() + 1, 1)
+  const [totalFees, collectedFees, pendingFees, collectedToday, collectedThisMonth] = canFees
     ? await Promise.all([
         db.feeCollection.aggregate({
           where: { schoolId, deletedAt: null },
@@ -124,17 +130,34 @@ async function getAdminDashboard(schoolId: string, perms: string[]) {
           where: { schoolId, deletedAt: null, paymentStatus: { in: ['unpaid', 'partial'] } },
           _sum: { amount: true, paidAmount: true },
         }),
+        db.feeCollection.aggregate({
+          where: {
+            schoolId,
+            deletedAt: null,
+            paymentStatus: { in: ['paid', 'partial'] },
+            paymentDate: { gte: today, lt: new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1) },
+          },
+          _sum: { paidAmount: true },
+        }),
+        db.feeCollection.aggregate({
+          where: {
+            schoolId,
+            deletedAt: null,
+            paymentStatus: { in: ['paid', 'partial'] },
+            paymentDate: { gte: monthStart, lt: nextMonthStart },
+          },
+          _sum: { paidAmount: true },
+        }),
       ])
     : [
         { _sum: { amount: 0 } },
         { _sum: { paidAmount: 0 } },
         { _sum: { amount: 0, paidAmount: 0 } },
+        { _sum: { paidAmount: 0 } },
+        { _sum: { paidAmount: 0 } },
       ]
 
   // Attendance today
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-
   const schoolForYear = await db.school.findUnique({
     where: { id: schoolId },
     select: { academicYear: true },
@@ -435,6 +458,8 @@ async function getAdminDashboard(schoolId: string, perms: string[]) {
       totalSections,
       totalFees: totalFeeAmount,
       collectedFees: collectedFeeAmount,
+      todayCollected: collectedToday._sum.paidAmount || 0,
+      monthlyCollected: collectedThisMonth._sum.paidAmount || 0,
       pendingFees: pendingFeeAmount,
       overdueFees: overdueFeeAmount,
       salaryPaidThisMonth: salaryPaymentsThisMonth._sum.netPayable || 0,

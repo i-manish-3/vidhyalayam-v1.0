@@ -99,6 +99,8 @@ interface DashboardData {
     totalPending: number
     totalFees: number
     overdueFees: number
+    todayCollected: number
+    monthlyCollected: number
     collectionRate: number
   }
   feeTrend: Array<{ month: string; collected: number; pending: number }>
@@ -185,6 +187,8 @@ export function SchoolAdminDashboard() {
             totalPending: Number(stats.pendingFees || 0),
             totalFees: Number(stats.totalFees || 0),
             overdueFees: Number(stats.overdueFees || 0),
+            todayCollected: Number(stats.todayCollected || 0),
+            monthlyCollected: Number(stats.monthlyCollected || 0),
             collectionRate,
           },
           feeTrend: Array.isArray(dashboardData.feeTrend)
@@ -235,7 +239,7 @@ export function SchoolAdminDashboard() {
     totalSections: 0,
     attendanceToday: { present: 0, absent: 0, leave: 0, total: 0 },
     attendanceWeek: [],
-    feeStats: { totalCollected: 0, totalPending: 0, totalFees: 0, overdueFees: 0, collectionRate: 0 },
+    feeStats: { totalCollected: 0, totalPending: 0, totalFees: 0, overdueFees: 0, todayCollected: 0, monthlyCollected: 0, collectionRate: 0 },
     feeTrend: [],
     recentActivities: [],
     notices: [],
@@ -297,26 +301,26 @@ export function SchoolAdminDashboard() {
       progress: Math.min(100, dashboard.totalTeachers > 0 ? 76 : 0),
     },
     canSeeFees && {
-      label: 'Collected Fees',
-      value: formatMoney(dashboard.feeStats.totalCollected),
-      note: `${collectionRate}% collection rate`,
+      label: 'Daily Collection',
+      value: `₹${dashboard.feeStats.todayCollected.toLocaleString('en-IN')}`,
+      note: 'Collected today',
       icon: IndianRupee,
       tone: 'bg-primary text-primary-foreground shadow-sm shadow-primary/20',
       surface: 'border-emerald-200/80 bg-gradient-to-br from-emerald-50 via-white to-teal-50 dark:border-emerald-500/25 dark:from-emerald-500/15 dark:via-card dark:to-emerald-500/5',
       accent: 'from-emerald-500 via-emerald-400',
       decoration: 'bg-emerald-300/20 dark:bg-emerald-500/10',
-      progress: collectionRate,
+      progress: 100,
     },
     canSeeFees && {
-      label: 'Pending Fees',
-      value: formatMoney(dashboard.feeStats.totalPending),
-      note: `${formatMoney(dashboard.feeStats.overdueFees)} overdue`,
-      icon: AlertCircle,
+      label: 'Monthly Collection',
+      value: `₹${dashboard.feeStats.monthlyCollected.toLocaleString('en-IN')}`,
+      note: 'This month',
+      icon: CalendarCheck,
       tone: 'bg-primary text-primary-foreground shadow-sm shadow-primary/20',
-      surface: 'border-amber-200/80 bg-gradient-to-br from-amber-50 via-white to-orange-50 dark:border-amber-500/25 dark:from-amber-500/15 dark:via-card dark:to-orange-500/5',
-      accent: 'from-amber-500 via-orange-400',
-      decoration: 'bg-amber-300/20 dark:bg-amber-500/10',
-      progress: Math.min(100, pendingRate),
+      surface: 'border-violet-200/80 bg-gradient-to-br from-violet-50 via-white to-purple-50 dark:border-violet-500/25 dark:from-violet-500/15 dark:via-card dark:to-purple-500/5',
+      accent: 'from-violet-500 via-purple-400',
+      decoration: 'bg-violet-300/20 dark:bg-violet-500/10',
+      progress: 100,
     },
   ].filter(Boolean) as MetricItem[]
 
@@ -505,8 +509,8 @@ export function SchoolAdminDashboard() {
               {canSeeFees && (
                 <DashboardPanel
                   title="Fee Collection"
-                  description={dashboard.feeStats.totalCollected > 0 || dashboard.feeStats.totalPending > 0
-                    ? `${formatMoney(dashboard.feeStats.totalCollected)} collected · ${formatMoney(dashboard.feeStats.totalPending)} pending this year`
+                  description={latestFeeMonth.month
+                    ? `${latestFeeMonth.month}: ₹${latestFeeMonth.collected.toLocaleString('en-IN')} collected · ₹${latestFeeMonth.pending.toLocaleString('en-IN')} pending`
                     : 'Collected versus pending fee trend'}
                   icon={IndianRupee}
                   tone="emerald"
@@ -540,8 +544,8 @@ export function SchoolAdminDashboard() {
                             </defs>
                             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
                             <XAxis dataKey="month" tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} axisLine={false} tickLine={false} />
-                            <YAxis tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} axisLine={false} tickLine={false} tickFormatter={(v) => money.format(Number(v))} />
-                            <Tooltip formatter={(value: number, name: string) => [formatMoney(value), name === 'collected' ? 'Collected' : 'Pending']} contentStyle={tooltipStyle} />
+                            <YAxis tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} axisLine={false} tickLine={false} tickFormatter={(v) => `₹${Math.round(Number(v)).toLocaleString('en-IN')}`} />
+                            <Tooltip formatter={(value: number, name: string) => [`₹${Math.round(value).toLocaleString('en-IN')}`, name === 'collected' ? 'Collected' : 'Pending']} contentStyle={tooltipStyle} />
                             <Area type="monotone" dataKey="collected" name="collected" stroke="var(--primary)" strokeWidth={2.5} fillOpacity={1} fill="url(#dashboardEarningsCollected)" />
                             <Area type="monotone" dataKey="pending" name="pending" stroke="var(--warning)" strokeWidth={2.5} fillOpacity={1} fill="url(#dashboardEarningsPending)" />
                           </AreaChart>
@@ -554,7 +558,7 @@ export function SchoolAdminDashboard() {
                         </div>
                         {latestFeeMonth.month && (
                           <p className="font-medium text-foreground/80">
-                            {latestFeeMonth.month}: <span className="text-primary">{formatMoney(latestFeeMonth.collected)}</span> collected · <span style={{ color: 'var(--warning)' }}>{formatMoney(latestFeeMonth.pending)}</span> pending
+                            {latestFeeMonth.month}: <span className="text-primary">₹{latestFeeMonth.collected.toLocaleString('en-IN')}</span> collected · <span style={{ color: 'var(--warning)' }}>₹{latestFeeMonth.pending.toLocaleString('en-IN')}</span> pending
                           </p>
                         )}
                       </div>
