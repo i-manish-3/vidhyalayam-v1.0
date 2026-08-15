@@ -78,6 +78,8 @@ interface SaleDetail extends SaleListRow {
 
 interface SettleTarget { target: 'void' | 'return'; returnId?: string; amount: number; label: string }
 
+interface ReturnedItem { saleItemId: string; itemName: string; quantity: number; refund: number }
+
 function dueBadge(s: { status: string; dueStatus?: string; totalAmount: number; amountPaid: number }): { label: string; cls: string } {
   if (s.status === 'voided') return { label: 'Reversed', cls: 'border-muted-foreground/30 text-muted-foreground' }
   const due = Math.max(0, (s.totalAmount || 0) - (s.amountPaid || 0))
@@ -92,6 +94,24 @@ function inr(n: number): string {
 }
 function fmtDate(s: string): string {
   return new Date(s).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+}
+function parseReturnedItems(json: string | null): ReturnedItem[] {
+  if (!json) return []
+  try {
+    const parsed = JSON.parse(json)
+    if (!Array.isArray(parsed)) return []
+    return parsed
+      .filter((r) => r && typeof r === 'object')
+      .map((r) => ({
+        saleItemId: String(r.saleItemId ?? ''),
+        itemName: String(r.itemName ?? 'Item'),
+        quantity: Number(r.quantity) || 0,
+        refund: Number(r.refund) || 0,
+      }))
+      .filter((r) => r.quantity > 0)
+  } catch {
+    return []
+  }
 }
 
 function StatCard({
@@ -648,6 +668,20 @@ export function InventorySalesPage() {
                             <span className="text-muted-foreground">{fmtDate(r.createdAt)}{r.reason ? ` · ${r.reason}` : ''}</span>
                             <span className="tabular-nums font-semibold">{inr(r.refundAmount)} returned</span>
                           </div>
+                          {parseReturnedItems(r.itemsJson).length > 0 && (
+                            <div className="mt-1 space-y-1">
+                              {parseReturnedItems(r.itemsJson).map((it) => {
+                                const line = detail.items.find((l) => l.id === it.saleItemId)
+                                const label = line?.variantLabel ? `${line.itemName} · ${line.variantLabel}` : it.itemName
+                                return (
+                                  <div key={`${r.id}-${it.saleItemId}`} className="flex items-center justify-between gap-2">
+                                    <span className="min-w-0 truncate text-xs text-muted-foreground">{label} <span className="text-muted-foreground/70">× {it.quantity}</span></span>
+                                    <span className="shrink-0 tabular-nums text-xs font-medium text-amber-700 dark:text-amber-300">{inr(it.refund)}</span>
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          )}
                           {r.ledgerReduction > 0 && (
                             <div className="flex justify-between text-emerald-700 dark:text-emerald-400"><span>Cleared from due</span><span className="tabular-nums">{inr(r.ledgerReduction)}</span></div>
                           )}
