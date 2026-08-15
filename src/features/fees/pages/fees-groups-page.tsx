@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import {
   Table,
   TableBody,
@@ -330,207 +330,184 @@ export function FeesGroupsPage() {
 
       {/* Add Fee Group Dialog */}
       <Dialog open={showAdd} onOpenChange={setShowAdd}>
-        <DialogContent className="max-w-lg max-h-[90vh] border-sky-200/80 bg-gradient-to-br from-white via-sky-50/45 to-cyan-50/60 p-0 shadow-xl dark:border-sky-500/25 dark:from-card dark:via-sky-500/10 dark:to-cyan-500/10">
-          <DialogHeader className="relative overflow-hidden rounded-t-lg border-b border-sky-500/15 bg-gradient-to-r from-primary via-teal-600 to-cyan-600 p-5 text-white">
-            <div aria-hidden className="absolute -right-10 -top-12 size-32 rounded-full border-[16px] border-white/15" />
-            <div aria-hidden className="absolute bottom-0 right-32 h-px w-48 bg-gradient-to-r from-transparent via-white/50 to-transparent" />
-            <div className="flex items-start gap-3">
-              <div className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-white/25 bg-white/15 shadow-md shadow-black/10 backdrop-blur-sm">
-                <Layers className="size-5" />
+        <DialogContent className="flex max-h-[90svh] flex-col overflow-hidden border-primary/20 bg-card p-0 shadow-2xl shadow-primary/15 sm:max-w-xl [&>button]:right-3 [&>button]:top-3 [&>button]:rounded-full [&>button]:text-white [&>button]:opacity-85 [&>button]:hover:bg-white/15 [&>button]:hover:opacity-100">
+          <DialogHeader className="relative shrink-0 overflow-hidden border-b border-white/15 bg-[linear-gradient(135deg,var(--primary)_0%,#0d9488_48%,#2563eb_100%)] px-5 py-4 pr-12 text-white sm:px-6">
+            <div aria-hidden className="absolute -right-10 -top-16 size-40 rounded-full border-[18px] border-white/10" />
+            <div aria-hidden className="absolute -bottom-14 left-10 size-28 rounded-full bg-emerald-300/20 blur-2xl" />
+            <div aria-hidden className="absolute bottom-0 right-24 h-24 w-44 rounded-full bg-sky-300/15 blur-2xl" />
+            <div className="relative flex items-center gap-3">
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-white/25 bg-white/15 text-white shadow-md backdrop-blur-sm">
+                <Layers className="size-5 text-white" />
+              </span>
+              <div>
+                <DialogTitle className="text-lg font-bold tracking-normal text-white">Add New Fee Group</DialogTitle>
+                <DialogDescription className="mt-0.5 text-xs text-white/75">Create a new fee group to organise fee heads.</DialogDescription>
               </div>
-              <div className="min-w-0 space-y-1">
-                <DialogTitle className="text-white">Add New Fee Group</DialogTitle>
-                <DialogDescription className="text-white/80">Create a new fee group to organise fee heads.</DialogDescription>
-              </div>
-              <DialogClose className="absolute top-3 right-3 z-20 flex size-8 items-center justify-center rounded-full border border-white/30 bg-white/15 text-white/90 shadow-sm backdrop-blur-sm transition-all hover:bg-white/30 hover:text-white">
-                <X className="size-4" />
-                <span className="sr-only">Close</span>
-              </DialogClose>
             </div>
           </DialogHeader>
-          <div className="grid gap-4 p-5">
-            <div className="rounded-xl border border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-cyan-50 p-4 shadow-sm dark:border-sky-500/25 dark:from-sky-500/10 dark:via-card dark:to-cyan-500/10">
-              <div className="mb-3 flex items-center gap-2 border-b border-sky-500/15 pb-2.5 text-sm font-semibold">
-                <span className="flex size-7 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-cyan-600 text-white shadow-sm">
-                  <Layers className="size-3.5" />
-                </span>
-                Group details
+
+          <div className="themed-scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain bg-gradient-to-br from-primary/[0.03] via-background to-cyan-500/[0.055] p-4 sm:p-5">
+            <section className="relative overflow-hidden rounded-xl border border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-cyan-50 p-4 shadow-sm dark:border-sky-500/25 dark:from-sky-500/15 dark:via-card dark:to-cyan-500/10 sm:p-5">
+              <div aria-hidden className="absolute -right-7 -top-10 size-28 rounded-full bg-sky-200/35 blur-xl dark:bg-sky-500/15" />
+              <div aria-hidden className="absolute -bottom-10 left-12 size-24 rounded-full bg-cyan-200/30 blur-xl dark:bg-cyan-500/10" />
+              <div className="relative mb-3 flex items-center gap-2">
+                <span className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-cyan-600 text-white shadow-sm"><Layers className="size-4 text-white" /></span>
+                <div><h3 className="text-sm font-semibold">Group details</h3><p className="text-[10px] text-muted-foreground">Name and description shown across fee screens</p></div>
               </div>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="group-name">Group Name</Label>
+              <div className="relative space-y-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="group-name" className="text-xs">Group Name</Label>
                   <Input
                     id="group-name"
                     value={form.name}
                     onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
                     placeholder="e.g., Academic Fees, Transport Fees"
+                    className="h-9 bg-white shadow-sm dark:bg-input/30"
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="group-desc">Description</Label>
+                <div className="space-y-1.5">
+                  <Label htmlFor="group-desc" className="text-xs">Description</Label>
                   <Textarea
                     id="group-desc"
                     value={form.description}
                     onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
                     placeholder="Optional description for this fee group"
                     rows={2}
+                    className="bg-white shadow-sm dark:bg-input/30"
                   />
                 </div>
               </div>
-            </div>
+            </section>
           </div>
-          <DialogFooter className="border-t border-sky-500/15 bg-white/80 p-4 dark:bg-card/80">
-            <div className="flex w-full items-center justify-between gap-3 max-sm:flex-col">
-              <p className="hidden text-xs text-sky-700 sm:block dark:text-sky-300">
-                <span className="inline-flex items-center gap-1">
-                  <Layers className="size-3" />
-                  Create a new fee group
-                </span>
-              </p>
-              <div className="flex items-center gap-2">
-                <Button variant="outline" onClick={() => setShowAdd(false)} className="bg-white dark:bg-card">
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleAdd}
-                  disabled={saving || !form.name.trim() || !canCreate}
-                  className="gap-1.5 bg-gradient-to-r from-primary to-cyan-600 shadow-sm shadow-primary/20"
-                >
-                  {saving ? 'Adding...' : 'Add Fee Group'}
-                </Button>
-              </div>
-            </div>
+
+          <DialogFooter className="shrink-0 border-t border-primary/10 bg-muted/30 px-4 py-3 sm:px-5">
+            <Button variant="outline" size="sm" className="h-8 px-4 text-xs" onClick={() => setShowAdd(false)}>Cancel</Button>
+            <Button
+              size="sm"
+              className="h-8 gap-1.5 px-4 text-xs"
+              onClick={handleAdd}
+              disabled={saving || !form.name.trim() || !canCreate}
+            >
+              {saving ? 'Adding...' : 'Add Fee Group'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       <Dialog open={!!editingGroup} onOpenChange={(open) => !open && setEditingGroup(null)}>
-        <DialogContent className="max-w-lg max-h-[90vh] border-sky-200/80 bg-gradient-to-br from-white via-sky-50/45 to-cyan-50/60 p-0 shadow-xl dark:border-sky-500/25 dark:from-card dark:via-sky-500/10 dark:to-cyan-500/10">
-          <DialogHeader className="relative overflow-hidden rounded-t-lg border-b border-sky-500/15 bg-gradient-to-r from-primary via-teal-600 to-cyan-600 p-5 text-white">
-            <div aria-hidden className="absolute -right-10 -top-12 size-32 rounded-full border-[16px] border-white/15" />
-            <div aria-hidden className="absolute bottom-0 right-32 h-px w-48 bg-gradient-to-r from-transparent via-white/50 to-transparent" />
-            <div className="flex items-start gap-3">
-              <div className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-white/25 bg-white/15 shadow-md shadow-black/10 backdrop-blur-sm">
-                <Edit2 className="size-5" />
+        <DialogContent className="flex max-h-[90svh] flex-col overflow-hidden border-primary/20 bg-card p-0 shadow-2xl shadow-primary/15 sm:max-w-xl [&>button]:right-3 [&>button]:top-3 [&>button]:rounded-full [&>button]:text-white [&>button]:opacity-85 [&>button]:hover:bg-white/15 [&>button]:hover:opacity-100">
+          <DialogHeader className="relative shrink-0 overflow-hidden border-b border-white/15 bg-[linear-gradient(135deg,var(--primary)_0%,#0d9488_48%,#2563eb_100%)] px-5 py-4 pr-12 text-white sm:px-6">
+            <div aria-hidden className="absolute -right-10 -top-16 size-40 rounded-full border-[18px] border-white/10" />
+            <div aria-hidden className="absolute -bottom-14 left-10 size-28 rounded-full bg-emerald-300/20 blur-2xl" />
+            <div aria-hidden className="absolute bottom-0 right-24 h-24 w-44 rounded-full bg-sky-300/15 blur-2xl" />
+            <div className="relative flex items-center gap-3">
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-white/25 bg-white/15 text-white shadow-md backdrop-blur-sm">
+                <Edit2 className="size-5 text-white" />
+              </span>
+              <div>
+                <DialogTitle className="text-lg font-bold tracking-normal text-white">Edit Fee Group</DialogTitle>
+                <DialogDescription className="mt-0.5 text-xs text-white/75">Update the fee group details.</DialogDescription>
               </div>
-              <div className="min-w-0 space-y-1">
-                <DialogTitle className="text-white">Edit Fee Group</DialogTitle>
-                <DialogDescription className="text-white/80">Update the fee group details.</DialogDescription>
-              </div>
-              <DialogClose className="absolute top-3 right-3 z-20 flex size-8 items-center justify-center rounded-full border border-white/30 bg-white/15 text-white/90 shadow-sm backdrop-blur-sm transition-all hover:bg-white/30 hover:text-white">
-                <X className="size-4" />
-                <span className="sr-only">Close</span>
-              </DialogClose>
             </div>
           </DialogHeader>
-          <div className="grid gap-4 p-5">
-            <div className="rounded-xl border border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-cyan-50 p-4 shadow-sm dark:border-sky-500/25 dark:from-sky-500/10 dark:via-card dark:to-cyan-500/10">
-              <div className="mb-3 flex items-center gap-2 border-b border-sky-500/15 pb-2.5 text-sm font-semibold">
-                <span className="flex size-7 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-cyan-600 text-white shadow-sm">
-                  <Edit2 className="size-3.5" />
-                </span>
-                Group details
+
+          <div className="themed-scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain bg-gradient-to-br from-primary/[0.03] via-background to-cyan-500/[0.055] p-4 sm:p-5">
+            <section className="relative overflow-hidden rounded-xl border border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-cyan-50 p-4 shadow-sm dark:border-sky-500/25 dark:from-sky-500/15 dark:via-card dark:to-cyan-500/10 sm:p-5">
+              <div aria-hidden className="absolute -right-7 -top-10 size-28 rounded-full bg-sky-200/35 blur-xl dark:bg-sky-500/15" />
+              <div aria-hidden className="absolute -bottom-10 left-12 size-24 rounded-full bg-cyan-200/30 blur-xl dark:bg-cyan-500/10" />
+              <div className="relative mb-3 flex items-center gap-2">
+                <span className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-cyan-600 text-white shadow-sm"><Edit2 className="size-4 text-white" /></span>
+                <div><h3 className="text-sm font-semibold">Group details</h3><p className="text-[10px] text-muted-foreground">Name and description shown across fee screens</p></div>
               </div>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="edit-group-name">Group Name</Label>
+              <div className="relative space-y-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="edit-group-name" className="text-xs">Group Name</Label>
                   <Input
                     id="edit-group-name"
                     value={editForm.name}
                     onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
                     placeholder="e.g., Academic Fees, Transport Fees"
                     disabled={editingGroup?.name === DEFAULT_FEE_GROUP_NAME}
+                    className="h-9 bg-white shadow-sm dark:bg-input/30"
                   />
                   {editingGroup?.name === DEFAULT_FEE_GROUP_NAME && (
                     <p className="text-xs text-muted-foreground">The _DEFAULT group name is protected.</p>
                   )}
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="edit-group-desc">Description</Label>
+                <div className="space-y-1.5">
+                  <Label htmlFor="edit-group-desc" className="text-xs">Description</Label>
                   <Textarea
                     id="edit-group-desc"
                     value={editForm.description}
                     onChange={(e) => setEditForm((f) => ({ ...f, description: e.target.value }))}
                     placeholder="Optional description for this fee group"
                     rows={2}
+                    className="bg-white shadow-sm dark:bg-input/30"
                   />
                 </div>
               </div>
-            </div>
+            </section>
           </div>
-          <DialogFooter className="border-t border-sky-500/15 bg-white/80 p-4 dark:bg-card/80">
-            <div className="flex w-full items-center justify-between gap-3 max-sm:flex-col">
-              <p className="hidden text-xs text-sky-700 sm:block dark:text-sky-300">
-                <span className="inline-flex items-center gap-1">
-                  <Edit2 className="size-3" />
-                  Update fee group details
-                </span>
-              </p>
-              <div className="flex items-center gap-2">
-                <Button variant="outline" onClick={() => setEditingGroup(null)} disabled={saving} className="bg-white dark:bg-card">
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleEdit}
-                  disabled={saving || !editForm.name.trim() || !canUpdate}
-                  className="gap-1.5 bg-gradient-to-r from-primary to-cyan-600 shadow-sm shadow-primary/20"
-                >
-                  {saving ? 'Saving...' : 'Save Changes'}
-                </Button>
-              </div>
-            </div>
+
+          <DialogFooter className="shrink-0 border-t border-primary/10 bg-muted/30 px-4 py-3 sm:px-5">
+            <Button variant="outline" size="sm" className="h-8 px-4 text-xs" onClick={() => setEditingGroup(null)} disabled={saving}>Cancel</Button>
+            <Button
+              size="sm"
+              className="h-8 gap-1.5 px-4 text-xs"
+              onClick={handleEdit}
+              disabled={saving || !editForm.name.trim() || !canUpdate}
+            >
+              {saving ? 'Saving...' : 'Save Changes'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       <AlertDialog open={!!deletingGroup} onOpenChange={(open) => !open && setDeletingGroup(null)}>
-        <AlertDialogContent className="max-w-lg border-sky-200/80 bg-gradient-to-br from-white via-sky-50/45 to-cyan-50/60 p-0 shadow-xl dark:border-sky-500/25 dark:from-card dark:via-sky-500/10 dark:to-cyan-500/10">
-          <div className="relative overflow-hidden rounded-t-lg border-b border-sky-500/15 bg-gradient-to-r from-primary via-teal-600 to-cyan-600 p-5 text-white">
-            <div aria-hidden className="absolute -right-10 -top-12 size-32 rounded-full border-[16px] border-white/15" />
-            <div aria-hidden className="absolute bottom-0 right-32 h-px w-48 bg-gradient-to-r from-transparent via-white/50 to-transparent" />
-            <div className="flex items-start gap-3">
-              <div className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-white/25 bg-white/15 shadow-md shadow-black/10 backdrop-blur-sm">
-                <Trash2 className="size-5" />
+        <AlertDialogContent className="flex max-h-[90svh] flex-col overflow-hidden border-destructive/20 bg-card p-0 shadow-2xl shadow-destructive/15 sm:max-w-xl">
+          <div className="relative shrink-0 overflow-hidden border-b border-white/15 bg-[linear-gradient(135deg,#dc2626_0%,#e11d48_48%,#7c3aed_100%)] px-5 py-4 pr-12 text-white sm:px-6">
+            <div aria-hidden className="absolute -right-10 -top-16 size-40 rounded-full border-[18px] border-white/10" />
+            <div aria-hidden className="absolute -bottom-14 left-10 size-28 rounded-full bg-rose-300/20 blur-2xl" />
+            <div aria-hidden className="absolute bottom-0 right-24 h-24 w-44 rounded-full bg-violet-300/15 blur-2xl" />
+            <div className="relative flex items-center gap-3">
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-white/25 bg-white/15 text-white shadow-md backdrop-blur-sm">
+                <Trash2 className="size-5 text-white" />
+              </span>
+              <div>
+                <AlertDialogTitle className="text-lg font-bold tracking-normal text-white">Delete Fee Group?</AlertDialogTitle>
+                <AlertDialogDescription className="mt-0.5 text-xs text-white/75">This action cannot be undone.</AlertDialogDescription>
               </div>
-              <div className="min-w-0 space-y-1">
-                <AlertDialogTitle className="text-white">Delete Fee Group?</AlertDialogTitle>
-                <p className="text-sm text-white/80">This action cannot be undone.</p>
-              </div>
-              <AlertDialogCancel className="absolute top-3 right-3 z-20 flex size-8 items-center justify-center rounded-full border border-white/30 bg-white/15 text-white/90 shadow-sm backdrop-blur-sm transition-all hover:bg-white/30 hover:text-white">
+              <AlertDialogCancel className="absolute right-3 top-3 flex size-8 items-center justify-center rounded-full border border-white/30 bg-white/15 p-0 text-white/90 shadow-sm backdrop-blur-sm transition-all hover:bg-white/30 hover:text-white">
                 <X className="size-4" />
                 <span className="sr-only">Close</span>
               </AlertDialogCancel>
             </div>
           </div>
-          <div className="p-5">
-            <div className="rounded-xl border border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-cyan-50 p-4 shadow-sm dark:border-sky-500/25 dark:from-sky-500/10 dark:via-card dark:to-cyan-500/10">
-              <p className="text-sm text-sky-900 dark:text-sky-200">
-                This will remove "<strong className="text-foreground">{deletingGroup?.name}</strong>" from the active fee group list. Groups already used in fee structures cannot be deleted.
-              </p>
-            </div>
-          </div>
-          <AlertDialogFooter className="border-t border-sky-500/15 bg-white/80 p-4 dark:bg-card/80">
-            <div className="flex w-full items-center justify-between gap-3">
-              <p className="text-xs text-sky-700 dark:text-sky-300">
-                <span className="inline-flex items-center gap-1">
-                  <Trash2 className="size-3" />
-                  Remove this fee group
-                </span>
-              </p>
-              <div className="flex items-center gap-2">
-                <AlertDialogCancel disabled={deleting} className="border-sky-200/70 text-sky-700 hover:bg-sky-100 dark:border-sky-500/30 dark:text-sky-300 dark:hover:bg-sky-500/20">Cancel</AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={(event) => {
-                    event.preventDefault()
-                    handleDelete()
-                  }}
-                  disabled={deleting || !canDelete}
-                  className="gap-1.5 bg-gradient-to-r from-rose-600 to-rose-500 text-white shadow-md shadow-rose-300/30 hover:from-rose-500 hover:to-rose-400 disabled:from-gray-400 disabled:to-gray-400"
-                >
-                  {deleting ? 'Deleting...' : 'Delete Group'}
-                </AlertDialogAction>
+          <div className="themed-scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain bg-gradient-to-br from-destructive/[0.04] via-background to-rose-500/[0.05] p-4 sm:p-5">
+            <section className="relative overflow-hidden rounded-xl border border-amber-200/80 bg-gradient-to-br from-amber-50 via-white to-orange-50 p-4 shadow-sm dark:border-amber-500/25 dark:from-amber-500/15 dark:via-card dark:to-orange-500/10 sm:p-5">
+              <div aria-hidden className="absolute -right-7 -top-10 size-28 rounded-full bg-amber-200/35 blur-xl dark:bg-amber-500/15" />
+              <div className="relative mb-3 flex items-center gap-2">
+                <span className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 text-white shadow-sm"><Trash2 className="size-4 text-white" /></span>
+                <div><h3 className="text-sm font-semibold">Removing fee group</h3><p className="text-[10px] text-muted-foreground">Review what will happen before you continue</p></div>
               </div>
-            </div>
+              <p className="relative text-sm text-amber-900 dark:text-amber-200">
+                This will remove "<strong className="text-foreground">{deletingGroup?.name}</strong>" from the active fee group list.
+                Groups already used in fee structures cannot be deleted.
+              </p>
+            </section>
+          </div>
+          <AlertDialogFooter className="shrink-0 border-t border-destructive/10 bg-muted/30 px-4 py-3 sm:px-5">
+            <AlertDialogCancel className="h-8 px-4 text-xs" disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="h-8 gap-1.5 px-4 text-xs"
+              onClick={(event) => {
+                event.preventDefault()
+                handleDelete()
+              }}
+              disabled={deleting || !canDelete}
+            >
+              {deleting ? 'Deleting...' : 'Delete Group'}
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

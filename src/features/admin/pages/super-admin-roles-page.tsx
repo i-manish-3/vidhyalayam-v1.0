@@ -53,6 +53,7 @@ import {
   Pencil,
   Layers,
   Palette,
+  Eye,
 } from 'lucide-react'
 import { Switch } from '@/components/ui/switch'
 
@@ -1024,25 +1025,33 @@ export function SuperAdminRolesPage() {
 
       {/* Create Role Dialog */}
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-        <DialogContent className="flex max-h-[92vh] flex-col overflow-hidden p-0 sm:max-w-lg">
-          <DialogHeader className="shrink-0 border-b bg-muted/30 px-5 py-4 text-left sm:px-6">
-            <div className="flex items-start gap-3">
-              <span className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-brand-soft text-white shadow-sm">
-                <ShieldCheck className="size-5" />
+        <DialogContent className="flex max-h-[90svh] flex-col overflow-hidden border-primary/20 bg-card p-0 shadow-2xl shadow-primary/15 sm:max-w-xl [&>button]:right-3 [&>button]:top-3 [&>button]:rounded-full [&>button]:text-white [&>button]:opacity-85 [&>button]:hover:bg-white/15 [&>button]:hover:opacity-100">
+          <DialogHeader className="relative shrink-0 overflow-hidden border-b border-white/15 bg-[linear-gradient(135deg,var(--primary)_0%,#0d9488_48%,#2563eb_100%)] px-5 py-4 pr-12 text-white sm:px-6">
+            <div aria-hidden className="absolute -right-10 -top-16 size-40 rounded-full border-[18px] border-white/10" />
+            <div aria-hidden className="absolute -bottom-14 left-10 size-28 rounded-full bg-emerald-300/20 blur-2xl" />
+            <div aria-hidden className="absolute bottom-0 right-24 h-24 w-44 rounded-full bg-sky-300/15 blur-2xl" />
+            <div className="relative flex items-center gap-3">
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-white/25 bg-white/15 text-white shadow-md backdrop-blur-sm">
+                <ShieldCheck className="size-5 text-white" />
               </span>
-              <div className="min-w-0 space-y-1">
-                <DialogTitle className="text-xl font-semibold">Create new role</DialogTitle>
-                <DialogDescription className="text-sm">
+              <div>
+                <DialogTitle className="text-lg font-bold tracking-normal text-white">Create new role</DialogTitle>
+                <DialogDescription className="mt-0.5 text-xs text-white/75">
                   Create a custom role for a specific school. Assign permissions after creation.
                 </DialogDescription>
               </div>
             </div>
           </DialogHeader>
 
-          <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-5 sm:px-6">
+          <div className="themed-scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain bg-gradient-to-br from-primary/[0.03] via-background to-violet-500/[0.055] p-4 sm:p-5">
             {/* Live preview */}
-            <div className="rounded-lg border bg-card p-4 shadow-sm">
-              <div className="flex items-center gap-3">
+            <section className="relative overflow-hidden rounded-xl border border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-violet-50 p-4 shadow-sm dark:border-sky-500/25 dark:from-sky-500/15 dark:via-card dark:to-violet-500/10 sm:p-5">
+              <div aria-hidden className="absolute -right-7 -top-10 size-28 rounded-full bg-sky-200/35 blur-xl dark:bg-sky-500/15" />
+              <div className="relative mb-3 flex items-center gap-2">
+                <span className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-violet-600 text-white shadow-sm"><Eye className="size-4 text-white" /></span>
+                <div><h3 className="text-sm font-semibold">Live preview</h3><p className="text-[10px] text-muted-foreground">How this role appears to its members</p></div>
+              </div>
+              <div className="relative flex items-center gap-3">
                 <div
                   className="flex size-10 shrink-0 items-center justify-center rounded-lg ring-1 ring-inset ring-border"
                   style={{ backgroundColor: `${newColor}20` }}
@@ -1050,29 +1059,29 @@ export function SuperAdminRolesPage() {
                   <ShieldCheck className="size-5" style={{ color: newColor }} />
                 </div>
                 <div className="min-w-0 space-y-0.5">
-                  <h3 className="line-clamp-1 text-base font-semibold text-foreground">
+                  <h3 className="line-clamp-1 text-sm font-semibold text-foreground">
                     {newName.trim() || 'Role name preview'}
                   </h3>
-                  <p className="line-clamp-2 text-sm text-muted-foreground">
+                  <p className="line-clamp-2 text-xs text-muted-foreground">
                     {newDescription.trim() || 'Your role description will appear here.'}
                   </p>
                 </div>
               </div>
-            </div>
+            </section>
 
             {/* School */}
-            <section className="space-y-4 rounded-lg border bg-card p-4 shadow-sm">
-              <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                <School className="size-4 text-brand" />
-                School
+            <section className="relative overflow-hidden rounded-xl border border-emerald-200/80 bg-gradient-to-br from-emerald-50 via-white to-teal-50 p-4 shadow-sm dark:border-emerald-500/25 dark:from-emerald-500/15 dark:via-card dark:to-teal-500/10 sm:p-5">
+              <div aria-hidden className="absolute -right-7 -top-10 size-28 rounded-full bg-emerald-200/35 blur-xl dark:bg-emerald-500/15" />
+              <div className="relative mb-3 flex items-center gap-2">
+                <span className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-sm"><School className="size-4 text-white" /></span>
+                <div><h3 className="text-sm font-semibold">School</h3><p className="text-[10px] text-muted-foreground">The school this role belongs to</p></div>
               </div>
-
-              <div className="space-y-1.5">
-                <Label>
+              <div className="relative space-y-1.5">
+                <Label className="text-xs">
                   School <span className="text-destructive">*</span>
                 </Label>
                 <Select value={newSchoolId} onValueChange={setNewSchoolId}>
-                  <SelectTrigger>
+                  <SelectTrigger className="h-9 bg-white shadow-sm dark:bg-input/30">
                     <SelectValue placeholder="Select a school" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1087,45 +1096,46 @@ export function SuperAdminRolesPage() {
             </section>
 
             {/* Role details */}
-            <section className="space-y-4 rounded-lg border bg-card p-4 shadow-sm">
-              <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                <Pencil className="size-4 text-brand" />
-                Role details
+            <section className="relative overflow-hidden rounded-xl border border-violet-200/80 bg-gradient-to-br from-violet-50 via-white to-purple-50 p-4 shadow-sm dark:border-violet-500/25 dark:from-violet-500/15 dark:via-card dark:to-purple-500/10 sm:p-5">
+              <div aria-hidden className="absolute -right-7 -top-10 size-28 rounded-full bg-violet-200/35 blur-xl dark:bg-violet-500/15" />
+              <div className="relative mb-3 flex items-center gap-2">
+                <span className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 text-white shadow-sm"><Pencil className="size-4 text-white" /></span>
+                <div><h3 className="text-sm font-semibold">Role details</h3><p className="text-[10px] text-muted-foreground">Name and description shown across the app</p></div>
               </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="sa-new-role-name">
-                  Role name <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  id="sa-new-role-name"
-                  value={newName}
-                  maxLength={50}
-                  onChange={(e) => setNewName(e.target.value)}
-                  placeholder="e.g., Department Head, Lab Assistant"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="sa-new-role-desc">Description</Label>
-                <Textarea
-                  id="sa-new-role-desc"
-                  value={newDescription}
-                  rows={3}
-                  onChange={(e) => setNewDescription(e.target.value)}
-                  placeholder="Describe what this role is for..."
-                  className="resize-none"
-                />
+              <div className="relative space-y-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="sa-new-role-name" className="text-xs">
+                    Role name <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    id="sa-new-role-name"
+                    value={newName}
+                    maxLength={50}
+                    onChange={(e) => setNewName(e.target.value)}
+                    placeholder="e.g., Department Head, Lab Assistant"
+                    className="h-9 bg-white shadow-sm dark:bg-input/30"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="sa-new-role-desc" className="text-xs">Description</Label>
+                  <Textarea
+                    id="sa-new-role-desc"
+                    value={newDescription}
+                    rows={3}
+                    onChange={(e) => setNewDescription(e.target.value)}
+                    placeholder="Describe what this role is for..."
+                    className="resize-none bg-white shadow-sm dark:bg-input/30"
+                  />
+                </div>
               </div>
             </section>
 
             {/* Color */}
-            <section className="space-y-4 rounded-lg border bg-card p-4 shadow-sm">
-              <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                <Palette className="size-4 text-brand" />
-                Accent color
+            <section className="rounded-xl border border-amber-200/80 bg-gradient-to-br from-amber-50 via-white to-orange-50 p-4 shadow-sm dark:border-amber-500/25 dark:from-amber-500/15 dark:via-card dark:to-orange-500/10">
+              <div className="mb-3 flex items-center gap-2">
+                <span className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 text-white shadow-sm"><Palette className="size-4 text-white" /></span>
+                <div><h3 className="text-sm font-semibold">Accent color</h3><p className="text-[10px] text-muted-foreground">Used in badges and the role icon</p></div>
               </div>
-
               <div className="flex flex-wrap items-center gap-2">
                 {PRESET_COLORS.map((color) => (
                   <button
@@ -1152,12 +1162,12 @@ export function SuperAdminRolesPage() {
             </section>
           </div>
 
-          <DialogFooter className="shrink-0 border-t bg-muted/20 px-5 py-4 sm:px-6">
-            <Button variant="outline" onClick={() => setShowCreateDialog(false)} disabled={creating}>
+          <DialogFooter className="shrink-0 border-t border-primary/10 bg-muted/30 px-4 py-3 sm:px-5">
+            <Button variant="outline" size="sm" className="h-8 px-4 text-xs" onClick={() => setShowCreateDialog(false)} disabled={creating}>
               Cancel
             </Button>
-            <Button onClick={handleCreateRole} disabled={creating || !newName.trim() || !newSchoolId}>
-              <Plus className="mr-2 size-4" />
+            <Button size="sm" className="h-8 gap-1.5 px-4 text-xs" onClick={handleCreateRole} disabled={creating || !newName.trim() || !newSchoolId}>
+              <Plus className="size-3.5" />
               {creating ? 'Creating...' : 'Create role'}
             </Button>
           </DialogFooter>

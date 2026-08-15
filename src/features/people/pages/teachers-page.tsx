@@ -12,7 +12,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogDescription, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import {
   Select,
   SelectContent,
@@ -610,30 +610,29 @@ export function TeachersPage() {
         setDetailOpen(open)
         if (!open) setSelectedTeacher(null)
       }}>
-        <DialogContent className="gap-0 overflow-hidden border-primary/15 p-0 shadow-xl shadow-primary/10 sm:max-w-2xl">
-          <div className="relative bg-[linear-gradient(135deg,var(--primary)_0%,#0d9488_48%,#2563eb_100%)] px-5 py-4 text-white">
-            <div aria-hidden className="absolute -right-6 -top-6 size-24 rounded-full border-[15px] border-cyan-200/15" />
-            <div aria-hidden className="absolute -bottom-6 right-12 size-16 rounded-full bg-cyan-300/8" />
-            <div aria-hidden className="absolute left-8 top-2 size-12 rounded-full bg-white/5 blur-md" />
-            <div aria-hidden className="absolute bottom-0 left-1/3 h-px w-24 bg-gradient-to-r from-transparent via-white/30 to-transparent" />
+        <DialogContent className="flex max-h-[90svh] flex-col overflow-hidden border-primary/20 bg-card p-0 shadow-2xl shadow-primary/15 sm:max-w-2xl [&>button]:right-3 [&>button]:top-3 [&>button]:rounded-full [&>button]:text-white [&>button]:opacity-85 [&>button]:hover:bg-white/15 [&>button]:hover:opacity-100">
+          <DialogHeader className="relative shrink-0 overflow-hidden border-b border-white/15 bg-[linear-gradient(135deg,var(--primary)_0%,#0d9488_48%,#2563eb_100%)] px-5 py-4 pr-12 text-white sm:px-6">
+            <div aria-hidden className="absolute -right-10 -top-16 size-40 rounded-full border-[18px] border-white/10" />
+            <div aria-hidden className="absolute -bottom-14 left-10 size-28 rounded-full bg-emerald-300/20 blur-2xl" />
+            <div aria-hidden className="absolute bottom-0 right-24 h-24 w-44 rounded-full bg-sky-300/15 blur-2xl" />
             <div className="relative flex items-center gap-3">
-              <span className="flex size-9 items-center justify-center rounded-xl border border-white/20 bg-white/15 shadow-md backdrop-blur-sm">
-                <GraduationCap className="size-4.5 text-white" />
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-white/25 bg-white/15 text-white shadow-md backdrop-blur-sm">
+                <GraduationCap className="size-5 text-white" />
               </span>
               <div>
-                <DialogTitle className="text-base font-semibold text-white">Teacher Details</DialogTitle>
+                <DialogTitle className="text-lg font-bold tracking-normal text-white">Teacher Details</DialogTitle>
                 <DialogDescription className="mt-0.5 text-xs text-white/75">Profile, contact, and professional information.</DialogDescription>
               </div>
             </div>
-          </div>
+          </DialogHeader>
 
-          <div className="max-h-[70vh] overflow-y-auto bg-gradient-to-br from-primary/[0.03] via-background to-cyan-500/[0.055]">
+          <div className="themed-scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain bg-gradient-to-br from-primary/[0.03] via-background to-cyan-500/[0.055] p-4 sm:p-5">
             {detailLoading ? (
               <div className="flex items-center justify-center py-16">
                 <Loader2 className="size-7 animate-spin text-primary/50" />
               </div>
             ) : selectedTeacher ? (
-              <div className="space-y-3 p-4">
+              <div className="space-y-4">
                 {/* Profile Summary */}
                 <div className="relative overflow-hidden rounded-xl border border-primary/10 bg-gradient-to-br from-primary/[0.03] via-card to-cyan-500/[0.03] p-4 shadow-sm">
                   <div aria-hidden className="absolute -right-4 -top-4 size-16 rounded-full border-[12px] border-primary/5" />
@@ -671,11 +670,9 @@ export function TeachersPage() {
                 {/* Personal Info */}
                 <div className="relative overflow-hidden rounded-xl border border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-sky-50 p-3 dark:border-sky-800/30 dark:from-sky-950/20 dark:via-card dark:to-sky-950/20">
                   <div aria-hidden className="absolute -right-4 -top-4 size-14 rounded-full border-[10px] border-sky-500/5" />
-                  <div className="relative flex items-center gap-2 mb-2.5">
-                    <span className="flex size-6 items-center justify-center rounded-md bg-gradient-to-br from-sky-500 to-primary text-white shadow-sm shadow-sky-500/20">
-                      <UserIcon className="size-3" />
-                    </span>
-                    <span className="text-xs font-semibold text-foreground/80">Personal Info</span>
+                  <div className="relative mb-3 flex items-center gap-2">
+                    <span className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-primary text-white shadow-sm"><UserIcon className="size-4 text-white" /></span>
+                    <div><h3 className="text-sm font-semibold">Personal Info</h3><p className="text-[10px] text-muted-foreground">Contact details</p></div>
                   </div>
                   <div className="grid gap-2 sm:grid-cols-2">
                     <DetailItem icon={Phone} label="Phone" value={selectedTeacher.phone} />
@@ -688,11 +685,9 @@ export function TeachersPage() {
                 {/* Professional Info */}
                 <div className="relative overflow-hidden rounded-xl border border-amber-200/80 bg-gradient-to-br from-amber-50 via-white to-amber-50 p-3 dark:border-amber-800/30 dark:from-amber-950/20 dark:via-card dark:to-amber-950/20">
                   <div aria-hidden className="absolute -right-4 -top-4 size-14 rounded-full border-[10px] border-amber-500/5" />
-                  <div className="relative flex items-center gap-2 mb-2.5">
-                    <span className="flex size-6 items-center justify-center rounded-md bg-gradient-to-br from-amber-500 to-rose-500 text-white shadow-sm shadow-amber-500/20">
-                      <BriefcaseBusiness className="size-3" />
-                    </span>
-                    <span className="text-xs font-semibold text-foreground/80">Professional Info</span>
+                  <div className="relative mb-3 flex items-center gap-2">
+                    <span className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-amber-500 to-rose-500 text-white shadow-sm"><BriefcaseBusiness className="size-4 text-white" /></span>
+                    <div><h3 className="text-sm font-semibold">Professional Info</h3><p className="text-[10px] text-muted-foreground">Qualification and work details</p></div>
                   </div>
                   <div className="grid gap-2 sm:grid-cols-2">
                     <DetailItem icon={GraduationCap} label="Qualification" value={selectedTeacher.qualification} />
@@ -706,11 +701,9 @@ export function TeachersPage() {
                 {selectedTeacherAddress && (
                   <div className="relative overflow-hidden rounded-xl border border-violet-200/80 bg-gradient-to-br from-violet-50 via-white to-violet-50 p-3 dark:border-violet-800/30 dark:from-violet-950/20 dark:via-card dark:to-violet-950/20">
                     <div aria-hidden className="absolute -right-4 -top-4 size-14 rounded-full border-[10px] border-violet-500/5" />
-                    <div className="relative flex items-center gap-2 mb-2.5">
-                      <span className="flex size-6 items-center justify-center rounded-md bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white shadow-sm shadow-violet-500/20">
-                        <MapPin className="size-3" />
-                      </span>
-                      <span className="text-xs font-semibold text-foreground/80">Address</span>
+                    <div className="relative mb-3 flex items-center gap-2">
+                      <span className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white shadow-sm"><MapPin className="size-4 text-white" /></span>
+                      <div><h3 className="text-sm font-semibold">Address</h3><p className="text-[10px] text-muted-foreground">Residential location</p></div>
                     </div>
                     <p className="text-sm font-medium text-foreground/80">{selectedTeacherAddress}</p>
                   </div>
@@ -719,16 +712,16 @@ export function TeachersPage() {
             ) : null}
           </div>
 
-          <div className="border-t border-primary/10 bg-background px-5 py-3">
+          <DialogFooter className="shrink-0 border-t border-primary/10 bg-muted/30 px-4 py-3 sm:px-5">
             <div className="flex items-center justify-end gap-3">
-              <Button variant="outline" size="sm" onClick={() => setDetailOpen(false)}>Close</Button>
+              <Button variant="outline" size="sm" className="h-8 px-4 text-xs" onClick={() => setDetailOpen(false)}>Close</Button>
               {selectedTeacher && (
-                <Button size="sm" onClick={() => router.push(`/teachers/${selectedTeacher.id}/edit`)} className="gap-2">
+                <Button size="sm" className="h-8 gap-1.5 px-4 text-xs" onClick={() => router.push(`/teachers/${selectedTeacher.id}/edit`)}>
                   <Pencil className="size-3.5" /> Edit
                 </Button>
               )}
             </div>
-          </div>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

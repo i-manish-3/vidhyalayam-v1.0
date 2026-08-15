@@ -558,75 +558,91 @@ export function HolidaysPage() {
       </Card>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="overflow-hidden border-primary/20 bg-card p-0 shadow-2xl shadow-primary/15 sm:max-w-md [&>button]:right-3 [&>button]:top-3 [&>button]:rounded-full [&>button]:text-white [&>button]:opacity-80 [&>button]:hover:bg-white/15 [&>button]:hover:opacity-100">
+        <DialogContent className="flex max-h-[90svh] flex-col overflow-hidden border-primary/20 bg-card p-0 shadow-2xl shadow-primary/15 sm:max-w-xl [&>button]:right-3 [&>button]:top-3 [&>button]:rounded-full [&>button]:text-white [&>button]:opacity-85 [&>button]:hover:bg-white/15 [&>button]:hover:opacity-100">
           <GradientDialogHeader
             icon={editing ? Pencil : PlusCircle}
             title={editing ? 'Edit Holiday' : 'Add Holiday'}
+            description={editing ? 'Update the holiday details for this session.' : 'Add a holiday to the school calendar for this session.'}
           />
-          <div className="themed-scrollbar grid max-h-[68svh] gap-3 overflow-y-auto bg-gradient-to-br from-primary/[0.025] via-background to-violet-500/[0.035] p-4 sm:p-5">
-            <div className="space-y-4">
-            <div className="space-y-1.5">
-              <Label>Name</Label>
-              <Input placeholder="e.g. Diwali" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Type</Label>
-              <Select value={form.type} onValueChange={(v) => setForm((f) => ({ ...f, type: v }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="public">Public Holiday</SelectItem>
-                  <SelectItem value="school">School Holiday</SelectItem>
-                  <SelectItem value="vacation">Vacation</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label>Start Date</Label>
-                <DatePicker value={form.date} onChange={(v) => setForm((f) => ({ ...f, date: v }))} />
+          <div className="themed-scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain bg-gradient-to-br from-primary/[0.03] via-background to-violet-500/[0.055] p-4 sm:p-5">
+            <section className="relative overflow-hidden rounded-xl border border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-violet-50 p-4 shadow-sm dark:border-sky-500/25 dark:from-sky-500/15 dark:via-card dark:to-violet-500/10 sm:p-5">
+              <div aria-hidden className="absolute -right-7 -top-10 size-28 rounded-full bg-sky-200/35 blur-xl dark:bg-sky-500/15" />
+              <div aria-hidden className="absolute -bottom-10 left-12 size-24 rounded-full bg-violet-200/30 blur-xl dark:bg-violet-500/10" />
+              <div className="relative mb-3 flex items-center gap-2">
+                <span className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-violet-600 text-white shadow-sm"><CalendarDays className="size-4 text-white" /></span>
+                <div><h3 className="text-sm font-semibold">Holiday details</h3><p className="text-[10px] text-muted-foreground">Name, type, and dates shown on the calendar</p></div>
               </div>
-              <div className="space-y-1.5">
-                <Label>End Date <span className="text-muted-foreground">(optional)</span></Label>
-                <DatePicker value={form.endDate} onChange={(v) => setForm((f) => ({ ...f, endDate: v }))} />
+              <div className="relative space-y-4">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Name</Label>
+                  <Input placeholder="e.g. Diwali" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} className="h-9 bg-white shadow-sm dark:bg-input/30" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Type</Label>
+                  <Select value={form.type} onValueChange={(v) => setForm((f) => ({ ...f, type: v }))}>
+                    <SelectTrigger className="h-9 bg-white shadow-sm dark:bg-input/30"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="public">Public Holiday</SelectItem>
+                      <SelectItem value="school">School Holiday</SelectItem>
+                      <SelectItem value="vacation">Vacation</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Start Date</Label>
+                    <DatePicker value={form.date} onChange={(v) => setForm((f) => ({ ...f, date: v }))} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">End Date <span className="text-muted-foreground">(optional)</span></Label>
+                    <DatePicker value={form.endDate} onChange={(v) => setForm((f) => ({ ...f, endDate: v }))} />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Description <span className="text-muted-foreground">(optional)</span></Label>
+                  <Input placeholder="Short note" value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} className="h-9 bg-white shadow-sm dark:bg-input/30" />
+                </div>
               </div>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Description <span className="text-muted-foreground">(optional)</span></Label>
-              <Input placeholder="Short note" value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} />
-            </div>
-            </div>
-            <DialogFooter>
-              {editing && canManageHolidays && (
-                <Button
-                  variant="ghost"
-                  className="mr-auto text-destructive hover:text-destructive"
-                  onClick={() => { handleDelete(editing.id); setDialogOpen(false) }}
-                  disabled={deleting === editing.id}
-                >
-                  <Trash2 className="mr-2 size-4" />
-                  Delete
-                </Button>
-              )}
-              <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-              <Button onClick={handleSave} disabled={saving || !canManageHolidays}>
-                {saving && <Loader2 className="mr-2 size-4 animate-spin" />}
-                {editing ? 'Save Changes' : 'Add Holiday'}
-              </Button>
-            </DialogFooter>
+            </section>
           </div>
+          <DialogFooter className="shrink-0 border-t border-primary/10 bg-muted/30 px-4 py-3 sm:px-5">
+            {editing && canManageHolidays && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="mr-auto h-8 px-4 text-xs text-destructive hover:text-destructive"
+                onClick={() => { handleDelete(editing.id); setDialogOpen(false) }}
+                disabled={deleting === editing.id}
+              >
+                {deleting === editing.id ? <Loader2 className="mr-1.5 size-3.5 animate-spin" /> : <Trash2 className="mr-1.5 size-3.5" />}
+                Delete
+              </Button>
+            )}
+            <Button variant="outline" size="sm" className="h-8 px-4 text-xs" onClick={() => setDialogOpen(false)}>Cancel</Button>
+            <Button size="sm" className="h-8 gap-1.5 px-4 text-xs" onClick={handleSave} disabled={saving || !canManageHolidays}>
+              {saving && <Loader2 className="size-3.5 animate-spin" />}
+              {editing ? 'Save Changes' : 'Add Holiday'}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
       <Dialog open={schoolingDialogOpen} onOpenChange={setSchoolingDialogOpen}>
-        <DialogContent className="overflow-hidden border-primary/20 bg-card p-0 shadow-2xl shadow-primary/15 sm:max-w-lg [&>button]:right-3 [&>button]:top-3 [&>button]:rounded-full [&>button]:text-white [&>button]:opacity-80 [&>button]:hover:bg-white/15 [&>button]:hover:opacity-100">
+        <DialogContent className="flex max-h-[90svh] flex-col overflow-hidden border-primary/20 bg-card p-0 shadow-2xl shadow-primary/15 sm:max-w-xl [&>button]:right-3 [&>button]:top-3 [&>button]:rounded-full [&>button]:text-white [&>button]:opacity-85 [&>button]:hover:bg-white/15 [&>button]:hover:opacity-100">
           <GradientDialogHeader
             icon={CalendarRange}
             title="Schooling Days"
             description="Choose the days school is open. Attendance and timetable follow this schedule; unselected days appear as weekly off."
           />
-          <div className="themed-scrollbar grid max-h-[68svh] gap-3 overflow-y-auto bg-gradient-to-br from-primary/[0.025] via-background to-violet-500/[0.035] p-4 sm:p-5">
-            <div className="space-y-3 py-2">
-              <div className="flex flex-wrap gap-2">
+          <div className="themed-scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain bg-gradient-to-br from-primary/[0.03] via-background to-violet-500/[0.055] p-4 sm:p-5">
+            <section className="relative overflow-hidden rounded-xl border border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-violet-50 p-4 shadow-sm dark:border-sky-500/25 dark:from-sky-500/15 dark:via-card dark:to-violet-500/10 sm:p-5">
+              <div aria-hidden className="absolute -right-7 -top-10 size-28 rounded-full bg-sky-200/35 blur-xl dark:bg-sky-500/15" />
+              <div aria-hidden className="absolute -bottom-10 left-12 size-24 rounded-full bg-violet-200/30 blur-xl dark:bg-violet-500/10" />
+              <div className="relative mb-3 flex items-center gap-2">
+                <span className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-violet-600 text-white shadow-sm"><CalendarRange className="size-4 text-white" /></span>
+                <div><h3 className="text-sm font-semibold">Weekly schedule</h3><p className="text-[10px] text-muted-foreground">Tap a day to toggle it on or off</p></div>
+              </div>
+              <div className="relative flex flex-wrap gap-2">
                 {ALL_WEEKDAYS.map((day) => {
                   const active = schoolingDays.includes(day)
                   return (
@@ -641,20 +657,21 @@ export function HolidaysPage() {
                   )
                 })}
               </div>
-              <p className="text-xs text-muted-foreground">
+              <p className="relative mt-3 flex items-center justify-center gap-1.5 text-center text-xs text-muted-foreground sm:justify-start sm:text-left">
+                <CalendarRange className="size-3 text-sky-500" />
                 {schoolingDays.length === 0
                   ? 'No days selected.'
                   : `${schoolingDays.length} schooling day${schoolingDays.length === 1 ? '' : 's'}: ${schoolingDays.join(', ')}`}
               </p>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setSchoolingDialogOpen(false)}>Cancel</Button>
-              <Button onClick={saveSchoolingDays} disabled={schoolingSaving || !canManageSchoolingDays}>
-                {schoolingSaving && <Loader2 className="mr-2 size-4 animate-spin" />}
-                Save
-              </Button>
-            </DialogFooter>
+            </section>
           </div>
+          <DialogFooter className="shrink-0 border-t border-primary/10 bg-muted/30 px-4 py-3 sm:px-5">
+            <Button variant="outline" size="sm" className="h-8 px-4 text-xs" onClick={() => setSchoolingDialogOpen(false)}>Cancel</Button>
+            <Button size="sm" className="h-8 gap-1.5 px-4 text-xs" onClick={saveSchoolingDays} disabled={schoolingSaving || !canManageSchoolingDays}>
+              {schoolingSaving && <Loader2 className="size-3.5 animate-spin" />}
+              Save
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

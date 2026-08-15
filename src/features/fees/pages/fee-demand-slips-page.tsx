@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -967,18 +967,39 @@ function GeneratorDialog({ open, onOpenChange, month, year, classes, sections, o
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Generate Demand Slips · {MONTHS[month - 1].label} {year}</DialogTitle>
+      <DialogContent className="flex max-h-[90svh] flex-col overflow-hidden border-primary/20 bg-card p-0 shadow-2xl shadow-primary/15 sm:max-w-2xl [&>button]:right-3 [&>button]:top-3 [&>button]:rounded-full [&>button]:text-white [&>button]:opacity-85 [&>button]:hover:bg-white/15 [&>button]:hover:opacity-100">
+        <DialogHeader className="relative shrink-0 overflow-hidden border-b border-white/15 bg-[linear-gradient(135deg,var(--primary)_0%,#0d9488_48%,#2563eb_100%)] px-5 py-4 pr-12 text-white sm:px-6">
+          <div aria-hidden className="absolute -right-10 -top-16 size-40 rounded-full border-[18px] border-white/10" />
+          <div aria-hidden className="absolute -bottom-14 left-10 size-28 rounded-full bg-emerald-300/20 blur-2xl" />
+          <div aria-hidden className="absolute bottom-0 right-24 h-24 w-44 rounded-full bg-sky-300/15 blur-2xl" />
+          <div className="relative flex items-center gap-3">
+            <span className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-white/25 bg-white/15 text-white shadow-md backdrop-blur-sm">
+              <Receipt className="size-5 text-white" />
+            </span>
+            <div>
+              <DialogTitle className="text-lg font-bold tracking-normal text-white">Generate Demand Slips</DialogTitle>
+              <DialogDescription className="mt-0.5 text-xs text-white/75">
+                {MONTHS[month - 1].label} {year} · bulk or single-student
+              </DialogDescription>
+            </div>
+          </div>
         </DialogHeader>
 
+        <div className="themed-scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain bg-gradient-to-br from-primary/[0.03] via-background to-cyan-500/[0.055] p-4 sm:p-5">
         <Tabs value={tab} onValueChange={(v) => setTab(v as 'bulk' | 'single')}>
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="bulk" className="gap-2"><Layers className="size-4" /> Bulk (Class/Section)</TabsTrigger>
             <TabsTrigger value="single" className="gap-2"><UserIcon className="size-4" /> Single Student</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="bulk" className="space-y-4 pt-4">
+          <TabsContent value="bulk" className="pt-4">
+            <section className="relative overflow-hidden rounded-xl border border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-violet-50 p-4 shadow-sm dark:border-sky-500/25 dark:from-sky-500/15 dark:via-card dark:to-violet-500/10 sm:p-5">
+              <div aria-hidden className="absolute -right-7 -top-10 size-28 rounded-full bg-sky-200/35 blur-xl dark:bg-sky-500/15" />
+              <div className="relative mb-3 flex items-center gap-2">
+                <span className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-violet-600 text-white shadow-sm"><Layers className="size-4 text-white" /></span>
+                <div><h3 className="text-sm font-semibold">Bulk generation</h3><p className="text-[10px] text-muted-foreground">Generate slips for all students in a class/section</p></div>
+              </div>
+              <div className="relative space-y-4">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label className="text-xs">Class</Label>
@@ -1035,9 +1056,18 @@ function GeneratorDialog({ open, onOpenChange, month, year, classes, sections, o
                 </div>
               </div>
             )}
+            </div>
+            </section>
           </TabsContent>
 
-          <TabsContent value="single" className="space-y-4 pt-4">
+          <TabsContent value="single" className="pt-4">
+            <section className="relative overflow-hidden rounded-xl border border-emerald-200/80 bg-gradient-to-br from-emerald-50 via-white to-teal-50 p-4 shadow-sm dark:border-emerald-500/25 dark:from-emerald-500/15 dark:via-card dark:to-teal-500/10 sm:p-5">
+              <div aria-hidden className="absolute -right-7 -top-10 size-28 rounded-full bg-emerald-200/35 blur-xl dark:bg-emerald-500/15" />
+              <div className="relative mb-3 flex items-center gap-2">
+                <span className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-sm"><UserIcon className="size-4 text-white" /></span>
+                <div><h3 className="text-sm font-semibold">Single student</h3><p className="text-[10px] text-muted-foreground">Pick a student and generate only their slip</p></div>
+              </div>
+              <div className="relative space-y-4">
             {selectedStudent ? (
               <div className="flex items-center justify-between rounded-md border bg-muted/30 px-3 py-2">
                 <div>
@@ -1132,33 +1162,36 @@ function GeneratorDialog({ open, onOpenChange, month, year, classes, sections, o
                 )}
               </div>
             )}
+            </div>
+            </section>
           </TabsContent>
         </Tabs>
+        </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>Cancel</Button>
+        <DialogFooter className="shrink-0 border-t border-primary/10 bg-muted/30 px-4 py-3 sm:px-5">
+          <Button variant="outline" size="sm" className="h-8 px-4 text-xs" onClick={() => onOpenChange(false)} disabled={busy}>Cancel</Button>
           {tab === 'bulk' && !bulkPreview && (
-            <Button onClick={() => submit(true)} disabled={busy || !canPreviewBulk || !canCreate}>
+            <Button size="sm" className="h-8 px-4 text-xs" onClick={() => submit(true)} disabled={busy || !canPreviewBulk || !canCreate}>
               {busy ? 'Loading…' : 'Preview'}
             </Button>
           )}
           {tab === 'bulk' && bulkPreview && (
             <>
-              <Button variant="outline" onClick={() => setBulkPreview(null)} disabled={busy}>Back</Button>
-              <Button onClick={() => submit(false)} disabled={busy || !canCreate}>
+              <Button variant="outline" size="sm" className="h-8 px-4 text-xs" onClick={() => setBulkPreview(null)} disabled={busy}>Back</Button>
+              <Button size="sm" className="h-8 px-4 text-xs" onClick={() => submit(false)} disabled={busy || !canCreate}>
                 {busy ? 'Generating…' : `Confirm & Generate (${bulkPreview.successCount || 0})`}
               </Button>
             </>
           )}
           {tab === 'single' && !singlePreview && (
-            <Button onClick={() => submit(true)} disabled={busy || !canPreviewSingle || !canCreate}>
+            <Button size="sm" className="h-8 px-4 text-xs" onClick={() => submit(true)} disabled={busy || !canPreviewSingle || !canCreate}>
               {busy ? 'Loading…' : 'Preview'}
             </Button>
           )}
           {tab === 'single' && singlePreview && (
             <>
-              <Button variant="outline" onClick={() => setSinglePreview(null)} disabled={busy}>Back</Button>
-              <Button onClick={() => submit(false)} disabled={busy || singlePreview.itemCount === 0 || !canCreate}>
+              <Button variant="outline" size="sm" className="h-8 px-4 text-xs" onClick={() => setSinglePreview(null)} disabled={busy}>Back</Button>
+              <Button size="sm" className="h-8 px-4 text-xs" onClick={() => submit(false)} disabled={busy || singlePreview.itemCount === 0 || !canCreate}>
                 {busy ? 'Generating…' : 'Confirm & Generate'}
               </Button>
             </>

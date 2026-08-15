@@ -9,7 +9,7 @@ import { useToast } from '@/hooks/use-toast'
 import { usePermissions, PERMISSIONS } from '@/hooks/use-permissions'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -856,32 +856,75 @@ export function ChangeFeeGroupPage() {
       </Tabs>
 
       <Dialog open={assignConfirmOpen} onOpenChange={(open) => !assigning && setAssignConfirmOpen(open)}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Assign Fee Group</DialogTitle>
+        <DialogContent className="flex max-h-[90svh] flex-col overflow-hidden border-primary/20 bg-card p-0 shadow-2xl shadow-primary/15 sm:max-w-xl [&>button]:right-3 [&>button]:top-3 [&>button]:rounded-full [&>button]:text-white [&>button]:opacity-85 [&>button]:hover:bg-white/15 [&>button]:hover:opacity-100">
+          <DialogHeader className="relative shrink-0 overflow-hidden border-b border-white/15 bg-[linear-gradient(135deg,var(--primary)_0%,#0d9488_48%,#2563eb_100%)] px-5 py-4 pr-12 text-white sm:px-6">
+            <div aria-hidden className="absolute -right-10 -top-16 size-40 rounded-full border-[18px] border-white/10" />
+            <div aria-hidden className="absolute -bottom-14 left-10 size-28 rounded-full bg-emerald-300/20 blur-2xl" />
+            <div aria-hidden className="absolute bottom-0 right-24 h-24 w-44 rounded-full bg-sky-300/15 blur-2xl" />
+            <div className="relative flex items-center gap-3">
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-white/25 bg-white/15 text-white shadow-md backdrop-blur-sm">
+                <UserPlus className="size-5 text-white" />
+              </span>
+              <div>
+                <DialogTitle className="text-lg font-bold tracking-normal text-white">Assign Fee Group</DialogTitle>
+                <DialogDescription className="mt-0.5 text-xs text-white/75">
+                  Confirm the fee assignment for {academicYear}.
+                </DialogDescription>
+              </div>
+            </div>
           </DialogHeader>
-          <div className="space-y-4 py-2">
-            <p className="text-sm">
-              Assign{' '}
-              <span className="font-semibold">{selectedGroupNameForAssign || 'the selected fee group'}</span> to{' '}
-              <span className="font-semibold">{selectedStudentIds.size}</span> student
-              {selectedStudentIds.size === 1 ? '' : 's'} for {academicYear}?
-            </p>
-            <Alert>
-              <AlertTriangle className="size-4" />
-              <AlertDescription>
+
+          <div className="themed-scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain bg-gradient-to-br from-primary/[0.03] via-background to-cyan-500/[0.055] p-4 sm:p-5">
+            <section className="relative overflow-hidden rounded-xl border border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-cyan-50 p-4 shadow-sm dark:border-sky-500/25 dark:from-sky-500/15 dark:via-card dark:to-cyan-500/10 sm:p-5">
+              <div aria-hidden className="absolute -right-7 -top-10 size-28 rounded-full bg-sky-200/35 blur-xl dark:bg-sky-500/15" />
+              <div aria-hidden className="absolute -bottom-10 left-12 size-24 rounded-full bg-cyan-200/30 blur-xl dark:bg-cyan-500/10" />
+              <div className="relative mb-3 flex items-center gap-2">
+                <span className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-cyan-600 text-white shadow-sm"><UserPlus className="size-4 text-white" /></span>
+                <div><h3 className="text-sm font-semibold">Assignment summary</h3><p className="text-[10px] text-muted-foreground">Group and number of students being assigned</p></div>
+              </div>
+              <div className="relative grid gap-2 sm:grid-cols-3">
+                <div className="rounded-lg border border-sky-200/80 bg-white/80 px-3 py-2 shadow-sm dark:border-sky-500/20 dark:bg-background/35">
+                  <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase text-sky-700 dark:text-sky-300">
+                    <UserPlus className="size-3" /> Students
+                  </div>
+                  <p className="mt-1 truncate text-xs font-semibold">{selectedStudentIds.size}</p>
+                </div>
+                <div className="rounded-lg border border-sky-200/80 bg-white/80 px-3 py-2 shadow-sm dark:border-sky-500/20 dark:bg-background/35">
+                  <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase text-sky-700 dark:text-sky-300">
+                    <WalletCards className="size-3" /> Fee Group
+                  </div>
+                  <p className="mt-1 truncate text-xs font-semibold">{selectedGroupNameForAssign || 'Selected group'}</p>
+                </div>
+                <div className="rounded-lg border border-sky-200/80 bg-white/80 px-3 py-2 shadow-sm dark:border-sky-500/20 dark:bg-background/35">
+                  <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase text-sky-700 dark:text-sky-300">
+                    <CalendarRange className="size-3" /> Billing
+                  </div>
+                  <p className="mt-1 truncate text-xs font-semibold">{assignFullYear ? 'Full year' : 'Pro-rated'}</p>
+                </div>
+              </div>
+              <p className="relative mt-3 text-sm text-sky-900 dark:text-sky-200">
+                Assign <strong className="text-foreground">{selectedGroupNameForAssign || 'the selected fee group'}</strong> to{' '}
+                <strong className="text-foreground">{selectedStudentIds.size}</strong> student{selectedStudentIds.size === 1 ? '' : 's'} for{' '}
+                <strong className="text-foreground">{academicYear}</strong>?
+              </p>
+            </section>
+
+            <div className="rounded-md border border-amber-200/80 bg-amber-50/80 p-2.5 text-xs text-amber-800 dark:border-amber-500/25 dark:bg-amber-950/30 dark:text-amber-200">
+              <span className="inline-flex items-start gap-1.5">
+                <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
                 A fresh fee demand will be created for each selected student
                 {assignFullYear ? ' for the full academic year' : ', pro-rated from their admission month'}. Students who
                 already have a demand are skipped automatically.
-              </AlertDescription>
-            </Alert>
+              </span>
+            </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setAssignConfirmOpen(false)} disabled={assigning}>
+
+          <DialogFooter className="shrink-0 border-t border-primary/10 bg-muted/30 px-4 py-3 sm:px-5">
+            <Button variant="outline" size="sm" className="h-8 px-4 text-xs" onClick={() => setAssignConfirmOpen(false)} disabled={assigning}>
               Cancel
             </Button>
-            <Button onClick={handleBulkAssign} disabled={assigning || !canChangeGroup} className="gap-2">
-              {assigning ? <RefreshCw className="size-4 animate-spin" /> : <CheckCircle2 className="size-4" />}
+            <Button size="sm" className="h-8 gap-1.5 px-4 text-xs" onClick={handleBulkAssign} disabled={assigning || !canChangeGroup}>
+              {assigning ? <RefreshCw className="size-3.5 animate-spin" /> : <CheckCircle2 className="size-3.5" />}
               Confirm Assign
             </Button>
           </DialogFooter>
@@ -889,15 +932,45 @@ export function ChangeFeeGroupPage() {
       </Dialog>
 
       <Dialog open={!!activeAssignment} onOpenChange={(open) => !open && closeDialog()}>
-        <DialogContent className="max-w-xl">
-          <DialogHeader>
-            <DialogTitle>Change Fee Group</DialogTitle>
+        <DialogContent className="flex max-h-[90svh] flex-col overflow-hidden border-primary/20 bg-card p-0 shadow-2xl shadow-primary/15 sm:max-w-xl [&>button]:right-3 [&>button]:top-3 [&>button]:rounded-full [&>button]:text-white [&>button]:opacity-85 [&>button]:hover:bg-white/15 [&>button]:hover:opacity-100">
+          <DialogHeader className="relative shrink-0 overflow-hidden border-b border-white/15 bg-[linear-gradient(135deg,var(--primary)_0%,#0d9488_48%,#2563eb_100%)] px-5 py-4 pr-12 text-white sm:px-6">
+            <div aria-hidden className="absolute -right-10 -top-16 size-40 rounded-full border-[18px] border-white/10" />
+            <div aria-hidden className="absolute -bottom-14 left-10 size-28 rounded-full bg-emerald-300/20 blur-2xl" />
+            <div aria-hidden className="absolute bottom-0 right-24 h-24 w-44 rounded-full bg-sky-300/15 blur-2xl" />
+            <div className="relative flex items-center gap-3">
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-white/25 bg-white/15 text-white shadow-md backdrop-blur-sm">
+                <RefreshCw className="size-5 text-white" />
+              </span>
+              <div>
+                <DialogTitle className="text-lg font-bold tracking-normal text-white">Change Fee Group</DialogTitle>
+                <DialogDescription className="mt-0.5 text-xs text-white/75">
+                  Move this student to a different fee group for {academicYear}.
+                </DialogDescription>
+              </div>
+            </div>
           </DialogHeader>
-          {activeAssignment && (
-            <div className="space-y-4 py-2">
-              <AssignmentSummary assignment={activeAssignment} />
 
-              <div className="grid gap-3 rounded-md border p-3 sm:grid-cols-2">
+          <div className="themed-scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain bg-gradient-to-br from-primary/[0.03] via-background to-cyan-500/[0.055] p-4 sm:p-5">
+          {activeAssignment && (
+            <>
+            <section className="relative overflow-hidden rounded-xl border border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-cyan-50 p-4 shadow-sm dark:border-sky-500/25 dark:from-sky-500/15 dark:via-card dark:to-cyan-500/10 sm:p-5">
+              <div aria-hidden className="absolute -right-7 -top-10 size-28 rounded-full bg-sky-200/35 blur-xl dark:bg-sky-500/15" />
+              <div className="relative mb-3 flex items-center gap-2">
+                <span className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-cyan-600 text-white shadow-sm"><GraduationCap className="size-4 text-white" /></span>
+                <div><h3 className="text-sm font-semibold">Student</h3><p className="text-[10px] text-muted-foreground">Assignment being moved</p></div>
+              </div>
+              <div className="relative">
+                <AssignmentSummary assignment={activeAssignment} />
+              </div>
+            </section>
+
+            <section className="relative overflow-hidden rounded-xl border border-violet-200/80 bg-gradient-to-br from-violet-50 via-white to-purple-50 p-4 shadow-sm dark:border-violet-500/25 dark:from-violet-500/15 dark:via-card dark:to-purple-500/10 sm:p-5">
+              <div aria-hidden className="absolute -right-7 -top-10 size-28 rounded-full bg-violet-200/35 blur-xl dark:bg-violet-500/15" />
+              <div className="relative mb-3 flex items-center gap-2">
+                <span className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 text-white shadow-sm"><WalletCards className="size-4 text-white" /></span>
+                <div><h3 className="text-sm font-semibold">New fee group</h3><p className="text-[10px] text-muted-foreground">The current demand is cancelled and rebuilt</p></div>
+              </div>
+              <div className="relative grid gap-3 sm:grid-cols-2">
                 <div>
                   <p className="text-xs text-muted-foreground">From</p>
                   <p className="mt-1 font-medium">{activeAssignment.feesGroupName || '-'}</p>
@@ -907,7 +980,7 @@ export function ChangeFeeGroupPage() {
                     To
                   </Label>
                   <Select value={newGroupId} onValueChange={setNewGroupId}>
-                    <SelectTrigger id="new-fee-group" className="mt-1">
+                    <SelectTrigger id="new-fee-group" className="mt-1 h-9 bg-white shadow-sm dark:bg-input/30">
                       <SelectValue placeholder="Select new group" />
                     </SelectTrigger>
                     <SelectContent>
@@ -920,33 +993,43 @@ export function ChangeFeeGroupPage() {
                   </Select>
                 </div>
               </div>
+            </section>
 
+            <section className="rounded-xl border border-amber-200/80 bg-gradient-to-br from-amber-50 via-white to-orange-50 p-4 shadow-sm dark:border-amber-500/25 dark:from-amber-500/15 dark:via-card dark:to-orange-500/10">
+              <div className="mb-3 flex items-center gap-2">
+                <span className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 text-white shadow-sm"><FileCheck2 className="size-4 text-white" /></span>
+                <div><h3 className="text-sm font-semibold">Reason</h3><p className="text-[10px] text-muted-foreground">Optional — saved in the audit trail</p></div>
+              </div>
               <div className="space-y-2">
-                <Label htmlFor="change-fee-group-reason">Reason (optional)</Label>
+                <Label htmlFor="change-fee-group-reason" className="text-xs">Reason (optional)</Label>
                 <Textarea
                   id="change-fee-group-reason"
                   value={reason}
                   onChange={(event) => setReason(event.target.value)}
                   placeholder="Example: wrong group selected during admission"
                   rows={3}
+                  className="bg-white shadow-sm dark:bg-input/30"
                 />
               </div>
+            </section>
 
-              <Alert>
-                <AlertTriangle className="size-4" />
-                <AlertDescription>
-                  Confirming will cancel the current demand and create a new demand
-                  {selectedGroupName ? ` for ${selectedGroupName}` : ''}. This can be done only before any payment is collected.
-                </AlertDescription>
-              </Alert>
-            </div>
+            <Alert className="border-amber-200/80 bg-amber-50/80 text-amber-900 dark:border-amber-500/25 dark:bg-amber-950/30 dark:text-amber-200">
+              <AlertTriangle className="size-4" />
+              <AlertDescription>
+                Confirming will cancel the current demand and create a new demand
+                {selectedGroupName ? ` for ${selectedGroupName}` : ''}. This can be done only before any payment is collected.
+              </AlertDescription>
+            </Alert>
+            </>
           )}
-          <DialogFooter>
-            <Button variant="outline" onClick={closeDialog} disabled={saving}>
+          </div>
+
+          <DialogFooter className="shrink-0 border-t border-primary/10 bg-muted/30 px-4 py-3 sm:px-5">
+            <Button variant="outline" size="sm" className="h-8 px-4 text-xs" onClick={closeDialog} disabled={saving}>
               Cancel
             </Button>
-            <Button onClick={handleConfirm} disabled={saving || !newGroupId || !canChangeGroup} className="gap-2">
-              {saving ? <RefreshCw className="size-4 animate-spin" /> : <CheckCircle2 className="size-4" />}
+            <Button size="sm" className="h-8 gap-1.5 px-4 text-xs" onClick={handleConfirm} disabled={saving || !newGroupId || !canChangeGroup}>
+              {saving ? <RefreshCw className="size-3.5 animate-spin" /> : <CheckCircle2 className="size-3.5" />}
               Confirm Change
             </Button>
           </DialogFooter>
@@ -954,42 +1037,75 @@ export function ChangeFeeGroupPage() {
       </Dialog>
 
       <Dialog open={!!fullYearTarget} onOpenChange={(open) => !open && closeFullYearDialog()}>
-        <DialogContent className="max-w-xl">
-          <DialogHeader>
-            <DialogTitle>Assign Full Year Fees</DialogTitle>
+        <DialogContent className="flex max-h-[90svh] flex-col overflow-hidden border-primary/20 bg-card p-0 shadow-2xl shadow-primary/15 sm:max-w-xl [&>button]:right-3 [&>button]:top-3 [&>button]:rounded-full [&>button]:text-white [&>button]:opacity-85 [&>button]:hover:bg-white/15 [&>button]:hover:opacity-100">
+          <DialogHeader className="relative shrink-0 overflow-hidden border-b border-white/15 bg-[linear-gradient(135deg,var(--primary)_0%,#0d9488_48%,#2563eb_100%)] px-5 py-4 pr-12 text-white sm:px-6">
+            <div aria-hidden className="absolute -right-10 -top-16 size-40 rounded-full border-[18px] border-white/10" />
+            <div aria-hidden className="absolute -bottom-14 left-10 size-28 rounded-full bg-emerald-300/20 blur-2xl" />
+            <div aria-hidden className="absolute bottom-0 right-24 h-24 w-44 rounded-full bg-sky-300/15 blur-2xl" />
+            <div className="relative flex items-center gap-3">
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-white/25 bg-white/15 text-white shadow-md backdrop-blur-sm">
+                <CalendarRange className="size-5 text-white" />
+              </span>
+              <div>
+                <DialogTitle className="text-lg font-bold tracking-normal text-white">Assign Full Year Fees</DialogTitle>
+                <DialogDescription className="mt-0.5 text-xs text-white/75">
+                  Rebuild this student&apos;s demand for the whole of {academicYear}.
+                </DialogDescription>
+              </div>
+            </div>
           </DialogHeader>
-          {fullYearTarget && (
-            <div className="space-y-4 py-2">
-              <AssignmentSummary assignment={fullYearTarget} />
 
+          <div className="themed-scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain bg-gradient-to-br from-primary/[0.03] via-background to-cyan-500/[0.055] p-4 sm:p-5">
+          {fullYearTarget && (
+            <>
+            <section className="relative overflow-hidden rounded-xl border border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-cyan-50 p-4 shadow-sm dark:border-sky-500/25 dark:from-sky-500/15 dark:via-card dark:to-cyan-500/10 sm:p-5">
+              <div aria-hidden className="absolute -right-7 -top-10 size-28 rounded-full bg-sky-200/35 blur-xl dark:bg-sky-500/15" />
+              <div className="relative mb-3 flex items-center gap-2">
+                <span className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-cyan-600 text-white shadow-sm"><GraduationCap className="size-4 text-white" /></span>
+                <div><h3 className="text-sm font-semibold">Student</h3><p className="text-[10px] text-muted-foreground">Assignment being rebuilt for the full year</p></div>
+              </div>
+              <div className="relative">
+                <AssignmentSummary assignment={fullYearTarget} />
+              </div>
+            </section>
+
+            <section className="rounded-xl border border-amber-200/80 bg-gradient-to-br from-amber-50 via-white to-orange-50 p-4 shadow-sm dark:border-amber-500/25 dark:from-amber-500/15 dark:via-card dark:to-orange-500/10">
+              <div className="mb-3 flex items-center gap-2">
+                <span className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 text-white shadow-sm"><FileCheck2 className="size-4 text-white" /></span>
+                <div><h3 className="text-sm font-semibold">Reason</h3><p className="text-[10px] text-muted-foreground">Optional — saved in the audit trail</p></div>
+              </div>
               <div className="space-y-2">
-                <Label htmlFor="full-year-reason">Reason (optional)</Label>
+                <Label htmlFor="full-year-reason" className="text-xs">Reason (optional)</Label>
                 <Textarea
                   id="full-year-reason"
                   value={fullYearReason}
                   onChange={(event) => setFullYearReason(event.target.value)}
                   placeholder="Example: student should be charged for the complete session"
                   rows={3}
+                  className="bg-white shadow-sm dark:bg-input/30"
                 />
               </div>
+            </section>
 
-              <Alert>
-                <AlertTriangle className="size-4" />
-                <AlertDescription>
-                  This keeps the same fee group and rebuilds the demand for the full academic year, including skipped months. It is available only before payment is collected.
-                </AlertDescription>
-              </Alert>
-            </div>
+            <Alert className="border-amber-200/80 bg-amber-50/80 text-amber-900 dark:border-amber-500/25 dark:bg-amber-950/30 dark:text-amber-200">
+              <AlertTriangle className="size-4" />
+              <AlertDescription>
+                This keeps the same fee group and rebuilds the demand for the full academic year, including skipped months. It is available only before payment is collected.
+              </AlertDescription>
+            </Alert>
+            </>
           )}
-          <DialogFooter>
-            <Button variant="outline" onClick={closeFullYearDialog} disabled={billingFullYear}>
+          </div>
+
+          <DialogFooter className="shrink-0 border-t border-primary/10 bg-muted/30 px-4 py-3 sm:px-5">
+            <Button variant="outline" size="sm" className="h-8 px-4 text-xs" onClick={closeFullYearDialog} disabled={billingFullYear}>
               Cancel
             </Button>
-            <Button onClick={handleConfirmFullYear} disabled={billingFullYear || !canChangeGroup} className="gap-2">
+            <Button size="sm" className="h-8 gap-1.5 px-4 text-xs" onClick={handleConfirmFullYear} disabled={billingFullYear || !canChangeGroup}>
               {billingFullYear ? (
-                <CalendarRange className="size-4 animate-spin" />
+                <CalendarRange className="size-3.5 animate-spin" />
               ) : (
-                <CalendarRange className="size-4" />
+                <CalendarRange className="size-3.5" />
               )}
               Assign Full Year
             </Button>

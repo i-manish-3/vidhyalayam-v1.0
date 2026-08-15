@@ -15,6 +15,7 @@ import {
   DialogContent,
   DialogDescription,
   DialogFooter,
+  DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
 import {
@@ -351,37 +352,56 @@ export function AnnouncementsPage() {
 
       {/* Add Dialog */}
       <Dialog open={showAdd} onOpenChange={setShowAdd}>
-        <DialogContent className="gap-0 overflow-hidden border-0 p-0 shadow-2xl shadow-primary/20 sm:max-w-lg">
-          <div className="relative bg-[linear-gradient(135deg,var(--primary)_0%,#0d9488_48%,#2563eb_100%)] px-5 py-4 text-white">
-            <div aria-hidden className="absolute -right-6 -top-6 size-24 rounded-full border-[15px] border-cyan-200/15" />
-            <div aria-hidden className="absolute -bottom-6 right-12 size-16 rounded-full bg-cyan-300/8" />
-            <div aria-hidden className="absolute left-8 top-2 size-10 rounded-full bg-white/5 blur-md" />
+        <DialogContent className="flex max-h-[90svh] flex-col overflow-hidden border-primary/20 bg-card p-0 shadow-2xl shadow-primary/15 sm:max-w-xl [&>button]:right-3 [&>button]:top-3 [&>button]:rounded-full [&>button]:text-white [&>button]:opacity-85 [&>button]:hover:bg-white/15 [&>button]:hover:opacity-100">
+          <DialogHeader className="relative shrink-0 overflow-hidden border-b border-white/15 bg-[linear-gradient(135deg,var(--primary)_0%,#0d9488_48%,#2563eb_100%)] px-5 py-4 pr-12 text-white sm:px-6">
+            <div aria-hidden className="absolute -right-10 -top-16 size-40 rounded-full border-[18px] border-white/10" />
+            <div aria-hidden className="absolute -bottom-14 left-10 size-28 rounded-full bg-emerald-300/20 blur-2xl" />
+            <div aria-hidden className="absolute bottom-0 right-24 h-24 w-44 rounded-full bg-sky-300/15 blur-2xl" />
             <div className="relative flex items-center gap-3">
-              <span className="flex size-9 items-center justify-center rounded-xl border border-white/20 bg-white/15 shadow-md backdrop-blur-sm">
-                <Send className="size-4.5 text-white" />
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-white/25 bg-white/15 text-white shadow-md backdrop-blur-sm">
+                <Send className="size-5 text-white" />
               </span>
               <div>
-                <DialogTitle className="text-base font-bold text-white">New Announcement</DialogTitle>
-                <DialogDescription className="mt-0.5 text-xs text-white/70">Send a clear update to the selected audience.</DialogDescription>
+                <DialogTitle className="text-lg font-bold tracking-normal text-white">New Announcement</DialogTitle>
+                <DialogDescription className="mt-0.5 text-xs text-white/75">
+                  Send a clear update to the selected audience.
+                </DialogDescription>
               </div>
             </div>
-          </div>
-          <div className="bg-gradient-to-br from-primary/[0.03] via-background to-cyan-500/[0.06] p-4">
-            <div className="space-y-3">
-              <div className="space-y-1">
-                <Label className="text-xs font-medium">Title</Label>
-                <Input value={form.title} onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))} placeholder="Example: Parent-teacher meeting on Friday" className="h-9 border-primary/15" />
+          </DialogHeader>
+
+          <div className="themed-scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain bg-gradient-to-br from-primary/[0.03] via-background to-cyan-500/[0.055] p-4 sm:p-5">
+            <section className="relative overflow-hidden rounded-xl border border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-cyan-50 p-4 shadow-sm dark:border-sky-500/25 dark:from-sky-500/15 dark:via-card dark:to-cyan-500/10 sm:p-5">
+              <div aria-hidden className="absolute -right-7 -top-10 size-28 rounded-full bg-sky-200/35 blur-xl dark:bg-sky-500/15" />
+              <div aria-hidden className="absolute -bottom-10 left-12 size-24 rounded-full bg-cyan-200/30 blur-xl dark:bg-cyan-500/10" />
+              <div className="relative mb-3 flex items-center gap-2">
+                <span className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-cyan-600 text-white shadow-sm"><MessageSquareText className="size-4 text-white" /></span>
+                <div><h3 className="text-sm font-semibold">Announcement details</h3><p className="text-[10px] text-muted-foreground">Title and message sent to recipients</p></div>
               </div>
-              <div className="space-y-1">
-                <Label className="text-xs font-medium">Message</Label>
-                <Textarea value={form.content} onChange={(e) => setForm((p) => ({ ...p, content: e.target.value }))} placeholder="Write the announcement clearly..." rows={4} className="border-primary/15 resize-none" />
-                <p className="text-right text-[10px] text-muted-foreground">{form.content.trim().length} characters</p>
+              <div className="relative space-y-3">
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium">Title</Label>
+                  <Input value={form.title} onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))} placeholder="Example: Parent-teacher meeting on Friday" className="h-9 border-primary/15 bg-white shadow-sm dark:bg-input/30" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium">Message</Label>
+                  <Textarea value={form.content} onChange={(e) => setForm((p) => ({ ...p, content: e.target.value }))} placeholder="Write the announcement clearly..." rows={4} className="border-primary/15 bg-white shadow-sm resize-none dark:bg-input/30" />
+                  <p className="text-right text-[10px] text-muted-foreground">{form.content.trim().length} characters</p>
+                </div>
               </div>
-              <div className="grid gap-3 sm:grid-cols-2">
+            </section>
+
+            <section className="relative overflow-hidden rounded-xl border border-violet-200/80 bg-gradient-to-br from-violet-50 via-white to-purple-50 p-4 shadow-sm dark:border-violet-500/25 dark:from-violet-500/15 dark:via-card dark:to-purple-500/10">
+              <div aria-hidden className="absolute -right-7 -top-10 size-28 rounded-full bg-violet-200/35 blur-xl dark:bg-violet-500/15" />
+              <div className="relative mb-3 flex items-center gap-2">
+                <span className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 text-white shadow-sm"><Target className="size-4 text-white" /></span>
+                <div><h3 className="text-sm font-semibold">Delivery settings</h3><p className="text-[10px] text-muted-foreground">Who receives it and how urgent it is</p></div>
+              </div>
+              <div className="relative grid gap-3 sm:grid-cols-2">
                 <div className="space-y-1">
                   <Label className="text-xs font-medium">Audience</Label>
                   <Select value={form.audience} onValueChange={(v) => setForm((p) => ({ ...p, audience: v }))}>
-                    <SelectTrigger className="h-9 border-primary/15">
+                    <SelectTrigger className="h-9 border-primary/15 bg-white shadow-sm dark:bg-input/30">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -399,7 +419,7 @@ export function AnnouncementsPage() {
                 <div className="space-y-1">
                   <Label className="text-xs font-medium">Priority</Label>
                   <Select value={form.priority} onValueChange={(v) => setForm((p) => ({ ...p, priority: v }))}>
-                    <SelectTrigger className="h-9 border-primary/15">
+                    <SelectTrigger className="h-9 border-primary/15 bg-white shadow-sm dark:bg-input/30">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -415,13 +435,12 @@ export function AnnouncementsPage() {
                   </Select>
                 </div>
               </div>
-            </div>
+            </section>
           </div>
-          <DialogFooter className="border-t border-primary/10 bg-gradient-to-r from-primary/[0.02] via-background to-cyan-500/[0.02] px-4 py-3">
-            <Button variant="outline" size="sm" onClick={() => setShowAdd(false)} className="h-8 gap-1.5 text-xs border-primary/15 shadow-sm">
-              <X className="size-3.5" /> Cancel
-            </Button>
-            <Button size="sm" onClick={handleAdd} disabled={!form.title.trim() || !form.content.trim() || creating} className="h-8 gap-1.5 text-xs shadow-lg shadow-primary/20">
+
+          <DialogFooter className="shrink-0 border-t border-primary/10 bg-muted/30 px-4 py-3 sm:px-5">
+            <Button variant="outline" size="sm" onClick={() => setShowAdd(false)} className="h-8 px-4 text-xs">Cancel</Button>
+            <Button size="sm" onClick={handleAdd} disabled={!form.title.trim() || !form.content.trim() || creating} className="h-8 gap-1.5 px-4 text-xs">
               {creating ? 'Sending...' : <><Send className="size-3.5" /> Send Announcement</>}
             </Button>
           </DialogFooter>

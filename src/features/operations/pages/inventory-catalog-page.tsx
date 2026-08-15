@@ -31,6 +31,7 @@ import {
   FolderTree,
   Package,
   Tag,
+  Tags,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -334,13 +335,18 @@ export function InventoryCatalogPage() {
             </div>
           </DialogHeader>
           <div className="themed-scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain bg-gradient-to-br from-primary/[0.03] via-background to-cyan-500/[0.055] p-4 sm:p-5">
-            <div className="rounded-xl border border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-violet-50 p-4 shadow-sm dark:border-sky-500/25 dark:from-sky-500/15 dark:via-card dark:to-violet-500/10">
-              <div className="space-y-3">
+            <section className="relative overflow-hidden rounded-xl border border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-violet-50 p-4 shadow-sm dark:border-sky-500/25 dark:from-sky-500/15 dark:via-card dark:to-violet-500/10 sm:p-5">
+              <div aria-hidden className="absolute -right-7 -top-10 size-28 rounded-full bg-sky-200/35 blur-xl dark:bg-sky-500/15" />
+              <div className="relative mb-3 flex items-center gap-2">
+                <span className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-violet-600 text-white shadow-sm"><Tags className="size-4 text-white" /></span>
+                <div><h3 className="text-sm font-semibold">Category details</h3><p className="text-[10px] text-muted-foreground">Name and description shown on item lists</p></div>
+              </div>
+              <div className="relative space-y-3">
                 <div className="space-y-2">
                   <Label htmlFor="category-name" className="text-xs font-medium">Name *</Label>
                   <Input
                     id="category-name"
-                    className="h-9"
+                    className="h-9 bg-white shadow-sm dark:bg-input/30"
                     value={catDialog?.name || ''}
                     onChange={(e) => setCatDialog((current) => current && { ...current, name: e.target.value })}
                     placeholder="e.g. Uniforms"
@@ -350,16 +356,16 @@ export function InventoryCatalogPage() {
                   <Label htmlFor="category-description" className="text-xs font-medium">Description</Label>
                   <Input
                     id="category-description"
-                    className="h-9"
+                    className="h-9 bg-white shadow-sm dark:bg-input/30"
                     value={catDialog?.description || ''}
                     onChange={(e) => setCatDialog((current) => current && { ...current, description: e.target.value })}
                     placeholder="Optional description"
                   />
                 </div>
               </div>
-            </div>
+            </section>
           </div>
-          <DialogFooter className="shrink-0 flex-wrap gap-2 border-t border-primary/10 bg-gradient-to-br from-primary/[0.02] to-transparent px-5 py-3 sm:px-6">
+          <DialogFooter className="shrink-0 border-t border-primary/10 bg-muted/30 px-4 py-3 sm:px-5">
             <Button variant="outline" size="sm" className="h-8 px-4 text-xs" onClick={() => setCatDialog(null)}>
               Cancel
             </Button>

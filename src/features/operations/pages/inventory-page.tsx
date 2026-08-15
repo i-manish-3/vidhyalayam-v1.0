@@ -593,40 +593,42 @@ export function InventoryPage() {
 
       {/* Add / Edit dialog */}
       <Dialog open={showForm} onOpenChange={setShowForm}>
-        <DialogContent className="flex max-h-[92svh] flex-col gap-0 overflow-hidden p-0 sm:max-w-3xl">
-          <DialogHeader className="shrink-0 border-b bg-gradient-to-r from-sky-500/[0.08] via-primary/[0.04] to-violet-500/[0.06] px-5 py-4 pr-12 text-left sm:px-6">
-            <div className="flex items-start gap-3">
-              <div className="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-md bg-gradient-to-br from-sky-500 to-primary text-white shadow-sm">
-                <PackagePlus className="size-5" />
-              </div>
-              <div className="min-w-0 space-y-1">
-                <DialogTitle>{editingId ? 'Edit Inventory Item' : 'Add Inventory Item'}</DialogTitle>
-                <DialogDescription>Add the item details, opening stock, and selling price used by store sales.</DialogDescription>
+        <DialogContent className="flex max-h-[90svh] flex-col overflow-hidden border-primary/20 bg-card p-0 shadow-2xl shadow-primary/15 sm:max-w-3xl [&>button]:right-3 [&>button]:top-3 [&>button]:rounded-full [&>button]:text-white [&>button]:opacity-85 [&>button]:hover:bg-white/15 [&>button]:hover:opacity-100">
+          <DialogHeader className="relative shrink-0 overflow-hidden border-b border-white/15 bg-[linear-gradient(135deg,var(--primary)_0%,#0d9488_48%,#2563eb_100%)] px-5 py-4 pr-12 text-white sm:px-6">
+            <div aria-hidden className="absolute -right-10 -top-16 size-40 rounded-full border-[18px] border-white/10" />
+            <div aria-hidden className="absolute -bottom-14 left-10 size-28 rounded-full bg-emerald-300/20 blur-2xl" />
+            <div aria-hidden className="absolute bottom-0 right-24 h-24 w-44 rounded-full bg-sky-300/15 blur-2xl" />
+            <div className="relative flex items-center gap-3">
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-white/25 bg-white/15 text-white shadow-md backdrop-blur-sm">
+                <PackagePlus className="size-5 text-white" />
+              </span>
+              <div>
+                <DialogTitle className="text-lg font-bold tracking-normal text-white">{editingId ? 'Edit Inventory Item' : 'Add Inventory Item'}</DialogTitle>
+                <DialogDescription className="mt-0.5 text-xs text-white/75">Add the item details, opening stock, and selling price used by store sales.</DialogDescription>
               </div>
             </div>
           </DialogHeader>
-          <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6">
-            <div className="space-y-6">
-              <section className="space-y-4">
-                <div className="flex items-center gap-2 text-sm font-semibold">
-                  <span className="flex size-6 items-center justify-center rounded-md bg-gradient-to-br from-sky-500 to-primary text-white shadow-xs">
-                    <Tags className="size-3.5" />
-                  </span>
-                  Item details
+          <div className="themed-scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain bg-gradient-to-br from-primary/[0.03] via-background to-emerald-500/[0.055] p-4 sm:p-5">
+            <div className="space-y-4">
+              <section className="relative overflow-hidden rounded-xl border border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-sky-50 p-4 shadow-sm dark:border-sky-500/25 dark:from-sky-500/15 dark:via-card dark:to-sky-500/10 sm:p-5">
+                <div aria-hidden className="absolute -right-7 -top-10 size-28 rounded-full bg-sky-200/35 blur-xl dark:bg-sky-500/15" />
+                <div className="relative mb-3 flex items-center gap-2">
+                  <span className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-primary text-white shadow-sm"><Tags className="size-4 text-white" /></span>
+                  <div><h3 className="text-sm font-semibold">Item details</h3><p className="text-[10px] text-muted-foreground">Name, code and category</p></div>
                 </div>
-                <div className="grid gap-4 sm:grid-cols-2">
+                <div className="relative grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2 sm:col-span-2">
-                    <Label htmlFor="inventory-name">Item name *</Label>
-                    <Input id="inventory-name" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="e.g. School Shirt" />
+                    <Label htmlFor="inventory-name" className="text-xs">Item name *</Label>
+                    <Input id="inventory-name" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="e.g. School Shirt" className="h-9 bg-white shadow-sm dark:bg-input/30" />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="inventory-sku">Item code / SKU</Label>
-                    <Input id="inventory-sku" value={form.sku} onChange={(e) => setForm((f) => ({ ...f, sku: e.target.value }))} placeholder="e.g. SHIRT-WHITE" />
+                    <Label htmlFor="inventory-sku" className="text-xs">Item code / SKU</Label>
+                    <Input id="inventory-sku" value={form.sku} onChange={(e) => setForm((f) => ({ ...f, sku: e.target.value }))} placeholder="e.g. SHIRT-WHITE" className="h-9 bg-white shadow-sm dark:bg-input/30" />
                   </div>
                   <div className="space-y-2">
-                    <Label>Category</Label>
+                    <Label className="text-xs">Category</Label>
                     <Select value={form.categoryId} onValueChange={(v) => setForm((f) => ({ ...f, categoryId: v }))}>
-                      <SelectTrigger className="w-full"><SelectValue placeholder="Select category" /></SelectTrigger>
+                      <SelectTrigger className="h-9 w-full bg-white shadow-sm dark:bg-input/30"><SelectValue placeholder="Select category" /></SelectTrigger>
                       <SelectContent>{categories.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
@@ -665,13 +667,13 @@ export function InventoryPage() {
                 </div>
               </section>
 
-              <section className="space-y-4 rounded-xl border border-primary/10 bg-gradient-to-br from-primary/[0.03] via-card to-primary/[0.02] p-4">
-                <div className="flex items-center gap-2 text-sm font-semibold">
-                  <span className="flex size-6 items-center justify-center rounded-md bg-gradient-to-br from-primary to-teal-600 text-white shadow-xs">
-                    <Boxes className="size-3.5" />
-                  </span>
-                  Stock and pricing
+              <section className="relative overflow-hidden rounded-xl border border-emerald-200/80 bg-gradient-to-br from-emerald-50 via-white to-teal-50 p-4 shadow-sm dark:border-emerald-500/25 dark:from-emerald-500/15 dark:via-card dark:to-teal-500/10 sm:p-5">
+                <div aria-hidden className="absolute -right-7 -top-10 size-28 rounded-full bg-emerald-200/35 blur-xl dark:bg-emerald-500/15" />
+                <div className="relative mb-3 flex items-center gap-2">
+                  <span className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-sm"><Boxes className="size-4 text-white" /></span>
+                  <div><h3 className="text-sm font-semibold">Stock and pricing</h3><p className="text-[10px] text-muted-foreground">Quantities, alerts and selling price per variant</p></div>
                 </div>
+                <div className="relative">
 
               {form.hasVariants && (
                 <div className="max-w-sm space-y-2">
@@ -715,12 +717,14 @@ export function InventoryPage() {
                 <Button variant="outline" size="sm" className="mt-2 gap-1.5 border-primary/20 text-primary" onClick={addVariantRow}><PlusCircle className="size-4" />Add {form.variantLabel.trim() || 'variant'}</Button>
               )}
               {editingId && <p className="mt-2 text-xs text-muted-foreground">Changing a stock figure here records a recount adjustment. Use Adjust Stock for restocking.</p>}
+              </div>
               </section>
             </div>
           </div>
-          <DialogFooter className="shrink-0 border-t bg-background px-5 py-4 sm:px-6">
-            <Button variant="outline" onClick={() => setShowForm(false)}>Cancel</Button>
-            <Button onClick={handleSave} disabled={saving || !form.name.trim() || !(editingId ? canUpdate : canCreate)} className="gap-2">
+          <DialogFooter className="shrink-0 border-t border-primary/10 bg-muted/30 px-4 py-3 sm:px-5">
+            <Button variant="outline" size="sm" className="h-8 px-4 text-xs" onClick={() => setShowForm(false)}>Cancel</Button>
+            <Button size="sm" className="h-8 gap-1.5 px-4 text-xs" onClick={handleSave} disabled={saving || !form.name.trim() || !(editingId ? canUpdate : canCreate)}>
+              <PackagePlus className="size-3.5" />
               {saving ? 'Saving...' : editingId ? 'Save changes' : 'Add item'}
             </Button>
           </DialogFooter>
