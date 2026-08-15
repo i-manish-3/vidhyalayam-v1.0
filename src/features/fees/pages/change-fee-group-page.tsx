@@ -120,6 +120,12 @@ export function ChangeFeeGroupPage() {
   const [newGroupId, setNewGroupId] = useState('')
   const [reason, setReason] = useState('')
 
+  // Bulk multi-select for the Change Fee Group tab.
+  const [selectedChangeIds, setSelectedChangeIds] = useState<Set<string>>(new Set())
+  const [changeBulkOpen, setChangeBulkOpen] = useState(false)
+  const [bulkNewGroupId, setBulkNewGroupId] = useState('')
+  const [bulkReason, setBulkReason] = useState('')
+
   const [fullYearTarget, setFullYearTarget] = useState<EligibleAssignment | null>(null)
   const [fullYearReason, setFullYearReason] = useState('')
   const [billingFullYear, setBillingFullYear] = useState(false)
@@ -488,6 +494,108 @@ export function ChangeFeeGroupPage() {
     }
   }
 
+  // ─── Change Fee Group tab multi-select ───────────────────────────────────
+  const allChangeSelected =
+    filteredAssignments.length > 0 && selectedChangeIds.size === filteredAssignments.length
+
+  const toggleChangeStudent = (assignmentId: string) => {
+    setSelectedChangeIds((current) => {
+      const next = new Set(current)
+      if (next.has(assignmentId)) {
+        next.delete(assignmentId)
+      } else {
+        next.add(assignmentId)
+      }
+      return next
+    })
+  }
+
+  const toggleAllChange = () => {
+    setSelectedChangeIds((current) =>
+      current.size === filteredAssignments.length
+        ? new Set()
+        : new Set(filteredAssignments.map((assignment) => assignment.id)),
+    )
+  }
+
+  // Drop selections that fell out of the visible (filtered) list or were
+  // already changed elsewhere.
+  useEffect(() => {
+    setSelectedChangeIds((current) => {
+      if (current.size === 0) return current
+      const valid = new Set(filteredAssignments.map((assignment) => assignment.id))
+      const pruned = new Set([...current].filter((id) => valid.has(id)))
+      return pruned.size === current.size ? current : pruned
+    })
+  }, [filteredAssignments])
+
+  const selectedChangeAssignments = useMemo(
+    () => filteredAssignments.filter((assignment) => selectedChangeIds.has(assignment.id)),
+    [filteredAssignments, selectedChangeIds],
+  )
+
+  // Only fee groups shared by every selected student are offered, so a single
+  // confirm can move the whole selection.
+  const commonGroupOptions = useMemo(() => {
+    if (selectedChangeAssignments.length === 0) return []
+    const shared = new Set(selectedChangeAssignments[0].availableGroups.map((group) => group.id))
+    for (const assignment of selectedChangeAssignments.slice(1)) {
+      const eligible = new Set(assignment.availableGroups.map((group) => group.id))
+      for (const id of [...shared]) {
+        if (!eligible.has(id)) shared.delete(id)
+      }
+    }
+    return selectedChangeAssignments[0].availableGroups.filter((group) => shared.has(group.id))
+  }, [selectedChangeAssignments])
+
+  const bulkSelectedGroupName = commonGroupOptions.find((group) => group.id === bulkNewGroupId)?.name || ''
+
+  const openBulkChangeDialog = () => {
+    setBulkNewGroupId('')
+    setBulkReason('')
+    setChangeBulkOpen(true)
+  }
+
+  const closeBulkChangeDialog = () => {
+    if (saving) return
+    setChangeBulkOpen(false)
+    setBulkNewGroupId('')
+    setBulkReason('')
+  }
+
+  const handleBulkChangeGroup = async () => {
+    if (selectedChangeIds.size === 0 || !bulkNewGroupId) return
+    try {
+      setSaving(true)
+      const res = await api.post<{ message: string; converted: unknown[]; skipped: unknown[]; failed: unknown[] }>(
+        '/api/school/fees/assignments/bulk-change-group',
+        {
+          assignmentIds: selectedChangeAssignments.map((assignment) => assignment.id),
+          newFeesGroupId: bulkNewGroupId,
+          reason: bulkReason || undefined,
+        },
+      )
+      toast({
+        title: 'Fee Group Changed',
+        description: res.message,
+        variant: res.failed?.length ? 'destructive' : 'default',
+      })
+      setChangeBulkOpen(false)
+      setSelectedChangeIds(new Set())
+      setBulkNewGroupId('')
+      setBulkReason('')
+      void fetchData()
+    } catch (err) {
+      toast({
+        title: "Couldn't Change Fee Group",
+        description: err instanceof Error ? err.message : 'Please try again.',
+        variant: 'destructive',
+      })
+    } finally {
+      setSaving(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="relative flex flex-col gap-3 overflow-hidden rounded-xl border border-primary/25 bg-gradient-to-r from-primary via-teal-600 to-cyan-600 px-4 py-3 text-white shadow-lg shadow-primary/15 sm:flex-row sm:items-center sm:justify-between">
@@ -612,77 +720,119 @@ export function ChangeFeeGroupPage() {
                   </div>
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader className="bg-gradient-to-r from-cyan-500/[0.07] via-sky-500/[0.04] to-violet-500/[0.07]">
-                      <TableRow>
-                        <TableHead className="min-w-[240px] px-4 py-2.5">Student</TableHead>
-                        <TableHead className="px-4 py-2.5">Class</TableHead>
-                        <TableHead className="px-4 py-2.5">Current Group</TableHead>
-                        <TableHead className="px-4 py-2.5">Billing</TableHead>
-                        <TableHead className="px-4 py-2.5 text-right">Demand</TableHead>
-                        <TableHead className="px-4 py-2.5 text-right">Action</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {filteredAssignments.map((assignment) => {
-                        const name = studentName(assignment)
-                        const canChange = assignment.availableGroups.length > 0
+                <>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader className="bg-gradient-to-r from-cyan-500/[0.07] via-sky-500/[0.04] to-violet-500/[0.07]">
+                        <TableRow>
+                          <TableHead className="w-12 px-4 py-2.5">
+                            <Checkbox
+                              checked={allChangeSelected}
+                              onCheckedChange={toggleAllChange}
+                              aria-label="Select all shown students"
+                            />
+                          </TableHead>
+                          <TableHead className="min-w-[240px] px-4 py-2.5">Student</TableHead>
+                          <TableHead className="px-4 py-2.5">Class</TableHead>
+                          <TableHead className="px-4 py-2.5">Current Group</TableHead>
+                          <TableHead className="px-4 py-2.5">Billing</TableHead>
+                          <TableHead className="px-4 py-2.5 text-right">Demand</TableHead>
+                          <TableHead className="px-4 py-2.5 text-right">Action</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredAssignments.map((assignment) => {
+                          const name = studentName(assignment)
+                          const canChange = assignment.availableGroups.length > 0
+                          const checked = selectedChangeIds.has(assignment.id)
 
-                        return (
-                          <TableRow key={assignment.id} className="transition-colors hover:bg-cyan-500/[0.045]">
-                            <TableCell>
-                              <div className="flex items-center gap-3">
-                                <div className="flex size-9 shrink-0 items-center justify-center rounded-md border border-sky-300/60 bg-gradient-to-br from-sky-500 to-cyan-600 text-xs font-semibold text-white shadow-sm shadow-sky-500/20 dark:border-sky-500/40">
-                                  {initials(name)}
+                          return (
+                            <TableRow
+                              key={assignment.id}
+                              data-state={checked ? 'selected' : undefined}
+                              className="cursor-pointer transition-colors hover:bg-cyan-500/[0.045]"
+                              onClick={() => toggleChangeStudent(assignment.id)}
+                            >
+                              <TableCell onClick={(event) => event.stopPropagation()}>
+                                <Checkbox
+                                  checked={checked}
+                                  onCheckedChange={() => toggleChangeStudent(assignment.id)}
+                                  aria-label={`Select ${name}`}
+                                />
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex items-center gap-3">
+                                  <div className="flex size-9 shrink-0 items-center justify-center rounded-md border border-sky-300/60 bg-gradient-to-br from-sky-500 to-cyan-600 text-xs font-semibold text-white shadow-sm shadow-sky-500/20 dark:border-sky-500/40">
+                                    {initials(name)}
+                                  </div>
+                                  <div className="min-w-0">
+                                    <p className="truncate font-medium">{name}</p>
+                                    <p className="truncate text-xs text-muted-foreground">
+                                      {assignment.student?.admissionNumber || 'No admission no'}
+                                    </p>
+                                  </div>
                                 </div>
-                          <div className="min-w-0">
-                            <p className="truncate font-medium">{name}</p>
-                            <p className="truncate text-xs text-muted-foreground">
-                              {assignment.student?.admissionNumber || 'No admission no'}
-                            </p>
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>{classLabel(assignment)}</TableCell>
-                      <TableCell>
-                        <Badge variant="secondary">{assignment.feesGroupName || '-'}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        {assignment.billingMode === 'full_year' ? (
-                          <Badge variant="outline" className="border-emerald-300 text-emerald-700 dark:text-emerald-300">
-                            Full Year
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="border-amber-300 text-amber-700 dark:text-amber-400">
-                            Pro-rated
-                          </Badge>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right font-medium">{money(assignment.totalAmount)}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center justify-end gap-2">
-                          <Button
-                            size="sm"
-                            variant={canChange ? 'default' : 'outline'}
-                            onClick={() => openDialog(assignment)}
-                            disabled={!canChange}
-                            className="gap-1.5"
-                          >
-                            <RefreshCw className="size-3.5" />
-                            Change
-                          </Button>
-                        </div>
-                        {!canChange && (
-                          <p className="mt-1 text-right text-[11px] text-muted-foreground">No alternate structure</p>
-                        )}
-                      </TableCell>
-                          </TableRow>
-                        )
-                      })}
-                    </TableBody>
-                  </Table>
-                </div>
+                              </TableCell>
+                              <TableCell>{classLabel(assignment)}</TableCell>
+                              <TableCell>
+                                <Badge variant="secondary">{assignment.feesGroupName || '-'}</Badge>
+                              </TableCell>
+                              <TableCell>
+                                {assignment.billingMode === 'full_year' ? (
+                                  <Badge variant="outline" className="border-emerald-300 text-emerald-700 dark:text-emerald-300">
+                                    Full Year
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="outline" className="border-amber-300 text-amber-700 dark:text-amber-400">
+                                    Pro-rated
+                                  </Badge>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-right font-medium">{money(assignment.totalAmount)}</TableCell>
+                              <TableCell className="text-right" onClick={(event) => event.stopPropagation()}>
+                                <div className="flex items-center justify-end gap-2">
+                                  <Button
+                                    size="sm"
+                                    variant={canChange ? 'default' : 'outline'}
+                                    onClick={() => openDialog(assignment)}
+                                    disabled={!canChange}
+                                    className="gap-1.5"
+                                  >
+                                    <RefreshCw className="size-3.5" />
+                                    Change
+                                  </Button>
+                                </div>
+                                {!canChange && (
+                                  <p className="mt-1 text-right text-[11px] text-muted-foreground">No alternate structure</p>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          )
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-t border-sky-500/15 bg-gradient-to-r from-sky-500/[0.06] via-primary/[0.03] to-violet-500/[0.06] p-3">
+                    <p className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <RefreshCw className="size-4" />
+                      Tick the students to move to another fee group, then change them together.
+                    </p>
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm text-muted-foreground">
+                        {selectedChangeIds.size} of {filteredAssignments.length} selected
+                      </span>
+                      <Button
+                        onClick={openBulkChangeDialog}
+                        disabled={selectedChangeIds.size === 0 || !canChangeGroup}
+                        className="gap-2"
+                      >
+                        <RefreshCw className="size-4" />
+                        Change Fee Group
+                      </Button>
+                    </div>
+                  </div>
+                </>
               )}
             </div>
           </div>
@@ -1077,6 +1227,127 @@ export function ChangeFeeGroupPage() {
             <Button size="sm" className="h-8 gap-1.5 px-4 text-xs" onClick={handleBulkAssign} disabled={assigning || !canChangeGroup}>
               {assigning ? <RefreshCw className="size-3.5 animate-spin" /> : <CheckCircle2 className="size-3.5" />}
               Confirm Assign
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={changeBulkOpen} onOpenChange={(open) => !saving && setChangeBulkOpen(open)}>
+        <DialogContent className="flex max-h-[90svh] flex-col overflow-hidden border-primary/20 bg-card p-0 shadow-2xl shadow-primary/15 sm:max-w-xl [&>button]:right-3 [&>button]:top-3 [&>button]:rounded-full [&>button]:text-white [&>button]:opacity-85 [&>button]:hover:bg-white/15 [&>button]:hover:opacity-100">
+          <DialogHeader className="relative shrink-0 overflow-hidden border-b border-white/15 bg-[linear-gradient(135deg,var(--primary)_0%,#0d9488_48%,#2563eb_100%)] px-5 py-4 pr-12 text-white sm:px-6">
+            <div aria-hidden className="absolute -right-10 -top-16 size-40 rounded-full border-[18px] border-white/10" />
+            <div aria-hidden className="absolute -bottom-14 left-10 size-28 rounded-full bg-emerald-300/20 blur-2xl" />
+            <div aria-hidden className="absolute bottom-0 right-24 h-24 w-44 rounded-full bg-sky-300/15 blur-2xl" />
+            <div className="relative flex items-center gap-3">
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-white/25 bg-white/15 text-white shadow-md backdrop-blur-sm">
+                <RefreshCw className="size-5 text-white" />
+              </span>
+              <div>
+                <DialogTitle className="text-lg font-bold tracking-normal text-white">Change Fee Group</DialogTitle>
+                <DialogDescription className="mt-0.5 text-xs text-white/75">
+                  Move {selectedChangeAssignments.length} student{selectedChangeAssignments.length === 1 ? '' : 's'}{' '}
+                  to another fee group for {academicYear}.
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+
+          <div className="themed-scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain bg-gradient-to-br from-primary/[0.03] via-background to-cyan-500/[0.055] p-4 sm:p-5">
+            <section className="relative overflow-hidden rounded-xl border border-violet-200/80 bg-gradient-to-br from-violet-50 via-white to-purple-50 p-4 shadow-sm dark:border-violet-500/25 dark:from-violet-500/15 dark:via-card dark:to-purple-500/10">
+              <div aria-hidden className="absolute -right-7 -top-10 size-28 rounded-full bg-violet-200/35 blur-xl dark:bg-violet-500/15" />
+              <div className="relative mb-3 flex items-center gap-2">
+                <span className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 text-white shadow-sm"><WalletCards className="size-4 text-white" /></span>
+                <div><h3 className="text-sm font-semibold">New fee group</h3><p className="text-[10px] text-muted-foreground">Only groups available for every selected student are shown</p></div>
+              </div>
+              <div className="relative space-y-3">
+                <Select value={bulkNewGroupId} onValueChange={setBulkNewGroupId} disabled={commonGroupOptions.length === 0}>
+                  <SelectTrigger id="bulk-new-fee-group" className="h-9 bg-white shadow-sm dark:bg-input/30">
+                    <SelectValue placeholder={commonGroupOptions.length === 0 ? 'No common group available' : 'Select new group'} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {commonGroupOptions.map((group) => (
+                      <SelectItem key={group.id} value={group.id}>
+                        {group.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {commonGroupOptions.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    None of the selected students share an alternate fee group. Remove some students and try again.
+                  </p>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    {selectedChangeAssignments.length} student{selectedChangeAssignments.length === 1 ? '' : 's'} can move
+                    to {commonGroupOptions.length === 1 ? 'this group' : `one of ${commonGroupOptions.length} groups`}.
+                  </p>
+                )}
+              </div>
+            </section>
+
+            <section className="relative overflow-hidden rounded-xl border border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-cyan-50 p-4 shadow-sm dark:border-sky-500/25 dark:from-sky-500/15 dark:via-card dark:to-cyan-500/10">
+              <div aria-hidden className="absolute -right-7 -top-10 size-28 rounded-full bg-sky-200/35 blur-xl dark:bg-sky-500/15" />
+              <div className="relative mb-3 flex items-center gap-2">
+                <span className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-cyan-600 text-white shadow-sm"><Users className="size-4 text-white" /></span>
+                <div><h3 className="text-sm font-semibold">Selected students</h3><p className="text-[10px] text-muted-foreground">Demands being cancelled and rebuilt</p></div>
+              </div>
+              <div className="relative max-h-56 space-y-2 overflow-y-auto overscroll-contain themed-scrollbar pr-1">
+                {selectedChangeAssignments.map((assignment) => (
+                  <div
+                    key={assignment.id}
+                    className="flex items-center gap-3 rounded-lg border border-sky-200/70 bg-white/80 px-3 py-2 shadow-sm dark:border-sky-500/20 dark:bg-background/35"
+                  >
+                    <div className="flex size-8 shrink-0 items-center justify-center rounded-md border border-sky-300/60 bg-gradient-to-br from-sky-500 to-cyan-600 text-[10px] font-semibold text-white shadow-sm shadow-sky-500/20 dark:border-sky-500/40">
+                      {initials(studentName(assignment))}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium">{studentName(assignment)}</p>
+                      <p className="truncate text-[11px] text-muted-foreground">
+                        {classLabel(assignment)} · {assignment.feesGroupName || '-'}
+                      </p>
+                    </div>
+                    <span className="shrink-0 text-xs font-semibold">{money(assignment.totalAmount)}</span>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <section className="rounded-xl border border-amber-200/80 bg-gradient-to-br from-amber-50 via-white to-orange-50 p-4 shadow-sm dark:border-amber-500/25 dark:from-amber-500/15 dark:via-card dark:to-orange-500/10">
+              <div className="mb-3 flex items-center gap-2">
+                <span className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 text-white shadow-sm"><FileCheck2 className="size-4 text-white" /></span>
+                <div><h3 className="text-sm font-semibold">Reason</h3><p className="text-[10px] text-muted-foreground">Optional — saved in the audit trail</p></div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="bulk-change-group-reason" className="text-xs">Reason (optional)</Label>
+                <Textarea
+                  id="bulk-change-group-reason"
+                  value={bulkReason}
+                  onChange={(event) => setBulkReason(event.target.value)}
+                  placeholder="Example: wrong group selected during admission"
+                  rows={3}
+                  className="bg-white shadow-sm dark:bg-input/30"
+                />
+              </div>
+            </section>
+
+            <Alert className="border-amber-200/80 bg-amber-50/80 text-amber-900 dark:border-amber-500/25 dark:bg-amber-950/30 dark:text-amber-200">
+              <AlertTriangle className="size-4" />
+              <AlertDescription>
+                Each current demand is cancelled and a fresh one{' '}
+                {bulkSelectedGroupName ? `for ${bulkSelectedGroupName}` : 'for the selected group'} is created. This can be
+                done only before any payment is collected — students with payments or who lack a matching fee structure are
+                skipped automatically.
+              </AlertDescription>
+            </Alert>
+          </div>
+
+          <DialogFooter className="shrink-0 border-t border-primary/10 bg-muted/30 px-4 py-3 sm:px-5">
+            <Button variant="outline" size="sm" className="h-8 px-4 text-xs" onClick={closeBulkChangeDialog} disabled={saving}>
+              Cancel
+            </Button>
+            <Button size="sm" className="h-8 gap-1.5 px-4 text-xs" onClick={handleBulkChangeGroup} disabled={saving || !bulkNewGroupId || !canChangeGroup}>
+              {saving ? <RefreshCw className="size-3.5 animate-spin" /> : <CheckCircle2 className="size-3.5" />}
+              Confirm Change
             </Button>
           </DialogFooter>
         </DialogContent>
