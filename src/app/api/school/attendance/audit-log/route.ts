@@ -253,7 +253,7 @@ export async function GET(request: NextRequest) {
     const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '20')))
     const skip = (page - 1) * limit
 
-    const [records, total, performersRaw] = await Promise.all([
+    const [records, total, performersRaw, finalizeCount, reopenCount] = await Promise.all([
       db.attendanceAuditLog.findMany({
         where,
         orderBy: { createdAt: 'desc' },
@@ -274,6 +274,8 @@ export async function GET(request: NextRequest) {
         orderBy: { createdAt: 'desc' },
         take: 100,
       }),
+      db.attendanceAuditLog.count({ where: { ...where, action: 'finalize' } }),
+      db.attendanceAuditLog.count({ where: { ...where, action: 'reopen' } }),
     ])
 
     const classIds = Array.from(new Set(records.map((r) => r.classId).filter(Boolean))) as string[]
@@ -369,6 +371,7 @@ export async function GET(request: NextRequest) {
         total,
         totalPages: Math.max(1, Math.ceil(total / limit)),
       },
+      stats: { total, finalizes: finalizeCount, reopens: reopenCount },
     })
   } catch (error) {
     console.error('GET /api/school/attendance/audit-log error:', error)

@@ -9,6 +9,10 @@ import { unauthorizedError, forbiddenError, internalError, apiError } from '@/li
  * Query fee audit logs with filtering and pagination.
  * Supports filtering by entity type, student, user, action, and date range.
  */
+const CREATED_ACTIONS = ['created', 'payment_recorded', 'refund_issued', 'monthly_demand_generated']
+const UPDATED_ACTIONS = ['updated']
+const DELETED_ACTIONS = ['deleted', 'refund_voided']
+
 export async function GET(request: NextRequest) {
   try {
     const user = requireRole(request, ['SUPER_ADMIN', 'SCHOOL_ADMIN', 'STAFF'])
@@ -32,6 +36,7 @@ export async function GET(request: NextRequest) {
     const studentId = searchParams.get('studentId') || undefined
     const userId = searchParams.get('userId') || undefined
     const action = searchParams.get('action') || undefined
+    const actionGroup = searchParams.get('actionGroup') || undefined
     const startDate = searchParams.get('startDate') || undefined
     const endDate = searchParams.get('endDate') || undefined
 
@@ -52,7 +57,13 @@ export async function GET(request: NextRequest) {
       where.userId = userId
     }
 
-    if (action) {
+    if (actionGroup === 'created') {
+      where.action = { in: CREATED_ACTIONS }
+    } else if (actionGroup === 'updated') {
+      where.action = { in: UPDATED_ACTIONS }
+    } else if (actionGroup === 'deleted') {
+      where.action = { in: DELETED_ACTIONS }
+    } else if (action) {
       where.action = action
     }
 
@@ -67,7 +78,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Execute query with pagination
-    const [logs, total] = await Promise.all([
+    const [logs, total, createdCount, updatedCount, deletedCount] = await Promise.all([
       db.feeAuditLog.findMany({
         where,
         include: {
@@ -97,6 +108,9 @@ export async function GET(request: NextRequest) {
         take: limit,
       }),
       db.feeAuditLog.count({ where }),
+      db.feeAuditLog.count({ where: { ...where, action: { in: CREATED_ACTIONS } } }),
+      db.feeAuditLog.count({ where: { ...where, action: { in: UPDATED_ACTIONS } } }),
+      db.feeAuditLog.count({ where: { ...where, action: { in: DELETED_ACTIONS } } }),
     ])
 
     // Parse JSON fields
@@ -109,6 +123,12 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       logs: parsedLogs,
+      stats: {
+        total,
+        created: createdCount,
+        updated: updatedCount,
+        deleted: deletedCount,
+      },
       pagination: {
         page,
         limit,

@@ -20,6 +20,8 @@ interface FieldListProps {
   labelWidth?: 'auto' | 'wide'
   /** Tone for the container */
   tone?: 'neutral' | 'positive' | 'negative'
+  /** Optional per-field value resolver (e.g. map userId → user name). Return undefined to fall back to default rendering. */
+  resolve?: (key: string, value: unknown) => React.ReactNode | undefined
 }
 
 const HIDDEN_FIELDS = new Set([
@@ -40,7 +42,7 @@ const DATE_FIELD_PATTERN = /(date|at|from|to|expiresAt|issuedDate|voidedAt|locke
 
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/
 
-export function FieldList({ data, hideFields = [], labelWidth = 'auto', tone = 'neutral' }: FieldListProps) {
+export function FieldList({ data, hideFields = [], labelWidth = 'auto', tone = 'neutral', resolve }: FieldListProps) {
   if (!data || typeof data !== 'object') {
     return <div className="text-sm text-gray-500 italic">No details to show</div>
   }
@@ -71,7 +73,9 @@ export function FieldList({ data, hideFields = [], labelWidth = 'auto', tone = '
             {formatFieldLabel(key)}
           </dt>
           <dd className="flex-1 text-sm text-gray-900 min-w-0">
-            {renderFieldValue(key, value)}
+            {resolve
+              ? resolve(key, value) ?? renderFieldValue(key, value)
+              : renderFieldValue(key, value)}
           </dd>
         </div>
       ))}

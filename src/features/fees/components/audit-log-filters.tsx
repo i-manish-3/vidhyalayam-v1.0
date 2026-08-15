@@ -5,7 +5,14 @@
  * Supports filtering by entity type, date range, user, student, and action.
  */
 
-import React from 'react'
+'use client'
+
+import { GraduationCap, ListChecks, Settings2, UserRound } from 'lucide-react'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { DatePicker } from '@/components/date-picker'
+import { Label } from '@/components/ui/label'
+
+const ALL = '__all__'
 
 interface AuditLogFiltersProps {
   filters: {
@@ -13,6 +20,7 @@ interface AuditLogFiltersProps {
     studentId?: string
     userId?: string
     action?: string
+    actionGroup?: string
     startDate?: string
     endDate?: string
   }
@@ -44,140 +52,133 @@ export function AuditLogFilters({
   students = [],
   users = [],
 }: AuditLogFiltersProps) {
-  const handleChange = (key: string, value: string) => {
-    onFilterChange({
-      ...filters,
-      [key]: value || undefined,
-    })
+  const set = (key: string, value?: string) => {
+    onFilterChange({ ...filters, [key]: value || undefined })
   }
 
-  const handleClear = () => {
-    onFilterChange({})
+  const setAction = (value?: string) => {
+    onFilterChange({ ...filters, action: value || undefined, actionGroup: undefined })
   }
-
-  const hasActiveFilters = Object.values(filters).some(v => v !== undefined && v !== '')
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-4 space-y-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-medium text-gray-900">Filters</h3>
-        {hasActiveFilters && (
-          <button
-            onClick={handleClear}
-            className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+    <div className="grid grid-cols-2 gap-2 xl:grid-cols-4">
+      {/* Entity Type */}
+      <div className="space-y-1">
+        <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Entity Type</Label>
+        <Select value={filters.entityType || ALL} onValueChange={(v) => set('entityType', v === ALL ? undefined : v)}>
+          <SelectTrigger
+            leadingIcon={<Settings2 className="size-3.5 text-white" />}
+            leadingIconClassName="from-sky-500 to-cyan-600"
+            className="h-10 w-full border-sky-200 from-sky-50 via-white to-cyan-50 px-2 text-sm shadow-sm focus:border-sky-400 focus:ring-sky-400/20 dark:border-sky-500/25 dark:from-sky-500/15 dark:via-input/30 dark:to-cyan-500/10 sm:h-9 sm:text-xs"
           >
-            Clear all
-          </button>
-        )}
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent className="max-h-64 border-sky-200/80 bg-white shadow-lg dark:border-sky-500/25 dark:bg-popover">
+            <SelectItem value={ALL}>All types</SelectItem>
+            {entityTypes.map((type) => (
+              <SelectItem key={type} value={type}>
+                {formatEntityType(type)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {/* Entity Type */}
-        <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">
-            Entity Type
-          </label>
-          <select
-            value={filters.entityType || ''}
-            onChange={(e) => handleChange('entityType', e.target.value)}
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+      {/* Action */}
+      <div className="space-y-1">
+        <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Action</Label>
+        <Select value={filters.action || ALL} onValueChange={(v) => setAction(v === ALL ? undefined : v)}>
+          <SelectTrigger
+            leadingIcon={<ListChecks className="size-3.5 text-white" />}
+            leadingIconClassName="from-violet-500 to-purple-600"
+            className="h-10 w-full border-violet-200 from-violet-50 via-white to-purple-50 px-2 text-sm shadow-sm focus:border-violet-400 focus:ring-violet-400/20 dark:border-violet-500/25 dark:from-violet-500/15 dark:via-input/30 dark:to-purple-500/10 sm:h-9 sm:text-xs"
           >
-            <option value="">All types</option>
-            {entityTypes.map(type => (
-              <option key={type} value={type}>
-                {formatEntityType(type)}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Action */}
-        <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">
-            Action
-          </label>
-          <select
-            value={filters.action || ''}
-            onChange={(e) => handleChange('action', e.target.value)}
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="">All actions</option>
-            {actions.map(action => (
-              <option key={action} value={action}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent className="max-h-64 border-violet-200/80 bg-white shadow-lg dark:border-violet-500/25 dark:bg-popover">
+            <SelectItem value={ALL}>All actions</SelectItem>
+            {actions.map((action) => (
+              <SelectItem key={action} value={action}>
                 {formatAction(action)}
-              </option>
+              </SelectItem>
             ))}
-          </select>
-        </div>
+          </SelectContent>
+        </Select>
+      </div>
 
-        {/* Student */}
-        {students.length > 0 && (
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">
-              Student
-            </label>
-            <select
-              value={filters.studentId || ''}
-              onChange={(e) => handleChange('studentId', e.target.value)}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+      {/* Student */}
+      {students.length > 0 && (
+        <div className="space-y-1">
+          <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Student</Label>
+          <Select value={filters.studentId || ALL} onValueChange={(v) => set('studentId', v === ALL ? undefined : v)}>
+            <SelectTrigger
+              leadingIcon={<GraduationCap className="size-3.5 text-white" />}
+              leadingIconClassName="from-teal-500 to-cyan-600"
+              className="h-10 w-full border-teal-200 from-teal-50 via-white to-cyan-50 px-2 text-sm shadow-sm focus:border-teal-400 focus:ring-teal-400/20 dark:border-teal-500/25 dark:from-teal-500/15 dark:via-input/30 dark:to-cyan-500/10 sm:h-9 sm:text-xs"
             >
-              <option value="">All students</option>
-              {students.map(student => (
-                <option key={student.id} value={student.id}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="max-h-64 border-teal-200/80 bg-white shadow-lg dark:border-teal-500/25 dark:bg-popover">
+              <SelectItem value={ALL}>All students</SelectItem>
+              {students.map((student) => (
+                <SelectItem key={student.id} value={student.id}>
                   {student.name}
-                  {student.admissionNumber && ` (${student.admissionNumber})`}
-                </option>
+                  {student.admissionNumber ? ` (${student.admissionNumber})` : ''}
+                </SelectItem>
               ))}
-            </select>
-          </div>
-        )}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
 
-        {/* User */}
-        {users.length > 0 && (
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">
-              User
-            </label>
-            <select
-              value={filters.userId || ''}
-              onChange={(e) => handleChange('userId', e.target.value)}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+      {/* User */}
+      {users.length > 0 && (
+        <div className="space-y-1">
+          <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">By User</Label>
+          <Select value={filters.userId || ALL} onValueChange={(v) => set('userId', v === ALL ? undefined : v)}>
+            <SelectTrigger
+              leadingIcon={<UserRound className="size-3.5 text-white" />}
+              leadingIconClassName="from-amber-500 to-orange-600"
+              className="h-10 w-full border-amber-200 from-amber-50 via-white to-orange-50 px-2 text-sm shadow-sm focus:border-amber-400 focus:ring-amber-400/20 dark:border-amber-500/25 dark:from-amber-500/15 dark:via-input/30 dark:to-orange-500/10 sm:h-9 sm:text-xs"
             >
-              <option value="">All users</option>
-              {users.map(user => (
-                <option key={user.id} value={user.id}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="max-h-64 border-amber-200/80 bg-white shadow-lg dark:border-amber-500/25 dark:bg-popover">
+              <SelectItem value={ALL}>Any user</SelectItem>
+              {users.map((user) => (
+                <SelectItem key={user.id} value={user.id}>
                   {user.name}
-                </option>
+                </SelectItem>
               ))}
-            </select>
-          </div>
-        )}
-
-        {/* Start Date */}
-        <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">
-            Start Date
-          </label>
-          <input
-            type="date"
-            value={filters.startDate || ''}
-            onChange={(e) => handleChange('startDate', e.target.value)}
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
+            </SelectContent>
+          </Select>
         </div>
+      )}
 
-        {/* End Date */}
-        <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">
-            End Date
-          </label>
-          <input
-            type="date"
-            value={filters.endDate || ''}
-            onChange={(e) => handleChange('endDate', e.target.value)}
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
+      {/* Start Date */}
+      <div className="space-y-1">
+        <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">From</Label>
+        <DatePicker
+          value={filters.startDate || ''}
+          onChange={(v) => set('startDate', v)}
+          disableFuture
+          showQuickActions
+          placeholder="Any date"
+          triggerClassName="h-10 w-full justify-start bg-white px-2.5 text-sm dark:bg-input/30 sm:h-9 sm:text-xs"
+        />
+      </div>
+
+      {/* End Date */}
+      <div className="space-y-1">
+        <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">To</Label>
+        <DatePicker
+          value={filters.endDate || ''}
+          onChange={(v) => set('endDate', v)}
+          disableFuture
+          showQuickActions
+          placeholder="Any date"
+          triggerClassName="h-10 w-full justify-start bg-white px-2.5 text-sm dark:bg-input/30 sm:h-9 sm:text-xs"
+        />
       </div>
     </div>
   )

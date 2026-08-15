@@ -1,12 +1,59 @@
 import { NextRequest } from 'next/server'
+import { db } from '@/lib/db'
+import { verifyCommKey } from '@/lib/device-comm-key'
 import { ingestAttendanceDevicePunch } from '@/lib/attendance-device-punch-service'
 import { parseZktecoAttLogBody, zktecoOk, ZKTECO_PROVIDER } from '@/lib/zkteco-adms'
 
 export const runtime = 'nodejs'
 
+function zktecoError(message: string, status: number): Response {
+  return new Response(message, {
+    status,
+    headers: {
+      'content-type': 'text/plain; charset=utf-8',
+    },
+  })
+}
+
+// ZKTeco devices send the comm key as a query parameter (commkey/passwd) when a
+// communication key is configured. A custom header is also accepted so tooling
+// (curl, the simulator) can authenticate without touching the device.
+function extractCommKey(request: NextRequest): string {
+  const { searchParams } = new URL(request.url)
+  return (
+    searchParams.get('commkey')?.trim() ||
+    searchParams.get('passwd')?.trim() ||
+    request.headers.get('x-zk-commkey')?.trim() ||
+    ''
+  )
+}
+
+async function authorizeDevice(serialNo: string, request: NextRequest): Promise<{ ok: true } | { ok: false; response: Response }> {
+  if (!serialNo) return { ok: false, response: zktecoError('ERROR: Missing SN', 400) }
+
+  const device = await db.attendanceDevice.findUnique({
+    where: { serialNo },
+    select: { id: true, isActive: true, deletedAt: true, commKeyHash: true },
+  })
+
+  if (!device || !device.isActive || device.deletedAt) {
+    return { ok: false, response: zktecoError('ERROR: Unknown device', 404) }
+  }
+
+  const commKey = extractCommKey(request)
+  if (!verifyCommKey(commKey, device.commKeyHash)) {
+    return { ok: false, response: zktecoError('ERROR: Invalid comm key', 401) }
+  }
+
+  return { ok: true }
+}
+
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const serialNo = searchParams.get('SN')?.trim() || ''
+
+  const auth = await authorizeDevice(serialNo, request)
+  if (!auth.ok) return auth.response
 
   return zktecoOk(
     [
@@ -30,7 +77,8 @@ export async function POST(request: NextRequest) {
   const serialNo = searchParams.get('SN')?.trim() || ''
   const table = (searchParams.get('table') || '').toUpperCase()
 
-  if (!serialNo) return zktecoOk('ERROR: Missing SN')
+  const auth = await authorizeDevice(serialNo, request)
+  if (!auth.ok) return auth.response
 
   const rawBody = await request.text()
   if (table !== 'ATTLOG') return zktecoOk('OK')

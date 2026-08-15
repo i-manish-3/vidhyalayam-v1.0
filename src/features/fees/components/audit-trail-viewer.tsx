@@ -8,8 +8,11 @@
 'use client'
 
 import React, { useState } from 'react'
+import { CalendarDays, ChevronDown, Clock, GraduationCap, History, User } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
 import { DiffViewer } from './diff-viewer'
 import { FieldList } from './audit-field-list'
+import { cn } from '@/lib/utils'
 
 interface AuditLog {
   id: string
@@ -18,11 +21,11 @@ interface AuditLog {
   action: string
   studentId?: string
   userId?: string
-  ipAddress?: string
-  userAgent?: string
+  ipAddress?: string | null
+  userAgent?: string | null
   oldValue: any
   newValue: any
-  diffSummary?: string
+  diffSummary?: string | null
   metadata: any
   createdAt: string
   student?: {
@@ -30,13 +33,13 @@ interface AuditLog {
     firstName: string
     lastName: string
     admissionNumber?: string
-  }
+  } | null
   user?: {
     id: string
     name: string
     email: string
     role: string
-  }
+  } | null
 }
 
 interface AuditTrailViewerProps {
@@ -66,20 +69,24 @@ export function AuditTrailViewer({
 
   if (loading && logs.length === 0) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <div className="text-sm text-gray-500">Loading audit logs...</div>
+      <div className="flex items-center justify-center gap-2 py-12 text-sm text-muted-foreground">
+        <div className="size-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        Loading audit entries…
       </div>
     )
   }
 
   if (logs.length === 0) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <div className="text-center">
-          <div className="text-sm text-gray-500 mb-2">No audit logs found</div>
-          <div className="text-xs text-gray-400">
+      <div className="flex flex-col items-center justify-center gap-2 px-3 py-12 text-center">
+        <span className="flex size-11 items-center justify-center rounded-full bg-gradient-to-br from-teal-100 to-cyan-100 dark:from-teal-500/20 dark:to-cyan-500/20">
+          <History className="size-5 text-teal-600 dark:text-teal-300" />
+        </span>
+        <div className="space-y-0.5">
+          <h3 className="text-sm font-semibold">No audit entries</h3>
+          <p className="mx-auto max-w-xs text-xs text-muted-foreground">
             Try adjusting your filters or date range
-          </div>
+          </p>
         </div>
       </div>
     )
@@ -89,114 +96,113 @@ export function AuditTrailViewer({
   const groupedLogs = groupByDate(logs)
 
   return (
-    <div className="space-y-6">
+    <div className="divide-y divide-border">
       {Object.entries(groupedLogs).map(([date, dateLogs]) => (
-        <div key={date} className="space-y-3">
-          <div className="sticky top-0 bg-gray-50 px-4 py-2 rounded-md">
-            <h3 className="text-sm font-medium text-gray-700">{date}</h3>
+        <div key={date}>
+          {/* Sticky date header */}
+          <div className="sticky top-0 z-10 flex items-center gap-2 border-b border-sky-200/60 bg-gradient-to-r from-sky-100/95 via-teal-50/95 to-cyan-50/95 px-3 py-1.5 backdrop-blur dark:border-sky-500/20 dark:from-sky-500/15 dark:via-teal-500/10 dark:to-cyan-500/10 sm:px-5">
+            <CalendarDays className="size-3.5 text-teal-600 dark:text-teal-300" />
+            <h3 className="text-[11px] font-semibold uppercase tracking-wider text-teal-700 dark:text-teal-300">
+              {date}
+            </h3>
+            <span className="ml-auto text-[10px] text-muted-foreground">
+              {dateLogs.length} {dateLogs.length === 1 ? 'entry' : 'entries'}
+            </span>
           </div>
 
-          <div className="space-y-3">
+          <div className="divide-y divide-border">
             {dateLogs.map(log => {
               const isExpanded = expandedIds.has(log.id)
+              const tone = getActionTone(log.action)
 
               return (
                 <div
                   key={log.id}
-                  className="bg-white rounded-lg border border-gray-200 overflow-hidden"
+                  className="px-3 py-3 transition-colors hover:bg-muted/30 sm:px-5"
                 >
-                  {/* Header */}
                   <button
+                    type="button"
                     onClick={() => toggleExpanded(log.id)}
-                    className="w-full px-4 py-3 flex items-start gap-3 hover:bg-gray-50 transition-colors text-left"
+                    className="flex w-full items-start gap-3 text-left"
                   >
-                    <div className="flex-shrink-0 mt-0.5">
-                      <div className={`w-2 h-2 rounded-full ${getActionColor(log.action)}`} />
-                    </div>
+                    <span className={cn('mt-1.5 size-2 shrink-0 rounded-full', tone.dot)} />
 
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-sm font-medium text-gray-900">
-                          {formatAction(log.action)}
-                        </span>
-                        <span className="text-xs text-gray-500">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-sm font-semibold">{formatAction(log.action)}</span>
+                        <Badge
+                          variant="secondary"
+                          className={cn('gap-1 text-[10px] font-medium', tone.chip)}
+                        >
                           {formatEntityType(log.entityType)}
+                        </Badge>
+                        <span className="ml-auto text-[11px] text-muted-foreground" title={formatFullDateTime(log.createdAt)}>
+                          {formatRelative(log.createdAt)}
                         </span>
                       </div>
 
                       {log.diffSummary && (
-                        <div className="text-sm text-gray-600 mb-2">
+                        <p className="mt-0.5 break-words text-xs text-muted-foreground">
                           {log.diffSummary}
-                        </div>
+                        </p>
                       )}
 
-                      <div className="flex items-center gap-4 text-xs text-gray-500">
+                      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
                         {log.student && (
-                          <span>
-                            Student: {log.student.firstName} {log.student.lastName}
-                            {log.student.admissionNumber && ` (${log.student.admissionNumber})`}
+                          <span className="inline-flex items-center gap-1">
+                            <GraduationCap className="size-3" />
+                            {log.student.firstName} {log.student.lastName}
+                            {log.student.admissionNumber && (
+                              <span className="font-mono">({log.student.admissionNumber})</span>
+                            )}
                           </span>
                         )}
                         {log.user && (
-                          <span>By: {log.user.name}</span>
+                          <span className="inline-flex items-center gap-1">
+                            <User className="size-3" />
+                            {log.user.name}
+                          </span>
                         )}
-                        <span>{formatTime(log.createdAt)}</span>
+                        <span className="inline-flex items-center gap-1">
+                          <Clock className="size-3" />
+                          {formatTime(log.createdAt)}
+                        </span>
                       </div>
                     </div>
 
-                    <div className="flex-shrink-0">
-                      <svg
-                        className={`w-5 h-5 text-gray-400 transition-transform ${
-                          isExpanded ? 'rotate-180' : ''
-                        }`}
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M19 9l-7 7-7-7"
-                        />
-                      </svg>
-                    </div>
+                    <ChevronDown
+                      className={cn(
+                        'mt-0.5 size-4 shrink-0 text-muted-foreground transition-transform',
+                        isExpanded && 'rotate-180',
+                      )}
+                    />
                   </button>
 
                   {/* Expanded Details */}
                   {isExpanded && (
-                    <div className="px-4 pb-4 border-t border-gray-100">
-                      <div className="pt-4 space-y-4">
-                        {/* Metadata */}
-                        <div className="grid grid-cols-2 gap-4 text-xs">
-                          <div>
-                            <span className="text-gray-500">Entity ID:</span>
-                            <span className="ml-2 text-gray-900 font-mono">{log.entityId}</span>
-                          </div>
-                          {log.ipAddress && (
-                            <div>
-                              <span className="text-gray-500">IP Address:</span>
-                              <span className="ml-2 text-gray-900 font-mono">{log.ipAddress}</span>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Diff Viewer */}
-                        <div>
-                          <h4 className="text-sm font-medium text-gray-700 mb-2">Changes</h4>
-                          <DiffViewer oldValue={log.oldValue} newValue={log.newValue} />
-                        </div>
-
-                        {/* Additional Metadata */}
-                        {log.metadata && Object.keys(log.metadata).length > 0 && (
-                          <div>
-                            <h4 className="text-sm font-medium text-gray-700 mb-2">
-                              Additional Information
-                            </h4>
-                            <FieldList data={log.metadata} />
-                          </div>
+                    <div className="mt-2 space-y-3 border-t border-border pl-5 pt-3">
+                      <div className="flex flex-wrap gap-x-6 gap-y-1 text-[11px]">
+                        <span className="text-muted-foreground">
+                          Entity ID: <span className="font-mono text-foreground">{log.entityId}</span>
+                        </span>
+                        {log.ipAddress && (
+                          <span className="text-muted-foreground">
+                            IP Address: <span className="font-mono text-foreground">{log.ipAddress}</span>
+                          </span>
                         )}
                       </div>
+
+                      <div>
+                        <h4 className="mb-1.5 text-xs font-semibold">Changes</h4>
+                        <DiffViewer oldValue={log.oldValue} newValue={log.newValue} resolve={makeResolver(log)} />
+                      </div>
+
+                      {log.metadata && Object.keys(log.metadata).length > 0 && (
+                        <div>
+                          <h4 className="mb-1.5 text-xs font-semibold">Additional Information</h4>
+                          <FieldList data={log.metadata} resolve={makeResolver(log)} />
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -208,11 +214,12 @@ export function AuditTrailViewer({
 
       {/* Load More */}
       {hasMore && (
-        <div className="flex justify-center pt-4">
+        <div className="flex justify-center border-t px-3 py-4">
           <button
+            type="button"
             onClick={onLoadMore}
             disabled={loading}
-            className="px-4 py-2 text-sm font-medium text-blue-600 hover:text-blue-700 disabled:opacity-50"
+            className="px-4 py-2 text-sm font-medium text-teal-700 hover:text-teal-800 disabled:opacity-50 dark:text-teal-300"
           >
             {loading ? 'Loading...' : 'Load more'}
           </button>
@@ -247,7 +254,7 @@ function formatDate(dateString: string): string {
   } else if (isSameDay(date, yesterday)) {
     return 'Yesterday'
   } else {
-    return date.toLocaleDateString('en-US', {
+    return date.toLocaleDateString('en-IN', {
       weekday: 'long',
       year: 'numeric',
       month: 'long',
@@ -258,10 +265,38 @@ function formatDate(dateString: string): string {
 
 function formatTime(dateString: string): string {
   const date = new Date(dateString)
-  return date.toLocaleTimeString('en-US', {
+  return date.toLocaleTimeString('en-IN', {
     hour: '2-digit',
     minute: '2-digit',
+    hour12: true,
   })
+}
+
+function formatFullDateTime(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  return d.toLocaleString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+  })
+}
+
+function formatRelative(iso: string): string {
+  const then = new Date(iso)
+  if (Number.isNaN(then.getTime())) return ''
+  const diff = Date.now() - then.getTime()
+  const min = Math.floor(diff / 60000)
+  if (min < 1) return 'just now'
+  if (min < 60) return `${min} min ago`
+  const hr = Math.floor(min / 60)
+  if (hr < 24) return `${hr} hr ago`
+  const day = Math.floor(hr / 24)
+  if (day < 30) return `${day} day${day > 1 ? 's' : ''} ago`
+  return then.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
 function isSameDay(date1: Date, date2: Date): boolean {
@@ -287,15 +322,45 @@ function formatEntityType(type: string): string {
     .trim()
 }
 
-function getActionColor(action: string): string {
-  if (action.includes('created') || action.includes('recorded')) {
-    return 'bg-green-500'
+function makeResolver(log: AuditLog) {
+  const studentName = log.student
+    ? `${log.student.firstName} ${log.student.lastName}`.trim()
+    : ''
+  const userName = log.user?.name || log.user?.email || ''
+
+  return (key: string, value: unknown): React.ReactNode | undefined => {
+    if (typeof value !== 'string' || !value) return undefined
+    if (/studentId|student_id/.test(key) && value === log.student?.id && studentName) {
+      return <span className="font-medium text-foreground">{studentName}</span>
+    }
+    if (/^userId$|^performedBy$|By$/.test(key) && value === log.user?.id && userName) {
+      return <span className="font-medium text-foreground">{userName}</span>
+    }
+    return undefined
   }
-  if (action.includes('deleted') || action.includes('voided')) {
-    return 'bg-red-500'
+}
+
+function getActionTone(action: string): { dot: string; chip: string } {
+  if (/created|recorded|generated/.test(action)) {
+    return {
+      dot: 'bg-emerald-500',
+      chip: 'border-emerald-300/60 bg-emerald-100 text-emerald-800 dark:border-emerald-500/30 dark:bg-emerald-500/15 dark:text-emerald-200',
+    }
   }
-  if (action.includes('updated')) {
-    return 'bg-blue-500'
+  if (/deleted|voided/.test(action)) {
+    return {
+      dot: 'bg-rose-500',
+      chip: 'border-rose-300/60 bg-rose-100 text-rose-800 dark:border-rose-500/30 dark:bg-rose-500/15 dark:text-rose-200',
+    }
   }
-  return 'bg-gray-500'
+  if (/updated/.test(action)) {
+    return {
+      dot: 'bg-amber-400',
+      chip: 'border-amber-300/60 bg-amber-100 text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/15 dark:text-amber-200',
+    }
+  }
+  return {
+    dot: 'bg-sky-500',
+    chip: 'border-sky-300/60 bg-sky-100 text-sky-800 dark:border-sky-500/30 dark:bg-sky-500/15 dark:text-sky-200',
+  }
 }

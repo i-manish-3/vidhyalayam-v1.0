@@ -3,9 +3,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { requirePermission } from '@/lib/api-auth'
 import { apiError, internalError } from '@/lib/api-errors'
+import { generateCommKey, hashCommKey } from '@/lib/device-comm-key'
 import { ZKTECO_PROVIDER } from '@/lib/zkteco-adms'
 
 const PROVIDERS = new Set([ZKTECO_PROVIDER])
+const COMM_KEY_PATTERN = /^[A-Za-z0-9_-]{4,64}$/
 
 export async function GET(request: NextRequest) {
   try {
@@ -39,10 +41,12 @@ export async function POST(request: NextRequest) {
     const serialNo = normalizeString(body.serialNo)
     const name = normalizeString(body.name)
     const location = normalizeString(body.location)
+    const commKey = normalizeString(body.commKey) || generateCommKey()
 
     if (!PROVIDERS.has(provider)) return apiError(400, 'Unsupported attendance device provider.')
     if (!serialNo) return apiError(400, 'Device serial number is required.')
     if (!name || name.length < 2) return apiError(422, 'Device name is too short.')
+    if (!COMM_KEY_PATTERN.test(commKey)) return apiError(422, 'Comm key must be 4-64 characters (letters, numbers, _ or -).')
 
     const device = await db.attendanceDevice.create({
       data: {
@@ -51,11 +55,12 @@ export async function POST(request: NextRequest) {
         serialNo,
         name,
         location: location || null,
+        commKeyHash: hashCommKey(commKey),
         createdBy: user.userId,
       },
     })
 
-    return NextResponse.json({ device }, { status: 201 })
+    return NextResponse.json({ device, commKey }, { status: 201 })
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
       return apiError(409, 'A device with this serial number already exists.')

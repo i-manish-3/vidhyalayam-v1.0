@@ -14,6 +14,8 @@ import { FieldList, formatFieldLabel, renderFieldValue } from './audit-field-lis
 interface DiffViewerProps {
   oldValue: any
   newValue: any
+  /** Optional per-field value resolver (e.g. map userId → user name). Return undefined to fall back to default rendering. */
+  resolve?: (key: string, value: unknown) => React.ReactNode | undefined
 }
 
 interface FieldChange {
@@ -22,7 +24,7 @@ interface FieldChange {
   newValue: any
 }
 
-export function DiffViewer({ oldValue, newValue }: DiffViewerProps) {
+export function DiffViewer({ oldValue, newValue, resolve }: DiffViewerProps) {
   const [showRaw, setShowRaw] = useState(false)
 
   if (!oldValue && !newValue) {
@@ -33,7 +35,7 @@ export function DiffViewer({ oldValue, newValue }: DiffViewerProps) {
   if (!oldValue && newValue) {
     return (
       <div className="space-y-2">
-        <FieldList data={newValue} tone="positive" />
+        <FieldList data={newValue} tone="positive" resolve={resolve} />
         <RawJsonDisclosure
           show={showRaw}
           onToggle={() => setShowRaw(v => !v)}
@@ -48,7 +50,7 @@ export function DiffViewer({ oldValue, newValue }: DiffViewerProps) {
   if (oldValue && !newValue) {
     return (
       <div className="space-y-2">
-        <FieldList data={oldValue} tone="negative" />
+        <FieldList data={oldValue} tone="negative" resolve={resolve} />
         <RawJsonDisclosure
           show={showRaw}
           onToggle={() => setShowRaw(v => !v)}
@@ -81,10 +83,14 @@ export function DiffViewer({ oldValue, newValue }: DiffViewerProps) {
               {formatFieldLabel(change.field)}
             </div>
             <div className="text-red-700 line-through decoration-red-300 break-words min-w-0">
-              {renderFieldValue(change.field, change.oldValue)}
+              {resolve
+                ? resolve(change.field, change.oldValue) ?? renderFieldValue(change.field, change.oldValue)
+                : renderFieldValue(change.field, change.oldValue)}
             </div>
             <div className="text-green-700 font-medium break-words min-w-0">
-              {renderFieldValue(change.field, change.newValue)}
+              {resolve
+                ? resolve(change.field, change.newValue) ?? renderFieldValue(change.field, change.newValue)
+                : renderFieldValue(change.field, change.newValue)}
             </div>
           </div>
         ))}

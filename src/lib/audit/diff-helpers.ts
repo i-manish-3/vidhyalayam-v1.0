@@ -174,14 +174,19 @@ export function generateDetailedDescription(
 
 function generatePaymentDescription(action: string, diff: Record<string, any>, metadata?: any): string {
   if (action === 'created' || action === 'payment_recorded') {
-    const amount = diff.amount?.new || metadata?.amount;
-    const method = diff.paymentMethod?.new || metadata?.paymentMethod;
-    const receipt = diff.receiptNumber?.new || metadata?.receiptNumber;
-    return `Recorded payment of ₹${amount} via ${method} (Receipt: ${receipt})`;
+    const amount = diff.amount?.new ?? metadata?.amount;
+    const method = diff.paymentMethod?.new ?? metadata?.paymentMethod;
+    const receipt = diff.receiptNumber?.new ?? metadata?.receiptNumber;
+
+    let description = 'Recorded payment';
+    if (isPresent(amount)) description += ` of ₹${amount}`;
+    if (isPresent(method)) description += ` via ${method}`;
+    if (isPresent(receipt)) description += ` (Receipt: ${receipt})`;
+    return description;
   }
   if (action === 'payment_cancelled') {
-    const receipt = diff.receiptNumber?.new || metadata?.receiptNumber;
-    const reason = diff.cancellationReason?.new || metadata?.cancellationReason;
+    const receipt = diff.receiptNumber?.new ?? metadata?.receiptNumber;
+    const reason = diff.cancellationReason?.new ?? metadata?.cancellationReason;
     return `Cancelled payment receipt ${receipt}${reason ? `: ${reason}` : ''}`;
   }
   return formatDiffSummary(diff, 'Payment');
@@ -189,9 +194,13 @@ function generatePaymentDescription(action: string, diff: Record<string, any>, m
 
 function generateInvoiceDescription(action: string, diff: Record<string, any>, metadata?: any): string {
   if (action === 'created') {
-    const invoiceNumber = diff.invoiceNumber?.new || metadata?.invoiceNumber;
-    const amount = diff.totalAmount?.new || metadata?.totalAmount;
-    return `Created invoice ${invoiceNumber} for ₹${amount}`;
+    const invoiceNumber = diff.invoiceNumber?.new ?? metadata?.invoiceNumber;
+    const amount = diff.totalAmount?.new ?? metadata?.totalAmount;
+
+    let description = 'Created invoice';
+    if (isPresent(invoiceNumber)) description += ` ${invoiceNumber}`;
+    if (isPresent(amount)) description += ` for ₹${amount}`;
+    return description;
   }
   if (action === 'locked') {
     return 'Locked invoice';
@@ -207,9 +216,15 @@ function generateLedgerDescription(action: string, diff: Record<string, any>, me
     const balance = diff.balanceAmount?.new || metadata?.balanceAmount;
 
     if (entryType === 'DEBIT') {
-      return `Added debit entry of ₹${debit} (Balance: ₹${balance})`;
+      let description = 'Added debit entry';
+      if (isPresent(debit)) description += ` of ₹${debit}`;
+      if (isPresent(balance)) description += ` (Balance: ₹${balance})`;
+      return description;
     } else if (entryType === 'CREDIT') {
-      return `Added credit entry of ₹${credit} (Balance: ₹${balance})`;
+      let description = 'Added credit entry';
+      if (isPresent(credit)) description += ` of ₹${credit}`;
+      if (isPresent(balance)) description += ` (Balance: ₹${balance})`;
+      return description;
     }
     return `Created ${entryType} ledger entry`;
   }
@@ -218,12 +233,16 @@ function generateLedgerDescription(action: string, diff: Record<string, any>, me
 
 function generateRefundDescription(action: string, diff: Record<string, any>, metadata?: any): string {
   if (action === 'refund_issued') {
-    const amount = diff.amount?.new || metadata?.amount;
-    const receipt = diff.receiptNumber?.new || metadata?.receiptNumber;
-    return `Issued refund of ₹${amount} (Receipt: ${receipt})`;
+    const amount = diff.amount?.new ?? metadata?.amount;
+    const receipt = diff.receiptNumber?.new ?? metadata?.receiptNumber;
+
+    let description = 'Issued refund';
+    if (isPresent(amount)) description += ` of ₹${amount}`;
+    if (isPresent(receipt)) description += ` (Receipt: ${receipt})`;
+    return description;
   }
   if (action === 'refund_voided') {
-    const reason = diff.voidReason?.new || metadata?.voidReason;
+    const reason = diff.voidReason?.new ?? metadata?.voidReason;
     return `Voided refund${reason ? `: ${reason}` : ''}`;
   }
   return formatDiffSummary(diff, 'Refund');
@@ -231,8 +250,8 @@ function generateRefundDescription(action: string, diff: Record<string, any>, me
 
 function generateStructureDescription(action: string, diff: Record<string, any>, metadata?: any): string {
   if (action === 'created') {
-    const name = diff.name?.new || metadata?.name;
-    return `Created fee structure: ${name}`;
+    const name = diff.name?.new ?? metadata?.name;
+    return isPresent(name) ? `Created fee structure: ${name}` : 'Created fee structure';
   }
   if (action === 'locked') {
     return 'Locked fee structure';
@@ -260,4 +279,11 @@ function generateConfigDescription(action: string, diff: Record<string, any>, me
     }
   }
   return formatDiffSummary(diff, 'Demand Config');
+}
+
+/**
+ * True when a value is usable for display (not null / undefined / empty).
+ */
+function isPresent(value: any): boolean {
+  return value !== null && value !== undefined && value !== '';
 }
