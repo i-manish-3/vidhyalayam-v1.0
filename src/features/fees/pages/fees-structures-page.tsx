@@ -601,7 +601,7 @@ export function FeesStructuresPage() {
     }
 
     const items = classStructureRows
-      .filter((row) => classStructureHeadIds.includes(row.feeHeadId) && row.period.trim() && row.amount && Number(row.amount) > 0)
+      .filter((row) => classStructureHeadIds.includes(row.feeHeadId) && row.period.trim() && row.amount.trim() !== '' && Number(row.amount) >= 0)
       .map((row) => ({
         feeHeadId: row.feeHeadId,
         period: row.period.trim(),
@@ -732,7 +732,7 @@ export function FeesStructuresPage() {
 
     // Build items
     const items = installmentRows
-      .filter((row) => row.period.trim() && row.amount && Number(row.amount) > 0)
+      .filter((row) => row.period.trim() && row.amount.trim() !== '' && Number(row.amount) >= 0)
       .map((row) => ({
         feeHeadId: row.feeHeadId,
         period: row.period.trim(),

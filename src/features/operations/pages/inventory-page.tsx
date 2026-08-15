@@ -733,34 +733,53 @@ export function InventoryPage() {
 
       {/* Stock movement dialog */}
       <Dialog open={!!stockItem} onOpenChange={(o) => !o && setStockItem(null)}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <div className="flex items-center gap-3">
-              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-sm">
-                <PackagePlus className="size-5" />
+        <DialogContent className="flex max-h-[90svh] flex-col overflow-hidden border-emerald-500/20 bg-card p-0 shadow-2xl shadow-emerald-500/15 sm:max-w-md [&>button]:right-3 [&>button]:top-3 [&>button]:rounded-full [&>button]:text-white [&>button]:opacity-85 [&>button]:hover:bg-white/15 [&>button]:hover:opacity-100">
+          <DialogHeader className="relative shrink-0 overflow-hidden border-b border-white/15 bg-[linear-gradient(135deg,#10b981_0%,#0ea5e9_60%,#8b5cf6_100%)] px-5 py-4 pr-12 text-white sm:px-6">
+            <div aria-hidden className="absolute -right-6 -top-10 size-32 rounded-full border-[18px] border-white/10" />
+            <div aria-hidden className="absolute -bottom-12 right-24 size-24 rounded-full bg-teal-300/20 blur-2xl" />
+            <div aria-hidden className="absolute bottom-0 left-1/3 h-px w-40 bg-gradient-to-r from-transparent via-white/40 to-transparent" />
+            <div className="relative flex items-center gap-3">
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-white/25 bg-white/15 shadow-md shadow-black/10 backdrop-blur-sm">
+                <PackagePlus className="size-5.5" />
               </span>
-              <div>
-                <DialogTitle>Adjust Stock</DialogTitle>
-                <DialogDescription>{stockItem?.name}</DialogDescription>
+              <div className="min-w-0">
+                <DialogTitle className="text-lg font-bold">Adjust Stock</DialogTitle>
+                <DialogDescription className="truncate text-xs text-white/75">{stockItem?.name}</DialogDescription>
               </div>
             </div>
           </DialogHeader>
-          <div className="grid gap-3 py-2">
+
+          <div className="themed-scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain bg-gradient-to-br from-emerald-500/[0.03] via-background to-teal-500/[0.055] p-4 sm:p-5">
             {stockItem && (stockItem.variantLabel != null || stockItem.variants.length > 1) && (
-              <div className="space-y-2">
-                <Label>{stockItem.variantLabel || 'Variant'}</Label>
+              <section className="relative overflow-hidden rounded-xl border border-emerald-200/80 bg-gradient-to-br from-emerald-50 via-white to-teal-50 p-4 shadow-sm dark:border-emerald-500/25 dark:from-emerald-500/15 dark:via-card dark:to-teal-500/10">
+                <div className="relative mb-3 flex items-center gap-2">
+                  <span className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-sm"><Boxes className="size-4 text-white" /></span>
+                  <div>
+                    <h3 className="text-sm font-semibold">{stockItem.variantLabel || 'Variant'}</h3>
+                    <p className="text-[10px] text-muted-foreground">Pick the variant to adjust</p>
+                  </div>
+                </div>
                 <Select value={stockForm.variantId} onValueChange={(v) => setStockForm((f) => ({ ...f, variantId: v }))}>
-                  <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                  <SelectTrigger className="h-8 w-full bg-white shadow-xs dark:bg-input/20">
+                    <SelectValue placeholder="Select" />
+                  </SelectTrigger>
                   <SelectContent>
                     {stockItem.variants.map((v) => <SelectItem key={v.id} value={v.id}>{v.label || 'Default'} — {v.quantity} in stock</SelectItem>)}
                   </SelectContent>
                 </Select>
-              </div>
+              </section>
             )}
-            <div className="space-y-2">
-              <Label>Movement</Label>
+
+            <section className="relative overflow-hidden rounded-xl border border-violet-200/80 bg-gradient-to-br from-violet-50 via-white to-fuchsia-50 p-4 shadow-sm dark:border-violet-500/25 dark:from-violet-500/15 dark:via-card dark:to-fuchsia-500/10">
+              <div className="relative mb-3 flex items-center gap-2">
+                <span className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 text-white shadow-sm"><Box className="size-4 text-white" /></span>
+                <div>
+                  <h3 className="text-sm font-semibold">Movement</h3>
+                  <p className="text-[10px] text-muted-foreground">How the stock level should change</p>
+                </div>
+              </div>
               <Select value={stockForm.type} onValueChange={(v) => setStockForm((f) => ({ ...f, type: v }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-8 w-full bg-white shadow-xs dark:bg-input/20"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="IN">
                     <div className="flex items-center gap-2">
@@ -782,20 +801,35 @@ export function InventoryPage() {
                   </SelectItem>
                 </SelectContent>
               </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>{stockForm.type === 'ADJUST' ? 'New count' : 'Quantity'}</Label>
-              <Input type="number" value={stockForm.quantity} onChange={(e) => setStockForm((f) => ({ ...f, quantity: e.target.value }))} />
-            </div>
-            <div className="space-y-2">
-              <Label>Reason (optional)</Label>
-              <Input value={stockForm.reason} onChange={(e) => setStockForm((f) => ({ ...f, reason: e.target.value }))} />
-            </div>
+            </section>
+
+            <section className="relative overflow-hidden rounded-xl border border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-indigo-50 p-4 shadow-sm dark:border-sky-500/25 dark:from-sky-500/15 dark:via-card dark:to-indigo-500/10">
+              <div className="relative mb-3 flex items-center gap-2">
+                <span className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-cyan-600 text-white shadow-sm"><Tags className="size-4 text-white" /></span>
+                <div>
+                  <h3 className="text-sm font-semibold">{stockForm.type === 'ADJUST' ? 'New count' : 'Quantity'}</h3>
+                  <p className="text-[10px] text-muted-foreground">{stockForm.type === 'ADJUST' ? 'Set the exact counted stock' : 'Amount to add or remove'}</p>
+                </div>
+              </div>
+              <Input type="number" value={stockForm.quantity} onChange={(e) => setStockForm((f) => ({ ...f, quantity: e.target.value }))} className="h-8 w-full bg-white text-xs shadow-xs dark:bg-input/20" />
+            </section>
+
+            <section className="relative overflow-hidden rounded-xl border border-amber-200/80 bg-gradient-to-br from-amber-50 via-white to-orange-50 p-4 shadow-sm dark:border-amber-500/25 dark:from-amber-500/15 dark:via-card dark:to-orange-500/10">
+              <div className="relative mb-3 flex items-center gap-2">
+                <span className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 text-white shadow-sm"><AlertCircle className="size-4 text-white" /></span>
+                <div>
+                  <h3 className="text-sm font-semibold">Reason</h3>
+                  <p className="text-[10px] text-muted-foreground">Optional note for the audit trail</p>
+                </div>
+              </div>
+              <Input value={stockForm.reason} onChange={(e) => setStockForm((f) => ({ ...f, reason: e.target.value }))} className="h-8 w-full bg-white text-xs shadow-xs dark:bg-input/20" placeholder="e.g. Monthly restock" />
+            </section>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setStockItem(null)}>Cancel</Button>
-            <Button onClick={handleStock} disabled={stockForm.quantity === '' || !stockForm.variantId || !canUpdate} className="gap-2">
-              <PackagePlus className="size-4" /> Apply
+
+          <DialogFooter className="shrink-0 border-t border-primary/10 bg-muted/30 px-4 py-3 sm:px-5">
+            <Button variant="outline" size="sm" className="h-8 px-4 text-xs" onClick={() => setStockItem(null)}>Cancel</Button>
+            <Button size="sm" className="h-8 gap-1.5 px-4 text-xs" onClick={handleStock} disabled={stockForm.quantity === '' || !stockForm.variantId || !canUpdate}>
+              <PackagePlus className="size-3.5" /> Apply
             </Button>
           </DialogFooter>
         </DialogContent>
