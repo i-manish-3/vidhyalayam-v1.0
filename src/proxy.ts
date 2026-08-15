@@ -25,6 +25,25 @@ const CORS_ALLOWED_HEADERS = [
   'ngrok-skip-browser-warning',
 ].join(', ')
 
+// ─── Host-based routing ─────────────────────────────────────────────────────
+// The marketing site (vidhyalayam.com) must only serve the landing page. Every
+// other path belongs to the ERP and is 308-redirected to erp.vidhyalayam.com.
+const ERP_HOST = 'erp.vidhyalayam.com'
+
+const isLocalHost = (host: string) =>
+  host === '' ||
+  host === 'localhost' ||
+  host.startsWith('127.') ||
+  host.startsWith('192.168.') ||
+  host.startsWith('10.')
+
+const isERPHost = (host: string) => host === ERP_HOST || host.startsWith('erp.')
+
+const isAssetPath = (pathname: string) =>
+  pathname.startsWith('/_next') ||
+  pathname.startsWith('/favicon') ||
+  pathname === '/icon.svg'
+
 function applyCors(request: NextRequest, response: NextResponse): NextResponse {
   const origin = request.headers.get('origin')
   if (!origin || !CORS_ALLOWED_ORIGINS.has(origin)) return response
@@ -54,8 +73,21 @@ const SKIP_PATHS = new Set([
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
+  const host = request.headers.get('host')?.split(':')[0] ?? ''
+  const isLocal = isLocalHost(host)
+
   if (request.method === 'OPTIONS') {
     return applyCors(request, new NextResponse(null, { status: 204 }))
+  }
+
+  // Non-API traffic: enforce host-based routing only, then pass through.
+  // API calls (including from the marketing site) bypass the host gate.
+  if (!pathname.startsWith('/api')) {
+    if (isLocal || isAssetPath(pathname) || isERPHost(host) || pathname === '/') {
+      return applyCors(request, NextResponse.next())
+    }
+    const target = new URL(pathname + request.nextUrl.search, `https://${ERP_HOST}`)
+    return applyCors(request, NextResponse.redirect(target, 308))
   }
 
   if (SKIP_PATHS.has(pathname)) {
@@ -87,8 +119,9 @@ export async function proxy(request: NextRequest) {
   return applyCors(request, NextResponse.next())
 }
 
-// Run on /api/* only. Static assets, pages, and image optimization are untouched.
+// Runs on all requests except Next.js internals and static assets. Static
+// assets, image optimization, and the landing page root are never redirected.
 // Next.js 16 proxy always runs on Node.js — no runtime config needed.
 export const config = {
-  matcher: '/api/:path*',
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|icon.svg).*)'],
 }
