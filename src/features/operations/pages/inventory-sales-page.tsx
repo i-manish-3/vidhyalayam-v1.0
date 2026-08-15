@@ -30,10 +30,14 @@ import {
   Scale,
   FileText,
   User,
+  Search,
+  Filter,
+  X,
   type LucideIcon,
 } from 'lucide-react'
 import { buildInventoryReceiptHtml } from '@/lib/inventory-receipt-template'
 import type { SchoolForPrintHeader } from '@/lib/print-header'
+import { DatePicker } from '@/components/date-picker'
 
 interface SaleItem { id: string; itemName: string; variantLabel: string | null; quantity: number; unitPrice: number; lineTotal: number; returnedQty: number }
 interface SaleReturn {
@@ -202,6 +206,11 @@ export function InventorySalesPage() {
   const [collectAmount, setCollectAmount] = useState('')
   const [collectMethod, setCollectMethod] = useState('cash')
   const [collecting, setCollecting] = useState(false)
+  const [q, setQ] = useState('')
+  const [statusQ, setStatusQ] = useState('all')
+  const [returnQ, setReturnQ] = useState('all')
+  const [fromDate, setFromDate] = useState('')
+  const [toDate, setToDate] = useState('')
 
   const fetchSales = useCallback(async () => {
     try {
@@ -223,6 +232,38 @@ export function InventorySalesPage() {
     const refundsDue = sales.reduce((sum, sale) => sum + (sale.pendingRefund || 0), 0)
     return { count: sales.length, totalAmount, collected, due, voided, refundsDue }
   }, [sales])
+
+  const hasReturns = (s: SaleListRow): boolean => s.items.some((i) => i.returnedQty > 0)
+
+  const filtered = useMemo(() => {
+    const term = q.trim().toLowerCase()
+    return sales.filter((s) => {
+      if (statusQ === 'voided' && s.status !== 'voided') return false
+      if (['paid', 'partial', 'due'].includes(statusQ) && (s.status === 'voided' || s.dueStatus !== statusQ)) return false
+      const withReturns = hasReturns(s)
+      if (returnQ === 'returns' && !withReturns) return false
+      if (returnQ === 'pending' && !(withReturns && (s.pendingRefund || 0) > 0)) return false
+      if (returnQ === 'settled' && !(withReturns && (s.pendingRefund || 0) === 0)) return false
+      if (term) {
+        const student = s.student
+        const hay = `${s.receiptNumber} ${student ? `${student.firstName} ${student.lastName} ${student.admissionNumber ?? ''}` : ''}`.toLowerCase()
+        if (!hay.includes(term)) return false
+      }
+      if (fromDate) {
+        const from = new Date(`${fromDate}T00:00:00`)
+        if (new Date(s.saleDate) < from) return false
+      }
+      if (toDate) {
+        const to = new Date(`${toDate}T23:59:59.999`)
+        if (new Date(s.saleDate) > to) return false
+      }
+      return true
+    })
+  }, [sales, q, statusQ, returnQ, fromDate, toDate])
+
+  const filtersActive = q !== '' || statusQ !== 'all' || returnQ !== 'all' || fromDate !== '' || toDate !== ''
+
+  const clearFilters = () => { setQ(''); setStatusQ('all'); setReturnQ('all'); setFromDate(''); setToDate('') }
 
   const openReceipt = async (id: string) => {
     setDetailLoading(true)
@@ -406,11 +447,75 @@ export function InventorySalesPage() {
                 Sales Records
               </CardTitle>
               <Badge variant="secondary" className="text-xs">
-                {sales.length.toLocaleString('en-IN')} records
+                {filtersActive ? `${filtered.length} of ${sales.length}` : sales.length} records
               </Badge>
             </div>
           </CardHeader>
           <CardContent className="p-0">
+            {/* Advanced filters */}
+            <div className="border-b border-sky-500/10 bg-gradient-to-r from-sky-500/[0.03] via-transparent to-violet-500/[0.04] px-4 py-3">
+              <div className="flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between">
+                <div className="relative w-full max-w-xs">
+                  <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    value={q}
+                    onChange={(e) => setQ(e.target.value)}
+                    placeholder="Search receipt # or student…"
+                    className="h-8 rounded-lg pl-8 text-sm"
+                  />
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Select value={statusQ} onValueChange={setStatusQ}>
+                    <SelectTrigger className="h-8 w-[125px] text-xs">
+                      <SelectValue placeholder="Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All statuses</SelectItem>
+                      <SelectItem value="paid">Paid</SelectItem>
+                      <SelectItem value="partial">Partial</SelectItem>
+                      <SelectItem value="due">On Due</SelectItem>
+                      <SelectItem value="voided">Reversed</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Select value={returnQ} onValueChange={setReturnQ}>
+                    <SelectTrigger className="h-8 w-[130px] text-xs">
+                      <SelectValue placeholder="Returns" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All returns</SelectItem>
+                      <SelectItem value="returns">Has returns</SelectItem>
+                      <SelectItem value="pending">Refund pending</SelectItem>
+                      <SelectItem value="settled">Refund settled</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <div className="flex items-center gap-1.5">
+                    <DatePicker
+                      value={fromDate}
+                      onChange={setFromDate}
+                      disableFuture
+                      showQuickActions
+                      placeholder="From date"
+                      triggerClassName="h-8 w-[135px] text-xs"
+                    />
+                    <span className="text-xs text-muted-foreground">→</span>
+                    <DatePicker
+                      value={toDate}
+                      onChange={setToDate}
+                      disableFuture
+                      showQuickActions
+                      placeholder="To date"
+                      triggerClassName="h-8 w-[135px] text-xs"
+                    />
+                  </div>
+                  {filtersActive && (
+                    <Button variant="ghost" size="sm" className="h-8 gap-1 text-xs text-muted-foreground" onClick={clearFilters}>
+                      <X className="size-3.5" />Clear
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+
             <div className="mx-4 mt-4 mb-4 overflow-x-auto rounded-xl border border-sky-500/15 shadow-sm">
               <Table>
                 <TableHeader className="bg-gradient-to-r from-sky-500/[0.08] via-primary/[0.04] to-violet-500/[0.07]">
@@ -425,7 +530,7 @@ export function InventorySalesPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {sales.map((s) => (
+                  {filtered.map((s) => (
                     <TableRow key={s.id} className="transition-colors hover:bg-sky-500/[0.04]">
                       <TableCell className="py-2.5">
                         <span className="inline-flex items-center gap-1.5 rounded-md bg-primary/5 px-2 py-0.5 text-xs font-semibold text-primary tabular-nums">
@@ -474,6 +579,19 @@ export function InventorySalesPage() {
                       </TableCell>
                     </TableRow>
                   ))}
+                  {filtered.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={7} className="py-10 text-center">
+                        <div className="flex flex-col items-center gap-2">
+                          <Filter className="size-6 text-muted-foreground/50" />
+                          <p className="text-sm font-medium text-muted-foreground">No sales match these filters</p>
+                          <Button variant="outline" size="sm" className="h-8 gap-1 text-xs" onClick={clearFilters}>
+                            <X className="size-3.5" />Clear filters
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )}
                 </TableBody>
               </Table>
             </div>
