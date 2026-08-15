@@ -12,7 +12,6 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import {
   ShoppingCart,
   Loader2,
@@ -464,57 +463,56 @@ export function InventorySellPage() {
                 <span className="text-xs">Tap items on the left to add them here.</span>
               </div>
             ) : (
-              <div className="overflow-hidden rounded-xl border border-violet-500/15 shadow-xs">
-                <Table>
-                  <TableHeader className="bg-gradient-to-r from-violet-500/[0.08] via-primary/[0.04] to-amber-500/[0.06]">
-                    <TableRow>
-                      <TableHead className="py-2.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Item</TableHead>
-                      <TableHead className="py-2.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Qty</TableHead>
-                      <TableHead className="py-2.5 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">Total</TableHead>
-                      <TableHead className="w-10 py-2.5" />
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {cart.map((l, i) => (
-                      <TableRow key={l.variantId} className={cn(i % 2 === 0 ? 'bg-background' : 'bg-muted/20')}>
-                        <TableCell className="py-2">
-                          <div className="max-w-[160px] truncate text-sm font-medium leading-tight">{l.name}</div>
-                          <div className="mt-0.5 text-[11px] text-muted-foreground">{inr(l.unitPrice)} each</div>
-                        </TableCell>
-                        <TableCell className="py-2">
-                          <div className="flex items-center gap-1">
-                            <button
-                              type="button"
-                              onClick={() => setQty(l.variantId, l.quantity - 1)}
-                              className="flex size-6 items-center justify-center rounded-md border border-input bg-background text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                            >
-                              <Minus className="size-3" />
-                            </button>
-                            <span className="flex w-7 items-center justify-center text-sm tabular-nums font-semibold">{l.quantity}</span>
-                            <button
-                              type="button"
-                              onClick={() => setQty(l.variantId, l.quantity + 1)}
-                              disabled={l.quantity >= l.available}
-                              className="flex size-6 items-center justify-center rounded-md border border-input bg-background text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed"
-                            >
-                              <Plus className="size-3" />
-                            </button>
+              <div className="themed-scrollbar max-h-72 space-y-1.5 overflow-y-auto overscroll-contain pr-0.5">
+                {cart.map((l) => {
+                  const lineTotal = l.unitPrice * l.quantity
+                  return (
+                    <div
+                      key={l.variantId}
+                      className="group rounded-lg border border-violet-500/15 bg-gradient-to-br from-violet-500/[0.04] via-card to-violet-500/[0.02] p-2 transition-colors hover:border-violet-500/30"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-sm font-medium leading-tight">{l.name}</div>
+                          <div className="mt-0.5 text-[11px] text-muted-foreground">
+                            {inr(l.unitPrice)} each
+                            {l.available <= (l.quantity + 5) && (
+                              <span className="ml-1.5 text-[10px] text-amber-600 dark:text-amber-400">{Math.max(0, l.available - l.quantity)} left</span>
+                            )}
                           </div>
-                        </TableCell>
-                        <TableCell className="py-2 text-right tabular-nums font-semibold">{inr(l.unitPrice * l.quantity)}</TableCell>
-                        <TableCell className="py-2">
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeLine(l.variantId)}
+                          className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground/40 transition-colors hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-950/30"
+                        >
+                          <Trash2 className="size-3.5" />
+                        </button>
+                      </div>
+                      <div className="mt-1.5 flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1">
                           <button
                             type="button"
-                            onClick={() => removeLine(l.variantId)}
-                            className="flex size-6 items-center justify-center rounded-md text-muted-foreground/50 transition-colors hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-950/30"
+                            onClick={() => setQty(l.variantId, l.quantity - 1)}
+                            className="flex size-6 items-center justify-center rounded-md border border-input bg-background text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                           >
-                            <Trash2 className="size-3.5" />
+                            <Minus className="size-3" />
                           </button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                          <span className="flex w-7 items-center justify-center text-sm tabular-nums font-semibold">{l.quantity}</span>
+                          <button
+                            type="button"
+                            onClick={() => setQty(l.variantId, l.quantity + 1)}
+                            disabled={l.quantity >= l.available}
+                            className="flex size-6 items-center justify-center rounded-md border border-input bg-background text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed"
+                          >
+                            <Plus className="size-3" />
+                          </button>
+                        </div>
+                        <span className="truncate text-sm font-semibold tabular-nums text-violet-700 dark:text-violet-300">{inr(lineTotal)}</span>
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
             )}
 
