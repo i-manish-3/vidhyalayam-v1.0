@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { ThemeProvider } from 'next-themes'
 import { useAppStore } from '@/lib/store'
@@ -72,6 +72,30 @@ function AppContent() {
     router.replace('/dashboard')
   }, [hydrated, isAuthenticated, router])
 
+  // On the ERP host the root is the login page, not the marketing landing.
+  // Visitors hitting https://erp.vidhyalayam.com/ are sent straight into login.
+  const isERPHost = useMemo(() => {
+    if (typeof window === 'undefined') return false
+    const host = window.location.hostname
+    return host === 'erp.vidhyalayam.com' || host.startsWith('erp.')
+  }, [])
+
+  useEffect(() => {
+    if (!hydrated) return
+    if (isAuthenticated) return
+    if (isERPHost) router.replace('/login')
+  }, [hydrated, isAuthenticated, isERPHost, router])
+
+  const handleLoginClick = () => {
+    const host = typeof window !== 'undefined' ? window.location.hostname : ''
+    if (host.includes('localhost') || host.startsWith('192.') || host.startsWith('10.') || host === '') {
+      router.push('/login')
+    } else {
+      // Landing on the marketing domain — send users to the ERP login.
+      window.location.href = 'https://erp.vidhyalayam.com/login'
+    }
+  }
+
   if (!hydrated || isAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-brand-page">
@@ -88,7 +112,7 @@ function AppContent() {
   // bounce-backs) completes before React unmounts the tree. Synchronous
   // router.push during a motion frame crashes Turbopack with
   // "Cannot read properties of null (reading 'removeChild')".
-  return <LandingPage onLoginClick={() => setTimeout(() => router.push('/login'), 0)} />
+  return <LandingPage onLoginClick={() => setTimeout(handleLoginClick, 0)} />
 }
 
 export default function Home() {
