@@ -14,7 +14,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import {
@@ -696,45 +696,41 @@ export function StudentHousesPage() {
       </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="border-sky-200/80 bg-gradient-to-br from-white via-sky-50/45 to-cyan-50/60 p-0 shadow-xl dark:border-sky-500/25 dark:from-card dark:via-sky-500/10 dark:to-cyan-500/10">
-          <DialogHeader className="relative overflow-hidden rounded-t-lg border-b border-sky-500/15 bg-gradient-to-r from-primary via-teal-600 to-cyan-600 p-5 text-white">
-            <div aria-hidden className="absolute -right-10 -top-12 size-32 rounded-full border-[16px] border-white/15" />
-            <div aria-hidden className="absolute bottom-0 right-32 h-px w-48 bg-gradient-to-r from-transparent via-white/50 to-transparent" />
-            <div className="flex items-start gap-3">
-              <div className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-white/25 bg-white/15 shadow-md shadow-black/10 backdrop-blur-sm">
-                <Home className="size-5" />
+        <DialogContent className="flex max-h-[90svh] flex-col overflow-hidden border-primary/20 bg-card p-0 shadow-2xl shadow-primary/15 sm:max-w-xl [&>button]:right-3 [&>button]:top-3 [&>button]:rounded-full [&>button]:text-white [&>button]:opacity-85 [&>button]:hover:bg-white/15 [&>button]:hover:opacity-100">
+          <DialogHeader className="relative shrink-0 overflow-hidden border-b border-white/15 bg-[linear-gradient(135deg,var(--primary)_0%,#0d9488_48%,#2563eb_100%)] px-5 py-4 pr-12 text-white sm:px-6">
+            <div aria-hidden className="absolute -right-10 -top-16 size-40 rounded-full border-[18px] border-white/10" />
+            <div aria-hidden className="absolute -bottom-14 left-10 size-28 rounded-full bg-emerald-300/20 blur-2xl" />
+            <div aria-hidden className="absolute bottom-0 right-24 h-24 w-44 rounded-full bg-sky-300/15 blur-2xl" />
+            <div className="relative flex items-center gap-3">
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-white/25 bg-white/15 text-white shadow-md backdrop-blur-sm">
+                <Home className="size-5 text-white" />
+              </span>
+              <div>
+                <DialogTitle className="text-lg font-bold tracking-normal text-white">{editingHouse ? 'Edit House' : 'Create House'}</DialogTitle>
+                <DialogDescription className="mt-0.5 text-xs text-white/75">Give the house a name and color. Students can be assigned after saving.</DialogDescription>
               </div>
-              <div className="min-w-0 space-y-1">
-                <DialogTitle className="text-white">{editingHouse ? 'Edit House' : 'Create House'}</DialogTitle>
-                <DialogDescription className="text-white/80">Give the house a name and color. Students can be assigned after saving.</DialogDescription>
-              </div>
-              <DialogClose className="absolute top-3 right-3 z-20 flex size-8 items-center justify-center rounded-full border border-white/30 bg-white/15 text-white/90 shadow-sm backdrop-blur-sm transition-all hover:bg-white/30 hover:text-white">
-                <X className="size-4" />
-                <span className="sr-only">Close</span>
-              </DialogClose>
             </div>
           </DialogHeader>
-          <div className="space-y-4 p-5">
-            <div className="rounded-xl border border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-cyan-50 p-4 shadow-sm dark:border-sky-500/25 dark:from-sky-500/10 dark:via-card dark:to-cyan-500/10">
-              <div className="mb-3 flex items-center gap-2 border-b border-sky-500/15 pb-2.5 text-sm font-semibold">
-                <span className="flex size-7 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-cyan-600 text-white shadow-sm">
-                  <Home className="size-3.5" />
-                </span>
-                House details
+          <div className="themed-scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain bg-gradient-to-br from-primary/[0.03] via-background to-cyan-500/[0.055] p-4 sm:p-5">
+            <section className="relative overflow-hidden rounded-xl border border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-cyan-50 p-4 shadow-sm dark:border-sky-500/25 dark:from-sky-500/15 dark:via-card dark:to-cyan-500/10 sm:p-5">
+              <div aria-hidden className="absolute -right-7 -top-10 size-28 rounded-full bg-sky-200/35 blur-xl dark:bg-sky-500/15" />
+              <div className="relative mb-3 flex items-center gap-2">
+                <span className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-cyan-600 text-white shadow-sm"><Home className="size-4 text-white" /></span>
+                <div><h3 className="text-sm font-semibold">House details</h3><p className="text-[10px] text-muted-foreground">Name and color shown on student profiles</p></div>
               </div>
-              <div className="space-y-4">
+              <div className="relative space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="house-name">House Name</Label>
-                  <Input id="house-name" value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} placeholder="e.g., Red House" />
+                  <Label htmlFor="house-name" className="text-xs font-medium">House Name</Label>
+                  <Input id="house-name" value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} placeholder="e.g., Red House" className="h-9 bg-white shadow-sm dark:bg-input/30" />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="house-color">Color</Label>
+                  <Label htmlFor="house-color" className="text-xs font-medium">Color</Label>
                   <div className="flex flex-wrap items-center gap-2" id="house-color">
                     {DEFAULT_COLORS.map((color) => (
                       <button
                         key={color}
                         type="button"
-                        className={`size-8 rounded-full border-2 ${form.color === color ? 'border-foreground' : 'border-transparent'}`}
+                        className={`size-8 rounded-full border-2 ${form.color === color ? 'border-foreground scale-110' : 'border-transparent hover:border-muted-foreground/40'}`}
                         style={{ backgroundColor: color }}
                         onClick={() => setForm((current) => ({ ...current, color }))}
                         aria-label={color}
@@ -744,42 +740,41 @@ export function StudentHousesPage() {
                       type="color"
                       value={form.color}
                       onChange={(event) => setForm((current) => ({ ...current, color: event.target.value }))}
-                      className="h-8 w-14 p-1"
+                      className="h-8 w-14 cursor-pointer rounded-md border-0 p-0"
                     />
                     <span className="text-xs font-mono text-muted-foreground">{form.color}</span>
                   </div>
                 </div>
               </div>
-            </div>
-            <div className="rounded-xl border border-violet-200/80 bg-gradient-to-br from-violet-50 via-white to-fuchsia-50 p-4 shadow-sm dark:border-violet-500/25 dark:from-violet-500/10 dark:via-card dark:to-fuchsia-500/10">
-              <div className="mb-3 flex items-center gap-2 border-b border-violet-500/15 pb-2.5 text-sm font-semibold">
-                <span className="flex size-7 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-600 text-white shadow-sm">
-                  <Palette className="size-3.5" />
-                </span>
-                Description
+            </section>
+            <section className="relative overflow-hidden rounded-xl border border-violet-200/80 bg-gradient-to-br from-violet-50 via-white to-fuchsia-50 p-4 shadow-sm dark:border-violet-500/25 dark:from-violet-500/15 dark:via-card dark:to-fuchsia-500/10 sm:p-5">
+              <div aria-hidden className="absolute -right-7 -top-10 size-28 rounded-full bg-violet-200/35 blur-xl dark:bg-violet-500/15" />
+              <div className="relative mb-3 flex items-center gap-2">
+                <span className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-600 text-white shadow-sm"><Palette className="size-4 text-white" /></span>
+                <div><h3 className="text-sm font-semibold">Description</h3><p className="text-[10px] text-muted-foreground">A short note about this house</p></div>
               </div>
-              <Textarea value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} rows={3} placeholder="Optional note" />
-            </div>
+              <Textarea value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} rows={3} placeholder="Optional note" className="relative resize-none bg-white shadow-sm dark:bg-input/30" />
+            </section>
           </div>
-          <DialogFooter className="border-t border-sky-500/15 bg-white/80 p-4 dark:bg-card/80">
+          <DialogFooter className="shrink-0 border-t border-primary/10 bg-muted/30 px-4 py-3 sm:px-5">
             <div className="flex w-full items-center justify-between gap-3 max-sm:flex-col">
-              <p className="hidden text-xs text-sky-600/60 sm:block dark:text-sky-300/40">
+              <p className="hidden text-xs text-muted-foreground/60 sm:block dark:text-muted-foreground/40">
                 <span className="inline-flex items-center gap-1">
                   <Home className="size-3" />
                   {editingHouse ? 'Update house details' : 'Create a new student house'}
                 </span>
               </p>
               <div className="flex items-center gap-2">
-                <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={saving} className="bg-white dark:bg-card">
+                <Button variant="outline" size="sm" className="h-8 px-4 text-xs" onClick={() => setDialogOpen(false)} disabled={saving}>
                   Cancel
                 </Button>
                 <Button
+                  size="sm"
+                  className="h-8 gap-1.5 px-4 text-xs"
                   onClick={submitHouse}
                   disabled={saving}
-                  className="gap-1.5 bg-gradient-to-r from-primary to-cyan-600 shadow-sm shadow-primary/20"
                 >
-                  {saving && <Loader2 className="size-4 animate-spin" />}
-                  <Save className="size-4" />
+                  {saving ? <Loader2 className="size-3.5 animate-spin" /> : <Save className="size-3.5" />}
                   Save House
                 </Button>
               </div>
