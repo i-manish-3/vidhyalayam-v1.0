@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { PageHeader, LoadingState, EmptyState } from '@/components/shared'
+import { LoadingState, EmptyState } from '@/components/shared'
 import { api } from '@/lib/api'
 import { useAppStore } from '@/lib/store'
 import { getCurrentAcademicYear, toAcademicYearOptions } from '@/lib/academic-years'
@@ -123,6 +123,8 @@ export function ChangeFeeGroupPage() {
   const [fullYearTarget, setFullYearTarget] = useState<EligibleAssignment | null>(null)
   const [fullYearReason, setFullYearReason] = useState('')
   const [billingFullYear, setBillingFullYear] = useState(false)
+  const [selectedFullYearIds, setSelectedFullYearIds] = useState<Set<string>>(new Set())
+  const [fullYearBulkOpen, setFullYearBulkOpen] = useState(false)
 
   // ─── Assign Fee Group tab ─────────────────────────────────────────────────
   const [classes, setClasses] = useState<ClassOption[]>([])
@@ -343,6 +345,89 @@ export function ChangeFeeGroupPage() {
     setFullYearReason('')
   }
 
+  // Multi-select for the Full Year tab — several pro-rated students can be
+  // billed for the full academic year in one pass.
+  const allFullYearSelected =
+    fullYearAssignments.length > 0 && selectedFullYearIds.size === fullYearAssignments.length
+
+  const toggleFullYearStudent = (assignmentId: string) => {
+    setSelectedFullYearIds((current) => {
+      const next = new Set(current)
+      if (next.has(assignmentId)) {
+        next.delete(assignmentId)
+      } else {
+        next.add(assignmentId)
+      }
+      return next
+    })
+  }
+
+  const toggleAllFullYear = () => {
+    setSelectedFullYearIds((current) =>
+      current.size === fullYearAssignments.length
+        ? new Set()
+        : new Set(fullYearAssignments.map((assignment) => assignment.id)),
+    )
+  }
+
+  // Drop selections for students that were converted (they leave the pro-rated
+  // list) or no longer part of the current data.
+  useEffect(() => {
+    setSelectedFullYearIds((current) => {
+      if (current.size === 0) return current
+      const valid = new Set(fullYearAssignments.map((assignment) => assignment.id))
+      const pruned = new Set([...current].filter((id) => valid.has(id)))
+      return pruned.size === current.size ? current : pruned
+    })
+  }, [fullYearAssignments])
+
+  const selectedFullYearAssignments = useMemo(
+    () => fullYearAssignments.filter((assignment) => selectedFullYearIds.has(assignment.id)),
+    [fullYearAssignments, selectedFullYearIds],
+  )
+
+  const openFullYearBulkDialog = () => {
+    setFullYearReason('')
+    setFullYearBulkOpen(true)
+  }
+
+  const closeFullYearBulkDialog = () => {
+    if (billingFullYear) return
+    setFullYearBulkOpen(false)
+    setFullYearReason('')
+  }
+
+  const handleConfirmFullYearBulk = async () => {
+    if (selectedFullYearIds.size === 0) return
+    try {
+      setBillingFullYear(true)
+      const res = await api.post<{ message: string; converted: unknown[]; skipped: unknown[]; failed: unknown[] }>(
+        '/api/school/fees/assignments/bulk-charge-full-year',
+        {
+          assignmentIds: selectedFullYearAssignments.map((assignment) => assignment.id),
+          reason: fullYearReason || undefined,
+        },
+      )
+      toast({
+        title: 'Billed for Full Year',
+        description: res.message,
+        variant: res.failed?.length ? 'destructive' : 'default',
+      })
+      setFullYearBulkOpen(false)
+      setSelectedFullYearIds(new Set())
+      setFullYearReason('')
+      void fetchData()
+    } catch (err) {
+      toast({
+        title: "Couldn't Bill Full Year",
+        description: err instanceof Error ? err.message : 'Please try again.',
+        variant: 'destructive',
+      })
+    } finally {
+      setBillingFullYear(false)
+    }
+  }
+
   const handleConfirmFullYear = async () => {
     if (!fullYearTarget) return
     try {
@@ -404,13 +489,28 @@ export function ChangeFeeGroupPage() {
   }
 
   return (
-    <div className="space-y-5">
-      <PageHeader
-        title="Change Fee Group"
-        description="Move an unpaid student to another fee group. Switch tabs to bill a pro-rated student for the full academic year instead."
-        extraActions={
+    <div className="space-y-6">
+      <div className="relative flex flex-col gap-3 overflow-hidden rounded-xl border border-primary/25 bg-gradient-to-r from-primary via-teal-600 to-cyan-600 px-4 py-3 text-white shadow-lg shadow-primary/15 sm:flex-row sm:items-center sm:justify-between">
+        <div aria-hidden className="absolute -right-10 -top-12 size-36 rounded-full border-[18px] border-white/10" />
+        <div aria-hidden className="absolute bottom-0 right-1/4 h-px w-48 bg-gradient-to-r from-transparent via-white/45 to-transparent" />
+        <div aria-hidden className="absolute -bottom-14 right-28 size-24 rounded-full bg-sky-300/10" />
+        <div className="relative flex min-w-0 items-center gap-3">
+          <span className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-white/25 bg-white/15 shadow-md shadow-black/10 backdrop-blur-sm">
+            <RefreshCw className="size-5" />
+          </span>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-xl font-bold tracking-tight">Change Fee Group</h1>
+              <span className="rounded-full border border-white/20 bg-white/10 px-2 py-0.5 text-[10px] font-semibold text-white/85">{stats.eligible} eligible students</span>
+            </div>
+            <p className="mt-0.5 text-xs text-white/80">
+              Move an unpaid student to another fee group. Switch tabs to bill a pro-rated student for the full academic year instead.
+            </p>
+          </div>
+        </div>
+        <div className="relative flex shrink-0 flex-wrap items-center gap-2">
           <Select value={academicYear} onValueChange={setAcademicYear}>
-            <SelectTrigger id="change-fee-group-year" className="h-9 w-[180px]">
+            <SelectTrigger id="change-fee-group-year" className="h-9 border border-white/60 bg-white text-primary shadow-md">
               <SelectValue placeholder="Academic year" />
             </SelectTrigger>
             <SelectContent>
@@ -421,15 +521,18 @@ export function ChangeFeeGroupPage() {
               ))}
             </SelectContent>
           </Select>
-        }
-        secondaryAction={{
-          label: loading ? 'Refreshing...' : 'Refresh',
-          icon: RefreshCw,
-          iconClassName: loading ? 'animate-spin' : undefined,
-          onClick: () => void fetchData(),
-          disabled: loading,
-        }}
-      />
+          <Button
+            variant="secondary"
+            onClick={() => void fetchData()}
+            disabled={loading}
+            className="gap-2 border border-white/60 shadow-md"
+            style={{ backgroundColor: 'white', color: 'var(--primary)' }}
+          >
+            <RefreshCw className={`size-4 ${loading ? 'animate-spin' : ''}`} />
+            {loading ? 'Refreshing...' : 'Refresh'}
+          </Button>
+        </div>
+      </div>
 
       <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'change' | 'full-year' | 'assign')} className="gap-4">
         <TabsList className="grid h-auto w-full grid-cols-1 gap-1 p-1 sm:w-auto sm:grid-cols-3">
@@ -465,24 +568,27 @@ export function ChangeFeeGroupPage() {
               <SummaryTile label="Demand" value={money(stats.totalDemand)} icon={<WalletCards className="size-4" />} />
             </div>
 
-            <div className="overflow-hidden rounded-md border bg-background shadow-sm">
-              <div className="border-b bg-muted/30 p-3">
-                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="overflow-hidden rounded-xl border border-sky-500/15 bg-gradient-to-br from-card via-card to-sky-500/[0.035] shadow-sm dark:border-sky-500/20">
+              <div className="flex flex-col gap-3 border-b border-sky-500/15 bg-gradient-to-r from-sky-500/[0.10] via-primary/[0.05] to-violet-500/[0.08] p-3 xl:flex-row xl:items-center xl:justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-primary text-white shadow-sm shadow-sky-500/20">
+                    <RefreshCw className="size-4" />
+                  </span>
                   <div>
                     <h2 className="text-sm font-semibold">Eligible Students</h2>
                     <p className="mt-0.5 text-xs text-muted-foreground">
                       {filteredAssignments.length} of {assignments.length} students shown
                     </p>
                   </div>
-                  <div className="relative lg:w-[360px]">
-                    <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                      value={search}
-                      onChange={(event) => setSearch(event.target.value)}
-                      placeholder="Search student, admission no, class, or group"
-                      className="h-9 pl-9"
-                    />
-                  </div>
+                </div>
+                <div className="relative lg:w-[360px]">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                    placeholder="Search student, admission no, class, or group"
+                    className="h-9 pl-9"
+                  />
                 </div>
               </div>
               {loading ? (
@@ -508,8 +614,8 @@ export function ChangeFeeGroupPage() {
               ) : (
                 <div className="overflow-x-auto">
                   <Table>
-                    <TableHeader>
-                      <TableRow className="bg-muted/20 hover:bg-muted/20">
+                    <TableHeader className="bg-gradient-to-r from-cyan-500/[0.07] via-sky-500/[0.04] to-violet-500/[0.07]">
+                      <TableRow>
                         <TableHead className="min-w-[240px] px-4 py-2.5">Student</TableHead>
                         <TableHead className="px-4 py-2.5">Class</TableHead>
                         <TableHead className="px-4 py-2.5">Current Group</TableHead>
@@ -524,12 +630,12 @@ export function ChangeFeeGroupPage() {
                         const canChange = assignment.availableGroups.length > 0
 
                         return (
-                          <TableRow key={assignment.id}>
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted text-xs font-semibold">
-                            {initials(name)}
-                          </div>
+                          <TableRow key={assignment.id} className="transition-colors hover:bg-cyan-500/[0.045]">
+                            <TableCell>
+                              <div className="flex items-center gap-3">
+                                <div className="flex size-9 shrink-0 items-center justify-center rounded-md border border-sky-300/60 bg-gradient-to-br from-sky-500 to-cyan-600 text-xs font-semibold text-white shadow-sm shadow-sky-500/20 dark:border-sky-500/40">
+                                  {initials(name)}
+                                </div>
                           <div className="min-w-0">
                             <p className="truncate font-medium">{name}</p>
                             <p className="truncate text-xs text-muted-foreground">
@@ -583,20 +689,23 @@ export function ChangeFeeGroupPage() {
         </TabsContent>
 
         <TabsContent value="full-year">
-        <div className="overflow-hidden rounded-md border bg-background shadow-sm">
-          <div className="border-b bg-muted/30 p-3">
-            <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="overflow-hidden rounded-xl border border-sky-500/15 bg-gradient-to-br from-card via-card to-sky-500/[0.035] shadow-sm dark:border-sky-500/20">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-sky-500/15 bg-gradient-to-r from-sky-500/[0.10] via-primary/[0.05] to-violet-500/[0.08] p-3">
+            <div className="flex items-center gap-2">
+              <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-primary text-white shadow-sm shadow-sky-500/20">
+                <CalendarRange className="size-4" />
+              </span>
               <div>
                 <h2 className="text-sm font-semibold">Assign Full Year Fees</h2>
-                <p className="mt-1 text-xs text-muted-foreground">
+                <p className="mt-0.5 text-xs text-muted-foreground">
                   Use this only when a student was billed from admission month, but should be charged for the full academic year.
                 </p>
               </div>
-              <Badge variant="outline" className="gap-1.5">
-                <CalendarRange className="size-3" />
-                {fullYearAssignments.length} pro-rated
-              </Badge>
             </div>
+            <Badge variant="outline" className="gap-1.5">
+              <CalendarRange className="size-3" />
+              {fullYearAssignments.length} pro-rated
+            </Badge>
           </div>
 
           {loading ? (
@@ -612,58 +721,100 @@ export function ChangeFeeGroupPage() {
               </div>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                  <TableHeader>
-                  <TableRow className="bg-muted/20 hover:bg-muted/20">
-                    <TableHead className="min-w-[240px] px-4 py-2.5">Student</TableHead>
-                    <TableHead className="px-4 py-2.5">Class</TableHead>
-                    <TableHead className="px-4 py-2.5">Fee Group</TableHead>
-                    <TableHead className="px-4 py-2.5 text-right">Current Demand</TableHead>
-                    <TableHead className="px-4 py-2.5 text-right">Action</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {fullYearAssignments.map((assignment) => {
-                    const name = studentName(assignment)
+            <>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader className="bg-gradient-to-r from-cyan-500/[0.07] via-sky-500/[0.04] to-violet-500/[0.07]">
+                    <TableRow>
+                      <TableHead className="w-12 px-4 py-2.5">
+                        <Checkbox
+                          checked={allFullYearSelected}
+                          onCheckedChange={toggleAllFullYear}
+                          aria-label="Select all pro-rated students"
+                        />
+                      </TableHead>
+                      <TableHead className="min-w-[240px] px-4 py-2.5">Student</TableHead>
+                      <TableHead className="px-4 py-2.5">Class</TableHead>
+                      <TableHead className="px-4 py-2.5">Fee Group</TableHead>
+                      <TableHead className="px-4 py-2.5 text-right">Current Demand</TableHead>
+                      <TableHead className="px-4 py-2.5 text-right">Action</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {fullYearAssignments.map((assignment) => {
+                      const name = studentName(assignment)
+                      const checked = selectedFullYearIds.has(assignment.id)
 
-                    return (
-                      <TableRow key={assignment.id}>
-                        <TableCell>
-                          <div className="flex items-center gap-3">
-                            <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted text-xs font-semibold">
-                              {initials(name)}
+                      return (
+                        <TableRow
+                          key={assignment.id}
+                          data-state={checked ? 'selected' : undefined}
+                          className="cursor-pointer transition-colors hover:bg-cyan-500/[0.045]"
+                          onClick={() => toggleFullYearStudent(assignment.id)}
+                        >
+                          <TableCell onClick={(event) => event.stopPropagation()}>
+                            <Checkbox
+                              checked={checked}
+                              onCheckedChange={() => toggleFullYearStudent(assignment.id)}
+                              aria-label={`Select ${name} for full year`}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-3">
+                              <div className="flex size-9 shrink-0 items-center justify-center rounded-md border border-sky-300/60 bg-gradient-to-br from-sky-500 to-cyan-600 text-xs font-semibold text-white shadow-sm shadow-sky-500/20 dark:border-sky-500/40">
+                                {initials(name)}
+                              </div>
+                              <div className="min-w-0">
+                                <p className="truncate font-medium">{name}</p>
+                                <p className="truncate text-xs text-muted-foreground">
+                                  {assignment.student?.admissionNumber || 'No admission no'}
+                                </p>
+                              </div>
                             </div>
-                            <div className="min-w-0">
-                              <p className="truncate font-medium">{name}</p>
-                              <p className="truncate text-xs text-muted-foreground">
-                                {assignment.student?.admissionNumber || 'No admission no'}
-                              </p>
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell>{classLabel(assignment)}</TableCell>
-                        <TableCell>
-                          <Badge variant="secondary">{assignment.feesGroupName || '-'}</Badge>
-                        </TableCell>
-                        <TableCell className="text-right font-medium">{money(assignment.totalAmount)}</TableCell>
-                        <TableCell className="text-right">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => openFullYearDialog(assignment)}
-                            className="gap-1.5"
-                          >
-                            <CalendarRange className="size-3.5" />
-                            Assign Full Year
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    )
-                  })}
-                </TableBody>
-              </Table>
-            </div>
+                          </TableCell>
+                          <TableCell>{classLabel(assignment)}</TableCell>
+                          <TableCell>
+                            <Badge variant="secondary">{assignment.feesGroupName || '-'}</Badge>
+                          </TableCell>
+                          <TableCell className="text-right font-medium">{money(assignment.totalAmount)}</TableCell>
+                          <TableCell className="text-right" onClick={(event) => event.stopPropagation()}>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => openFullYearDialog(assignment)}
+                              className="gap-1.5"
+                            >
+                              <CalendarRange className="size-3.5" />
+                              Assign Full Year
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      )
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+
+              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-sky-500/15 bg-gradient-to-r from-sky-500/[0.06] via-primary/[0.03] to-violet-500/[0.06] p-3">
+                <p className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <CalendarRange className="size-4" />
+                  Tick the students to bill for the full academic year, then assign them together.
+                </p>
+                <div className="flex items-center gap-3">
+                  <span className="text-sm text-muted-foreground">
+                    {selectedFullYearIds.size} of {fullYearAssignments.length} selected
+                  </span>
+                  <Button
+                    onClick={openFullYearBulkDialog}
+                    disabled={selectedFullYearIds.size === 0 || !canChangeGroup}
+                    className="gap-2"
+                  >
+                    <CalendarRange className="size-4" />
+                    Assign Full Year
+                  </Button>
+                </div>
+              </div>
+            </>
           )}
         </div>
         </TabsContent>
@@ -680,14 +831,14 @@ export function ChangeFeeGroupPage() {
               </AlertDescription>
             </Alert>
 
-            <div className="overflow-hidden rounded-md border bg-background shadow-sm">
-              <div className="grid gap-3 border-b bg-muted/30 p-3 md:grid-cols-[1fr_1fr_auto]">
+            <div className="overflow-hidden rounded-xl border border-sky-500/15 bg-gradient-to-br from-card via-card to-sky-500/[0.035] shadow-sm dark:border-sky-500/20">
+              <div className="grid gap-3 border-b border-sky-500/15 bg-gradient-to-r from-sky-500/[0.10] via-primary/[0.05] to-violet-500/[0.08] p-3 md:grid-cols-[1fr_1fr_auto]">
                 <div className="space-y-1">
                   <Label htmlFor="assign-class" className="text-xs text-muted-foreground">
                     Class
                   </Label>
                   <Select value={assignClassId} onValueChange={setAssignClassId}>
-                      <SelectTrigger id="assign-class" className="h-9">
+                      <SelectTrigger id="assign-class" className="h-9 bg-white shadow-sm dark:bg-input/30">
                       <SelectValue placeholder="Select a class" />
                     </SelectTrigger>
                     <SelectContent>
@@ -705,7 +856,7 @@ export function ChangeFeeGroupPage() {
                     Fee Group
                   </Label>
                   <Select value={assignGroupId} onValueChange={setAssignGroupId} disabled={!assignClassId}>
-                      <SelectTrigger id="assign-group" className="h-9">
+                      <SelectTrigger id="assign-group" className="h-9 bg-white shadow-sm dark:bg-input/30">
                       <SelectValue placeholder={assignClassId ? 'Select a fee group' : 'Pick a class first'} />
                     </SelectTrigger>
                     <SelectContent>
@@ -768,8 +919,8 @@ export function ChangeFeeGroupPage() {
                 <>
                   <div className="overflow-x-auto">
                     <Table>
-                      <TableHeader>
-                        <TableRow className="bg-muted/20 hover:bg-muted/20">
+                      <TableHeader className="bg-gradient-to-r from-cyan-500/[0.07] via-sky-500/[0.04] to-violet-500/[0.07]">
+                        <TableRow>
                           <TableHead className="w-12 px-4 py-2.5">
                             <Checkbox
                               checked={allStudentsSelected}
@@ -790,7 +941,7 @@ export function ChangeFeeGroupPage() {
                             <TableRow
                               key={student.id}
                               data-state={checked ? 'selected' : undefined}
-                              className="cursor-pointer"
+                              className="cursor-pointer transition-colors hover:bg-cyan-500/[0.045]"
                               onClick={() => toggleStudent(student.id)}
                             >
                               <TableCell onClick={(event) => event.stopPropagation()}>
@@ -802,7 +953,7 @@ export function ChangeFeeGroupPage() {
                               </TableCell>
                               <TableCell>
                                 <div className="flex items-center gap-3">
-                                  <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted text-xs font-semibold">
+                                  <div className="flex size-9 shrink-0 items-center justify-center rounded-md border border-sky-300/60 bg-gradient-to-br from-sky-500 to-cyan-600 text-xs font-semibold text-white shadow-sm shadow-sky-500/20 dark:border-sky-500/40">
                                     {initials(name)}
                                   </div>
                                   <div className="min-w-0">
@@ -824,7 +975,7 @@ export function ChangeFeeGroupPage() {
                     </Table>
                   </div>
 
-                  <div className="flex flex-wrap items-center justify-between gap-3 border-t p-3">
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-t border-sky-500/15 bg-gradient-to-r from-sky-500/[0.06] via-primary/[0.03] to-violet-500/[0.06] p-3">
                     <div className="flex items-center gap-3">
                       <Switch id="assign-full-year" checked={assignFullYear} onCheckedChange={setAssignFullYear} />
                       <Label htmlFor="assign-full-year" className="text-sm">
@@ -1112,16 +1263,107 @@ export function ChangeFeeGroupPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={fullYearBulkOpen} onOpenChange={(open) => !billingFullYear && setFullYearBulkOpen(open)}>
+        <DialogContent className="flex max-h-[90svh] flex-col overflow-hidden border-primary/20 bg-card p-0 shadow-2xl shadow-primary/15 sm:max-w-xl [&>button]:right-3 [&>button]:top-3 [&>button]:rounded-full [&>button]:text-white [&>button]:opacity-85 [&>button]:hover:bg-white/15 [&>button]:hover:opacity-100">
+          <DialogHeader className="relative shrink-0 overflow-hidden border-b border-white/15 bg-[linear-gradient(135deg,var(--primary)_0%,#0d9488_48%,#2563eb_100%)] px-5 py-4 pr-12 text-white sm:px-6">
+            <div aria-hidden className="absolute -right-10 -top-16 size-40 rounded-full border-[18px] border-white/10" />
+            <div aria-hidden className="absolute -bottom-14 left-10 size-28 rounded-full bg-emerald-300/20 blur-2xl" />
+            <div aria-hidden className="absolute bottom-0 right-24 h-24 w-44 rounded-full bg-sky-300/15 blur-2xl" />
+            <div className="relative flex items-center gap-3">
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-white/25 bg-white/15 text-white shadow-md backdrop-blur-sm">
+                <CalendarRange className="size-5 text-white" />
+              </span>
+              <div>
+                <DialogTitle className="text-lg font-bold tracking-normal text-white">Assign Full Year Fees</DialogTitle>
+                <DialogDescription className="mt-0.5 text-xs text-white/75">
+                  Rebuild {selectedFullYearAssignments.length} student{selectedFullYearAssignments.length === 1 ? '' : 's'}&apos;{' '}
+                  demand{selectedFullYearAssignments.length === 1 ? '' : 's'} for the whole of {academicYear}.
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+
+          <div className="themed-scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain bg-gradient-to-br from-primary/[0.03] via-background to-cyan-500/[0.055] p-4 sm:p-5">
+            <section className="relative overflow-hidden rounded-xl border border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-cyan-50 p-4 shadow-sm dark:border-sky-500/25 dark:from-sky-500/15 dark:via-card dark:to-cyan-500/10">
+              <div aria-hidden className="absolute -right-7 -top-10 size-28 rounded-full bg-sky-200/35 blur-xl dark:bg-sky-500/15" />
+              <div className="relative mb-3 flex items-center gap-2">
+                <span className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-cyan-600 text-white shadow-sm"><Users className="size-4 text-white" /></span>
+                <div><h3 className="text-sm font-semibold">Selected students</h3><p className="text-[10px] text-muted-foreground">Demands being rebuilt for the full academic year</p></div>
+              </div>
+              <div className="relative max-h-56 space-y-2 overflow-y-auto overscroll-contain themed-scrollbar pr-1">
+                {selectedFullYearAssignments.map((assignment) => (
+                  <div
+                    key={assignment.id}
+                    className="flex items-center gap-3 rounded-lg border border-sky-200/70 bg-white/80 px-3 py-2 shadow-sm dark:border-sky-500/20 dark:bg-background/35"
+                  >
+                    <div className="flex size-8 shrink-0 items-center justify-center rounded-md border border-sky-300/60 bg-gradient-to-br from-sky-500 to-cyan-600 text-[10px] font-semibold text-white shadow-sm shadow-sky-500/20 dark:border-sky-500/40">
+                      {initials(studentName(assignment))}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium">{studentName(assignment)}</p>
+                      <p className="truncate text-[11px] text-muted-foreground">
+                        {classLabel(assignment)} · {assignment.feesGroupName || '-'}
+                      </p>
+                    </div>
+                    <span className="shrink-0 text-xs font-semibold">{money(assignment.totalAmount)}</span>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <section className="rounded-xl border border-amber-200/80 bg-gradient-to-br from-amber-50 via-white to-orange-50 p-4 shadow-sm dark:border-amber-500/25 dark:from-amber-500/15 dark:via-card dark:to-orange-500/10">
+              <div className="mb-3 flex items-center gap-2">
+                <span className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 text-white shadow-sm"><FileCheck2 className="size-4 text-white" /></span>
+                <div><h3 className="text-sm font-semibold">Reason</h3><p className="text-[10px] text-muted-foreground">Optional — saved in the audit trail</p></div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="full-year-bulk-reason" className="text-xs">Reason (optional)</Label>
+                <Textarea
+                  id="full-year-bulk-reason"
+                  value={fullYearReason}
+                  onChange={(event) => setFullYearReason(event.target.value)}
+                  placeholder="Example: students should be charged for the complete session"
+                  rows={3}
+                  className="bg-white shadow-sm dark:bg-input/30"
+                />
+              </div>
+            </section>
+
+            <Alert className="border-amber-200/80 bg-amber-50/80 text-amber-900 dark:border-amber-500/25 dark:bg-amber-950/30 dark:text-amber-200">
+              <AlertTriangle className="size-4" />
+              <AlertDescription>
+                Each demand keeps its fee group and is rebuilt for the full academic year, including skipped months.
+                Students who are already billed for the full year or have any payment collected are skipped automatically.
+              </AlertDescription>
+            </Alert>
+          </div>
+
+          <DialogFooter className="shrink-0 border-t border-primary/10 bg-muted/30 px-4 py-3 sm:px-5">
+            <Button variant="outline" size="sm" className="h-8 px-4 text-xs" onClick={closeFullYearBulkDialog} disabled={billingFullYear}>
+              Cancel
+            </Button>
+            <Button size="sm" className="h-8 gap-1.5 px-4 text-xs" onClick={handleConfirmFullYearBulk} disabled={billingFullYear || !canChangeGroup}>
+              {billingFullYear ? (
+                <RefreshCw className="size-3.5 animate-spin" />
+              ) : (
+                <CalendarRange className="size-3.5" />
+              )}
+              Assign Full Year{selectedFullYearAssignments.length > 1 ? ` (${selectedFullYearAssignments.length})` : ''}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
 
 function SummaryTile({ label, value, icon }: { label: string; value: string | number; icon: React.ReactNode }) {
   return (
-    <div className="rounded-md border bg-background p-3 shadow-sm">
-      <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+    <div className="rounded-xl border border-sky-200/60 bg-gradient-to-br from-sky-50 via-card to-cyan-50 p-3 shadow-sm dark:border-sky-500/20 dark:from-sky-500/10 dark:via-card dark:to-cyan-500/5">
+      <div className="flex items-center justify-between gap-2 text-xs font-medium text-muted-foreground">
         <span>{label}</span>
-        <span className="rounded-md bg-muted/50 p-1 text-primary">{icon}</span>
+        <span className="rounded-lg bg-gradient-to-br from-sky-500 to-primary p-1 text-white shadow-sm shadow-sky-500/20">{icon}</span>
       </div>
       <p className="mt-1 truncate text-lg font-semibold">{value}</p>
     </div>
@@ -1132,9 +1374,9 @@ function AssignmentSummary({ assignment }: { assignment: EligibleAssignment }) {
   const name = studentName(assignment)
 
   return (
-    <div className="rounded-md border bg-muted/20 p-3">
+    <div className="rounded-lg border border-sky-200/70 bg-white/70 p-3 shadow-sm dark:border-sky-500/20 dark:bg-background/35">
       <div className="flex items-start gap-3">
-        <div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-background text-xs font-semibold shadow-sm">
+        <div className="flex size-10 shrink-0 items-center justify-center rounded-md border border-sky-300/60 bg-gradient-to-br from-sky-500 to-cyan-600 text-xs font-semibold text-white shadow-sm shadow-sky-500/20 dark:border-sky-500/40">
           {initials(name)}
         </div>
         <div className="min-w-0 flex-1">
