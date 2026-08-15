@@ -115,6 +115,7 @@ interface FeeCollectionItem {
   feesGroupName?: string | null
   description?: string | null
   source?: 'fees' | 'transport' | 'hostel' | 'inventory'
+  saleItems?: Array<{ itemName: string; variantLabel: string | null; quantity: number; unitPrice: number; lineTotal: number }> | null
 }
 
 interface TransportInfo {
@@ -2091,7 +2092,28 @@ export function FeeCollectionsPage() {
                                         </span>
                                       </div>
                                     )}
-                                    {parsed.lines.length > 0 ? (
+                                    {item.saleItems && item.saleItems.length > 0 ? (
+                                      <div className="overflow-hidden rounded border border-muted">
+                                        <div className="flex items-center justify-between gap-2 bg-muted/50 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                          <span className="min-w-0 flex-1">Item</span>
+                                          <span className="w-8 shrink-0 text-right">Qty</span>
+                                          <span className="w-14 shrink-0 text-right">Rate</span>
+                                          <span className="w-16 shrink-0 text-right">Amount</span>
+                                        </div>
+                                        <div className="grid gap-0.5 px-2 py-1.5">
+                                          {item.saleItems.map((line, i) => (
+                                            <div key={i} className="flex items-center justify-between gap-2 text-[11px]">
+                                              <span className="min-w-0 flex-1 truncate font-medium" title={line.variantLabel ? `${line.itemName} (${line.variantLabel})` : line.itemName}>
+                                                {line.variantLabel ? `${line.itemName} (${line.variantLabel})` : line.itemName}
+                                              </span>
+                                              <span className="w-8 shrink-0 text-right tabular-nums text-muted-foreground">× {line.quantity}</span>
+                                              <span className="w-14 shrink-0 text-right tabular-nums text-muted-foreground">{money(line.unitPrice)}</span>
+                                              <span className="w-16 shrink-0 text-right font-semibold tabular-nums">{money(line.lineTotal)}</span>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    ) : parsed.lines.length > 0 ? (
                                       <div className="grid gap-1">
                                         {parsed.lines.map((line, i) => (
                                           <div key={i} className="flex items-center justify-between gap-2 text-[11px]">

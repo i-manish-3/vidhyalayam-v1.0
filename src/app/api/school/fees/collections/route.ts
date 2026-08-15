@@ -841,6 +841,25 @@ export async function GET(request: NextRequest) {
         : Promise.resolve(null),
     ])
 
+    // Batch-load each inventory due's sale line items (with unit prices) so the
+    // details panel on the Collect Fee page can show per-product pricing. The
+    // ledger entry carries sourceId = the originating InventorySale id.
+    const inventoryEntries = entries.filter((entry) => entry.sourceType === 'inventory' && entry.sourceId)
+    const inventorySaleIds = Array.from(new Set(inventoryEntries.map((entry) => entry.sourceId as string)))
+    const inventorySaleItemsById = inventorySaleIds.length > 0
+      ? (await db.inventorySaleItem.findMany({
+          where: { saleId: { in: inventorySaleIds } },
+          select: { saleId: true, itemName: true, variantLabel: true, quantity: true, unitPrice: true, lineTotal: true },
+          orderBy: { id: 'asc' },
+        })).reduce<Record<string, Array<{ itemName: string; variantLabel: string | null; quantity: number; unitPrice: number; lineTotal: number }>>>(
+          (acc, line) => {
+            ;(acc[line.saleId] ??= []).push(line)
+            return acc
+          },
+          {}
+        )
+      : {}
+
     const normalizedCollections = entries.map((entry) => {
       const paidAmount = entry.feeCollection
         ? entry.feeCollection.paidAmount
@@ -884,6 +903,9 @@ export async function GET(request: NextRequest) {
         feesGroupId: entry.assignment?.feesGroupId || null,
         feesGroupName: entry.assignment?.feesGroup?.name || null,
         source,
+        saleItems: source === 'inventory' && entry.sourceId
+          ? inventorySaleItemsById[entry.sourceId] || null
+          : null,
       }
     })
 
