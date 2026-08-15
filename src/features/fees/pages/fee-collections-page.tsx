@@ -437,6 +437,30 @@ function remainingAmount(item: FeeCollectionItem) {
   return Math.max(0, netAmount - Number(item.paidAmount || 0))
 }
 
+// Parse a store-due description like:
+//   "Inventory Purchase (R-0001): School Shirt (M) × 2, Cravat × 1"
+// into a receipt id and the individual product lines for the details panel.
+function parseStoreDueDescription(description?: string | null): {
+  receipt: string | null
+  lines: { label: string; quantity: number | null }[]
+} {
+  const raw = (description || '').trim()
+  const cleaned = raw.replace(/^(Inventory|Store) Purchase\s*/i, '')
+  const receiptMatch = cleaned.match(/^\(([^)]+)\)\s*:\s*([\s\S]*)$/)
+  const receipt = receiptMatch ? receiptMatch[1].trim() : null
+  const body = receiptMatch ? receiptMatch[2] : cleaned
+  const lines = body
+    .split(/,\s*|,/)
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((part) => {
+      const qtyMatch = part.match(/×\s*(\d+)\s*$/i)
+      const label = qtyMatch ? part.slice(0, qtyMatch.index).trim() : part
+      return { label, quantity: qtyMatch ? Number(qtyMatch[1]) : null }
+    })
+  return { receipt, lines }
+}
+
 function totalAmount(item: FeeCollectionItem) {
   return Math.max(
     0,
@@ -556,6 +580,8 @@ export function FeeCollectionsPage() {
   const [transportDetailsOpen, setTransportDetailsOpen] = useState(false)
   const [hostelInfo, setHostelInfo] = useState<HostelInfo | null>(null)
   const [hostelDetailsOpen, setHostelDetailsOpen] = useState(false)
+  // Store due rows expanded to show product details (per ledger entry id).
+  const [expandedInventoryIds, setExpandedInventoryIds] = useState<Set<string>>(new Set())
   // Unspent advance (open credit balance) the student already has on the ledger.
   const [advanceBalance, setAdvanceBalance] = useState(0)
   const [applyingAdvance, setApplyingAdvance] = useState(false)
@@ -1265,6 +1291,15 @@ export function FeeCollectionsPage() {
     setSelectedPeriods((current) =>
       selected ? current.filter((k) => k !== key) : Array.from(new Set([...current, key]))
     )
+  }
+
+  const toggleInventoryDetails = (entryKey: string) => {
+    setExpandedInventoryIds((current) => {
+      const next = new Set(current)
+      if (next.has(entryKey)) next.delete(entryKey)
+      else next.add(entryKey)
+      return next
+    })
   }
 
   const togglePeriod = (
@@ -2009,21 +2044,95 @@ export function FeeCollectionsPage() {
                         {inventoryItems.map((item) => {
                           const checked = selectedCollectionIds.includes(item.id)
                           const detail = (item.description || item.feeHeadName || 'Inventory Purchase').replace(/^(Inventory|Store) Purchase\s*/i, '')
+                          const entryKey = item.ledgerEntryId || item.id
+                          const detailsOpen = expandedInventoryIds.has(entryKey)
+                          const parsed = parseStoreDueDescription(item.description)
                           return (
-                            <label
-                              key={item.ledgerEntryId || item.id}
+                            <div
+                              key={entryKey}
                               className={cn(
-                                'flex cursor-pointer items-center gap-2 rounded-md border bg-card px-2 py-2 text-xs transition-all hover:border-primary/40 hover:bg-primary/5',
+                                'overflow-hidden rounded-md border bg-card transition-all hover:border-primary/40 hover:bg-primary/5',
                                 checked && 'border-primary bg-primary/10 ring-1 ring-primary/20'
                               )}
                             >
-                              <Checkbox checked={checked} onCheckedChange={() => toggleInventoryDue(item)} />
-                              <span className="min-w-0 flex-1 truncate" title={detail}>
-                                <span className="font-medium">Inventory Purchase</span>
-                                {detail && <span className="ml-1 text-muted-foreground">{detail}</span>}
-                              </span>
-                              <span className="ml-auto shrink-0 font-semibold tabular-nums">{money(remainingAmount(item))}</span>
-                            </label>
+                              <label className="flex cursor-pointer items-center gap-2 px-2 py-2 text-xs">
+                                <Checkbox checked={checked} onCheckedChange={() => toggleInventoryDue(item)} />
+                                <span className="min-w-0 flex-1 truncate" title={detail}>
+                                  <span className="font-medium">Inventory Purchase</span>
+                                  {detail && <span className="ml-1 text-muted-foreground">{detail}</span>}
+                                </span>
+                                <span className="ml-auto shrink-0 font-semibold tabular-nums">{money(remainingAmount(item))}</span>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.preventDefault()
+                                    e.stopPropagation()
+                                    toggleInventoryDetails(entryKey)
+                                  }}
+                                  aria-expanded={detailsOpen}
+                                  aria-label={detailsOpen ? 'Hide product details' : 'Show product details'}
+                                  className={cn(
+                                    'inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md border transition-all',
+                                    detailsOpen
+                                      ? 'border-primary/40 bg-primary/10 text-primary'
+                                      : 'border-border text-muted-foreground hover:border-primary/40 hover:bg-primary/5 hover:text-primary'
+                                  )}
+                                >
+                                  <ChevronDown className={cn('size-3.5 transition-transform', detailsOpen && 'rotate-180')} />
+                                </button>
+                              </label>
+                              {detailsOpen && (
+                                <div className="border-t border-primary/10 bg-muted/20 px-2 py-2">
+                                  <div className="space-y-2">
+                                    {parsed.receipt && (
+                                      <div className="flex items-center gap-2 text-[10px]">
+                                        <span className="inline-flex items-center gap-1 rounded bg-primary/10 px-1.5 py-0.5 font-medium text-primary">
+                                          <ShoppingBag className="size-2.5" /> Receipt {parsed.receipt}
+                                        </span>
+                                      </div>
+                                    )}
+                                    {parsed.lines.length > 0 ? (
+                                      <div className="grid gap-1">
+                                        {parsed.lines.map((line, i) => (
+                                          <div key={i} className="flex items-center justify-between gap-2 text-[11px]">
+                                            <span className="truncate font-medium">{line.label}</span>
+                                            {line.quantity != null && (
+                                              <span className="shrink-0 tabular-nums text-muted-foreground">× {line.quantity}</span>
+                                            )}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    ) : (
+                                      <p className="text-[11px] text-muted-foreground">{detail || 'Store purchase'}</p>
+                                    )}
+                                    <div className="grid grid-cols-2 gap-x-4 gap-y-1 border-t border-muted pt-1.5 text-[11px] sm:grid-cols-3">
+                                      {totalAmount(item) > 0 && (
+                                        <div>
+                                          <span className="text-muted-foreground">Total:</span>
+                                          <span className="ml-1 font-semibold tabular-nums">{money(totalAmount(item))}</span>
+                                        </div>
+                                      )}
+                                      {Number(item.paidAmount || 0) > 0 && (
+                                        <div>
+                                          <span className="text-muted-foreground">Paid:</span>
+                                          <span className="ml-1 font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">{money(item.paidAmount)}</span>
+                                        </div>
+                                      )}
+                                      <div>
+                                        <span className="text-muted-foreground">Balance:</span>
+                                        <span className="ml-1 font-semibold tabular-nums text-primary">{money(remainingAmount(item))}</span>
+                                      </div>
+                                      {item.dueDate && (
+                                        <div>
+                                          <span className="text-muted-foreground">Due date:</span>
+                                          <span className="ml-1 font-medium">{formatStudentDate(item.dueDate)}</span>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
                           )
                         })}
                       </div>
