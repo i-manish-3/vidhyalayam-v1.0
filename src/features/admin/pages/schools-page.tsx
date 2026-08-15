@@ -13,6 +13,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { ToastAction } from '@/components/ui/toast'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import {
   Pagination,
   PaginationContent,
@@ -70,6 +71,7 @@ import {
   Megaphone,
   Clock,
   Settings,
+  AlertTriangle,
   type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -391,62 +393,100 @@ export function SchoolsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex min-w-0 items-stretch gap-3">
-          <span aria-hidden className="bg-brand mt-0.5 w-1 shrink-0 self-stretch rounded-full" />
+      <div className="relative flex flex-col gap-3 overflow-hidden rounded-xl border border-primary/25 bg-gradient-to-r from-primary via-teal-600 to-cyan-600 px-4 py-3 text-white shadow-lg shadow-primary/15 sm:flex-row sm:items-center sm:justify-between">
+        <div aria-hidden className="absolute -right-10 -top-12 size-36 rounded-full border-[18px] border-white/10" />
+        <div aria-hidden className="absolute bottom-0 right-1/4 h-px w-48 bg-gradient-to-r from-transparent via-white/45 to-transparent" />
+        <div aria-hidden className="absolute -bottom-14 right-28 size-24 rounded-full bg-sky-300/10" />
+        <div className="relative flex min-w-0 items-center gap-3">
+          <span className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-white/25 bg-white/15 shadow-md shadow-black/10 backdrop-blur-sm">
+            <Building2 className="size-5" />
+          </span>
           <div className="min-w-0">
-            <h1 className="text-xl font-bold tracking-tight">Schools</h1>
-            <p className="mt-0.5 text-sm text-muted-foreground">Manage all registered schools on the platform</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-xl font-bold tracking-tight">Schools</h1>
+              <span className="rounded-full border border-white/20 bg-white/10 px-2 py-0.5 text-[10px] font-semibold text-white/85">{totalSchools} on platform</span>
+            </div>
+            <p className="mt-0.5 text-xs text-white/80">
+              Manage every registered school — trials, activation, suspension, and passwords.
+            </p>
           </div>
         </div>
-        <Button onClick={() => router.push('/admin/schools/new')} className="gap-2 shrink-0">
-          <PlusCircle className="size-4" />
-          Add School
-        </Button>
+        <div className="relative flex shrink-0 items-center gap-2">
+          <Button
+            onClick={() => router.push('/admin/schools/new')}
+            size="sm"
+            className="h-9 gap-1.5 rounded-lg bg-white px-4 font-semibold text-primary [background-image:none] shadow-lg shadow-black/10 transition-all hover:bg-white/90 hover:shadow-xl active:scale-[0.98]"
+          >
+            <PlusCircle className="size-4" />
+            Add School
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}
-      <Card className="py-0">
-        <CardContent className="p-3">
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Search schools by name, city, or email..."
-                value={search}
-                onChange={(e) => handleSearchChange(e.target.value)}
-                className="h-9 pl-9"
-              />
+      <div className="overflow-hidden rounded-xl border border-sky-500/15 bg-gradient-to-br from-card via-card to-sky-500/[0.035] shadow-sm dark:border-sky-500/20">
+        <div className="flex flex-col gap-3 border-b border-sky-500/15 bg-gradient-to-r from-sky-500/[0.10] via-primary/[0.05] to-violet-500/[0.08] p-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-2">
+            <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-primary text-white shadow-sm shadow-sky-500/20">
+              <Search className="size-4" />
+            </span>
+            <div>
+              <h2 className="text-sm font-semibold">Find a school</h2>
+              <p className="mt-0.5 text-xs text-muted-foreground">Search by name, city, email, or board — or filter by status</p>
             </div>
-            <Select value={statusFilter} onValueChange={handleStatusFilterChange}>
-              <SelectTrigger className="h-9 w-full sm:w-[160px]">
-                <SelectValue placeholder="All Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="trial">Trial</SelectItem>
-                <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="suspended">Suspended</SelectItem>
-                <SelectItem value="archived">Archived</SelectItem>
-              </SelectContent>
-            </Select>
           </div>
-        </CardContent>
-      </Card>
+          <span className="text-xs text-muted-foreground">
+            {schools.length} result{schools.length === 1 ? '' : 's'} on this page
+          </span>
+        </div>
+        <div className="flex flex-col gap-2 p-3 sm:flex-row">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Search schools by name, city, or email..."
+              value={search}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              className="h-9 bg-white pl-9 shadow-sm dark:bg-input/30"
+            />
+          </div>
+          <Select value={statusFilter} onValueChange={handleStatusFilterChange}>
+            <SelectTrigger className="h-9 w-full bg-white shadow-sm sm:w-[160px] dark:bg-input/30">
+              <SelectValue placeholder="All Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="trial">Trial</SelectItem>
+              <SelectItem value="pending">Pending</SelectItem>
+              <SelectItem value="suspended">Suspended</SelectItem>
+              <SelectItem value="archived">Archived</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        {statusFilter === 'archived' && (
+          <div className="flex items-center gap-1.5 border-t border-rose-500/10 bg-rose-500/[0.05] px-3 py-2 text-xs text-rose-600 dark:text-rose-400">
+            <AlertTriangle className="size-3.5 shrink-0" />
+            Showing archived schools — use each row&apos;s menu to restore it.
+          </div>
+        )}
+      </div>
 
       {/* Schools Table */}
       {loading ? (
-        <div className="flex items-center justify-center py-16">
-          <Loader2 className="size-8 animate-spin text-muted-foreground" />
+        <div className="overflow-hidden rounded-xl border border-sky-500/15 bg-gradient-to-br from-card via-card to-sky-500/[0.035] shadow-sm dark:border-sky-500/20">
+          <div className="flex items-center justify-center py-16">
+            <Loader2 className="size-8 animate-spin text-muted-foreground" />
+          </div>
         </div>
       ) : schools.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-16">
-            <Building2 className="size-12 text-muted-foreground/40 mb-4" />
-            <h3 className="text-lg font-semibold text-muted-foreground">No Schools Found</h3>
-            <p className="text-sm text-muted-foreground mt-1">
-              {search || statusFilter !== 'all' ? 'Try adjusting your filters.' : 'Add your first school to get started.'}
+        <div className="overflow-hidden rounded-xl border border-dashed border-sky-500/25 bg-gradient-to-br from-sky-50 via-card to-cyan-50/60 dark:from-sky-500/[0.06] dark:via-card dark:to-cyan-500/[0.04]">
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <div className="mb-4 flex size-12 items-center justify-center rounded-2xl border border-sky-300/50 bg-gradient-to-br from-sky-500 to-cyan-600 text-white shadow-lg shadow-sky-500/25">
+              <Building2 className="size-6" />
+            </div>
+            <h3 className="text-lg font-semibold">No Schools Found</h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {search || statusFilter !== 'all' ? 'Try adjusting your search or filter.' : 'Add your first school to get started.'}
             </p>
             {!search && statusFilter === 'all' && (
               <Button onClick={() => router.push('/admin/schools/new')} className="mt-4 gap-2">
@@ -454,23 +494,23 @@ export function SchoolsPage() {
                 Add School
               </Button>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       ) : (
         <>
-          <div className="overflow-hidden rounded-lg border bg-card shadow-sm">
+          <div className="overflow-hidden rounded-xl border border-sky-500/15 bg-gradient-to-br from-card via-card to-sky-500/[0.035] shadow-sm dark:border-sky-500/20">
             <Table>
-              <TableHeader>
+              <TableHeader className="bg-gradient-to-r from-cyan-500/[0.07] via-sky-500/[0.04] to-violet-500/[0.07]">
                 <TableRow>
-                  <TableHead className="w-[250px]">School</TableHead>
-                  <TableHead>Location</TableHead>
-                  <TableHead>Board</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-center">Students</TableHead>
-                  <TableHead className="text-center">Teachers</TableHead>
-                  <TableHead>Admin</TableHead>
-                  <TableHead>Created</TableHead>
-                  <TableHead className="w-[50px]" />
+                  <TableHead className="min-w-[250px] px-4 py-2.5">School</TableHead>
+                  <TableHead className="px-4 py-2.5">Location</TableHead>
+                  <TableHead className="px-4 py-2.5">Board</TableHead>
+                  <TableHead className="px-4 py-2.5">Status</TableHead>
+                  <TableHead className="px-4 py-2.5 text-center">Students</TableHead>
+                  <TableHead className="px-4 py-2.5 text-center">Teachers</TableHead>
+                  <TableHead className="px-4 py-2.5">Admin</TableHead>
+                  <TableHead className="px-4 py-2.5">Created</TableHead>
+                  <TableHead className="w-[50px] px-4 py-2.5" />
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -480,59 +520,64 @@ export function SchoolsPage() {
                   return (
                   <TableRow
                     key={school.id}
-                    className={cn('cursor-pointer hover:bg-muted/50', isArchived && 'opacity-75')}
+                    className={cn('cursor-pointer transition-colors hover:bg-cyan-500/[0.045]', isArchived && 'opacity-75')}
                     onClick={() => viewSchool(school.id)}
                   >
-                    <TableCell>
+                    <TableCell className="px-4">
                       <div className="flex items-center gap-3">
-                        <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary shrink-0">
+                        <div className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-md border border-sky-300/60 bg-gradient-to-br from-sky-500 to-cyan-600 text-white shadow-sm shadow-sky-500/20 dark:border-sky-500/40">
                           {school.logo ? (
-                            <img src={school.logo} alt={school.name} className="size-9 rounded-lg object-cover" />
+                            <img src={school.logo} alt={school.name} className="size-full object-cover" />
                           ) : (
-                            <GraduationCap className="size-4" />
+                            <GraduationCap className="size-5" />
                           )}
                         </div>
                         <div className="min-w-0">
-                          <p className="font-medium text-sm truncate">{school.name}</p>
-                          <p className="text-xs text-muted-foreground truncate">
+                          <p className="truncate text-sm font-medium">{school.name}</p>
+                          <p className="truncate text-xs text-muted-foreground">
                             {[school.city, school.state].filter(Boolean).join(', ') || school.contactEmail || school.board || 'School'}
                           </p>
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="px-4">
                       <div className="flex items-center gap-1.5 text-sm">
-                        <MapPin className="size-3 text-muted-foreground shrink-0" />
+                        <MapPin className="size-3 shrink-0 text-muted-foreground" />
                         <span className="truncate">{school.city || '-'}, {school.state || ''}</span>
                       </div>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="px-4">
                       <Badge variant="secondary" className="text-xs">{school.board || '-'}</Badge>
                     </TableCell>
-                    <TableCell>{statusBadge(school)}</TableCell>
-                    <TableCell className="text-center">
+                    <TableCell className="px-4">{statusBadge(school)}</TableCell>
+                    <TableCell className="px-4 text-center">
                       <div className="flex items-center justify-center gap-1">
-                        <Users className="size-3 text-muted-foreground" />
-                        <span className="text-sm">{school.studentCount}</span>
+                        <GraduationCap className="size-3 text-muted-foreground" />
+                        <span className="text-sm tabular-nums">{school.studentCount}</span>
                       </div>
                     </TableCell>
-                    <TableCell className="text-center">
+                    <TableCell className="px-4 text-center">
                       <div className="flex items-center justify-center gap-1">
                         <Users className="size-3 text-muted-foreground" />
-                        <span className="text-sm">{school.teacherCount}</span>
+                        <span className="text-sm tabular-nums">{school.teacherCount}</span>
                       </div>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="px-4">
                       {school.admin ? (
-                        <div className="min-w-0">
-                          <p className="text-sm truncate">{school.admin.name}</p>
-                          <p className="text-xs text-muted-foreground truncate">{school.admin.email}</p>
+                        <div className="flex min-w-0 items-center gap-2">
+                          <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary to-cyan-600 text-[9px] font-semibold text-white">
+                            {school.admin.name.slice(0, 2).toUpperCase()}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="truncate text-sm">{school.admin.name}</p>
+                            <p className="truncate text-xs text-muted-foreground">{school.admin.email}</p>
+                          </div>
                         </div>
                       ) : (
                         <span className="text-xs text-muted-foreground">Not assigned</span>
                       )}
                     </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{formatDate(school.createdAt)}</TableCell>
+                    <TableCell className="px-4 text-sm text-muted-foreground">{formatDate(school.createdAt)}</TableCell>
                     <TableCell>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
@@ -620,7 +665,7 @@ export function SchoolsPage() {
               </TableBody>
             </Table>
 
-            <div className="flex flex-col gap-3 border-t px-3 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-col gap-3 border-t border-sky-500/15 bg-gradient-to-r from-sky-500/[0.06] via-primary/[0.03] to-violet-500/[0.06] px-3 py-3 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-sm text-muted-foreground">
                 Showing {showingFrom} to {showingTo} of {totalSchools} schools
               </p>
@@ -676,17 +721,55 @@ export function SchoolsPage() {
 
       {/* Archive Confirmation Dialog */}
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Archive School</DialogTitle>
-            <DialogDescription>
-              Archive <strong>{deletingSchool?.name}</strong>? It will be hidden from active schools and its users will be disabled. School data stays saved, so you can restore it later.
-            </DialogDescription>
+        <DialogContent className="flex max-h-[90svh] flex-col overflow-hidden border-destructive/25 bg-card p-0 shadow-2xl shadow-destructive/15 sm:max-w-xl [&>button]:right-3 [&>button]:top-3 [&>button]:rounded-full [&>button]:text-white [&>button]:opacity-85 [&>button]:hover:bg-white/15 [&>button]:hover:opacity-100">
+          <DialogHeader className="relative shrink-0 overflow-hidden border-b border-white/15 bg-[linear-gradient(135deg,#ef4444_0%,#b91c1c_48%,#7f1d1d_100%)] px-5 py-4 pr-12 text-white sm:px-6">
+            <div aria-hidden className="absolute -right-10 -top-16 size-40 rounded-full border-[18px] border-white/10" />
+            <div aria-hidden className="absolute -bottom-14 left-10 size-28 rounded-full bg-rose-300/20 blur-2xl" />
+            <div aria-hidden className="absolute bottom-0 right-24 h-24 w-44 rounded-full bg-orange-300/15 blur-2xl" />
+            <div className="relative flex items-center gap-3">
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-white/25 bg-white/15 text-white shadow-md backdrop-blur-sm">
+                <Trash2 className="size-5 text-white" />
+              </span>
+              <div>
+                <DialogTitle className="text-lg font-bold tracking-normal text-white">Archive School</DialogTitle>
+                <DialogDescription className="mt-0.5 text-xs text-white/75">
+                  Hide this school from the active list
+                </DialogDescription>
+              </div>
+            </div>
           </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => { setShowDeleteDialog(false); setDeletingSchool(null) }}>Cancel</Button>
-            <Button variant="destructive" onClick={handleDelete} disabled={saving}>
-              {saving ? <><Loader2 className="size-4 animate-spin mr-2" />Archiving...</> : 'Archive School'}
+
+          <div className="themed-scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain bg-gradient-to-br from-red-500/[0.04] via-background to-rose-500/[0.06] p-4 sm:p-5">
+            <section className="rounded-xl border border-rose-200/80 bg-gradient-to-br from-rose-50 via-white to-orange-50 p-4 shadow-sm dark:border-rose-500/25 dark:from-rose-500/15 dark:via-card dark:to-orange-500/10">
+              <div className="mb-3 flex items-center gap-2">
+                <span className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-rose-500 to-red-600 text-white shadow-sm"><Building2 className="size-4 text-white" /></span>
+                <div><h3 className="text-sm font-semibold">School being archived</h3><p className="text-[10px] text-muted-foreground">This action cannot be undone from here</p></div>
+              </div>
+              <div className="rounded-lg border border-rose-200/70 bg-white/80 px-3 py-2 shadow-sm dark:border-rose-500/20 dark:bg-background/35">
+                <p className="text-sm font-semibold">{deletingSchool?.name || 'This school'}</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {deletingSchool?.city || 'School'} · {deletingSchool?.state || 'Registered on the platform'}
+                </p>
+              </div>
+            </section>
+
+            <Alert className="border-rose-200/80 bg-rose-50/80 text-rose-900 dark:border-rose-500/25 dark:bg-rose-950/30 dark:text-rose-200">
+              <AlertTriangle className="size-4" />
+              <AlertTitle>Users will be disabled</AlertTitle>
+              <AlertDescription>
+                Archiving <strong>{deletingSchool?.name}</strong> hides it from active schools and disables its users.
+                School data stays saved, so you can restore it later.
+              </AlertDescription>
+            </Alert>
+          </div>
+
+          <DialogFooter className="shrink-0 border-t border-destructive/10 bg-muted/30 px-4 py-3 sm:px-5">
+            <Button variant="outline" size="sm" className="h-8 px-4 text-xs" onClick={() => { setShowDeleteDialog(false); setDeletingSchool(null) }} disabled={saving}>
+              Cancel
+            </Button>
+            <Button variant="destructive" size="sm" className="h-8 gap-1.5 px-4 text-xs" onClick={handleDelete} disabled={saving}>
+              {saving ? <Loader2 className="size-3.5 animate-spin" /> : <Trash2 className="size-3.5" />}
+              {saving ? 'Archiving...' : 'Archive School'}
             </Button>
           </DialogFooter>
         </DialogContent>
