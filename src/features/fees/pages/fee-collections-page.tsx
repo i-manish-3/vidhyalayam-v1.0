@@ -62,6 +62,9 @@ type PaymentStatus = 'PAID' | 'PARTIAL' | 'UNPAID'
 type PaymentMethod = 'CASH' | 'ONLINE' | 'CHEQUE' | 'UPI' | 'SPLIT'
 type CollectionCategory = 'fees' | 'transport' | 'hostel' | 'inventory'
 
+interface ClassOption { id: string; name: string }
+interface SectionOption { id: string; name: string; classId?: string }
+
 interface Student {
   id: string
   firstName: string
@@ -231,6 +234,9 @@ interface ReceiptHistoryRow {
 }
 
 const SELECTABLE_PAYMENT_METHODS: Exclude<PaymentMethod, 'SPLIT'>[] = ['CASH', 'ONLINE', 'CHEQUE', 'UPI']
+
+// Sentinel value for "no filter selected" in class/section dropdowns.
+const ALL = '__all__'
 
 function money(value: number | string | null | undefined) {
   return `Rs ${Number(value || 0).toLocaleString()}`
@@ -539,6 +545,10 @@ export function FeeCollectionsPage() {
 
   const [loading, setLoading] = useState(true)
   const [students, setStudents] = useState<Student[]>([])
+  const [classes, setClasses] = useState<ClassOption[]>([])
+  const [sections, setSections] = useState<SectionOption[]>([])
+  const [classFilterId, setClassFilterId] = useState('')
+  const [sectionFilterId, setSectionFilterId] = useState('')
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null)
   const [allStudentCollections, setAllStudentCollections] = useState<FeeCollectionItem[]>([])
   const [receiptHistory, setReceiptHistory] = useState<ReceiptHistoryRow[]>([])
@@ -573,8 +583,14 @@ export function FeeCollectionsPage() {
 
   const fetchInitialData = useCallback(async () => {
     try {
-      const studentsRes = await api.get<{ students: Student[] }>('/api/school/students', { limit: '25', academicYear })
+      const [studentsRes, classesRes, sectionsRes] = await Promise.all([
+        api.get<{ students: Student[] }>('/api/school/students', { limit: '25', academicYear }),
+        api.get<{ classes: ClassOption[] }>('/api/school/classes').catch(() => ({ classes: [] })),
+        api.get<{ sections: SectionOption[] }>('/api/school/sections').catch(() => ({ sections: [] })),
+      ])
       setStudents(studentsRes.students || [])
+      setClasses(classesRes.classes || [])
+      setSections(sectionsRes.sections || [])
     } catch {
       toast({
         title: "Couldn't Load Collect Fees",
@@ -627,6 +643,8 @@ export function FeeCollectionsPage() {
           search: value,
           limit: '20',
           academicYear,
+          ...(classFilterId ? { classId: classFilterId } : {}),
+          ...(sectionFilterId ? { sectionId: sectionFilterId } : {}),
         })
         setStudents(data.students || [])
       } catch {
@@ -635,7 +653,7 @@ export function FeeCollectionsPage() {
     }, 300)
 
     return () => window.clearTimeout(timeout)
-  }, [academicYear, search, selectedStudent])
+  }, [academicYear, classFilterId, sectionFilterId, search, selectedStudent])
 
   const fetchStudentCollections = useCallback(async (studentId: string) => {
     try {
@@ -803,7 +821,7 @@ export function FeeCollectionsPage() {
 
   const filteredStudents = useMemo(() => {
     const value = search.trim().toLowerCase()
-    if (!value) return students.slice(0, 25)
+    if (!value) return classFilterId || sectionFilterId ? students : students.slice(0, 25)
     return students.filter((student) => {
       const haystack = [
         studentName(student),
@@ -814,7 +832,68 @@ export function FeeCollectionsPage() {
       ].filter(Boolean).join(' ').toLowerCase()
       return haystack.includes(value)
     }).slice(0, 25)
-  }, [search, students])
+  }, [classFilterId, sectionFilterId, search, students])
+
+  // Sections belonging to the selected class (used to populate the section filter).
+  const classSections = useMemo(
+    () => (classFilterId ? sections.filter((s) => s.classId === classFilterId) : sections),
+    [classFilterId, sections]
+  )
+
+  // Reset the panel back to the student-picker state after a filter change.
+  const clearStudentSelection = useCallback(() => {
+    setSelectedStudent(null)
+    setAllStudentCollections([])
+    setReceiptHistory([])
+    setTransportInfo(null)
+    setTransportDetailsOpen(false)
+    setHostelInfo(null)
+    setHostelDetailsOpen(false)
+    setSelectedCollectionIds([])
+    setAutoSelectedCollectionIds([])
+    setSelectedPeriods([])
+    setAutoSelectedPeriods([])
+    setRemarks('')
+    setSpecialComments([])
+  }, [])
+
+  // Server-side fetch for class/section-filtered student lists. The list API
+  // already supports classId/sectionId, so we pass them straight through.
+  const fetchStudentsFiltered = useCallback(async (classId: string, sectionId: string) => {
+    try {
+      const data = await api.get<{ students: Student[] }>('/api/school/students', {
+        academicYear,
+        limit: classId ? '1000' : '25',
+        ...(classId ? { classId } : {}),
+        ...(sectionId ? { sectionId } : {}),
+      })
+      setStudents(data.students || [])
+    } catch {
+      setStudents([])
+      toast({
+        title: "Couldn't Load Students",
+        description: 'We could not load students for this class. Please refresh the page.',
+        variant: 'destructive',
+      })
+    }
+  }, [academicYear, toast])
+
+  const handleClassFilterChange = useCallback((value: string) => {
+    setClassFilterId(value)
+    setSectionFilterId('')
+    clearStudentSelection()
+    setSearch('')
+    setPageState(FEE_COLLECTIONS_LIST_STATE_KEY, { search: '' })
+    fetchStudentsFiltered(value, '')
+  }, [clearStudentSelection, fetchStudentsFiltered, setPageState])
+
+  const handleSectionFilterChange = useCallback((value: string) => {
+    setSectionFilterId(value)
+    clearStudentSelection()
+    setSearch('')
+    setPageState(FEE_COLLECTIONS_LIST_STATE_KEY, { search: '' })
+    fetchStudentsFiltered(classFilterId, value)
+  }, [classFilterId, clearStudentSelection, fetchStudentsFiltered, setPageState])
 
   const studentCollections = useMemo(
     () => allStudentCollections.filter((item) => item.status !== 'PAID'),
@@ -1619,7 +1698,7 @@ export function FeeCollectionsPage() {
       {/* ── Search Bar + Payment Date ───────────────────────── */}
       <Card className="!gap-0 overflow-visible border-cyan-200/80 bg-gradient-to-r from-cyan-50 via-white to-sky-50 !py-0 shadow-sm dark:border-cyan-500/25 dark:from-cyan-500/10 dark:via-card dark:to-sky-500/10">
         <CardContent className="p-2">
-          <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_180px]">
+          <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_170px_170px_180px]">
             <div className="relative">
               <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
               <Input
@@ -1644,7 +1723,7 @@ export function FeeCollectionsPage() {
                   setSpecialComments([])
                 }}
               />
-              {search && !selectedStudent && (
+              {(search || classFilterId || sectionFilterId) && !selectedStudent && (
                 <div className="absolute z-20 mt-1 max-h-72 w-full overflow-y-auto rounded-lg border bg-popover text-popover-foreground shadow-lg">
                   {filteredStudents.length === 0 ? (
                     <div className="p-3 text-sm text-muted-foreground">No students found</div>
@@ -1677,6 +1756,32 @@ export function FeeCollectionsPage() {
                 </div>
               )}
             </div>
+            <Select value={classFilterId || ALL} onValueChange={(value) => handleClassFilterChange(value === ALL ? '' : value)}>
+              <SelectTrigger className="h-9 w-full bg-white text-sm shadow-sm dark:bg-background">
+                <SelectValue placeholder="All classes" />
+              </SelectTrigger>
+              <SelectContent className="max-h-64 border-sky-200/80 bg-white shadow-lg dark:border-sky-500/25 dark:bg-popover">
+                <SelectItem value={ALL}>All classes</SelectItem>
+                {classes.map((c) => (
+                  <SelectItem key={c.id} value={c.id} className="data-[state=checked]:bg-sky-50 data-[state=checked]:font-semibold data-[state=checked]:text-sky-700 dark:data-[state=checked]:bg-sky-500/15 dark:data-[state=checked]:text-sky-300">
+                    {c.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={sectionFilterId || ALL} onValueChange={(value) => handleSectionFilterChange(value === ALL ? '' : value)} disabled={!classFilterId}>
+              <SelectTrigger className="h-9 w-full bg-white text-sm shadow-sm dark:bg-background">
+                <SelectValue placeholder="All sections" />
+              </SelectTrigger>
+              <SelectContent className="max-h-64 border-violet-200/80 bg-white shadow-lg dark:border-violet-500/25 dark:bg-popover">
+                <SelectItem value={ALL}>All sections</SelectItem>
+                {classSections.map((s) => (
+                  <SelectItem key={s.id} value={s.id} className="data-[state=checked]:bg-violet-50 data-[state=checked]:font-semibold data-[state=checked]:text-violet-700 dark:data-[state=checked]:bg-violet-500/15 dark:data-[state=checked]:text-violet-300">
+                    {s.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <DatePicker
               value={paymentDate}
               onChange={setPaymentDate}
