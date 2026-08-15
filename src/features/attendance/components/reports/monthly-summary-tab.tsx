@@ -108,17 +108,19 @@ export function MonthlySummaryTab({
   }
 
   return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-xs text-muted-foreground inline-flex items-center gap-1.5">
-          <CalendarRange className="size-3.5" />
-          {classSectionLabel(classes, sections, classId, sectionId)} · {formatRangeLabel(dateFrom, dateTo)}
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-2.5 rounded-lg border border-sky-500/15 bg-gradient-to-r from-sky-500/[0.06] via-transparent to-violet-500/[0.06] px-3 py-2">
+        <p className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+          <CalendarRange className="size-3.5 text-primary" />
+          <span className="font-semibold text-foreground">{classSectionLabel(classes, sections, classId, sectionId)}</span>
+          <span>·</span>
+          <span>{formatRangeLabel(dateFrom, dateTo)}</span>
         </p>
         <div className="flex gap-2">
-          <Button size="sm" variant="outline" onClick={handleCsv} disabled={exporting || loading || rows.length === 0} className="h-8 gap-1.5">
+          <Button size="sm" variant="outline" onClick={handleCsv} disabled={exporting || loading || rows.length === 0} className="h-8 gap-1.5 bg-white shadow-sm dark:bg-input/20">
             <Download className="size-4" /> {exporting ? 'Exporting…' : 'CSV'}
           </Button>
-          <Button size="sm" variant="outline" onClick={handlePrint} disabled={loading || rows.length === 0} className="h-8 gap-1.5">
+          <Button size="sm" variant="outline" onClick={handlePrint} disabled={loading || rows.length === 0} className="h-8 gap-1.5 bg-white shadow-sm dark:bg-input/20">
             <Printer className="size-4" /> Print
           </Button>
         </div>
@@ -129,40 +131,42 @@ export function MonthlySummaryTab({
       ) : rows.length === 0 ? (
         <EmptyState icon={BarChart3} title="No data" description="No attendance records found for this class and date range." />
       ) : (
-        <Card className="shadow-sm">
+        <Card className="gap-0 overflow-hidden rounded-xl border-sky-500/15 shadow-sm">
           <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-14">Roll</TableHead>
-                  <TableHead>Name</TableHead>
-                  <TableHead className="text-center">Present</TableHead>
-                  <TableHead className="text-center">Absent</TableHead>
-                  <TableHead className="text-center">Leave</TableHead>
-                  <TableHead className="text-center">Total</TableHead>
-                  <TableHead className="text-center">%</TableHead>
-                  <TableHead className="w-24 text-right">Calendar</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {rows.map((r) => (
-                  <TableRow key={r.studentId}>
-                    <TableCell className="font-mono text-xs">{r.rollNumber || '—'}</TableCell>
-                    <TableCell className="font-medium">{r.name}</TableCell>
-                    <TableCell className="text-center text-emerald-600 dark:text-emerald-400">{r.present}</TableCell>
-                    <TableCell className="text-center text-red-600 dark:text-red-400">{r.absent}</TableCell>
-                    <TableCell className="text-center text-amber-600 dark:text-amber-400">{r.leave}</TableCell>
-                    <TableCell className="text-center text-muted-foreground">{r.total}</TableCell>
-                    <TableCell className={cn('text-center font-semibold', percentColor(r.percent))}>{r.percent}%</TableCell>
-                    <TableCell className="text-right">
-                      <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => onViewCalendar(r.studentId)}>
-                        View
-                      </Button>
-                    </TableCell>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader className="bg-gradient-to-r from-sky-500/[0.08] via-primary/[0.04] to-violet-500/[0.07]">
+                  <TableRow>
+                    <TableHead className="w-14 py-2.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Roll</TableHead>
+                    <TableHead className="py-2.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Name</TableHead>
+                    <TableHead className="py-2.5 text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground">Present</TableHead>
+                    <TableHead className="py-2.5 text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground">Absent</TableHead>
+                    <TableHead className="py-2.5 text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground">Leave</TableHead>
+                    <TableHead className="py-2.5 text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground">Total</TableHead>
+                    <TableHead className="py-2.5 text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground">%</TableHead>
+                    <TableHead className="w-24 py-2.5 text-right"></TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {rows.map((r) => (
+                    <TableRow key={r.studentId} className="transition-colors hover:bg-sky-500/[0.04]">
+                      <TableCell className="py-2.5 font-mono text-xs">{r.rollNumber || '—'}</TableCell>
+                      <TableCell className="py-2.5 font-medium">{r.name}</TableCell>
+                      <TableCell className="py-2.5 text-center text-emerald-600 dark:text-emerald-400">{r.present}</TableCell>
+                      <TableCell className="py-2.5 text-center text-red-600 dark:text-red-400">{r.absent}</TableCell>
+                      <TableCell className="py-2.5 text-center text-amber-600 dark:text-amber-400">{r.leave}</TableCell>
+                      <TableCell className="py-2.5 text-center text-muted-foreground">{r.total}</TableCell>
+                      <TableCell className={cn('py-2.5 text-center font-semibold', percentColor(r.percent))}>{r.percent}%</TableCell>
+                      <TableCell className="py-2.5 text-right">
+                        <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => onViewCalendar(r.studentId)}>
+                          View
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           </CardContent>
         </Card>
       )}

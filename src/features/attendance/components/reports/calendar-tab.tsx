@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { api } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -164,37 +164,43 @@ export function CalendarTab({
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {/* Tab-specific selectors */}
-      <Card className="shadow-sm">
-        <CardContent className="p-3">
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            <div className="grid grid-cols-[64px_minmax(0,1fr)] items-center gap-2">
-              <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Class</Label>
+      <Card className="gap-0 overflow-hidden border-sky-500/15 shadow-sm">
+        <CardHeader className="flex-row items-center gap-2 border-b border-sky-500/15 bg-gradient-to-r from-sky-500/[0.08] via-primary/[0.04] to-violet-500/[0.06] px-4 py-2">
+          <span className="flex size-5 shrink-0 items-center justify-center rounded-md bg-gradient-to-br from-sky-500 to-primary text-white shadow-sm shadow-sky-500/20">
+            <UserSearch className="size-3" />
+          </span>
+          <CardTitle className="text-sm font-semibold">Student Selector</CardTitle>
+        </CardHeader>
+        <CardContent className="p-3 sm:p-4">
+          <div className="grid grid-cols-2 gap-2 xl:grid-cols-4">
+            <div className="space-y-1">
+              <Label className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Class</Label>
               <Select value={classId} onValueChange={handleClassChange}>
-                <SelectTrigger className="h-9 w-full text-sm sm:h-8"><SelectValue placeholder="Select" /></SelectTrigger>
+                <SelectTrigger className="h-8 w-full text-xs"><SelectValue placeholder="Select" /></SelectTrigger>
                 <SelectContent>
                   {classes.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
-            <div className="grid grid-cols-[64px_minmax(0,1fr)] items-center gap-2">
-              <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Section</Label>
+            <div className="space-y-1">
+              <Label className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Section</Label>
               {classHasNoSections ? (
-                <Badge variant="secondary" className="flex h-9 w-full items-center px-3 text-sm sm:h-8">No Sections</Badge>
+                <Badge variant="secondary" className="flex h-8 w-full items-center px-3 text-xs">No Sections</Badge>
               ) : (
                 <Select value={sectionId} onValueChange={handleSectionChange} disabled={!classId}>
-                  <SelectTrigger className="h-9 w-full text-sm sm:h-8"><SelectValue placeholder="Select" /></SelectTrigger>
+                  <SelectTrigger className="h-8 w-full text-xs"><SelectValue placeholder="Select" /></SelectTrigger>
                   <SelectContent>
                     {filteredSections.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
               )}
             </div>
-            <div className="grid grid-cols-[64px_minmax(0,1fr)] items-center gap-2">
-              <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Student</Label>
+            <div className="space-y-1">
+              <Label className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Student</Label>
               <Select value={studentId} onValueChange={setStudentId} disabled={!classId || students.length === 0}>
-                <SelectTrigger className="h-9 w-full text-sm sm:h-8"><SelectValue placeholder="Select student" /></SelectTrigger>
+                <SelectTrigger className="h-8 w-full text-xs"><SelectValue placeholder="Select student" /></SelectTrigger>
                 <SelectContent>
                   {students.map((s) => (
                     <SelectItem key={s.id} value={s.id}>
@@ -204,18 +210,20 @@ export function CalendarTab({
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="icon" className="size-8 shrink-0" onClick={() => setMonth(shiftMonth(month, -1))}>
-                <ChevronLeft className="size-4" />
-              </Button>
-              <span className="flex-1 text-center text-sm font-medium">{monthLabel(month)}</span>
-              <Button
-                variant="outline" size="icon" className="size-8 shrink-0"
-                onClick={() => setMonth(shiftMonth(month, 1))}
-                disabled={month >= currentMonth()}
-              >
-                <ChevronRight className="size-4" />
-              </Button>
+            <div className="flex items-end">
+              <div className="flex w-full items-center gap-2">
+                <Button variant="outline" size="icon" className="size-8 shrink-0 bg-white shadow-sm dark:bg-input/20" onClick={() => setMonth(shiftMonth(month, -1))}>
+                  <ChevronLeft className="size-4" />
+                </Button>
+                <span className="flex-1 text-center text-sm font-medium">{monthLabel(month)}</span>
+                <Button
+                  variant="outline" size="icon" className="size-8 shrink-0 bg-white shadow-sm dark:bg-input/20"
+                  onClick={() => setMonth(shiftMonth(month, 1))}
+                  disabled={month >= currentMonth()}
+                >
+                  <ChevronRight className="size-4" />
+                </Button>
+              </div>
             </div>
           </div>
         </CardContent>
@@ -228,17 +236,22 @@ export function CalendarTab({
       ) : !data ? (
         <EmptyState icon={CalendarDays} title="No data" description="No attendance found for this student in the selected month." />
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-4">
           {/* Student header + print */}
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <p className="text-sm font-semibold">{data.student.name}</p>
-              <p className="text-xs text-muted-foreground">
-                Roll {data.student.rollNumber || '—'} · {data.student.className || ''}
-                {data.student.sectionName ? ` — ${data.student.sectionName}` : ''}
-              </p>
+          <div className="flex flex-wrap items-center justify-between gap-2.5 rounded-lg border border-sky-500/15 bg-gradient-to-r from-sky-500/[0.06] via-transparent to-violet-500/[0.06] px-3 py-2">
+            <div className="flex min-w-0 items-center gap-2.5">
+              <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-gradient-to-br from-sky-500 to-primary text-white shadow-sm shadow-sky-500/20">
+                <CalendarDays className="size-3.5" />
+              </span>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-bold">{data.student.name}</p>
+                <p className="truncate text-xs text-muted-foreground">
+                  Roll {data.student.rollNumber || '—'} · {data.student.className || ''}
+                  {data.student.sectionName ? ` — ${data.student.sectionName}` : ''}
+                </p>
+              </div>
             </div>
-            <Button size="sm" variant="outline" onClick={handlePrint} className="h-8 gap-1.5">
+            <Button size="sm" variant="outline" onClick={handlePrint} className="h-8 gap-1.5 bg-white shadow-sm dark:bg-input/20">
               <Printer className="size-4" /> Print
             </Button>
           </div>
@@ -255,11 +268,17 @@ export function CalendarTab({
           </div>
 
           {/* Calendar grid */}
-          <Card className="shadow-sm">
-            <CardContent className="p-3">
+          <Card className="gap-0 overflow-hidden rounded-xl border-sky-500/15 shadow-sm">
+            <CardHeader className="flex-row items-center gap-2 border-b border-sky-500/15 bg-gradient-to-r from-sky-500/[0.08] via-primary/[0.04] to-violet-500/[0.06] px-4 py-2">
+              <span className="flex size-5 shrink-0 items-center justify-center rounded-md bg-gradient-to-br from-sky-500 to-primary text-white shadow-sm shadow-sky-500/20">
+                <CalendarDays className="size-3" />
+              </span>
+              <CardTitle className="text-sm font-semibold">{monthLabel(month)}</CardTitle>
+            </CardHeader>
+            <CardContent className="p-3 sm:p-4">
               <div className="grid grid-cols-7 gap-1 sm:gap-2">
                 {WEEKDAYS.map((d) => (
-                  <div key={d} className="text-center text-[10px] font-semibold uppercase text-muted-foreground py-1">{d}</div>
+                  <div key={d} className="py-1 text-center text-[10px] font-semibold uppercase text-muted-foreground">{d}</div>
                 ))}
                 {grid.map((cell, i) => {
                   if (!cell) return <div key={`blank-${i}`} />
@@ -268,13 +287,13 @@ export function CalendarTab({
                     <div
                       key={cell.day}
                       className={cn(
-                        'min-h-[52px] rounded-md border p-1.5 text-xs',
+                        'flex min-h-[52px] flex-col rounded-md border p-1.5 text-xs transition-colors hover:border-sky-500/25',
                         cfg ? cfg.bgColor : 'bg-muted/30',
                       )}
                     >
                       <div className="font-medium">{cell.day}</div>
                       {cfg && (
-                        <span className={cn('mt-1 inline-block rounded px-1 py-0.5 text-[9px] font-semibold', cfg.textColor)}>
+                        <span className={cn('mt-1 inline-block self-start rounded px-1 py-0.5 text-[9px] font-semibold', cfg.textColor)}>
                           {cfg.shortLabel}
                         </span>
                       )}

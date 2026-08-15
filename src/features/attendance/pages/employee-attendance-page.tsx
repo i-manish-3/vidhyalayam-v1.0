@@ -11,7 +11,7 @@ import { useEffectiveRole } from '@/hooks/use-effective-role'
 import { usePermissions, PERMISSIONS } from '@/hooks/use-permissions'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
+import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -26,6 +26,7 @@ import {
   ClipboardCheck,
   ClipboardList,
   Eraser,
+  Loader2,
   Lock,
   LockOpen,
   MessageSquare,
@@ -33,9 +34,11 @@ import {
   Save,
   Search,
   ShieldCheck,
+  SlidersHorizontal,
   UserCheck,
   UsersRound,
   X,
+  type LucideIcon,
 } from 'lucide-react'
 
 type AttendanceStatus = 'present' | 'absent' | 'leave'
@@ -153,6 +156,72 @@ function formatDateTime(value: string | null | undefined): string {
     minute: '2-digit',
     hour12: true,
   })
+}
+
+function StatCard({
+  title,
+  value,
+  description,
+  icon: Icon,
+  tone,
+}: {
+  title: string
+  value: string | number
+  description: string
+  icon: LucideIcon
+  tone: 'sky' | 'emerald' | 'amber' | 'violet' | 'rose'
+}) {
+  const styles = {
+    sky: {
+      card: 'border-sky-500/20 bg-gradient-to-br from-sky-500/[0.15] via-card to-sky-500/[0.05]',
+      icon: 'bg-gradient-to-br from-sky-500 to-sky-600 shadow-sky-500/20',
+      accent: 'from-sky-500 via-sky-400',
+      bubble: 'bg-sky-500/[0.10]',
+    },
+    emerald: {
+      card: 'border-emerald-500/20 bg-gradient-to-br from-emerald-500/[0.15] via-card to-emerald-500/[0.05]',
+      icon: 'bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-emerald-500/20',
+      accent: 'from-emerald-500 via-emerald-400',
+      bubble: 'bg-emerald-500/[0.10]',
+    },
+    amber: {
+      card: 'border-amber-500/20 bg-gradient-to-br from-amber-500/[0.14] via-card to-amber-500/[0.05]',
+      icon: 'bg-gradient-to-br from-amber-500 to-amber-600 shadow-amber-500/20',
+      accent: 'from-amber-500 via-amber-400',
+      bubble: 'bg-amber-500/[0.10]',
+    },
+    violet: {
+      card: 'border-violet-500/20 bg-gradient-to-br from-violet-500/[0.14] via-card to-violet-500/[0.05]',
+      icon: 'bg-gradient-to-br from-violet-500 to-violet-600 shadow-violet-500/20',
+      accent: 'from-violet-500 via-violet-400',
+      bubble: 'bg-violet-500/[0.10]',
+    },
+    rose: {
+      card: 'border-rose-500/20 bg-gradient-to-br from-rose-500/[0.14] via-card to-rose-500/[0.05]',
+      icon: 'bg-gradient-to-br from-rose-500 to-rose-600 shadow-rose-500/20',
+      accent: 'from-rose-500 via-rose-400',
+      bubble: 'bg-rose-500/[0.10]',
+    },
+  }[tone]
+
+  return (
+    <Card className={cn('group relative w-full overflow-hidden rounded-xl py-0 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md', styles.card)}>
+      <div className={cn('absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r to-transparent', styles.accent)} />
+      <div aria-hidden className={cn('absolute -bottom-7 -right-5 size-16 rounded-full transition-transform group-hover:scale-125', styles.bubble)} />
+      <CardContent className="relative p-3">
+        <div className="flex items-center justify-between gap-2">
+          <div className="min-w-0">
+            <p className="truncate text-[11px] font-medium leading-4 text-muted-foreground">{title}</p>
+            <p className="text-lg font-bold leading-6 tracking-tight tabular-nums">{value}</p>
+            <p className="truncate text-[10px] leading-3 text-muted-foreground">{description}</p>
+          </div>
+          <div className={cn('flex size-9 shrink-0 items-center justify-center rounded-lg text-white shadow-sm', styles.icon)}>
+            <Icon className="size-4" />
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  )
 }
 
 export function EmployeeAttendancePage() {
@@ -382,37 +451,83 @@ export function EmployeeAttendancePage() {
   if (initialLoad) return <LoadingState />
 
   return (
-    <div className="space-y-3 pb-20 sm:pb-0">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-xl font-bold tracking-tight leading-tight">Employee Attendance</h1>
-          <p className="text-xs text-muted-foreground">Record daily teacher and staff attendance</p>
+    <div className="space-y-4 pb-20 sm:pb-0">
+      {/* Gradient Header Banner */}
+      <div className="relative flex flex-col gap-3 overflow-hidden rounded-xl border border-primary/25 bg-gradient-to-r from-primary via-teal-600 to-cyan-600 px-4 py-3 text-white shadow-lg shadow-primary/15 sm:flex-row sm:items-center sm:justify-between">
+        <div aria-hidden className="absolute -right-8 -top-14 size-36 rounded-full border-[18px] border-cyan-200/15" />
+        <div aria-hidden className="absolute bottom-0 right-1/4 h-px w-48 bg-gradient-to-r from-transparent via-white/45 to-transparent" />
+        <div aria-hidden className="absolute -bottom-14 right-28 size-24 rounded-full bg-sky-300/10" />
+        <div className="relative flex min-w-0 items-center gap-3">
+          <span className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-white/25 bg-white/15 shadow-md shadow-black/10 backdrop-blur-sm">
+            <ClipboardCheck className="size-5.5" strokeWidth={1.8} />
+          </span>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-xl font-bold tracking-tight">Employee Attendance</h1>
+              <span className="rounded-full border border-white/20 bg-white/10 px-2 py-0.5 text-[10px] font-semibold text-white/85 backdrop-blur-sm">
+                {people.length.toLocaleString('en-IN')} employees
+              </span>
+            </div>
+            <p className="mt-0.5 text-xs text-white/80">Record daily teacher and staff attendance.</p>
+          </div>
         </div>
-        <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
-          <Button variant={mode === 'mark' ? 'default' : 'outline'} size="sm" className="h-9 gap-1.5" onClick={() => setMode('mark')}>
-            <ClipboardCheck className="size-4" />
-            Mark
-          </Button>
-          <Button variant={mode === 'view' ? 'default' : 'outline'} size="sm" className="h-9 gap-1.5" onClick={() => setMode('view')}>
-            <ClipboardList className="size-4" />
-            View
-          </Button>
+        <div className="relative flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 p-1 backdrop-blur-sm">
+          <button
+            type="button"
+            onClick={() => setMode('mark')}
+            className={cn(
+              'inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-xs font-semibold transition-all',
+              mode === 'mark' ? 'bg-white text-primary shadow-sm' : 'text-white/85 hover:bg-white/15 hover:text-white',
+            )}
+          >
+            <ClipboardCheck className="size-3.5" />Mark
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode('view')}
+            className={cn(
+              'inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-xs font-semibold transition-all',
+              mode === 'view' ? 'bg-white text-primary shadow-sm' : 'text-white/85 hover:bg-white/15 hover:text-white',
+            )}
+          >
+            <ClipboardList className="size-3.5" />View
+          </button>
         </div>
       </div>
 
-      <Card className="shadow-sm">
-        <CardContent className="p-3">
-          <div className="grid gap-3 md:grid-cols-[180px_180px_1fr] md:items-end">
+      {/* Stats Cards */}
+      <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-5">
+        <StatCard title="Marked" value={markedCount} description={unmarkedCount > 0 ? `${unmarkedCount} unmarked` : 'All employees marked'} icon={UsersRound} tone="sky" />
+        <StatCard title="Present" value={presentCount} description="On duty today" icon={Check} tone="emerald" />
+        <StatCard title="Absent" value={absentCount} description="Not on duty" icon={X} tone="rose" />
+        <StatCard title="On Leave" value={leaveCount} description="Approved leave" icon={CalendarOff} tone="amber" />
+        <StatCard title="Rate" value={`${attendancePercentage}%`} description="Present of marked" icon={UserCheck} tone="violet" />
+      </div>
+
+      {/* Filters */}
+      <Card className="gap-0 overflow-hidden border-sky-500/15 bg-gradient-to-br from-card via-card to-sky-500/[0.035] py-0 shadow-sm">
+        <CardHeader className="border-b border-sky-500/15 bg-gradient-to-r from-sky-500/[0.10] via-primary/[0.05] to-violet-500/[0.08] px-4 py-2.5">
+          <div className="flex items-center gap-2 text-sm font-semibold">
+            <span className="flex size-6 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-primary text-white shadow-sm shadow-sky-500/20">
+              <SlidersHorizontal className="size-3.5" />
+            </span>
+            Filters
+          </div>
+        </CardHeader>
+        <CardContent className="p-4">
+          <div className="grid gap-3 md:grid-cols-[190px_190px_1fr] md:items-end">
             <div className="space-y-1.5">
-              <Label className="text-xs">Date</Label>
-              <DatePicker value={date} onChange={setDate} disableFuture />
+              <Label className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                <CalendarDays className="size-3.5" />Date
+              </Label>
+              <DatePicker value={date} onChange={setDate} disableFuture triggerClassName="w-full h-9" />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Employee Type</Label>
+              <Label className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                <UsersRound className="size-3.5" />Employee Type
+              </Label>
               <Select value={staffType} onValueChange={(value) => setStaffType(value as StaffFilter)}>
-                <SelectTrigger className="h-9">
-                  <SelectValue />
-                </SelectTrigger>
+                <SelectTrigger className="h-9 bg-white shadow-xs dark:bg-input/30"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Teachers & Staff</SelectItem>
                   <SelectItem value="teacher">Teachers</SelectItem>
@@ -421,12 +536,12 @@ export function EmployeeAttendancePage() {
               </Select>
             </div>
             <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+              <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 placeholder="Search name, employee ID, role..."
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
-                className="h-9 pl-8 pr-8 text-sm"
+                className="h-9 bg-white pl-8 pr-8 text-sm shadow-xs dark:bg-input/30"
               />
               {searchQuery && (
                 <button
@@ -442,66 +557,40 @@ export function EmployeeAttendancePage() {
         </CardContent>
       </Card>
 
-      {markedCount > 0 && (
-        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
-          {[
-            { label: 'Total', value: markedCount, icon: UsersRound, color: 'text-foreground', bg: 'bg-primary/10' },
-            { label: 'Present', value: presentCount, icon: Check, color: 'text-emerald-700 dark:text-emerald-400', bg: 'bg-emerald-100 dark:bg-emerald-900/40' },
-            { label: 'Absent', value: absentCount, icon: X, color: 'text-red-700 dark:text-red-400', bg: 'bg-red-100 dark:bg-red-900/40' },
-            { label: 'Leave', value: leaveCount, icon: CalendarOff, color: 'text-amber-700 dark:text-amber-400', bg: 'bg-amber-100 dark:bg-amber-900/40' },
-          ].map((item) => (
-            <div key={item.label} className="flex items-center gap-2 rounded-lg border bg-card px-3 py-2 shadow-sm">
-              <div className={cn('size-7 rounded-md flex items-center justify-center shrink-0', item.bg)}>
-                <item.icon className={cn('size-3.5', item.color)} />
+      <Card className="gap-0 overflow-hidden border-sky-500/15 bg-gradient-to-br from-card via-card to-sky-500/[0.035] py-0 shadow-sm">
+        <CardHeader className="border-b border-sky-500/15 bg-gradient-to-r from-sky-500/[0.10] via-primary/[0.05] to-violet-500/[0.08] px-4 py-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-primary text-white shadow-sm shadow-sky-500/20">
+                <UsersRound className="size-4" />
+              </span>
+              <span className="text-sm font-semibold">{mode === 'mark' ? 'Daily Roster' : 'Finalized Records'}</span>
+              <Badge variant="secondary" className="h-5 text-[10px]">{visiblePeople.length}</Badge>
+              {isFinalized && (
+                <Badge className="h-6 gap-1 bg-emerald-100 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-900/50 dark:text-emerald-300">
+                  <ShieldCheck className="size-3" />
+                  Finalized
+                </Badge>
+              )}
+            </div>
+            {mode === 'mark' && !isFinalized && !isFutureDate && (
+              <div className="grid grid-cols-3 gap-1.5 sm:flex sm:items-center">
+                <Button variant="outline" size="sm" className="h-8 gap-1.5 bg-white text-xs shadow-xs dark:bg-input/20" onClick={() => markAll('present')}>
+                  <Check className="size-3.5" />
+                  All Present
+                </Button>
+                <Button variant="outline" size="sm" className="h-8 gap-1.5 bg-white text-xs shadow-xs dark:bg-input/20" onClick={() => markAll('absent')}>
+                  <X className="size-3.5" />
+                  All Absent
+                </Button>
+                <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-xs text-muted-foreground" onClick={clearAll}>
+                  <Eraser className="size-3.5" />
+                  Clear
+                </Button>
               </div>
-              <div>
-                <p className="text-[10px] font-semibold uppercase text-muted-foreground">{item.label}</p>
-                <p className={cn('text-base font-bold leading-tight', item.color)}>{item.value}</p>
-              </div>
-            </div>
-          ))}
-          <div className="flex items-center gap-2 rounded-lg border bg-card px-3 py-2 shadow-sm">
-            <div className="size-7 rounded-md bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300 flex items-center justify-center shrink-0">
-              <UserCheck className="size-3.5" />
-            </div>
-            <div>
-              <p className="text-[10px] font-semibold uppercase text-muted-foreground">Rate</p>
-              <p className="text-base font-bold leading-tight text-sky-700 dark:text-sky-300">{attendancePercentage}%</p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <Card className="overflow-hidden shadow-sm">
-        <div className="flex flex-col gap-3 border-b bg-muted/40 px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
-          <div className="flex flex-wrap items-center gap-2">
-            <UsersRound className="size-4 text-muted-foreground" />
-            <span className="text-sm font-semibold">{mode === 'mark' ? 'Daily Roster' : 'Finalized Records'}</span>
-            <Badge variant="secondary" className="h-5 text-[10px]">{visiblePeople.length}</Badge>
-            {isFinalized && (
-              <Badge className="h-6 gap-1 bg-emerald-100 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-900/50 dark:text-emerald-300">
-                <ShieldCheck className="size-3" />
-                Finalized
-              </Badge>
             )}
           </div>
-          {mode === 'mark' && !isFinalized && !isFutureDate && (
-            <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
-              <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={() => markAll('present')}>
-                <Check className="size-3.5" />
-                All Present
-              </Button>
-              <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={() => markAll('absent')}>
-                <X className="size-3.5" />
-                All Absent
-              </Button>
-              <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-muted-foreground" onClick={clearAll}>
-                <Eraser className="size-3.5" />
-                Clear
-              </Button>
-            </div>
-          )}
-        </div>
+        </CardHeader>
 
         {loading ? (
           <CardContent className="flex items-center justify-center p-10 text-sm text-muted-foreground">
@@ -516,7 +605,7 @@ export function EmployeeAttendancePage() {
             No employees match &ldquo;{searchQuery}&rdquo;
           </CardContent>
         ) : (
-          <div className="divide-y divide-border">
+          <div className="divide-y divide-border/70">
             {visiblePeople.map((person, index) => {
               const key = personKey(person)
               const currentStatus = attendanceMap.get(key) || null
@@ -538,7 +627,7 @@ export function EmployeeAttendancePage() {
                       <span className="w-6 shrink-0 text-center font-mono text-[11px] text-muted-foreground md:w-8">
                         {index + 1}
                       </span>
-                      <Avatar className="size-10 shrink-0 md:size-9">
+                      <Avatar className="size-10 shrink-0 shadow-sm md:size-9">
                         <AvatarFallback className={cn('text-[11px] font-bold', statusConfig ? statusConfig.avatarBg : 'bg-muted text-muted-foreground')}>
                           {getInitials(person.firstName, person.lastName)}
                         </AvatarFallback>
@@ -568,7 +657,7 @@ export function EmployeeAttendancePage() {
                             disabled={markingBlocked}
                             onClick={() => handleStatusChange(person, status)}
                             className={cn(
-                              'inline-flex h-9 items-center justify-center gap-1 rounded-md border px-2 text-xs font-semibold transition-all md:h-8 md:px-3',
+                              'inline-flex h-9 items-center justify-center gap-1 rounded-lg border px-2 text-xs font-semibold transition-all md:h-8 md:px-2.5',
                               isActive
                                 ? `${cfg.bgColor} ${cfg.textColor} ${cfg.borderColor}`
                                 : markingBlocked
@@ -576,7 +665,8 @@ export function EmployeeAttendancePage() {
                                   : 'border-transparent bg-background text-muted-foreground hover:border-border hover:bg-muted',
                             )}
                           >
-                            <span>{cfg.label}</span>
+                            <cfg.icon className="size-3.5" />
+                            <span>{cfg.shortLabel}</span>
                           </button>
                         )
                       })}
@@ -585,7 +675,7 @@ export function EmployeeAttendancePage() {
                         disabled={markingBlocked}
                         onClick={() => setExpandedRemark(isRemarkExpanded ? null : key)}
                         className={cn(
-                          'inline-flex h-9 items-center justify-center rounded-md transition-colors md:size-8',
+                          'inline-flex h-9 items-center justify-center rounded-lg transition-colors md:size-8',
                           currentRemark ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted',
                           markingBlocked && 'cursor-not-allowed text-muted-foreground/30 hover:bg-transparent',
                         )}
@@ -620,12 +710,12 @@ export function EmployeeAttendancePage() {
           </div>
         )}
 
-        <div className="flex flex-col gap-3 border-t bg-muted/40 px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
-          <div className="flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground">
-            <span>P: <strong className="text-foreground">{presentCount}</strong></span>
-            <span>A: <strong className="text-foreground">{absentCount}</strong></span>
-            <span>L: <strong className="text-foreground">{leaveCount}</strong></span>
-            {unmarkedCount > 0 && <span>Unmarked: <strong className="text-foreground">{unmarkedCount}</strong></span>}
+        <div className="flex flex-col gap-3 border-t border-sky-500/15 bg-gradient-to-r from-sky-500/[0.06] via-transparent to-violet-500/[0.05] px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+          <div className="flex flex-wrap items-center gap-2.5 text-[11px] text-muted-foreground">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-300 bg-emerald-50 px-2 py-0.5 dark:border-emerald-700 dark:bg-emerald-950/40"><span className="size-1.5 rounded-full bg-emerald-500" />P <strong className="text-foreground">{presentCount}</strong></span>
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-red-300 bg-red-50 px-2 py-0.5 dark:border-red-700 dark:bg-red-950/40"><span className="size-1.5 rounded-full bg-red-500" />A <strong className="text-foreground">{absentCount}</strong></span>
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 dark:border-amber-700 dark:bg-amber-950/40"><span className="size-1.5 rounded-full bg-amber-500" />L <strong className="text-foreground">{leaveCount}</strong></span>
+            {unmarkedCount > 0 && <span className="inline-flex items-center gap-1.5 rounded-full border border-muted bg-muted/40 px-2 py-0.5">Unmarked <strong className="text-foreground">{unmarkedCount}</strong></span>}
           </div>
           {mode === 'mark' ? (
             <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
@@ -637,7 +727,7 @@ export function EmployeeAttendancePage() {
               ) : isFinalized ? (
                 <>
                   {canReopen && (
-                    <Button variant="outline" size="sm" className="h-9 gap-1.5" onClick={() => setReopenDialogOpen(true)}>
+                    <Button variant="outline" size="sm" className="h-9 gap-1.5 bg-white text-xs shadow-xs dark:bg-input/20" onClick={() => setReopenDialogOpen(true)}>
                       <LockOpen className="size-3.5" />
                       Reopen
                     </Button>
@@ -653,11 +743,11 @@ export function EmployeeAttendancePage() {
                     <RotateCcw className="size-3" />
                     Clear All
                   </Button>
-                  <Button size="sm" className="h-9 gap-2" onClick={saveAttendance} disabled={saving || people.length === 0}>
+                  <Button size="sm" className="h-9 gap-2 text-xs" onClick={saveAttendance} disabled={saving || people.length === 0}>
                     <Save className="size-3.5" />
                     {saving ? 'Saving...' : 'Save'}
                   </Button>
-                  <Button size="sm" className="h-9 gap-2 sm:bg-emerald-600 sm:hover:bg-emerald-700" onClick={finalizeAttendance} disabled={finalizing || people.length === 0}>
+                  <Button size="sm" className="h-9 gap-2 bg-emerald-600 text-xs hover:bg-emerald-700" onClick={finalizeAttendance} disabled={finalizing || people.length === 0}>
                     <ShieldCheck className="size-3.5" />
                     {finalizing ? 'Finalizing...' : 'Finalize'}
                   </Button>
@@ -665,7 +755,7 @@ export function EmployeeAttendancePage() {
               )}
             </div>
           ) : (
-            <Button variant="outline" size="sm" className="h-9 gap-1.5" onClick={() => setMode('mark')}>
+            <Button variant="outline" size="sm" className="h-9 gap-1.5 bg-white text-xs shadow-xs dark:bg-input/20" onClick={() => setMode('mark')}>
               <ClipboardCheck className="size-3.5" />
               Mark Attendance
             </Button>
@@ -674,20 +764,44 @@ export function EmployeeAttendancePage() {
       </Card>
 
       <Dialog open={reopenDialogOpen} onOpenChange={setReopenDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Reopen Employee Attendance</DialogTitle>
-            <DialogDescription>Enter a reason before unlocking this finalized attendance.</DialogDescription>
+        <DialogContent className="flex max-h-[90svh] flex-col overflow-hidden border-amber-500/20 bg-card p-0 shadow-2xl shadow-amber-500/15 sm:max-w-md [&>button]:right-3 [&>button]:top-3 [&>button]:rounded-full [&>button]:text-white [&>button]:opacity-85 [&>button]:hover:bg-white/15 [&>button]:hover:opacity-100">
+          <DialogHeader className="relative shrink-0 overflow-hidden border-b border-white/15 bg-[linear-gradient(135deg,#f59e0b_0%,#d97706_48%,#2563eb_100%)] px-5 py-4 pr-12 text-white sm:px-6">
+            <div aria-hidden className="absolute -right-10 -top-16 size-40 rounded-full border-[18px] border-white/10" />
+            <div aria-hidden className="absolute -bottom-14 left-10 size-28 rounded-full bg-yellow-300/20 blur-2xl" />
+            <div aria-hidden className="absolute bottom-0 right-24 h-24 w-44 rounded-full bg-sky-300/15 blur-2xl" />
+            <div className="relative flex items-center gap-3">
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-white/25 bg-white/15 text-white shadow-md backdrop-blur-sm">
+                <LockOpen className="size-5 text-white" />
+              </span>
+              <div>
+                <DialogTitle className="text-lg font-bold tracking-normal text-white">Reopen Attendance</DialogTitle>
+                <DialogDescription className="mt-0.5 text-xs text-white/75">
+                  Unlock this finalized attendance to make corrections.
+                </DialogDescription>
+              </div>
+            </div>
           </DialogHeader>
-          <Textarea
-            value={reopenReason}
-            onChange={(event) => setReopenReason(event.target.value)}
-            placeholder="Reason for reopening"
-            className="min-h-24"
-          />
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setReopenDialogOpen(false)}>Cancel</Button>
-            <Button onClick={reopenAttendance} disabled={reopening}>
+
+          <div className="themed-scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain bg-gradient-to-br from-amber-500/[0.04] via-background to-sky-500/[0.055] p-4 sm:p-5">
+            <section className="relative overflow-hidden rounded-xl border border-amber-200/80 bg-gradient-to-br from-amber-50 via-white to-orange-50 p-4 shadow-sm dark:border-amber-500/25 dark:from-amber-500/15 dark:via-card dark:to-orange-500/10">
+              <div aria-hidden className="absolute -right-7 -top-10 size-28 rounded-full bg-amber-200/35 blur-xl dark:bg-amber-500/15" />
+              <div className="relative mb-3 flex items-center gap-2">
+                <span className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 text-white shadow-sm"><MessageSquare className="size-4 text-white" /></span>
+                <div><h3 className="text-sm font-semibold">Reason for reopening</h3><p className="text-[10px] text-muted-foreground">A clear reason is required before unlocking</p></div>
+              </div>
+              <Textarea
+                value={reopenReason}
+                onChange={(event) => setReopenReason(event.target.value)}
+                placeholder="Why is this attendance being reopened?"
+                className="min-h-24 bg-white shadow-sm dark:bg-input/30"
+              />
+            </section>
+          </div>
+
+          <DialogFooter className="shrink-0 border-t border-primary/10 bg-muted/30 px-4 py-3 sm:px-5">
+            <Button variant="outline" size="sm" className="h-8 px-4 text-xs" onClick={() => setReopenDialogOpen(false)}>Cancel</Button>
+            <Button size="sm" className="h-8 gap-1.5 px-4 text-xs" onClick={reopenAttendance} disabled={reopening}>
+              {reopening ? <Loader2 className="size-3.5 animate-spin" /> : <LockOpen className="size-3.5" />}
               {reopening ? 'Reopening...' : 'Reopen Attendance'}
             </Button>
           </DialogFooter>
