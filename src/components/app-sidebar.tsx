@@ -221,7 +221,6 @@ export const MENUS: Record<string, MenuItem[]> = {
       children: [
         { label: 'Dashboard', page: 'exam-dashboard', icon: LayoutDashboard },
         { label: 'Exam List', page: 'exam-list', icon: FileText },
-        { label: 'Marksheet', page: 'exam-marksheet', icon: FileSpreadsheet },
         { label: 'Exam Patterns', page: 'exam-paradigms', icon: Layers },
         { label: 'Grade Scales', page: 'exam-grade-scales', icon: Award },
         { label: 'Report Card Templates', page: 'exam-report-card-templates', icon: LayoutTemplate },
@@ -352,7 +351,6 @@ export const MENUS: Record<string, MenuItem[]> = {
       children: [
         { label: 'Exam List', page: 'exam-list', icon: FileText },
         { label: 'Enter Marks', page: 'exam-marks-entry', icon: ClipboardCheck },
-        { label: 'Marksheet', page: 'exam-marksheet', icon: FileSpreadsheet },
         { label: 'Results', page: 'exam-result-preview', icon: BarChart3 },
       ],
     },

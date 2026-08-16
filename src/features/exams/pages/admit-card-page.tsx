@@ -264,7 +264,7 @@ export function AdmitCardPage({ examId }: Props) {
                     setSectionId('all')
                   }}
                 >
-                  <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="h-9 bg-white text-sm dark:bg-input/30"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Classes</SelectItem>
                     {scopedClasses.map((c) => (
@@ -275,7 +275,7 @@ export function AdmitCardPage({ examId }: Props) {
               </FilterField>
               <FilterField label="Section">
                 <Select value={sectionId} onValueChange={setSectionId} disabled={classId === 'all'}>
-                  <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="All sections" /></SelectTrigger>
+                  <SelectTrigger className="h-9 bg-white text-sm dark:bg-input/30"><SelectValue placeholder="All sections" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Sections</SelectItem>
                     {sectionOptions.map((s) => (
@@ -291,7 +291,7 @@ export function AdmitCardPage({ examId }: Props) {
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     placeholder="Name, admission no, roll no"
-                    className="h-9 pl-8 text-sm"
+                    className="h-9 bg-white pl-8 text-sm dark:bg-input/30"
                   />
                 </div>
               </FilterField>

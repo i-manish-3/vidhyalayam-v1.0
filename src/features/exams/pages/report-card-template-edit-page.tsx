@@ -20,7 +20,7 @@ import {
 import { api } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
 import { PERMISSIONS, usePermissions } from '@/hooks/use-permissions'
-import { Save, Eye, AlertCircle, FileText } from 'lucide-react'
+import { Save, Eye, AlertCircle, FileText, ClipboardList, ListChecks, Heading, UserRound, Table2, FileSignature } from 'lucide-react'
 import { ReportCardRenderer } from '@/features/exams/components/report-card-renderer'
 import {
   buildExamReportCard,
@@ -423,15 +423,20 @@ export function ReportCardTemplateEditPage() {
 
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="space-y-4">
-          <Card className="gap-0 overflow-hidden rounded-lg border border-sky-200/80 bg-gradient-to-r from-sky-50 via-white to-violet-50 shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10">
-            <CardHeader className="border-b border-current/10 pb-3">
-              <CardTitle className="text-sm">Basic info</CardTitle>
+          <Card className="gap-0 overflow-hidden rounded-lg border border-sky-200/80 bg-gradient-to-r from-sky-50 via-white to-violet-50 py-0 shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10">
+            <CardHeader className="relative overflow-hidden border-b border-current/10 bg-gradient-to-r from-sky-500/[0.08] via-white/40 to-violet-500/[0.08] py-3">
+              <div className="relative flex items-center gap-2.5">
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-violet-600 text-white shadow-sm">
+                  <ClipboardList className="size-4 text-white" />
+                </span>
+                <CardTitle className="text-sm">Basic info</CardTitle>
+              </div>
             </CardHeader>
             <CardContent className="space-y-3">
               <div>
                 <Label className="text-xs">Name</Label>
                 <Input
-                  className="h-9"
+                  className="h-9 bg-white dark:bg-input/30"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                 />
@@ -448,7 +453,7 @@ export function ReportCardTemplateEditPage() {
                 <div>
                   <Label className="text-xs">Format</Label>
                   <Select value={format} onValueChange={setFormat}>
-                    <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="h-9 bg-white dark:bg-input/30"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {FORMATS.map((f) => (
                         <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>
@@ -462,7 +467,7 @@ export function ReportCardTemplateEditPage() {
                     value={paradigmId || '__any'}
                     onValueChange={(v) => setParadigmId(v === '__any' ? '' : v)}
                   >
-                    <SelectTrigger className="h-9"><SelectValue placeholder="Any pattern" /></SelectTrigger>
+                    <SelectTrigger className="h-9 bg-white dark:bg-input/30"><SelectValue placeholder="Any pattern" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="__any">Any pattern</SelectItem>
                       {paradigms.map((p) => (
@@ -478,9 +483,14 @@ export function ReportCardTemplateEditPage() {
             </CardContent>
           </Card>
 
-          <Card className="gap-0 overflow-hidden rounded-lg border border-sky-200/80 bg-gradient-to-r from-sky-50 via-white to-violet-50 shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10">
-            <CardHeader className="border-b border-current/10 pb-3">
-              <CardTitle className="text-sm">Sections to include</CardTitle>
+          <Card className="gap-0 overflow-hidden rounded-lg border border-sky-200/80 bg-gradient-to-r from-sky-50 via-white to-violet-50 py-0 shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10">
+            <CardHeader className="relative overflow-hidden border-b border-current/10 bg-gradient-to-r from-sky-500/[0.08] via-white/40 to-violet-500/[0.08] py-3">
+              <div className="relative flex items-center gap-2.5">
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-violet-600 text-white shadow-sm">
+                  <ListChecks className="size-4 text-white" />
+                </span>
+                <CardTitle className="text-sm">Sections to include</CardTitle>
+              </div>
             </CardHeader>
             <CardContent className="space-y-2">
               <SwitchRow
@@ -511,15 +521,20 @@ export function ReportCardTemplateEditPage() {
             </CardContent>
           </Card>
 
-          <Card className="gap-0 overflow-hidden rounded-lg border border-sky-200/80 bg-gradient-to-r from-sky-50 via-white to-violet-50 shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10">
-            <CardHeader className="border-b border-current/10 pb-3">
-              <CardTitle className="text-sm">Header</CardTitle>
+          <Card className="gap-0 overflow-hidden rounded-lg border border-sky-200/80 bg-gradient-to-r from-sky-50 via-white to-violet-50 py-0 shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10">
+            <CardHeader className="relative overflow-hidden border-b border-current/10 bg-gradient-to-r from-sky-500/[0.08] via-white/40 to-violet-500/[0.08] py-3">
+              <div className="relative flex items-center gap-2.5">
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-violet-600 text-white shadow-sm">
+                  <Heading className="size-4 text-white" />
+                </span>
+                <CardTitle className="text-sm">Header</CardTitle>
+              </div>
             </CardHeader>
             <CardContent className="space-y-2">
               <div>
                 <Label className="text-xs">Override title (optional)</Label>
                 <Input
-                  className="h-9"
+                  className="h-9 bg-white dark:bg-input/30"
                   placeholder="Report Card"
                   value={layout.header.title}
                   onChange={(e) =>
@@ -545,9 +560,14 @@ export function ReportCardTemplateEditPage() {
             </CardContent>
           </Card>
 
-          <Card className="gap-0 overflow-hidden rounded-lg border border-sky-200/80 bg-gradient-to-r from-sky-50 via-white to-violet-50 shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10">
-            <CardHeader className="border-b border-current/10 pb-3">
-              <CardTitle className="text-sm">Student block</CardTitle>
+          <Card className="gap-0 overflow-hidden rounded-lg border border-sky-200/80 bg-gradient-to-r from-sky-50 via-white to-violet-50 py-0 shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10">
+            <CardHeader className="relative overflow-hidden border-b border-current/10 bg-gradient-to-r from-sky-500/[0.08] via-white/40 to-violet-500/[0.08] py-3">
+              <div className="relative flex items-center gap-2.5">
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-violet-600 text-white shadow-sm">
+                  <UserRound className="size-4 text-white" />
+                </span>
+                <CardTitle className="text-sm">Student block</CardTitle>
+              </div>
             </CardHeader>
             <CardContent>
               <div className="flex flex-wrap gap-1.5">
@@ -568,9 +588,14 @@ export function ReportCardTemplateEditPage() {
             </CardContent>
           </Card>
 
-          <Card className="gap-0 overflow-hidden rounded-lg border border-sky-200/80 bg-gradient-to-r from-sky-50 via-white to-violet-50 shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10">
-            <CardHeader className="border-b border-current/10 pb-3">
-              <CardTitle className="text-sm">Subject table</CardTitle>
+          <Card className="gap-0 overflow-hidden rounded-lg border border-sky-200/80 bg-gradient-to-r from-sky-50 via-white to-violet-50 py-0 shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10">
+            <CardHeader className="relative overflow-hidden border-b border-current/10 bg-gradient-to-r from-sky-500/[0.08] via-white/40 to-violet-500/[0.08] py-3">
+              <div className="relative flex items-center gap-2.5">
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-violet-600 text-white shadow-sm">
+                  <Table2 className="size-4 text-white" />
+                </span>
+                <CardTitle className="text-sm">Subject table</CardTitle>
+              </div>
             </CardHeader>
             <CardContent className="space-y-2">
               <SwitchRow
@@ -611,9 +636,14 @@ export function ReportCardTemplateEditPage() {
             </CardContent>
           </Card>
 
-          <Card className="gap-0 overflow-hidden rounded-lg border border-sky-200/80 bg-gradient-to-r from-sky-50 via-white to-violet-50 shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10">
-            <CardHeader className="border-b border-current/10 pb-3">
-              <CardTitle className="text-sm">Footer</CardTitle>
+          <Card className="gap-0 overflow-hidden rounded-lg border border-sky-200/80 bg-gradient-to-r from-sky-50 via-white to-violet-50 py-0 shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10">
+            <CardHeader className="relative overflow-hidden border-b border-current/10 bg-gradient-to-r from-sky-500/[0.08] via-white/40 to-violet-500/[0.08] py-3">
+              <div className="relative flex items-center gap-2.5">
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-violet-600 text-white shadow-sm">
+                  <FileSignature className="size-4 text-white" />
+                </span>
+                <CardTitle className="text-sm">Footer</CardTitle>
+              </div>
             </CardHeader>
             <CardContent className="space-y-3">
               <SwitchRow
@@ -635,7 +665,7 @@ export function ReportCardTemplateEditPage() {
                 {layout.footer.signatures.map((s, i) => (
                   <div key={i} className="flex gap-2">
                     <Input
-                      className="h-8 text-xs"
+                      className="h-8 bg-white text-xs dark:bg-input/30"
                       value={s}
                       onChange={(e) => updateSignature(i, e.target.value)}
                     />
@@ -665,11 +695,16 @@ export function ReportCardTemplateEditPage() {
         </div>
 
         <div className="lg:sticky lg:top-4 lg:self-start">
-          <Card className="gap-0 overflow-hidden rounded-lg border border-sky-200/80 bg-gradient-to-r from-sky-50 via-white to-violet-50 shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10">
-            <CardHeader className="border-b border-current/10 pb-2">
-              <CardTitle className="flex items-center gap-1.5 text-sm">
-                <Eye className="size-4" /> Live preview (mocked data)
-              </CardTitle>
+          <Card className="gap-0 overflow-hidden rounded-lg border border-sky-200/80 bg-gradient-to-r from-sky-50 via-white to-violet-50 py-0 shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10">
+            <CardHeader className="relative overflow-hidden border-b border-current/10 bg-gradient-to-r from-sky-500/[0.08] via-white/40 to-violet-500/[0.08] py-2">
+              <div className="relative flex items-center gap-2.5">
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-violet-600 text-white shadow-sm">
+                  <Eye className="size-4 text-white" />
+                </span>
+                <CardTitle className="flex items-center gap-1.5 text-sm">
+                  Live preview (mocked data)
+                </CardTitle>
+              </div>
             </CardHeader>
             <CardContent>
               {previewData ? (

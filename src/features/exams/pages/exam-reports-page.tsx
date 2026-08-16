@@ -202,11 +202,11 @@ export function ExamReportsPage() {
               description="Compute results on the Results page first."
             />
           ) : (
-            <Card className="gap-0 overflow-hidden rounded-lg border border-sky-200/80 bg-gradient-to-r from-sky-50 via-white to-violet-50 shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10">
+            <Card className="gap-0 overflow-hidden rounded-lg border border-sky-200/80 bg-gradient-to-r from-sky-50 via-white to-violet-50 py-0 shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10">
               <CardContent className="p-0">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b bg-muted/40 text-left">
+                    <tr className="border-b bg-sky-500/10 text-left dark:bg-sky-500/15">
                       <th className="px-3 py-2 text-xs font-medium">Class</th>
                       <th className="px-3 py-2 text-xs font-medium">Section</th>
                       <th className="px-3 py-2 text-right text-xs font-medium">Total</th>
@@ -248,7 +248,7 @@ export function ExamReportsPage() {
         </TabsContent>
 
         <TabsContent value="subject" className="mt-3 space-y-3">
-          <Card className="gap-0 overflow-hidden rounded-lg border border-sky-200/80 bg-gradient-to-r from-sky-50 via-white to-violet-50 shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10">
+          <Card className="gap-0 overflow-hidden rounded-lg border border-sky-200/80 bg-gradient-to-r from-sky-50 via-white to-violet-50 py-0 shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10">
             <CardContent className="flex flex-wrap items-end gap-3 p-3">
               <div>
                 <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Class</div>
@@ -256,7 +256,7 @@ export function ExamReportsPage() {
                   value={classFilter || '__all'}
                   onValueChange={handleClassFilterChange}
                 >
-                  <SelectTrigger className="h-9 w-44"><SelectValue placeholder="All" /></SelectTrigger>
+                  <SelectTrigger className="h-9 w-44 bg-white dark:bg-input/30"><SelectValue placeholder="All" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="__all">All classes</SelectItem>
                     {classes.map((c) => (
@@ -272,7 +272,7 @@ export function ExamReportsPage() {
                     value={sectionFilter ?? '__all'}
                     onValueChange={handleSectionFilterChange}
                   >
-                    <SelectTrigger className="h-9 w-32"><SelectValue placeholder="All" /></SelectTrigger>
+                    <SelectTrigger className="h-9 w-32 bg-white dark:bg-input/30"><SelectValue placeholder="All" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="__all">All sections</SelectItem>
                       {sections.map((s) => (
@@ -297,20 +297,27 @@ export function ExamReportsPage() {
           ) : (
             <div className="grid gap-3 md:grid-cols-2">
               {subjects.map((s) => (
-                <Card key={s.subjectId} className="gap-0 overflow-hidden rounded-lg border border-sky-200/80 bg-gradient-to-r from-sky-50 via-white to-violet-50 shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10">
-                  <CardHeader className="pb-2">
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="text-sm">{s.subjectName}</CardTitle>
-                      <Badge variant="outline" className="font-mono text-[10px]">
-                        {s.averagePercentage.toFixed(1)}% avg
-                      </Badge>
-                    </div>
-                    <div className="mt-1 flex flex-wrap gap-1 text-[10px]">
-                      <Badge variant="outline">Total {s.total}</Badge>
-                      <Badge className="bg-emerald-100 text-emerald-700">Pass {s.pass}</Badge>
-                      <Badge className="bg-red-100 text-red-700">Fail {s.fail}</Badge>
-                      <Badge variant="outline">Absent {s.absent}</Badge>
-                      <Badge variant="secondary">Pass rate {s.passRate.toFixed(1)}%</Badge>
+                <Card key={s.subjectId} className="gap-0 overflow-hidden rounded-lg border border-sky-200/80 bg-gradient-to-r from-sky-50 via-white to-violet-50 py-0 shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10">
+                  <CardHeader className="relative overflow-hidden border-b border-current/10 bg-gradient-to-r from-sky-500/[0.08] via-white/40 to-violet-500/[0.08] py-2">
+                    <div className="relative">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-violet-600 text-white shadow-sm">
+                            <Trophy className="size-4 text-white" />
+                          </span>
+                          <CardTitle className="text-sm">{s.subjectName}</CardTitle>
+                        </div>
+                        <Badge variant="outline" className="font-mono text-[10px]">
+                          {s.averagePercentage.toFixed(1)}% avg
+                        </Badge>
+                      </div>
+                      <div className="mt-2 flex flex-wrap gap-1 text-[10px]">
+                        <Badge variant="outline">Total {s.total}</Badge>
+                        <Badge className="bg-emerald-100 text-emerald-700">Pass {s.pass}</Badge>
+                        <Badge className="bg-red-100 text-red-700">Fail {s.fail}</Badge>
+                        <Badge variant="outline">Absent {s.absent}</Badge>
+                        <Badge variant="secondary">Pass rate {s.passRate.toFixed(1)}%</Badge>
+                      </div>
                     </div>
                   </CardHeader>
                   <CardContent className="grid gap-3 text-xs sm:grid-cols-2">

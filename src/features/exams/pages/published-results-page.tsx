@@ -19,7 +19,7 @@ interface PublishedExam {
 }
 
 const TINTED_CARD =
-  'border-sky-200/80 bg-gradient-to-r from-sky-50 via-white to-violet-50 shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10'
+  'gap-0 overflow-hidden rounded-lg border border-sky-200/80 bg-gradient-to-r from-sky-50 via-white to-violet-50 py-0 shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10'
 
 /**
  * Admin-side view of all exams that have been published to parents/students.
@@ -73,14 +73,19 @@ export function PublishedResultsPage() {
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {exams.map((e) => (
             <Card key={e.id} className={`${TINTED_CARD} transition hover:-translate-y-0.5 hover:shadow-md`}>
-              <CardHeader className="pb-2">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <CardTitle className="text-sm">{e.name}</CardTitle>
-                    <p className="text-xs text-muted-foreground">
-                      {e.group?.paradigm?.name ? `${e.group.paradigm.name} · ` : ''}
-                      {e.group?.name} · AY {e.academicYear}
-                    </p>
+              <CardHeader className="relative overflow-hidden border-b border-current/10 bg-gradient-to-r from-sky-500/[0.08] via-white/40 to-violet-500/[0.08] py-2">
+                <div className="relative flex items-start justify-between gap-2">
+                  <div className="flex min-w-0 items-center gap-2.5">
+                    <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-violet-600 text-white shadow-sm">
+                      <Megaphone className="size-4 text-white" />
+                    </span>
+                    <div className="min-w-0">
+                      <CardTitle className="text-sm">{e.name}</CardTitle>
+                      <p className="text-xs text-muted-foreground">
+                        {e.group?.paradigm?.name ? `${e.group.paradigm.name} · ` : ''}
+                        {e.group?.name} · AY {e.academicYear}
+                      </p>
+                    </div>
                   </div>
                   <Badge variant="secondary" className="text-[10px]">PUBLISHED</Badge>
                 </div>

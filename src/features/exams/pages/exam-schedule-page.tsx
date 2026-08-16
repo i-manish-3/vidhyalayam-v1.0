@@ -460,7 +460,7 @@ export function ExamSchedulePage({ examId }: Props) {
                   <div>
                     <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">From</Label>
                     <Select value={patternSourceId} onValueChange={setPatternSource}>
-                      <SelectTrigger className="h-8 w-40"><SelectValue /></SelectTrigger>
+                      <SelectTrigger className="h-8 w-40 bg-white dark:bg-input/30"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         {scheduleClassIds.map((cid) => (
                           <SelectItem key={cid} value={cid}>{classLookup.get(cid)?.name ?? cid}</SelectItem>
@@ -471,7 +471,7 @@ export function ExamSchedulePage({ examId }: Props) {
                   <div>
                     <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">To</Label>
                     <Select value={patternTarget} onValueChange={setPatternTarget}>
-                      <SelectTrigger className="h-8 w-44"><SelectValue /></SelectTrigger>
+                      <SelectTrigger className="h-8 w-44 bg-white dark:bg-input/30"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="__all">All other classes</SelectItem>
                         {scheduleClassIds
@@ -569,7 +569,7 @@ export function ExamSchedulePage({ examId }: Props) {
                   <div className="col-span-12 sm:col-span-3">
                     <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Class</Label>
                     <Select value={r.classId} onValueChange={(v) => updateRow(idx, { classId: v, sectionId: null })}>
-                      <SelectTrigger className="h-8"><SelectValue placeholder="Class" /></SelectTrigger>
+                      <SelectTrigger className="h-8 bg-white dark:bg-input/30"><SelectValue placeholder="Class" /></SelectTrigger>
                       <SelectContent>
                         {availableConfigs
                           .map((c) => c.classId)
@@ -586,7 +586,7 @@ export function ExamSchedulePage({ examId }: Props) {
                       value={r.sectionId ?? '__all'}
                       onValueChange={(v) => updateRow(idx, { sectionId: v === '__all' ? null : v })}
                     >
-                      <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+                      <SelectTrigger className="h-8 bg-white dark:bg-input/30"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="__all">All sections</SelectItem>
                         {(klass?.sections ?? []).map((s) => (
@@ -598,7 +598,7 @@ export function ExamSchedulePage({ examId }: Props) {
                   <div className="col-span-6 sm:col-span-3">
                     <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Subject</Label>
                     <Select value={r.subjectId} onValueChange={(v) => updateRow(idx, { subjectId: v })}>
-                      <SelectTrigger className="h-8"><SelectValue placeholder="Subject" /></SelectTrigger>
+                      <SelectTrigger className="h-8 bg-white dark:bg-input/30"><SelectValue placeholder="Subject" /></SelectTrigger>
                       <SelectContent>
                         {availableConfigs
                           .filter((c) => c.classId === r.classId)
@@ -614,7 +614,7 @@ export function ExamSchedulePage({ examId }: Props) {
                     <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Date</Label>
                     <Input
                       type="date"
-                      className="h-8"
+                      className="h-8 bg-white dark:bg-input/30"
                       value={r.examDate}
                       onChange={(e) => updateRow(idx, { examDate: e.target.value })}
                     />
@@ -623,7 +623,7 @@ export function ExamSchedulePage({ examId }: Props) {
                     <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Start</Label>
                     <Input
                       type="time"
-                      className="h-8"
+                      className="h-8 bg-white dark:bg-input/30"
                       value={r.startTime}
                       onChange={(e) => updateRow(idx, { startTime: e.target.value })}
                     />
@@ -632,7 +632,7 @@ export function ExamSchedulePage({ examId }: Props) {
                     <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">End</Label>
                     <Input
                       type="time"
-                      className="h-8"
+                      className="h-8 bg-white dark:bg-input/30"
                       value={r.endTime}
                       onChange={(e) => updateRow(idx, { endTime: e.target.value })}
                     />

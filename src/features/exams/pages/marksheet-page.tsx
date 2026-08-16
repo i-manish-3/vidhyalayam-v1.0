@@ -426,7 +426,7 @@ export function MarksheetPage({ examId }: Props) {
                     resetSelection()
                   }}
                 >
-                  <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Select a class" /></SelectTrigger>
+                  <SelectTrigger className="h-9 bg-white text-sm dark:bg-input/30"><SelectValue placeholder="Select a class" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Select a class</SelectItem>
                     {scopedClasses.map((c) => (
@@ -445,7 +445,7 @@ export function MarksheetPage({ examId }: Props) {
                   }}
                   disabled={classId === 'all'}
                 >
-                  <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="All sections" /></SelectTrigger>
+                  <SelectTrigger className="h-9 bg-white text-sm dark:bg-input/30"><SelectValue placeholder="All sections" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Sections</SelectItem>
                     {sectionOptions.map((s) => (
@@ -462,7 +462,7 @@ export function MarksheetPage({ examId }: Props) {
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     placeholder="Name, roll no, admission no"
-                    className="h-9 pl-8 text-sm"
+                    className="h-9 bg-white pl-8 text-sm dark:bg-input/30"
                   />
                 </div>
               </div>
@@ -624,7 +624,7 @@ export function MarksheetPage({ examId }: Props) {
                     resetSelection()
                   }}
                 >
-                  <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="h-9 bg-white text-sm dark:bg-input/30"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Classes</SelectItem>
                     {scopedClasses.map((c) => (
@@ -643,7 +643,7 @@ export function MarksheetPage({ examId }: Props) {
                   }}
                   disabled={classId === 'all'}
                 >
-                  <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="All sections" /></SelectTrigger>
+                  <SelectTrigger className="h-9 bg-white text-sm dark:bg-input/30"><SelectValue placeholder="All sections" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Sections</SelectItem>
                     {sectionOptions.map((s) => (
@@ -660,7 +660,7 @@ export function MarksheetPage({ examId }: Props) {
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     placeholder="Name, admission no, roll no"
-                    className="h-9 pl-8 text-sm"
+                    className="h-9 bg-white pl-8 text-sm dark:bg-input/30"
                   />
                 </div>
               </div>

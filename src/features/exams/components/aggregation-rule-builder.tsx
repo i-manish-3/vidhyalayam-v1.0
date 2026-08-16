@@ -205,7 +205,7 @@ export function AggregationRuleBuilder({
                     onChange({ ...rule, components: next })
                   }}
                 >
-                  <SelectTrigger className="h-9 flex-1">
+                  <SelectTrigger className="h-9 flex-1 bg-white dark:bg-input/30">
                     <SelectValue>
                       {item ? item.label : <span className="text-muted-foreground">Pick a {itemNoun}…</span>}
                     </SelectValue>
@@ -224,7 +224,7 @@ export function AggregationRuleBuilder({
                     min={0}
                     max={100}
                     step={0.5}
-                    className="h-9"
+                    className="h-9 bg-white dark:bg-input/30"
                     value={c.weight}
                     onChange={(e) => {
                       const next = [...(rule.components ?? [])]
@@ -290,7 +290,7 @@ export function AggregationRuleBuilder({
               type="number"
               min={1}
               max={Math.max(1, (rule.ids ?? []).length)}
-              className="h-9 w-20"
+              className="h-9 w-20 bg-white dark:bg-input/30"
               value={rule.n ?? 1}
               onChange={(e) => {
                 const n = Math.max(1, Math.trunc(Number(e.target.value) || 1))

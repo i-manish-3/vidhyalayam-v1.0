@@ -233,7 +233,7 @@ export function ParentExamDetailsPage() {
           </div>
           {children.length > 1 && (
             <Select value={selectedId} onValueChange={handleStudentChange}>
-              <SelectTrigger className="h-9 w-full sm:w-64">
+              <SelectTrigger className="h-9 w-full bg-white sm:w-64 dark:bg-input/30">
                 <SelectValue placeholder="Select child" />
               </SelectTrigger>
               <SelectContent>

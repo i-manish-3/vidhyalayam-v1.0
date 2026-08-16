@@ -239,6 +239,7 @@ export function ExamAuditLogPage() {
       <GradientHero
         icon={ScrollText}
         title="Exam audit log"
+        badge={`${pagination.total.toLocaleString()} entries`}
         description="Every mutation to exams, marks, results, and publishing. Kept for compliance."
         primaryAction={{ label: 'Export CSV', icon: Download, onClick: () => void exportCsv() }}
       />
@@ -262,7 +263,7 @@ export function ExamAuditLogPage() {
               Exam ID
             </Label>
             <Input
-              className="h-9 text-xs"
+              className="h-9 bg-white text-xs dark:bg-input/30"
               value={filters.examId}
               onChange={(e) => updateFilters({ examId: e.target.value })}
               placeholder="cuid"
@@ -273,7 +274,7 @@ export function ExamAuditLogPage() {
               Student ID
             </Label>
             <Input
-              className="h-9 text-xs"
+              className="h-9 bg-white text-xs dark:bg-input/30"
               value={filters.studentId}
               onChange={(e) => updateFilters({ studentId: e.target.value })}
               placeholder="cuid"
@@ -285,7 +286,7 @@ export function ExamAuditLogPage() {
             </Label>
             <Input
               type="date"
-              className="h-9 text-xs"
+              className="h-9 bg-white text-xs dark:bg-input/30"
               value={filters.startDate}
               onChange={(e) => updateFilters({ startDate: e.target.value })}
             />
@@ -294,7 +295,7 @@ export function ExamAuditLogPage() {
             <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">To</Label>
             <Input
               type="date"
-              className="h-9 text-xs"
+              className="h-9 bg-white text-xs dark:bg-input/30"
               value={filters.endDate}
               onChange={(e) => updateFilters({ endDate: e.target.value })}
             />
@@ -328,13 +329,16 @@ export function ExamAuditLogPage() {
         />
       ) : (
         <Card className={TINTED_CARD}>
-          <CardContent className="p-0">
-            <ul className="divide-y">
+          <CardContent className="p-2">
+            <ul className="space-y-1.5">
               {logs.map((log) => {
                 const isOpen = expanded.has(log.id)
                 const badge = ACTION_BADGE[log.action] ?? 'bg-slate-100 text-slate-700'
                 return (
-                  <li key={log.id} className="px-3 py-2 text-sm">
+                  <li
+                    key={log.id}
+                    className="rounded-lg border border-sky-200/60 bg-white/70 px-3 py-2 text-sm shadow-sm transition hover:shadow-md dark:border-sky-500/20 dark:bg-card/70"
+                  >
                     <button
                       type="button"
                       onClick={() => toggleExpanded(log.id)}
@@ -381,7 +385,7 @@ export function ExamAuditLogPage() {
                       </div>
                     </button>
                     {isOpen && (
-                      <div className="mt-2 grid gap-2 rounded-md border bg-muted/30 p-2 text-[11px] md:grid-cols-2">
+                      <div className="mt-2 grid gap-2 rounded-lg border border-sky-200/60 bg-gradient-to-r from-sky-50/60 via-white/40 to-violet-50/60 p-2 text-[11px] dark:border-sky-500/20 dark:from-sky-950/20 dark:via-card/60 dark:to-violet-950/20 md:grid-cols-2">
                         <div>
                           <div className="mb-1 font-semibold text-muted-foreground">Before</div>
                           <pre className="overflow-x-auto whitespace-pre-wrap break-words font-mono text-[10px]">
@@ -466,7 +470,7 @@ function FilterSelect({
     <div>
       <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</Label>
       <Select value={value || '__all'} onValueChange={(v) => onChange(v === '__all' ? '' : v)}>
-        <SelectTrigger className="h-9 text-xs">
+        <SelectTrigger className="h-9 bg-white text-xs dark:bg-input/30">
           <SelectValue placeholder="All" />
         </SelectTrigger>
         <SelectContent>

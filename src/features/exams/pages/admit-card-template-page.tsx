@@ -18,7 +18,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
-import { Save, RotateCcw, Loader2, TicketCheck } from 'lucide-react'
+import { Save, RotateCcw, Loader2, TicketCheck, Palette, UserRound, CalendarDays, PenLine, Building2 } from 'lucide-react'
 import { AdmitCardRenderer } from '../components/admit-card-renderer'
 import {
   type AdmitCardTemplateConfig,
@@ -49,7 +49,7 @@ interface LoadResponse {
 }
 
 const TINTED_CARD =
-  'border-sky-200/80 bg-gradient-to-r from-sky-50 via-white to-violet-50 shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10'
+  'gap-0 overflow-hidden rounded-lg border border-sky-200/80 bg-gradient-to-r from-sky-50 via-white to-violet-50 py-0 shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10'
 
 export function AdmitCardTemplatePage() {
   const { toast } = useToast()
@@ -137,7 +137,14 @@ export function AdmitCardTemplatePage() {
         {/* ── Controls ── */}
         <div className="space-y-4">
           <Card className={TINTED_CARD}>
-            <CardHeader className="pb-2"><CardTitle className="text-sm">Appearance</CardTitle></CardHeader>
+            <CardHeader className="relative overflow-hidden border-b border-current/10 bg-gradient-to-r from-sky-500/[0.08] via-white/40 to-violet-500/[0.08] py-2">
+              <div className="relative flex items-center gap-2.5">
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-violet-600 text-white shadow-sm">
+                  <Palette className="size-4 text-white" />
+                </span>
+                <CardTitle className="text-sm">Appearance</CardTitle>
+              </div>
+            </CardHeader>
             <CardContent className="space-y-3">
               <div className="flex items-center justify-between gap-3">
                 <Label htmlFor="accent">Accent colour</Label>
@@ -157,7 +164,7 @@ export function AdmitCardTemplatePage() {
                       // Only commit a valid #rrggbb to the live style; keep typing free.
                       if (/^#[0-9a-fA-F]{6}$/.test(v)) set('accentColor', v)
                     }}
-                    className="h-8 w-24 font-mono text-xs"
+                    className="h-8 w-24 bg-white font-mono text-xs dark:bg-input/30"
                   />
                 </div>
               </div>
@@ -170,7 +177,7 @@ export function AdmitCardTemplatePage() {
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="title">Title text</Label>
-                <Input id="title" value={cfg.titlePrefix} onChange={(e) => set('titlePrefix', e.target.value)} placeholder="Admit Card" className="h-9" />
+                <Input id="title" value={cfg.titlePrefix} onChange={(e) => set('titlePrefix', e.target.value)} placeholder="Admit Card" className="h-9 bg-white dark:bg-input/30" />
               </div>
               <ToggleRow label="Show student photo" checked={cfg.showPhoto} onChange={(v) => set('showPhoto', v)} />
               <ToggleRow label="Show verification QR" checked={cfg.showQr} onChange={(v) => set('showQr', v)} />
@@ -179,7 +186,14 @@ export function AdmitCardTemplatePage() {
           </Card>
 
           <Card className={TINTED_CARD}>
-            <CardHeader className="pb-2"><CardTitle className="text-sm">Student fields to show</CardTitle></CardHeader>
+            <CardHeader className="relative overflow-hidden border-b border-current/10 bg-gradient-to-r from-sky-500/[0.08] via-white/40 to-violet-500/[0.08] py-2">
+              <div className="relative flex items-center gap-2.5">
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-violet-600 text-white shadow-sm">
+                  <UserRound className="size-4 text-white" />
+                </span>
+                <CardTitle className="text-sm">Student fields to show</CardTitle>
+              </div>
+            </CardHeader>
             <CardContent className="grid grid-cols-2 gap-2">
               <ToggleRow label="Roll No" checked={cfg.fields.rollNumber} onChange={(v) => setField('rollNumber', v)} compact />
               <ToggleRow label="Admission No" checked={cfg.fields.admissionNumber} onChange={(v) => setField('admissionNumber', v)} compact />
@@ -193,7 +207,14 @@ export function AdmitCardTemplatePage() {
           </Card>
 
           <Card className={TINTED_CARD}>
-            <CardHeader className="pb-2"><CardTitle className="text-sm">Schedule columns</CardTitle></CardHeader>
+            <CardHeader className="relative overflow-hidden border-b border-current/10 bg-gradient-to-r from-sky-500/[0.08] via-white/40 to-violet-500/[0.08] py-2">
+              <div className="relative flex items-center gap-2.5">
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-violet-600 text-white shadow-sm">
+                  <CalendarDays className="size-4 text-white" />
+                </span>
+                <CardTitle className="text-sm">Schedule columns</CardTitle>
+              </div>
+            </CardHeader>
             <CardContent className="grid grid-cols-2 gap-2">
               <ToggleRow label="Day" checked={cfg.scheduleColumns.day} onChange={(v) => setCol('day', v)} compact />
               <ToggleRow label="Time" checked={cfg.scheduleColumns.time} onChange={(v) => setCol('time', v)} compact />
@@ -203,7 +224,14 @@ export function AdmitCardTemplatePage() {
           </Card>
 
           <Card className={TINTED_CARD}>
-            <CardHeader className="pb-2"><CardTitle className="text-sm">Signatures</CardTitle></CardHeader>
+            <CardHeader className="relative overflow-hidden border-b border-current/10 bg-gradient-to-r from-sky-500/[0.08] via-white/40 to-violet-500/[0.08] py-2">
+              <div className="relative flex items-center gap-2.5">
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-violet-600 text-white shadow-sm">
+                  <PenLine className="size-4 text-white" />
+                </span>
+                <CardTitle className="text-sm">Signatures</CardTitle>
+              </div>
+            </CardHeader>
             <CardContent className="space-y-2">
               <LabeledInput label="Left label" value={cfg.signatures.left} onChange={(v) => setSig('left', v)} />
               <LabeledInput label="Middle label" value={cfg.signatures.middle} onChange={(v) => setSig('middle', v)} />
@@ -212,7 +240,14 @@ export function AdmitCardTemplatePage() {
           </Card>
 
           <Card className={TINTED_CARD}>
-            <CardHeader className="pb-2"><CardTitle className="text-sm">Branding &amp; instructions</CardTitle></CardHeader>
+            <CardHeader className="relative overflow-hidden border-b border-current/10 bg-gradient-to-r from-sky-500/[0.08] via-white/40 to-violet-500/[0.08] py-2">
+              <div className="relative flex items-center gap-2.5">
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-violet-600 text-white shadow-sm">
+                  <Building2 className="size-4 text-white" />
+                </span>
+                <CardTitle className="text-sm">Branding &amp; instructions</CardTitle>
+              </div>
+            </CardHeader>
             <CardContent className="space-y-3">
               <LabeledInput label="Trust / Society name" value={trustName} onChange={setTrustName} placeholder="e.g. Dayaramka Educational & Charitable Trust" />
               <LabeledInput label="Principal name" value={principalName} onChange={setPrincipalName} placeholder="e.g. Amit Kumar" />
@@ -268,7 +303,7 @@ function LabeledInput({ label, value, onChange, placeholder }: { label: string; 
   return (
     <div className="space-y-1.5">
       <Label>{label}</Label>
-      <Input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} className="h-9" />
+      <Input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} className="h-9 bg-white dark:bg-input/30" />
     </div>
   )
 }

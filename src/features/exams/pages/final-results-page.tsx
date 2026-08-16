@@ -218,7 +218,7 @@ export function FinalResultsPage({ paradigmId }: Props) {
               value={classFilter || '__all'}
               onValueChange={handleClassFilterChange}
             >
-              <SelectTrigger className="h-9 w-44"><SelectValue placeholder="All classes" /></SelectTrigger>
+              <SelectTrigger className="h-9 w-44 bg-white dark:bg-input/30"><SelectValue placeholder="All classes" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all">All classes</SelectItem>
                 {classes.map((c) => (
@@ -234,7 +234,7 @@ export function FinalResultsPage({ paradigmId }: Props) {
                 value={sectionFilter ?? '__all'}
                 onValueChange={handleSectionFilterChange}
               >
-                <SelectTrigger className="h-9 w-32"><SelectValue placeholder="All" /></SelectTrigger>
+                <SelectTrigger className="h-9 w-32 bg-white dark:bg-input/30"><SelectValue placeholder="All" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__all">All sections</SelectItem>
                   {sections.map((s) => (
@@ -270,7 +270,7 @@ export function FinalResultsPage({ paradigmId }: Props) {
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b bg-muted/40 text-left">
+                    <tr className="border-b bg-sky-500/10 text-left dark:bg-sky-500/15">
                       <th className="px-3 py-2 text-xs font-medium">Rank</th>
                       <th className="px-3 py-2 text-xs font-medium">Roll</th>
                       <th className="px-3 py-2 text-xs font-medium">Student</th>

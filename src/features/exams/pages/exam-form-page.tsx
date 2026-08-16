@@ -19,17 +19,15 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { api } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
 import { PERMISSIONS, usePermissions } from '@/hooks/use-permissions'
-import { CheckCheck, Save, Trash2, ClipboardList, Users, ArrowLeft, X } from 'lucide-react'
+import { CheckCheck, Save, Trash2, ClipboardList, Users, ArrowLeft, X, AlertCircle, Loader2 } from 'lucide-react'
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { examStatusMeta } from '@/features/exams/lib/status-meta'
 
 interface GroupOption {
@@ -322,19 +320,23 @@ export function ExamFormPage({ examId }: Props) {
       )}
 
       <Card className="gap-0 overflow-hidden border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-violet-50 py-0 shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10">
-        <div className="border-b bg-muted/30 px-4 py-2.5">
-          <div className="flex items-center gap-2">
-            <ClipboardList className="size-4 text-muted-foreground" />
-            <CardTitle className="text-base">Details</CardTitle>
+        <div className="relative overflow-hidden border-b border-current/10 bg-gradient-to-r from-sky-500/[0.08] via-white/40 to-violet-500/[0.08] px-4 py-2.5">
+          <div className="relative flex items-center gap-2.5">
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-violet-600 text-white shadow-sm">
+              <ClipboardList className="size-4 text-white" />
+            </span>
+            <div>
+              <CardTitle className="text-base">Details</CardTitle>
+              <CardDescription className="text-xs">Basic exam information.</CardDescription>
+            </div>
           </div>
-          <CardDescription className="text-xs">Basic exam information.</CardDescription>
         </div>
         <CardContent className="space-y-4 p-5">
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="sm:col-span-2">
               <Label className="text-xs font-medium">Term</Label>
               <Select value={examGroupId} onValueChange={setExamGroupId} disabled={isEdit}>
-                <SelectTrigger className="h-9">
+                <SelectTrigger className="h-9 bg-white dark:bg-input/30">
                   <SelectValue placeholder="Pick a term" />
                 </SelectTrigger>
                 <SelectContent>
@@ -354,7 +356,7 @@ export function ExamFormPage({ examId }: Props) {
             <div>
               <Label className="text-xs font-medium">Name</Label>
               <Input
-                className="h-9"
+                className="h-9 bg-white dark:bg-input/30"
                 placeholder="Half Yearly"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
@@ -363,7 +365,7 @@ export function ExamFormPage({ examId }: Props) {
             <div>
               <Label className="text-xs font-medium">Short code (optional)</Label>
               <Input
-                className="h-9"
+                className="h-9 bg-white dark:bg-input/30"
                 placeholder="HY"
                 value={shortCode}
                 onChange={(e) => setShortCode(e.target.value)}
@@ -372,7 +374,7 @@ export function ExamFormPage({ examId }: Props) {
             <div>
               <Label className="text-xs font-medium">Exam type</Label>
               <Select value={examType} onValueChange={(v) => setExamType(v as typeof examType)}>
-                <SelectTrigger className="h-9 capitalize"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-9 bg-white capitalize dark:bg-input/30"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {EXAM_TYPES.map((t) => (
                     <SelectItem key={t} value={t} className="capitalize">{t}</SelectItem>
@@ -382,13 +384,13 @@ export function ExamFormPage({ examId }: Props) {
             </div>
             <div>
               <Label className="text-xs font-medium">Academic year</Label>
-              <Input className="h-9" value={academicYear} disabled />
+              <Input className="h-9 bg-white dark:bg-input/30" value={academicYear} disabled />
             </div>
             <div>
               <Label className="text-xs font-medium">Start date</Label>
               <Input
                 type="date"
-                className="h-9"
+                className="h-9 bg-white dark:bg-input/30"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
               />
@@ -397,7 +399,7 @@ export function ExamFormPage({ examId }: Props) {
               <Label className="text-xs font-medium">End date</Label>
               <Input
                 type="date"
-                className="h-9"
+                className="h-9 bg-white dark:bg-input/30"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
               />
@@ -417,11 +419,18 @@ export function ExamFormPage({ examId }: Props) {
       </Card>
 
       <Card className="gap-0 overflow-hidden border-violet-200/80 bg-gradient-to-br from-violet-50 via-white to-purple-50 py-0 shadow-sm dark:border-violet-500/25 dark:from-violet-500/12 dark:via-card dark:to-purple-500/10">
-        <div className="border-b bg-muted/30 px-4 py-2.5">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <Users className="size-4 text-muted-foreground" />
-              <CardTitle className="text-base">Classes</CardTitle>
+        <div className="relative overflow-hidden border-b border-current/10 bg-gradient-to-r from-violet-500/[0.08] via-white/40 to-purple-500/[0.08] px-4 py-2.5">
+          <div className="relative flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2.5">
+              <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 text-white shadow-sm">
+                <Users className="size-4 text-white" />
+              </span>
+              <div>
+                <CardTitle className="text-base">Classes</CardTitle>
+                <CardDescription className="text-xs">
+                  Pick the classes this exam runs for. Leave sections unselected to apply to all sections of a class.
+                </CardDescription>
+              </div>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant="secondary" className="h-5 text-[10px]">
@@ -448,9 +457,6 @@ export function ExamFormPage({ examId }: Props) {
               )}
             </div>
           </div>
-          <CardDescription className="text-xs">
-            Pick the classes this exam runs for. Leave sections unselected to apply to all sections of a class.
-          </CardDescription>
         </div>
         <CardContent className="p-5">
           <div className="grid gap-2 sm:grid-cols-2">
@@ -561,30 +567,41 @@ export function ExamFormPage({ examId }: Props) {
         </div>
       </div>
 
-      <AlertDialog open={showDelete} onOpenChange={setShowDelete}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete this exam?</AlertDialogTitle>
-            <AlertDialogDescription>
-              "{exam?.name}" will be removed along with its subject configs. Exams with entered marks or published
-              results cannot be deleted.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              disabled={deleting}
-              onClick={(e) => {
-                e.preventDefault()
-                void handleDelete()
-              }}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {deleting ? 'Deleting…' : 'Delete'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <Dialog open={showDelete} onOpenChange={setShowDelete}>
+        <DialogContent className="flex max-h-[90svh] flex-col overflow-hidden border-rose-500/20 bg-card p-0 shadow-2xl shadow-rose-500/15 sm:max-w-xl [&>button]:right-3 [&>button]:top-3 [&>button]:rounded-full [&>button]:text-white [&>button]:opacity-85 [&>button]:hover:bg-white/15 [&>button]:hover:opacity-100">
+          <DialogHeader className="relative shrink-0 overflow-hidden border-b border-white/15 bg-[linear-gradient(135deg,#dc2626_0%,#e11d48_48%,#7c3aed_100%)] px-5 py-4 pr-12 text-white sm:px-6">
+            <div aria-hidden className="absolute -right-10 -top-16 size-40 rounded-full border-[18px] border-white/10" />
+            <div aria-hidden className="absolute -bottom-14 left-10 size-28 rounded-full bg-rose-300/20 blur-2xl" />
+            <div aria-hidden className="absolute bottom-0 right-24 h-24 w-44 rounded-full bg-violet-300/15 blur-2xl" />
+            <div className="relative flex items-center gap-3">
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-white/25 bg-white/15 shadow-md backdrop-blur-sm">
+                <Trash2 className="size-5 text-white" />
+              </span>
+              <div>
+                <DialogTitle className="text-lg font-bold text-white">Delete this exam?</DialogTitle>
+                <DialogDescription className="mt-0.5 text-xs text-white/75">
+                  "{exam?.name}" will be removed along with its subject configs.
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+          <div className="themed-scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain bg-gradient-to-br from-rose-500/[0.04] via-background to-violet-500/[0.05] p-4 sm:p-5">
+            <p className="flex items-start gap-2 rounded-md border border-amber-200/80 bg-amber-50 px-3 py-2.5 text-xs text-amber-800 dark:border-amber-500/25 dark:bg-amber-950/30 dark:text-amber-200">
+              <AlertCircle className="mt-0.5 size-3.5 shrink-0" />
+              <span>Exams with entered marks or published results cannot be deleted.</span>
+            </p>
+          </div>
+          <DialogFooter className="shrink-0 border-t border-primary/10 bg-muted/30 px-4 py-3 sm:px-5">
+            <Button variant="outline" size="sm" className="h-8 px-4 text-xs" onClick={() => setShowDelete(false)} disabled={deleting}>
+              Cancel
+            </Button>
+            <Button variant="destructive" size="sm" className="h-8 gap-1.5 px-4 text-xs" onClick={() => void handleDelete()} disabled={deleting}>
+              {deleting && <Loader2 className="size-4 animate-spin" />}
+              {deleting ? 'Deleting…' : 'Delete exam'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

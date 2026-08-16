@@ -14,7 +14,7 @@ import {
 import { api } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
 import { PERMISSIONS, usePermissions } from '@/hooks/use-permissions'
-import { TintedStatCard } from '@/components/shared'
+import { TintedStatCard, GradientEmptyState } from '@/components/shared'
 import { cn } from '@/lib/utils'
 import {
   Save,
@@ -543,13 +543,11 @@ export function MarksGrid({ examId, examStatus }: MarksGridProps) {
       </div>
 
       {!selectedClassId || !selectedSubjectId ? (
-        <div className="flex min-h-[28vh] items-center justify-center rounded-md border border-dashed bg-muted/20 p-6 text-center">
-          <div className="space-y-2">
-            <BookOpen className="mx-auto size-8 text-muted-foreground" />
-            <p className="text-sm font-medium">Select class and subject</p>
-            <p className="text-xs text-muted-foreground">Marks grid will appear here.</p>
-          </div>
-        </div>
+        <GradientEmptyState
+          icon={BookOpen}
+          title="Select class and subject"
+          description="Marks grid will appear here once you pick both."
+        />
       ) : loading ? (
         <div className="flex min-h-[30vh] items-center justify-center rounded-md border bg-muted/10">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -697,7 +695,7 @@ export function MarksGrid({ examId, examStatus }: MarksGridProps) {
                             <td key={component.id} className="px-1.5 py-1.5 text-center">
                               <Input
                                 id={cellIdFor(student.id, component.id)}
-                                className="mx-auto h-9 w-20 text-center text-xs"
+                                className="mx-auto h-9 w-20 bg-white text-center text-xs dark:bg-input/30"
                                 placeholder="A1"
                                 disabled={locked}
                                 value={cell?.gradeValue ?? ''}
@@ -784,7 +782,7 @@ export function MarksGrid({ examId, examStatus }: MarksGridProps) {
                                 }
                               }}
                             >
-                              <SelectTrigger className="mx-auto h-9 w-28 text-xs">
+                              <SelectTrigger className="mx-auto h-9 w-28 bg-white text-xs dark:bg-input/30">
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
@@ -807,7 +805,7 @@ export function MarksGrid({ examId, examStatus }: MarksGridProps) {
                               type="number"
                               min={0}
                               max={config.graceMarksMax}
-                              className="mx-auto h-9 w-16 text-center text-xs"
+                              className="mx-auto h-9 w-16 bg-white text-center text-xs dark:bg-input/30"
                               disabled={!canEditCells || Boolean(cell?.lockedAt) || config.graceMarksMax === 0}
                               value={cell?.graceMarks ?? ''}
                               onChange={(event) => {
