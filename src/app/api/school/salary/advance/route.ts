@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
     if (staffId) where.staffId = staffId
     if (approvalStatus) where.approvalStatus = approvalStatus
 
-    const [requests, total] = await Promise.all([
+    const [requests, total, statusGroups] = await Promise.all([
       db.advanceRequest.findMany({
         where,
         orderBy: { requestDate: 'desc' },
@@ -36,17 +36,36 @@ export async function GET(request: NextRequest) {
         take: limit,
       }),
       db.advanceRequest.count({ where }),
+      db.advanceRequest.groupBy({
+        by: ['approvalStatus'],
+        where,
+        _sum: { amount: true, deductedAmount: true },
+      }),
     ])
+
+    const statusStats: Record<string, number> = { approved: 0, pending: 0, rejected: 0 }
+    let outstanding = 0
+    for (const g of statusGroups) {
+      statusStats[g.approvalStatus] = g._sum.amount ?? 0
+      if (g.approvalStatus === 'approved') {
+        outstanding += (g._sum.amount ?? 0) - (g._sum.deductedAmount ?? 0)
+      }
+    }
 
     const staffMap = await resolveStaffMap(
       db,
       user.schoolId,
       requests.map((r: { staffType: string; staffId: string }) => ({ staffType: r.staffType, staffId: r.staffId }))
     )
-    const withStaff = requests.map((r: { staffType: string; staffId: string }) => ({
-      ...r,
-      staff: staffMap.get(staffKey(r.staffType, r.staffId)) || null,
-    }))
+    const withStaff = requests.map((r: { staffType: string; staffId: string }) => {
+      const staff = staffMap.get(staffKey(r.staffType, r.staffId)) || null
+      return {
+        ...r,
+        staff,
+        staffName: staff?.fullName || '',
+        staffEmployeeId: staff?.employeeId || '',
+      }
+    })
 
     return NextResponse.json({
       requests: withStaff,
@@ -55,6 +74,13 @@ export async function GET(request: NextRequest) {
         limit,
         total,
         totalPages: Math.ceil(total / limit),
+      },
+      stats: {
+        total,
+        approved: statusStats.approved,
+        pending: statusStats.pending,
+        rejected: statusStats.rejected,
+        outstanding,
       },
     })
   } catch (error) {

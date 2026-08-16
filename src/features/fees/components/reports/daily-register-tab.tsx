@@ -11,6 +11,7 @@ import { Banknote, Download, Printer, CalendarDays, Store } from 'lucide-react'
 import { formatCurrency } from '../audit-field-list'
 import { KpiCard } from './kpi-card'
 import { exportCsv } from '@/lib/csv-export'
+import { useToast } from '@/hooks/use-toast'
 import { ReportCard, ReportFilterField, ReportFilters, reportTableHeaderRowClass } from './report-ui'
 
 interface ClassOption { id: string; name: string }
@@ -56,6 +57,7 @@ function todayLocalISODate(): string {
 }
 
 export function DailyRegisterTab({ classes }: DailyRegisterTabProps) {
+  const { toast } = useToast()
   const [date, setDate] = useState<string>(todayLocalISODate())
   const [mode, setMode] = useState<string>('all')
   const [source, setSource] = useState<string>('all')
@@ -120,6 +122,7 @@ export function DailyRegisterTab({ classes }: DailyRegisterTabProps) {
       ...data.modeTotals.map(m => [`${m.mode}`, `${m.amount}`, `Fees ${m.fees}`, `Store ${m.store}`, `${m.count} receipts`]),
     ]
     exportCsv(`daily-collection-${date}`, headers, rows, preamble)
+    toast({ title: 'Export started', description: 'The CSV download should begin shortly.' })
   }
 
   const handlePrint = () => {

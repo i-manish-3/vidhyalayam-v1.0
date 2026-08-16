@@ -11,6 +11,7 @@ import { ReconciliationBar } from './reconciliation-bar'
 import { cn } from '@/lib/utils'
 import { FeeHeadDetail } from './fee-head-detail'
 import { exportCsv } from '@/lib/csv-export'
+import { useToast } from '@/hooks/use-toast'
 import { ReportCard, reportTableHeaderRowClass } from './report-ui'
 
 interface ClassRow {
@@ -75,6 +76,7 @@ interface AggregationsTabProps {
 }
 
 export function AggregationsTab({ academicYear, startDate, endDate }: AggregationsTabProps) {
+  const { toast } = useToast()
   const [data, setData] = useState<Response | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -119,12 +121,14 @@ export function AggregationsTab({ academicYear, startDate, endDate }: Aggregatio
     const headers = ['Class', 'Students', 'Billed', 'Collected', 'Waived', 'Outstanding', 'Refunded', 'Collection Rate %']
     const rows = data.byClass.map(c => [c.className, c.studentCount, c.billed, c.collected, c.waived, c.outstanding, c.refunded, c.collectionRate])
     exportCsv('fees-by-class', headers, rows, [['Fees by Class'], [`Billed: ${t?.billed ?? 0}`, `Collected: ${t?.collected ?? 0}`, `Outstanding: ${t?.outstanding ?? 0}`]])
+    toast({ title: 'Export started', description: 'The CSV download should begin shortly.' })
   }
   const exportByHead = () => {
     if (!data) return
     const headers = ['Fee Head', 'Billed', 'Collected', 'Waived', 'Outstanding', 'Collection Rate %']
     const rows = data.byFeeHead.map(h => [h.feeHeadName, h.billed, h.collected, h.waived, h.outstanding, h.collectionRate])
     exportCsv('fees-by-head', headers, rows, [['Fees by Fee Head']])
+    toast({ title: 'Export started', description: 'The CSV download should begin shortly.' })
   }
 
   if (!loading && !data) {

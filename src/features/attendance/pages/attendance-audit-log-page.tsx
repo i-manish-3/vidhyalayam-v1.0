@@ -332,6 +332,7 @@ export function AttendanceAuditLogPage() {
       a.click()
       a.remove()
       window.URL.revokeObjectURL(url)
+      toast({ title: 'Export started', description: 'The CSV download should begin shortly.' })
     } catch {
       toast({ title: 'Export failed', description: 'Could not download CSV.', variant: 'destructive' })
     } finally {

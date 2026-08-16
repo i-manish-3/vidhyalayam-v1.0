@@ -11,6 +11,7 @@ import { Search, User as UserIcon, Printer, FileText, Download } from 'lucide-re
 import { formatCurrency } from '../audit-field-list'
 import { KpiCard } from './kpi-card'
 import { cn } from '@/lib/utils'
+import { useToast } from '@/hooks/use-toast'
 import { ReportCard, reportTableHeaderRowClass } from './report-ui'
 
 interface StudentLite {
@@ -87,6 +88,7 @@ interface StudentStatementTabProps {
 }
 
 export function StudentStatementTab({ academicYear, initialStudentId, onStudentSelected }: StudentStatementTabProps) {
+  const { toast } = useToast()
   const [query, setQuery] = useState('')
   const [searching, setSearching] = useState(false)
   const [results, setResults] = useState<StudentLite[]>([])
@@ -172,6 +174,7 @@ export function StudentStatementTab({ academicYear, initialStudentId, onStudentS
     a.click()
     a.remove()
     URL.revokeObjectURL(url)
+    toast({ title: 'Export started', description: 'The CSV download should begin shortly.' })
   }
 
   return (

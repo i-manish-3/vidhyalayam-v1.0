@@ -33,6 +33,7 @@ import {
 } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
+import { useToast } from '@/hooks/use-toast'
 import { cn } from '@/lib/utils'
 import { AuditTrailViewer } from '../components/audit-trail-viewer'
 import { AuditLogFilters } from '../components/audit-log-filters'
@@ -93,6 +94,7 @@ interface FeeAuditTrailListState {
 const FEE_AUDIT_TRAIL_LIST_STATE_KEY = 'fees:audit-trail:list'
 
 export function FeeAuditTrailPage() {
+  const { toast: toastShadcn } = useToast()
   const savedListState = useAppStore((state) => state.pageState[FEE_AUDIT_TRAIL_LIST_STATE_KEY] as FeeAuditTrailListState | undefined)
   const setPageState = useAppStore((state) => state.setPageState)
   const [activeTab, setActiveTab] = useState<TabType>(savedListState?.activeTab ?? 'transactions')
@@ -226,10 +228,10 @@ export function FeeAuditTrailPage() {
       a.click()
       document.body.removeChild(a)
       window.URL.revokeObjectURL(url)
-      toast.success('CSV downloaded.')
+      toastShadcn({ title: 'Export started', description: 'The CSV download should begin shortly.' })
     } catch (error) {
       console.error('Error exporting audit logs:', error)
-      toast.error('Failed to export audit logs.')
+      toastShadcn({ title: 'Export failed', description: 'Could not download CSV.', variant: 'destructive' })
     } finally {
       setExporting(false)
     }

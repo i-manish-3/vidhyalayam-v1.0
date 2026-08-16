@@ -526,9 +526,9 @@ async function getTeacherDashboard(schoolId: string, userId: string) {
     ? await db.student.count({ where: { schoolId, sectionId: { in: sectionIds }, deletedAt: null, isActive: true } })
     : 0
 
-  // Get salary info
+  // Get salary info (SalaryStructure references staff polymorphically)
   const salaryStructure = await db.salaryStructure.findFirst({
-    where: { teacherId: teacher.id, isActive: true },
+    where: { schoolId, staffType: 'teacher', staffId: teacher.id, isActive: true, deletedAt: null },
   })
 
   // Recent announcements

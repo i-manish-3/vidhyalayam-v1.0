@@ -10,6 +10,7 @@ import { Wallet, Download, Search } from 'lucide-react'
 import { formatCurrency } from '../audit-field-list'
 import { KpiCard } from './kpi-card'
 import { exportCsv } from '@/lib/csv-export'
+import { useToast } from '@/hooks/use-toast'
 import { cn } from '@/lib/utils'
 import { ReportCard, ReportFilterField, ReportFilters, reportTableHeaderRowClass } from './report-ui'
 
@@ -40,6 +41,7 @@ interface AdvancesTabProps {
 }
 
 export function AdvancesTab({ academicYear, classes, onOpenStudent }: AdvancesTabProps) {
+  const { toast } = useToast()
   const [data, setData] = useState<AdvanceData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -107,6 +109,7 @@ export function AdvancesTab({ academicYear, classes, onOpenStudent }: AdvancesTa
       r.lastPaymentDate ? new Date(r.lastPaymentDate).toLocaleDateString('en-IN') : '',
     ])
     exportCsv('advance-balances', headers, rows, [['Advance (Prepaid) Balance Report'], [`Total: ${totals.advance}`, `Students: ${totals.studentCount}`]])
+    toast({ title: 'Export started', description: 'The CSV download should begin shortly.' })
   }
 
   return (

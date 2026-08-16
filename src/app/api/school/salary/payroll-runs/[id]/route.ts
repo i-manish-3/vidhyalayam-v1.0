@@ -31,10 +31,15 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       user.schoolId,
       payments.map((p: { staffType: string; staffId: string }) => ({ staffType: p.staffType, staffId: p.staffId }))
     )
-    const withStaff = payments.map((p: { staffType: string; staffId: string }) => ({
-      ...p,
-      staff: staffMap.get(staffKey(p.staffType, p.staffId)) || null,
-    }))
+    const withStaff = payments.map((p: { staffType: string; staffId: string }) => {
+      const staff = staffMap.get(staffKey(p.staffType, p.staffId)) || null
+      return {
+        ...p,
+        staff,
+        staffName: staff?.fullName || '',
+        staffEmployeeId: staff?.employeeId || '',
+      }
+    })
 
     return NextResponse.json({ run, payments: withStaff })
   } catch (error) {

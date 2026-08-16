@@ -13,6 +13,7 @@ import { KpiCard } from './kpi-card'
 import { cn } from '@/lib/utils'
 import { useAppStore } from '@/lib/store'
 import { exportCsv } from '@/lib/csv-export'
+import { useToast } from '@/hooks/use-toast'
 import { ReportCard, ReportFilterField, ReportFilters, reportTableHeaderRowClass } from './report-ui'
 
 interface Row {
@@ -71,6 +72,7 @@ interface OutstandingReportListState {
 }
 
 export function OutstandingTab({ academicYear, classes, sections, onOpenStudent }: OutstandingTabProps) {
+  const { toast } = useToast()
   const savedListState = useAppStore((state) => state.pageState[OUTSTANDING_REPORT_LIST_STATE_KEY] as OutstandingReportListState | undefined)
   const setPageState = useAppStore((state) => state.setPageState)
   const [data, setData] = useState<Response | null>(null)
@@ -177,6 +179,7 @@ export function OutstandingTab({ academicYear, classes, sections, onOpenStudent 
         r.lastPaymentDate ? new Date(r.lastPaymentDate).toLocaleDateString('en-IN') : 'Never',
       ])
       exportCsv('defaulter-callsheet', headers, rows, [['Outstanding Fees — Defaulter Call Sheet']])
+      toast({ title: 'Export started', description: 'The CSV download should begin shortly.' })
     } finally {
       setExporting(false)
     }

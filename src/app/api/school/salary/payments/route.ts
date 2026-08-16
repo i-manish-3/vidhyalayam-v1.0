@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
     if (paymentStatus) where.paymentStatus = paymentStatus
     if (payrollRunId) where.payrollRunId = payrollRunId
 
-    const [payments, total] = await Promise.all([
+    const [payments, total, paidCount, agg] = await Promise.all([
       db.salaryPayment.findMany({
         where,
         orderBy: [{ year: 'desc' }, { month: 'desc' }],
@@ -43,6 +43,11 @@ export async function GET(request: NextRequest) {
         take: limit,
       }),
       db.salaryPayment.count({ where }),
+      db.salaryPayment.count({ where: { ...where, paymentStatus: 'paid' } }),
+      db.salaryPayment.aggregate({
+        where,
+        _sum: { grossEarnings: true, netPayable: true },
+      }),
     ])
 
     const staffMap = await resolveStaffMap(
@@ -50,10 +55,15 @@ export async function GET(request: NextRequest) {
       user.schoolId,
       payments.map((p: { staffType: string; staffId: string }) => ({ staffType: p.staffType, staffId: p.staffId }))
     )
-    const withStaff = payments.map((p: { staffType: string; staffId: string }) => ({
-      ...p,
-      staff: staffMap.get(staffKey(p.staffType, p.staffId)) || null,
-    }))
+    const withStaff = payments.map((p: { staffType: string; staffId: string }) => {
+      const staff = staffMap.get(staffKey(p.staffType, p.staffId)) || null
+      return {
+        ...p,
+        staff,
+        staffName: staff?.fullName || '',
+        staffEmployeeId: staff?.employeeId || '',
+      }
+    })
 
     return NextResponse.json({
       payments: withStaff,
@@ -62,6 +72,13 @@ export async function GET(request: NextRequest) {
         limit,
         total,
         totalPages: Math.ceil(total / limit),
+      },
+      stats: {
+        total,
+        paid: paidCount,
+        pending: total - paidCount,
+        gross: agg._sum.grossEarnings ?? 0,
+        net: agg._sum.netPayable ?? 0,
       },
     })
   } catch (error) {

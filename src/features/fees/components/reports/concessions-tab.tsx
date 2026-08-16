@@ -11,6 +11,7 @@ import { BadgePercent, Download, Search } from 'lucide-react'
 import { formatCurrency } from '../audit-field-list'
 import { KpiCard } from './kpi-card'
 import { exportCsv } from '@/lib/csv-export'
+import { useToast } from '@/hooks/use-toast'
 import { ReportCard, ReportFilterField, ReportFilters, reportTableHeaderRowClass } from './report-ui'
 
 interface ClassOption { id: string; name: string }
@@ -41,6 +42,7 @@ interface ConcessionsTabProps {
 }
 
 export function ConcessionsTab({ academicYear, startDate, endDate, classes }: ConcessionsTabProps) {
+  const { toast } = useToast()
   const [data, setData] = useState<WaiverData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -113,6 +115,7 @@ export function ConcessionsTab({ academicYear, startDate, endDate, classes }: Co
       r.feeHeadName, r.installmentName || '', r.amount, r.reason || '', r.grantedBy || '',
     ])
     exportCsv(`concession-register`, headers, rows, [['Concession / Waiver Register'], [`Total: ${totals.amount}`, `Count: ${totals.count}`]])
+    toast({ title: 'Export started', description: 'The CSV download should begin shortly.' })
   }
 
   return (

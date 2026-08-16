@@ -80,6 +80,7 @@ export function MonthlySummaryTab({
     setExporting(true)
     try {
       await downloadReportCsv(ENDPOINT, params(), 'attendance-monthly-summary.csv')
+      toast({ title: 'Export started', description: 'The CSV download should begin shortly.' })
     } catch {
       toast({ title: 'Export failed', description: 'Could not download CSV.', variant: 'destructive' })
     } finally {

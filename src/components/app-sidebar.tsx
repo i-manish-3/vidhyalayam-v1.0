@@ -355,7 +355,6 @@ export const MENUS: Record<string, MenuItem[]> = {
       ],
     },
     { label: 'Library', page: 'library', icon: Library },
-    { label: 'Salary', page: 'salary', icon: Wallet },
     { label: 'Notifications', page: 'notifications', icon: Bell },
   ],
   STUDENT: [

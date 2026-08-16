@@ -219,7 +219,7 @@ export function ExamAuditLogPage() {
       a.click()
       document.body.removeChild(a)
       URL.revokeObjectURL(url)
-      toast({ title: 'CSV downloaded', variant: 'success' })
+      toast({ title: 'Export started', description: 'The CSV download should begin shortly.' })
     } catch (err) {
       toast({
         variant: 'destructive',

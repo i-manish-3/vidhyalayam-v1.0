@@ -118,6 +118,8 @@ const SEARCH_ITEMS: { label: string; page: PageName; keywords: string[] }[] = [
   { label: 'Change Fee Group', page: 'fee-change-group', keywords: ['switch fee group', 'reassign fees', 'wrong fee group'] },
   { label: 'Salary Structure', page: 'salary-structure', keywords: ['pay scale', 'ctc', 'compensation'] },
   { label: 'Salary Payments', page: 'salary-payments', keywords: ['payroll', 'salary slip', 'month pay'] },
+  { label: 'Run Payroll', page: 'salary-payroll', keywords: ['bulk pay', 'monthly run', 'finalize', 'pay all'] },
+  { label: 'Salary Reports', page: 'salary-reports', keywords: ['report', 'summary', 'csv', 'export', 'payroll report'] },
   { label: 'Advance Requests', page: 'salary-advance', keywords: ['loan', 'advance salary', 'prepayment'] },
   { label: 'Timetable', page: 'timetable', keywords: ['schedule', 'period', 'routine'] },
   { label: 'Exams', page: 'exams', keywords: ['test', 'assessment', 'mid term', 'final'] },

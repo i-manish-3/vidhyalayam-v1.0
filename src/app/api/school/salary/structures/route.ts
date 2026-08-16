@@ -34,10 +34,15 @@ export async function GET(request: NextRequest) {
       user.schoolId,
       structures.map((s: { staffType: string; staffId: string }) => ({ staffType: s.staffType, staffId: s.staffId }))
     )
-    const withStaff = structures.map((s: { staffType: string; staffId: string }) => ({
-      ...s,
-      staff: staffMap.get(staffKey(s.staffType, s.staffId)) || null,
-    }))
+    const withStaff = structures.map((s: { staffType: string; staffId: string }) => {
+      const staff = staffMap.get(staffKey(s.staffType, s.staffId)) || null
+      return {
+        ...s,
+        staff,
+        staffName: staff?.fullName || '',
+        staffEmployeeId: staff?.employeeId || '',
+      }
+    })
 
     return NextResponse.json({ structures: withStaff })
   } catch (error) {
