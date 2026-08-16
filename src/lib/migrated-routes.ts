@@ -80,6 +80,7 @@ export const MIGRATED_PAGES: Partial<Record<PageName, (...args: string[]) => str
   'exam-configure': (id?: string) => (id ? `/exams/${id}/configure` : '/exams/list'),
   'exam-schedule': (id?: string) => (id ? `/exams/${id}/schedule` : '/exams/list'),
   'exam-marks-entry': (id?: string) => (id ? `/exams/${id}/marks` : '/exams/list'),
+  'exam-marksheet': (id?: string) => (id ? `/exams/${id}/marksheet` : '/exams/list'),
   'exam-grade-scales': () => '/exams/grade-scales',
   'exam-grade-scale-edit': (id?: string) => (id ? `/exams/grade-scales/${id}/edit` : '/exams/grade-scales'),
   'exam-result-preview': (id?: string) => (id ? `/exams/${id}/results` : '/exams/list'),

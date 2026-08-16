@@ -38,7 +38,12 @@ interface ComponentEditorProps {
   subjectLabel?: string
 }
 
-const PRESETS: Array<{ name: string; build: (total: number) => ExamComponentRow[] }> = [
+export interface ComponentPreset {
+  name: string
+  build: (total: number) => ExamComponentRow[]
+}
+
+export const COMPONENT_PRESETS: ComponentPreset[] = [
   {
     name: 'Theory only',
     build: (total) => [
@@ -140,7 +145,7 @@ export function ComponentEditor({
   function addRow(gradeOnly = false) {
     setRows((prev) => [...prev, makeBlankRow(prev.length, gradeOnly || isGradeOnlySubject)])
   }
-  function applyPreset(preset: typeof PRESETS[number]) {
+  function applyPreset(preset: ComponentPreset) {
     setRows(preset.build(totalMarks))
   }
 
@@ -173,7 +178,7 @@ export function ComponentEditor({
           {!isGradeOnlySubject && rows.length === 0 && (
             <div className="grid gap-2 rounded-md border border-sky-200/80 bg-gradient-to-r from-sky-50 via-white to-violet-50 p-3 shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10 sm:grid-cols-2">
               <p className="col-span-full text-xs text-muted-foreground">Start from a preset:</p>
-              {PRESETS.map((p) => (
+              {COMPONENT_PRESETS.map((p) => (
                 <Button
                   key={p.name}
                   type="button"

@@ -19,7 +19,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { api } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
 import { PERMISSIONS, usePermissions } from '@/hooks/use-permissions'
-import { Save, Trash2, ClipboardList, Users, ArrowLeft } from 'lucide-react'
+import { CheckCheck, Save, Trash2, ClipboardList, Users, ArrowLeft, X } from 'lucide-react'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -122,6 +122,7 @@ export function ExamFormPage({ examId }: Props) {
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
   const [includeInResult, setIncludeInResult] = useState(true)
+  const [autoAddSubjects, setAutoAddSubjects] = useState(true)
   const [selectedClasses, setSelectedClasses] = useState<ClassSelection[]>([])
 
   const load = useCallback(async () => {
@@ -215,12 +216,20 @@ export function ExamFormPage({ examId }: Props) {
     )
   }
 
+  function selectAllClasses() {
+    setSelectedClasses(classes.map((c) => ({ classId: c.id, sectionIds: null })))
+  }
+
+  function clearClasses() {
+    setSelectedClasses([])
+  }
+
   async function handleSave() {
     if (!valid) return
     setSaving(true)
     try {
       const payload = {
-        ...(isEdit ? {} : { academicYear, examGroupId }),
+        ...(isEdit ? {} : { academicYear, examGroupId, autoAddSubjects }),
         name: name.trim(),
         shortCode: shortCode.trim() || null,
         examType,
@@ -238,8 +247,14 @@ export function ExamFormPage({ examId }: Props) {
         toast({ title: 'Exam updated' })
         router.push(`/exams/${examId}/configure`)
       } else {
-        const res = await api.post<{ exam: { id: string } }>('/api/school/exams', payload)
-        toast({ title: 'Exam created', description: 'Next, configure subjects and components.' })
+        const res = await api.post<{ exam: { id: string }; autoAddedSubjects?: number }>('/api/school/exams', payload)
+        const autoAdded = res.autoAddedSubjects ?? 0
+        toast({
+          title: 'Exam created',
+          description: autoAdded > 0
+            ? `${autoAdded} subject(s) auto-included. Next, set up components.`
+            : 'Next, configure subjects and components.',
+        })
         router.push(`/exams/${res.exam.id}/configure`)
       }
     } catch (err) {
@@ -403,9 +418,35 @@ export function ExamFormPage({ examId }: Props) {
 
       <Card className="gap-0 overflow-hidden border-violet-200/80 bg-gradient-to-br from-violet-50 via-white to-purple-50 py-0 shadow-sm dark:border-violet-500/25 dark:from-violet-500/12 dark:via-card dark:to-purple-500/10">
         <div className="border-b bg-muted/30 px-4 py-2.5">
-          <div className="flex items-center gap-2">
-            <Users className="size-4 text-muted-foreground" />
-            <CardTitle className="text-base">Classes</CardTitle>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Users className="size-4 text-muted-foreground" />
+              <CardTitle className="text-base">Classes</CardTitle>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="secondary" className="h-5 text-[10px]">
+                {selectedClasses.length} of {classes.length} selected
+              </Badge>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 gap-1 px-2.5 text-xs"
+                onClick={selectAllClasses}
+                disabled={classes.length === 0}
+              >
+                <CheckCheck className="size-3.5" /> Select all
+              </Button>
+              {selectedClasses.length > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 gap-1 px-2.5 text-xs text-muted-foreground"
+                  onClick={clearClasses}
+                >
+                  <X className="size-3.5" /> Clear
+                </Button>
+              )}
+            </div>
           </div>
           <CardDescription className="text-xs">
             Pick the classes this exam runs for. Leave sections unselected to apply to all sections of a class.
@@ -471,6 +512,24 @@ export function ExamFormPage({ examId }: Props) {
                 </div>
               )
             })}
+          </div>
+          <div className="mt-3 border-t border-violet-200/60 pt-3 dark:border-violet-500/20">
+            <label className="flex cursor-pointer items-center gap-2 text-sm">
+              <Checkbox
+                id="autoAddSubjects"
+                checked={autoAddSubjects}
+                onCheckedChange={(v) => setAutoAddSubjects(Boolean(v))}
+                disabled={isEdit}
+              />
+              <span className="text-xs font-medium">
+                Automatically include all subjects of the selected classes
+              </span>
+            </label>
+            <p className="ml-6 mt-0.5 text-[11px] text-muted-foreground">
+              {isEdit
+                ? 'Subject inclusion is managed on the configure page.'
+                : 'Every subject mapped to the selected classes is added at creation — no manual entry needed.'}
+            </p>
           </div>
         </CardContent>
       </Card>

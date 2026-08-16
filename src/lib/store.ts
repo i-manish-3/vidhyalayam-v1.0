@@ -10,7 +10,7 @@ export type PageName =
   | 'timetable' | 'exams' | 'exam-results'
   | 'exam-dashboard' | 'exam-paradigms' | 'exam-paradigm-edit' | 'exam-groups'
   | 'exam-list' | 'exam-create' | 'exam-edit' | 'exam-configure' | 'exam-schedule'
-  | 'exam-marks-entry' | 'exam-grade-scales' | 'exam-grade-scale-edit'
+  | 'exam-marks-entry' | 'exam-marksheet' | 'exam-grade-scales' | 'exam-grade-scale-edit'
   | 'exam-result-preview' | 'exam-published-results'
   | 'exam-report-card-templates' | 'exam-report-card-template-edit'
   | 'exam-admit-cards'

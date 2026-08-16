@@ -7,13 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
   Dialog,
@@ -35,9 +29,10 @@ import { useToast } from '@/hooks/use-toast'
 import { PERMISSIONS, usePermissions } from '@/hooks/use-permissions'
 import {
   ComponentEditor,
+  COMPONENT_PRESETS,
   type ExamComponentRow,
 } from '@/features/exams/components/component-editor'
-import { Pencil, Plus, Settings2, Trash2, Calendar as CalIcon, Layers3, BookOpen } from 'lucide-react'
+import { Pencil, Settings2, Trash2, Calendar as CalIcon, Layers3, Wand2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { examStatusMeta } from '@/features/exams/lib/status-meta'
 
@@ -100,7 +95,7 @@ export function ExamConfigurePage({ examId }: Props) {
   const [configs, setConfigs] = useState<SubjectConfig[]>([])
   const [classes, setClasses] = useState<ClassOption[]>([])
   const [subjects, setSubjects] = useState<SubjectOption[]>([])
-  const [addOpen, setAddOpen] = useState(false)
+  const [bulkOpen, setBulkOpen] = useState(false)
   const [editing, setEditing] = useState<SubjectConfig | null>(null)
   const [componentEditing, setComponentEditing] = useState<SubjectConfig | null>(null)
   const [savingComponents, setSavingComponents] = useState(false)
@@ -154,12 +149,6 @@ export function ExamConfigurePage({ examId }: Props) {
     }
     return map
   }, [configs])
-
-  // The classes this exam covers (from exam.examClasses) — fall back to all classes if none.
-  const eligibleClassIds = useMemo(() => {
-    const ids = new Set(exam?.examClasses.map((ec) => ec.classId) ?? [])
-    return ids.size > 0 ? ids : new Set(classes.map((c) => c.id))
-  }, [exam, classes])
 
   async function handleDeleteConfig() {
     if (!deleteTarget) return
@@ -233,9 +222,9 @@ export function ExamConfigurePage({ examId }: Props) {
         primaryAction={
           hasAnyPermission([PERMISSIONS.EXAM_MANAGE])
             ? {
-                label: 'Add subjects',
-                icon: Plus,
-                onClick: () => setAddOpen(true),
+                label: 'Bulk components',
+                icon: Wand2,
+                onClick: () => setBulkOpen(true),
               }
             : undefined
         }
@@ -250,10 +239,7 @@ export function ExamConfigurePage({ examId }: Props) {
         <GradientEmptyState
           icon={Settings2}
           title="No subjects configured yet"
-          description="Pick the classes and subjects this exam covers, then split each into components."
-          {...(hasAnyPermission([PERMISSIONS.EXAM_MANAGE])
-            ? { actionLabel: 'Add subjects', onAction: () => setAddOpen(true) }
-            : {})}
+          description="All subjects of the exam's classes are auto-included at creation. Add extras if needed."
         />
       ) : (
         <div className="space-y-4">
@@ -369,20 +355,6 @@ export function ExamConfigurePage({ examId }: Props) {
         </div>
       )}
 
-      <AddSubjectsDialog
-        open={addOpen}
-        onClose={() => setAddOpen(false)}
-        examId={examId}
-        eligibleClassIds={Array.from(eligibleClassIds)}
-        classes={classes}
-        subjects={subjects}
-        existing={configs}
-        onSaved={() => {
-          setAddOpen(false)
-          void load()
-        }}
-      />
-
       <EditSubjectConfigDialog
         open={!!editing}
         config={editing}
@@ -402,6 +374,19 @@ export function ExamConfigurePage({ examId }: Props) {
           onSave={handleSaveComponents}
         />
       )}
+
+      <BulkComponentsDialog
+        open={bulkOpen}
+        onClose={() => setBulkOpen(false)}
+        examId={examId}
+        configs={configs}
+        classLookup={classLookup}
+        subjectLookup={subjectLookup}
+        onSaved={() => {
+          setBulkOpen(false)
+          void load()
+        }}
+      />
 
       <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !deleting && !o && setDeleteTarget(null)}>
         <AlertDialogContent>
@@ -429,211 +414,6 @@ export function ExamConfigurePage({ examId }: Props) {
         </AlertDialogContent>
       </AlertDialog>
     </div>
-  )
-}
-
-interface AddSubjectsDialogProps {
-  open: boolean
-  onClose: () => void
-  examId: string
-  eligibleClassIds: string[]
-  classes: ClassOption[]
-  subjects: SubjectOption[]
-  existing: SubjectConfig[]
-  onSaved: () => void
-}
-
-function AddSubjectsDialog({
-  open,
-  onClose,
-  examId,
-  eligibleClassIds,
-  classes,
-  subjects,
-  existing,
-  onSaved,
-}: AddSubjectsDialogProps) {
-  const { toast } = useToast()
-  const [selectedClassIds, setSelectedClassIds] = useState<string[]>([])
-  const [selectedSubjectIds, setSelectedSubjectIds] = useState<string[]>([])
-  const [totalMarks, setTotalMarks] = useState(100)
-  const [passingMarks, setPassingMarks] = useState(33)
-  const [gradeOnly, setGradeOnly] = useState(false)
-  const [saving, setSaving] = useState(false)
-
-  useEffect(() => {
-    if (!open) {
-      setSelectedClassIds([])
-      setSelectedSubjectIds([])
-      setTotalMarks(100)
-      setPassingMarks(33)
-      setGradeOnly(false)
-    }
-  }, [open])
-
-  const eligibleClasses = useMemo(
-    () => classes.filter((c) => eligibleClassIds.includes(c.id)),
-    [classes, eligibleClassIds],
-  )
-
-  const existingKeys = useMemo(() => {
-    const set = new Set<string>()
-    for (const c of existing) {
-      set.add(`${c.classId}::${c.sectionId ?? ''}::${c.subjectId}`)
-    }
-    return set
-  }, [existing])
-
-  const willCreate = selectedClassIds.flatMap((cid) =>
-    selectedSubjectIds
-      .filter((sid) => !existingKeys.has(`${cid}::::${sid}`))
-      .map((sid) => ({ classId: cid, subjectId: sid })),
-  )
-
-  const valid =
-    selectedClassIds.length > 0 &&
-    selectedSubjectIds.length > 0 &&
-    (gradeOnly || (totalMarks > 0 && passingMarks >= 0 && passingMarks <= totalMarks))
-
-  async function handleSave() {
-    if (!valid) return
-    setSaving(true)
-    try {
-      const configs = willCreate.map((wc) => ({
-        ...wc,
-        sectionId: null,
-        isCompulsory: true,
-        gradeOnly,
-        totalMarks: gradeOnly ? 100 : totalMarks,
-        passingMarks: gradeOnly ? 0 : passingMarks,
-      }))
-      if (configs.length === 0) {
-        toast({ title: 'Nothing to add', description: 'All selected pairs already exist.' })
-        return
-      }
-      const res = await api.post<{ created: unknown[]; skipped: unknown[]; message: string }>(
-        `/api/school/exams/${examId}/subject-configs`,
-        { configs },
-      )
-      toast({ title: 'Subjects added', description: res.message })
-      onSaved()
-    } catch (err) {
-      toast({
-        variant: 'destructive',
-        title: 'Could not add subjects',
-        description: err instanceof Error ? err.message : 'Please try again.',
-      })
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={(o) => !saving && !o && onClose()}>
-      <DialogContent className="max-h-[90svh] overflow-hidden border-primary/20 bg-card p-0 shadow-2xl shadow-primary/15 sm:max-w-2xl [&>button]:right-3 [&>button]:top-3 [&>button]:rounded-full [&>button]:text-white [&>button]:opacity-80 [&>button]:hover:bg-white/15 [&>button]:hover:opacity-100">
-        <GradientDialogHeader
-          icon={Plus}
-          title="Add subjects"
-          description="Bulk-add a subject set across multiple classes. Defaults can be tuned per row afterwards."
-        />
-
-        <div className="themed-scrollbar grid max-h-[68svh] gap-3 overflow-y-auto bg-gradient-to-br from-primary/[0.025] via-background to-violet-500/[0.035] p-4 sm:p-5">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div>
-              <p className="mb-2 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-                <span className="flex size-5 items-center justify-center rounded-md bg-gradient-to-br from-sky-500 to-cyan-600 text-white"><Layers3 className="size-3 text-white" /></span>
-                Classes
-              </p>
-              <div className="max-h-60 space-y-1 overflow-y-auto rounded-md border border-sky-200/80 bg-white/70 p-2 shadow-sm dark:border-sky-500/25 dark:bg-card/60">
-                {eligibleClasses.map((c) => (
-                  <label
-                    key={c.id}
-                    className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 text-sm hover:bg-muted/50"
-                  >
-                    <Checkbox
-                      checked={selectedClassIds.includes(c.id)}
-                      onCheckedChange={(v) =>
-                        setSelectedClassIds((prev) =>
-                          v ? [...prev, c.id] : prev.filter((id) => id !== c.id),
-                        )
-                      }
-                    />
-                    {c.name}
-                  </label>
-                ))}
-              </div>
-            </div>
-            <div>
-              <p className="mb-2 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-                <span className="flex size-5 items-center justify-center rounded-md bg-gradient-to-br from-violet-500 to-purple-600 text-white"><BookOpen className="size-3 text-white" /></span>
-                Subjects
-              </p>
-              <div className="max-h-60 space-y-1 overflow-y-auto rounded-md border border-violet-200/80 bg-white/70 p-2 shadow-sm dark:border-violet-500/25 dark:bg-card/60">
-                {subjects.map((s) => (
-                  <label
-                    key={s.id}
-                    className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 text-sm hover:bg-muted/50"
-                  >
-                    <Checkbox
-                      checked={selectedSubjectIds.includes(s.id)}
-                      onCheckedChange={(v) =>
-                        setSelectedSubjectIds((prev) =>
-                          v ? [...prev, s.id] : prev.filter((id) => id !== s.id),
-                        )
-                      }
-                    />
-                    {s.name}
-                    {s.shortCode && <span className="text-xs text-muted-foreground">({s.shortCode})</span>}
-                  </label>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          <div className="grid gap-3 rounded-xl border border-emerald-200/80 bg-gradient-to-r from-emerald-50 via-white to-cyan-50 p-3 shadow-sm dark:border-emerald-500/25 dark:from-emerald-500/12 dark:via-card dark:to-cyan-500/10 sm:grid-cols-3">
-            <div>
-              <label className="text-[10px] font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-300">Total marks</label>
-              <Input
-                type="number"
-                min={0}
-                className="h-9"
-                disabled={gradeOnly}
-                value={totalMarks}
-                onChange={(e) => setTotalMarks(Math.max(0, Number(e.target.value) || 0))}
-              />
-            </div>
-            <div>
-              <label className="text-[10px] font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-300">Passing marks</label>
-              <Input
-                type="number"
-                min={0}
-                className="h-9"
-                disabled={gradeOnly}
-                value={passingMarks}
-                onChange={(e) => setPassingMarks(Math.max(0, Number(e.target.value) || 0))}
-              />
-            </div>
-            <label className="flex cursor-pointer items-end gap-2 pb-1.5 text-sm">
-              <Checkbox checked={gradeOnly} onCheckedChange={(v) => setGradeOnly(Boolean(v))} />
-              Grade only
-            </label>
-          </div>
-
-          <p className="text-xs text-muted-foreground">
-            Will create {willCreate.length} subject config(s).
-            {willCreate.length < selectedClassIds.length * selectedSubjectIds.length &&
-              ` ${selectedClassIds.length * selectedSubjectIds.length - willCreate.length} already exist and will be skipped.`}
-          </p>
-
-          <div className="flex justify-end gap-2 pt-1">
-            <Button variant="outline" onClick={onClose} disabled={saving}>Cancel</Button>
-            <Button onClick={() => void handleSave()} disabled={!valid || saving || willCreate.length === 0}>
-              {saving ? 'Adding…' : `Add ${willCreate.length} subject${willCreate.length === 1 ? '' : 's'}`}
-            </Button>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
   )
 }
 
@@ -736,6 +516,210 @@ function EditSubjectConfigDialog({ open, config, onClose, onSave }: EditSubjectC
             <Button variant="outline" onClick={onClose} disabled={saving}>Cancel</Button>
             <Button onClick={() => void handleSave()} disabled={saving}>
               {saving ? 'Saving…' : 'Save'}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+interface BulkComponentsDialogProps {
+  open: boolean
+  onClose: () => void
+  examId: string
+  configs: SubjectConfig[]
+  classLookup: Map<string, ClassOption>
+  subjectLookup: Map<string, SubjectOption>
+  onSaved: () => void
+}
+
+function BulkComponentsDialog({
+  open,
+  onClose,
+  examId,
+  configs,
+  classLookup,
+  subjectLookup,
+  onSaved,
+}: BulkComponentsDialogProps) {
+  const { toast } = useToast()
+  const [presetName, setPresetName] = useState(COMPONENT_PRESETS[1].name)
+  const [selectedClassIds, setSelectedClassIds] = useState<string[]>([])
+  const [onlyMissing, setOnlyMissing] = useState(true)
+  const [saving, setSaving] = useState(false)
+
+  const classIdsWithConfigs = useMemo(
+    () => Array.from(new Set(configs.map((c) => c.classId))),
+    [configs],
+  )
+
+  useEffect(() => {
+    if (!open) return
+    setPresetName(COMPONENT_PRESETS[1].name)
+    setSelectedClassIds(classIdsWithConfigs)
+    setOnlyMissing(true)
+  }, [open, classIdsWithConfigs])
+
+  const preset = COMPONENT_PRESETS.find((p) => p.name === presetName) ?? COMPONENT_PRESETS[0]
+
+  const eligible = useMemo(
+    () =>
+      configs.filter((c) => {
+        if (selectedClassIds.length > 0 && !selectedClassIds.includes(c.classId)) return false
+        if (c.gradeOnly) return false
+        if (onlyMissing && c.components.length > 0) return false
+        return true
+      }),
+    [configs, selectedClassIds, onlyMissing],
+  )
+
+  const gradeOnlyInScope = useMemo(
+    () =>
+      configs.filter((c) => {
+        if (selectedClassIds.length > 0 && !selectedClassIds.includes(c.classId)) return false
+        return c.gradeOnly
+      }).length,
+    [configs, selectedClassIds],
+  )
+
+  async function handleApply() {
+    if (eligible.length === 0) return
+    setSaving(true)
+    try {
+      const res = await api.post<{
+        updated: number
+        skipped: number
+        errors: { configId: string; message: string }[]
+        message: string
+      }>(`/api/school/exams/${examId}/components/bulk`, {
+        configs: eligible.map((c) => ({
+          configId: c.id,
+          components: preset.build(c.totalMarks),
+        })),
+      })
+      toast({ title: 'Components applied', description: res.message })
+      if (res.errors.length > 0) {
+        toast({
+          variant: 'destructive',
+          title: `${res.errors.length} subject(s) skipped`,
+          description: res.errors[0].message,
+        })
+      }
+      onSaved()
+    } catch (err) {
+      toast({
+        variant: 'destructive',
+        title: 'Could not apply components',
+        description: err instanceof Error ? err.message : 'Please try again.',
+      })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !saving && !o && onClose()}>
+      <DialogContent className="max-h-[90svh] overflow-hidden border-primary/20 bg-card p-0 shadow-2xl shadow-primary/15 sm:max-w-2xl [&>button]:right-3 [&>button]:top-3 [&>button]:rounded-full [&>button]:text-white [&>button]:opacity-80 [&>button]:hover:bg-white/15 [&>button]:hover:opacity-100">
+        <GradientDialogHeader
+          icon={Wand2}
+          title="Bulk components"
+          description="Apply one component split to every subject at once — no per-subject setup."
+        />
+
+        <div className="themed-scrollbar grid max-h-[68svh] gap-3 overflow-y-auto bg-gradient-to-br from-primary/[0.025] via-background to-violet-500/[0.035] p-4 sm:p-5">
+          <section className="relative overflow-hidden rounded-xl border border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-violet-50 p-4 shadow-sm dark:border-sky-500/25 dark:from-sky-500/15 dark:via-card dark:to-violet-500/10">
+            <div className="relative mb-3 flex items-center gap-2">
+              <span className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-violet-600 text-white shadow-sm"><Layers3 className="size-4 text-white" /></span>
+              <div><h3 className="text-sm font-semibold">Component split</h3><p className="text-[10px] text-muted-foreground">Preset percentages scale to each subject's total marks</p></div>
+            </div>
+            <div className="relative grid gap-2 sm:grid-cols-2">
+              {COMPONENT_PRESETS.map((p) => {
+                const active = p.name === presetName
+                return (
+                  <Button
+                    key={p.name}
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className={cn(
+                      'justify-start text-xs',
+                      active && 'border-sky-400 bg-sky-50 text-sky-700 shadow-sm dark:border-sky-500/60 dark:bg-sky-500/15 dark:text-sky-300',
+                    )}
+                    onClick={() => setPresetName(p.name)}
+                  >
+                    {p.name}
+                  </Button>
+                )
+              })}
+            </div>
+          </section>
+
+          <section className="relative overflow-hidden rounded-xl border border-violet-200/80 bg-gradient-to-br from-violet-50 via-white to-purple-50 p-4 shadow-sm dark:border-violet-500/25 dark:from-violet-500/15 dark:via-card dark:to-purple-500/10">
+            <div className="relative mb-3 flex items-center gap-2">
+              <span className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 text-white shadow-sm"><Wand2 className="size-4 text-white" /></span>
+              <div><h3 className="text-sm font-semibold">Scope</h3><p className="text-[10px] text-muted-foreground">Which subjects get the split</p></div>
+            </div>
+            <div className="relative grid gap-3 sm:grid-cols-2">
+              <div>
+                <div className="mb-1.5 flex items-center justify-between gap-2">
+                  <Label className="text-xs">Classes</Label>
+                  <div className="flex items-center gap-2 text-[11px] font-medium">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedClassIds(classIdsWithConfigs)}
+                      className="text-primary hover:underline"
+                    >
+                      Select all
+                    </button>
+                    {selectedClassIds.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setSelectedClassIds([])}
+                        className="text-muted-foreground hover:underline"
+                      >
+                        Deselect all
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <div className="max-h-52 space-y-1 overflow-y-auto rounded-md border border-violet-200/80 bg-white/70 p-2 shadow-sm dark:border-violet-500/25 dark:bg-card/60">
+                  {classIdsWithConfigs.map((cid) => (
+                    <label
+                      key={cid}
+                      className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 text-sm hover:bg-muted/50"
+                    >
+                      <Checkbox
+                        checked={selectedClassIds.includes(cid)}
+                        onCheckedChange={(v) =>
+                          setSelectedClassIds((prev) =>
+                            v ? [...prev, cid] : prev.filter((id) => id !== cid),
+                          )
+                        }
+                      />
+                      {classLookup.get(cid)?.name ?? cid}
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <label className="flex cursor-pointer items-end gap-2 pb-1.5 text-sm">
+                <Checkbox checked={onlyMissing} onCheckedChange={(v) => setOnlyMissing(Boolean(v))} />
+                Only subjects without components
+              </label>
+            </div>
+          </section>
+
+          <p className="text-xs text-muted-foreground">
+            Will update <strong className="text-foreground">{eligible.length}</strong> subject
+            {eligible.length === 1 ? '' : 's'}
+            {gradeOnlyInScope > 0 && ` · ${gradeOnlyInScope} grade-only skipped`}
+            {onlyMissing && ` · subjects with components already set are untouched`}
+          </p>
+
+          <div className="flex justify-end gap-2 pt-1">
+            <Button variant="outline" onClick={onClose} disabled={saving}>Cancel</Button>
+            <Button onClick={() => void handleApply()} disabled={eligible.length === 0 || saving}>
+              {saving ? 'Applying…' : `Apply to ${eligible.length} subject${eligible.length === 1 ? '' : 's'}`}
             </Button>
           </div>
         </div>

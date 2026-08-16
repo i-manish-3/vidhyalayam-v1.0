@@ -16,10 +16,11 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { api } from '@/lib/api'
+import { cn } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
 import { PERMISSIONS, usePermissions } from '@/hooks/use-permissions'
 import { detectScheduleConflicts, type ScheduleRow } from '@/features/exams/lib/schedule-conflict-checker'
-import { Calendar as CalIcon, Plus, Save, Trash2, AlertTriangle, TicketCheck } from 'lucide-react'
+import { Calendar as CalIcon, Plus, Save, Trash2, AlertTriangle, TicketCheck, Copy } from 'lucide-react'
 
 interface ScheduleEntry {
   id?: string
@@ -67,11 +68,6 @@ interface SubjectOption {
   name: string
 }
 
-interface TeacherOption {
-  id: string
-  name: string
-}
-
 function toInputDate(iso: string): string {
   const d = new Date(iso)
   return Number.isNaN(d.getTime())
@@ -93,19 +89,20 @@ export function ExamSchedulePage({ examId }: Props) {
   const [rows, setRows] = useState<ScheduleEntry[]>([])
   const [classes, setClasses] = useState<ClassOption[]>([])
   const [subjects, setSubjects] = useState<SubjectOption[]>([])
-  const [teachers, setTeachers] = useState<TeacherOption[]>([])
+  const [activeClassId, setActiveClassId] = useState('')
+  const [patternSource, setPatternSource] = useState('')
+  const [patternTarget, setPatternTarget] = useState('__all')
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const [examRes, scheduleRes, classesRes, subjectsRes, teachersRes] = await Promise.all([
+      const [examRes, scheduleRes, classesRes, subjectsRes] = await Promise.all([
         api.get<{ exam: ExamDetail }>(`/api/school/exams/${examId}`),
         api.get<{ schedule: Array<ScheduleEntry & { examDate: string }> }>(
           `/api/school/exams/${examId}/schedule`,
         ),
         api.get<{ classes: ClassOption[] }>('/api/school/classes'),
         api.get<{ subjects: SubjectOption[] }>('/api/school/subjects'),
-        api.get<{ teachers: TeacherOption[] }>('/api/school/teachers'),
       ])
       setExam(examRes.exam)
       setRows(
@@ -116,7 +113,6 @@ export function ExamSchedulePage({ examId }: Props) {
       )
       setClasses(classesRes.classes)
       setSubjects(subjectsRes.subjects)
-      setTeachers(teachersRes.teachers)
     } catch (err) {
       toast({
         variant: 'destructive',
@@ -134,10 +130,44 @@ export function ExamSchedulePage({ examId }: Props) {
 
   const classLookup = useMemo(() => new Map(classes.map((c) => [c.id, c])), [classes])
   const subjectLookup = useMemo(() => new Map(subjects.map((s) => [s.id, s])), [subjects])
-  const teacherLookup = useMemo(() => new Map(teachers.map((t) => [t.id, t])), [teachers])
 
   // Distinct (class, section, subject) configs available for scheduling.
   const availableConfigs = exam?.subjectConfigs ?? []
+
+  const scheduleClassIds = useMemo(
+    () => Array.from(new Set(availableConfigs.map((c) => c.classId))),
+    [availableConfigs],
+  )
+
+  const patternSourceId = patternSource || scheduleClassIds[0] || ''
+
+  const patternTargets = useMemo(
+    () =>
+      patternTarget === '__all'
+        ? scheduleClassIds.filter((c) => c !== patternSourceId)
+        : patternTarget === patternSourceId
+          ? []
+          : [patternTarget],
+    [patternTarget, patternSourceId, scheduleClassIds],
+  )
+
+  useEffect(() => {
+    if (scheduleClassIds.length === 0) return
+    if (!scheduleClassIds.includes(activeClassId)) setActiveClassId(scheduleClassIds[0])
+  }, [scheduleClassIds, activeClassId])
+
+  const activeClassRows = useMemo(
+    () => rows.filter((r) => r.classId === activeClassId),
+    [rows, activeClassId],
+  )
+
+  const classMissingCount = useMemo(() => {
+    const configSubjects = availableConfigs
+      .filter((c) => c.classId === activeClassId && !c.gradeOnly)
+      .map((c) => c.subjectId)
+    const rowSubjects = new Set(activeClassRows.map((r) => r.subjectId))
+    return configSubjects.filter((s) => !rowSubjects.has(s)).length
+  }, [availableConfigs, activeClassId, activeClassRows])
 
   // Live conflict detection based on current rows.
   const conflicts = useMemo(() => {
@@ -164,7 +194,7 @@ export function ExamSchedulePage({ examId }: Props) {
     setRows((prev) => [
       ...prev,
       {
-        classId: '',
+        classId: activeClassId,
         sectionId: null,
         subjectId: '',
         examDate: '',
@@ -187,6 +217,116 @@ export function ExamSchedulePage({ examId }: Props) {
 
   function removeRow(idx: number) {
     setRows((prev) => prev.filter((_, i) => i !== idx))
+  }
+
+  function addAllSubjectsForClass(classId: string) {
+    const existing = new Set(rows.filter((r) => r.classId === classId).map((r) => r.subjectId))
+    const missing = availableConfigs.filter(
+      (c) => c.classId === classId && !c.gradeOnly && !existing.has(c.subjectId),
+    )
+    if (missing.length === 0) {
+      toast({
+        title: 'Already covered',
+        description: 'All subjects of this class are already in the schedule.',
+      })
+      return
+    }
+    setRows((prev) => [
+      ...prev,
+      ...missing.map((c) => ({
+        classId,
+        sectionId: c.sectionId,
+        subjectId: c.subjectId,
+        examDate: '',
+        startTime: '09:00',
+        endTime: '12:00',
+        roomNumber: null,
+        invigilatorId: null,
+        maxMarks: c.totalMarks,
+        durationMinutes: null,
+        instructions: null,
+        _new: true,
+        _dirty: true,
+      })),
+    ])
+    toast({
+      title: `${missing.length} paper(s) added`,
+      description: `${classLookup.get(classId)?.name ?? classId}: all non-grade-only subjects now have a row.`,
+    })
+  }
+
+  function openClass(classId: string) {
+    setActiveClassId(classId)
+    if (!hasAnyPermission([PERMISSIONS.EXAM_MANAGE])) return
+    const hasRows = rows.some((r) => r.classId === classId)
+    if (!hasRows) addAllSubjectsForClass(classId)
+  }
+
+  function handleApplyPattern() {
+    const source = rows.filter(
+      (r) => r.classId === patternSourceId && r.examDate && r.startTime && r.endTime,
+    )
+    if (source.length === 0) {
+      toast({
+        variant: 'destructive',
+        title: 'Nothing to copy',
+        description: 'Set date, start and end time on the source class rows first.',
+      })
+      return
+    }
+    if (patternTargets.length === 0) return
+    const sourceBySubject = new Map(source.map((r) => [r.subjectId, r]))
+    let updated = 0
+    let added = 0
+    const next = rows.map((r) => {
+      if (!patternTargets.includes(r.classId)) return r
+      const s = sourceBySubject.get(r.subjectId)
+      if (!s) return r
+      if (r.examDate === s.examDate && r.startTime === s.startTime && r.endTime === s.endTime) {
+        return r
+      }
+      updated += 1
+      return {
+        ...r,
+        examDate: s.examDate,
+        startTime: s.startTime,
+        endTime: s.endTime,
+        _dirty: true,
+      }
+    })
+    const existing = new Set(
+      next.filter((r) => patternTargets.includes(r.classId)).map((r) => `${r.classId}:${r.subjectId}`),
+    )
+    const toAdd: ScheduleEntry[] = []
+    for (const tcid of patternTargets) {
+      for (const c of availableConfigs) {
+        if (c.classId !== tcid || c.gradeOnly) continue
+        if (existing.has(`${tcid}:${c.subjectId}`)) continue
+        const s = sourceBySubject.get(c.subjectId)
+        if (!s) continue
+        toAdd.push({
+          classId: tcid,
+          sectionId: c.sectionId,
+          subjectId: c.subjectId,
+          examDate: s.examDate,
+          startTime: s.startTime,
+          endTime: s.endTime,
+          roomNumber: null,
+          invigilatorId: null,
+          maxMarks: c.totalMarks,
+          durationMinutes: null,
+          instructions: null,
+          _new: true,
+          _dirty: true,
+        })
+        added += 1
+      }
+    }
+    setRows(toAdd.length > 0 ? [...next, ...toAdd] : next)
+    toast({
+      title: 'Pattern copied',
+      description: `Updated ${updated} row(s)${added > 0 ? `, added ${added} new row(s)` : ''}. Review and save.`,
+    })
   }
 
   async function handleSaveAll() {
@@ -274,22 +414,158 @@ export function ExamSchedulePage({ examId }: Props) {
         </div>
       )}
 
-      {rows.length === 0 ? (
+      {scheduleClassIds.length === 0 ? (
         <GradientEmptyState
           icon={CalIcon}
-          title="No schedule yet"
-          description="Add a row per paper. The conflict checker runs as you type."
+          title="No subjects configured"
+          description="Add subjects on the configure page before scheduling."
           {...(hasAnyPermission([PERMISSIONS.EXAM_MANAGE])
-            ? { actionLabel: 'Add first row', onAction: addRow }
+            ? { actionLabel: 'Go to configure', onAction: () => void router.push(`/exams/${examId}/configure`) }
             : {})}
         />
       ) : (
-        <Card className="gap-0 overflow-hidden border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-violet-50 py-0 shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10">
-          <CardContent className="space-y-2 p-3">
-            {rows.map((r, idx) => {
+        <>
+          <div className="flex flex-wrap gap-1.5">
+            {scheduleClassIds.map((cid) => {
+              const active = cid === activeClassId
+              const count = rows.filter((r) => r.classId === cid).length
+              return (
+                <Button
+                  key={cid}
+                  type="button"
+                  variant={active ? 'default' : 'outline'}
+                  size="sm"
+                  className={cn('h-8 text-xs', active && 'shadow-sm')}
+                  onClick={() => openClass(cid)}
+                >
+                  {classLookup.get(cid)?.name ?? cid}
+                  <span className={cn('ml-1.5 rounded-full px-1.5 text-[10px]', active ? 'bg-white/25' : 'bg-muted')}>
+                    {count}
+                  </span>
+                </Button>
+              )
+            })}
+          </div>
+
+          {hasAnyPermission([PERMISSIONS.EXAM_MANAGE]) && scheduleClassIds.length > 1 && (
+            <Card className="gap-0 overflow-hidden border-violet-200/80 bg-gradient-to-br from-violet-50 via-white to-purple-50 py-0 shadow-sm dark:border-violet-500/25 dark:from-violet-500/12 dark:via-card dark:to-purple-500/10">
+              <CardContent className="p-3 sm:p-4">
+                <div className="mb-2 flex items-center gap-2">
+                  <span className="flex size-7 items-center justify-center rounded-md bg-gradient-to-br from-violet-500 to-purple-600 text-white">
+                    <Copy className="size-3.5" />
+                  </span>
+                  <h3 className="text-sm font-semibold">Copy schedule pattern</h3>
+                </div>
+                <div className="flex flex-wrap items-end gap-2">
+                  <div>
+                    <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">From</Label>
+                    <Select value={patternSourceId} onValueChange={setPatternSource}>
+                      <SelectTrigger className="h-8 w-40"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {scheduleClassIds.map((cid) => (
+                          <SelectItem key={cid} value={cid}>{classLookup.get(cid)?.name ?? cid}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">To</Label>
+                    <Select value={patternTarget} onValueChange={setPatternTarget}>
+                      <SelectTrigger className="h-8 w-44"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__all">All other classes</SelectItem>
+                        {scheduleClassIds
+                          .filter((c) => c !== patternSourceId)
+                          .map((cid) => (
+                            <SelectItem key={cid} value={cid}>{classLookup.get(cid)?.name ?? cid}</SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button
+                    size="sm"
+                    className="h-8 gap-1 text-xs"
+                    onClick={() => void handleApplyPattern()}
+                    disabled={patternTargets.length === 0}
+                  >
+                    <Copy className="size-3.5" /> Apply pattern
+                  </Button>
+                </div>
+                <p className="mt-2 text-[10px] text-muted-foreground">
+                  Copies date and times by subject name; adds missing subject rows automatically.
+                </p>
+              </CardContent>
+            </Card>
+          )}
+        </>
+      )}
+
+      <Card className="gap-0 overflow-hidden border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-violet-50 py-0 shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10">
+        <div className="flex flex-wrap items-center gap-2 border-b border-sky-200/60 bg-gradient-to-r from-sky-500/10 via-transparent to-violet-500/10 px-3 py-2 dark:border-sky-500/20">
+          <span className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-violet-600 text-white">
+            <CalIcon className="size-4" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <h3 className="text-sm font-semibold">
+              {classLookup.get(activeClassId)?.name ?? activeClassId}
+            </h3>
+            <p className="text-[10px] text-muted-foreground">
+              {activeClassRows.length} paper{activeClassRows.length === 1 ? '' : 's'} · click a class above to switch
+            </p>
+          </div>
+          {hasAnyPermission([PERMISSIONS.EXAM_MANAGE]) && (
+            <div className="flex gap-1.5">
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-xs"
+                onClick={() => addAllSubjectsForClass(activeClassId)}
+                disabled={classMissingCount === 0}
+              >
+                <Plus className="size-3.5" />
+                {classMissingCount > 0 ? `Add ${classMissingCount} missing` : 'All subjects added'}
+              </Button>
+              <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={addRow}>
+                <Plus className="size-3.5" /> Add row
+              </Button>
+            </div>
+          )}
+        </div>
+        <CardContent className="space-y-2 p-3">
+          {activeClassRows.length === 0 ? (
+            <div className="rounded-md border border-dashed border-sky-300/60 bg-white/40 p-6 text-center dark:border-sky-500/30 dark:bg-card/40">
+              <p className="text-sm font-medium">No papers for this class yet</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Click “Add all subjects” to create one row per subject, then set dates and times.
+              </p>
+            </div>
+          ) : (
+            rows.map((r, idx) => {
+              if (r.classId !== activeClassId) return null
               const klass = classLookup.get(r.classId)
               return (
-                <div key={r.id ?? `new-${idx}`} className="grid grid-cols-12 gap-2 rounded-md border border-current/10 bg-white/70 p-2 shadow-sm dark:bg-card/60">
+                <div
+                  key={r.id ?? `new-${idx}`}
+                  className="relative rounded-md border border-current/10 bg-white/70 p-2 pl-3 pr-12 shadow-sm dark:bg-card/60"
+                >
+                  <div className="absolute right-2 top-2 flex items-center gap-1">
+                    {r._new && (
+                      <Badge variant="outline" className="text-[10px]">New</Badge>
+                    )}
+                    {r._dirty && !r._new && (
+                      <Badge variant="outline" className="text-[10px] text-amber-600">Edited</Badge>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-8 text-destructive"
+                      onClick={() => removeRow(idx)}
+                      disabled={!hasAnyPermission([PERMISSIONS.EXAM_MANAGE])}
+                    >
+                      <Trash2 className="size-3.5" />
+                    </Button>
+                  </div>
+                  <div className="grid grid-cols-12 gap-2">
                   <div className="col-span-12 sm:col-span-3">
                     <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Class</Label>
                     <Select value={r.classId} onValueChange={(v) => updateRow(idx, { classId: v, sectionId: null })}>
@@ -361,63 +637,13 @@ export function ExamSchedulePage({ examId }: Props) {
                       onChange={(e) => updateRow(idx, { endTime: e.target.value })}
                     />
                   </div>
-                  <div className="col-span-6 sm:col-span-3">
-                    <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Invigilator</Label>
-                    <Select
-                      value={r.invigilatorId ?? '__none'}
-                      onValueChange={(v) => updateRow(idx, { invigilatorId: v === '__none' ? null : v })}
-                    >
-                      <SelectTrigger className="h-8"><SelectValue placeholder="—" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__none">Unassigned</SelectItem>
-                        {teachers.map((t) => (
-                          <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="col-span-3 sm:col-span-2">
-                    <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Room</Label>
-                    <Input
-                      className="h-8"
-                      placeholder="A-101"
-                      value={r.roomNumber ?? ''}
-                      onChange={(e) => updateRow(idx, { roomNumber: e.target.value || null })}
-                    />
-                  </div>
-                  <div className="col-span-3 sm:col-span-2">
-                    <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Max marks</Label>
-                    <Input
-                      type="number"
-                      min={0}
-                      className="h-8"
-                      value={r.maxMarks}
-                      onChange={(e) => updateRow(idx, { maxMarks: Math.max(0, Number(e.target.value) || 0) })}
-                    />
-                  </div>
-                  <div className="col-span-3 sm:col-span-2 flex items-end gap-1">
-                    {r._new && (
-                      <Badge variant="outline" className="text-[10px]">New</Badge>
-                    )}
-                    {r._dirty && !r._new && (
-                      <Badge variant="outline" className="text-[10px] text-amber-600">Edited</Badge>
-                    )}
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="ml-auto size-8 text-destructive"
-                      onClick={() => removeRow(idx)}
-                      disabled={!hasAnyPermission([PERMISSIONS.EXAM_MANAGE])}
-                    >
-                      <Trash2 className="size-3.5" />
-                    </Button>
                   </div>
                 </div>
               )
-            })}
-          </CardContent>
-        </Card>
-      )}
+            })
+          )}
+        </CardContent>
+      </Card>
 
       <div className="flex justify-end gap-2">
         <Button

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { requireRole, requirePermission } from '@/lib/api-auth'
+import { requireRole, requireAnyPermission } from '@/lib/api-auth'
 import { unauthorizedError, forbiddenError, internalError, apiError } from '@/lib/api-errors'
 
 /**
@@ -18,9 +18,9 @@ export async function GET(request: NextRequest) {
     const user = requireRole(request, ['SUPER_ADMIN', 'SCHOOL_ADMIN', 'STAFF'])
     if (!user?.schoolId) return unauthorizedError()
 
-    // Check permission
+    // Check permission (matches UI gate: fees:read OR fees:audit)
     if (user.role !== 'SUPER_ADMIN') {
-      const ok = await requirePermission(request, 'fees:audit')
+      const ok = await requireAnyPermission(request, ['fees:audit', 'fees:read'])
       if (!ok) return forbiddenError("You don't have access to fee audit logs.")
     }
 

@@ -61,6 +61,7 @@ const MODULE_PERMISSION_MAP: Record<string, string[]> = {
   'exam-configure': ['exam:manage', 'exam:configure'],
   'exam-schedule': ['exam:manage', 'exam:schedule'],
   'exam-marks-entry': ['exam:marks', 'exam:manage', 'exam:marks:enter', 'exam:marks:submit', 'exam:marks:lock', 'exam:marks:unlock'],
+  'exam-marksheet': ['exam:marks', 'exam:manage', 'exam:marks:enter', 'exam:marks:submit', 'exam:marks:lock', 'exam:marks:unlock', 'exam:result:view', 'exam:configure'],
   'exam-grade-scales': ['exam:manage', 'exam:gradescale:manage'],
   'exam-grade-scale-edit': ['exam:manage', 'exam:gradescale:manage'],
   'exam-result-preview': ['exam:results', 'exam:result:view', 'exam:result:compute'],

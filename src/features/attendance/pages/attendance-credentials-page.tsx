@@ -20,11 +20,11 @@ import {
   UsersRound,
   X,
 } from 'lucide-react'
-import { toast } from 'sonner'
 import { LoadingState } from '@/components/shared'
 import { api } from '@/lib/api'
 import { getCurrentAcademicYear } from '@/lib/academic-years'
 import { cn } from '@/lib/utils'
+import { useToast } from '@/hooks/use-toast'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -152,6 +152,7 @@ function credentialLabel(value: string): string {
 }
 
 export function AttendanceCredentialsPage() {
+  const { toast } = useToast()
   const [loading, setLoading] = useState(true)
   const loadedRef = useRef(false)
   const [tab, setTab] = useState<Tab>('students')
@@ -229,12 +230,12 @@ export function AttendanceCredentialsPage() {
       setSections(sectionRes.sections || [])
       setDeviceId((current) => current || deviceRes.devices.find((device) => device.isActive)?.id || '')
     } catch (error) {
-      toast.error('Could not load attendance credentials.')
+      toast({ title: 'Could not load attendance credentials', variant: 'destructive' })
     } finally {
       loadedRef.current = true
       setLoading(false)
     }
-  }, [academicYear])
+  }, [academicYear, toast])
 
   useEffect(() => {
     loadData()
@@ -263,7 +264,7 @@ export function AttendanceCredentialsPage() {
         if (!cancelled) setStudents(res.students || [])
       })
       .catch(() => {
-        if (!cancelled) toast.error('Could not load students.')
+        if (!cancelled) toast({ title: 'Could not load students', variant: 'destructive' })
       })
       .finally(() => {
         if (!cancelled) setStudentsLoading(false)
@@ -272,7 +273,7 @@ export function AttendanceCredentialsPage() {
     return () => {
       cancelled = true
     }
-  }, [academicYear, studentClassId, studentSectionId])
+  }, [academicYear, studentClassId, studentSectionId, toast])
 
   const filteredStudents = useMemo(() => {
     let list = students
@@ -329,7 +330,7 @@ export function AttendanceCredentialsPage() {
         location: deviceLocation.trim() || null,
         commKey: deviceCommKey.trim() || undefined,
       })
-      toast.success('Attendance device added.')
+      toast({ title: 'Attendance device added' })
       setShowDeviceDialog(false)
       setDeviceName('')
       setDeviceSerial('')
@@ -338,7 +339,11 @@ export function AttendanceCredentialsPage() {
       setNewDeviceKey({ deviceId: result.device.id, key: result.commKey })
       await loadData()
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Could not add attendance device.')
+      toast({
+        title: 'Could not add attendance device',
+        description: error instanceof Error ? error.message : 'Please try again.',
+        variant: 'destructive',
+      })
     } finally {
       setSavingDevice(false)
     }
@@ -349,10 +354,14 @@ export function AttendanceCredentialsPage() {
       setRotatingKeyId(deviceId)
       const result = await api.post<{ commKey: string }>(`/api/school/attendance-devices/${deviceId}/commkey`)
       setRotatedKey({ deviceId, key: result.commKey })
-      toast.success('New comm key generated.')
+      toast({ title: 'New comm key generated' })
       await loadData()
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Could not rotate comm key.')
+      toast({
+        title: 'Could not rotate comm key',
+        description: error instanceof Error ? error.message : 'Please try again.',
+        variant: 'destructive',
+      })
     } finally {
       setRotatingKeyId(null)
     }
@@ -361,9 +370,9 @@ export function AttendanceCredentialsPage() {
   async function copyCommKey(key: string) {
     try {
       await navigator.clipboard.writeText(key)
-      toast.success('Comm key copied.')
+      toast({ title: 'Comm key copied' })
     } catch {
-      toast.error('Could not copy comm key.')
+      toast({ title: 'Could not copy comm key', variant: 'destructive' })
     }
   }
 
@@ -386,11 +395,15 @@ export function AttendanceCredentialsPage() {
         credentialType: dialogType,
         credentialValue: dialogValue.trim(),
       })
-      toast.success('Credential assigned.')
+      toast({ title: 'Credential assigned' })
       setAssignTarget(null)
       await loadData()
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Could not assign credential.')
+      toast({
+        title: 'Could not assign credential',
+        description: error instanceof Error ? error.message : 'Please try again.',
+        variant: 'destructive',
+      })
     } finally {
       setSaving(false)
     }
@@ -402,10 +415,14 @@ export function AttendanceCredentialsPage() {
       await api.patch(`/api/school/attendance-credentials/${credential.id}/revoke`, {
         reason: 'Revoked from credentials page',
       })
-      toast.success('Credential revoked.')
+      toast({ title: 'Credential revoked' })
       await loadData()
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Could not revoke credential.')
+      toast({
+        title: 'Could not revoke credential',
+        description: error instanceof Error ? error.message : 'Please try again.',
+        variant: 'destructive',
+      })
     } finally {
       setRevokingId(null)
     }

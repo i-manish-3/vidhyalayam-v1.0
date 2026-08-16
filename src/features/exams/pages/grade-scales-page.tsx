@@ -4,7 +4,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { GradientHero, LoadingState, GradientEmptyState } from '@/components/shared'
+import { GradientHero, LoadingState, GradientEmptyState, GradientDialogHeader } from '@/components/shared'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -26,16 +26,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -44,7 +34,7 @@ import {
 import { api } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
 import { PERMISSIONS, usePermissions } from '@/hooks/use-permissions'
-import { Award, MoreVertical, Pencil, Plus, Star, Trash2 } from 'lucide-react'
+import { AlertCircle, Award, ListOrdered, Loader2, MoreVertical, Pencil, Plus, Star, Trash2 } from 'lucide-react'
 
 interface GradeBand {
   id?: string
@@ -200,23 +190,28 @@ export function GradeScalesPage() {
               key={scale.id}
               className="gap-0 overflow-hidden rounded-lg border border-sky-200/80 bg-gradient-to-r from-sky-50 via-white to-violet-50 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10"
             >
-              <CardHeader className="border-b border-current/10 pb-2">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <CardTitle className="text-sm">{scale.name}</CardTitle>
-                      {scale.isDefault && (
-                        <Badge variant="secondary" className="gap-1 text-[10px]">
-                          <Star className="size-2.5 fill-current" /> Default
-                        </Badge>
-                      )}
-                      {!scale.isActive && (
-                        <Badge variant="outline" className="text-[10px] text-amber-600">
-                          Inactive
-                        </Badge>
-                      )}
+              <CardHeader className="relative overflow-hidden border-b border-current/10 bg-gradient-to-r from-sky-500/[0.08] via-white/40 to-violet-500/[0.08] pb-2">
+                <div className="relative flex items-start justify-between gap-2">
+                  <div className="flex min-w-0 items-center gap-2.5">
+                    <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-violet-600 text-white shadow-sm">
+                      <Award className="size-4 text-white" />
+                    </span>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <CardTitle className="text-sm">{scale.name}</CardTitle>
+                        {scale.isDefault && (
+                          <Badge variant="secondary" className="gap-1 text-[10px]">
+                            <Star className="size-2.5 fill-current" /> Default
+                          </Badge>
+                        )}
+                        {!scale.isActive && (
+                          <Badge variant="outline" className="text-[10px] text-amber-600">
+                            Inactive
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground capitalize">{scale.scaleType}</p>
                     </div>
-                    <p className="text-xs text-muted-foreground capitalize">{scale.scaleType}</p>
                   </div>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -300,29 +295,41 @@ export function GradeScalesPage() {
         }}
       />
 
-      <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete this grade scale?</AlertDialogTitle>
-            <AlertDialogDescription>
-              "{deleteTarget?.name}" will be removed. Default scales cannot be deleted.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              disabled={deleting}
-              onClick={(e) => {
-                e.preventDefault()
-                void handleDelete()
-              }}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {deleting ? 'Deleting…' : 'Delete'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <Dialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
+        <DialogContent className="flex max-h-[90svh] flex-col overflow-hidden border-rose-500/20 bg-card p-0 shadow-2xl shadow-rose-500/15 sm:max-w-xl [&>button]:right-3 [&>button]:top-3 [&>button]:rounded-full [&>button]:text-white [&>button]:opacity-85 [&>button]:hover:bg-white/15 [&>button]:hover:opacity-100">
+          <DialogHeader className="relative shrink-0 overflow-hidden border-b border-white/15 bg-[linear-gradient(135deg,#dc2626_0%,#e11d48_48%,#7c3aed_100%)] px-5 py-4 pr-12 text-white sm:px-6">
+            <div aria-hidden className="absolute -right-10 -top-16 size-40 rounded-full border-[18px] border-white/10" />
+            <div aria-hidden className="absolute -bottom-14 left-10 size-28 rounded-full bg-rose-300/20 blur-2xl" />
+            <div aria-hidden className="absolute bottom-0 right-24 h-24 w-44 rounded-full bg-violet-300/15 blur-2xl" />
+            <div className="relative flex items-center gap-3">
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-white/25 bg-white/15 shadow-md backdrop-blur-sm">
+                <Trash2 className="size-5 text-white" />
+              </span>
+              <div>
+                <DialogTitle className="text-lg font-bold text-white">Delete this grade scale?</DialogTitle>
+                <DialogDescription className="mt-0.5 text-xs text-white/75">
+                  "{deleteTarget?.name}" will be permanently removed.
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+          <div className="themed-scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain bg-gradient-to-br from-rose-500/[0.04] via-background to-violet-500/[0.05] p-4 sm:p-5">
+            <p className="flex items-start gap-2 rounded-md border border-amber-200/80 bg-amber-50 px-3 py-2.5 text-xs text-amber-800 dark:border-amber-500/25 dark:bg-amber-950/30 dark:text-amber-200">
+              <AlertCircle className="mt-0.5 size-3.5 shrink-0" />
+              <span>Default scales cannot be deleted. Exams already using this scale will keep their stored grades.</span>
+            </p>
+          </div>
+          <DialogFooter className="shrink-0 border-t border-primary/10 bg-muted/30 px-4 py-3 sm:px-5">
+            <Button variant="outline" size="sm" className="h-8 px-4 text-xs" onClick={() => setDeleteTarget(null)} disabled={deleting}>
+              Cancel
+            </Button>
+            <Button variant="destructive" size="sm" className="h-8 gap-1.5 px-4 text-xs" onClick={() => void handleDelete()} disabled={deleting}>
+              {deleting && <Loader2 className="size-4 animate-spin" />}
+              {deleting ? 'Deleting…' : 'Delete scale'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
@@ -407,71 +414,95 @@ function GradeScaleEditDialog({
 
   return (
     <Dialog open={open} onOpenChange={(o) => !saving && !o && onClose()}>
-      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{isNew ? 'New grade scale' : `Edit ${existing?.name}`}</DialogTitle>
-          <DialogDescription>
-            Define the letter-grade bands for percentage/mark resolution.
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent className="flex max-h-[90svh] flex-col overflow-hidden border-sky-500/20 bg-card p-0 shadow-2xl shadow-sky-500/15 sm:max-w-xl [&>button]:right-3 [&>button]:top-3 [&>button]:rounded-full [&>button]:text-white [&>button]:opacity-85 [&>button]:hover:bg-white/15 [&>button]:hover:opacity-100">
+        <GradientDialogHeader
+          icon={isNew ? Plus : Pencil}
+          title={isNew ? 'New grade scale' : 'Edit grade scale'}
+          description={
+            isNew
+              ? 'Define the letter-grade bands for percentage/mark resolution.'
+              : `Update "${existing?.name}" and its bands.`
+          }
+        />
 
-        <div className="space-y-4">
-          <div className="grid gap-3 sm:grid-cols-3">
-            <div className="sm:col-span-2">
-              <Label className="text-xs">Name</Label>
-              <Input
-                className="h-9"
-                placeholder="CBSE 9-point"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-              />
+        <div className="themed-scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain bg-gradient-to-br from-sky-500/[0.04] via-background to-violet-500/[0.055] p-4 sm:p-5">
+          <section className="relative overflow-hidden rounded-xl border border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-violet-50 p-4 shadow-sm dark:border-sky-500/25 dark:from-sky-500/15 dark:via-card dark:to-violet-500/10">
+            <div className="flex items-center gap-2.5">
+              <div className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-violet-600 text-white shadow-sm">
+                <Award className="size-4" />
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold">Scale details</h3>
+                <p className="text-[10px] text-muted-foreground">Name, type, and scope of the scale</p>
+              </div>
             </div>
-            <div>
-              <Label className="text-xs">Type</Label>
-              <Select value={scaleType} onValueChange={(v) => setScaleType(v)}>
-                <SelectTrigger className="h-9 capitalize"><SelectValue /></SelectTrigger>
+
+            <div className="mt-3 grid gap-3 sm:grid-cols-3">
+              <div className="sm:col-span-2">
+                <Label className="text-xs">Name</Label>
+                <Input
+                  className="h-9"
+                  placeholder="CBSE 9-point"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Type</Label>
+                <Select value={scaleType} onValueChange={(v) => setScaleType(v)}>
+                  <SelectTrigger className="h-9 capitalize"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {SCALE_TYPES.map((t) => (
+                      <SelectItem key={t} value={t} className="capitalize">{t}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="mt-3 flex flex-wrap items-center gap-4 text-sm">
+              <Select value={classId || '__school'} onValueChange={(v) => setClassId(v === '__school' ? '' : v)}>
+                <SelectTrigger className="h-9 w-48"><SelectValue placeholder="School-wide" /></SelectTrigger>
                 <SelectContent>
-                  {SCALE_TYPES.map((t) => (
-                    <SelectItem key={t} value={t} className="capitalize">{t}</SelectItem>
+                  <SelectItem value="__school">School-wide</SelectItem>
+                  {classes.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              <label className="flex items-center gap-2 text-xs">
+                <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
+                Active
+              </label>
+              <label className="flex items-center gap-2 text-xs">
+                <input type="checkbox" checked={isDefault} onChange={(e) => setIsDefault(e.target.checked)} />
+                Default
+              </label>
             </div>
-          </div>
+          </section>
 
-          <div className="flex flex-wrap items-center gap-4 text-sm">
-            <Select value={classId || '__school'} onValueChange={(v) => setClassId(v === '__school' ? '' : v)}>
-              <SelectTrigger className="h-9 w-48"><SelectValue placeholder="School-wide" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__school">School-wide</SelectItem>
-                {classes.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <label className="flex items-center gap-2">
-              <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
-              Active
-            </label>
-            <label className="flex items-center gap-2">
-              <input type="checkbox" checked={isDefault} onChange={(e) => setIsDefault(e.target.checked)} />
-              Default
-            </label>
-          </div>
-
-          <div className="space-y-1">
-            <div className="flex items-center justify-between">
-              <Label className="text-xs font-medium">Bands</Label>
-              <Button type="button" variant="ghost" size="sm" onClick={applyCBSEPreset}>
+          <section className="relative overflow-hidden rounded-xl border border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-violet-50 p-4 shadow-sm dark:border-sky-500/25 dark:from-sky-500/15 dark:via-card dark:to-violet-500/10">
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex items-center gap-2.5">
+                <div className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-violet-600 text-white shadow-sm">
+                  <ListOrdered className="size-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold">Grade bands</h3>
+                  <p className="text-[10px] text-muted-foreground">Ranges that map to letter grades</p>
+                </div>
+              </div>
+              <Button type="button" variant="ghost" size="sm" className="h-8 text-xs" onClick={applyCBSEPreset}>
                 Use CBSE preset
               </Button>
             </div>
+
             {bandError && (
-              <p className="text-xs text-destructive flex items-center gap-1">
+              <p className="mt-3 flex items-center gap-1 text-xs text-destructive">
                 {bandError}
               </p>
             )}
-            <div className="space-y-1">
+            <div className="mt-3 space-y-1">
               {bands.map((b, idx) => (
                 <div key={idx} className="grid grid-cols-12 gap-1 items-center rounded-md border border-sky-200/80 bg-gradient-to-r from-sky-50 via-white to-violet-50 p-1.5 dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10">
                   <div className="col-span-3 sm:col-span-2">
@@ -527,15 +558,17 @@ function GradeScaleEditDialog({
                 </div>
               ))}
             </div>
-            <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={addBand}>
+            <Button type="button" variant="outline" size="sm" className="mt-3 h-8 gap-1.5 text-xs" onClick={addBand}>
               <Plus className="size-3.5" /> Add band
             </Button>
-          </div>
+          </section>
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={saving}>Cancel</Button>
-          <Button onClick={() => void handleSave()} disabled={!valid || saving}>
+        <DialogFooter className="shrink-0 border-t border-primary/10 bg-muted/30 px-4 py-3 sm:px-5">
+          <Button variant="outline" size="sm" className="h-8 px-4 text-xs" onClick={onClose} disabled={saving}>
+            Cancel
+          </Button>
+          <Button size="sm" className="h-8 px-4 text-xs" onClick={() => void handleSave()} disabled={!valid || saving}>
             {saving ? 'Saving…' : isNew ? 'Create scale' : 'Save changes'}
           </Button>
         </DialogFooter>

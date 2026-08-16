@@ -30,6 +30,7 @@ import {
   Filter,
   Layers3,
   X,
+  FileSpreadsheet,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { examStatusMeta } from '@/features/exams/lib/status-meta'
@@ -366,6 +367,19 @@ export function ExamListPage() {
                         }}
                       >
                         <TicketCheck className="size-3.5" /> Admit cards
+                      </Button>
+                    )}
+                    {hasAnyPermission([PERMISSIONS.EXAM_MARKS, PERMISSIONS.EXAM_MANAGE]) && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 gap-1.5 border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 dark:border-rose-500/25 dark:bg-rose-500/10 dark:text-rose-300"
+                        onClick={(ev) => {
+                          ev.stopPropagation()
+                          router.push(`/exams/${e.id}/marksheet`)
+                        }}
+                      >
+                        <FileSpreadsheet className="size-3.5" /> Marksheet
                       </Button>
                     )}
                     {hasAnyPermission([PERMISSIONS.EXAM_MARKS, PERMISSIONS.EXAM_MANAGE]) && (

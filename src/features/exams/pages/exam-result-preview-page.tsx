@@ -14,35 +14,6 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
-import { api } from '@/lib/api'
-import { useAppStore } from '@/lib/store'
-import { useToast } from '@/hooks/use-toast'
-import { PERMISSIONS, usePermissions } from '@/hooks/use-permissions'
-import {
-  Award,
-  BarChart3,
-  Calculator,
-  CircleAlert,
-  CircleCheck,
-  CircleX,
-  FileText,
-  Percent,
-  Printer,
-  Send,
-  Trophy,
-  Undo2,
-  Users,
-} from 'lucide-react'
-import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -51,6 +22,28 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Textarea } from '@/components/ui/textarea'
+import { api } from '@/lib/api'
+import { useAppStore } from '@/lib/store'
+import { useToast } from '@/hooks/use-toast'
+import { PERMISSIONS, usePermissions } from '@/hooks/use-permissions'
+import {
+  AlertCircle,
+  Award,
+  BarChart3,
+  Calculator,
+  CircleAlert,
+  CircleCheck,
+  CircleX,
+  FileText,
+  Loader2,
+  Percent,
+  Printer,
+  Send,
+  Target,
+  Trophy,
+  Undo2,
+  Users,
+} from 'lucide-react'
 
 interface SubjectSummary {
   id: string
@@ -479,30 +472,68 @@ export function ExamResultPreviewPage({ examId }: Props) {
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={confirmingRecompute} onOpenChange={setConfirmingRecompute}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Compute / recompute results?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This rebuilds ExamResult and ResultSubjectSummary rows from the latest marks.
-              Existing computed values for these students will be overwritten.
-              {classFilter && ' (Scoped to the selected class.)'}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={computing}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              disabled={computing}
-              onClick={(e) => {
-                e.preventDefault()
-                void handleRecompute()
-              }}
-            >
-              {computing ? 'Computing…' : 'Compute'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <Dialog open={confirmingRecompute} onOpenChange={(next) => { if (!computing) setConfirmingRecompute(next) }}>
+        <DialogContent className="flex max-h-[90svh] flex-col overflow-hidden border-indigo-500/20 bg-card p-0 shadow-2xl shadow-indigo-500/15 sm:max-w-xl [&>button]:right-3 [&>button]:top-3 [&>button]:rounded-full [&>button]:text-white [&>button]:opacity-85 [&>button]:hover:bg-white/15 [&>button]:hover:opacity-100">
+          <DialogHeader className="relative shrink-0 overflow-hidden border-b border-white/15 bg-[linear-gradient(135deg,#4f46e5_0%,#7c3aed_48%,#db2777_100%)] px-5 py-4 pr-12 text-white sm:px-6">
+            <div aria-hidden className="absolute -right-10 -top-16 size-40 rounded-full border-[18px] border-white/10" />
+            <div aria-hidden className="absolute -bottom-14 left-10 size-28 rounded-full bg-indigo-300/20 blur-2xl" />
+            <div aria-hidden className="absolute bottom-0 right-24 h-24 w-44 rounded-full bg-fuchsia-300/15 blur-2xl" />
+            <div className="relative flex items-center gap-3">
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-white/25 bg-white/15 text-white shadow-md backdrop-blur-sm">
+                <Calculator className="size-5 text-white" />
+              </span>
+              <div>
+                <DialogTitle className="text-lg font-bold tracking-normal text-white">Compute / recompute results?</DialogTitle>
+                <DialogDescription className="mt-0.5 text-xs text-white/75">
+                  Rebuild result rows from the latest marks for this exam.
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+
+          <div className="themed-scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain bg-gradient-to-br from-indigo-500/[0.04] via-background to-fuchsia-500/[0.05] p-4 sm:p-5">
+            <section className="relative overflow-hidden rounded-xl border border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-cyan-50 p-4 shadow-sm dark:border-sky-500/25 dark:from-sky-500/15 dark:via-card dark:to-cyan-500/10">
+              <div aria-hidden className="absolute -right-7 -top-10 size-28 rounded-full bg-sky-200/35 blur-xl dark:bg-sky-500/15" />
+              <div className="relative mb-3 flex items-center gap-2">
+                <span className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-cyan-600 text-white shadow-sm"><Calculator className="size-4 text-white" /></span>
+                <div><h3 className="text-sm font-semibold">What the engine does</h3><p className="text-[10px] text-muted-foreground">Pure computation from the marks grid</p></div>
+              </div>
+              <ol className="relative space-y-1.5">
+                {[
+                  'Rebuilds ExamResult and ResultSubjectSummary rows from the latest marks.',
+                  'Applies grace where eligible and resolves grades from the exam band.',
+                  'Computes pass / fail / partial and assigns class & section ranks.',
+                ].map((step, i) => (
+                  <li key={i} className="flex gap-2 text-xs text-muted-foreground">
+                    <span className="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-sky-500 to-cyan-600 text-[9px] font-bold text-white">{i + 1}</span>
+                    <span>{step}</span>
+                  </li>
+                ))}
+              </ol>
+            </section>
+
+            {classFilter && (
+              <p className="flex items-start gap-2 rounded-md border border-indigo-200/80 bg-indigo-50 px-3 py-2.5 text-xs text-indigo-800 dark:border-indigo-500/25 dark:bg-indigo-950/30 dark:text-indigo-200">
+                <Target className="mt-0.5 size-3.5 shrink-0" />
+                <span>Scoped to the selected class — results for other classes are untouched.</span>
+              </p>
+            )}
+
+            <p className="flex items-start gap-2 rounded-md border border-amber-200/80 bg-amber-50 px-3 py-2.5 text-xs text-amber-800 dark:border-amber-500/25 dark:bg-amber-950/30 dark:text-amber-200">
+              <AlertCircle className="mt-0.5 size-3.5 shrink-0" />
+              <span>Existing computed values for these students will be overwritten. Results stay stable until you recompute again, and each run is recorded in the audit trail.</span>
+            </p>
+          </div>
+
+          <DialogFooter className="shrink-0 border-t border-primary/10 bg-muted/30 px-4 py-3 sm:px-5">
+            <Button variant="outline" size="sm" className="h-8 px-4 text-xs" onClick={() => setConfirmingRecompute(false)} disabled={computing}>Cancel</Button>
+            <Button size="sm" className="h-8 gap-1.5 px-4 text-xs" onClick={() => void handleRecompute()} disabled={computing}>
+              {computing ? <Loader2 className="size-4 animate-spin" /> : <Calculator className="size-4" />}
+              {computing ? 'Computing…' : 'Compute results'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

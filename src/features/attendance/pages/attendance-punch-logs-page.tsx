@@ -41,7 +41,6 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { DatePicker } from '@/components/date-picker'
-import { toast } from 'sonner'
 import { useToast } from '@/hooks/use-toast'
 import { api } from '@/lib/api'
 import { useAppStore } from '@/lib/store'
@@ -113,7 +112,7 @@ interface PunchLogsListState {
 const PUNCH_LOGS_LIST_STATE_KEY = 'punch-logs:list'
 
 export function AttendancePunchLogsPage() {
-  const { toast: toastShadcn } = useToast()
+  const { toast } = useToast()
   const savedListState = useAppStore((state) => state.pageState[PUNCH_LOGS_LIST_STATE_KEY] as PunchLogsListState | undefined)
   const setPageState = useAppStore((state) => state.setPageState)
   const [loading, setLoading] = useState(true)
@@ -152,11 +151,11 @@ export function AttendancePunchLogsPage() {
       setTotal(res.total || 0)
       setStats(res.stats || null)
     } catch {
-      toast.error('Could not load punch logs.')
+      toast({ title: 'Could not load punch logs', variant: 'destructive' })
     } finally {
       setLoading(false)
     }
-  }, [page, limit, search, result, personType, deviceId, dateFrom, dateTo])
+  }, [page, limit, search, result, personType, deviceId, dateFrom, dateTo, toast])
 
   useEffect(() => {
     void load()
@@ -175,7 +174,7 @@ export function AttendancePunchLogsPage() {
     if (dateFrom) params.set('dateFrom', dateFrom)
     if (dateTo) params.set('dateTo', dateTo)
     window.open(`/api/school/attendance-devices/punch-logs?${params.toString()}`, '_blank')
-    toastShadcn({ title: 'Export started', description: 'The CSV download should begin shortly.' })
+    toast({ title: 'Export started', description: 'The CSV download should begin shortly.' })
   }
 
   const clearFilters = () => {

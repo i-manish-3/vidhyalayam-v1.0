@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { requireRole, requirePermission } from '@/lib/api-auth'
 import { unauthorizedError, internalError, apiError, forbiddenError } from '@/lib/api-errors'
-import { logExamChange, extractExamAuditContext } from '@/lib/audit/exam-audit'
+import { logExamChange, logExamChangesBatch, extractExamAuditContext } from '@/lib/audit/exam-audit'
 
 const VALID_EXAM_TYPES = [
   'written',
@@ -120,6 +120,7 @@ export async function POST(request: NextRequest) {
       includeInResult,
       classes,
       parentExamId,
+      autoAddSubjects,
     } = body
 
     if (!academicYear || typeof academicYear !== 'string') {
@@ -192,6 +193,7 @@ export async function POST(request: NextRequest) {
 
     const schoolId = user.schoolId
     const auditCtx = extractExamAuditContext(request, user.userId)
+    let autoAddedSubjects = 0
 
     const exam = await db.$transaction(async (tx) => {
       const created = await tx.exam.create({
@@ -230,10 +232,49 @@ export async function POST(request: NextRequest) {
         { ...auditCtx, examId: created.id },
       )
 
+      // Auto-include every subject mapped to the selected classes (ClassSubject),
+      // so the exam ships with the full class syllabus without manual entry.
+      if (autoAddSubjects && classRows.rows.length > 0) {
+        const classSubjectRows = await tx.classSubject.findMany({
+          where: { classId: { in: classRows.rows.map((r) => r.classId) } },
+          select: { classId: true, subjectId: true },
+        })
+        const auditEntries: Parameters<typeof logExamChangesBatch>[2][number][] = []
+        for (const row of classSubjectRows) {
+          const cfg = await tx.examSubjectConfig.create({
+            data: {
+              schoolId,
+              examId: created.id,
+              classId: row.classId,
+              sectionId: null,
+              subjectId: row.subjectId,
+              isCompulsory: true,
+              totalMarks: 100,
+              passingMarks: 33,
+            },
+          })
+          autoAddedSubjects += 1
+          auditEntries.push({
+            entityType: 'ExamSubjectConfig',
+            entityId: cfg.id,
+            action: 'created',
+            oldValue: null,
+            newValue: cfg,
+            examId: created.id,
+          })
+        }
+        if (auditEntries.length) {
+          await logExamChangesBatch(tx, schoolId, auditEntries, { ...auditCtx, examId: created.id })
+        }
+      }
+
       return created
     })
 
-    return NextResponse.json({ exam }, { status: 201 })
+    return NextResponse.json(
+      { exam, autoAddedSubjects: autoAddedSubjects },
+      { status: 201 },
+    )
   } catch (error) {
     console.error('Create exam error:', error)
     return internalError('creating the exam')
