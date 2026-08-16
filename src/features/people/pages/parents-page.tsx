@@ -6,8 +6,10 @@ import { api } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
+import { Label } from '@/components/ui/label'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -93,6 +95,7 @@ export function ParentsPage() {
   const [selectedParent, setSelectedParent] = useState<Parent | null>(null)
   const [showChildren, setShowChildren] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [quickFilter, setQuickFilter] = useState<'all' | 'phone' | 'email'>('all')
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(25)
 
@@ -109,148 +112,237 @@ export function ParentsPage() {
 
   const totalChildren = parents.reduce((sum, p) => sum + (p.children?.length || 0), 0)
 
+  const relationCounts = useMemo(() => {
+    let father = 0
+    let mother = 0
+    let guardian = 0
+    for (const p of parents) {
+      for (const c of p.children || []) {
+        const rel = formatRelation(c.relation)
+        if (rel === 'Father') father++
+        else if (rel === 'Mother') mother++
+        else guardian++
+      }
+    }
+    return { father, mother, guardian }
+  }, [parents])
+
   const filtered = useMemo(() => {
     const q = searchQuery.trim().toLowerCase()
-    if (!q) return parents
-    return parents.filter((p) =>
-      [p.fatherName, p.motherName, p.phone, p.email, p.occupation]
+    return parents.filter((p) => {
+      if (quickFilter === 'phone' && !p.phone) return false
+      if (quickFilter === 'email' && !p.email) return false
+      if (!q) return true
+      return [p.fatherName, p.motherName, p.phone, p.email, p.occupation]
         .filter(Boolean)
         .some((v) => v!.toLowerCase().includes(q))
-    )
-  }, [parents, searchQuery])
+    })
+  }, [parents, searchQuery, quickFilter])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
   const safePage = Math.min(page, totalPages)
   const start = (safePage - 1) * pageSize
   const paginated = filtered.slice(start, start + pageSize)
 
+  const hasActiveFilters = !!searchQuery || quickFilter !== 'all'
+
   const handleSearchChange = (value: string) => {
     setSearchQuery(value)
+    setPage(1)
+  }
+
+  const handleQuickFilter = (value: 'all' | 'phone' | 'email') => {
+    setQuickFilter(value)
+    setPage(1)
+  }
+
+  const clearFilters = () => {
+    setSearchQuery('')
+    setQuickFilter('all')
     setPage(1)
   }
 
   if (loading) return <LoadingState />
 
   return (
-    <div className="space-y-6">
-      {/* Gradient Header Banner */}
-      <div className="relative overflow-hidden rounded-2xl bg-[linear-gradient(135deg,var(--primary)_0%,#0d9488_48%,#2563eb_100%)] px-6 py-6 text-white shadow-lg">
-        <div aria-hidden className="absolute -right-10 -top-10 size-36 rounded-full border-[20px] border-cyan-200/15" />
-        <div aria-hidden className="absolute -bottom-8 right-16 size-20 rounded-full bg-cyan-300/8" />
-        <div aria-hidden className="absolute left-12 top-4 size-16 rounded-full bg-white/5 blur-md" />
-        <div aria-hidden className="absolute bottom-0 left-1/4 h-px w-48 bg-gradient-to-r from-transparent via-white/30 to-transparent" />
-        <div className="relative flex items-center gap-4">
-          <span className="flex size-12 items-center justify-center rounded-2xl border border-white/20 bg-white/15 shadow-md backdrop-blur-sm">
-            <Users className="size-6 text-white" />
+    <div className="space-y-4">
+      {/* ── Branded Hero ────────────────────────────────────────────── */}
+      <section className="relative overflow-hidden rounded-xl border border-primary/25 bg-gradient-to-r from-primary via-teal-600 to-cyan-600 px-4 py-3 text-white shadow-lg shadow-primary/15">
+        <div aria-hidden className="absolute -top-14 right-1/3 size-36 rounded-full border-[18px] border-white/10" />
+        <div aria-hidden className="absolute -bottom-16 right-1/4 size-28 rounded-full bg-amber-300/10 blur-sm" />
+        <div aria-hidden className="absolute left-1/3 top-0 h-px w-48 bg-gradient-to-r from-transparent via-white/50 to-transparent" />
+        <div className="relative flex min-w-0 items-center gap-3">
+          <span className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-white/25 bg-white/15 text-white shadow-md shadow-black/10 backdrop-blur-sm">
+            <Users className="size-5" strokeWidth={1.8} />
           </span>
-          <div>
-            <h1 className="text-xl font-bold tracking-tight">Parents</h1>
-            <p className="mt-1 text-sm text-white/75">{parents.length} parent{parents.length !== 1 ? 's' : ''} in the school</p>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-xl font-bold tracking-tight">Parents</h1>
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-2 py-0.5 text-[10px] font-semibold text-white/85 backdrop-blur-sm">
+                {parents.length} parent{parents.length !== 1 ? 's' : ''}
+              </span>
+            </div>
+            <p className="mt-0.5 text-xs text-white/80">
+              Parent and guardian records — search, review contact details and linked children.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Summary Stats ───────────────────────────────────────────── */}
+      <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
+        {/* Total parents */}
+        <div className="flex items-center gap-2.5 rounded-xl border border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-cyan-50 p-3 shadow-sm transition-shadow hover:shadow-md dark:border-sky-500/25 dark:from-sky-500/15 dark:via-card dark:to-cyan-500/10">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-cyan-600 text-white shadow-sm">
+            <Users className="size-4" />
+          </span>
+          <div className="min-w-0">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Total parents</p>
+            <p className="text-lg font-bold leading-tight text-sky-700 dark:text-sky-300">{parents.length.toLocaleString()}</p>
+          </div>
+        </div>
+
+        {/* Total children */}
+        <div className="flex items-center gap-2.5 rounded-xl border border-violet-200/80 bg-gradient-to-br from-violet-50 via-white to-fuchsia-50 p-3 shadow-sm transition-shadow hover:shadow-md dark:border-violet-500/25 dark:from-violet-500/15 dark:via-card dark:to-fuchsia-500/10">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-600 text-white shadow-sm">
+            <Baby className="size-4" />
+          </span>
+          <div className="min-w-0">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Total children</p>
+            <p className="text-lg font-bold leading-tight text-violet-700 dark:text-violet-300">{totalChildren.toLocaleString()}</p>
+          </div>
+        </div>
+
+        {/* Avg children */}
+        <div className="col-span-2 flex items-center gap-2.5 rounded-xl border border-teal-200/80 bg-gradient-to-br from-teal-50 via-white to-cyan-50 p-3 shadow-sm transition-shadow hover:shadow-md dark:border-teal-500/25 dark:from-teal-500/15 dark:via-card dark:to-cyan-500/10 md:col-span-1">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-teal-500 to-cyan-600 text-white shadow-sm">
+            <Heart className="size-4" />
+          </span>
+          <div className="min-w-0">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Avg. children</p>
+            <p className="text-lg font-bold leading-tight text-teal-700 dark:text-teal-300">
+              {parents.length ? (totalChildren / parents.length).toFixed(1) : '0'}
+            </p>
           </div>
         </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid gap-3 sm:grid-cols-3">
-        <div className="group relative overflow-hidden rounded-xl border border-primary/15 bg-gradient-to-br from-primary/[0.06] via-card to-primary/[0.03] p-4 shadow-sm transition-all hover:shadow-md hover:border-primary/30">
-          <div aria-hidden className="absolute -right-5 -top-5 size-20 rounded-full border-[14px] border-primary/5 transition-all group-hover:scale-110" />
-          <div className="relative flex items-center gap-3">
-            <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-teal-600 text-white shadow-sm shadow-primary/20 transition-all group-hover:scale-110 group-hover:shadow-md">
-              <Users className="size-5" />
-            </span>
-            <div>
-              <p className="text-xs font-medium text-muted-foreground">Total Parents</p>
-              <p className="mt-0.5 text-2xl font-bold">{parents.length}</p>
-            </div>
-          </div>
-        </div>
-        <div className="group relative overflow-hidden rounded-xl border border-violet-500/20 bg-gradient-to-br from-violet-500/[0.07] via-card to-violet-500/[0.03] p-4 shadow-sm transition-all hover:shadow-md hover:border-violet-500/40">
-          <div aria-hidden className="absolute -right-5 -top-5 size-20 rounded-full border-[14px] border-violet-500/5 transition-all group-hover:scale-110" />
-          <div className="relative flex items-center gap-3">
-            <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white shadow-sm shadow-violet-500/20 transition-all group-hover:scale-110 group-hover:shadow-md">
-              <Baby className="size-5" />
-            </span>
-            <div>
-              <p className="text-xs font-medium text-muted-foreground">Total Children</p>
-              <p className="mt-0.5 text-2xl font-bold text-violet-600 dark:text-violet-400">{totalChildren}</p>
-            </div>
-          </div>
-        </div>
-        <div className="group relative overflow-hidden rounded-xl border border-sky-500/20 bg-gradient-to-br from-sky-500/[0.07] via-card to-sky-500/[0.03] p-4 shadow-sm transition-all hover:shadow-md hover:border-sky-500/40">
-          <div aria-hidden className="absolute -right-5 -top-5 size-20 rounded-full border-[14px] border-sky-500/5 transition-all group-hover:scale-110" />
-          <div className="relative flex items-center gap-3">
-            <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500 to-cyan-500 text-white shadow-sm shadow-sky-500/20 transition-all group-hover:scale-110 group-hover:shadow-md">
-              <Heart className="size-5" />
-            </span>
-            <div>
-              <p className="text-xs font-medium text-muted-foreground">Avg. Children</p>
-              <p className="mt-0.5 text-2xl font-bold text-sky-600 dark:text-sky-400">
-                {parents.length ? (totalChildren / parents.length).toFixed(1) : '0'}
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Table Card */}
-      {parents.length === 0 ? (
-        <EmptyState icon={Users} title="No Parents" description="Parent records will appear when students are enrolled." />
-      ) : (
-        <div className="relative overflow-hidden rounded-xl border border-primary/10 bg-gradient-to-br from-card via-card to-sky-500/[0.02] shadow-sm">
-          <div aria-hidden className="absolute -right-6 -top-6 size-20 rounded-full border-[14px] border-primary/5" />
-
-          {/* Table Header */}
-          <div className="relative border-b border-primary/10 bg-gradient-to-r from-primary/[0.06] via-teal-600/[0.04] to-cyan-600/[0.05] px-4 py-3">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2.5">
-                <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-teal-600 text-white shadow-sm shadow-primary/20">
-                  <Users className="size-4" />
-                </span>
-                <span className="text-sm font-bold">Parent Records</span>
-                <Badge variant="secondary" className="h-5 gap-1 border-primary/20 bg-primary/10 px-1.5 text-[10px] font-bold text-primary">
-                  {filtered.length}
-                </Badge>
+      {/* ── Configuration Bar ───────────────────────────────────────── */}
+      <Card className="gap-0 overflow-hidden border-teal-200/80 bg-gradient-to-r from-teal-50 via-white to-sky-50 py-0 shadow-sm dark:border-teal-500/25 dark:from-teal-500/12 dark:via-card dark:to-sky-500/10">
+        <CardContent className="p-3">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            {/* Search */}
+            <div className="col-span-2 space-y-1 sm:col-span-1">
+              <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Search</Label>
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={searchQuery}
+                  onChange={(e) => handleSearchChange(e.target.value)}
+                  placeholder="Father, mother, phone, email…"
+                  className="h-10 w-full bg-white pl-8 pr-8 text-sm shadow-sm dark:bg-input/30 sm:h-9 sm:text-xs"
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => handleSearchChange('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="size-3.5" />
+                  </button>
+                )}
               </div>
-              <p className="hidden text-xs text-muted-foreground sm:block">
-                {filtered.length} parent{filtered.length !== 1 ? 's' : ''}
-              </p>
+            </div>
+
+            {/* Page size */}
+            <div className="space-y-1">
+              <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Rows per page</Label>
+              <Select value={String(pageSize)} onValueChange={(v) => { setPageSize(Number(v)); setPage(1) }}>
+                <SelectTrigger
+                  leadingIcon={<List className="size-3.5 text-white" />}
+                  leadingIconClassName="from-sky-500 to-cyan-600"
+                  className="h-10 w-full border-sky-200 from-sky-50 via-white to-cyan-50 px-2 text-sm shadow-sm focus:border-sky-400 focus:ring-sky-400/20 dark:border-sky-500/25 dark:from-sky-500/15 dark:via-input/30 dark:to-cyan-500/10 sm:h-9 sm:text-xs"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="max-h-64 border-sky-200/80 bg-white shadow-lg dark:border-sky-500/25 dark:bg-popover">
+                  {[10, 25, 50, 100].map((size) => (
+                    <SelectItem key={size} value={String(size)}>{size}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
-          {/* Search Bar */}
-          <div className="relative border-b border-primary/5 bg-gradient-to-r from-primary/[0.02] via-background to-cyan-500/[0.02] px-4 py-2.5">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Search by father, mother, phone, email..."
-                value={searchQuery}
-                onChange={(e) => handleSearchChange(e.target.value)}
-                className="h-9 border-primary/15 bg-background pl-9 pr-9 text-sm transition-all focus-visible:border-primary/30"
-              />
-              {searchQuery && (
+          {/* Quick filters */}
+          <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 border-t pt-2.5">
+            <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+              <span className="flex items-center gap-1 text-muted-foreground">
+                <Filter className="size-3" />
+                Quick:
+              </span>
+              <QuickFilter active={quickFilter === 'phone'} tone="success" onClick={() => handleQuickFilter(quickFilter === 'phone' ? 'all' : 'phone')}>
+                Has phone
+              </QuickFilter>
+              <QuickFilter active={quickFilter === 'email'} tone="warn" onClick={() => handleQuickFilter(quickFilter === 'email' ? 'all' : 'email')}>
+                Has email
+              </QuickFilter>
+              {hasActiveFilters && (
                 <button
                   type="button"
-                  onClick={() => handleSearchChange('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
+                  onClick={clearFilters}
+                  className="ml-1 inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground"
                 >
-                  <X className="size-3.5" />
+                  <X className="size-3" />
+                  Clear
                 </button>
               )}
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* ── Parent Records List Card ────────────────────────────────── */}
+      {parents.length === 0 ? (
+        <EmptyState icon={Users} title="No Parents" description="Parent records will appear when students are enrolled." />
+      ) : (
+        <Card className="gap-0 overflow-hidden border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-violet-50 py-0 shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10">
+          {/* Header band */}
+          <div className="border-b border-sky-200/70 bg-gradient-to-r from-sky-100/80 via-cyan-50/90 to-violet-100/70 px-3 py-3 dark:border-sky-500/20 dark:from-sky-500/15 dark:via-cyan-500/10 dark:to-violet-500/15 sm:px-5">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div className="flex min-w-0 items-center gap-2">
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-teal-500 to-cyan-600 text-white shadow-sm">
+                  <Users className="size-4" />
+                </span>
+                <div className="min-w-0">
+                  <h3 className="text-sm font-semibold">Parent records</h3>
+                  <p className="text-[10px] text-muted-foreground">Click a parent to view their linked children</p>
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant="secondary" className="h-5 text-[10px]">
+                  {filtered.length.toLocaleString()} parents
+                </Badge>
+              </div>
+            </div>
+          </div>
 
           {paginated.length === 0 ? (
-            <div className="flex flex-col items-center justify-center px-4 py-14 text-center">
-              <span className="mb-4 flex size-14 items-center justify-center rounded-2xl border-2 border-primary/15 bg-gradient-to-br from-primary/[0.06] to-cyan-500/[0.06] shadow-sm">
-                <Users className="size-7 text-primary/50" />
+            <div className="flex flex-col items-center justify-center gap-2 px-3 py-12 text-center">
+              <span className="flex size-11 items-center justify-center rounded-full bg-gradient-to-br from-teal-100 to-cyan-100 dark:from-teal-500/20 dark:to-cyan-500/20">
+                <Users className="size-5 text-teal-600 dark:text-teal-300" />
               </span>
-              <h3 className="text-base font-semibold text-foreground">No Parents Found</h3>
-              <p className="mt-1 max-w-sm text-sm text-muted-foreground">
-                {searchQuery ? 'No parents match your search.' : 'No parent records available.'}
-              </p>
-              {searchQuery && (
-                <Button variant="outline" size="sm" onClick={() => handleSearchChange('')} className="mt-3 gap-1.5">
-                  <X className="size-3.5" /> Clear search
+              <div className="space-y-0.5">
+                <h3 className="text-sm font-semibold">No parents found</h3>
+                <p className="mx-auto max-w-xs text-xs text-muted-foreground">
+                  {hasActiveFilters
+                    ? 'No parents match the current search or filters. Try widening them.'
+                    : 'No parent records are available yet.'}
+                </p>
+              </div>
+              {hasActiveFilters && (
+                <Button variant="outline" size="sm" onClick={clearFilters} className="mt-2 h-8 gap-1.5 px-4 text-xs">
+                  <X className="size-3.5" /> Clear filters
                 </Button>
               )}
             </div>
@@ -260,12 +352,12 @@ export function ParentsPage() {
               <div className="hidden md:block">
                 <Table>
                   <TableHeader>
-                    <TableRow className="bg-gradient-to-r from-violet-500/[0.06] via-fuchsia-500/[0.04] to-cyan-500/[0.06] hover:from-violet-500/[0.06] hover:via-fuchsia-500/[0.04] hover:to-cyan-500/[0.06]">
-                      <TableHead className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-violet-700 dark:text-violet-300">Father</TableHead>
+                    <TableRow className="bg-gradient-to-r from-sky-500/[0.06] via-primary/[0.04] to-violet-500/[0.06] hover:from-sky-500/[0.06] hover:via-primary/[0.04] hover:to-violet-500/[0.06]">
+                      <TableHead className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-sky-700 dark:text-sky-300">Father</TableHead>
                       <TableHead className="w-[180px] py-3 text-[11px] font-bold uppercase tracking-wider text-rose-700 dark:text-rose-300">Mother</TableHead>
                       <TableHead className="w-[160px] py-3 text-[11px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-300">Phone</TableHead>
                       <TableHead className="hidden py-3 text-[11px] font-bold uppercase tracking-wider text-sky-700 dark:text-sky-300 lg:table-cell">Email</TableHead>
-                      <TableHead className="w-[130px] py-3 text-[11px] font-bold uppercase tracking-wider text-fuchsia-700 dark:text-fuchsia-300">Children</TableHead>
+                      <TableHead className="w-[130px] py-3 text-[11px] font-bold uppercase tracking-wider text-violet-700 dark:text-violet-300">Children</TableHead>
                       <TableHead className="w-12 py-3" />
                     </TableRow>
                   </TableHeader>
@@ -274,11 +366,8 @@ export function ParentsPage() {
                       <TableRow
                         key={parent.id}
                         className={cn(
-                          'cursor-pointer transition-all duration-150',
-                          idx % 2 === 0
-                            ? 'bg-gradient-to-br from-background via-background to-primary/[0.01]'
-                            : 'bg-gradient-to-br from-violet-500/[0.02] via-background to-rose-500/[0.02]',
-                          'hover:shadow-sm hover:brightness-[1.02]'
+                          'cursor-pointer transition-colors hover:bg-sky-500/[0.04]',
+                          idx % 2 === 0 ? 'bg-transparent' : 'bg-sky-500/[0.02]',
                         )}
                         onClick={() => { setSelectedParent(parent); setShowChildren(true) }}
                       >
@@ -290,7 +379,7 @@ export function ParentsPage() {
                               </AvatarFallback>
                             </Avatar>
                             <div className="min-w-0">
-                              <p className="truncate text-sm font-bold text-foreground">{parent.fatherName || '-'}</p>
+                              <p className="truncate text-sm font-semibold text-foreground">{parent.fatherName || '-'}</p>
                               {parent.occupation && (
                                 <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
                                   <Briefcase className="size-3" />
@@ -307,7 +396,7 @@ export function ParentsPage() {
                                 {getInitials(parent.motherName || 'M')}
                               </AvatarFallback>
                             </Avatar>
-                            <span className="truncate text-sm font-bold text-foreground">{parent.motherName || '-'}</span>
+                            <span className="truncate text-sm font-semibold text-foreground">{parent.motherName || '-'}</span>
                           </div>
                         </TableCell>
                         <TableCell className="py-3">
@@ -368,7 +457,7 @@ export function ParentsPage() {
                 {paginated.map((parent) => (
                   <div
                     key={parent.id}
-                    className="flex items-center gap-3 rounded-xl border border-primary/10 bg-gradient-to-br from-card via-card to-primary/[0.02] p-3 transition-all hover:shadow-md"
+                    className="flex items-center gap-3 rounded-xl border border-sky-200/70 bg-gradient-to-br from-white via-white to-sky-50 p-3 shadow-sm transition-all hover:shadow-md dark:border-sky-500/20 dark:from-card dark:via-card dark:to-sky-500/10"
                   >
                     <button
                       onClick={() => { setSelectedParent(parent); setShowChildren(true) }}
@@ -414,156 +503,115 @@ export function ParentsPage() {
                 ))}
               </div>
 
-              {/* Pagination */}
-              <div className="flex flex-col items-center justify-between gap-3 border-t border-primary/10 bg-gradient-to-r from-primary/[0.02] via-background to-cyan-500/[0.02] px-4 py-3 sm:flex-row">
-                <div className="flex items-center gap-2 text-sm">
-                  <span className="text-xs font-medium text-muted-foreground">Rows per page:</span>
-                  <Select value={String(pageSize)} onValueChange={(v) => { setPageSize(Number(v)); setPage(1) }}>
-                    <SelectTrigger className="h-8 w-[70px] border-primary/15 text-xs font-medium shadow-sm">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {[10, 25, 50, 100].map((size) => (
-                        <SelectItem key={size} value={String(size)}>{size}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <span className="ml-2 text-xs font-medium text-muted-foreground">
-                    <span className="text-foreground/80">{start + 1}</span>–<span className="text-foreground/80">{Math.min(start + pageSize, filtered.length)}</span>
-                    <span className="text-muted-foreground"> of </span>
-                    <span className="text-foreground/80">{filtered.length}</span>
+              {/* Footer legend */}
+              <div className="flex flex-col gap-3 border-t border-sky-200/70 bg-gradient-to-r from-sky-100/70 via-cyan-50/90 to-violet-100/70 px-3 py-3 dark:border-sky-500/20 dark:from-sky-500/15 dark:via-cyan-500/10 dark:to-violet-500/15 sm:px-5 md:flex-row md:items-center md:justify-between">
+                <div className="grid grid-cols-3 gap-x-4 gap-y-2 text-[11px] text-muted-foreground sm:flex sm:items-center sm:gap-4">
+                  <span className="flex items-center gap-1">
+                    <span className="size-2 rounded-full bg-sky-500" />
+                    Fathers: <strong className="text-foreground">{relationCounts.father.toLocaleString()}</strong>
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <span className="size-2 rounded-full bg-rose-500" />
+                    Mothers: <strong className="text-foreground">{relationCounts.mother.toLocaleString()}</strong>
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <span className="size-2 rounded-full bg-violet-500" />
+                    Guardians: <strong className="text-foreground">{relationCounts.guardian.toLocaleString()}</strong>
                   </span>
                 </div>
-                <div className="flex items-center gap-1">
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="size-8 border-primary/15 shadow-sm transition-all hover:border-primary/30 hover:shadow-md"
-                    onClick={() => setPage(safePage - 1)}
-                    disabled={safePage <= 1}
-                  >
-                    <ChevronLeft className="size-4" />
-                  </Button>
-                  {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
-                    let pageNum: number
-                    if (totalPages <= 5) {
-                      pageNum = i + 1
-                    } else if (safePage <= 3) {
-                      pageNum = i + 1
-                    } else if (safePage >= totalPages - 2) {
-                      pageNum = totalPages - 4 + i
-                    } else {
-                      pageNum = safePage - 2 + i
-                    }
-                    return (
-                      <Button
-                        key={pageNum}
-                        variant={pageNum === safePage ? 'default' : 'outline'}
-                        size="icon"
-                        className={cn(
-                          'size-8 text-xs font-bold shadow-sm transition-all',
-                          pageNum === safePage
-                            ? 'bg-gradient-to-br from-primary to-teal-600 text-white shadow-primary/20 hover:from-primary/90 hover:to-teal-600/90'
-                            : 'border-primary/15 hover:border-primary/30 hover:shadow-md'
-                        )}
-                        onClick={() => setPage(pageNum)}
-                      >
-                        {pageNum}
-                      </Button>
-                    )
-                  })}
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="size-8 border-primary/15 shadow-sm transition-all hover:border-primary/30 hover:shadow-md"
-                    onClick={() => setPage(safePage + 1)}
-                    disabled={safePage >= totalPages}
-                  >
-                    <ChevronRight className="size-4" />
-                  </Button>
+                <div className="flex items-center gap-1.5 text-xs text-teal-700 dark:text-teal-300">
+                  <GraduationCap className="size-3.5" />
+                  Click any parent to review their children
                 </div>
               </div>
+
+              {/* Pagination */}
+              <Pagination
+                page={safePage}
+                pageSize={pageSize}
+                total={filtered.length}
+                totalPages={totalPages}
+                start={start}
+                onPageChange={setPage}
+                onPageSizeChange={(size) => { setPageSize(size); setPage(1) }}
+              />
             </>
           )}
-        </div>
+        </Card>
       )}
 
-      {/* Children Dialog */}
+      {/* ── Children Dialog ─────────────────────────────────────────── */}
       <Dialog open={showChildren} onOpenChange={setShowChildren}>
-        <DialogContent className="gap-0 overflow-hidden border-0 p-0 shadow-2xl shadow-primary/20 sm:max-w-xl">
-          <div className="relative bg-[linear-gradient(135deg,var(--primary)_0%,#0d9488_48%,#2563eb_100%)] px-6 py-5 text-white">
-            <div aria-hidden className="absolute -right-8 -top-8 size-28 rounded-full border-[18px] border-cyan-200/15" />
-            <div aria-hidden className="absolute -bottom-8 right-14 size-20 rounded-full bg-cyan-300/8" />
-            <div aria-hidden className="absolute left-10 top-3 size-12 rounded-full bg-white/5 blur-md" />
-            <div aria-hidden className="absolute bottom-0 left-1/3 h-px w-28 bg-gradient-to-r from-transparent via-white/30 to-transparent" />
-            <div className="relative flex items-center gap-4">
-              <Avatar className="size-12 shrink-0 border-2 border-white/30 shadow-lg">
-                <AvatarFallback className="bg-white/20 text-sm font-bold text-white backdrop-blur-sm">
-                  {getInitials(selectedParent?.fatherName || 'P')}
-                </AvatarFallback>
-              </Avatar>
-              <div>
-                <DialogTitle className="text-lg font-bold text-white">Children of {selectedParent?.fatherName || 'Parent'}</DialogTitle>
-                <DialogDescription className="mt-0.5 text-sm text-white/70">
-                  {selectedParent?.children?.length || 0} student{selectedParent?.children?.length !== 1 ? 's' : ''} linked &bull; {selectedParent?.motherName || ''}
+        <DialogContent className="flex max-h-[90svh] flex-col overflow-hidden border-primary/20 bg-card p-0 shadow-2xl shadow-primary/15 sm:max-w-xl [&>button]:right-3 [&>button]:top-3 [&>button]:rounded-full [&>button]:text-white [&>button]:opacity-85 [&>button]:hover:bg-white/15 [&>button]:hover:opacity-100">
+          <DialogHeader className="relative shrink-0 overflow-hidden border-b border-white/15 bg-[linear-gradient(135deg,var(--primary)_0%,#0d9488_48%,#2563eb_100%)] px-5 py-4 pr-12 text-white sm:px-6">
+            <div aria-hidden className="absolute -right-10 -top-16 size-40 rounded-full border-[18px] border-white/10" />
+            <div aria-hidden className="absolute -bottom-14 left-10 size-28 rounded-full bg-teal-300/20 blur-2xl" />
+            <div aria-hidden className="absolute bottom-0 right-24 h-24 w-44 rounded-full bg-sky-300/15 blur-2xl" />
+            <div className="relative flex items-center gap-3">
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-white/25 bg-white/15 text-white shadow-md backdrop-blur-sm">
+                <GraduationCap className="size-5 text-white" />
+              </span>
+              <div className="min-w-0">
+                <DialogTitle className="text-lg font-bold tracking-normal text-white">Children of {selectedParent?.fatherName || 'Parent'}</DialogTitle>
+                <DialogDescription className="mt-0.5 text-xs text-white/75">
+                  {selectedParent?.children?.length || 0} student{selectedParent?.children?.length !== 1 ? 's' : ''} linked{selectedParent?.motherName ? ` · ${selectedParent.motherName}` : ''}
                 </DialogDescription>
               </div>
             </div>
-          </div>
-          <div className="max-h-[70vh] overflow-y-auto bg-gradient-to-br from-primary/[0.03] via-background to-cyan-500/[0.06] p-5">
+          </DialogHeader>
+
+          <div className="themed-scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain bg-gradient-to-br from-primary/[0.03] via-background to-cyan-500/[0.055] p-4 sm:p-5">
             {selectedParent?.children && selectedParent.children.length > 0 ? (
-              <div className="space-y-3">
-                {selectedParent.children.map((link) => {
-                  const rel = formatRelation(link.relation)
-                  return (
-                    <div
-                      key={link.id}
-                      className="group relative overflow-hidden rounded-xl border border-primary/10 bg-gradient-to-br from-card via-card to-primary/[0.02] p-4 shadow-sm transition-all hover:shadow-md"
-                    >
-                      <div aria-hidden className="absolute -right-4 -top-4 size-14 rounded-full border-[10px] border-primary/5 transition-all group-hover:scale-150 group-hover:border-primary/10" />
-                      <div className="relative flex items-center gap-4">
-                        <Avatar className="size-12 shrink-0 border-2 border-primary/15 shadow-sm">
-                          <AvatarFallback className="bg-gradient-to-br from-primary to-teal-600 text-xs font-bold text-white">
-                            {getInitials(link.student.firstName + ' ' + link.student.lastName)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <p className="truncate text-base font-bold text-foreground">
-                              {link.student.firstName} {link.student.lastName}
-                            </p>
-                            <Badge className={cn(
-                              'shrink-0 h-5 text-[10px] px-2 font-bold gap-1.5 shadow-sm',
-                              RELATION_COLORS[rel] || 'border-violet-500/30 bg-gradient-to-r from-violet-500/10 to-fuchsia-500/10 text-violet-700 dark:text-violet-300'
-                            )}>
-                              <span className={cn('size-1.5 rounded-full', RELATION_DOTS[rel] || 'bg-violet-500')} />
-                              {rel}
-                            </Badge>
-                          </div>
-                          <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs">
-                            <span className="inline-flex items-center gap-1.5 rounded-md border border-sky-500/15 bg-gradient-to-r from-sky-500/5 to-primary/5 px-2 py-0.5 font-medium text-sky-700 dark:text-sky-300">
-                              <School className="size-3" />
-                              {link.student.class?.name || 'Class -'}
+              selectedParent.children.map((link) => {
+                const rel = formatRelation(link.relation)
+                return (
+                  <section
+                    key={link.id}
+                    className="relative overflow-hidden rounded-xl border border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-violet-50 p-4 shadow-sm dark:border-sky-500/25 dark:from-sky-500/15 dark:via-card dark:to-violet-500/10"
+                  >
+                    <div aria-hidden className="absolute -right-7 -top-10 size-28 rounded-full bg-sky-200/35 blur-xl dark:bg-sky-500/15" />
+                    <div className="relative flex items-center gap-4">
+                      <Avatar className="size-12 shrink-0 border-2 border-sky-500/25 shadow-sm">
+                        <AvatarFallback className="bg-gradient-to-br from-sky-500 to-primary text-xs font-bold text-white">
+                          {getInitials(link.student.firstName + ' ' + link.student.lastName)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="truncate text-base font-bold text-foreground">
+                            {link.student.firstName} {link.student.lastName}
+                          </p>
+                          <Badge className={cn(
+                            'shrink-0 h-5 text-[10px] px-2 font-bold gap-1.5 shadow-sm',
+                            RELATION_COLORS[rel] || 'border-violet-500/30 bg-gradient-to-r from-violet-500/10 to-fuchsia-500/10 text-violet-700 dark:text-violet-300'
+                          )}>
+                            <span className={cn('size-1.5 rounded-full', RELATION_DOTS[rel] || 'bg-violet-500')} />
+                            {rel}
+                          </Badge>
+                        </div>
+                        <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs">
+                          <span className="inline-flex items-center gap-1.5 rounded-md border border-sky-500/15 bg-gradient-to-r from-sky-500/5 to-primary/5 px-2 py-0.5 font-medium text-sky-700 dark:text-sky-300">
+                            <School className="size-3" />
+                            {link.student.class?.name || 'Class -'}
+                          </span>
+                          {link.student.section && (
+                            <span className="inline-flex items-center gap-1.5 rounded-md border border-amber-500/15 bg-gradient-to-r from-amber-500/5 to-rose-500/5 px-2 py-0.5 font-medium text-amber-700 dark:text-amber-300">
+                              <UserRound className="size-3" />
+                              {link.student.section.name}
                             </span>
-                            {link.student.section && (
-                              <span className="inline-flex items-center gap-1.5 rounded-md border border-amber-500/15 bg-gradient-to-r from-amber-500/5 to-rose-500/5 px-2 py-0.5 font-medium text-amber-700 dark:text-amber-300">
-                                <UserRound className="size-3" />
-                                {link.student.section.name}
-                              </span>
-                            )}
-                            {link.student.rollNumber && (
-                              <span className="inline-flex items-center gap-1.5 rounded-md border border-violet-500/15 bg-gradient-to-r from-violet-500/5 to-fuchsia-500/5 px-2 py-0.5 font-mono font-medium text-violet-700 dark:text-violet-300">
-                                <MapPin className="size-3" />
-                                Roll: {link.student.rollNumber}
-                              </span>
-                            )}
-                          </div>
+                          )}
+                          {link.student.rollNumber && (
+                            <span className="inline-flex items-center gap-1.5 rounded-md border border-violet-500/15 bg-gradient-to-r from-violet-500/5 to-fuchsia-500/5 px-2 py-0.5 font-mono font-medium text-violet-700 dark:text-violet-300">
+                              <MapPin className="size-3" />
+                              Roll: {link.student.rollNumber}
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
-                  )
-                })}
-              </div>
+                  </section>
+                )
+              })
             ) : (
               <div className="flex flex-col items-center justify-center py-14 text-center">
                 <span className="mb-4 flex size-16 items-center justify-center rounded-2xl border-2 border-primary/10 bg-gradient-to-br from-primary/[0.06] to-cyan-500/[0.06] shadow-sm">
@@ -574,20 +622,144 @@ export function ParentsPage() {
               </div>
             )}
           </div>
-          <div className="border-t border-primary/10 bg-gradient-to-r from-primary/[0.02] via-background to-cyan-500/[0.02] px-5 py-3.5">
-            <div className="flex items-center justify-end">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowChildren(false)}
-                className="gap-2 border-primary/15 shadow-sm transition-all hover:border-primary/30 hover:shadow-md"
-              >
-                <X className="size-3.5" /> Close
-              </Button>
-            </div>
-          </div>
+
+          <DialogFooter className="shrink-0 border-t border-primary/10 bg-muted/30 px-4 py-3 sm:px-5">
+            <Button variant="outline" size="sm" className="h-8 gap-1.5 px-4 text-xs" onClick={() => setShowChildren(false)}>
+              <X className="size-3.5" /> Close
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
+  )
+}
+
+// ─── Shared layout primitives ───────────────────────────────────────────────
+
+function Pagination({
+  page,
+  pageSize,
+  total,
+  totalPages,
+  start,
+  onPageChange,
+  onPageSizeChange,
+}: {
+  page: number
+  pageSize: number
+  total: number
+  totalPages: number
+  start: number
+  onPageChange: (page: number) => void
+  onPageSizeChange: (size: number) => void
+}) {
+  const from = total === 0 ? 0 : start + 1
+  const to = Math.min(start + pageSize, total)
+
+  const getPageNumbers = (): (number | 'ellipsis-start' | 'ellipsis-end')[] => {
+    if (totalPages <= 5) {
+      return Array.from({ length: totalPages }, (_, i) => i + 1)
+    }
+    if (page <= 3) {
+      return [1, 2, 3, 4, 'ellipsis-end', totalPages]
+    }
+    if (page >= totalPages - 2) {
+      return [1, 'ellipsis-start', totalPages - 3, totalPages - 2, totalPages - 1, totalPages]
+    }
+    return [1, 'ellipsis-start', page - 1, page, page + 1, 'ellipsis-end', totalPages]
+  }
+
+  const pageNumbers = getPageNumbers()
+
+  return (
+    <div className="flex flex-col items-center justify-between gap-3 border-t px-4 py-3 sm:flex-row">
+      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <span>Rows per page:</span>
+        <Select value={String(pageSize)} onValueChange={(v) => onPageSizeChange(Number(v))}>
+          <SelectTrigger className="h-8 w-[70px] text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {[10, 25, 50, 100].map((size) => (
+              <SelectItem key={size} value={String(size)}>{size}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <span className="ml-2">
+          Showing {from} to {to} of {total} parents
+        </span>
+      </div>
+      <div className="flex items-center gap-1">
+        <Button
+          variant="outline"
+          size="icon"
+          className="size-8"
+          onClick={() => onPageChange(page - 1)}
+          disabled={page <= 1}
+        >
+          <ChevronLeft className="size-4" />
+        </Button>
+        {pageNumbers.map((p, i) => {
+          if (p === 'ellipsis-start' || p === 'ellipsis-end') {
+            return (
+              <span key={`ellipsis-${i}`} className="px-1 text-sm text-muted-foreground">
+                ...
+              </span>
+            )
+          }
+          return (
+            <Button
+              key={p}
+              variant={p === page ? 'default' : 'outline'}
+              size="icon"
+              className="size-8 text-xs"
+              onClick={() => onPageChange(p)}
+            >
+              {p}
+            </Button>
+          )
+        })}
+        <Button
+          variant="outline"
+          size="icon"
+          className="size-8"
+          onClick={() => onPageChange(page + 1)}
+          disabled={page >= totalPages}
+        >
+          <ChevronRight className="size-4" />
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+function QuickFilter({
+  active,
+  onClick,
+  tone = 'neutral',
+  children,
+}: {
+  active: boolean
+  onClick: () => void
+  tone?: 'neutral' | 'success' | 'warn' | 'error'
+  children: React.ReactNode
+}) {
+  const activeClasses = {
+    neutral: 'bg-primary text-primary-foreground hover:bg-primary/90',
+    success: 'bg-emerald-600 text-white hover:bg-emerald-600/90',
+    warn: 'bg-amber-500 text-white hover:bg-amber-500/90',
+    error: 'bg-rose-500 text-white hover:bg-rose-500/90',
+  }[tone]
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'rounded-md px-2 py-0.5 text-[11px] font-medium transition',
+        active ? activeClasses : 'border bg-background text-muted-foreground hover:bg-muted',
+      )}
+    >
+      {children}
+    </button>
   )
 }
