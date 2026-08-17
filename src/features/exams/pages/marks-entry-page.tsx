@@ -20,7 +20,7 @@ interface ExamInfo {
   academicYear: string
   lockedAt: string | null
   group: { name: string; paradigm: { name: string; academicYear: string } }
-  subjectConfigs: unknown[]
+  subjectConfigs: Array<{ id: string; classId: string; sectionId: string | null; subjectId: string }>
 }
 
 interface Props {
@@ -111,7 +111,7 @@ export function MarksEntryPage({ examId }: Props) {
         </div>
       )}
 
-      <MarksGrid examId={examId} examStatus={exam.status} academicYear={exam.academicYear} />
+      <MarksGrid examId={examId} examStatus={exam.status} academicYear={exam.academicYear} subjectConfigs={exam.subjectConfigs} />
     </div>
   )
 }

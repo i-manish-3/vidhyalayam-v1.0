@@ -757,9 +757,8 @@ async function seed() {
     // Attendance
     { code: 'attendance:read', name: 'View Attendance', module: 'attendance', action: 'read' },
     { code: 'attendance:mark', name: 'Mark Attendance', module: 'attendance', action: 'create' },
-    { code: 'attendance:update', name: 'Update Attendance', module: 'attendance', action: 'update' },
+    { code: 'attendance:staff', name: 'Employee Attendance', module: 'attendance', action: 'create' },
     { code: 'attendance:reopen', name: 'Reopen Finalized Attendance', module: 'attendance', action: 'update' },
-    { code: 'attendance:export', name: 'Export Attendance', module: 'attendance', action: 'read' },
     { code: 'attendance:audit:view', name: 'View Attendance Audit Log', module: 'attendance', action: 'read' },
     { code: 'attendance:report:view', name: 'View Attendance Reports', module: 'attendance', action: 'read' },
     // RFID / NFC card attendance
@@ -898,7 +897,7 @@ async function seed() {
       color: '#10b981',
       isSystem: true,
       permissionCodes: [
-        'student:read', 'attendance:read', 'attendance:mark', 'attendance:update',
+        'student:read', 'attendance:read', 'attendance:mark', 'attendance:staff',
         'timetable:read',
         'exam:view', 'exam:marks',
         'library:read', 'salary:read', 'notification:read',
@@ -931,7 +930,7 @@ async function seed() {
       color: '#6b7280',
       isSystem: true,
       permissionCodes: [
-        'student:read', 'attendance:read', 'attendance:mark',
+        'student:read', 'attendance:read', 'attendance:mark', 'attendance:staff',
         'fees:read', 'fees:collect', 'fees:refund', 'salary:read',
         'transport:read', 'library:read', 'inventory:read',
         'notification:read', 'announcement:read',

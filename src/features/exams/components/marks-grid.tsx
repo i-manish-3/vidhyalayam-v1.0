@@ -77,10 +77,18 @@ interface GridData {
   students: StudentRow[]
 }
 
+interface SubjectConfigBrief {
+  id: string
+  classId: string
+  sectionId: string | null
+  subjectId: string
+}
+
 interface MarksGridProps {
   examId: string
   examStatus: string
   academicYear: string
+  subjectConfigs: SubjectConfigBrief[]
 }
 
 interface DirtyEntry {
@@ -89,7 +97,7 @@ interface DirtyEntry {
   patch: Partial<MarksCell>
 }
 
-export function MarksGrid({ examId, examStatus }: MarksGridProps) {
+export function MarksGrid({ examId, examStatus, subjectConfigs }: MarksGridProps) {
   const { toast } = useToast()
   const { hasAnyPermission } = usePermissions()
   const [loading, setLoading] = useState(true)
@@ -131,6 +139,21 @@ export function MarksGrid({ examId, examStatus }: MarksGridProps) {
       setSelectedSectionId(null)
     }
   }, [selectedClassId, classOptions, selectedSectionId])
+
+  const classSubjectIds = useMemo(() => {
+    const ids = new Set<string>()
+    for (const config of subjectConfigs) {
+      if (config.classId !== selectedClassId) continue
+      if (selectedSectionId && config.sectionId && config.sectionId !== selectedSectionId) continue
+      ids.add(config.subjectId)
+    }
+    return ids
+  }, [subjectConfigs, selectedClassId, selectedSectionId])
+
+  const visibleSubjects = useMemo(
+    () => subjectOptions.filter((subject) => classSubjectIds.has(subject.id)),
+    [subjectOptions, classSubjectIds],
+  )
 
   const loadGrid = useCallback(async () => {
     if (!selectedClassId || !selectedSubjectId) return
@@ -481,7 +504,12 @@ export function MarksGrid({ examId, examStatus }: MarksGridProps) {
             <span className="flex items-center gap-1.5 text-[10px] font-medium uppercase text-muted-foreground">
               <Users className="size-3" /> Class
             </span>
-            <Select value={selectedClassId} onValueChange={(value) => { setSelectedClassId(value); setSelectedSectionId(null) }}>
+            <Select value={selectedClassId} onValueChange={(value) => {
+              setSelectedClassId(value)
+              setSelectedSectionId(null)
+              const ids = new Set(subjectConfigs.filter((c) => c.classId === value).map((c) => c.subjectId))
+              if (!ids.has(selectedSubjectId)) setSelectedSubjectId('')
+            }}>
               <SelectTrigger className="h-10 w-full"><SelectValue placeholder="Pick class" /></SelectTrigger>
               <SelectContent>
                 {classOptions.map((item) => (
@@ -510,12 +538,20 @@ export function MarksGrid({ examId, examStatus }: MarksGridProps) {
             <span className="flex items-center gap-1.5 text-[10px] font-medium uppercase text-muted-foreground">
               <BookOpen className="size-3" /> Subject
             </span>
-            <Select value={selectedSubjectId} onValueChange={(value) => setSelectedSubjectId(value)}>
-              <SelectTrigger className="h-10 w-full"><SelectValue placeholder="Pick subject" /></SelectTrigger>
+            <Select value={selectedSubjectId} onValueChange={(value) => setSelectedSubjectId(value)} disabled={!selectedClassId}>
+              <SelectTrigger className="h-10 w-full">
+                <SelectValue placeholder={selectedClassId ? 'Pick subject' : 'Pick class first'} />
+              </SelectTrigger>
               <SelectContent>
-                {subjectOptions.map((item) => (
-                  <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>
-                ))}
+                {visibleSubjects.length === 0 ? (
+                  <div className="px-2 py-4 text-center text-xs text-muted-foreground">
+                    No subjects configured for this class
+                  </div>
+                ) : (
+                  visibleSubjects.map((item) => (
+                    <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>
+                  ))
+                )}
               </SelectContent>
             </Select>
           </div>
@@ -545,8 +581,10 @@ export function MarksGrid({ examId, examStatus }: MarksGridProps) {
       {!selectedClassId || !selectedSubjectId ? (
         <GradientEmptyState
           icon={BookOpen}
-          title="Select class and subject"
-          description="Marks grid will appear here once you pick both."
+          title={selectedClassId ? 'No subject selected' : 'Select class and subject'}
+          description={selectedClassId
+            ? 'Pick a subject from the dropdown to load its marks grid.'
+            : 'Pick a class first — its subjects will appear in the dropdown.'}
         />
       ) : loading ? (
         <div className="flex min-h-[30vh] items-center justify-center rounded-md border bg-muted/10">

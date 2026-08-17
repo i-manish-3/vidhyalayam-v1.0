@@ -155,9 +155,8 @@ export const PERMISSIONS = {
   // Attendance
   ATTENDANCE_READ: 'attendance:read',
   ATTENDANCE_MARK: 'attendance:mark',
-  ATTENDANCE_UPDATE: 'attendance:update',
+  ATTENDANCE_STAFF: 'attendance:staff',
   ATTENDANCE_REOPEN: 'attendance:reopen',
-  ATTENDANCE_EXPORT: 'attendance:export',
   ATTENDANCE_AUDIT_VIEW: 'attendance:audit:view',
   ATTENDANCE_REPORT_VIEW: 'attendance:report:view',
 

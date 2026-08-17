@@ -87,7 +87,7 @@ export const DEFAULT_ROLE_TEMPLATES: RoleTemplate[] = [
       'student:read',
       'attendance:read',
       'attendance:mark',
-      'attendance:update',
+      'attendance:staff',
       'timetable:read',
       'exam:view',
       'exam:marks',
@@ -121,6 +121,7 @@ export const DEFAULT_ROLE_TEMPLATES: RoleTemplate[] = [
     permissionCodes: [
       'student:read',
       'attendance:read',
+      'attendance:staff',
       'fees:read',
       'fees:collect',
       'salary:read',
