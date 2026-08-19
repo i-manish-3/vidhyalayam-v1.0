@@ -93,7 +93,7 @@ export async function GET(request: NextRequest) {
       .map((s) => ({
         id: s.id,
         name: `${s.firstName} ${s.lastName}`.trim(),
-        type: 'student',
+        type: 'student' as const,
         profileImage: s.profileImage,
         age: s.dateOfBirth ? year - s.dateOfBirth.getFullYear() : null,
         className: s.class?.name ?? null,
@@ -106,7 +106,7 @@ export async function GET(request: NextRequest) {
       .map((t) => ({
         id: t.id,
         name: `${t.firstName} ${t.lastName}`.trim(),
-        type: 'teacher',
+        type: 'teacher' as const,
         profileImage: t.profileImage,
         age: t.dateOfBirth ? year - t.dateOfBirth.getFullYear() : null,
         className: null,
@@ -119,7 +119,7 @@ export async function GET(request: NextRequest) {
       .map((u) => ({
         id: u.id,
         name: u.name,
-        type: 'staff',
+        type: 'staff' as const,
         profileImage: u.avatar,
         age: u.dob ? year - u.dob.getFullYear() : null,
         className: null,

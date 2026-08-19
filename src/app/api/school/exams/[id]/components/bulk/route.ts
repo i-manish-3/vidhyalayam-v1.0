@@ -159,7 +159,7 @@ export async function POST(
           })
         }
 
-        const results = []
+        const results: unknown[] = []
         for (const c of components) {
           if (c.id) {
             results.push(

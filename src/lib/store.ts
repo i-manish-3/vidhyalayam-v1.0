@@ -20,7 +20,7 @@ export type PageName =
   | 'inventory-sell' | 'inventory-sales' | 'inventory-catalog' | 'inventory-reports'
   | 'notifications' | 'announcements' | 'announcement-compose' | 'notification-templates' | 'notification-preferences'
   | 'classes' | 'promote-student' | 'assign-roll-numbers' | 'subjects' | 'academic-years' | 'holidays' | 'add-subject' | 'add-class' | 'edit-class' | 'edit-subject'
-  | 'settings' | 'support'
+  | 'settings' | 'support' | 'birthdays'
   | 'school-onboarding' | 'schools' | 'add-school' | 'edit-school' | 'school-detail' | 'analytics'
   | 'my-classes' | 'my-attendance' | 'my-children' | 'fee-details'
   | 'parent-children' | 'parent-fees' | 'parent-attendance' | 'parent-exams'

@@ -7,6 +7,11 @@ import { api } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
 import { useAppStore } from '@/lib/store'
 import { usePermissions, PERMISSIONS } from '@/hooks/use-permissions'
+import {
+  SchoolBirthdayCardDialog,
+  type BirthdayCardStudent,
+  type BirthdayCardSchool,
+} from '@/features/birthdays/components/school-birthday-card'
 import { cn } from '@/lib/utils'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -527,6 +532,17 @@ export function StudentsPage() {
   // year from the top bar appeared to do nothing.
   const viewingAcademicYear = useAppStore((s) => s.viewingAcademicYear)
   const currentSchoolAcademicYear = useAppStore((s) => s.currentSchool?.academicYear)
+  const currentSchool = useAppStore((s) => s.currentSchool)
+  const birthdayCardSchool: BirthdayCardSchool = useMemo(() => ({
+    name: currentSchool?.name,
+    logo: currentSchool?.logo,
+    address: currentSchool?.address,
+    city: currentSchool?.city,
+    state: currentSchool?.state,
+    pincode: currentSchool?.pincode,
+    contactPhone: currentSchool?.contactPhone,
+    academicYear: currentSchool?.academicYear,
+  }), [currentSchool])
   const savedListState = useAppStore((s) => s.pageState[STUDENTS_LIST_STATE_KEY] as StudentsListPageState | undefined)
   const setPageState = useAppStore((s) => s.setPageState)
   const initialListState = {
@@ -582,6 +598,9 @@ export function StudentsPage() {
     student: null,
   })
   const [togglingId, setTogglingId] = useState<string | null>(null)
+
+  // Birthday card dialog
+  const [birthdayStudent, setBirthdayStudent] = useState<Student | null>(null)
 
   // Stats (fetched separately to include all students)
   const [stats, setStats] = useState({ total: 0, active: 0, disabled: 0, thisMonth: 0 })
@@ -1556,6 +1575,9 @@ export function StudentsPage() {
                                   <Edit className="size-4 mr-2" /> Edit
                                 </DropdownMenuItem>
                               )}
+                              <DropdownMenuItem onClick={() => setBirthdayStudent(s)}>
+                                <Cake className="size-4 mr-2" /> Birthday Card
+                              </DropdownMenuItem>
                               {canEnableDisable && <DropdownMenuSeparator />}
                               {canEnableDisable && (
                                 isToggling ? (
@@ -1645,6 +1667,14 @@ export function StudentsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Birthday Card Dialog */}
+      <SchoolBirthdayCardDialog
+        open={birthdayStudent !== null}
+        student={birthdayStudent}
+        school={birthdayCardSchool}
+        onClose={() => setBirthdayStudent(null)}
+      />
     </div>
   )
 }

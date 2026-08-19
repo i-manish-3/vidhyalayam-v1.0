@@ -126,6 +126,7 @@ const MODULE_PERMISSION_MAP: Record<string, string[]> = {
 
   // Admin
   'settings': ['settings:read', 'settings:update'],
+  'birthdays': ['student:read', 'teacher:read'],
   'school-roles': ['role:read', 'role:create'],
   'school-permissions': ['role:read', 'permission:assign'],
   'school-users': ['role:read'],

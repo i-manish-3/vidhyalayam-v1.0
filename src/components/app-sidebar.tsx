@@ -66,6 +66,7 @@ import {
   Palette,
   Home,
   Trash2,
+  Cake,
 } from 'lucide-react'
 
 export interface MenuChild {
@@ -125,6 +126,7 @@ export const MENUS: Record<string, MenuItem[]> = {
   ],
   SCHOOL_ADMIN: [
     { label: 'Dashboard', page: 'dashboard', icon: LayoutDashboard },
+    { label: 'Birthdays', page: 'birthdays', icon: Cake },
     {
       label: 'Students',
       page: 'students',
@@ -323,6 +325,7 @@ export const MENUS: Record<string, MenuItem[]> = {
   ],
   TEACHER: [
     { label: 'Dashboard', page: 'dashboard', icon: LayoutDashboard },
+    { label: 'Birthdays', page: 'birthdays', icon: Cake },
     { label: 'My Classes', page: 'my-classes', icon: GraduationCap },
     {
       label: 'Attendance',
@@ -376,6 +379,7 @@ export const MENUS: Record<string, MenuItem[]> = {
   ],
   STAFF: [
     { label: 'Dashboard', page: 'dashboard', icon: LayoutDashboard },
+    { label: 'Birthdays', page: 'birthdays', icon: Cake },
     { label: 'Students', page: 'students', icon: GraduationCap },
     {
       label: 'Attendance',

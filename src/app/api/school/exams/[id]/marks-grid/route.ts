@@ -20,7 +20,7 @@ type AuthUser = NonNullable<ReturnType<typeof getAuthUser>>
 interface StudentRow {
   id: string
   firstName: string
-  lastName: string
+  lastName: string | null
   rollNumber: string | null
   admissionNumber: string | null
   sectionId: string | null

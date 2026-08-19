@@ -38,52 +38,12 @@ interface ComponentEditorProps {
   subjectLabel?: string
 }
 
-export interface ComponentPreset {
-  name: string
-  build: (total: number) => ExamComponentRow[]
-}
-
-export const COMPONENT_PRESETS: ComponentPreset[] = [
-  {
-    name: 'Theory only',
-    build: (total) => [
-      { name: 'Theory', shortCode: 'TH', sequence: 0, maxMarks: total, passingMarks: 0, gradeOnly: false },
-    ],
-  },
-  {
-    name: 'Theory 80 + Practical 20',
-    build: (total) => [
-      { name: 'Theory', shortCode: 'TH', sequence: 0, maxMarks: Math.round(total * 0.8), passingMarks: 0, gradeOnly: false },
-      { name: 'Practical', shortCode: 'PR', sequence: 1, maxMarks: total - Math.round(total * 0.8), passingMarks: 0, gradeOnly: false },
-    ],
-  },
-  {
-    name: 'Theory 80 + Internal 20 (CBSE)',
-    build: (total) => [
-      { name: 'Theory', shortCode: 'TH', sequence: 0, maxMarks: Math.round(total * 0.8), passingMarks: 0, gradeOnly: false },
-      { name: 'Internal', shortCode: 'IN', sequence: 1, maxMarks: total - Math.round(total * 0.8), passingMarks: 0, gradeOnly: false },
-    ],
-  },
-  {
-    name: 'Theory 70 + Practical 20 + Internal 10',
-    build: (total) => {
-      const th = Math.round(total * 0.7)
-      const pr = Math.round(total * 0.2)
-      return [
-        { name: 'Theory', shortCode: 'TH', sequence: 0, maxMarks: th, passingMarks: 0, gradeOnly: false },
-        { name: 'Practical', shortCode: 'PR', sequence: 1, maxMarks: pr, passingMarks: 0, gradeOnly: false },
-        { name: 'Internal', shortCode: 'IN', sequence: 2, maxMarks: total - th - pr, passingMarks: 0, gradeOnly: false },
-      ]
-    },
-  },
-]
-
-function makeBlankRow(sequence: number, gradeOnly: boolean): ExamComponentRow {
+export function makeBlankComponentRow(sequence: number, gradeOnly: boolean): ExamComponentRow {
   return {
     name: '',
     shortCode: null,
     sequence,
-    maxMarks: gradeOnly ? 0 : 0,
+    maxMarks: 0,
     passingMarks: 0,
     gradeOnly,
   }
@@ -143,10 +103,7 @@ export function ComponentEditor({
     setRows((prev) => prev.filter((_, i) => i !== idx))
   }
   function addRow(gradeOnly = false) {
-    setRows((prev) => [...prev, makeBlankRow(prev.length, gradeOnly || isGradeOnlySubject)])
-  }
-  function applyPreset(preset: ComponentPreset) {
-    setRows(preset.build(totalMarks))
+    setRows((prev) => [...prev, makeBlankComponentRow(prev.length, gradeOnly || isGradeOnlySubject)])
   }
 
   async function handleSave() {
@@ -163,7 +120,7 @@ export function ComponentEditor({
 
   return (
     <Dialog open={open} onOpenChange={(o) => !saving && onOpenChange(o)}>
-      <DialogContent className="max-h-[90svh] overflow-hidden border-primary/20 bg-card p-0 shadow-2xl shadow-primary/15 sm:max-w-2xl [&>button]:right-3 [&>button]:top-3 [&>button]:rounded-full [&>button]:text-white [&>button]:opacity-80 [&>button]:hover:bg-white/15 [&>button]:hover:opacity-100">
+      <DialogContent className="flex max-h-[90svh] flex-col overflow-hidden border-primary/20 bg-card p-0 shadow-2xl shadow-primary/15 sm:max-w-2xl [&>button]:right-3 [&>button]:top-3 [&>button]:rounded-full [&>button]:text-white [&>button]:opacity-80 [&>button]:hover:bg-white/15 [&>button]:hover:opacity-100">
         <GradientDialogHeader
           icon={Settings2}
           title={`Components${subjectLabel ? ` — ${subjectLabel}` : ''}`}
@@ -174,25 +131,7 @@ export function ComponentEditor({
           }
         />
 
-        <div className="themed-scrollbar grid max-h-[68svh] gap-3 overflow-y-auto bg-gradient-to-br from-primary/[0.025] via-background to-violet-500/[0.035] p-4 sm:p-5">
-          {!isGradeOnlySubject && rows.length === 0 && (
-            <div className="grid gap-2 rounded-md border border-sky-200/80 bg-gradient-to-r from-sky-50 via-white to-violet-50 p-3 shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10 sm:grid-cols-2">
-              <p className="col-span-full text-xs text-muted-foreground">Start from a preset:</p>
-              {COMPONENT_PRESETS.map((p) => (
-                <Button
-                  key={p.name}
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="justify-start text-xs"
-                  onClick={() => applyPreset(p)}
-                >
-                  {p.name}
-                </Button>
-              ))}
-            </div>
-          )}
-
+        <div className="themed-scrollbar min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain bg-gradient-to-br from-primary/[0.025] via-background to-violet-500/[0.035] p-4 sm:p-5">
           <div className="space-y-2">
             {rows.map((row, idx) => (
               <div

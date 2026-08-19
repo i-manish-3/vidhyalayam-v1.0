@@ -46,6 +46,9 @@ interface SubjectConfig {
   subjectId: string
   totalMarks: number
   gradeOnly: boolean
+  class?: { id: string; name: string } | null
+  subject?: { id: string; name: string } | null
+  section?: { id: string; name: string } | null
 }
 
 interface ExamDetail {
@@ -128,15 +131,45 @@ export function ExamSchedulePage({ examId }: Props) {
     void load()
   }, [load])
 
-  const classLookup = useMemo(() => new Map(classes.map((c) => [c.id, c])), [classes])
-  const subjectLookup = useMemo(() => new Map(subjects.map((s) => [s.id, s])), [subjects])
-
   // Distinct (class, section, subject) configs available for scheduling.
   const availableConfigs = exam?.subjectConfigs ?? []
+
+  const classLookup = useMemo(() => {
+    const map = new Map(classes.map((c) => [c.id, c]))
+    for (const c of availableConfigs) {
+      if (c.class && !map.has(c.class.id)) {
+        map.set(c.class.id, { id: c.class.id, name: c.class.name })
+      }
+    }
+    return map
+  }, [classes, availableConfigs])
+  const subjectLookup = useMemo(() => {
+    const map = new Map(subjects.map((s) => [s.id, s]))
+    for (const c of availableConfigs) {
+      if (c.subject && !map.has(c.subject.id)) {
+        map.set(c.subject.id, { id: c.subject.id, name: c.subject.name })
+      }
+    }
+    return map
+  }, [subjects, availableConfigs])
 
   const scheduleClassIds = useMemo(
     () => Array.from(new Set(availableConfigs.map((c) => c.classId))),
     [availableConfigs],
+  )
+
+  // Sections for a class: prefer the classes list, then fall back to the names
+  // embedded in the exam's configs (covers soft-deleted classes).
+  const sectionsForClass = useCallback(
+    (cid: string) => {
+      const fromClasses = classLookup.get(cid)?.sections ?? []
+      const fromConfigs = new Map<string, { id: string; name: string }>()
+      for (const c of availableConfigs) {
+        if (c.classId === cid && c.section) fromConfigs.set(c.section.id, c.section)
+      }
+      return [...fromClasses, ...fromConfigs.values()]
+    },
+    [classLookup, availableConfigs],
   )
 
   const patternSourceId = patternSource || scheduleClassIds[0] || ''
@@ -589,7 +622,7 @@ export function ExamSchedulePage({ examId }: Props) {
                       <SelectTrigger className="h-8 bg-white dark:bg-input/30"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="__all">All sections</SelectItem>
-                        {(klass?.sections ?? []).map((s) => (
+                        {sectionsForClass(r.classId).map((s) => (
                           <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
                         ))}
                       </SelectContent>

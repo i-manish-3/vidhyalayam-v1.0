@@ -241,8 +241,20 @@ export function ExamFormPage({ examId }: Props) {
         })),
       }
       if (isEdit && examId) {
-        await api.patch(`/api/school/exams/${examId}`, payload)
-        toast({ title: 'Exam updated' })
+        const res = await api.patch<{
+          classesAdded?: number
+          classesRemoved?: number
+          subjectsAdded?: number
+        }>(`/api/school/exams/${examId}`, payload)
+        const summary = [
+          res.classesAdded ? `${res.classesAdded} class${res.classesAdded === 1 ? '' : 'es'} added` : '',
+          res.classesRemoved ? `${res.classesRemoved} class${res.classesRemoved === 1 ? '' : 'es'} removed` : '',
+          res.subjectsAdded ? `${res.subjectsAdded} subject${res.subjectsAdded === 1 ? '' : 's'} auto-included` : '',
+        ].filter(Boolean)
+        toast({
+          title: 'Exam updated',
+          description: summary.length > 0 ? summary.join(' · ') : undefined,
+        })
         router.push(`/exams/${examId}/configure`)
       } else {
         const res = await api.post<{ exam: { id: string }; autoAddedSubjects?: number }>('/api/school/exams', payload)

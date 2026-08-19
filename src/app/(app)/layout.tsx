@@ -7,6 +7,20 @@ import { useAppStore } from '@/lib/store'
 import { AppShell } from '@/components/app-shell'
 import { BrandHeadManager } from '@/components/brand-head-manager'
 
+// Chrome extensions that wrap `fetch` (e.g. frame_ant) can leave their own
+// unhandled promise rejections on the page. They are not ours and cannot be
+// caught in app code — suppress the console noise for rejections that
+// originate inside an extension frame.
+if (typeof window !== 'undefined') {
+  window.addEventListener('unhandledrejection', (event) => {
+    const reason = event.reason
+    const stack = reason instanceof Error ? reason.stack : String(reason)
+    if (stack && stack.includes('chrome-extension://')) {
+      event.preventDefault()
+    }
+  })
+}
+
 function AuthenticatedShell({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const isAuthenticated = useAppStore((s) => s.isAuthenticated)

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { requireRole, requirePermission } from '@/lib/api-auth'
 import { unauthorizedError, notFoundError, internalError, apiError, forbiddenError } from '@/lib/api-errors'
-import { logExamChange, extractExamAuditContext } from '@/lib/audit/exam-audit'
+import { logExamChange, logExamChangesBatch, extractExamAuditContext } from '@/lib/audit/exam-audit'
 
 const VALID_EXAM_TYPES = [
   'written',
@@ -85,7 +85,47 @@ export async function GET(
     })
 
     if (!exam) return notFoundError('Exam')
-    return NextResponse.json({ exam })
+
+    // ExamSubjectConfig stores raw ids only — enrich with class/subject/section
+    // names so clients never have to fall back to showing a raw id (classes may
+    // be soft-deleted and missing from the /api/school/classes list).
+    const classIds = Array.from(new Set(exam.subjectConfigs.map((c) => c.classId)))
+    const subjectIds = Array.from(new Set(exam.subjectConfigs.map((c) => c.subjectId)))
+    const sectionIds = Array.from(
+      new Set(exam.subjectConfigs.map((c) => c.sectionId).filter((x): x is string => Boolean(x))),
+    )
+    const [classRows, subjectRows, sectionRows] = await Promise.all([
+      db.class.findMany({
+        where: { id: { in: classIds } },
+        select: { id: true, name: true },
+      }),
+      db.subject.findMany({
+        where: { id: { in: subjectIds } },
+        select: { id: true, name: true },
+      }),
+      db.section.findMany({
+        where: { id: { in: sectionIds } },
+        select: { id: true, name: true },
+      }),
+    ])
+    const classNameById = new Map(classRows.map((c) => [c.id, c.name]))
+    const subjectNameById = new Map(subjectRows.map((s) => [s.id, s.name]))
+    const sectionNameById = new Map(sectionRows.map((s) => [s.id, s.name]))
+
+    const subjectConfigs = exam.subjectConfigs.map((c) => ({
+      ...c,
+      class: classNameById.get(c.classId)
+        ? { id: c.classId, name: classNameById.get(c.classId) }
+        : null,
+      subject: subjectNameById.get(c.subjectId)
+        ? { id: c.subjectId, name: subjectNameById.get(c.subjectId) }
+        : null,
+      section: c.sectionId && sectionNameById.get(c.sectionId)
+        ? { id: c.sectionId, name: sectionNameById.get(c.sectionId) }
+        : null,
+    }))
+
+    return NextResponse.json({ exam: { ...exam, subjectConfigs } })
   } catch (error) {
     console.error('Get exam error:', error)
     return internalError('loading the exam')
@@ -184,8 +224,40 @@ export async function PATCH(
       }
     }
 
+    // When classes change, subject configs must follow: added classes get their
+    // class syllabus auto-included (like creation), removed classes are
+    // soft-deleted together with their schedule rows — unless marks exist.
+    const oldClassIds = existing.examClasses.map((ec) => ec.classId)
+    const newClassIds = classRows.rows ? classRows.rows.map((r) => r.classId) : oldClassIds
+    const removedClasses = classRows.rows
+      ? oldClassIds.filter((cid) => !newClassIds.includes(cid))
+      : []
+    const addedClasses = classRows.rows
+      ? newClassIds.filter((cid) => !oldClassIds.includes(cid))
+      : []
+
+    if (removedClasses.length > 0) {
+      const removedConfigs = await db.examSubjectConfig.findMany({
+        where: { examId: id, classId: { in: removedClasses }, deletedAt: null },
+        select: { id: true },
+      })
+      const removedConfigIds = removedConfigs.map((c) => c.id)
+      const liveMarks = removedConfigIds.length
+        ? await db.marksEntry.count({
+            where: { subjectConfigId: { in: removedConfigIds }, deletedAt: null },
+          })
+        : 0
+      if (liveMarks > 0) {
+        return apiError(
+          409,
+          'Marks have already been entered for one of the removed classes. Soft-delete those marks before removing the class.',
+        )
+      }
+    }
+
     const schoolId = user.schoolId
     const auditCtx = extractExamAuditContext(request, user.userId)
+    let subjectsAdded = 0
 
     const updated = await db.$transaction(async (tx) => {
       if (classRows.rows !== undefined) {
@@ -200,6 +272,67 @@ export async function PATCH(
             })),
           })
         }
+      }
+
+      const auditEntries: Parameters<typeof logExamChangesBatch>[2][number][] = []
+
+      if (removedClasses.length > 0) {
+        const now = new Date()
+        await tx.examSubjectConfig.updateMany({
+          where: { examId: id, classId: { in: removedClasses }, deletedAt: null },
+          data: { deletedAt: now },
+        })
+        await tx.examSchedule.deleteMany({
+          where: { examId: id, classId: { in: removedClasses } },
+        })
+      }
+
+      if (addedClasses.length > 0) {
+        const classSubjectRows = await tx.classSubject.findMany({
+          where: { classId: { in: addedClasses } },
+          select: { classId: true, subjectId: true },
+        })
+        for (const row of classSubjectRows) {
+          const existingCfg = await tx.examSubjectConfig.findFirst({
+            where: { examId: id, classId: row.classId, subjectId: row.subjectId, sectionId: null },
+            select: { id: true, deletedAt: true },
+          })
+          if (existingCfg) {
+            if (existingCfg.deletedAt) {
+              await tx.examSubjectConfig.update({
+                where: { id: existingCfg.id },
+                data: { deletedAt: null },
+              })
+              subjectsAdded += 1
+            }
+            continue
+          }
+          const cfg = await tx.examSubjectConfig.create({
+            data: {
+              schoolId,
+              examId: id,
+              classId: row.classId,
+              sectionId: null,
+              subjectId: row.subjectId,
+              isCompulsory: true,
+              totalMarks: 100,
+              passingMarks: 33,
+            },
+          })
+          subjectsAdded += 1
+          auditEntries.push({
+            entityType: 'ExamSubjectConfig',
+            entityId: cfg.id,
+            action: 'created',
+            oldValue: null,
+            newValue: cfg,
+            examId: id,
+          })
+        }
+      }
+
+      if (auditEntries.length) {
+        await logExamChangesBatch(tx, schoolId, auditEntries, { ...auditCtx, examId: id })
       }
 
       const result = await tx.exam.update({
@@ -220,7 +353,13 @@ export async function PATCH(
       return result
     })
 
-    return NextResponse.json({ exam: updated, message: 'Exam updated.' })
+    return NextResponse.json({
+      exam: updated,
+      message: 'Exam updated.',
+      classesAdded: addedClasses.length,
+      classesRemoved: removedClasses.length,
+      subjectsAdded,
+    })
   } catch (error) {
     console.error('Update exam error:', error)
     return internalError('updating the exam')

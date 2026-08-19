@@ -29,10 +29,10 @@ import { useToast } from '@/hooks/use-toast'
 import { PERMISSIONS, usePermissions } from '@/hooks/use-permissions'
 import {
   ComponentEditor,
-  COMPONENT_PRESETS,
+  makeBlankComponentRow,
   type ExamComponentRow,
 } from '@/features/exams/components/component-editor'
-import { Pencil, Settings2, Trash2, Calendar as CalIcon, Layers3, Wand2 } from 'lucide-react'
+import { Pencil, Settings2, Trash2, Calendar as CalIcon, Layers3, Wand2, Plus, AlertCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { examStatusMeta } from '@/features/exams/lib/status-meta'
 
@@ -51,6 +51,9 @@ interface SubjectConfig {
   examDate: string | null
   durationMinutes: number | null
   components: ExamComponentRow[]
+  class?: { id: string; name: string } | null
+  subject?: { id: string; name: string } | null
+  section?: { id: string; name: string } | null
 }
 
 interface ClassOption {
@@ -101,6 +104,7 @@ export function ExamConfigurePage({ examId }: Props) {
   const [savingComponents, setSavingComponents] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<SubjectConfig | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [activeClassId, setActiveClassId] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -131,14 +135,24 @@ export function ExamConfigurePage({ examId }: Props) {
     void load()
   }, [load])
 
-  const classLookup = useMemo(
-    () => new Map(classes.map((c) => [c.id, c])),
-    [classes],
-  )
-  const subjectLookup = useMemo(
-    () => new Map(subjects.map((s) => [s.id, s])),
-    [subjects],
-  )
+  const classLookup = useMemo(() => {
+    const map = new Map(classes.map((c) => [c.id, c]))
+    for (const c of configs) {
+      if (c.class && !map.has(c.class.id)) {
+        map.set(c.class.id, { id: c.class.id, name: c.class.name })
+      }
+    }
+    return map
+  }, [classes, configs])
+  const subjectLookup = useMemo(() => {
+    const map = new Map(subjects.map((s) => [s.id, s]))
+    for (const c of configs) {
+      if (c.subject && !map.has(c.subject.id)) {
+        map.set(c.subject.id, { id: c.subject.id, name: c.subject.name })
+      }
+    }
+    return map
+  }, [subjects, configs])
 
   const grouped = useMemo(() => {
     const map = new Map<string, SubjectConfig[]>()
@@ -149,6 +163,13 @@ export function ExamConfigurePage({ examId }: Props) {
     }
     return map
   }, [configs])
+
+  const classIds = useMemo(() => Array.from(grouped.keys()), [grouped])
+  const currentClassId = useMemo(
+    () =>
+      activeClassId && classIds.includes(activeClassId) ? activeClassId : classIds[0] ?? null,
+    [activeClassId, classIds],
+  )
 
   async function handleDeleteConfig() {
     if (!deleteTarget) return
@@ -233,6 +254,17 @@ export function ExamConfigurePage({ examId }: Props) {
           icon: CalIcon,
           onClick: () => router.push(`/exams/${examId}/schedule`),
         }}
+        extraActions={
+          hasAnyPermission([PERMISSIONS.EXAM_MANAGE]) ? (
+            <Button
+              variant="secondary"
+              onClick={() => router.push(`/exams/${examId}/edit`)}
+              className="gap-2 border border-white/60 bg-white/15 text-white shadow-md backdrop-blur-sm hover:bg-white/25"
+            >
+              <Pencil className="size-4" /> Edit classes
+            </Button>
+          ) : undefined
+        }
       />
 
       {configs.length === 0 ? (
@@ -243,115 +275,145 @@ export function ExamConfigurePage({ examId }: Props) {
         />
       ) : (
         <div className="space-y-4">
-          {Array.from(grouped.entries()).map(([classId, configsForClass], groupIndex) => {
-            const klass = classLookup.get(classId)
-            return (
-              <Card
-                key={classId}
-                className={cn('gap-0 overflow-hidden border bg-gradient-to-br py-0 shadow-sm', CLASS_TONES[groupIndex % CLASS_TONES.length])}
-              >
-                <div className="flex items-center gap-2 border-b border-current/10 bg-gradient-to-r from-sky-500/[0.08] via-white/40 to-violet-500/[0.08] px-4 py-2.5">
-                  <span className="flex size-5 items-center justify-center rounded-md bg-gradient-to-br from-primary to-cyan-600 text-white">
-                    <Layers3 className="size-3 text-white" />
+          <div className="flex flex-wrap gap-2">
+            {classIds.map((classId, i) => {
+              const active = classId === currentClassId
+              const klass = classLookup.get(classId)
+              const count = grouped.get(classId)?.length ?? 0
+              return (
+                <button
+                  key={classId}
+                  type="button"
+                  onClick={() => setActiveClassId(classId)}
+                  className={cn(
+                    'flex items-center gap-2 rounded-lg border bg-gradient-to-br px-3 py-2 text-sm font-medium shadow-sm transition-all',
+                    CLASS_TONES[i % CLASS_TONES.length],
+                    active
+                      ? 'ring-2 ring-primary/40'
+                      : 'opacity-80 hover:opacity-100 hover:shadow-md',
+                  )}
+                >
+                  <Layers3 className="size-3.5" />
+                  {klass?.name ?? classId}
+                  <span className="ml-0.5 rounded-full bg-white/70 px-1.5 py-0.5 text-[10px] font-semibold text-foreground/70 dark:bg-card/70">
+                    {count}
                   </span>
-                  <h3 className="text-sm font-semibold">{klass?.name ?? classId}</h3>
-                  <span className="text-xs text-muted-foreground">
-                    · {configsForClass.length} subject{configsForClass.length === 1 ? '' : 's'}
-                  </span>
-                </div>
-                <CardContent className="space-y-2 p-3">
-                  {configsForClass.map((c) => {
-                    const subject = subjectLookup.get(c.subjectId)
-                    const componentSum = c.components.reduce((s, x) => s + x.maxMarks, 0)
-                    const sumOk = c.gradeOnly || c.components.length === 0 || Math.abs(componentSum - c.totalMarks) < 0.01
-                    return (
-                      <div
-                        key={c.id}
-                        className="flex flex-col gap-2 rounded-md border border-current/10 bg-white/70 p-3 shadow-sm transition-all hover:shadow-md dark:bg-card/60 sm:flex-row sm:items-center sm:justify-between"
-                      >
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium">{subject?.name ?? c.subjectId}</span>
-                            {c.gradeOnly && (
-                              <Badge variant="outline" className="h-5 rounded-md px-1.5 text-[10px] border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-500/25 dark:bg-violet-500/10 dark:text-violet-300">
-                                Grade only
-                              </Badge>
+                </button>
+              )
+            })}
+          </div>
+          {currentClassId &&
+            (() => {
+              const configsForClass = grouped.get(currentClassId) ?? []
+              const groupIndex = classIds.indexOf(currentClassId)
+              const klass = classLookup.get(currentClassId)
+              return (
+                <Card
+                  key={currentClassId}
+                  className={cn('gap-0 overflow-hidden border bg-gradient-to-br py-0 shadow-sm', CLASS_TONES[groupIndex % CLASS_TONES.length])}
+                >
+                  <div className="flex items-center gap-2 border-b border-current/10 bg-gradient-to-r from-sky-500/[0.08] via-white/40 to-violet-500/[0.08] px-4 py-2.5">
+                    <span className="flex size-5 items-center justify-center rounded-md bg-gradient-to-br from-primary to-cyan-600 text-white">
+                      <Layers3 className="size-3 text-white" />
+                    </span>
+                    <h3 className="text-sm font-semibold">{klass?.name ?? currentClassId}</h3>
+                    <span className="text-xs text-muted-foreground">
+                      · {configsForClass.length} subject{configsForClass.length === 1 ? '' : 's'}
+                    </span>
+                  </div>
+                  <CardContent className="space-y-2 p-3">
+                    {configsForClass.map((c) => {
+                      const subject = subjectLookup.get(c.subjectId)
+                      const componentSum = c.components.reduce((s, x) => s + x.maxMarks, 0)
+                      const sumOk = c.gradeOnly || c.components.length === 0 || Math.abs(componentSum - c.totalMarks) < 0.01
+                      return (
+                        <div
+                          key={c.id}
+                          className="flex flex-col gap-2 rounded-md border border-current/10 bg-white/70 p-3 shadow-sm transition-all hover:shadow-md dark:bg-card/60 sm:flex-row sm:items-center sm:justify-between"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium">{subject?.name ?? c.subjectId}</span>
+                              {c.gradeOnly && (
+                                <Badge variant="outline" className="h-5 rounded-md px-1.5 text-[10px] border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-500/25 dark:bg-violet-500/10 dark:text-violet-300">
+                                  Grade only
+                                </Badge>
+                              )}
+                              {c.isOptional && (
+                                <Badge variant="outline" className="h-5 rounded-md px-1.5 text-[10px] border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-300">
+                                  Optional
+                                </Badge>
+                              )}
+                              {c.isAdditional && (
+                                <Badge variant="outline" className="h-5 rounded-md px-1.5 text-[10px] border-teal-200 bg-teal-50 text-teal-700 dark:border-teal-500/25 dark:bg-teal-500/10 dark:text-teal-300">
+                                  Additional
+                                </Badge>
+                              )}
+                              {c.sectionId && (
+                                <Badge variant="outline" className="h-5 rounded-md px-1.5 text-[10px]">
+                                  Section: {c.section?.name ?? klass?.sections?.find((s) => s.id === c.sectionId)?.name ?? c.sectionId}
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="mt-0.5 text-xs text-muted-foreground">
+                              {c.gradeOnly
+                                ? 'No numeric marks'
+                                : `${c.totalMarks} marks · pass at ${c.passingMarks}`}
+                              {c.graceMarksMax > 0 ? ` · grace ≤ ${c.graceMarksMax}` : ''}
+                            </p>
+                            <p className="mt-0.5 text-xs">
+                              <span className="text-muted-foreground">Components: </span>
+                              {c.components.length === 0 ? (
+                                <span className="text-amber-600">none yet</span>
+                              ) : (
+                                <span className={sumOk ? 'text-emerald-600' : 'text-destructive'}>
+                                  {c.components.map((x) => `${x.name} ${x.maxMarks}`).join(' · ')}
+                                  {!sumOk ? ` (sum ${componentSum}/${c.totalMarks})` : ''}
+                                </span>
+                              )}
+                            </p>
+                          </div>
+                          <div className="flex gap-1.5">
+                            {hasAnyPermission([PERMISSIONS.EXAM_MANAGE]) && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 gap-1.5 border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100 dark:border-sky-500/25 dark:bg-sky-500/10 dark:text-sky-300"
+                                onClick={() => setComponentEditing(c)}
+                              >
+                                <Settings2 className="size-3.5" /> Components
+                              </Button>
                             )}
-                            {c.isOptional && (
-                              <Badge variant="outline" className="h-5 rounded-md px-1.5 text-[10px] border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-300">
-                                Optional
-                              </Badge>
+                            {hasAnyPermission([PERMISSIONS.EXAM_MANAGE]) && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="size-8 border-sky-200 bg-sky-50 p-0 text-sky-700 hover:bg-sky-100 dark:border-sky-500/25 dark:bg-sky-500/10 dark:text-sky-300"
+                                onClick={() => setEditing(c)}
+                                aria-label="Edit config"
+                              >
+                                <Pencil className="size-3.5" />
+                              </Button>
                             )}
-                            {c.isAdditional && (
-                              <Badge variant="outline" className="h-5 rounded-md px-1.5 text-[10px] border-teal-200 bg-teal-50 text-teal-700 dark:border-teal-500/25 dark:bg-teal-500/10 dark:text-teal-300">
-                                Additional
-                              </Badge>
-                            )}
-                            {c.sectionId && (
-                              <Badge variant="outline" className="h-5 rounded-md px-1.5 text-[10px]">
-                                Section: {klass?.sections?.find((s) => s.id === c.sectionId)?.name ?? c.sectionId}
-                              </Badge>
+                            {hasAnyPermission([PERMISSIONS.EXAM_MANAGE]) && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="size-8 border-red-200 bg-red-50 p-0 text-red-700 hover:bg-red-100 dark:border-red-500/25 dark:bg-red-500/10 dark:text-red-300"
+                                onClick={() => setDeleteTarget(c)}
+                                aria-label="Remove subject"
+                              >
+                                <Trash2 className="size-3.5" />
+                              </Button>
                             )}
                           </div>
-                          <p className="mt-0.5 text-xs text-muted-foreground">
-                            {c.gradeOnly
-                              ? 'No numeric marks'
-                              : `${c.totalMarks} marks · pass at ${c.passingMarks}`}
-                            {c.graceMarksMax > 0 ? ` · grace ≤ ${c.graceMarksMax}` : ''}
-                          </p>
-                          <p className="mt-0.5 text-xs">
-                            <span className="text-muted-foreground">Components: </span>
-                            {c.components.length === 0 ? (
-                              <span className="text-amber-600">none yet</span>
-                            ) : (
-                              <span className={sumOk ? 'text-emerald-600' : 'text-destructive'}>
-                                {c.components.map((x) => `${x.name} ${x.maxMarks}`).join(' · ')}
-                                {!sumOk ? ` (sum ${componentSum}/${c.totalMarks})` : ''}
-                              </span>
-                            )}
-                          </p>
                         </div>
-                        <div className="flex gap-1.5">
-                          {hasAnyPermission([PERMISSIONS.EXAM_MANAGE]) && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="h-8 gap-1.5 border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100 dark:border-sky-500/25 dark:bg-sky-500/10 dark:text-sky-300"
-                              onClick={() => setComponentEditing(c)}
-                            >
-                              <Settings2 className="size-3.5" /> Components
-                            </Button>
-                          )}
-                          {hasAnyPermission([PERMISSIONS.EXAM_MANAGE]) && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="size-8 border-sky-200 bg-sky-50 p-0 text-sky-700 hover:bg-sky-100 dark:border-sky-500/25 dark:bg-sky-500/10 dark:text-sky-300"
-                              onClick={() => setEditing(c)}
-                              aria-label="Edit config"
-                            >
-                              <Pencil className="size-3.5" />
-                            </Button>
-                          )}
-                          {hasAnyPermission([PERMISSIONS.EXAM_MANAGE]) && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="size-8 border-red-200 bg-red-50 p-0 text-red-700 hover:bg-red-100 dark:border-red-500/25 dark:bg-red-500/10 dark:text-red-300"
-                              onClick={() => setDeleteTarget(c)}
-                              aria-label="Remove subject"
-                            >
-                              <Trash2 className="size-3.5" />
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    )
-                  })}
-                </CardContent>
-              </Card>
-            )
-          })}
+                      )
+                    })}
+                  </CardContent>
+                </Card>
+              )
+            })()}
         </div>
       )}
 
@@ -544,7 +606,7 @@ function BulkComponentsDialog({
   onSaved,
 }: BulkComponentsDialogProps) {
   const { toast } = useToast()
-  const [presetName, setPresetName] = useState(COMPONENT_PRESETS[1].name)
+  const [rows, setRows] = useState<ExamComponentRow[]>([])
   const [selectedClassIds, setSelectedClassIds] = useState<string[]>([])
   const [onlyMissing, setOnlyMissing] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -556,12 +618,71 @@ function BulkComponentsDialog({
 
   useEffect(() => {
     if (!open) return
-    setPresetName(COMPONENT_PRESETS[1].name)
+    setRows([makeBlankComponentRow(0, false)])
     setSelectedClassIds(classIdsWithConfigs)
     setOnlyMissing(true)
   }, [open, classIdsWithConfigs])
 
-  const preset = COMPONENT_PRESETS.find((p) => p.name === presetName) ?? COMPONENT_PRESETS[0]
+  const seenNames = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const r of rows) {
+      const key = r.name.trim().toLowerCase()
+      if (!key) continue
+      counts.set(key, (counts.get(key) ?? 0) + 1)
+    }
+    return counts
+  }, [rows])
+
+  const rowErrors = rows.map((r) => {
+    if (!r.name.trim()) return 'Name required.'
+    if (seenNames.get(r.name.trim().toLowerCase())! > 1) return 'Duplicate name.'
+    if (!r.gradeOnly) {
+      if (!Number.isFinite(r.maxMarks) || r.maxMarks < 0) return 'Max marks must be ≥ 0.'
+      if (r.passingMarks < 0 || r.passingMarks > r.maxMarks) return 'Passing marks must be between 0 and max.'
+    }
+    return null
+  })
+
+  const numericSum = useMemo(
+    () => rows.filter((r) => !r.gradeOnly).reduce((s, r) => s + (Number(r.maxMarks) || 0), 0),
+    [rows],
+  )
+
+  const canApply =
+    !saving &&
+    rows.length > 0 &&
+    rowErrors.every((e) => e === null) &&
+    rows.some((r) => !r.gradeOnly && (Number(r.maxMarks) || 0) > 0)
+
+  function updateRow(idx: number, patch: Partial<ExamComponentRow>) {
+    setRows((prev) => prev.map((r, i) => (i === idx ? { ...r, ...patch } : r)))
+  }
+  function removeRow(idx: number) {
+    setRows((prev) => prev.filter((_, i) => i !== idx))
+  }
+  function addRow(gradeOnly = false) {
+    setRows((prev) => [...prev, makeBlankComponentRow(prev.length, gradeOnly)])
+  }
+
+  // Scale the user's split proportionally onto each subject's total marks.
+  // The last numeric row absorbs rounding so sums always match the total.
+  function buildForTotal(source: ExamComponentRow[], total: number): ExamComponentRow[] {
+    const numeric = source.filter((r) => !r.gradeOnly)
+    const sumMax = numeric.reduce((s, r) => s + (Number(r.maxMarks) || 0), 0)
+    const lastNumeric = numeric[numeric.length - 1]
+    let used = 0
+    return source.map((r, i) => {
+      if (r.gradeOnly) return { ...r, sequence: i, maxMarks: 0, passingMarks: 0 }
+      const share = sumMax > 0 ? (Number(r.maxMarks) || 0) / sumMax : 1 / numeric.length
+      const max = r === lastNumeric ? total - used : Math.round(total * share)
+      used += max
+      const pass =
+        r.passingMarks > 0 && (Number(r.maxMarks) || 0) > 0
+          ? Math.round((r.passingMarks / Number(r.maxMarks)) * max)
+          : 0
+      return { ...r, sequence: i, maxMarks: max, passingMarks: pass }
+    })
+  }
 
   const eligible = useMemo(
     () =>
@@ -595,7 +716,7 @@ function BulkComponentsDialog({
       }>(`/api/school/exams/${examId}/components/bulk`, {
         configs: eligible.map((c) => ({
           configId: c.id,
-          components: preset.build(c.totalMarks),
+          components: buildForTotal(rows, c.totalMarks),
         })),
       })
       toast({ title: 'Components applied', description: res.message })
@@ -620,38 +741,107 @@ function BulkComponentsDialog({
 
   return (
     <Dialog open={open} onOpenChange={(o) => !saving && !o && onClose()}>
-      <DialogContent className="max-h-[90svh] overflow-hidden border-primary/20 bg-card p-0 shadow-2xl shadow-primary/15 sm:max-w-2xl [&>button]:right-3 [&>button]:top-3 [&>button]:rounded-full [&>button]:text-white [&>button]:opacity-80 [&>button]:hover:bg-white/15 [&>button]:hover:opacity-100">
+      <DialogContent className="flex max-h-[90svh] flex-col overflow-hidden border-primary/20 bg-card p-0 shadow-2xl shadow-primary/15 sm:max-w-2xl [&>button]:right-3 [&>button]:top-3 [&>button]:rounded-full [&>button]:text-white [&>button]:opacity-80 [&>button]:hover:bg-white/15 [&>button]:hover:opacity-100">
         <GradientDialogHeader
           icon={Wand2}
           title="Bulk components"
-          description="Apply one component split to every subject at once — no per-subject setup."
+          description="Build a component split once and apply it to every subject at once."
         />
 
-        <div className="themed-scrollbar grid max-h-[68svh] gap-3 overflow-y-auto bg-gradient-to-br from-primary/[0.025] via-background to-violet-500/[0.035] p-4 sm:p-5">
+        <div className="themed-scrollbar min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain bg-gradient-to-br from-primary/[0.025] via-background to-violet-500/[0.035] p-4 sm:p-5">
           <section className="relative overflow-hidden rounded-xl border border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-violet-50 p-4 shadow-sm dark:border-sky-500/25 dark:from-sky-500/15 dark:via-card dark:to-violet-500/10">
             <div className="relative mb-3 flex items-center gap-2">
               <span className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-violet-600 text-white shadow-sm"><Layers3 className="size-4 text-white" /></span>
-              <div><h3 className="text-sm font-semibold">Component split</h3><p className="text-[10px] text-muted-foreground">Preset percentages scale to each subject's total marks</p></div>
+              <div><h3 className="text-sm font-semibold">Component split</h3><p className="text-[10px] text-muted-foreground">Build your own split — marks scale proportionally to each subject's total</p></div>
             </div>
-            <div className="relative grid gap-2 sm:grid-cols-2">
-              {COMPONENT_PRESETS.map((p) => {
-                const active = p.name === presetName
-                return (
-                  <Button
-                    key={p.name}
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className={cn(
-                      'justify-start text-xs',
-                      active && 'border-sky-400 bg-sky-50 text-sky-700 shadow-sm dark:border-sky-500/60 dark:bg-sky-500/15 dark:text-sky-300',
-                    )}
-                    onClick={() => setPresetName(p.name)}
-                  >
-                    {p.name}
+            <div className="relative space-y-2">
+              {rows.map((row, idx) => (
+                <div key={idx} className="grid grid-cols-12 gap-2 rounded-md border border-current/10 bg-white/70 p-2 shadow-sm dark:bg-card/60">
+                  <div className="col-span-12 sm:col-span-4">
+                    <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Name</Label>
+                    <Input
+                      className="h-8"
+                      placeholder="Theory"
+                      value={row.name}
+                      onChange={(e) => updateRow(idx, { name: e.target.value })}
+                    />
+                  </div>
+                  <div className="col-span-4 sm:col-span-2">
+                    <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Code</Label>
+                    <Input
+                      className="h-8"
+                      placeholder="TH"
+                      value={row.shortCode ?? ''}
+                      onChange={(e) => updateRow(idx, { shortCode: e.target.value })}
+                    />
+                  </div>
+                  <div className="col-span-4 sm:col-span-2">
+                    <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Max</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      className="h-8"
+                      disabled={row.gradeOnly}
+                      value={row.maxMarks}
+                      onChange={(e) =>
+                        updateRow(idx, { maxMarks: Math.max(0, Number(e.target.value) || 0) })
+                      }
+                    />
+                  </div>
+                  <div className="col-span-4 sm:col-span-2">
+                    <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Pass</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      className="h-8"
+                      disabled={row.gradeOnly}
+                      value={row.passingMarks}
+                      onChange={(e) =>
+                        updateRow(idx, { passingMarks: Math.max(0, Number(e.target.value) || 0) })
+                      }
+                    />
+                  </div>
+                  <div className="col-span-9 flex items-center gap-2 sm:col-span-1">
+                    <label className="flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground">
+                      <Checkbox
+                        checked={row.gradeOnly}
+                        onCheckedChange={(v) => updateRow(idx, { gradeOnly: Boolean(v), maxMarks: 0, passingMarks: 0 })}
+                      />
+                      Grade
+                    </label>
+                  </div>
+                  <div className="col-span-3 flex items-end justify-end sm:col-span-1">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="size-8"
+                      onClick={() => removeRow(idx)}
+                      aria-label="Remove component"
+                    >
+                      <Trash2 className="size-4" />
+                    </Button>
+                  </div>
+                  {rowErrors[idx] && (
+                    <p className="col-span-12 flex items-center gap-1 text-xs text-destructive">
+                      <AlertCircle className="size-3" /> {rowErrors[idx]}
+                    </p>
+                  )}
+                </div>
+              ))}
+              <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                <div className="flex gap-2">
+                  <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={() => addRow(false)}>
+                    <Plus className="size-3.5" /> Add component
                   </Button>
-                )
-              })}
+                  <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={() => addRow(true)}>
+                    <Plus className="size-3.5" /> Add grade-only
+                  </Button>
+                </div>
+                <span className="text-xs text-muted-foreground">
+                  Total: {numericSum} (relative — scaled per subject)
+                </span>
+              </div>
             </div>
           </section>
 
@@ -683,7 +873,7 @@ function BulkComponentsDialog({
                     )}
                   </div>
                 </div>
-                <div className="max-h-52 space-y-1 overflow-y-auto rounded-md border border-violet-200/80 bg-white/70 p-2 shadow-sm dark:border-violet-500/25 dark:bg-card/60">
+                <div className="space-y-1 rounded-md border border-violet-200/80 bg-white/70 p-2 shadow-sm dark:border-violet-500/25 dark:bg-card/60">
                   {classIdsWithConfigs.map((cid) => (
                     <label
                       key={cid}
@@ -718,7 +908,7 @@ function BulkComponentsDialog({
 
           <div className="flex justify-end gap-2 pt-1">
             <Button variant="outline" onClick={onClose} disabled={saving}>Cancel</Button>
-            <Button onClick={() => void handleApply()} disabled={eligible.length === 0 || saving}>
+            <Button onClick={() => void handleApply()} disabled={eligible.length === 0 || !canApply}>
               {saving ? 'Applying…' : `Apply to ${eligible.length} subject${eligible.length === 1 ? '' : 's'}`}
             </Button>
           </div>

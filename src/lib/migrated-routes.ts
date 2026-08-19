@@ -88,6 +88,7 @@ export const MIGRATED_PAGES: Partial<Record<PageName, (...args: string[]) => str
   'exam-report-card-templates': () => '/exams/report-card-templates',
   'exam-report-card-template-edit': (id?: string) => (id ? `/exams/report-card-templates/${id}/edit` : '/exams/report-card-templates'),
   'exam-audit-log': () => '/audit-logs/exams',
+  'birthdays': () => '/birthdays',
   'teacher-subject-assignments': () => '/settings/teacher-subjects',
   'student-subject-mappings': () => '/academics/student-subjects',
   'library': () => '/library',

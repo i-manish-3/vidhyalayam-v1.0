@@ -96,6 +96,7 @@ function PastYearGlobalBanner() {
 // Searchable items for universal search
 const SEARCH_ITEMS: { label: string; page: PageName; keywords: string[] }[] = [
   { label: 'Dashboard', page: 'dashboard', keywords: ['home', 'overview', 'main'] },
+  { label: 'Birthdays', page: 'birthdays', keywords: ['birthday', 'wish', 'celebration', 'cake', 'instagram'] },
   { label: 'Students', page: 'students', keywords: ['learner', 'pupil', 'admission'] },
   { label: 'Student Houses', page: 'student-houses', keywords: ['house', 'red house', 'blue house', 'student house', 'assign house'] },
   { label: 'Alumni', page: 'alumni', keywords: ['passout', 'pass out', 'graduate', 'ex-student', 'tc', 'transfer certificate', 'left', 'withdrawn', 'old students'] },
