@@ -360,7 +360,7 @@ export function ExamConfigurePage({ examId }: Props) {
                       · {configsForClass.length} subject{configsForClass.length === 1 ? '' : 's'}
                     </span>
                   </div>
-                  <CardContent className="space-y-2 p-3">
+                  <CardContent className="grid gap-2 p-3 sm:grid-cols-2 lg:grid-cols-3">
                     {configsForClass.map((c) => {
                       const subject = subjectLookup.get(c.subjectId)
                       const componentSum = c.components.reduce((s, x) => s + x.maxMarks, 0)
