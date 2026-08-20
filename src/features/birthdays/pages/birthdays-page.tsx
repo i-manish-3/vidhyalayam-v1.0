@@ -18,6 +18,7 @@ import { useAppStore } from '@/lib/store'
 import { cn } from '@/lib/utils'
 import {
   SchoolBirthdayCard,
+  embedCardImages,
   type BirthdayCardSchool,
   type BirthdayCardStudent,
 } from '@/features/birthdays/components/school-birthday-card'
@@ -301,12 +302,12 @@ function BirthdayCardDialog({
     if (!cardRef.current || !person || downloading) return
     onDownloading()
     try {
+      await embedCardImages(cardRef.current)
       const dataUrl = await toPng(cardRef.current, {
         width: 540,
         height: 960,
         pixelRatio: 2,
         cacheBust: true,
-        imagePlaceholder: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
       })
       const a = document.createElement('a')
       a.href = dataUrl

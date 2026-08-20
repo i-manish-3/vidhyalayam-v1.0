@@ -80,12 +80,20 @@ function Candle({ color }: { color: string }) {
 
 const imageDataUrlCache = new Map<string, string>()
 
+function proxiedUrl(url: string): string {
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    return `/api/image-proxy?url=${encodeURIComponent(url)}`
+  }
+  return url
+}
+
 function fetchAsDataUrl(url: string): Promise<string | null> {
-  const cached = imageDataUrlCache.get(url)
+  const key = proxiedUrl(url)
+  const cached = imageDataUrlCache.get(key)
   if (cached) return Promise.resolve(cached)
   return new Promise((resolve) => {
     const xhr = new XMLHttpRequest()
-    xhr.open('GET', url, true)
+    xhr.open('GET', key, true)
     xhr.responseType = 'blob'
     xhr.onload = () => {
       if (xhr.status !== 200) {
@@ -95,7 +103,7 @@ function fetchAsDataUrl(url: string): Promise<string | null> {
       const reader = new FileReader()
       reader.onload = () => {
         const dataUrl = reader.result as string
-        imageDataUrlCache.set(url, dataUrl)
+        imageDataUrlCache.set(key, dataUrl)
         resolve(dataUrl)
       }
       reader.onerror = () => resolve(null)
@@ -122,6 +130,22 @@ function useEmbeddedImage(src: string | null | undefined): string | null {
     }
   }, [src, bySrc])
   return (src && bySrc[src]) ?? src ?? null
+}
+
+// Force every <img> inside the card to a data URL and wait for it to decode
+// before capture. html-to-image cannot fetch cross-origin URLs when drawing the
+// PNG, so without this the photo/school logo render as blank placeholders.
+export async function embedCardImages(root: HTMLElement): Promise<void> {
+  const imgs = Array.from(root.querySelectorAll<HTMLImageElement>('img'))
+  await Promise.all(
+    imgs.map(async (img) => {
+      const src = img.currentSrc || img.src
+      if (!src || src.startsWith('data:')) return
+      const dataUrl = await fetchAsDataUrl(src)
+      if (dataUrl && dataUrl !== img.src) img.src = dataUrl
+    }),
+  )
+  await Promise.all(imgs.map((img) => img.decode().catch(() => undefined)))
 }
 
 export const SchoolBirthdayCard = forwardRef<HTMLDivElement, SchoolBirthdayCardProps>(
@@ -333,12 +357,12 @@ export function SchoolBirthdayCardDialog({
     if (!cardRef.current || !student || downloading) return
     setDownloading(true)
     try {
+      await embedCardImages(cardRef.current)
       const dataUrl = await toPng(cardRef.current, {
         width: 540,
         height: 960,
         pixelRatio: 2,
         cacheBust: true,
-        imagePlaceholder: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
       })
       const a = document.createElement('a')
       a.href = dataUrl

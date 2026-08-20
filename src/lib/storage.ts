@@ -48,7 +48,7 @@ function r2Bucket(): string {
   return bucket
 }
 
-function r2PublicUrl(): string {
+export function r2PublicUrl(): string {
   const base = process.env.R2_PUBLIC_URL
   if (!base) throw new Error('R2_PUBLIC_URL env var is required when STORAGE_DRIVER=r2.')
   return base.replace(/\/$/, '')
