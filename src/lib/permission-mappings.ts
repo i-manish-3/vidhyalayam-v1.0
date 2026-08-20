@@ -124,6 +124,14 @@ const MODULE_PERMISSION_MAP: Record<string, string[]> = {
   'id-card-template-edit': ['idcard:template:create', 'idcard:template:update'],
   'id-card-generate': ['idcard:generate'],
 
+  // Certificates
+  'certificates': ['certificate:read', 'certificate:issue'],
+  'certificate-issue': ['certificate:issue'],
+  'certificate-records': ['certificate:read'],
+  'certificate-templates': ['certificate:read', 'certificate:template:manage'],
+  'certificate-template-new': ['certificate:template:manage'],
+  'certificate-template-edit': ['certificate:template:manage'],
+
   // Admin
   'settings': ['settings:read', 'settings:update'],
   'birthdays': ['student:read', 'teacher:read'],
@@ -163,6 +171,7 @@ const PARENT_MENU_MODULES: Record<string, string> = {
   'Roles & Permissions': 'school-roles',
   'Audit Logs': 'attendance-audit-log',
   'ID Cards': 'id-cards',
+  'Certificates': 'certificates',
   'Exams': 'exam-dashboard',
 }
 

@@ -99,6 +99,8 @@ const PREFERRED_MENU_ORDER = new Map<string, number>([
   ['Salary', 10],
   ['Parents', 11],
   ['Library', 12],
+  ['ID Cards', 13],
+  ['Certificates', 14],
 ])
 
 export const MENUS: Record<string, MenuItem[]> = {
@@ -287,6 +289,17 @@ export const MENUS: Record<string, MenuItem[]> = {
         { label: 'Overview', page: 'id-cards', icon: LayoutDashboard },
         { label: 'Templates', page: 'id-card-templates', icon: LayoutTemplate },
         { label: 'Generate Cards', page: 'id-card-generate', icon: Printer },
+      ],
+    },
+    {
+      label: 'Certificates',
+      page: 'certificates',
+      icon: Award,
+      children: [
+        { label: 'Overview', page: 'certificates', icon: LayoutDashboard },
+        { label: 'Issue Certificate', page: 'certificate-issue', icon: Award },
+        { label: 'Records', page: 'certificate-records', icon: FileText },
+        { label: 'Templates', page: 'certificate-templates', icon: LayoutTemplate },
       ],
     },
     { label: 'Notifications', page: 'notifications', icon: Bell },

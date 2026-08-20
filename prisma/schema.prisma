@@ -54,6 +54,7 @@ model User {
   feeConfigAuditLogs          FeeConfigAuditLog[]
   rfidCardsAssigned           StudentCard[]         @relation("rfidCardsAssigned")
   rfidCardsRevoked            StudentCard[]         @relation("rfidCardsRevoked")
+  issuedCertificates          Certificate[]         @relation("certificateIssuer")
 
   @@index([schoolId])
   @@index([schoolId, employeeId])
@@ -179,6 +180,8 @@ model School {
   notificationTemplates       NotificationTemplate[]
   idCardTemplates             IdCardTemplate[]
   idCardGenerationLogs        IdCardGenerationLog[]
+  certificateTemplates        CertificateTemplate[]
+  certificates                Certificate[]
   exportJobs                  ExportJob[]
   chatConversations           ChatConversation[]
 
@@ -397,6 +400,7 @@ model Student {
   feeRefunds           StudentFeeRefund[]
   feeAuditLogs         FeeAuditLog[]
   inventorySales       InventorySale[]
+  certificates         Certificate[]
 
   @@index([schoolId])
   @@index([classId])
@@ -3673,6 +3677,83 @@ model IdCardGenerationLog {
   @@index([schoolId])
   @@index([templateId])
   @@index([createdAt])
+}
+
+// ============================================
+// CERTIFICATES MODULE
+// ============================================
+// Per-school certificate templates (TC, bonafide, character, study, ...).
+// The body is authored as HTML with {{placeholders}} tokens. At issue time a
+// snapshot of the student + school data is captured into Certificate
+// .studentSnapshotJson so the printed certificate always reflects the exact
+// data it was issued from, even if the student record changes later.
+//
+// IMPORTANT: issuing a certificate NEVER mutates the Student record. The
+// "temporary TC" flow (isTemporary=true) is the norm — the certificate is a
+// pure, auditable record. The student keeps their admitted status, fee
+// assignments, transport/hostel allocations, etc. The permanent withdrawal
+// flow (/api/school/students/[id]/withdraw) is a separate, explicit action
+// and remains the only path that changes the student's standing.
+model CertificateTemplate {
+  id           String    @id @default(cuid())
+  schoolId     String
+  type         String // tc | bonafide | character | study | school_leaving | migration | other
+  name         String
+  description  String?
+  numberPrefix String    @default("CERT") // prefix used for certificate numbers, e.g. TC, BONAFIDE
+  bodyHtml     String // certificate body HTML with {{placeholders}}
+  isDefault    Boolean   @default(false)
+  isActive     Boolean   @default(true)
+  createdBy    String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+
+  school       School        @relation(fields: [schoolId], references: [id])
+  certificates Certificate[]
+
+  @@unique([schoolId, type, name])
+  @@index([schoolId])
+  @@index([schoolId, type])
+  @@index([schoolId, isActive])
+}
+
+// One row per issued certificate. The number is unique per school and
+// allocated atomically from the NumberCounter table (kind 'certificate'),
+// so the series never duplicates even under concurrent issuance.
+model Certificate {
+  id                  String    @id @default(cuid())
+  schoolId            String
+  studentId           String
+  templateId          String?
+  certificateNumber   String // e.g. TC-2026-0001
+  type                String // tc | bonafide | character | study | school_leaving | migration | other
+  issueDate           DateTime  @default(now())
+  effectiveDate       DateTime? // TC leaving date — informational only, triggers no cascades
+  purpose             String? // e.g. bank loan, passport, higher studies
+  remarks             String?
+  isTemporary         Boolean   @default(false) // temporary certificate (temp TC): record only, no student side-effects
+  studentSnapshotJson String // JSON snapshot of student + school data used at issue time
+  issuedBy            String?
+  status              String    @default("active") // active | void
+  voidedAt            DateTime?
+  voidedBy            String?
+  voidReason          String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  deletedAt           DateTime?
+
+  school       School               @relation(fields: [schoolId], references: [id])
+  student      Student              @relation(fields: [studentId], references: [id])
+  template     CertificateTemplate? @relation(fields: [templateId], references: [id])
+  issuedByUser User?                @relation("certificateIssuer", fields: [issuedBy], references: [id])
+
+  @@unique([schoolId, certificateNumber])
+  @@index([schoolId])
+  @@index([studentId])
+  @@index([type])
+  @@index([issueDate])
+  @@index([status])
 }
 
 // ============================================

@@ -130,6 +130,12 @@ export const MIGRATED_PAGES: Partial<Record<PageName, (...args: string[]) => str
   'id-card-template-edit': (id?: string) => (id ? `/id-cards/templates/${id}` : '/id-cards/templates'),
   'id-card-generate': () => '/id-cards/generate',
   'id-card-showcase': () => '/id-cards/showcase',
+  'certificates': () => '/certificates',
+  'certificate-issue': () => '/certificates/issue',
+  'certificate-records': () => '/certificates/records',
+  'certificate-templates': () => '/certificates/templates',
+  'certificate-template-new': () => '/certificates/templates/new',
+  'certificate-template-edit': (id?: string) => (id ? `/certificates/templates/${id}` : '/certificates/templates'),
 }
 
 export function resolveMigratedUrl(page: PageName, id?: string): string | null {

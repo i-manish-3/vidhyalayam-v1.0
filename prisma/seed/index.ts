@@ -857,6 +857,11 @@ async function seed() {
     { code: 'idcard:template:delete', name: 'Delete ID Card Template', module: 'idcards', action: 'delete' },
     { code: 'idcard:generate', name: 'Generate Student ID Cards', module: 'idcards', action: 'create' },
     { code: 'idcard:print', name: 'Print / Download ID Cards', module: 'idcards', action: 'read' },
+    // Certificates
+    { code: 'certificate:read', name: 'View Certificates Module', module: 'certificates', action: 'read' },
+    { code: 'certificate:issue', name: 'Issue Certificates', module: 'certificates', action: 'create' },
+    { code: 'certificate:void', name: 'Void Certificates', module: 'certificates', action: 'update' },
+    { code: 'certificate:template:manage', name: 'Manage Certificate Templates', module: 'certificates', action: 'update' },
     // Roles & Permissions
     { code: 'role:read', name: 'View Roles', module: 'roles', action: 'read' },
     { code: 'role:create', name: 'Create Role', module: 'roles', action: 'create' },
