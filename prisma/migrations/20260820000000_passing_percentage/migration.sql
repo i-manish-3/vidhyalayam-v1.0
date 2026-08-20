@@ -1,5 +1,5 @@
 -- DropIndex
-DROP INDEX "Student_admissionNumber_idx";
+DROP INDEX IF EXISTS "Student_admissionNumber_idx";
 
 -- AlterTable
 ALTER TABLE "ExamComponent" DROP COLUMN "passingMarks";
