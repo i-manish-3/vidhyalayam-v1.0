@@ -32,7 +32,7 @@ import {
   makeBlankComponentRow,
   type ExamComponentRow,
 } from '@/features/exams/components/component-editor'
-import { Pencil, Settings2, Trash2, Calendar as CalIcon, Layers3, Wand2, Plus, AlertCircle } from 'lucide-react'
+import { Pencil, Settings2, Trash2, Calendar as CalIcon, Layers3, Wand2, Plus, AlertCircle, SlidersHorizontal } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { examStatusMeta } from '@/features/exams/lib/status-meta'
 
@@ -99,6 +99,7 @@ export function ExamConfigurePage({ examId }: Props) {
   const [classes, setClasses] = useState<ClassOption[]>([])
   const [subjects, setSubjects] = useState<SubjectOption[]>([])
   const [bulkOpen, setBulkOpen] = useState(false)
+  const [bulkConfigOpen, setBulkConfigOpen] = useState(false)
   const [editing, setEditing] = useState<SubjectConfig | null>(null)
   const [componentEditing, setComponentEditing] = useState<SubjectConfig | null>(null)
   const [savingComponents, setSavingComponents] = useState(false)
@@ -228,6 +229,36 @@ export function ExamConfigurePage({ examId }: Props) {
     }
   }
 
+  async function handleBulkConfigSave(payload: {
+    configIds: string[]
+    fields: Partial<SubjectConfig>
+  }) {
+    try {
+      const res = await api.post<{
+        updated: number
+        skipped: number
+        errors: { configId: string; message: string }[]
+        message: string
+      }>(`/api/school/exams/${examId}/subject-configs/bulk`, payload)
+      toast({ title: 'Configs updated', description: res.message })
+      if (res.errors.length > 0) {
+        toast({
+          variant: 'destructive',
+          title: `${res.errors.length} subject(s) skipped`,
+          description: res.errors[0].message,
+        })
+      }
+      setBulkConfigOpen(false)
+      void load()
+    } catch (err) {
+      toast({
+        variant: 'destructive',
+        title: 'Could not update configs',
+        description: err instanceof Error ? err.message : 'Please try again.',
+      })
+    }
+  }
+
   if (loading) return <LoadingState />
   if (!exam) return null
 
@@ -256,13 +287,22 @@ export function ExamConfigurePage({ examId }: Props) {
         }}
         extraActions={
           hasAnyPermission([PERMISSIONS.EXAM_MANAGE]) ? (
-            <Button
-              variant="secondary"
-              onClick={() => router.push(`/exams/${examId}/edit`)}
-              className="gap-2 border border-white/60 bg-white/15 text-white shadow-md backdrop-blur-sm hover:bg-white/25"
-            >
-              <Pencil className="size-4" /> Edit classes
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="secondary"
+                onClick={() => setBulkConfigOpen(true)}
+                className="gap-2 border border-white/60 bg-white/15 text-white shadow-md backdrop-blur-sm hover:bg-white/25"
+              >
+                <SlidersHorizontal className="size-4" /> Bulk config
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={() => router.push(`/exams/${examId}/edit`)}
+                className="gap-2 border border-white/60 bg-white/15 text-white shadow-md backdrop-blur-sm hover:bg-white/25"
+              >
+                <Pencil className="size-4" /> Edit classes
+              </Button>
+            </div>
           ) : undefined
         }
       />
@@ -450,6 +490,15 @@ export function ExamConfigurePage({ examId }: Props) {
         }}
       />
 
+      <BulkSubjectConfigDialog
+        open={bulkConfigOpen}
+        onClose={() => setBulkConfigOpen(false)}
+        examId={examId}
+        configs={configs}
+        classLookup={classLookup}
+        onSave={handleBulkConfigSave}
+      />
+
       <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !deleting && !o && setDeleteTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -586,6 +635,272 @@ function EditSubjectConfigDialog({ open, config, onClose, onSave }: EditSubjectC
   )
 }
 
+interface BulkSubjectConfigDialogProps {
+  open: boolean
+  onClose: () => void
+  examId: string
+  configs: SubjectConfig[]
+  classLookup: Map<string, ClassOption>
+  onSave: (payload: { configIds: string[]; fields: Partial<SubjectConfig> }) => Promise<void>
+}
+
+function BulkSubjectConfigDialog({
+  open,
+  onClose,
+  examId,
+  configs,
+  classLookup,
+  onSave,
+}: BulkSubjectConfigDialogProps) {
+  const [selectedClassIds, setSelectedClassIds] = useState<string[]>([])
+  const [totalMarks, setTotalMarks] = useState(100)
+  const [passingMarks, setPassingMarks] = useState(33)
+  const [graceMarksMax, setGraceMarksMax] = useState(0)
+  const [gradeOnly, setGradeOnly] = useState(false)
+  const [isOptional, setIsOptional] = useState(false)
+  const [isAdditional, setIsAdditional] = useState(false)
+  const [applyTotal, setApplyTotal] = useState(false)
+  const [applyPassing, setApplyPassing] = useState(false)
+  const [applyGrace, setApplyGrace] = useState(false)
+  const [applyGradeOnly, setApplyGradeOnly] = useState(false)
+  const [applyOptional, setApplyOptional] = useState(false)
+  const [applyAdditional, setApplyAdditional] = useState(false)
+  const [saving, setSaving] = useState(false)
+
+  const classIdsWithConfigs = useMemo(
+    () => Array.from(new Set(configs.map((c) => c.classId))),
+    [configs],
+  )
+
+  useEffect(() => {
+    if (!open) return
+    setSelectedClassIds(classIdsWithConfigs)
+    setTotalMarks(100)
+    setPassingMarks(33)
+    setGraceMarksMax(0)
+    setGradeOnly(false)
+    setIsOptional(false)
+    setIsAdditional(false)
+    setApplyTotal(false)
+    setApplyPassing(false)
+    setApplyGrace(false)
+    setApplyGradeOnly(false)
+    setApplyOptional(false)
+    setApplyAdditional(false)
+  }, [open, classIdsWithConfigs])
+
+  const eligible = useMemo(
+    () => configs.filter((c) => selectedClassIds.includes(c.classId)),
+    [configs, selectedClassIds],
+  )
+
+  const anyApply =
+    applyTotal || applyPassing || applyGrace || applyGradeOnly || applyOptional || applyAdditional
+
+  const valuesOk =
+    (!applyTotal || totalMarks > 0) &&
+    (!applyPassing || passingMarks >= 0) &&
+    (!applyGrace || graceMarksMax >= 0) &&
+    (!applyPassing || passingMarks <= (applyTotal ? totalMarks : totalMarks))
+
+  const canApply = !saving && anyApply && valuesOk && eligible.length > 0
+
+  async function handleApply() {
+    if (eligible.length === 0) return
+    setSaving(true)
+    try {
+      const fields: Partial<SubjectConfig> = {}
+      if (applyTotal) fields.totalMarks = totalMarks
+      if (applyPassing) fields.passingMarks = passingMarks
+      if (applyGrace) fields.graceMarksMax = graceMarksMax
+      if (applyGradeOnly) fields.gradeOnly = gradeOnly
+      if (applyOptional) fields.isOptional = isOptional
+      if (applyAdditional) fields.isAdditional = isAdditional
+      await onSave({ configIds: eligible.map((c) => c.id), fields })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !saving && !o && onClose()}>
+      <DialogContent className="flex max-h-[90svh] flex-col overflow-hidden border-primary/20 bg-card p-0 shadow-2xl shadow-primary/15 sm:max-w-2xl [&>button]:right-3 [&>button]:top-3 [&>button]:rounded-full [&>button]:text-white [&>button]:opacity-80 [&>button]:hover:bg-white/15 [&>button]:hover:opacity-100">
+        <GradientDialogHeader
+          icon={SlidersHorizontal}
+          title="Bulk subject config"
+          description="Adjust marks ceiling, grace allowance, and optional/additional flags across many subjects at once."
+        />
+
+        <div className="themed-scrollbar min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain bg-gradient-to-br from-primary/[0.025] via-background to-violet-500/[0.035] p-4 sm:p-5">
+          <section className="relative overflow-hidden rounded-xl border border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-violet-50 p-4 shadow-sm dark:border-sky-500/25 dark:from-sky-500/15 dark:via-card dark:to-violet-500/10">
+            <div className="relative mb-3 flex items-center gap-2">
+              <span className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-violet-600 text-white shadow-sm"><SlidersHorizontal className="size-4 text-white" /></span>
+              <div>
+                <h3 className="text-sm font-semibold">Values</h3>
+                <p className="text-[10px] text-muted-foreground">
+                  Tick the fields you want to change — the rest stay untouched
+                </p>
+              </div>
+            </div>
+            <div className="relative space-y-2">
+              <div className="flex items-center gap-2 rounded-md border border-current/10 bg-white/70 p-2 shadow-sm dark:bg-card/60">
+                <Checkbox checked={applyTotal} onCheckedChange={(v) => setApplyTotal(Boolean(v))} />
+                <Label className="w-28 text-xs">Total marks</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  className="h-8"
+                  disabled={!applyTotal || gradeOnly}
+                  value={totalMarks}
+                  onChange={(e) => setTotalMarks(Math.max(0, Number(e.target.value) || 0))}
+                />
+              </div>
+              <div className="flex items-center gap-2 rounded-md border border-current/10 bg-white/70 p-2 shadow-sm dark:bg-card/60">
+                <Checkbox checked={applyPassing} onCheckedChange={(v) => setApplyPassing(Boolean(v))} />
+                <Label className="w-28 text-xs">Passing marks</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  className="h-8"
+                  disabled={!applyPassing || gradeOnly}
+                  value={passingMarks}
+                  onChange={(e) => setPassingMarks(Math.max(0, Number(e.target.value) || 0))}
+                />
+              </div>
+              <div className="flex items-center gap-2 rounded-md border border-current/10 bg-white/70 p-2 shadow-sm dark:bg-card/60">
+                <Checkbox checked={applyGrace} onCheckedChange={(v) => setApplyGrace(Boolean(v))} />
+                <Label className="w-28 text-xs">Grace max</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  className="h-8"
+                  disabled={!applyGrace || gradeOnly}
+                  value={graceMarksMax}
+                  onChange={(e) => setGraceMarksMax(Math.max(0, Number(e.target.value) || 0))}
+                />
+              </div>
+            </div>
+          </section>
+
+          <section className="relative overflow-hidden rounded-xl border border-amber-200/80 bg-gradient-to-br from-amber-50 via-white to-orange-50 p-4 shadow-sm dark:border-amber-500/25 dark:from-amber-500/15 dark:via-card dark:to-orange-500/10">
+            <div className="relative mb-3 flex items-center gap-2">
+              <span className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 text-white shadow-sm"><Settings2 className="size-4 text-white" /></span>
+              <div>
+                <h3 className="text-sm font-semibold">Flags</h3>
+                <p className="text-[10px] text-muted-foreground">
+                  Tick "Change" to overwrite each flag for the selected subjects
+                </p>
+              </div>
+            </div>
+            <div className="relative grid gap-2 sm:grid-cols-3">
+              <div className="flex items-center justify-between gap-2 rounded-md border border-current/10 bg-white/70 p-2 shadow-sm dark:bg-card/60">
+                <label className="flex items-center gap-2 text-xs">
+                  <Checkbox checked={applyGradeOnly} onCheckedChange={(v) => setApplyGradeOnly(Boolean(v))} />
+                  Change
+                </label>
+                <label className="flex items-center gap-2 text-xs font-medium">
+                  Grade only
+                  <Checkbox checked={gradeOnly} onCheckedChange={(v) => setGradeOnly(Boolean(v))} disabled={!applyGradeOnly} />
+                </label>
+              </div>
+              <div className="flex items-center justify-between gap-2 rounded-md border border-current/10 bg-white/70 p-2 shadow-sm dark:bg-card/60">
+                <label className="flex items-center gap-2 text-xs">
+                  <Checkbox checked={applyOptional} onCheckedChange={(v) => setApplyOptional(Boolean(v))} />
+                  Change
+                </label>
+                <label className="flex items-center gap-2 text-xs font-medium">
+                  Optional
+                  <Checkbox checked={isOptional} onCheckedChange={(v) => setIsOptional(Boolean(v))} disabled={!applyOptional} />
+                </label>
+              </div>
+              <div className="flex items-center justify-between gap-2 rounded-md border border-current/10 bg-white/70 p-2 shadow-sm dark:bg-card/60">
+                <label className="flex items-center gap-2 text-xs">
+                  <Checkbox checked={applyAdditional} onCheckedChange={(v) => setApplyAdditional(Boolean(v))} />
+                  Change
+                </label>
+                <label className="flex items-center gap-2 text-xs font-medium">
+                  Additional
+                  <Checkbox checked={isAdditional} onCheckedChange={(v) => setIsAdditional(Boolean(v))} disabled={!applyAdditional} />
+                </label>
+              </div>
+            </div>
+          </section>
+
+          <section className="relative overflow-hidden rounded-xl border border-violet-200/80 bg-gradient-to-br from-violet-50 via-white to-purple-50 p-4 shadow-sm dark:border-violet-500/25 dark:from-violet-500/15 dark:via-card dark:to-purple-500/10">
+            <div className="relative mb-3 flex items-center gap-2">
+              <span className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 text-white shadow-sm"><Layers3 className="size-4 text-white" /></span>
+              <div>
+                <h3 className="text-sm font-semibold">Scope</h3>
+                <p className="text-[10px] text-muted-foreground">Which classes the changes apply to</p>
+              </div>
+            </div>
+            <div className="relative space-y-1.5">
+              <div className="flex items-center gap-2 text-[11px] font-medium">
+                <button
+                  type="button"
+                  onClick={() => setSelectedClassIds(classIdsWithConfigs)}
+                  className="text-primary hover:underline"
+                >
+                  Select all
+                </button>
+                {selectedClassIds.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedClassIds([])}
+                    className="text-muted-foreground hover:underline"
+                  >
+                    Deselect all
+                  </button>
+                )}
+              </div>
+              <div className="space-y-1 rounded-md border border-violet-200/80 bg-white/70 p-2 shadow-sm dark:border-violet-500/25 dark:bg-card/60">
+                {classIdsWithConfigs.map((cid) => (
+                  <label
+                    key={cid}
+                    className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 text-sm hover:bg-muted/50"
+                  >
+                    <Checkbox
+                      checked={selectedClassIds.includes(cid)}
+                      onCheckedChange={(v) =>
+                        setSelectedClassIds((prev) =>
+                          v ? [...prev, cid] : prev.filter((id) => id !== cid),
+                        )
+                      }
+                    />
+                    {classLookup.get(cid)?.name ?? cid}
+                    <span className="ml-auto text-xs text-muted-foreground">
+                      {configs.filter((c) => c.classId === cid).length} subject
+                      {configs.filter((c) => c.classId === cid).length === 1 ? '' : 's'}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          </section>
+
+          <p className="text-xs text-muted-foreground">
+            {anyApply ? (
+              <>
+                Will update <strong className="text-foreground">{eligible.length}</strong> subject
+                {eligible.length === 1 ? '' : 's'}
+              </>
+            ) : (
+              'Tick at least one field above to enable Apply.'
+            )}
+          </p>
+
+          <div className="flex justify-end gap-2 pt-1">
+            <Button variant="outline" onClick={onClose} disabled={saving}>Cancel</Button>
+            <Button onClick={() => void handleApply()} disabled={!canApply}>
+              {saving ? 'Applying…' : `Apply to ${eligible.length} subject${eligible.length === 1 ? '' : 's'}`}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 interface BulkComponentsDialogProps {
   open: boolean
   onClose: () => void
@@ -606,9 +921,11 @@ function BulkComponentsDialog({
   onSaved,
 }: BulkComponentsDialogProps) {
   const { toast } = useToast()
+  const [mode, setMode] = useState<'build' | 'delete'>('build')
   const [rows, setRows] = useState<ExamComponentRow[]>([])
   const [selectedClassIds, setSelectedClassIds] = useState<string[]>([])
   const [onlyMissing, setOnlyMissing] = useState(true)
+  const [deleteName, setDeleteName] = useState('')
   const [saving, setSaving] = useState(false)
 
   const classIdsWithConfigs = useMemo(
@@ -618,9 +935,11 @@ function BulkComponentsDialog({
 
   useEffect(() => {
     if (!open) return
+    setMode('build')
     setRows([makeBlankComponentRow(0, false)])
     setSelectedClassIds(classIdsWithConfigs)
     setOnlyMissing(true)
+    setDeleteName('')
   }, [open, classIdsWithConfigs])
 
   const seenNames = useMemo(() => {
@@ -739,6 +1058,65 @@ function BulkComponentsDialog({
     }
   }
 
+  const scopeConfigs = useMemo(
+    () => configs.filter((c) => selectedClassIds.includes(c.classId)),
+    [configs, selectedClassIds],
+  )
+
+  const componentNames = useMemo(() => {
+    const names = new Set<string>()
+    for (const c of scopeConfigs) {
+      for (const comp of c.components) {
+        if (comp.name.trim()) names.add(comp.name.trim())
+      }
+    }
+    return Array.from(names).sort((a, b) => a.localeCompare(b))
+  }, [scopeConfigs])
+
+  const deleteKey = deleteName.trim().toLowerCase()
+  const deleteMatches = useMemo(
+    () =>
+      scopeConfigs.filter((c) =>
+        c.components.some((x) => x.name.trim().toLowerCase() === deleteKey),
+      ),
+    [scopeConfigs, deleteKey],
+  )
+
+  const canDelete = !saving && deleteKey.length > 0 && deleteMatches.length > 0
+
+  async function handleApplyDelete() {
+    if (deleteMatches.length === 0) return
+    setSaving(true)
+    try {
+      const res = await api.post<{
+        updated: number
+        skipped: number
+        errors: { configId: string; message: string }[]
+        message: string
+      }>(`/api/school/exams/${examId}/components/bulk-delete`, {
+        configIds: deleteMatches.map((c) => c.id),
+        componentName: deleteName.trim(),
+      })
+      toast({ title: 'Components deleted', description: res.message })
+      if (res.errors.length > 0) {
+        toast({
+          variant: 'destructive',
+          title: `${res.errors.length} subject(s) skipped`,
+          description: res.errors[0].message,
+        })
+      }
+      onSaved()
+    } catch (err) {
+      toast({
+        variant: 'destructive',
+        title: 'Could not delete components',
+        description: err instanceof Error ? err.message : 'Please try again.',
+      })
+    } finally {
+      setSaving(false)
+    }
+  }
+
   return (
     <Dialog open={open} onOpenChange={(o) => !saving && !o && onClose()}>
       <DialogContent className="flex max-h-[90svh] flex-col overflow-hidden border-primary/20 bg-card p-0 shadow-2xl shadow-primary/15 sm:max-w-2xl [&>button]:right-3 [&>button]:top-3 [&>button]:rounded-full [&>button]:text-white [&>button]:opacity-80 [&>button]:hover:bg-white/15 [&>button]:hover:opacity-100">
@@ -749,6 +1127,34 @@ function BulkComponentsDialog({
         />
 
         <div className="themed-scrollbar min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain bg-gradient-to-br from-primary/[0.025] via-background to-violet-500/[0.035] p-4 sm:p-5">
+          <div className="flex gap-1 rounded-lg border border-primary/15 bg-muted/40 p-1">
+            <button
+              type="button"
+              onClick={() => setMode('build')}
+              className={cn(
+                'flex-1 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors',
+                mode === 'build'
+                  ? 'bg-white text-foreground shadow-sm dark:bg-card'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              Build split
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode('delete')}
+              className={cn(
+                'flex-1 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors',
+                mode === 'delete'
+                  ? 'bg-white text-foreground shadow-sm dark:bg-card'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              Delete component
+            </button>
+          </div>
+
+          {mode === 'build' && (
           <section className="relative overflow-hidden rounded-xl border border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-violet-50 p-4 shadow-sm dark:border-sky-500/25 dark:from-sky-500/15 dark:via-card dark:to-violet-500/10">
             <div className="relative mb-3 flex items-center gap-2">
               <span className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-violet-600 text-white shadow-sm"><Layers3 className="size-4 text-white" /></span>
@@ -844,11 +1250,47 @@ function BulkComponentsDialog({
               </div>
             </div>
           </section>
+          )}
+
+          {mode === 'delete' && (
+            <section className="relative overflow-hidden rounded-xl border border-red-200/80 bg-gradient-to-br from-red-50 via-white to-rose-50 p-4 shadow-sm dark:border-red-500/25 dark:from-red-500/15 dark:via-card dark:to-rose-500/10">
+              <div className="relative mb-3 flex items-center gap-2">
+                <span className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-red-500 to-rose-600 text-white shadow-sm"><Trash2 className="size-4 text-white" /></span>
+                <div>
+                  <h3 className="text-sm font-semibold">Delete component</h3>
+                  <p className="text-[10px] text-muted-foreground">
+                    Remaining marks are redistributed proportionally to fill each subject's total
+                  </p>
+                </div>
+              </div>
+              <div className="relative space-y-2">
+                <Input
+                  list="bulk-delete-component-names"
+                  className="h-9"
+                  placeholder="Component name, e.g. Viva"
+                  value={deleteName}
+                  onChange={(e) => setDeleteName(e.target.value)}
+                />
+                <datalist id="bulk-delete-component-names">
+                  {componentNames.map((n) => (
+                    <option key={n} value={n} />
+                  ))}
+                </datalist>
+                {deleteKey && (
+                  <p className="text-xs text-muted-foreground">
+                    Found in <strong className="text-foreground">{deleteMatches.length}</strong> subject
+                    {deleteMatches.length === 1 ? '' : 's'} in scope
+                    {deleteMatches.length === 0 && ' — check the name or widen the class scope.'}
+                  </p>
+                )}
+              </div>
+            </section>
+          )}
 
           <section className="relative overflow-hidden rounded-xl border border-violet-200/80 bg-gradient-to-br from-violet-50 via-white to-purple-50 p-4 shadow-sm dark:border-violet-500/25 dark:from-violet-500/15 dark:via-card dark:to-purple-500/10">
             <div className="relative mb-3 flex items-center gap-2">
               <span className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 text-white shadow-sm"><Wand2 className="size-4 text-white" /></span>
-              <div><h3 className="text-sm font-semibold">Scope</h3><p className="text-[10px] text-muted-foreground">Which subjects get the split</p></div>
+              <div><h3 className="text-sm font-semibold">Scope</h3><p className="text-[10px] text-muted-foreground">{mode === 'build' ? 'Which subjects get the split' : 'Which classes to search in'}</p></div>
             </div>
             <div className="relative grid gap-3 sm:grid-cols-2">
               <div>
@@ -892,26 +1334,61 @@ function BulkComponentsDialog({
                   ))}
                 </div>
               </div>
-              <label className="flex cursor-pointer items-end gap-2 pb-1.5 text-sm">
-                <Checkbox checked={onlyMissing} onCheckedChange={(v) => setOnlyMissing(Boolean(v))} />
-                Only subjects without components
-              </label>
+              {mode === 'build' && (
+                <label className="flex cursor-pointer items-end gap-2 pb-1.5 text-sm">
+                  <Checkbox checked={onlyMissing} onCheckedChange={(v) => setOnlyMissing(Boolean(v))} />
+                  Only subjects without components
+                </label>
+              )}
             </div>
           </section>
 
-          <p className="text-xs text-muted-foreground">
-            Will update <strong className="text-foreground">{eligible.length}</strong> subject
-            {eligible.length === 1 ? '' : 's'}
-            {gradeOnlyInScope > 0 && ` · ${gradeOnlyInScope} grade-only skipped`}
-            {onlyMissing && ` · subjects with components already set are untouched`}
-          </p>
+          {mode === 'build' ? (
+            <>
+              <p className="text-xs text-muted-foreground">
+                Will update <strong className="text-foreground">{eligible.length}</strong> subject
+                {eligible.length === 1 ? '' : 's'}
+                {gradeOnlyInScope > 0 && ` · ${gradeOnlyInScope} grade-only skipped`}
+                {onlyMissing && ` · subjects with components already set are untouched`}
+              </p>
 
-          <div className="flex justify-end gap-2 pt-1">
-            <Button variant="outline" onClick={onClose} disabled={saving}>Cancel</Button>
-            <Button onClick={() => void handleApply()} disabled={eligible.length === 0 || !canApply}>
-              {saving ? 'Applying…' : `Apply to ${eligible.length} subject${eligible.length === 1 ? '' : 's'}`}
-            </Button>
-          </div>
+              <div className="flex justify-end gap-2 pt-1">
+                <Button variant="outline" onClick={onClose} disabled={saving}>Cancel</Button>
+                <Button onClick={() => void handleApply()} disabled={eligible.length === 0 || !canApply}>
+                  {saving ? 'Applying…' : `Apply to ${eligible.length} subject${eligible.length === 1 ? '' : 's'}`}
+                </Button>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="text-xs text-muted-foreground">
+                {deleteKey ? (
+                  <>
+                    Will delete <strong className="text-foreground">"{deleteName.trim()}"</strong> from{' '}
+                    <strong className="text-foreground">{deleteMatches.length}</strong> subject
+                    {deleteMatches.length === 1 ? '' : 's'} — remaining marks are redistributed to fill
+                    each subject's total. Subjects with marks already entered are skipped.
+                  </>
+                ) : (
+                  'Type a component name (or pick from the suggestions) to delete it across the selected classes.'
+                )}
+              </p>
+
+              <div className="flex justify-end gap-2 pt-1">
+                <Button variant="outline" onClick={onClose} disabled={saving}>Cancel</Button>
+                <Button onClick={() => void handleApplyDelete()} disabled={!canDelete} className="gap-1.5">
+                  {saving ? (
+                    'Deleting…'
+                  ) : (
+                    <>
+                      <Trash2 className="size-3.5" /> Delete from {deleteMatches.length} subject
+                      {deleteMatches.length === 1 ? '' : 's'}
+                    </>
+                  )}
+                </Button>
+              </div>
+            </>
+          )}
         </div>
       </DialogContent>
     </Dialog>

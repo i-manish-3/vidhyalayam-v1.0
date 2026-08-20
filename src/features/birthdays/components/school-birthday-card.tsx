@@ -206,56 +206,56 @@ export const SchoolBirthdayCard = forwardRef<HTMLDivElement, SchoolBirthdayCardP
             <img
               src={logoSrc ?? ''}
               alt=""
-              className="h-[104px] w-[104px] rounded-full border-[3px] border-[#cf9b3f]/60 bg-white/65 object-contain p-2 shadow-[0_6px_14px_rgba(0,0,0,0.08)]"
+              className="h-[112px] w-[112px] rounded-full border-[3px] border-[#cf9b3f]/60 bg-white/65 object-contain p-2 shadow-[0_6px_14px_rgba(0,0,0,0.08)]"
             />
           ) : (
-            <div className="flex h-[104px] w-[104px] items-center justify-center rounded-full border-[3px] border-dashed border-[#9c2e5a] bg-white/65 p-2 text-center text-[12px] font-semibold leading-[1.3] text-[#9c2e5a] shadow-[0_6px_14px_rgba(0,0,0,0.08)]">
+            <div className="flex h-[112px] w-[112px] items-center justify-center rounded-full border-[3px] border-dashed border-[#9c2e5a] bg-white/65 p-2 text-center text-[13px] font-semibold leading-[1.3] text-[#9c2e5a] shadow-[0_6px_14px_rgba(0,0,0,0.08)]">
               SCHOOL
               <br />
               LOGO
             </div>
           )}
-          <div className="mt-3 rounded-md bg-[linear-gradient(135deg,#1c2a52,#131d3d)] px-8 py-2.5 text-center shadow-[0_6px_14px_rgba(0,0,0,0.15)]">
-            <p className="truncate text-[25px] font-semibold tracking-[1.2px] text-[#e8c374]">
+          <div className="mt-4 rounded-lg bg-[linear-gradient(135deg,#1c2a52,#131d3d)] px-10 py-3 text-center shadow-[0_6px_14px_rgba(0,0,0,0.15)]">
+            <p className="truncate text-[34px] font-semibold tracking-[1.2px] text-[#e8c374]">
               {schoolName}
             </p>
             {addressLine && (
-              <p className="mx-auto mt-0.5 max-w-[700px] truncate text-[13px] tracking-[0.6px] text-white/80">
+              <p className="mx-auto mt-0.5 max-w-[720px] truncate text-[17px] tracking-[0.6px] text-white/80">
                 {addressLine}
               </p>
             )}
             {school.contactPhone && (
-              <p className="text-[13px] tracking-[0.6px] text-white/60">{school.contactPhone}</p>
+              <p className="text-[17px] tracking-[0.6px] text-white/60">{school.contactPhone}</p>
             )}
           </div>
         </div>
 
         {/* Header */}
         <div className="z-[2] mt-4 text-center">
-          <p className="text-[15px] font-semibold uppercase tracking-[6px] text-[#cf9b3f]">
+          <p className="text-[18px] font-semibold uppercase tracking-[7px] text-[#cf9b3f]">
             A Special Wish For You
           </p>
           <h2
             style={{ fontFamily: 'var(--font-fraunces), serif' }}
-            className="mt-3 text-[58px] font-extrabold leading-[1.1] tracking-[0.8px] text-[#1c2a52]"
+            className="mt-3 text-[72px] font-extrabold leading-[1.1] tracking-[0.8px] text-[#1c2a52]"
           >
             Happy
           </h2>
           <p
             style={{ fontFamily: 'var(--font-great-vibes), cursive' }}
-            className="mt-1 bg-gradient-to-b from-[#c94277] to-[#9c2e5a] bg-clip-text pb-1.5 text-[78px] leading-[1.25] text-transparent"
+            className="mt-1 bg-gradient-to-b from-[#c94277] to-[#9c2e5a] bg-clip-text pb-1.5 text-[92px] leading-[1.25] text-transparent"
           >
             Birthday!
           </p>
-          <div className="mx-auto mt-3 flex w-[300px] items-center gap-3">
+          <div className="mx-auto mt-4 flex w-[360px] items-center gap-3">
             <div className="h-px flex-1 bg-gradient-to-r from-transparent via-[#cf9b3f] to-transparent" />
-            <div className="size-2 rotate-45 bg-[#cf9b3f]" />
+            <div className="size-[9px] rotate-45 bg-[#cf9b3f]" />
             <div className="h-px flex-1 bg-gradient-to-r from-transparent via-[#cf9b3f] to-transparent" />
           </div>
         </div>
 
         {/* Photo */}
-        <div className="z-[2] mt-4 h-[320px] w-[320px] rounded-[14px] bg-[linear-gradient(160deg,#e8c374,#cf9b3f_60%,#e8c374)] p-[10px] shadow-[0_18px_38px_rgba(28,42,82,0.22)]">
+        <div className="z-[2] mt-6 h-[300px] w-[300px] rounded-[14px] bg-[linear-gradient(160deg,#e8c374,#cf9b3f_60%,#e8c374)] p-[10px] shadow-[0_18px_38px_rgba(28,42,82,0.22)]">
           <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-[9px] border-[3px] border-dashed border-[#9c2e5a] bg-[repeating-linear-gradient(45deg,rgba(201,66,119,0.07),rgba(201,66,119,0.07)_9px,rgba(255,255,255,0.55)_9px,rgba(255,255,255,0.55)_18px)]">
             {photo ? (
               <img src={photoSrc ?? ''} alt={student.fullName} className="size-full object-cover" />
@@ -266,7 +266,7 @@ export const SchoolBirthdayCard = forwardRef<HTMLDivElement, SchoolBirthdayCardP
         </div>
 
         {/* Name banner */}
-        <div className="relative z-[2] mt-4 w-fit rounded-[4px] bg-[linear-gradient(135deg,#1c2a52_0%,#131d3d_100%)] px-[44px] py-[11px] text-center text-[19px] font-semibold tracking-[0.5px] text-white shadow-[0_10px_22px_rgba(28,42,82,0.3)]">
+        <div className="relative z-[2] mt-5 w-fit rounded-[4px] bg-[linear-gradient(135deg,#1c2a52_0%,#131d3d_100%)] px-[56px] py-[13px] text-center text-[26px] font-semibold tracking-[0.5px] text-white shadow-[0_10px_22px_rgba(28,42,82,0.3)]">
           <span className="absolute -left-[12px] top-0 h-full w-[12px] bg-[#cf9b3f] opacity-90 [clip-path:polygon(0_0,100%_0,100%_100%)]" />
           <span className="absolute -right-[12px] top-0 h-full w-[12px] bg-[#cf9b3f] opacity-90 [clip-path:polygon(0_0,100%_0,0_100%)]" />
           {student.fullName}
@@ -274,16 +274,16 @@ export const SchoolBirthdayCard = forwardRef<HTMLDivElement, SchoolBirthdayCardP
         </div>
 
         {/* Message */}
-        <p className="z-[2] mt-3 max-w-[740px] text-center text-[22px] leading-[1.65] text-[#4a4a4a]">
+        <p className="z-[2] mt-4 max-w-[820px] text-center text-[27px] leading-[1.6] text-[#4a4a4a]">
           Wishing you a day filled with happiness, love, and wonderful memories. May this year bring
           you success, good health, and all the joy you deserve.
         </p>
 
         {/* Ribbon */}
-        <div className="relative z-[2] mt-auto mb-12 w-fit bg-[linear-gradient(135deg,#c94277_0%,#9c2e5a_100%)] px-10 py-[10px] text-center shadow-[0_8px_18px_rgba(156,46,90,0.3)]">
+        <div className="relative z-[2] mt-auto mb-10 w-fit bg-[linear-gradient(135deg,#c94277_0%,#9c2e5a_100%)] px-12 py-[12px] text-center shadow-[0_8px_18px_rgba(156,46,90,0.3)]">
           <span
             style={{ fontFamily: 'var(--font-great-vibes), cursive' }}
-            className="text-4xl text-[#fff8f0]"
+            className="text-[42px] text-[#fff8f0]"
           >
             Fantastic Birthday!
           </span>
