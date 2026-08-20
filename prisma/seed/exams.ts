@@ -149,14 +149,13 @@ async function main() {
       subjectId: subj1.id,
       isCompulsory: true,
       totalMarks: 100,
-      passingMarks: 33,
-      graceMarksMax: 5,
+      passingPercentage: 33,
     },
   })
   await db.examComponent.createMany({
     data: [
-      { subjectConfigId: mathsConfig.id, name: 'Theory', shortCode: 'TH', sequence: 0, maxMarks: 80, passingMarks: 26 },
-      { subjectConfigId: mathsConfig.id, name: 'Internal', shortCode: 'INT', sequence: 1, maxMarks: 20, passingMarks: 0 },
+      { subjectConfigId: mathsConfig.id, name: 'Theory', shortCode: 'TH', sequence: 0, maxMarks: 80 },
+      { subjectConfigId: mathsConfig.id, name: 'Internal', shortCode: 'INT', sequence: 1, maxMarks: 20 },
     ],
   })
 
@@ -168,13 +167,13 @@ async function main() {
       subjectId: subj2.id,
       isCompulsory: true,
       totalMarks: 100,
-      passingMarks: 33,
+      passingPercentage: 33,
     },
   })
   await db.examComponent.createMany({
     data: [
-      { subjectConfigId: scienceConfig.id, name: 'Theory', shortCode: 'TH', sequence: 0, maxMarks: 80, passingMarks: 26 },
-      { subjectConfigId: scienceConfig.id, name: 'Practical', shortCode: 'PR', sequence: 1, maxMarks: 20, passingMarks: 6 },
+      { subjectConfigId: scienceConfig.id, name: 'Theory', shortCode: 'TH', sequence: 0, maxMarks: 80 },
+      { subjectConfigId: scienceConfig.id, name: 'Practical', shortCode: 'PR', sequence: 1, maxMarks: 20 },
     ],
   })
 
@@ -186,14 +185,14 @@ async function main() {
       subjectId: subj3.id,
       isCompulsory: true,
       totalMarks: 100,
-      passingMarks: 33,
+      passingPercentage: 33,
     },
   })
   await db.examComponent.createMany({
     data: [
-      { subjectConfigId: englishConfig.id, name: 'Literature', shortCode: 'LIT', sequence: 0, maxMarks: 50, passingMarks: 16 },
-      { subjectConfigId: englishConfig.id, name: 'Grammar', shortCode: 'GR', sequence: 1, maxMarks: 30, passingMarks: 10 },
-      { subjectConfigId: englishConfig.id, name: 'Project', shortCode: 'PRJ', sequence: 2, maxMarks: 20, passingMarks: 0 },
+      { subjectConfigId: englishConfig.id, name: 'Literature', shortCode: 'LIT', sequence: 0, maxMarks: 50 },
+      { subjectConfigId: englishConfig.id, name: 'Grammar', shortCode: 'GR', sequence: 1, maxMarks: 30 },
+      { subjectConfigId: englishConfig.id, name: 'Project', shortCode: 'PRJ', sequence: 2, maxMarks: 20 },
     ],
   })
 
@@ -307,7 +306,7 @@ async function main() {
     })).map((s) => [s.id, s.name]),
   )
 
-  const passingRule = { perSubject: 33, overall: 33, allowGrace: true, graceMax: 5 }
+  const passingRule = { overall: 33 }
   const scale = {
     scaleType: gradeScale.scaleType as 'percentage',
     bands: gradeScale.bands.map((b) => ({
@@ -354,20 +353,7 @@ async function main() {
       if (subjTotal === 0) subjTotal = cfg.totalMarks
 
       const pct = subjTotal > 0 ? (subjObtained / subjTotal) * 100 : 0
-      let subjStatus: string
-
-      // Grace: if just under passing and graceMax > 0.
-      if (pct < passingRule.perSubject && subjObtained >= cfg.passingMarks - cfg.graceMarksMax) {
-        const gap = cfg.passingMarks - subjObtained
-        if (gap > 0 && gap <= cfg.graceMarksMax) {
-          subjObtained += gap
-          subjStatus = 'pass'
-        } else {
-          subjStatus = 'fail'
-        }
-      } else {
-        subjStatus = pct >= passingRule.perSubject ? 'pass' : 'fail'
-      }
+      const subjStatus = pct >= cfg.passingPercentage ? 'pass' : 'fail'
 
       const gradeBand = scale.bands.find((b) => pct >= b.minValue && pct <= b.maxValue)
 

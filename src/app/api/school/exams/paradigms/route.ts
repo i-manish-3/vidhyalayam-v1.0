@@ -42,11 +42,7 @@ function validatePassingRule(value: unknown): { ok: true; json: string } | { ok:
   const parsed = parseRule(value, 'passing rule')
   if (!parsed.ok) return parsed
   const obj = JSON.parse(parsed.json) as Record<string, unknown>
-  const perSubject = obj.perSubject
   const overall = obj.overall
-  if (typeof perSubject !== 'number' || perSubject < 0 || perSubject > 100) {
-    return { ok: false, error: 'Per-subject passing percentage must be between 0 and 100.' }
-  }
   if (typeof overall !== 'number' || overall < 0 || overall > 100) {
     return { ok: false, error: 'Overall passing percentage must be between 0 and 100.' }
   }

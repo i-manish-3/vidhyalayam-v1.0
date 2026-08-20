@@ -1830,7 +1830,7 @@ model ExamParadigm {
   //   { type: "best_of_n", n: 2, examGroupIds: [...] }
   //   { type: "sum_all" }
   aggregationRule String
-  // JSON: { perSubject: 33, overall: 33, allowGrace: true, graceMax: 5 }
+  // JSON: { overall: 33 }
   passingRule     String
   isActive        Boolean   @default(true)
   isDefault       Boolean   @default(false)
@@ -1923,27 +1923,27 @@ model ExamClass {
   @@index([classId])
 }
 
-// The "exam pattern" row: total/passing marks for a specific (exam, class,
-// section?, subject). Components break down totalMarks into channels.
+// The "exam pattern" row: total marks + passing percentage for a specific
+// (exam, class, section?, subject). Components break down totalMarks into
+// channels. Pass/fail is decided by (obtained / totalMarks) >= passingPercentage.
 model ExamSubjectConfig {
-  id              String    @id @default(cuid())
-  schoolId        String
-  examId          String
-  classId         String
-  sectionId       String? // null = all sections of class
-  subjectId       String
-  isCompulsory    Boolean   @default(true)
-  isOptional      Boolean   @default(false)
-  isAdditional    Boolean   @default(false)
-  gradeOnly       Boolean   @default(false) // co-scholastic: grade only, no marks
-  totalMarks      Float     @default(100)
-  passingMarks    Float     @default(33)
-  graceMarksMax   Float     @default(0)
-  examDate        DateTime?
-  durationMinutes Int?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  deletedAt       DateTime?
+  id                String    @id @default(cuid())
+  schoolId          String
+  examId            String
+  classId           String
+  sectionId         String? // null = all sections of class
+  subjectId         String
+  isCompulsory      Boolean   @default(true)
+  isOptional        Boolean   @default(false)
+  isAdditional      Boolean   @default(false)
+  gradeOnly         Boolean   @default(false) // co-scholastic: grade only, no marks
+  totalMarks        Float     @default(100)
+  passingPercentage Float     @default(33) // % of totalMarks needed to pass
+  examDate          DateTime?
+  durationMinutes   Int?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  deletedAt         DateTime?
 
   exam       Exam            @relation(fields: [examId], references: [id])
   components ExamComponent[]
@@ -1964,7 +1964,6 @@ model ExamComponent {
   shortCode       String?
   sequence        Int      @default(0)
   maxMarks        Float
-  passingMarks    Float    @default(0) // 0 = no per-component passing rule
   gradeOnly       Boolean  @default(false) // numeric component vs grade-only channel
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -2041,7 +2040,6 @@ model MarksEntry {
   numericValue    Float?
   gradeValue      String? // 'A1', 'B2'… resolved against GradeScale
   status          String    @default("entered") // entered | absent | medical_leave | not_applicable
-  graceMarks      Float     @default(0)
   remarks         String?
   enteredBy       String?
   enteredAt       DateTime?

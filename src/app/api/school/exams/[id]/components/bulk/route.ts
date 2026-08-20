@@ -10,7 +10,6 @@ interface ComponentInput {
   shortCode?: string | null
   sequence?: number
   maxMarks: number
-  passingMarks?: number
   gradeOnly?: boolean
 }
 
@@ -21,10 +20,6 @@ function validateComponent(c: unknown): { ok: true; v: ComponentInput } | { ok: 
   const maxMarks = Number(o.maxMarks)
   if (!Number.isFinite(maxMarks) || maxMarks < 0) {
     return { ok: false, error: 'maxMarks must be a non-negative number.' }
-  }
-  const passingMarks = o.passingMarks === undefined ? 0 : Number(o.passingMarks)
-  if (!Number.isFinite(passingMarks) || passingMarks < 0 || passingMarks > maxMarks) {
-    return { ok: false, error: 'passingMarks must be between 0 and maxMarks.' }
   }
   const sequence = o.sequence === undefined ? 0 : Math.trunc(Number(o.sequence))
   if (!Number.isFinite(sequence) || sequence < 0) return { ok: false, error: 'sequence must be a non-negative integer.' }
@@ -39,7 +34,6 @@ function validateComponent(c: unknown): { ok: true; v: ComponentInput } | { ok: 
         : String(o.shortCode).trim(),
       sequence,
       maxMarks,
-      passingMarks,
       gradeOnly: Boolean(o.gradeOnly),
     },
   }
@@ -170,7 +164,6 @@ export async function POST(
                   shortCode: c.shortCode ?? null,
                   sequence: c.sequence ?? 0,
                   maxMarks: c.maxMarks,
-                  passingMarks: c.passingMarks ?? 0,
                   gradeOnly: Boolean(c.gradeOnly),
                 },
               }),
@@ -184,7 +177,6 @@ export async function POST(
                   shortCode: c.shortCode ?? null,
                   sequence: c.sequence ?? 0,
                   maxMarks: c.maxMarks,
-                  passingMarks: c.passingMarks ?? 0,
                   gradeOnly: Boolean(c.gradeOnly),
                 },
               }),

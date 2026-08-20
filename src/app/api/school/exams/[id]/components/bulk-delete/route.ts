@@ -94,13 +94,9 @@ export async function POST(
             const share = sumMax > 0 ? c.maxMarks / sumMax : 1 / remainingNumeric.length
             const max = c === lastNumeric ? Math.max(0, config.totalMarks - used) : Math.round(config.totalMarks * share)
             used += max
-            const pass =
-              c.passingMarks > 0 && c.maxMarks > 0
-                ? Math.round((c.passingMarks / c.maxMarks) * max)
-                : 0
             await tx.examComponent.update({
               where: { id: c.id },
-              data: { sequence: i, maxMarks: max, passingMarks: pass },
+              data: { sequence: i, maxMarks: max },
             })
           }
         }

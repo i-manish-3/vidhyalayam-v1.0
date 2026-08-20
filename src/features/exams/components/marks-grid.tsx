@@ -36,7 +36,6 @@ interface ComponentDef {
   name: string
   shortCode: string | null
   maxMarks: number
-  passingMarks: number
   gradeOnly: boolean
   sequence: number
 }
@@ -44,8 +43,7 @@ interface ComponentDef {
 interface SubjectConfigDef {
   id: string
   totalMarks: number
-  passingMarks: number
-  graceMarksMax: number
+  passingPercentage: number
   gradeOnly: boolean
   components: ComponentDef[]
 }
@@ -55,7 +53,6 @@ interface MarksCell {
   numericValue: number | null
   gradeValue: string | null
   status: string
-  graceMarks: number
   remarks: string | null
   submittedAt: string | null
   lockedAt: string | null
@@ -253,7 +250,6 @@ export function MarksGrid({ examId, examStatus, subjectConfigs }: MarksGridProps
         name: 'Marks',
         shortCode: 'Total' as string | null,
         maxMarks: config?.totalMarks ?? 0,
-        passingMarks: config?.passingMarks ?? 33,
         gradeOnly: config?.gradeOnly ?? false,
         sequence: 0,
       }]
@@ -269,7 +265,6 @@ export function MarksGrid({ examId, examStatus, subjectConfigs }: MarksGridProps
           numericValue: cell?.numericValue ?? null,
           gradeValue: cell?.gradeValue ?? null,
           status: cell?.status ?? 'entered',
-          graceMarks: cell?.graceMarks ?? 0,
           remarks: cell?.remarks ?? null,
           version: cell?.version ?? 0,
         }
@@ -651,6 +646,7 @@ export function MarksGrid({ examId, examStatus, subjectConfigs }: MarksGridProps
             )}
             <span className="text-muted-foreground">
               {allLabels.length} component{allLabels.length === 1 ? '' : 's'} / {config.totalMarks} marks
+              {' · '}pass {config.passingPercentage}%
             </span>
             {published && (
               <Badge className="bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-200">
@@ -682,9 +678,6 @@ export function MarksGrid({ examId, examStatus, subjectConfigs }: MarksGridProps
                   )}
                   <th className="px-3 py-2 text-center text-xs font-medium" style={{ minWidth: 110 }}>
                     Status
-                  </th>
-                  <th className="px-3 py-2 text-center text-xs font-medium" style={{ minWidth: 74 }}>
-                    Grace
                   </th>
                 </tr>
               </thead>
@@ -830,31 +823,6 @@ export function MarksGrid({ examId, examStatus, subjectConfigs }: MarksGridProps
                                 <SelectItem value="not_applicable">N/A</SelectItem>
                               </SelectContent>
                             </Select>
-                          )
-                        })()}
-                      </td>
-
-                      <td className="px-1.5 py-1.5 text-center">
-                        {(() => {
-                          const firstKey = allLabels[0]?.id ?? '__config__'
-                          const cell = student.marks[firstKey]
-                          return (
-                            <Input
-                              type="number"
-                              min={0}
-                              max={config.graceMarksMax}
-                              className="mx-auto h-9 w-16 bg-white text-center text-xs dark:bg-input/30"
-                              disabled={!canEditCells || Boolean(cell?.lockedAt) || config.graceMarksMax === 0}
-                              value={cell?.graceMarks ?? ''}
-                              onChange={(event) => {
-                                const value = Number(event.target.value)
-                                updateCell(student.id, firstKey === '__config__' ? null : firstKey, {
-                                  graceMarks: Number.isNaN(value)
-                                    ? 0
-                                    : Math.min(config.graceMarksMax, Math.max(0, value)),
-                                })
-                              }}
-                            />
                           )
                         })()}
                       </td>

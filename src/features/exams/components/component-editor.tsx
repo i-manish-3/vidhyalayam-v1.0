@@ -21,7 +21,6 @@ export interface ExamComponentRow {
   shortCode: string | null
   sequence: number
   maxMarks: number
-  passingMarks: number
   gradeOnly: boolean
 }
 
@@ -44,7 +43,6 @@ export function makeBlankComponentRow(sequence: number, gradeOnly: boolean): Exa
     shortCode: null,
     sequence,
     maxMarks: 0,
-    passingMarks: 0,
     gradeOnly,
   }
 }
@@ -88,7 +86,6 @@ export function ComponentEditor({
     if (seenNames.get(r.name.trim().toLowerCase())! > 1) return 'Duplicate name.'
     if (!r.gradeOnly) {
       if (!Number.isFinite(r.maxMarks) || r.maxMarks < 0) return 'Max marks must be ≥ 0.'
-      if (r.passingMarks < 0 || r.passingMarks > r.maxMarks) return 'Passing marks must be between 0 and max.'
     }
     return null
   })
@@ -169,24 +166,11 @@ export function ComponentEditor({
                   }
                 />
               </div>
-              <div className="col-span-4 sm:col-span-2">
-                <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Pass</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  className="h-8"
-                  disabled={row.gradeOnly}
-                  value={row.passingMarks}
-                  onChange={(e) =>
-                    updateRow(idx, { passingMarks: Math.max(0, Number(e.target.value) || 0) })
-                  }
-                />
-              </div>
-              <div className="col-span-9 flex items-center gap-2 sm:col-span-1">
+              <div className="col-span-9 flex items-center gap-2 sm:col-span-3">
                 <label className="flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground">
                   <Checkbox
                     checked={row.gradeOnly}
-                    onCheckedChange={(v) => updateRow(idx, { gradeOnly: Boolean(v), maxMarks: 0, passingMarks: 0 })}
+                    onCheckedChange={(v) => updateRow(idx, { gradeOnly: Boolean(v), maxMarks: 0 })}
                   />
                   Grade
                 </label>

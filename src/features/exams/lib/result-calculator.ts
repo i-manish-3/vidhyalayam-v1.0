@@ -24,17 +24,13 @@ export interface ParsedAggregationRule {
 }
 
 export interface PassingRule {
-  perSubject: number
   overall: number
-  allowGrace: boolean
-  graceMax: number
 }
 
 export interface ComponentDef {
   id: string
   name: string
   maxMarks: number
-  passingMarks: number
   gradeOnly: boolean
 }
 
@@ -46,8 +42,7 @@ export interface SubjectConfigDef {
   classId: string
   sectionId: string | null
   totalMarks: number
-  passingMarks: number
-  graceMarksMax: number
+  passingPercentage: number
   gradeOnly: boolean
   isCompulsory: boolean
   components: ComponentDef[]
@@ -60,7 +55,6 @@ export interface MarksEntryDef {
   numericValue: number | null
   gradeValue: string | null
   status: string // entered | absent | medical_leave | not_applicable
-  graceMarks: number
 }
 
 export interface GradeBandDef {
@@ -86,7 +80,6 @@ export interface SubjectSummary {
   gradePoint: number | null
   status: 'pass' | 'fail' | 'absent' | 'not_applicable'
   componentsJson: string | null
-  graceApplied: number
 }
 
 export interface ExamResultShape {
@@ -149,13 +142,10 @@ export function parsePassingRule(json: string): PassingRule {
   try {
     const v = JSON.parse(json)
     return {
-      perSubject: typeof v.perSubject === 'number' ? v.perSubject : 33,
       overall: typeof v.overall === 'number' ? v.overall : 33,
-      allowGrace: Boolean(v.allowGrace),
-      graceMax: typeof v.graceMax === 'number' ? v.graceMax : 5,
     }
   } catch {
-    return { perSubject: 33, overall: 33, allowGrace: true, graceMax: 5 }
+    return { overall: 33 }
   }
 }
 
@@ -195,7 +185,6 @@ export function computeSubjectSummary(
         gradePoint: null,
         status: 'not_applicable',
         componentsJson: null,
-        graceApplied: 0,
       }
     }
     const gradeEntry = marks.find((m) => m.gradeValue)
@@ -209,18 +198,15 @@ export function computeSubjectSummary(
       gradePoint: null,
       status: 'pass',
       componentsJson: null,
-      graceApplied: 0,
     }
   }
 
   // Sum numeric marks across components
   let totalMax = 0
   let totalObtained = 0
-  let graceApplied = 0
   let anyAbsent = false
   let anyApplicable = false
   let anyNotApplicable = false
-  let componentFailed = false
   const componentBreakdown: Record<string, { obtained: number; max: number }> = {}
 
   for (const comp of config.components) {
@@ -248,14 +234,7 @@ export function computeSubjectSummary(
 
     const numeric = entry.numericValue ?? 0
     totalObtained += numeric
-    graceApplied += entry.graceMarks ?? 0
-    if (comp.passingMarks > 0 && numeric < comp.passingMarks) {
-      componentFailed = true
-    }
     componentBreakdown[comp.name] = { obtained: numeric, max: comp.maxMarks }
-  }
-  if (config.components.length > 0 && graceApplied > 0) {
-    totalObtained += graceApplied
   }
 
   // For components-less configs: config-level entry
@@ -271,10 +250,7 @@ export function computeSubjectSummary(
         anyNotApplicable = true
         totalMax = 0
       } else if (entry.status !== 'not_applicable') {
-        const numeric = entry.numericValue ?? 0
-        totalObtained = numeric
-        graceApplied = entry.graceMarks ?? 0
-        totalObtained += graceApplied
+        totalObtained = entry.numericValue ?? 0
       }
     }
   }
@@ -290,7 +266,6 @@ export function computeSubjectSummary(
       gradePoint: null,
       status: 'not_applicable',
       componentsJson: JSON.stringify(componentBreakdown),
-      graceApplied: 0,
     }
   }
 
@@ -305,24 +280,11 @@ export function computeSubjectSummary(
       gradePoint: null,
       status: 'absent',
       componentsJson: JSON.stringify(componentBreakdown),
-      graceApplied: 0,
-    }
-  }
-
-  // Grace marks logic
-  if (passingRule.allowGrace && passingRule.graceMax > 0 && config.graceMarksMax > 0 && graceApplied === 0) {
-    if (totalObtained < config.passingMarks) {
-      const needed = Math.ceil(config.passingMarks - totalObtained)
-      const maxAvailable = Math.min(config.graceMarksMax, passingRule.graceMax)
-      if (needed <= maxAvailable) {
-        graceApplied = needed
-        totalObtained += graceApplied
-      }
     }
   }
 
   const pct = totalMax > 0 ? (totalObtained / totalMax) * 100 : 0
-  const passed = totalObtained >= config.passingMarks && !componentFailed
+  const passed = pct >= config.passingPercentage
 
   return {
     subjectId: config.subjectId,
@@ -334,7 +296,6 @@ export function computeSubjectSummary(
     gradePoint: null,
     status: passed ? 'pass' : 'fail',
     componentsJson: JSON.stringify(componentBreakdown),
-    graceApplied,
   }
 }
 

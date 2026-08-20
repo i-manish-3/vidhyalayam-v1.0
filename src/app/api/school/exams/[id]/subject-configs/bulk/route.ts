@@ -6,8 +6,7 @@ import { logExamChangesBatch, extractExamAuditContext } from '@/lib/audit/exam-a
 
 interface BulkFields {
   totalMarks?: number
-  passingMarks?: number
-  graceMarksMax?: number
+  passingPercentage?: number
   gradeOnly?: boolean
   isOptional?: boolean
   isAdditional?: boolean
@@ -48,12 +47,10 @@ export async function POST(
 
     const f = body.fields as Record<string, unknown>
     const totalMarks = f.totalMarks !== undefined ? Number(f.totalMarks) : undefined
-    const passingMarks = f.passingMarks !== undefined ? Number(f.passingMarks) : undefined
-    const graceMarksMax = f.graceMarksMax !== undefined ? Number(f.graceMarksMax) : undefined
+    const passingPercentage = f.passingPercentage !== undefined ? Number(f.passingPercentage) : undefined
     const hasFields =
       totalMarks !== undefined ||
-      passingMarks !== undefined ||
-      graceMarksMax !== undefined ||
+      passingPercentage !== undefined ||
       f.gradeOnly !== undefined ||
       f.isOptional !== undefined ||
       f.isAdditional !== undefined
@@ -62,8 +59,8 @@ export async function POST(
     if (totalMarks !== undefined && (!Number.isFinite(totalMarks) || totalMarks <= 0)) {
       return apiError(400, 'totalMarks must be positive.')
     }
-    if (graceMarksMax !== undefined && (!Number.isFinite(graceMarksMax) || graceMarksMax < 0)) {
-      return apiError(400, 'graceMarksMax must be non-negative.')
+    if (passingPercentage !== undefined && (!Number.isFinite(passingPercentage) || passingPercentage < 0 || passingPercentage > 100)) {
+      return apiError(400, 'passingPercentage must be between 0 and 100.')
     }
 
     const configIds = body.configIds as string[]
@@ -89,18 +86,7 @@ export async function POST(
         const nextTotal = totalMarks !== undefined ? totalMarks : config.totalMarks
 
         if (totalMarks !== undefined) data.totalMarks = totalMarks
-        if (passingMarks !== undefined) {
-          if (!Number.isFinite(passingMarks) || passingMarks < 0 || passingMarks > nextTotal) {
-            skipped += 1
-            errors.push({
-              configId: config.id,
-              message: `Passing marks must be between 0 and ${nextTotal} for this config.`,
-            })
-            continue
-          }
-          data.passingMarks = passingMarks
-        }
-        if (graceMarksMax !== undefined) data.graceMarksMax = graceMarksMax
+        if (passingPercentage !== undefined) data.passingPercentage = passingPercentage
         if (f.gradeOnly !== undefined) data.gradeOnly = Boolean(f.gradeOnly)
         if (f.isOptional !== undefined) data.isOptional = Boolean(f.isOptional)
         if (f.isAdditional !== undefined) data.isAdditional = Boolean(f.isAdditional)

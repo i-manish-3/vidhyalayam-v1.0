@@ -83,10 +83,7 @@ interface AcademicYear {
 }
 
 interface PassingRule {
-  perSubject: number
   overall: number
-  allowGrace: boolean
-  graceMax: number
 }
 
 function parseRule<T>(json: string, fallback: T): T {
@@ -99,7 +96,7 @@ function parseRule<T>(json: string, fallback: T): T {
 }
 
 const DEFAULT_AGG: AggregationRule = { type: 'sum_all' }
-const DEFAULT_PASSING: PassingRule = { perSubject: 33, overall: 33, allowGrace: true, graceMax: 5 }
+const DEFAULT_PASSING: PassingRule = { overall: 33 }
 
 export function ExamParadigmsPage() {
   const router = useRouter()
@@ -463,24 +460,9 @@ function ParadigmEditDialog({ open, target, years, saving, onClose, onSave }: Pa
           <section className="relative overflow-hidden rounded-xl border border-amber-200/80 bg-gradient-to-br from-amber-50 via-white to-orange-50 p-4 shadow-sm dark:border-amber-500/25 dark:from-amber-500/15 dark:via-card dark:to-orange-500/10">
             <div className="relative mb-3 flex items-center gap-2">
               <span className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 text-white shadow-sm"><Percent className="size-4 text-white" /></span>
-              <div><h3 className="text-sm font-semibold">Passing rule</h3><p className="text-[10px] text-muted-foreground">Minimum percentages and grace allowance</p></div>
+              <div><h3 className="text-sm font-semibold">Passing rule</h3><p className="text-[10px] text-muted-foreground">Minimum overall percentage for a pass</p></div>
             </div>
-            <div className="relative grid gap-3 sm:grid-cols-4">
-              <div>
-                <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                  Per subject %
-                </Label>
-                <Input
-                  type="number"
-                  min={0}
-                  max={100}
-                  className="h-9 bg-white shadow-sm dark:bg-input/30"
-                  value={passing.perSubject}
-                  onChange={(e) =>
-                    setPassing({ ...passing, perSubject: Number(e.target.value) || 0 })
-                  }
-                />
-              </div>
+            <div className="relative grid gap-3 sm:grid-cols-3">
               <div>
                 <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">
                   Overall %
@@ -495,33 +477,6 @@ function ParadigmEditDialog({ open, target, years, saving, onClose, onSave }: Pa
                     setPassing({ ...passing, overall: Number(e.target.value) || 0 })
                   }
                 />
-              </div>
-              <div>
-                <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                  Grace max
-                </Label>
-                <Input
-                  type="number"
-                  min={0}
-                  className="h-9 bg-white shadow-sm dark:bg-input/30"
-                  value={passing.graceMax}
-                  onChange={(e) =>
-                    setPassing({ ...passing, graceMax: Number(e.target.value) || 0 })
-                  }
-                />
-              </div>
-              <div className="flex items-end gap-2 pb-1.5">
-                <input
-                  id="allowGrace"
-                  type="checkbox"
-                  checked={passing.allowGrace}
-                  onChange={(e) =>
-                    setPassing({ ...passing, allowGrace: e.target.checked })
-                  }
-                />
-                <Label htmlFor="allowGrace" className="text-xs">
-                  Allow grace
-                </Label>
               </div>
             </div>
           </section>

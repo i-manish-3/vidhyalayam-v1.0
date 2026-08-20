@@ -13,8 +13,7 @@ interface ConfigInput {
   isAdditional?: boolean
   gradeOnly?: boolean
   totalMarks?: number
-  passingMarks?: number
-  graceMarksMax?: number
+  passingPercentage?: number
   examDate?: string | null
   durationMinutes?: number | null
 }
@@ -32,16 +31,12 @@ function validateConfig(c: unknown): { ok: true; v: ConfigInput } | { ok: false;
     return { ok: false, error: 'sectionId must be a string or null.' }
   }
   const totalMarks = o.totalMarks === undefined ? 100 : Number(o.totalMarks)
-  const passingMarks = o.passingMarks === undefined ? 33 : Number(o.passingMarks)
-  const graceMarksMax = o.graceMarksMax === undefined ? 0 : Number(o.graceMarksMax)
+  const passingPercentage = o.passingPercentage === undefined ? 33 : Number(o.passingPercentage)
   if (!Number.isFinite(totalMarks) || totalMarks <= 0) {
     return { ok: false, error: 'totalMarks must be a positive number.' }
   }
-  if (!Number.isFinite(passingMarks) || passingMarks < 0 || passingMarks > totalMarks) {
-    return { ok: false, error: 'passingMarks must be between 0 and totalMarks.' }
-  }
-  if (!Number.isFinite(graceMarksMax) || graceMarksMax < 0) {
-    return { ok: false, error: 'graceMarksMax must be a non-negative number.' }
+  if (!Number.isFinite(passingPercentage) || passingPercentage < 0 || passingPercentage > 100) {
+    return { ok: false, error: 'passingPercentage must be between 0 and 100.' }
   }
   let examDate: string | null = null
   if (o.examDate !== undefined && o.examDate !== null && o.examDate !== '') {
@@ -66,8 +61,7 @@ function validateConfig(c: unknown): { ok: true; v: ConfigInput } | { ok: false;
       isAdditional: Boolean(o.isAdditional),
       gradeOnly: Boolean(o.gradeOnly),
       totalMarks,
-      passingMarks,
-      graceMarksMax,
+      passingPercentage,
       examDate,
       durationMinutes,
     },
@@ -208,8 +202,7 @@ export async function POST(
             isAdditional: cfg.isAdditional ?? false,
             gradeOnly: cfg.gradeOnly ?? false,
             totalMarks: cfg.totalMarks ?? 100,
-            passingMarks: cfg.passingMarks ?? 33,
-            graceMarksMax: cfg.graceMarksMax ?? 0,
+            passingPercentage: cfg.passingPercentage ?? 33,
             examDate: cfg.examDate ? new Date(cfg.examDate) : null,
             durationMinutes: cfg.durationMinutes ?? null,
           },

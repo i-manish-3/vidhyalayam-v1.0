@@ -29,7 +29,6 @@ interface StudentRow {
     numericValue: number | null
     gradeValue: string | null
     status: string
-    graceMarks: number
     remarks: string | null
     submittedAt: string | null
     lockedAt: string | null
@@ -140,14 +139,12 @@ function buildConfigRef(config: NonNullable<Awaited<ReturnType<typeof findSubjec
   return {
     id: config.id,
     totalMarks: config.totalMarks,
-    passingMarks: config.passingMarks,
-    graceMarksMax: config.graceMarksMax,
+    passingPercentage: config.passingPercentage,
     gradeOnly: config.gradeOnly,
     components: config.components.map((c) => ({
       id: c.id,
       name: c.name,
       maxMarks: c.maxMarks,
-      passingMarks: c.passingMarks,
       gradeOnly: c.gradeOnly,
     })),
   }
@@ -264,7 +261,6 @@ export async function GET(
               numericValue: existing.numericValue,
               gradeValue: existing.gradeValue,
               status: existing.status,
-              graceMarks: existing.graceMarks,
               remarks: existing.remarks,
               submittedAt: existing.submittedAt?.toISOString() ?? null,
               lockedAt: existing.lockedAt?.toISOString() ?? null,
@@ -278,7 +274,6 @@ export async function GET(
                 examStart && student.admissionDate && new Date(student.admissionDate).getTime() > examStart
                   ? 'not_applicable'
                   : 'entered',
-              graceMarks: 0,
               remarks: null,
               submittedAt: null,
               lockedAt: null,
@@ -302,15 +297,13 @@ export async function GET(
         subjectConfig: {
           id: config.id,
           totalMarks: config.totalMarks,
-          passingMarks: config.passingMarks,
-          graceMarksMax: config.graceMarksMax,
+          passingPercentage: config.passingPercentage,
           gradeOnly: config.gradeOnly,
           components: config.components.map((c) => ({
             id: c.id,
             name: c.name,
             shortCode: c.shortCode,
             maxMarks: c.maxMarks,
-            passingMarks: c.passingMarks,
             gradeOnly: c.gradeOnly,
             sequence: c.sequence,
           })),
@@ -491,7 +484,6 @@ export async function PUT(
                 numericValue: entry.numericValue,
                 gradeValue: entry.gradeValue ?? null,
                 status,
-                graceMarks: entry.graceMarks ?? 0,
                 remarks: entry.remarks ?? null,
                 version: { increment: 1 },
                 enteredBy: user.userId,
@@ -509,7 +501,6 @@ export async function PUT(
                 numericValue: entry.numericValue,
                 gradeValue: entry.gradeValue ?? null,
                 status,
-                graceMarks: entry.graceMarks ?? 0,
                 remarks: entry.remarks ?? null,
                 enteredBy: user.userId,
                 enteredAt: new Date(),

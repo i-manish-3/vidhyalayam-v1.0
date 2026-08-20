@@ -75,7 +75,6 @@ interface ComponentRow {
   id: string
   name: string
   maxMarks: number
-  passingMarks: number
   gradeOnly: boolean
   numericValue: number | null
   gradeValue: string | null
@@ -87,7 +86,7 @@ interface SubjectRow {
   subjectId: string
   subjectName: string
   totalMarks: number
-  passingMarks: number
+  passingPercentage: number
   gradeOnly: boolean
   isCompulsory: boolean
   isOptional: boolean
@@ -97,7 +96,6 @@ interface SubjectRow {
     numericValue: number | null
     gradeValue: string | null
     status: string
-    graceMarks: number
   } | null
   summary: {
     obtainedMarks: number
@@ -105,7 +103,6 @@ interface SubjectRow {
     percentage: number
     grade: string | null
     status: string
-    graceApplied: number
   } | null
 }
 
@@ -144,7 +141,7 @@ interface ClassMarksheetResponse {
     subjectId: string
     subjectName: string
     totalMarks: number
-    passingMarks: number
+    passingPercentage: number
     gradeOnly: boolean
   }>
   students: Array<{
@@ -821,7 +818,7 @@ function StudentMarksheetDialog({ open, student, loading, sheet, onClose }: Stud
                           if (component.status === 'not_applicable') return <span className="text-muted-foreground">—</span>
                           if (component.gradeOnly) return <span className="font-medium">{component.gradeValue ?? '—'}</span>
                           return (
-                            <span className={cn(component.numericValue != null && component.numericValue < component.passingMarks && component.passingMarks > 0 && 'text-red-600 dark:text-red-400')}>
+                            <span>
                               {component.numericValue ?? '—'}
                             </span>
                           )
@@ -831,7 +828,7 @@ function StudentMarksheetDialog({ open, student, loading, sheet, onClose }: Stud
                             <TableCell>
                               <p className="font-medium">{subj.subjectName}</p>
                               <p className="text-[10px] text-muted-foreground">
-                                {subj.gradeOnly ? 'Grade-only' : `Pass ${subj.passingMarks}`}
+                                {subj.gradeOnly ? 'Grade-only' : `Pass ${subj.passingPercentage}%`}
                                 {subj.isOptional ? ' · Optional' : ''}
                                 {subj.isAdditional ? ' · Additional' : ''}
                               </p>
@@ -856,11 +853,6 @@ function StudentMarksheetDialog({ open, student, loading, sheet, onClose }: Stud
                               {subj.summary?.status === 'not_applicable'
                                 ? '—'
                                 : `${subj.summary?.obtainedMarks ?? '—'} / ${subj.summary?.totalMarks ?? subj.totalMarks}`}
-                              {subj.summary?.graceApplied != null && subj.summary.graceApplied > 0 && (
-                                <span className="ml-1 text-[10px] text-emerald-600 dark:text-emerald-400">
-                                  +{subj.summary.graceApplied} grace
-                                </span>
-                              )}
                             </TableCell>
                             <TableCell className="text-right">
                               {subj.summary?.status === 'not_applicable'

@@ -250,7 +250,7 @@ export async function POST(request: NextRequest) {
               subjectId: row.subjectId,
               isCompulsory: true,
               totalMarks: 100,
-              passingMarks: 33,
+              passingPercentage: 33,
             },
           })
           autoAddedSubjects += 1

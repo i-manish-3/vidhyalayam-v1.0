@@ -46,8 +46,7 @@ interface SubjectConfig {
   isAdditional: boolean
   gradeOnly: boolean
   totalMarks: number
-  passingMarks: number
-  graceMarksMax: number
+  passingPercentage: number
   examDate: string | null
   durationMinutes: number | null
   components: ExamComponentRow[]
@@ -398,8 +397,7 @@ export function ExamConfigurePage({ examId }: Props) {
                             <p className="mt-0.5 text-xs text-muted-foreground">
                               {c.gradeOnly
                                 ? 'No numeric marks'
-                                : `${c.totalMarks} marks · pass at ${c.passingMarks}`}
-                              {c.graceMarksMax > 0 ? ` · grace ≤ ${c.graceMarksMax}` : ''}
+                                : `${c.totalMarks} marks · pass at ${c.passingPercentage}%`}
                             </p>
                             <p className="mt-0.5 text-xs">
                               <span className="text-muted-foreground">Components: </span>
@@ -537,8 +535,7 @@ interface EditSubjectConfigDialogProps {
 
 function EditSubjectConfigDialog({ open, config, onClose, onSave }: EditSubjectConfigDialogProps) {
   const [totalMarks, setTotalMarks] = useState(100)
-  const [passingMarks, setPassingMarks] = useState(33)
-  const [graceMarksMax, setGraceMarksMax] = useState(0)
+  const [passingPercentage, setPassingPercentage] = useState(33)
   const [gradeOnly, setGradeOnly] = useState(false)
   const [isOptional, setIsOptional] = useState(false)
   const [isAdditional, setIsAdditional] = useState(false)
@@ -547,8 +544,7 @@ function EditSubjectConfigDialog({ open, config, onClose, onSave }: EditSubjectC
   useEffect(() => {
     if (!config) return
     setTotalMarks(config.totalMarks)
-    setPassingMarks(config.passingMarks)
-    setGraceMarksMax(config.graceMarksMax)
+    setPassingPercentage(config.passingPercentage)
     setGradeOnly(config.gradeOnly)
     setIsOptional(config.isOptional)
     setIsAdditional(config.isAdditional)
@@ -557,7 +553,7 @@ function EditSubjectConfigDialog({ open, config, onClose, onSave }: EditSubjectC
   async function handleSave() {
     setSaving(true)
     try {
-      await onSave({ totalMarks, passingMarks, graceMarksMax, gradeOnly, isOptional, isAdditional })
+      await onSave({ totalMarks, passingPercentage, gradeOnly, isOptional, isAdditional })
     } finally {
       setSaving(false)
     }
@@ -569,7 +565,7 @@ function EditSubjectConfigDialog({ open, config, onClose, onSave }: EditSubjectC
         <GradientDialogHeader
           icon={Settings2}
           title="Edit subject config"
-          description="Adjust marks ceiling, grace allowance, and optional/additional flags."
+          description="Adjust marks ceiling, passing percentage, and optional/additional flags."
         />
 
         <div className="themed-scrollbar grid max-h-[68svh] gap-3 overflow-y-auto bg-gradient-to-br from-primary/[0.025] via-background to-violet-500/[0.035] p-4 sm:p-5">
@@ -577,7 +573,7 @@ function EditSubjectConfigDialog({ open, config, onClose, onSave }: EditSubjectC
             <Checkbox checked={gradeOnly} onCheckedChange={(v) => setGradeOnly(Boolean(v))} />
             Grade only (no numeric marks)
           </label>
-          <div className="grid gap-3 rounded-xl border border-sky-200/80 bg-gradient-to-r from-sky-50 via-white to-violet-50 p-3 shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10 sm:grid-cols-3">
+          <div className="grid gap-3 rounded-xl border border-sky-200/80 bg-gradient-to-r from-sky-50 via-white to-violet-50 p-3 shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10 sm:grid-cols-2">
             <div>
               <label className="text-[10px] font-semibold uppercase tracking-wider text-sky-700 dark:text-sky-300">Total</label>
               <Input
@@ -590,25 +586,15 @@ function EditSubjectConfigDialog({ open, config, onClose, onSave }: EditSubjectC
               />
             </div>
             <div>
-              <label className="text-[10px] font-semibold uppercase tracking-wider text-sky-700 dark:text-sky-300">Passing</label>
+              <label className="text-[10px] font-semibold uppercase tracking-wider text-sky-700 dark:text-sky-300">Passing %</label>
               <Input
                 type="number"
                 min={0}
+                max={100}
                 className="h-9"
                 disabled={gradeOnly}
-                value={passingMarks}
-                onChange={(e) => setPassingMarks(Math.max(0, Number(e.target.value) || 0))}
-              />
-            </div>
-            <div>
-              <label className="text-[10px] font-semibold uppercase tracking-wider text-sky-700 dark:text-sky-300">Grace max</label>
-              <Input
-                type="number"
-                min={0}
-                className="h-9"
-                disabled={gradeOnly}
-                value={graceMarksMax}
-                onChange={(e) => setGraceMarksMax(Math.max(0, Number(e.target.value) || 0))}
+                value={passingPercentage}
+                onChange={(e) => setPassingPercentage(Math.min(100, Math.max(0, Number(e.target.value) || 0)))}
               />
             </div>
           </div>
@@ -654,14 +640,12 @@ function BulkSubjectConfigDialog({
 }: BulkSubjectConfigDialogProps) {
   const [selectedClassIds, setSelectedClassIds] = useState<string[]>([])
   const [totalMarks, setTotalMarks] = useState(100)
-  const [passingMarks, setPassingMarks] = useState(33)
-  const [graceMarksMax, setGraceMarksMax] = useState(0)
+  const [passingPercentage, setPassingPercentage] = useState(33)
   const [gradeOnly, setGradeOnly] = useState(false)
   const [isOptional, setIsOptional] = useState(false)
   const [isAdditional, setIsAdditional] = useState(false)
   const [applyTotal, setApplyTotal] = useState(false)
   const [applyPassing, setApplyPassing] = useState(false)
-  const [applyGrace, setApplyGrace] = useState(false)
   const [applyGradeOnly, setApplyGradeOnly] = useState(false)
   const [applyOptional, setApplyOptional] = useState(false)
   const [applyAdditional, setApplyAdditional] = useState(false)
@@ -676,14 +660,12 @@ function BulkSubjectConfigDialog({
     if (!open) return
     setSelectedClassIds(classIdsWithConfigs)
     setTotalMarks(100)
-    setPassingMarks(33)
-    setGraceMarksMax(0)
+    setPassingPercentage(33)
     setGradeOnly(false)
     setIsOptional(false)
     setIsAdditional(false)
     setApplyTotal(false)
     setApplyPassing(false)
-    setApplyGrace(false)
     setApplyGradeOnly(false)
     setApplyOptional(false)
     setApplyAdditional(false)
@@ -695,13 +677,11 @@ function BulkSubjectConfigDialog({
   )
 
   const anyApply =
-    applyTotal || applyPassing || applyGrace || applyGradeOnly || applyOptional || applyAdditional
+    applyTotal || applyPassing || applyGradeOnly || applyOptional || applyAdditional
 
   const valuesOk =
     (!applyTotal || totalMarks > 0) &&
-    (!applyPassing || passingMarks >= 0) &&
-    (!applyGrace || graceMarksMax >= 0) &&
-    (!applyPassing || passingMarks <= (applyTotal ? totalMarks : totalMarks))
+    (!applyPassing || (passingPercentage >= 0 && passingPercentage <= 100))
 
   const canApply = !saving && anyApply && valuesOk && eligible.length > 0
 
@@ -711,8 +691,7 @@ function BulkSubjectConfigDialog({
     try {
       const fields: Partial<SubjectConfig> = {}
       if (applyTotal) fields.totalMarks = totalMarks
-      if (applyPassing) fields.passingMarks = passingMarks
-      if (applyGrace) fields.graceMarksMax = graceMarksMax
+      if (applyPassing) fields.passingPercentage = passingPercentage
       if (applyGradeOnly) fields.gradeOnly = gradeOnly
       if (applyOptional) fields.isOptional = isOptional
       if (applyAdditional) fields.isAdditional = isAdditional
@@ -728,7 +707,7 @@ function BulkSubjectConfigDialog({
         <GradientDialogHeader
           icon={SlidersHorizontal}
           title="Bulk subject config"
-          description="Adjust marks ceiling, grace allowance, and optional/additional flags across many subjects at once."
+          description="Adjust marks ceiling, passing percentage, and optional/additional flags across many subjects at once."
         />
 
         <div className="themed-scrollbar min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain bg-gradient-to-br from-primary/[0.025] via-background to-violet-500/[0.035] p-4 sm:p-5">
@@ -757,26 +736,15 @@ function BulkSubjectConfigDialog({
               </div>
               <div className="flex items-center gap-2 rounded-md border border-current/10 bg-white/70 p-2 shadow-sm dark:bg-card/60">
                 <Checkbox checked={applyPassing} onCheckedChange={(v) => setApplyPassing(Boolean(v))} />
-                <Label className="w-28 text-xs">Passing marks</Label>
+                <Label className="w-28 text-xs">Passing %</Label>
                 <Input
                   type="number"
                   min={0}
+                  max={100}
                   className="h-8"
                   disabled={!applyPassing || gradeOnly}
-                  value={passingMarks}
-                  onChange={(e) => setPassingMarks(Math.max(0, Number(e.target.value) || 0))}
-                />
-              </div>
-              <div className="flex items-center gap-2 rounded-md border border-current/10 bg-white/70 p-2 shadow-sm dark:bg-card/60">
-                <Checkbox checked={applyGrace} onCheckedChange={(v) => setApplyGrace(Boolean(v))} />
-                <Label className="w-28 text-xs">Grace max</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  className="h-8"
-                  disabled={!applyGrace || gradeOnly}
-                  value={graceMarksMax}
-                  onChange={(e) => setGraceMarksMax(Math.max(0, Number(e.target.value) || 0))}
+                  value={passingPercentage}
+                  onChange={(e) => setPassingPercentage(Math.min(100, Math.max(0, Number(e.target.value) || 0)))}
                 />
               </div>
             </div>
@@ -957,7 +925,6 @@ function BulkComponentsDialog({
     if (seenNames.get(r.name.trim().toLowerCase())! > 1) return 'Duplicate name.'
     if (!r.gradeOnly) {
       if (!Number.isFinite(r.maxMarks) || r.maxMarks < 0) return 'Max marks must be ≥ 0.'
-      if (r.passingMarks < 0 || r.passingMarks > r.maxMarks) return 'Passing marks must be between 0 and max.'
     }
     return null
   })
@@ -991,15 +958,11 @@ function BulkComponentsDialog({
     const lastNumeric = numeric[numeric.length - 1]
     let used = 0
     return source.map((r, i) => {
-      if (r.gradeOnly) return { ...r, sequence: i, maxMarks: 0, passingMarks: 0 }
+      if (r.gradeOnly) return { ...r, sequence: i, maxMarks: 0 }
       const share = sumMax > 0 ? (Number(r.maxMarks) || 0) / sumMax : 1 / numeric.length
       const max = r === lastNumeric ? total - used : Math.round(total * share)
       used += max
-      const pass =
-        r.passingMarks > 0 && (Number(r.maxMarks) || 0) > 0
-          ? Math.round((r.passingMarks / Number(r.maxMarks)) * max)
-          : 0
-      return { ...r, sequence: i, maxMarks: max, passingMarks: pass }
+      return { ...r, sequence: i, maxMarks: max }
     })
   }
 
@@ -1181,41 +1144,28 @@ function BulkComponentsDialog({
                       onChange={(e) => updateRow(idx, { shortCode: e.target.value })}
                     />
                   </div>
-                  <div className="col-span-4 sm:col-span-2">
-                    <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Max</Label>
-                    <Input
-                      type="number"
-                      min={0}
-                      className="h-8"
-                      disabled={row.gradeOnly}
-                      value={row.maxMarks}
-                      onChange={(e) =>
-                        updateRow(idx, { maxMarks: Math.max(0, Number(e.target.value) || 0) })
-                      }
-                    />
-                  </div>
-                  <div className="col-span-4 sm:col-span-2">
-                    <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Pass</Label>
-                    <Input
-                      type="number"
-                      min={0}
-                      className="h-8"
-                      disabled={row.gradeOnly}
-                      value={row.passingMarks}
-                      onChange={(e) =>
-                        updateRow(idx, { passingMarks: Math.max(0, Number(e.target.value) || 0) })
-                      }
-                    />
-                  </div>
-                  <div className="col-span-9 flex items-center gap-2 sm:col-span-1">
-                    <label className="flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground">
-                      <Checkbox
-                        checked={row.gradeOnly}
-                        onCheckedChange={(v) => updateRow(idx, { gradeOnly: Boolean(v), maxMarks: 0, passingMarks: 0 })}
-                      />
-                      Grade
-                    </label>
-                  </div>
+<div className="col-span-4 sm:col-span-2">
+                <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Max</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  className="h-8"
+                  disabled={row.gradeOnly}
+                  value={row.maxMarks}
+                  onChange={(e) =>
+                    updateRow(idx, { maxMarks: Math.max(0, Number(e.target.value) || 0) })
+                  }
+                />
+              </div>
+              <div className="col-span-9 flex items-center gap-2 sm:col-span-3">
+                <label className="flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground">
+                  <Checkbox
+                    checked={row.gradeOnly}
+                    onCheckedChange={(v) => updateRow(idx, { gradeOnly: Boolean(v), maxMarks: 0 })}
+                  />
+                  Grade
+                </label>
+              </div>
                   <div className="col-span-3 flex items-end justify-end sm:col-span-1">
                     <Button
                       type="button"

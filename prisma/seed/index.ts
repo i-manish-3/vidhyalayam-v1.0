@@ -161,10 +161,7 @@ async function seed() {
           ],
         }),
         passingRule: JSON.stringify({
-          perSubject: 33,
           overall: 33,
-          allowGrace: true,
-          graceMax: 5,
         }),
         isActive: true,
         isDefault: true,

@@ -316,7 +316,7 @@ export async function PATCH(
               subjectId: row.subjectId,
               isCompulsory: true,
               totalMarks: 100,
-              passingMarks: 33,
+              passingPercentage: 33,
             },
           })
           subjectsAdded += 1

@@ -10,7 +10,6 @@ export interface MarksEntryInput {
   numericValue: number | null
   gradeValue?: string | null
   status: 'entered' | 'absent' | 'medical_leave' | 'not_applicable'
-  graceMarks?: number
   remarks?: string | null
 }
 
@@ -18,21 +17,19 @@ export interface ComponentRef {
   id: string
   name: string
   maxMarks: number
-  passingMarks: number
   gradeOnly: boolean
 }
 
 export interface SubjectConfigRef {
   id: string
   totalMarks: number
-  passingMarks: number
-  graceMarksMax: number
+  passingPercentage: number
   gradeOnly: boolean
   components: ComponentRef[]
 }
 
 export type MarksValidationError =
-  | { field: 'numericValue' | 'graceMarks' | 'status' | 'gradeValue' | 'componentId'; message: string }
+  | { field: 'numericValue' | 'status' | 'gradeValue' | 'componentId'; message: string }
   | { field: 'general'; message: string }
 
 /**
@@ -101,17 +98,6 @@ export function validateMarksEntry(
     return {
       field: 'numericValue',
       message: `Marks (${entry.numericValue}) exceed maximum (${maxMarks}) for ${component ? `"${component.name}"` : 'this subject'}.`,
-    }
-  }
-
-  if (entry.graceMarks !== undefined && entry.graceMarks < 0) {
-    return { field: 'graceMarks', message: 'Grace marks cannot be negative.' }
-  }
-
-  if (entry.graceMarks !== undefined && entry.graceMarks > config.graceMarksMax) {
-    return {
-      field: 'graceMarks',
-      message: `Grace marks (${entry.graceMarks}) exceed the allowed maximum (${config.graceMarksMax}).`,
     }
   }
 

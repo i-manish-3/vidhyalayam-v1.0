@@ -156,15 +156,13 @@ export async function POST(
       classId: c.classId,
       sectionId: c.sectionId,
       totalMarks: c.totalMarks,
-      passingMarks: c.passingMarks,
-      graceMarksMax: c.graceMarksMax,
+      passingPercentage: c.passingPercentage,
       gradeOnly: c.gradeOnly,
       isCompulsory: c.isCompulsory,
       components: c.components.map((comp) => ({
         id: comp.id,
         name: comp.name,
         maxMarks: comp.maxMarks,
-        passingMarks: comp.passingMarks,
         gradeOnly: comp.gradeOnly,
       })),
     }))
@@ -180,7 +178,6 @@ export async function POST(
         numericValue: m.numericValue,
         gradeValue: m.gradeValue,
         status: m.status,
-        graceMarks: m.graceMarks,
       })
       marksByConfig.set(m.subjectConfigId, arr)
     }
@@ -289,7 +286,6 @@ export async function POST(
               numericValue: null,
               gradeValue: null,
               status: 'not_applicable',
-              graceMarks: 0,
             })
           }
         } else {
@@ -300,7 +296,6 @@ export async function POST(
             numericValue: null,
             gradeValue: null,
             status: 'not_applicable',
-            graceMarks: 0,
           })
         }
       }
@@ -411,7 +406,6 @@ export async function POST(
           studentId: er.studentId,
           metadata: {
             subjectCount: er.subjectSummaries.length,
-            graceApplied: er.subjectSummaries.reduce((s, sm) => s + sm.graceApplied, 0),
           },
         })
         writtenCount++

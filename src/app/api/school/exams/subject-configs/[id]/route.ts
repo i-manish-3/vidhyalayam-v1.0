@@ -32,8 +32,7 @@ export async function PATCH(
       isAdditional,
       gradeOnly,
       totalMarks,
-      passingMarks,
-      graceMarksMax,
+      passingPercentage,
       examDate,
       durationMinutes,
     } = body
@@ -45,18 +44,12 @@ export async function PATCH(
       if (!Number.isFinite(n) || n <= 0) return apiError(400, 'totalMarks must be positive.')
       updateData.totalMarks = n
     }
-    if (passingMarks !== undefined) {
-      const n = Number(passingMarks)
-      const total = (updateData.totalMarks as number | undefined) ?? existing.totalMarks
-      if (!Number.isFinite(n) || n < 0 || n > total) {
-        return apiError(400, 'passingMarks must be between 0 and totalMarks.')
+    if (passingPercentage !== undefined) {
+      const n = Number(passingPercentage)
+      if (!Number.isFinite(n) || n < 0 || n > 100) {
+        return apiError(400, 'passingPercentage must be between 0 and 100.')
       }
-      updateData.passingMarks = n
-    }
-    if (graceMarksMax !== undefined) {
-      const n = Number(graceMarksMax)
-      if (!Number.isFinite(n) || n < 0) return apiError(400, 'graceMarksMax must be non-negative.')
-      updateData.graceMarksMax = n
+      updateData.passingPercentage = n
     }
     if (isCompulsory !== undefined) updateData.isCompulsory = Boolean(isCompulsory)
     if (isOptional !== undefined) updateData.isOptional = Boolean(isOptional)
