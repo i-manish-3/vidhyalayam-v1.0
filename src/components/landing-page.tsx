@@ -898,7 +898,7 @@ function PricingSection({ plans, addons }: { plans: PricingPlanData[]; addons: P
                     ))}
                   </div>
                   <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
-                    <Button size="lg" className="mt-8 w-full bg-white text-emerald-700 hover:bg-white/90 shadow-lg font-semibold text-base transition-all duration-300" onClick={() => scrollToId('#contact')}>
+                    <Button size="lg" className="mt-8 w-full bg-white text-emerald-700 hover:bg-white/90 shadow-lg font-semibold text-base transition-all duration-300 [background-image:none]" onClick={() => scrollToId('#contact')}>
                       Get Started <ArrowRight className="size-4 ml-2" />
                     </Button>
                   </motion.div>
@@ -1343,12 +1343,12 @@ function CTASection({ onLoginClick }: { onLoginClick: () => void }) {
         </motion.p>
         <motion.div className="mt-8 flex flex-col sm:flex-row gap-4 justify-center" initial={{ opacity: 0, y: 20 }} animate={inView ? { opacity: 1, y: 0 } : {}} transition={{ duration: 0.6, delay: 0.3 }}>
           <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-            <Button size="lg" className="bg-white text-emerald-700 hover:bg-white/90 shadow-xl text-base px-8 h-12 font-semibold transition-all duration-300" onClick={onLoginClick}>
+            <Button size="lg" className="bg-white text-emerald-700 hover:bg-white/90 shadow-xl text-base px-8 h-12 font-semibold transition-all duration-300 [background-image:none]" onClick={onLoginClick}>
               Get Started Free <ArrowRight className="size-4 ml-2" />
             </Button>
           </motion.div>
           <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-            <Button size="lg" className="border border-white/30 text-white hover:bg-white/10 text-base px-8 h-12 transition-all duration-300" onClick={() => scrollToId('#contact')}>
+            <Button size="lg" className="border border-white/40 bg-transparent text-white hover:bg-white/10 text-base px-8 h-12 transition-all duration-300 [background-image:none]" onClick={() => scrollToId('#contact')}>
               <Play className="size-4 mr-2" /> Schedule Demo
             </Button>
           </motion.div>
