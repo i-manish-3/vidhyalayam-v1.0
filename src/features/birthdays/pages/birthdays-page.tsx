@@ -17,7 +17,7 @@ import { useToast } from '@/hooks/use-toast'
 import { useAppStore } from '@/lib/store'
 import { cn } from '@/lib/utils'
 import {
-  SchoolBirthdayCard,
+  ScaledBirthdayCard,
   embedCardImages,
   type BirthdayCardSchool,
   type BirthdayCardStudent,
@@ -36,6 +36,8 @@ interface BirthdayPerson {
   ageTurning: number
   profileImage: string | null
   label: string | null
+  className: string | null
+  sectionName: string | null
 }
 
 interface BirthdaysResponse {
@@ -290,8 +292,8 @@ function BirthdayCardDialog({
             profileImage: person.profileImage,
             admissionNumber: null,
             rollNumber: null,
-            class: null,
-            section: null,
+            class: person.className ? { id: '', name: person.className } : null,
+            section: person.sectionName ? { id: '', name: person.sectionName } : null,
             admission: null,
           }
         : null,
@@ -304,8 +306,8 @@ function BirthdayCardDialog({
     try {
       await embedCardImages(cardRef.current)
       const dataUrl = await toPng(cardRef.current, {
-        width: 540,
-        height: 960,
+        width: 1080,
+        height: 1080,
         pixelRatio: 2,
         cacheBust: true,
       })
@@ -326,20 +328,18 @@ function BirthdayCardDialog({
 
   return (
     <Dialog open={open} onOpenChange={(o) => !downloading && !o && onClose()}>
-      <DialogContent className="flex max-h-[90svh] flex-col overflow-hidden border-rose-500/20 bg-card p-0 shadow-2xl shadow-rose-500/15 sm:max-w-2xl [&>button]:right-3 [&>button]:top-3 [&>button]:rounded-full [&>button]:text-white [&>button]:opacity-85 [&>button]:hover:bg-white/15 [&>button]:hover:opacity-100">
+      <DialogContent className="flex max-h-[90svh] flex-col overflow-hidden border-rose-500/20 bg-card p-0 shadow-2xl shadow-rose-500/15 sm:max-w-3xl [&>button]:right-3 [&>button]:top-3 [&>button]:rounded-full [&>button]:text-white [&>button]:opacity-85 [&>button]:hover:bg-white/15 [&>button]:hover:opacity-100">
         <GradientDialogHeader
           icon={Cake}
           title={person ? `${person.name}'s birthday card` : 'Birthday card'}
-          description="540×960 — a classic 9:16 birthday card. Download as a high-resolution PNG."
+          description="1080×1080 — a square birthday card. Download as a high-resolution PNG."
         />
 
         <div className="themed-scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain bg-gradient-to-br from-rose-500/[0.04] via-background to-amber-500/[0.055] p-4 sm:p-5">
           {!person || !student ? (
             <p className="py-12 text-center text-sm text-muted-foreground">Select a person to preview their card.</p>
           ) : (
-            <div className="w-full overflow-x-auto">
-              <SchoolBirthdayCard ref={cardRef} student={student} school={school} />
-            </div>
+            <ScaledBirthdayCard ref={cardRef} student={student} school={school} />
           )}
         </div>
 

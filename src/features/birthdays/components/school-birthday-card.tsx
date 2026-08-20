@@ -70,14 +70,6 @@ function Balloon({
   )
 }
 
-function Candle({ color }: { color: string }) {
-  return (
-    <div className="relative h-[26px] w-[5px] rounded-[2px]" style={{ background: color }}>
-      <div className="absolute -top-[9px] left-1/2 h-[9px] w-[5px] -translate-x-1/2 rounded-full bg-[radial-gradient(circle,#ffdf8a,#ff9d3d)] shadow-[0_0_6px_rgba(255,180,60,0.7)]" />
-    </div>
-  )
-}
-
 const imageDataUrlCache = new Map<string, string>()
 
 function proxiedUrl(url: string): string {
@@ -154,7 +146,7 @@ export const SchoolBirthdayCard = forwardRef<HTMLDivElement, SchoolBirthdayCardP
     const photo = student.profileImage || student.admission?.profileImage || null
     const initials = `${student.firstName?.[0] ?? ''}${student.lastName?.[0] ?? ''}`.toUpperCase() || '?'
     const classLine = [
-      student.class?.name ? `Class ${student.class.name}` : null,
+      student.class?.name ? `Class ${student.class.name.replace(/^class\s+/i, '')}` : null,
       student.section?.name ?? null,
     ].filter(Boolean).join(' · ') || '—'
     const addressLine = [school.address, school.city, school.state, school.pincode]
@@ -167,167 +159,136 @@ export const SchoolBirthdayCard = forwardRef<HTMLDivElement, SchoolBirthdayCardP
       <div
         ref={ref}
         style={{ fontFamily: 'var(--font-poppins), sans-serif' }}
-        className="relative flex h-[960px] w-[540px] max-w-none shrink-0 flex-col items-center overflow-hidden rounded-[14px] shadow-[0_24px_70px_rgba(0,0,0,0.32)] bg-[radial-gradient(circle_at_10%_6%,rgba(201,66,119,0.10),transparent_28%),radial-gradient(circle_at_92%_10%,rgba(207,155,63,0.18),transparent_26%),radial-gradient(circle_at_88%_92%,rgba(201,66,119,0.12),transparent_30%),radial-gradient(circle_at_6%_94%,rgba(207,155,63,0.10),transparent_28%),linear-gradient(160deg,#fff8f0_0%,#fdeef1_55%,#ffffff_100%)]"
+        className="relative flex h-[1080px] w-[1080px] max-w-none shrink-0 flex-col items-center overflow-hidden rounded-[20px] shadow-[0_24px_70px_rgba(0,0,0,0.32)] bg-[radial-gradient(circle_at_10%_6%,rgba(201,66,119,0.10),transparent_28%),radial-gradient(circle_at_92%_10%,rgba(207,155,63,0.18),transparent_26%),radial-gradient(circle_at_88%_92%,rgba(201,66,119,0.12),transparent_30%),radial-gradient(circle_at_6%_94%,rgba(207,155,63,0.10),transparent_28%),linear-gradient(160deg,#fff8f0_0%,#fdeef1_55%,#ffffff_100%)]"
       >
         {/* Top strip */}
-        <div className="absolute inset-x-0 top-0 z-[3] h-2 bg-[linear-gradient(90deg,#c94277,#1c2a52)]" />
+        <div className="absolute inset-x-0 top-0 z-[3] h-3 bg-[linear-gradient(90deg,#c94277,#1c2a52)]" />
 
         {/* Frame */}
-        <div className="pointer-events-none absolute inset-3 z-[4] rounded-lg border border-[#cf9b3f]/55">
-          <div className="pointer-events-none absolute inset-[5px] rounded-md border border-[#cf9b3f]/25" />
+        <div className="pointer-events-none absolute inset-4 z-[4] rounded-xl border border-[#cf9b3f]/55">
+          <div className="pointer-events-none absolute inset-[8px] rounded-lg border border-[#cf9b3f]/25" />
         </div>
 
         {/* Corners */}
-        <div className="pointer-events-none absolute left-[14px] top-[14px] z-[4] h-[46px] w-[46px] opacity-85">
+        <div className="pointer-events-none absolute left-[18px] top-[18px] z-[4] h-[64px] w-[64px] opacity-85">
           <CornerOrnament />
         </div>
-        <div className="pointer-events-none absolute right-[14px] top-[14px] z-[4] h-[46px] w-[46px] rotate-90 opacity-85">
+        <div className="pointer-events-none absolute right-[18px] top-[18px] z-[4] h-[64px] w-[64px] rotate-90 opacity-85">
           <CornerOrnament />
         </div>
-        <div className="pointer-events-none absolute bottom-[14px] left-[14px] z-[4] h-[46px] w-[46px] -rotate-90 opacity-85">
+        <div className="pointer-events-none absolute bottom-[18px] left-[18px] z-[4] h-[64px] w-[64px] -rotate-90 opacity-85">
           <CornerOrnament />
         </div>
-        <div className="pointer-events-none absolute bottom-[14px] right-[14px] z-[4] h-[46px] w-[46px] rotate-180 opacity-85">
+        <div className="pointer-events-none absolute bottom-[18px] right-[18px] z-[4] h-[64px] w-[64px] rotate-180 opacity-85">
           <CornerOrnament />
         </div>
 
         {/* Confetti */}
-        <div className="absolute left-[60px] top-[90px] size-[6px] rounded-full bg-[#cf9b3f] opacity-80" />
-        <div className="absolute left-[470px] top-[140px] size-[4px] rounded-full bg-[#c94277] opacity-70" />
-        <div className="absolute left-[40px] top-[250px] size-[5px] rounded-full bg-[#1c2a52] opacity-50" />
-        <div className="absolute bottom-[220px] left-[480px] size-[6px] rounded-full bg-[#c94277] opacity-70" />
-        <div className="absolute bottom-[300px] left-[50px] size-[4px] rounded-full bg-[#cf9b3f] opacity-80" />
-        <div className="absolute left-[490px] top-[190px] size-2 rotate-45 bg-[#e8c374] opacity-70" />
-        <div className="absolute bottom-[260px] left-[30px] size-2 rotate-45 bg-[#e8c374] opacity-70" />
+        <div className="absolute left-[110px] top-[120px] size-2 rounded-full bg-[#cf9b3f] opacity-80" />
+        <div className="absolute left-[920px] top-[180px] size-[5px] rounded-full bg-[#c94277] opacity-70" />
+        <div className="absolute left-[70px] top-[340px] size-[7px] rounded-full bg-[#1c2a52] opacity-50" />
+        <div className="absolute bottom-[300px] left-[950px] size-2 rounded-full bg-[#c94277] opacity-70" />
+        <div className="absolute bottom-[410px] left-[90px] size-[5px] rounded-full bg-[#cf9b3f] opacity-80" />
+        <div className="absolute left-[960px] top-[260px] size-[10px] rotate-45 bg-[#e8c374] opacity-70" />
+        <div className="absolute bottom-[360px] left-[50px] size-[10px] rotate-45 bg-[#e8c374] opacity-70" />
 
         {/* Balloons */}
-        <Balloon color="#c94277" className="left-[26px] top-[130px] h-[44px] w-[34px] -rotate-[8deg]" />
-        <Balloon color="#e8c374" className="left-[56px] top-[175px] h-[32px] w-[24px] rotate-[6deg]" />
-        <Balloon color="#1c2a52" className="bottom-[360px] left-[22px] h-[40px] w-[30px] rotate-[7deg]" />
-        <Balloon color="#c94277" className="right-[26px] top-[130px] h-[44px] w-[34px] rotate-[8deg]" />
-        <Balloon color="#e8c374" className="right-[56px] top-[175px] h-[32px] w-[24px] -rotate-[6deg]" />
-        <Balloon color="#1c2a52" className="bottom-[360px] right-[22px] h-[40px] w-[30px] -rotate-[7deg]" />
+        <Balloon color="#c94277" className="left-[40px] top-[160px] h-[58px] w-[46px] -rotate-[8deg]" />
+        <Balloon color="#e8c374" className="left-[80px] top-[220px] h-[42px] w-[32px] rotate-[6deg]" />
+        <Balloon color="#1c2a52" className="bottom-[430px] left-[34px] h-[52px] w-[40px] rotate-[7deg]" />
+        <Balloon color="#c94277" className="right-[40px] top-[160px] h-[58px] w-[46px] rotate-[8deg]" />
+        <Balloon color="#e8c374" className="right-[80px] top-[220px] h-[42px] w-[32px] -rotate-[6deg]" />
+        <Balloon color="#1c2a52" className="bottom-[430px] right-[34px] h-[52px] w-[40px] -rotate-[7deg]" />
 
         {/* Top: logo + school tagline */}
-        <div className="z-[2] flex w-full flex-col items-center pt-10">
+        <div className="z-[2] flex w-full flex-col items-center pt-6">
           {school.logo ? (
             <img
               src={logoSrc ?? ''}
               alt=""
-              className="h-[74px] w-[74px] rounded-full border-2 border-[#cf9b3f]/60 bg-white/65 object-contain p-1 shadow-[0_4px_10px_rgba(0,0,0,0.08)]"
+              className="h-[104px] w-[104px] rounded-full border-[3px] border-[#cf9b3f]/60 bg-white/65 object-contain p-2 shadow-[0_6px_14px_rgba(0,0,0,0.08)]"
             />
           ) : (
-            <div className="flex h-[74px] w-[74px] items-center justify-center rounded-full border-2 border-dashed border-[#9c2e5a] bg-white/65 p-1 text-center text-[9.5px] font-semibold leading-[1.3] text-[#9c2e5a] shadow-[0_4px_10px_rgba(0,0,0,0.08)]">
+            <div className="flex h-[104px] w-[104px] items-center justify-center rounded-full border-[3px] border-dashed border-[#9c2e5a] bg-white/65 p-2 text-center text-[12px] font-semibold leading-[1.3] text-[#9c2e5a] shadow-[0_6px_14px_rgba(0,0,0,0.08)]">
               SCHOOL
               <br />
               LOGO
             </div>
           )}
-          <div className="mt-[10px] max-w-[400px] rounded-[2px] bg-[linear-gradient(135deg,#1c2a52,#131d3d)] px-5 py-2 text-center shadow-[0_4px_10px_rgba(0,0,0,0.15)]">
-            <p className="truncate text-[13px] font-semibold tracking-[0.8px] text-[#e8c374]">
+          <div className="mt-3 rounded-md bg-[linear-gradient(135deg,#1c2a52,#131d3d)] px-8 py-2.5 text-center shadow-[0_6px_14px_rgba(0,0,0,0.15)]">
+            <p className="truncate text-[25px] font-semibold tracking-[1.2px] text-[#e8c374]">
               {schoolName}
             </p>
             {addressLine && (
-              <p className="mx-auto mt-0.5 max-w-[360px] truncate text-[9px] tracking-[0.4px] text-white/80">
+              <p className="mx-auto mt-0.5 max-w-[700px] truncate text-[13px] tracking-[0.6px] text-white/80">
                 {addressLine}
               </p>
             )}
             {school.contactPhone && (
-              <p className="text-[9px] tracking-[0.4px] text-white/60">{school.contactPhone}</p>
+              <p className="text-[13px] tracking-[0.6px] text-white/60">{school.contactPhone}</p>
             )}
           </div>
         </div>
 
         {/* Header */}
-        <div className="z-[2] mt-[22px] text-center">
-          <p className="text-[11px] font-semibold uppercase tracking-[4px] text-[#cf9b3f]">
+        <div className="z-[2] mt-4 text-center">
+          <p className="text-[15px] font-semibold uppercase tracking-[6px] text-[#cf9b3f]">
             A Special Wish For You
           </p>
           <h2
             style={{ fontFamily: 'var(--font-fraunces), serif' }}
-            className="mt-2 text-[44px] font-extrabold leading-[1.15] tracking-[0.5px] text-[#1c2a52]"
+            className="mt-3 text-[58px] font-extrabold leading-[1.1] tracking-[0.8px] text-[#1c2a52]"
           >
             Happy
           </h2>
           <p
             style={{ fontFamily: 'var(--font-great-vibes), cursive' }}
-            className="mt-1 bg-gradient-to-b from-[#c94277] to-[#9c2e5a] bg-clip-text pb-1.5 text-[60px] leading-[1.3] text-transparent"
+            className="mt-1 bg-gradient-to-b from-[#c94277] to-[#9c2e5a] bg-clip-text pb-1.5 text-[78px] leading-[1.25] text-transparent"
           >
             Birthday!
           </p>
-          <div className="mx-auto mt-3 flex w-[200px] items-center gap-2">
+          <div className="mx-auto mt-3 flex w-[300px] items-center gap-3">
             <div className="h-px flex-1 bg-gradient-to-r from-transparent via-[#cf9b3f] to-transparent" />
-            <div className="size-[6px] rotate-45 bg-[#cf9b3f]" />
+            <div className="size-2 rotate-45 bg-[#cf9b3f]" />
             <div className="h-px flex-1 bg-gradient-to-r from-transparent via-[#cf9b3f] to-transparent" />
           </div>
         </div>
 
         {/* Photo */}
-        <div className="z-[2] mt-4 h-[260px] w-[260px] rounded-[10px] bg-[linear-gradient(160deg,#e8c374,#cf9b3f_60%,#e8c374)] p-[7px] shadow-[0_14px_30px_rgba(28,42,82,0.22)]">
-          <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-[6px] border-2 border-dashed border-[#9c2e5a] bg-[repeating-linear-gradient(45deg,rgba(201,66,119,0.07),rgba(201,66,119,0.07)_9px,rgba(255,255,255,0.55)_9px,rgba(255,255,255,0.55)_18px)]">
+        <div className="z-[2] mt-4 h-[320px] w-[320px] rounded-[14px] bg-[linear-gradient(160deg,#e8c374,#cf9b3f_60%,#e8c374)] p-[10px] shadow-[0_18px_38px_rgba(28,42,82,0.22)]">
+          <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-[9px] border-[3px] border-dashed border-[#9c2e5a] bg-[repeating-linear-gradient(45deg,rgba(201,66,119,0.07),rgba(201,66,119,0.07)_9px,rgba(255,255,255,0.55)_9px,rgba(255,255,255,0.55)_18px)]">
             {photo ? (
               <img src={photoSrc ?? ''} alt={student.fullName} className="size-full object-cover" />
             ) : (
-              <span className="text-[40px] font-bold uppercase text-[#9c2e5a]">{initials}</span>
+              <span className="text-[56px] font-bold uppercase text-[#9c2e5a]">{initials}</span>
             )}
           </div>
         </div>
 
         {/* Name banner */}
-        <div className="relative z-[2] mt-5 w-fit rounded-[3px] bg-[linear-gradient(135deg,#1c2a52_0%,#131d3d_100%)] px-[30px] py-[10px] text-center text-[14px] font-semibold tracking-[0.4px] text-white shadow-[0_8px_18px_rgba(28,42,82,0.3)]">
-          <span className="absolute -left-[9px] top-0 h-full w-[9px] bg-[#cf9b3f] opacity-90 [clip-path:polygon(0_0,100%_0,100%_100%)]" />
-          <span className="absolute -right-[9px] top-0 h-full w-[9px] bg-[#cf9b3f] opacity-90 [clip-path:polygon(0_0,100%_0,0_100%)]" />
+        <div className="relative z-[2] mt-4 w-fit rounded-[4px] bg-[linear-gradient(135deg,#1c2a52_0%,#131d3d_100%)] px-[44px] py-[11px] text-center text-[19px] font-semibold tracking-[0.5px] text-white shadow-[0_10px_22px_rgba(28,42,82,0.3)]">
+          <span className="absolute -left-[12px] top-0 h-full w-[12px] bg-[#cf9b3f] opacity-90 [clip-path:polygon(0_0,100%_0,100%_100%)]" />
+          <span className="absolute -right-[12px] top-0 h-full w-[12px] bg-[#cf9b3f] opacity-90 [clip-path:polygon(0_0,100%_0,0_100%)]" />
           {student.fullName}
           {classLine !== '—' ? ` · ${classLine}` : ''}
         </div>
 
         {/* Message */}
-        <p className="z-[2] mt-3 max-w-[360px] text-center text-[12.5px] leading-[1.7] text-[#4a4a4a]">
+        <p className="z-[2] mt-3 max-w-[740px] text-center text-[22px] leading-[1.65] text-[#4a4a4a]">
           Wishing you a day filled with happiness, love, and wonderful memories. May this year bring
           you success, good health, and all the joy you deserve.
         </p>
 
-        {/* Cake */}
-        <div className="z-[2] mt-3 flex flex-col items-center">
-          <div className="flex items-end justify-center gap-[5px]">
-            <Candle color="#cf9b3f" />
-            <Candle color="#c94277" />
-            <Candle color="#1c2a52" />
-            <Candle color="#e8c374" />
-          </div>
-          <div className="relative mt-[5px] h-[50px] w-[110px] rounded-t-[8px] rounded-b-[3px] bg-[linear-gradient(180deg,#ffe3ef_0%,#c94277_130%)] shadow-[0_8px_16px_rgba(201,66,119,0.25)]">
-            <div className="absolute -top-[7px] left-0 h-[15px] w-full rounded-t-full bg-white" />
-            <div className="absolute bottom-[7px] left-[9px] right-[9px] h-[2px] bg-[#e8c374] opacity-70" />
-          </div>
-        </div>
-
-        {/* Footer message */}
-        <p className="z-[2] mt-3 max-w-[300px] text-center text-[12px] font-medium italic leading-[1.5] text-[#4a4a4a]">
-          Keep shining and inspiring everyone around you.
-        </p>
-
         {/* Ribbon */}
-        <div className="relative z-[2] mt-2 w-fit bg-[linear-gradient(135deg,#c94277_0%,#9c2e5a_100%)] px-6 py-[7px] text-center shadow-[0_6px_14px_rgba(156,46,90,0.3)]">
+        <div className="relative z-[2] mt-auto mb-12 w-fit bg-[linear-gradient(135deg,#c94277_0%,#9c2e5a_100%)] px-10 py-[10px] text-center shadow-[0_8px_18px_rgba(156,46,90,0.3)]">
           <span
             style={{ fontFamily: 'var(--font-great-vibes), cursive' }}
-            className="text-2xl text-[#fff8f0]"
+            className="text-4xl text-[#fff8f0]"
           >
             Fantastic Birthday!
           </span>
-          <span className="absolute -left-[11px] top-0 border-y-[18px] border-r-[11px] border-y-transparent border-r-[#9c2e5a]" />
-          <span className="absolute -right-[11px] top-0 border-y-[18px] border-l-[11px] border-y-transparent border-l-[#9c2e5a]" />
-        </div>
-
-        {/* From */}
-        <div className="z-[2] mb-6 mt-[22px] text-center">
-          <p className="text-[10px] font-semibold uppercase tracking-[2.5px] text-[#666]">From</p>
-          <p
-            style={{ fontFamily: 'var(--font-fraunces), serif' }}
-            className="mt-1 text-[19px] font-extrabold tracking-[0.3px] text-[#1c2a52]"
-          >
-            {schoolName}
-          </p>
-          <div className="mx-auto mt-2 h-[2px] w-[44px] bg-[#cf9b3f]" />
+          <span className="absolute -left-[13px] top-0 border-y-[24px] border-r-[13px] border-y-transparent border-r-[#9c2e5a]" />
+          <span className="absolute -right-[13px] top-0 border-y-[24px] border-l-[13px] border-y-transparent border-l-[#9c2e5a]" />
         </div>
       </div>
     )
@@ -335,6 +296,45 @@ export const SchoolBirthdayCard = forwardRef<HTMLDivElement, SchoolBirthdayCardP
 )
 
 SchoolBirthdayCard.displayName = 'SchoolBirthdayCard'
+
+const CARD_W = 1080
+const CARD_H = 1080
+
+// Renders the 1080×1080 card scaled down to fit the modal width. The ref lands
+// on the inner (unscaled) card so html-to-image still captures the full-res PNG.
+export const ScaledBirthdayCard = forwardRef<HTMLDivElement, SchoolBirthdayCardProps>(
+  ({ student, school }, ref) => {
+    const containerRef = useRef<HTMLDivElement>(null)
+    const [scale, setScale] = useState(1)
+
+    useEffect(() => {
+      const el = containerRef.current
+      if (!el) return
+      const update = () => {
+        setScale(Math.min(1, (el.clientWidth - 8) / CARD_W))
+      }
+      update()
+      const ro = new ResizeObserver(update)
+      ro.observe(el)
+      return () => ro.disconnect()
+    }, [])
+
+    return (
+      <div ref={containerRef} className="w-full">
+        <div
+          className="mx-auto overflow-hidden rounded-2xl shadow-[0_18px_50px_rgba(28,42,82,0.25)]"
+          style={{ width: CARD_W * scale, height: CARD_H * scale }}
+        >
+          <div style={{ width: CARD_W, height: CARD_H, transform: `scale(${scale})`, transformOrigin: 'top left' }}>
+            <SchoolBirthdayCard ref={ref} student={student} school={school} />
+          </div>
+        </div>
+      </div>
+    )
+  },
+)
+
+ScaledBirthdayCard.displayName = 'ScaledBirthdayCard'
 
 interface SchoolBirthdayCardDialogProps {
   open: boolean
@@ -359,8 +359,8 @@ export function SchoolBirthdayCardDialog({
     try {
       await embedCardImages(cardRef.current)
       const dataUrl = await toPng(cardRef.current, {
-        width: 540,
-        height: 960,
+        width: 1080,
+        height: 1080,
         pixelRatio: 2,
         cacheBust: true,
       })
@@ -381,20 +381,18 @@ export function SchoolBirthdayCardDialog({
 
   return (
     <Dialog open={open} onOpenChange={(o) => !downloading && !o && onClose()}>
-      <DialogContent className="flex max-h-[90svh] flex-col overflow-hidden border-rose-500/20 bg-card p-0 shadow-2xl shadow-rose-500/15 sm:max-w-2xl [&>button]:right-3 [&>button]:top-3 [&>button]:rounded-full [&>button]:text-white [&>button]:opacity-85 [&>button]:hover:bg-white/15 [&>button]:hover:opacity-100">
+      <DialogContent className="flex max-h-[90svh] flex-col overflow-hidden border-rose-500/20 bg-card p-0 shadow-2xl shadow-rose-500/15 sm:max-w-3xl [&>button]:right-3 [&>button]:top-3 [&>button]:rounded-full [&>button]:text-white [&>button]:opacity-85 [&>button]:hover:bg-white/15 [&>button]:hover:opacity-100">
         <GradientDialogHeader
           icon={Cake}
           title={student ? `${student.fullName}'s birthday card` : 'Birthday card'}
-          description="School-template birthday card — preview and download as a high-resolution PNG."
+          description="1080×1080 — a square birthday card. Download as a high-resolution PNG."
         />
 
         <div className="themed-scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain bg-gradient-to-br from-rose-500/[0.04] via-background to-amber-500/[0.055] p-4 sm:p-5">
           {!student ? (
             <p className="py-12 text-center text-sm text-muted-foreground">Select a student to preview their card.</p>
           ) : (
-            <div className="w-full overflow-x-auto">
-              <SchoolBirthdayCard ref={cardRef} student={student} school={school} />
-            </div>
+            <ScaledBirthdayCard ref={cardRef} student={student} school={school} />
           )}
         </div>
 

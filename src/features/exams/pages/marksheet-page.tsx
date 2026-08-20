@@ -756,7 +756,7 @@ function StudentMarksheetDialog({ open, student, loading, sheet, onClose }: Stud
           title={studentInfo ? `${studentInfo.firstName} ${studentInfo.lastName ?? ''}` : 'Marksheet'}
           description={
             studentInfo
-              ? `Class ${studentInfo.className ?? '—'}${studentInfo.sectionName ? `-${studentInfo.sectionName}` : ''}${studentInfo.rollNumber ? ` · Roll ${studentInfo.rollNumber}` : ''}${studentInfo.admissionNumber ? ` · Adm No ${studentInfo.admissionNumber}` : ''}`
+              ? `Class ${studentInfo.className.replace(/^class\s+/i, '')}${studentInfo.sectionName ? `-${studentInfo.sectionName}` : ''}${studentInfo.rollNumber ? ` · Roll ${studentInfo.rollNumber}` : ''}${studentInfo.admissionNumber ? ` · Adm No ${studentInfo.admissionNumber}` : ''}`
               : 'Loading student details…'
           }
         />

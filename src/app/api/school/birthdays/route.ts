@@ -100,6 +100,8 @@ export async function GET(request: NextRequest) {
       dateOfBirth: Date
       profileImage: string | null
       label: string | null
+      className: string | null
+      sectionName: string | null
     }
 
     const raw: RawBirthday[] = [
@@ -111,6 +113,8 @@ export async function GET(request: NextRequest) {
         dateOfBirth: s.dateOfBirth as Date,
         profileImage: s.profileImage,
         label: [s.class?.name, s.section?.name].filter(Boolean).join('-') || null,
+        className: s.class?.name ?? null,
+        sectionName: s.section?.name ?? null,
       })),
       ...teachers.map((t) => ({
         id: t.id,
@@ -120,6 +124,8 @@ export async function GET(request: NextRequest) {
         dateOfBirth: t.dateOfBirth as Date,
         profileImage: t.profileImage,
         label: 'Teacher',
+        className: null,
+        sectionName: null,
       })),
       ...staffMembers.map((st) => ({
         id: st.id,
@@ -129,6 +135,8 @@ export async function GET(request: NextRequest) {
         dateOfBirth: st.dateOfBirth as Date,
         profileImage: st.profileImage,
         label: st.designation || 'Staff',
+        className: null,
+        sectionName: null,
       })),
     ]
 
@@ -148,6 +156,8 @@ export async function GET(request: NextRequest) {
           ageTurning: win.ageTurning,
           profileImage: b.profileImage,
           label: b.label,
+          className: b.className,
+          sectionName: b.sectionName,
         }
       })
       .filter((b): b is NonNullable<typeof b> => b !== null)
