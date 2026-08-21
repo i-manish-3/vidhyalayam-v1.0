@@ -16,7 +16,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
-import { Check, CheckCheck, CheckCircle2, ChevronDown, ChevronRight, Eye, History, Layers, MessageCircle, Printer, Receipt, Search, Send, Sparkles, User as UserIcon, X, XCircle } from 'lucide-react'
+import { CalendarDays, Check, CheckCheck, CheckCircle2, ChevronDown, ChevronRight, Eye, FileText, History, IndianRupee, Layers, MessageCircle, Printer, Receipt, Search, Send, Sparkles, User as UserIcon, X, XCircle } from 'lucide-react'
 import { useAppStore, type School } from '@/lib/store'
 import { buildSlipHtml, buildSlipLines, sortPeriods, type SlipInputLine } from '@/lib/fee-slip-template'
 
@@ -1426,76 +1426,116 @@ function SlipDetailDialog({ slipId, onClose, whatsappEnabled, onAfterSend }: Sli
 
   return (
     <Dialog open={!!slipId} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Demand Slip Detail</DialogTitle>
+      <DialogContent className="flex max-h-[90svh] flex-col overflow-hidden border-teal-500/20 bg-card p-0 shadow-2xl shadow-teal-500/15 sm:max-w-2xl [&>button]:right-3 [&>button]:top-3 [&>button]:rounded-full [&>button]:text-white [&>button]:opacity-85 [&>button]:hover:bg-white/15 [&>button]:hover:opacity-100">
+        <DialogHeader className="relative shrink-0 overflow-hidden border-b border-white/15 bg-[linear-gradient(135deg,#0d9488_0%,#0891b2_48%,#2563eb_100%)] px-5 py-4 pr-12 text-white sm:px-6">
+          <div aria-hidden className="absolute -right-10 -top-16 size-40 rounded-full border-[18px] border-white/10" />
+          <div aria-hidden className="absolute -bottom-14 left-10 size-28 rounded-full bg-teal-300/20 blur-2xl" />
+          <div aria-hidden className="absolute bottom-0 right-24 h-24 w-44 rounded-full bg-sky-300/15 blur-2xl" />
+          <div className="relative flex items-center gap-3">
+            <span className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-white/25 bg-white/15 text-white shadow-md backdrop-blur-sm">
+              <FileText className="size-5 text-white" />
+            </span>
+            <div>
+              <DialogTitle className="text-lg font-bold tracking-normal text-white">Demand Slip Detail</DialogTitle>
+              <DialogDescription className="mt-0.5 text-xs text-white/75">
+                View line items, totals, and notification history for this slip.
+              </DialogDescription>
+            </div>
+          </div>
         </DialogHeader>
+
         {loading || !slip ? (
-          <div className="py-12 text-center text-sm text-muted-foreground">Loading…</div>
+          <div className="flex flex-1 items-center justify-center py-16 text-sm text-muted-foreground">Loading…</div>
         ) : (
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div className="rounded-md border bg-muted/30 p-3">
-                <div className="text-xs uppercase text-muted-foreground">Student</div>
-                <div className="mt-1 font-medium">{slip.student.firstName} {slip.student.lastName}</div>
-                <div className="text-xs text-muted-foreground">
-                  {slip.student.admissionNumber || '-'}{slip.student.class ? ` · ${slip.student.class.name}` : ''}{slip.student.section ? ` / ${slip.student.section.name}` : ''}
+          <div className="themed-scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain bg-gradient-to-br from-teal-500/[0.03] via-background to-cyan-500/[0.055] p-4 sm:p-5">
+            {/* ── Student & Slip Info ────────────────────────────── */}
+            <section className="relative overflow-hidden rounded-xl border border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-teal-50 p-4 shadow-sm dark:border-sky-500/25 dark:from-sky-500/15 dark:via-card dark:to-teal-500/10">
+              <div aria-hidden className="absolute -right-7 -top-10 size-28 rounded-full bg-sky-200/35 blur-xl dark:bg-sky-500/15" />
+              <div aria-hidden className="absolute -bottom-10 left-12 size-24 rounded-full bg-teal-200/30 blur-xl dark:bg-teal-500/10" />
+              <div className="relative mb-3 flex items-center gap-2">
+                <span className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-teal-600 text-white shadow-sm"><UserIcon className="size-4 text-white" /></span>
+                <div><h3 className="text-sm font-semibold">Student &amp; Slip Info</h3><p className="text-[10px] text-muted-foreground">Key identifiers for this demand slip</p></div>
+              </div>
+              <div className="relative grid gap-2 sm:grid-cols-2">
+                <div className="rounded-lg border border-sky-200/80 bg-white/80 px-3 py-2 shadow-sm dark:border-sky-500/20 dark:bg-background/35">
+                  <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase text-sky-700 dark:text-sky-300">
+                    <UserIcon className="size-3" /> Student
+                  </div>
+                  <p className="mt-1 truncate text-xs font-semibold">{slip.student.firstName} {slip.student.lastName}</p>
+                  <p className="truncate text-[10px] text-muted-foreground">
+                    {slip.student.admissionNumber || '-'}{slip.student.class ? ` · ${slip.student.class.name}` : ''}{slip.student.section ? ` / ${slip.student.section.name}` : ''}
+                  </p>
+                </div>
+                <div className="rounded-lg border border-sky-200/80 bg-white/80 px-3 py-2 shadow-sm dark:border-sky-500/20 dark:bg-background/35">
+                  <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase text-sky-700 dark:text-sky-300">
+                    <Receipt className="size-3" /> Invoice
+                  </div>
+                  <p className="mt-1 truncate font-mono text-xs font-semibold">{slip.invoiceNumber}</p>
+                  <p className="truncate text-[10px] text-muted-foreground">
+                    {MONTHS[slip.billingMonth - 1]?.label} {slip.billingYear} · Due {formatDate(slip.dueDate)}
+                  </p>
                 </div>
               </div>
-              <div className="rounded-md border bg-muted/30 p-3">
-                <div className="text-xs uppercase text-muted-foreground">Slip</div>
-                <div className="mt-1 font-mono text-sm">{slip.invoiceNumber}</div>
-                <div className="text-xs text-muted-foreground">
-                  {MONTHS[slip.billingMonth - 1]?.label} {slip.billingYear} · Due {formatDate(slip.dueDate)}
-                </div>
-              </div>
-            </div>
+            </section>
 
-            <div className="overflow-hidden rounded-md border">
-              <Table>
-                <TableHeader className="bg-muted/40">
-                  <TableRow>
-                    <TableHead className="h-9 px-3 text-xs">Fee Head</TableHead>
-                    <TableHead className="h-9 px-3 text-xs">Installment</TableHead>
-                    <TableHead className="h-9 px-3 text-xs">Due</TableHead>
-                    <TableHead className="h-9 px-3 text-right text-xs">Amount</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {slip.lines.map((line) => (
-                    <TableRow key={line.id}>
-                      <TableCell className="px-3 py-2 text-sm">{line.feeHeadName}</TableCell>
-                      <TableCell className="px-3 py-2 text-sm text-muted-foreground">{line.installmentName}</TableCell>
-                      <TableCell className="px-3 py-2 text-xs">{formatDate(line.dueDate)}</TableCell>
-                      <TableCell className="px-3 py-2 text-right text-sm font-medium">{formatCurrency(line.totalAmount)}</TableCell>
+            {/* ── Line Items ────────────────────────────────────── */}
+            <section className="relative overflow-hidden rounded-xl border border-teal-200/80 bg-gradient-to-br from-teal-50 via-white to-emerald-50 p-4 shadow-sm dark:border-teal-500/25 dark:from-teal-500/15 dark:via-card dark:to-emerald-500/10">
+              <div className="mb-3 flex items-center gap-2">
+                <span className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-teal-500 to-emerald-600 text-white shadow-sm"><Layers className="size-4 text-white" /></span>
+                <div><h3 className="text-sm font-semibold">Fee Line Items</h3><p className="text-[10px] text-muted-foreground">{slip.lines.length} item{slip.lines.length !== 1 ? 's' : ''} on this slip</p></div>
+              </div>
+              <div className="overflow-hidden rounded-lg border border-teal-200/60 shadow-sm dark:border-teal-500/20">
+                <Table>
+                  <TableHeader className="bg-teal-50/70 dark:bg-teal-500/10">
+                    <TableRow>
+                      <TableHead className="h-9 px-3 text-xs">Fee Head</TableHead>
+                      <TableHead className="h-9 px-3 text-xs">Installment</TableHead>
+                      <TableHead className="h-9 px-3 text-xs">Due</TableHead>
+                      <TableHead className="h-9 px-3 text-right text-xs">Amount</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+                  </TableHeader>
+                  <TableBody>
+                    {slip.lines.map((line) => (
+                      <TableRow key={line.id} className="bg-white/80 dark:bg-background/30">
+                        <TableCell className="px-3 py-2 text-sm">{line.feeHeadName}</TableCell>
+                        <TableCell className="px-3 py-2 text-sm text-muted-foreground">{line.installmentName}</TableCell>
+                        <TableCell className="px-3 py-2 text-xs">{formatDate(line.dueDate)}</TableCell>
+                        <TableCell className="px-3 py-2 text-right text-sm font-medium">{formatCurrency(line.totalAmount)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </section>
 
-            <div className="rounded-md border bg-muted/20 p-3">
-              <div className="grid grid-cols-2 gap-y-1 text-sm">
+            {/* ── Totals ────────────────────────────────────────── */}
+            <section className="relative overflow-hidden rounded-xl border border-emerald-200/80 bg-gradient-to-br from-emerald-50 via-white to-teal-50 p-4 shadow-sm dark:border-emerald-500/25 dark:from-emerald-500/15 dark:via-card dark:to-teal-500/10">
+              <div className="mb-3 flex items-center gap-2">
+                <span className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-sm"><IndianRupee className="size-4 text-white" /></span>
+                <div><h3 className="text-sm font-semibold">Amount Summary</h3><p className="text-[10px] text-muted-foreground">Totals and payment status</p></div>
+              </div>
+              <div className="grid grid-cols-2 gap-y-1.5 text-sm">
                 <div className="text-muted-foreground">Subtotal</div>
                 <div className="text-right">{formatCurrency(slip.subtotal)}</div>
                 <div className="text-muted-foreground">Previous balance</div>
                 <div className="text-right">{formatCurrency(slip.previousBalance)}</div>
-                <div className="border-t pt-1 font-medium">Total demanded</div>
-                <div className="border-t pt-1 text-right font-semibold">{formatCurrency(slip.totalAmount)}</div>
+                <div className="border-t border-emerald-200/60 pt-1.5 font-medium dark:border-emerald-500/20">Total demanded</div>
+                <div className="border-t border-emerald-200/60 pt-1.5 text-right font-semibold dark:border-emerald-500/20">{formatCurrency(slip.totalAmount)}</div>
                 <div className="text-muted-foreground">Paid so far</div>
                 <div className="text-right">{formatCurrency(slip.paidAmount)}</div>
                 <div className="text-muted-foreground">Status</div>
                 <div className="text-right"><Badge variant={statusVariant(slip.status)} className="capitalize">{slip.status}</Badge></div>
               </div>
-            </div>
+            </section>
 
+            {/* ── WhatsApp Notification ──────────────────────────── */}
             {whatsappEnabled && lastNotification && (
-              <div className="rounded-md border bg-muted/20 p-3 text-xs">
-                <div className="flex items-center gap-2">
-                  <MessageCircle className="size-3.5 text-muted-foreground" />
-                  <span className="font-medium">Last WhatsApp send</span>
+              <section className="relative overflow-hidden rounded-xl border border-violet-200/80 bg-gradient-to-br from-violet-50 via-white to-purple-50 p-4 shadow-sm dark:border-violet-500/25 dark:from-violet-500/15 dark:via-card dark:to-purple-500/10">
+                <div className="mb-3 flex items-center gap-2">
+                  <span className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 text-white shadow-sm"><MessageCircle className="size-4 text-white" /></span>
+                  <div><h3 className="text-sm font-semibold">Last WhatsApp Send</h3><p className="text-[10px] text-muted-foreground">Most recent notification attempt</p></div>
                 </div>
-                <div className="mt-1 grid grid-cols-2 gap-y-0.5">
+                <div className="grid grid-cols-2 gap-y-1 text-xs">
                   <span className="text-muted-foreground">Status</span>
                   <span className="text-right capitalize">
                     <Badge
@@ -1524,23 +1564,25 @@ function SlipDetailDialog({ slipId, onClose, whatsappEnabled, onAfterSend }: Sli
                     </>
                   )}
                 </div>
-              </div>
+              </section>
             )}
           </div>
         )}
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Close</Button>
-          <Button onClick={() => slip && printSlip(slip, currentSchool)} className="gap-2" disabled={!slip} variant="outline">
-            <Printer className="size-4" />
+
+        <DialogFooter className="shrink-0 border-t border-primary/10 bg-muted/30 px-4 py-3 sm:px-5">
+          <Button variant="outline" size="sm" className="h-8 px-4 text-xs" onClick={onClose}>Close</Button>
+          <Button variant="outline" size="sm" className="h-8 gap-1.5 px-4 text-xs" onClick={() => slip && printSlip(slip, currentSchool)} disabled={!slip}>
+            <Printer className="size-3.5" />
             Print / PDF
           </Button>
           {canCreate && whatsappEnabled && (
             <Button
+              size="sm"
+              className="h-8 gap-1.5 px-4 text-xs"
               onClick={() => sendWhatsApp(lastNotification?.status === 'sent')}
               disabled={!slip || sending}
-              className="gap-2"
             >
-              <Send className="size-4" />
+              <Send className="size-3.5" />
               {sending ? 'Sending…' : lastNotification?.status === 'sent' ? 'Resend' : 'Send via WhatsApp'}
             </Button>
           )}
