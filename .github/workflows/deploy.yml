@@ -72,10 +72,10 @@ jobs:
             npm install --prefer-offline --no-audit
 
             echo "========================================="
-            echo "4. RUNNING PRISMA GENERATE & MIGRATIONS"
+            echo "4. RUNNING PRISMA GENERATE & DB SYNC"
             echo "========================================="
             npx prisma generate
-            npx prisma migrate deploy
+            npx prisma db push --accept-data-loss
 
             echo "========================================="
             echo "5. BUILDING NEXT.JS APPLICATION"

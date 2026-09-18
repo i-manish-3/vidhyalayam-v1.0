@@ -146,7 +146,7 @@ AUDIT_RETENTION_DAYS=365
 cd /var/www/vidhyalayam
 npm install
 npx prisma generate
-npx prisma migrate deploy
+npx prisma db push
 npm run seed  # Seeds initial super admin & demo data
 ```
 
