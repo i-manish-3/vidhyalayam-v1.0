@@ -40,7 +40,7 @@ Run the following blocks on the server:
 ### 2.1 Update System & Install Core Packages (PostgreSQL, Redis, Nginx)
 ```bash
 sudo apt update && sudo apt upgrade -y
-sudo apt install -y git curl build-essential nginx postgresql postgresql-contrib redis-server certbot python3-certbot-nginx
+sudo apt install -y git curl unzip build-essential nginx postgresql postgresql-contrib redis-server certbot python3-certbot-nginx
 ```
 
 ### 2.2 Configure & Verify Compulsory Redis
