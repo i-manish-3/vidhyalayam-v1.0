@@ -35,7 +35,9 @@ const isLocalHost = (host: string) =>
   host === 'localhost' ||
   host.startsWith('127.') ||
   host.startsWith('192.168.') ||
-  host.startsWith('10.')
+  host.startsWith('10.') ||
+  /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(host) ||
+  host.includes('cloudapp.azure.com')
 
 const isERPHost = (host: string) => host === ERP_HOST || host.startsWith('erp.')
 

@@ -117,7 +117,7 @@ const NAV_LINKS = [
   { label: 'Contact Us', href: '#contact' },
 ]
 
-const BRAND_TAGLINE = 'Empowering management with technology'
+const BRAND_TAGLINE = 'EMPOWERING MANAGEMENT WITH TECHNOLOGY'
 
 const LEGAL_DOCUMENTS: Record<'privacy' | 'terms', LegalDocument> = {
   privacy: {
@@ -437,7 +437,7 @@ function Navbar({ onLoginClick }: { onLoginClick: () => void }) {
             <img src="/logo.png" alt="Vidhyalayam" className="size-full object-contain drop-shadow-sm" />
           </div>
           <span className="text-base sm:text-lg font-extrabold tracking-tight leading-tight bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 dark:from-white dark:via-white/90 dark:to-white/70 bg-clip-text text-transparent group-hover:from-emerald-600 group-hover:to-teal-600 transition-all duration-300">
-            Vidhyalayam
+            VIDHYALAYAM
           </span>
         </button>
 
@@ -597,12 +597,12 @@ function HeroSection({ onLoginClick }: { onLoginClick: () => void }) {
       >
         <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
           <div className="text-center lg:text-left">
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
+            {/* <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
               <Badge variant="secondary" className="mb-6 px-4 py-1.5 text-sm font-medium bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20 shadow-lg shadow-emerald-500/10">
                 <Sparkles className="size-3.5 mr-1.5" />
                 #1 School Management Platform
               </Badge>
-            </motion.div>
+            </motion.div> */}
 
             <h1 className="text-5xl sm:text-5xl lg:text-5xl xl:text-6xl font-extrabold tracking-tight leading-[1.2] text-slate-900 dark:text-white overflow-visible">
               <motion.span className="block" initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, delay: 0.1, ease: [0.25, 0.46, 0.45, 0.94] }}>

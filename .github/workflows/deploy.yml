@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - test-deploy
   workflow_dispatch:
 
 jobs:
@@ -36,7 +37,7 @@ jobs:
     name: Deploy to Azure Linux VM
     needs: build-and-verify
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/test-deploy'
 
     steps:
       - name: SSH and Deploy to Azure VM
@@ -46,66 +47,14 @@ jobs:
           username: ${{ secrets.AZURE_VM_USERNAME }}
           key: ${{ secrets.AZURE_VM_SSH_KEY }}
           port: ${{ secrets.AZURE_VM_PORT || 22 }}
+          envs: GITHUB_REF_NAME
           script_stop: true
           script: |
-            echo "========================================="
-            echo "1. VERIFYING REDIS SERVICE (COMPULSORY)"
-            echo "========================================="
-            if ! redis-cli ping | grep -q "PONG"; then
-              echo "Redis is not running! Attempting restart via systemctl..."
-              sudo systemctl restart redis-server
-              sleep 2
-              redis-cli ping | grep -q "PONG" || { echo "Fatal: Redis failed to start!"; exit 1; }
-            fi
-            echo "Redis server is up and responsive."
-
-            echo "========================================="
-            echo "2. UPDATING APPLICATION CODE"
-            echo "========================================="
+            echo "Triggering deployment for branch: ${GITHUB_REF_NAME}"
             cd /var/www/vidhyalayam
-            git fetch origin main
-            git reset --hard origin/main
-
-            echo "========================================="
-            echo "3. INSTALLING DEPENDENCIES"
-            echo "========================================="
-            npm install --prefer-offline --no-audit
-
-            echo "========================================="
-            echo "4. RUNNING PRISMA GENERATE & DB SYNC"
-            echo "========================================="
-            npx prisma generate
-            npx prisma db push --accept-data-loss
-
-            echo "========================================="
-            echo "5. BUILDING NEXT.JS APPLICATION"
-            echo "========================================="
-            npm run build
-
-            echo "========================================="
-            echo "6. RELOADING PM2 APP & REDIS WORKERS"
-            echo "========================================="
-            pm2 reload ecosystem.config.cjs --update-env || pm2 start ecosystem.config.cjs
-            pm2 save
-
-            echo "========================================="
-            echo "7. POST-DEPLOYMENT HEALTH CHECKS"
-            echo "========================================="
-            sleep 4
-
-            echo "Checking Next.js web server on port 3000..."
-            curl -f http://127.0.0.1:3000 > /dev/null || { echo "Web server health check failed!"; exit 1; }
-
-            echo "Verifying all PM2 processes are online..."
-            for process_name in vidhyalayam worker-demand worker-notifications worker-exports worker-audit; do
-              if ! pm2 describe "$process_name" | grep -q "online"; then
-                echo "Fatal: Process $process_name is not online!"
-                pm2 logs "$process_name" --lines 20
-                exit 1
-              fi
-              echo "Process $process_name is online."
-            done
-
-            echo "========================================="
-            echo "DEPLOYMENT COMPLETED SUCCESSFULLY!"
-            echo "========================================="
+            git fetch origin "${GITHUB_REF_NAME}"
+            git checkout "${GITHUB_REF_NAME}" || git checkout -b "${GITHUB_REF_NAME}" "origin/${GITHUB_REF_NAME}"
+            git reset --hard "origin/${GITHUB_REF_NAME}"
+            chmod +x scripts/deploy-azure.sh
+            export DEPLOY_BRANCH="${GITHUB_REF_NAME}"
+            ./scripts/deploy-azure.sh

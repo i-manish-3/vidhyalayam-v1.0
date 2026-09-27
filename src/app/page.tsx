@@ -26,13 +26,7 @@ function AppContent() {
   }, [isAuthenticated, router])
 
   const handleLoginClick = () => {
-    const host = typeof window !== 'undefined' ? window.location.hostname : ''
-    if (host.includes('localhost') || host.startsWith('192.') || host.startsWith('10.') || host === '') {
-      router.push('/login')
-    } else {
-      // Landing on marketing domain — send user to ERP login
-      window.location.href = 'https://erp.vidhyalayam.com/login'
-    }
+    router.push('/login')
   }
 
   return <LandingPage onLoginClick={() => setTimeout(handleLoginClick, 0)} />
