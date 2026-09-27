@@ -1,7 +1,7 @@
 import type { School } from '@/lib/store'
 
 const DEFAULT_TITLE = 'Vidhyalayam - School Management System'
-const DEFAULT_ICON = '/icon.svg'
+const DEFAULT_ICON = '/logo.png'
 const BRANDING_STORAGE_KEY = 'erp_schoolBranding'
 const ICON_SELECTOR = "link[rel~='icon'], link[rel='shortcut icon'], link[rel='apple-touch-icon']"
 

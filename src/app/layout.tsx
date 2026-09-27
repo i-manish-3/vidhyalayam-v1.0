@@ -87,7 +87,7 @@ const browserExtensionHydrationGuard = `
 const schoolBrandingScript = `
 (() => {
   const defaultTitle = 'Vidhyalayam - School Management System';
-  const defaultIcon = '/icon.svg';
+  const defaultIcon = '/logo.png';
   const brandingKey = 'erp_schoolBranding';
 
   const readJson = (key) => {
@@ -145,6 +145,11 @@ export const metadata: Metadata = {
   description: "School Management System for Vidhyalayam. Complete solution for student management, fees, attendance, and more.",
   keywords: ["School Management", "Vidhyalayam", "Education Management", "Student Management", "Fees Management", "Attendance"],
   authors: [{ name: "Vidhyalayam" }],
+  icons: {
+    icon: "/logo.png",
+    shortcut: "/logo.png",
+    apple: "/logo.png",
+  },
 };
 
 export default function RootLayout({

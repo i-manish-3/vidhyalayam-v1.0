@@ -407,8 +407,8 @@ function Navbar({ onLoginClick }: { onLoginClick: () => void }) {
     >
       <div className="mx-auto max-w-7xl flex items-center justify-between px-4 sm:px-6 lg:px-8 h-16">
         <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="flex items-center gap-2.5 group" aria-label="Vidhyalayam">
-          <div className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-600 to-teal-600 text-white shadow-lg shadow-emerald-500/25 group-hover:shadow-emerald-500/50 transition-all duration-300 group-hover:scale-105">
-            <GraduationCap className="size-5" />
+          <div className="flex size-9 items-center justify-center overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200/80 dark:ring-white/15 group-hover:shadow-md transition-all duration-300 group-hover:scale-105 p-0.5">
+            <img src="/logo.png" alt="Vidhyalayam" className="size-full object-contain" />
           </div>
           <span className="text-lg font-bold leading-tight pb-0.5 bg-gradient-to-br from-slate-900 to-slate-700 dark:from-white dark:to-white/70 bg-clip-text text-transparent">
             Vidhyalayam
@@ -444,8 +444,8 @@ function Navbar({ onLoginClick }: { onLoginClick: () => void }) {
             <SheetContent side="right" className="w-72">
               <SheetHeader>
                 <SheetTitle className="flex items-center gap-2.5">
-                  <div className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-600 to-teal-600 text-white shadow-md shadow-emerald-500/25">
-                    <GraduationCap className="size-4" />
+                  <div className="flex size-8 items-center justify-center overflow-hidden rounded-lg bg-white shadow-sm ring-1 ring-slate-200/80 dark:ring-white/15 p-0.5">
+                    <img src="/logo.png" alt="Vidhyalayam" className="size-full object-contain" />
                   </div>
                   <span className="text-base font-bold">Vidhyalayam</span>
                 </SheetTitle>
@@ -1418,8 +1418,8 @@ function Footer({ onLoginClick }: { onLoginClick: () => void }) {
           {/* Brand & About */}
           <div className="sm:col-span-2 lg:col-span-1">
             <div className="flex items-center gap-2.5 mb-4">
-              <div className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-600 to-teal-600 text-white shadow-lg">
-                <GraduationCap className="size-5" />
+              <div className="flex size-9 items-center justify-center overflow-hidden rounded-xl bg-white shadow-lg p-0.5">
+                <img src="/logo.png" alt="Vidhyalayam" className="size-full object-contain" />
               </div>
               <span className="text-lg font-bold">Vidhyalayam</span>
             </div>

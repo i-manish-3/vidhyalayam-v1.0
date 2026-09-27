@@ -42,7 +42,9 @@ const isERPHost = (host: string) => host === ERP_HOST || host.startsWith('erp.')
 const isAssetPath = (pathname: string) =>
   pathname.startsWith('/_next') ||
   pathname.startsWith('/favicon') ||
-  pathname === '/icon.svg'
+  pathname === '/icon.svg' ||
+  pathname === '/icon.png' ||
+  pathname === '/logo.png'
 
 function applyCors(request: NextRequest, response: NextResponse): NextResponse {
   const origin = request.headers.get('origin')
@@ -123,5 +125,5 @@ export async function proxy(request: NextRequest) {
 // assets, image optimization, and the landing page root are never redirected.
 // Next.js 16 proxy always runs on Node.js — no runtime config needed.
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|icon.svg).*)'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|icon.svg|icon.png|logo.png).*)'],
 }
