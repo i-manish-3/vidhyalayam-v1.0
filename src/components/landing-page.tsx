@@ -18,6 +18,7 @@ import {
   Menu, Star, Check, ArrowRight, UserPlus, Settings, Rocket, Mail, Phone,
   Sparkles, School, Bus, Library, Package, Calendar, MessageSquare, Wallet,
   UsersRound, Crown, Palette, Globe, Zap, CheckCircle2, Play, MapPin, Sun, Moon,
+  Award, Building2, Contact, FileText, BarChart3, Headphones, Heart,
 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -116,7 +117,7 @@ const NAV_LINKS = [
   { label: 'Contact Us', href: '#contact' },
 ]
 
-const BRAND_TAGLINE = 'Empowering tradition with technology'
+const BRAND_TAGLINE = 'Empowering management with technology'
 
 const LEGAL_DOCUMENTS: Record<'privacy' | 'terms', LegalDocument> = {
   privacy: {
@@ -251,13 +252,20 @@ const MODULES = [
   { icon: ClipboardCheck, name: 'Attendance Tracking', desc: 'Real-time attendance with parent alerts' },
   { icon: CreditCard, name: 'Fee Management', desc: 'Automated billing, receipts & reminders' },
   { icon: Wallet, name: 'Salary & Payroll', desc: 'Payroll processing & salary structures' },
-  { icon: Bus, name: 'Transport Management', desc: 'Route planning & vehicle tracking' },
-  { icon: Library, name: 'Library Management', desc: 'Catalog, issue/return & fine tracking' },
-  { icon: Package, name: 'Inventory Tracking', desc: 'Asset management & procurement' },
   { icon: BookOpen, name: 'Exam Management', desc: 'Scheduling, grading & report cards' },
   { icon: Calendar, name: 'Timetable Scheduling', desc: 'Smart class & teacher scheduling' },
-  { icon: MessageSquare, name: 'Communication', desc: 'Messaging & announcement platform' },
-  { icon: Users, name: 'Parent Portal', desc: 'Real-time access for parents' },
+  { icon: FileText, name: 'Homework & LMS', desc: 'Digital assignments, coursework & syllabus' },
+  { icon: Bus, name: 'Transport Management', desc: 'Route planning & vehicle tracking' },
+  { icon: Building2, name: 'Hostel Management', desc: 'Room allocations, wardens & mess' },
+  { icon: Library, name: 'Library Management', desc: 'Catalog, issue/return & fine tracking' },
+  { icon: Package, name: 'Inventory & Assets', desc: 'Equipment tracking, stock & procurement' },
+  { icon: Award, name: 'Certificate Generator', desc: 'Transfer, character & merit certificates' },
+  { icon: Contact, name: 'ID Card Studio', desc: 'Design & print student and staff ID cards' },
+  { icon: MessageSquare, name: 'Communication Hub', desc: 'SMS, WhatsApp & multi-channel alerts' },
+  { icon: BarChart3, name: 'Reports & Analytics', desc: 'Real-time academic & fee insights' },
+  { icon: Users, name: 'Parent Portal', desc: 'Dedicated mobile & web portal for parents' },
+  { icon: Shield, name: 'Audit & Security', desc: 'Role-based access & activity logs' },
+  { icon: Headphones, name: 'Helpdesk & Support', desc: 'In-app ticketing & grievance resolution' },
 ]
 
 const STEPS = [
@@ -424,13 +432,6 @@ function Navbar({ onLoginClick }: { onLoginClick: () => void }) {
           <Button variant="ghost" size="icon" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} className="text-slate-600 dark:text-white/80 hover:text-slate-900 dark:hover:text-white hover:bg-emerald-50 dark:hover:bg-white/5 transition-all duration-300">
             {mounted && (theme === 'dark' ? <Sun className="size-4" /> : <Moon className="size-4" />)}
           </Button>
-          <Button
-            size="sm"
-            onClick={onLoginClick}
-            className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg shadow-emerald-500/20 transition-all duration-300 hover:from-emerald-700 hover:to-teal-700 hover:shadow-emerald-500/35"
-          >
-            Login
-          </Button>
         </div>
 
         <div className="lg:hidden">
@@ -459,7 +460,6 @@ function Navbar({ onLoginClick }: { onLoginClick: () => void }) {
                   <Button variant="outline" onClick={() => { setTheme(theme === 'dark' ? 'light' : 'dark') }} className="flex items-center gap-2">
                     {mounted && (theme === 'dark' ? <><Sun className="size-4" /> Light Mode</> : <><Moon className="size-4" /> Dark Mode</>)}
                   </Button>
-                  <Button variant="outline" onClick={() => { setMobileOpen(false); onLoginClick() }}>Login</Button>
                 </div>
               </div>
             </SheetContent>
@@ -566,15 +566,15 @@ function HeroSection({ onLoginClick }: { onLoginClick: () => void }) {
 
             <motion.div className="mt-8 flex flex-col sm:flex-row gap-4 justify-center lg:justify-start" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, delay: 0.9 }}>
               <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.98 }} transition={{ type: 'spring', stiffness: 300 }}>
-                <Button size="lg" className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white shadow-lg shadow-emerald-500/30 hover:shadow-emerald-500/50 text-base px-8 h-12 transition-all duration-300" onClick={onLoginClick}>
-                  Get Started Free <ArrowRight className="size-4 ml-2" />
+                <Button size="lg" className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white shadow-lg shadow-emerald-500/30 hover:shadow-emerald-500/50 text-base px-8 h-12 transition-all duration-300" onClick={() => scrollToId('#contact')}>
+                  Schedule Demo <ArrowRight className="size-4 ml-2" />
                 </Button>
               </motion.div>
-              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.98 }} transition={{ type: 'spring', stiffness: 300 }}>
+              {/* <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.98 }} transition={{ type: 'spring', stiffness: 300 }}>
                 <Button variant="outline" size="lg" className="text-base px-8 h-12 border-slate-300 dark:border-white/20 hover:bg-emerald-50 hover:border-emerald-400 dark:hover:bg-white/5 transition-all duration-300" onClick={() => scrollToId('#contact')}>
                   <Play className="size-4 mr-2" /> Schedule Demo
                 </Button>
-              </motion.div>
+              </motion.div> */}
             </motion.div>
           </div>
 
@@ -747,7 +747,7 @@ function ModulesSection() {
         <motion.div className="text-center max-w-3xl mx-auto" initial="hidden" animate={inView ? 'visible' : 'hidden'} variants={fadeUp}>
           <Badge variant="secondary" className="mb-4 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"><Zap className="size-3.5 mr-1.5" />Modules</Badge>
           <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight">Powerful Modules for <span className="bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">Every Need</span></h2>
-          <p className="mt-4 text-lg text-slate-600 dark:text-white/60">14+ specialized modules covering every aspect of school operations</p>
+          <p className="mt-4 text-lg text-slate-600 dark:text-white/60">20+ specialized modules covering every aspect of school operations</p>
         </motion.div>
 
         <div className="mt-14 grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -1339,19 +1339,19 @@ function CTASection({ onLoginClick }: { onLoginClick: () => void }) {
           Ready to Transform Your School?
         </motion.h2>
         <motion.p className="mt-4 text-lg text-emerald-100 max-w-2xl mx-auto" initial={{ opacity: 0, y: 20 }} animate={inView ? { opacity: 1, y: 0 } : {}} transition={{ duration: 0.6, delay: 0.15 }}>
-          Join 500+ schools already using Vidhyalayam to streamline operations and improve outcomes.
+          Be among the first schools to launch with Vidhyalayam and streamline your operations from day one.
         </motion.p>
         <motion.div className="mt-8 flex flex-col sm:flex-row gap-4 justify-center" initial={{ opacity: 0, y: 20 }} animate={inView ? { opacity: 1, y: 0 } : {}} transition={{ duration: 0.6, delay: 0.3 }}>
           <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-            <Button size="lg" className="bg-white text-emerald-700 hover:bg-white/90 shadow-xl text-base px-8 h-12 font-semibold transition-all duration-300 [background-image:none]" onClick={onLoginClick}>
-              Get Started Free <ArrowRight className="size-4 ml-2" />
+            <Button size="lg" className="bg-white text-emerald-700 hover:bg-white/90 shadow-xl text-base px-8 h-12 font-semibold transition-all duration-300 [background-image:none]" onClick={() => scrollToId('#contact')}>
+              Schedule Demo <ArrowRight className="size-4 ml-2" />
             </Button>
           </motion.div>
-          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+          {/* <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
             <Button size="lg" className="border border-white/40 bg-transparent text-white hover:bg-white/10 text-base px-8 h-12 transition-all duration-300 [background-image:none]" onClick={() => scrollToId('#contact')}>
               <Play className="size-4 mr-2" /> Schedule Demo
             </Button>
-          </motion.div>
+          </motion.div> */}
         </motion.div>
       </div>
     </Section>
@@ -1412,52 +1412,86 @@ function Footer({ onLoginClick }: { onLoginClick: () => void }) {
   const [legalDocument, setLegalDocument] = useState<LegalDocument | null>(null)
 
   return (
-    <footer className="relative bg-slate-900 dark:bg-slate-950 text-white py-12">
+    <footer className="relative bg-slate-900 dark:bg-slate-950 text-white py-12 sm:py-16">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="grid md:grid-cols-4 gap-8">
-          <div className="md:col-span-1">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 sm:gap-10 lg:gap-8">
+          {/* Brand & About */}
+          <div className="sm:col-span-2 lg:col-span-1">
             <div className="flex items-center gap-2.5 mb-4">
               <div className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-600 to-teal-600 text-white shadow-lg">
                 <GraduationCap className="size-5" />
               </div>
               <span className="text-lg font-bold">Vidhyalayam</span>
             </div>
-            <p className="text-sm text-slate-400 leading-relaxed">
+            <p className="text-sm text-slate-400 leading-relaxed max-w-sm">
               <span className="block font-medium text-emerald-300">{BRAND_TAGLINE}</span>
               <span className="mt-1 block">The all-in-one school management platform for modern schools.</span>
             </p>
           </div>
+
+          {/* Product Links */}
           <div>
-            <h4 className="font-semibold mb-4 text-sm uppercase tracking-wider text-slate-300">Product</h4>
-            <ul className="space-y-2.5">
+            <h4 className="font-semibold mb-3 sm:mb-4 text-xs sm:text-sm uppercase tracking-wider text-slate-300">Product</h4>
+            <ul className="space-y-2 sm:space-y-2.5">
               {['Features', 'Modules', 'Pricing', 'How It Works'].map((item) => (
-                <li key={item}><button onClick={() => scrollToId(`#${item.toLowerCase().replace(/ /g, '-')}`)} className="text-sm text-slate-400 hover:text-emerald-400 transition-colors">{item}</button></li>
+                <li key={item}>
+                  <button
+                    onClick={() => scrollToId(`#${item.toLowerCase().replace(/ /g, '-')}`)}
+                    className="py-1 text-sm text-slate-400 hover:text-emerald-400 transition-colors text-left"
+                  >
+                    {item}
+                  </button>
+                </li>
               ))}
             </ul>
           </div>
+
+          {/* Support Links */}
           <div>
-            <h4 className="font-semibold mb-4 text-sm uppercase tracking-wider text-slate-300">Support</h4>
-            <ul className="space-y-2.5">
-              <li><button onClick={() => scrollToId('#faq')} className="text-sm text-slate-400 hover:text-emerald-400 transition-colors">FAQ</button></li>
-              <li><button onClick={() => scrollToId('#contact')} className="text-sm text-slate-400 hover:text-emerald-400 transition-colors">Contact Us</button></li>
-              <li><button onClick={() => scrollToId('#testimonials')} className="text-sm text-slate-400 hover:text-emerald-400 transition-colors">Testimonials</button></li>
-              <li><button onClick={() => scrollToId('#team')} className="text-sm text-slate-400 hover:text-emerald-400 transition-colors">Our Team</button></li>
+            <h4 className="font-semibold mb-3 sm:mb-4 text-xs sm:text-sm uppercase tracking-wider text-slate-300">Support</h4>
+            <ul className="space-y-2 sm:space-y-2.5">
+              <li><button onClick={() => scrollToId('#faq')} className="py-1 text-sm text-slate-400 hover:text-emerald-400 transition-colors text-left">FAQ</button></li>
+              <li><button onClick={() => scrollToId('#contact')} className="py-1 text-sm text-slate-400 hover:text-emerald-400 transition-colors text-left">Contact Us</button></li>
+              <li><button onClick={() => scrollToId('#testimonials')} className="py-1 text-sm text-slate-400 hover:text-emerald-400 transition-colors text-left">Testimonials</button></li>
+              <li><button onClick={() => scrollToId('#team')} className="py-1 text-sm text-slate-400 hover:text-emerald-400 transition-colors text-left">Our Team</button></li>
             </ul>
           </div>
+
+          {/* Contact Details */}
           <div>
-            <h4 className="font-semibold mb-4 text-sm uppercase tracking-wider text-slate-300">Contact</h4>
-            <ul className="space-y-2.5">
-              <li><a href="mailto:contact@vidhyalayam.com" className="text-sm text-slate-400 hover:text-emerald-400 transition-colors flex items-center gap-2"><Mail className="size-3.5" />contact@vidhyalayam.com</a></li>
-              <li><a href="tel:+91987463210" className="text-sm text-slate-400 hover:text-emerald-400 transition-colors flex items-center gap-2"><Phone className="size-3.5" />+91 987463210</a></li>
-              <li><span className="text-sm text-slate-400 flex items-start gap-2"><MapPin className="size-3.5 mt-0.5 shrink-0" />Bairgania, Sitamarhi, Bihar, India</span></li>
+            <h4 className="font-semibold mb-3 sm:mb-4 text-xs sm:text-sm uppercase tracking-wider text-slate-300">Contact</h4>
+            <ul className="space-y-2 sm:space-y-2.5">
+              <li>
+                <a href="mailto:contact@vidhyalayam.com" className="py-1 text-sm text-slate-400 hover:text-emerald-400 transition-colors flex items-center gap-2 break-all">
+                  <Mail className="size-3.5 shrink-0" />contact@vidhyalayam.com
+                </a>
+              </li>
+              <li>
+                <a href="tel:+91987463210" className="py-1 text-sm text-slate-400 hover:text-emerald-400 transition-colors flex items-center gap-2">
+                  <Phone className="size-3.5 shrink-0" />+91 987463210
+                </a>
+              </li>
+              <li>
+                <span className="py-1 text-sm text-slate-400 flex items-start gap-2">
+                  <MapPin className="size-3.5 mt-0.5 shrink-0 text-emerald-400" />Patna, Bihar, India
+                </span>
+              </li>
             </ul>
           </div>
         </div>
-        <div className="mt-10 pt-8 border-t border-slate-800 flex flex-col sm:flex-row justify-between items-center gap-4">
-          <p className="text-sm text-slate-500">&copy; {new Date().getFullYear()} Vidhyalayam. All rights reserved.</p>
-          <div className="flex gap-6">
-            <button type="button" onClick={() => setLegalDocument(LEGAL_DOCUMENTS.privacy)} className="text-sm text-slate-500 hover:text-emerald-400 transition-colors">Privacy Policy</button>
-            <button type="button" onClick={() => setLegalDocument(LEGAL_DOCUMENTS.terms)} className="text-sm text-slate-500 hover:text-emerald-400 transition-colors">Terms of Service</button>
+
+        {/* Bottom Bar */}
+        <div className="mt-10 sm:mt-12 pt-6 sm:pt-8 border-t border-slate-800 flex flex-col md:flex-row justify-between items-center gap-4 text-center md:text-left">
+          <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4 text-xs sm:text-sm text-slate-400">
+            <p className="text-slate-500">&copy; {new Date().getFullYear()} Vidhyalayam. All rights reserved.</p>
+            <span className="hidden sm:inline text-slate-700">•</span>
+            <p className="flex items-center gap-1.5 font-medium text-slate-400">
+              Made in India with <Heart className="size-3.5 fill-rose-500 text-rose-500 inline-block animate-pulse shrink-0" />
+            </p>
+          </div>
+          <div className="flex flex-wrap justify-center md:justify-end items-center gap-x-6 gap-y-2 text-xs sm:text-sm">
+            <button type="button" onClick={() => setLegalDocument(LEGAL_DOCUMENTS.privacy)} className="text-slate-400 hover:text-emerald-400 transition-colors">Privacy Policy</button>
+            <button type="button" onClick={() => setLegalDocument(LEGAL_DOCUMENTS.terms)} className="text-slate-400 hover:text-emerald-400 transition-colors">Terms of Service</button>
           </div>
         </div>
       </div>
@@ -1543,7 +1577,7 @@ export function LandingPage({ onLoginClick }: LandingPageProps) {
       <Navbar onLoginClick={onLoginClick} />
       <main>
         <HeroSection onLoginClick={onLoginClick} />
-        <StatsBar />
+        {/* <StatsBar /> */}
         <FeaturesSection />
         <ModulesSection />
         <HowItWorksSection />
