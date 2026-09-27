@@ -1,342 +1,398 @@
-# Deploy Vidhyalayam ERP on Hostinger VPS — Beginner's Guide
+# Vidhyalayam ERP — Azure VM & CI/CD Master Deployment Guide
 
-This guide deploys the Vidhyalayam school ERP (Next.js 16 + Prisma/PostgreSQL, optional Redis workers) to a Hostinger VPS.
-
-**What you'll end up with:** Ubuntu VPS running your app on port 3000, Nginx serving it at `https://erp.yourdomain.com`, PostgreSQL database, all managed with PM2.
+This is the definitive, production-ready deployment guide for **Vidhyalayam School ERP**. It covers one-time server provisioning on an **Azure Linux Virtual Machine (Ubuntu 22.04 LTS)**, production database and compulsory Redis setup, Nginx reverse proxy with SSL, PM2 process management, and **automated zero-downtime deployments via GitHub Actions**.
 
 ---
 
-## Part 0 — Things to know about YOUR project
+## Architecture Overview
 
-- Repo: `https://github.com/i-manish-3/my-digital-acadmey-v1.0.git`
-- Needs **Node 20.9+** (use Node 22 LTS) and **PostgreSQL** (any recent version)
-- **Redis is optional** — without it, demand slips, notifications and exports run instantly inside the request (slower but works). Add Redis later if you want background jobs.
-- Login after seeding: **`admin@dpsdelhi.in` / `admin123`** (school admin), **`sahyog.vidhyalayam@gmail.com` / `admin123`** (super admin) — change these immediately after deploy
-- Auth cookies are `Secure` in production → **HTTPS is mandatory** (Part 9 sets it up)
-- Files (photos, logos) are stored on the VPS in `public/uploads/` by default
+```text
+       Internet Traffic (HTTPS 443 / HTTP 80)
+                         │
+                         ▼
+             ┌───────────────────────┐
+             │     Nginx Proxy       │ (SSL Termination & Rate-Limiting)
+             └───────────┬───────────┘
+                         │ Proxy Pass (127.0.0.1:3000)
+                         ▼
+             ┌───────────────────────┐
+             │  PM2 Process Manager  │
+             └───────────┬───────────┘
+                         │
+        ┌────────────────┼────────────────────────┐
+        ▼                ▼                        ▼
+┌──────────────┐ ┌───────────────┐      ┌─────────────────────┐
+│  vidhyalayam │ │ Redis Workers │◄────►│ Compulsory Redis    │
+│  (Next.js 16)│ │ (4 Processes) │      │ (127.0.0.1:6379)    │
+└───────┬──────┘ └───────┬───────┘      └─────────────────────┘
+        │                │
+        └────────┬───────┘
+                 ▼
+        ┌─────────────────────┐
+        │ PostgreSQL Database │
+        │ (127.0.0.1:5432)    │
+        └─────────────────────┘
+```
 
 ---
 
-## Part 1 — Buy the VPS (Hostinger)
+## Part 1: Azure Linux VM Provisioning
 
-1. Hostinger → VPS → choose **KVM 2 (or KVM 4 if budget allows)** → OS: **Ubuntu 22.04** → datacenter nearest you
-2. Set a **strong root password** (save it in a notes app!)
-3. Order it, wait ~5 min for provisioning
+### 1.1 Azure VM Specifications
+1. Open the [Azure Portal](https://portal.azure.com).
+2. Go to **Virtual machines** $\rightarrow$ **Create** $\rightarrow$ **Azure virtual machine**.
+3. Configure the VM:
+   - **OS**: Ubuntu Server 22.04 LTS (x64 Gen 2)
+   - **Recommended Size**: `Standard_B2ms` (2 vCPUs, 8 GiB RAM) or minimum `Standard_B2s` (2 vCPUs, 4 GiB RAM)
+   - **Authentication**: SSH public key (Username: `azureuser`)
+   - **Key Pair**: Download and securely save your `.pem` key file (e.g. `azure_key.pem`)
+4. **IP Configuration**: Set IP assignment to **Static** under Public IP configurations.
 
-**Your domain:** Hostinger panel → Domains → add your domain → DNS → add an **A record**: name `erp` (if you want `erp.yourdomain.com`) → value = your VPS IP → TTL 3600. (The IP is on your VPS dashboard.)
+### 1.2 Azure Network Security Group (NSG) Inbound Rules
+Configure your VM's NSG with the following inbound security rules:
+
+| Priority | Name | Destination Port | Protocol | Source | Action | Purpose |
+|:---:|:---:|:---:|:---:|:---:|:---:|:---|
+| **300** | Allow-SSH | `22` | TCP | Any (or your IP) | Allow | Secure Remote Shell |
+| **310** | Allow-HTTP | `80` | TCP | Any | Allow | Web Traffic / Certbot |
+| **320** | Allow-HTTPS | `443` | TCP | Any | Allow | Secure Web Traffic (SSL) |
+
+> [!WARNING]
+> **PostgreSQL (5432)** and **Redis (6379)** must **NEVER** be opened in Azure NSG inbound rules. They must only listen locally on `127.0.0.1`.
 
 ---
 
-## Part 2 — Connect to the server (from Windows)
+## Part 2: One-Time Server Setup
 
-1. Install **PuTTY** (or use Windows Terminal — both work)
-2. Open PuTTY → Host: `root@<your-vps-ip>` → Port 22 → Open
-3. Accept the fingerprint, enter the root password (right-click = paste in PuTTY)
-
-You should now see a black terminal like `root@host:~#`. From here on, everything happens in this terminal.
-
----
-
-## Part 3 — One-time server setup
-
-Copy-paste each block, one at a time:
+Connect to your Azure VM from Windows Terminal, PuTTY, or PowerShell:
 
 ```bash
-apt update && apt upgrade -y
+ssh -i /path/to/azure_key.pem azureuser@<AZURE_VM_PUBLIC_IP>
 ```
 
+Run the following commands in order:
+
+### 2.1 Update System & Install Core Packages
 ```bash
-# Swap (prevents the build crashing on low-RAM VPSes)
-fallocate -l 2G /swapfile && chmod 600 /swapfile
-mkswap /swapfile && swapon /swapfile
-echo '/swapfile none swap sw 0 0' >> /etc/fstab
+sudo apt update && sudo apt upgrade -y
+sudo apt install -y git curl unzip build-essential nginx postgresql postgresql-contrib redis-server certbot python3-certbot-nginx
 ```
 
+### 2.2 Configure & Verify Compulsory Redis
+Redis 7+ is **compulsory** for Vidhyalayam demand slip generation, real-time notifications, audit logs, and export queues.
 ```bash
-# Install basics
-apt install -y git curl build-essential nginx postgresql postgresql-contrib
+sudo systemctl enable --now redis-server
+redis-cli ping
+# Expected output: PONG
 ```
 
+### 2.3 Configure 4GB Swap Memory (Prevents Build OOM Crashes)
+Next.js 16 builds require substantial memory. A swap file prevents the Linux kernel Out-of-Memory (OOM) killer from terminating your build process:
 ```bash
-# Node 22 LTS (via nvm)
-curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
-source ~/.bashrc
-nvm install 22
-nvm alias default 22
-node -v    # should print v22.x.x
+sudo fallocate -l 4G /swapfile
+sudo chmod 600 /swapfile
+sudo mkswap /swapfile
+sudo swapon /swapfile
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+
+# Verify swap is active:
+free -h
 ```
 
+### 2.4 Install Node.js 22 LTS, Bun & PM2
 ```bash
-# Bun (your seed scripts use `bun run`)
+# 1. Install Node.js 22 LTS
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+sudo apt install -y nodejs
+node -v   # Should show v22.x.x
+
+# 2. Install Bun (Required for database seed scripts)
 curl -fsSL https://bun.sh/install | bash
 source ~/.bashrc
-bun --version
+
+# 3. Install PM2 globally and configure systemd startup
+sudo npm install -g pm2
+pm2 startup systemd
+# Copy and execute the exact 'sudo env PATH=...' line printed by PM2!
 ```
 
-```bash
-# PM2 (keeps the app alive, restarts on crash/boot)
-npm install -g pm2
-```
-
----
-
-## Part 4 — Create the database
-
+### 2.5 Configure PostgreSQL Database
 ```bash
 sudo -u postgres psql
 ```
-
-Then inside the `psql` prompt, paste (replace `STRONG_DB_PASSWORD` with something long & random):
-
+Inside the PostgreSQL shell:
 ```sql
-CREATE USER vidhya WITH PASSWORD 'STRONG_DB_PASSWORD';
+CREATE USER vidhya WITH PASSWORD 'SET_YOUR_STRONG_PASSWORD_HERE';
 CREATE DATABASE vidhyalayam OWNER vidhya;
 \q
 ```
-
-Test the connection string (any output = success):
-
+Verify the local connection:
 ```bash
-PGPASSWORD='STRONG_DB_PASSWORD' psql -h 127.0.0.1 -U vidhya -d vidhyalayam -c 'SELECT 1;'
+PGPASSWORD='SET_YOUR_STRONG_PASSWORD_HERE' psql -h 127.0.0.1 -U vidhya -d vidhyalayam -c 'SELECT 1;'
+# Expected output: 1
+```
+
+### 2.6 Setup Web Directory Permissions
+```bash
+sudo mkdir -p /var/www/vidhyalayam
+sudo chown -R $USER:$USER /var/www/vidhyalayam
 ```
 
 ---
 
-## Part 5 — Put the code on the server
+## Part 3: Initial Application Setup
 
+### 3.1 Clone Repository
 ```bash
-cd /var/www
-git clone https://github.com/i-manish-3/my-digital-acadmey-v1.0.git
-cd my-digital-acadmey-v1.0
+cd /var/www/vidhyalayam
+git clone https://github.com/i-manish-3/my-digital-acadmey-v1.0.git .
 ```
 
----
-
-## Part 6 — Create the `.env` file
-
+### 3.2 Create Production `.env`
+Create the production environment file:
 ```bash
-nano .env
+nano /var/www/vidhyalayam/.env
 ```
-
-Paste this (edit the values in ALL CAPS):
-
+Paste and fill in your values:
 ```env
-DATABASE_URL=postgresql://vidhya:STRONG_DB_PASSWORD@127.0.0.1:5432/vidhyalayam?connection_limit=10
+NODE_ENV=production
+DATABASE_URL=postgresql://vidhya:SET_YOUR_STRONG_PASSWORD_HERE@127.0.0.1:5432/vidhyalayam?connection_limit=50&pool_timeout=20
 
-JWT_SECRET=CHANGE_ME_RANDOM
-TOKEN_ENCRYPTION_KEY=CHANGE_ME_RANDOM
+# Generate 32-byte hex keys with: openssl rand -hex 32
+JWT_SECRET=REPLACE_WITH_GENERATED_32_BYTE_HEX_KEY
+TOKEN_ENCRYPTION_KEY=REPLACE_WITH_ANOTHER_GENERATED_32_BYTE_HEX_KEY
+
+# Application URLs
 PUBLIC_APP_URL=https://erp.yourdomain.com
-
 STORAGE_DRIVER=local
+
+# ============================================
+# COMPULSORY REDIS & QUEUE CONFIGURATION
+# ============================================
+REDIS_HOST=127.0.0.1
+REDIS_PORT=6379
+USE_QUEUE=true
+
+# Concurrency & Worker Rates
+FEE_DEMAND_GENERATE_CONCURRENCY=5
+WHATSAPP_WORKER_MAX_SCHOOLS=20
+WHATSAPP_WORKER_POLL_MS=1500
+NOTIFICATION_QUEUE_CONCURRENCY=10
+EXPORT_QUEUE_CONCURRENCY=2
+EXPORT_RETENTION_DAYS=7
+AUDIT_RETENTION_DAYS=365
 ```
+*(Press `Ctrl+O`, `Enter`, `Ctrl+X` to save and exit).*
 
-**Generate the two random values** (run outside nano, then paste the outputs):
-
+### 3.3 Install Dependencies, Migrate Database & Seed Initial Data
 ```bash
-openssl rand -hex 32
-openssl rand -hex 32
-```
-
-- First output → `JWT_SECRET`
-- Second output → `TOKEN_ENCRYPTION_KEY` (32 bytes = 64 hex chars, exactly what it expects)
-
-Leave out SMTP / OpenRouter / R2 / Redis vars for now — all optional. Save with `Ctrl+O`, Enter, `Ctrl+X`.
-
----
-
-## Part 7 — Install dependencies & set up the database
-
-```bash
-cd /var/www/my-digital-acadmey-v1.0
+cd /var/www/vidhyalayam
 npm install
 npx prisma generate
-npx prisma migrate deploy
-npm run seed
+npx prisma db push
+
+# Run initial platform seed (creates super admin, school admin, roles)
+bun run seed
 ```
 
-- `npm install` — installs everything (first run takes a few minutes)
-- `prisma generate` — creates the DB client (skip this and the build fails — there's no postinstall hook in this project)
-- `migrate deploy` — applies your existing migration files (your repo has `prisma/migrations`)
-- `npm run seed` — creates the admin logins + demo school
+> **Default Seed Logins (Change passwords immediately after first login!):**
+> - **Super Admin:** `sahyog.vidhyalayam@gmail.com` / `admin123`
+> - **School Admin:** `admin@dpsdelhi.in` / `admin123`
 
-Verify data exists:
-
+### 3.4 Build Application & Start PM2 Ecosystem
 ```bash
-PGPASSWORD='STRONG_DB_PASSWORD' psql -h 127.0.0.1 -U vidhya -d vidhyalayam -c 'SELECT email, role FROM "User";'
-```
+# Build production bundle with memory cap
+NODE_OPTIONS="--max-old-space-size=2048" npm run build
 
----
-
-## Part 8 — Build & run with PM2
-
-```bash
-npm run build
-```
-
-First build takes 2–5 minutes (your config has `ignoreBuildErrors: true`, so minor TS warnings won't stop it). If it dies with "out of memory" / exit 137 → your swap isn't active, re-check Part 3.
-
-Then start it and make it survive reboots:
-
-```bash
-pm2 start "npm run start" --name vidhyalayam
+# Start Next.js server + 4 Redis workers via ecosystem configuration
+pm2 start ecosystem.config.cjs
 pm2 save
-pm2 startup
 ```
 
-PM2 will print one line beginning with `sudo env PATH=... pm2 startup systemd...` — **copy that whole line and run it**.
-
-Test the app directly (bypassing Nginx):
-
+Verify all 5 services are online:
 ```bash
-curl -I http://127.0.0.1:3000
+pm2 status
 ```
+You should see:
+1. `vidhyalayam` (Next.js web server on port 3000)
+2. `worker-demand` (Demand Slip Generator Worker)
+3. `worker-notifications` (WhatsApp / Email / App Notification Worker)
+4. `worker-exports` (Report Export Worker)
+5. `worker-audit` (Audit Log Retention Worker)
 
-You should see `HTTP/1.1 200 OK`.
-
----
-
-## Part 9 — Domain + HTTPS (Nginx + Certbot)
-
-Create the Nginx config:
-
+### 3.5 Configure Nginx Reverse Proxy & Let's Encrypt SSL
+Create the Nginx server block:
 ```bash
-nano /etc/nginx/sites-available/vidhyalayam
+sudo nano /etc/nginx/sites-available/vidhyalayam
 ```
-
-Paste:
-
+Paste the following configuration:
 ```nginx
 server {
     listen 80;
-    server_name erp.yourdomain.com;
+    server_name erp.yourdomain.com; # Replace with your domain or Azure public IP
+
+    client_max_body_size 50M;
 
     location / {
         proxy_pass http://127.0.0.1:3000;
         proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_read_timeout 300s;
-        client_max_body_size 20M;
+        proxy_read_timeout 120s;
+        proxy_buffering off; # Required for Server-Sent Events (SSE) live notifications
     }
 }
 ```
-
-Enable and reload:
-
+Enable the site:
 ```bash
-ln -s /etc/nginx/sites-available/vidhyalayam /etc/nginx/sites-enabled/
-nginx -t
-systemctl reload nginx
+sudo ln -sf /etc/nginx/sites-available/vidhyalayam /etc/nginx/sites-enabled/
+sudo rm -f /etc/nginx/sites-enabled/default
+sudo nginx -t
+sudo systemctl reload nginx
 ```
 
-Now the app should load at `http://erp.yourdomain.com`. Then add free HTTPS:
-
+Obtain a free SSL Certificate via Certbot (requires your domain DNS A-record to point to the Azure VM IP):
 ```bash
-apt install -y certbot python3-certbot-nginx
-certbot --nginx -d erp.yourdomain.com
-```
-
-Follow the prompts (enter an email, accept terms). It auto-configures HTTPS and renewal. That's it — your site is now `https://erp.yourdomain.com` with a valid certificate that renews itself.
-
----
-
-## Part 10 — Firewall
-
-```bash
-ufw allow OpenSSH
-ufw allow 'Nginx Full'
-ufw enable
-ufw status
-```
-
-Don't enable this before confirming SSH works (it does — you're connected). Your VPS is now locked down: SSH, 80, 443 only.
-
----
-
-## Part 11 — Optional: Redis + background workers
-
-Skip this at first. If demand-slip generation for big batches feels slow later, do:
-
-```bash
-apt install -y redis-server
-systemctl enable --now redis-server
-```
-
-Add to `.env`:
-
-```env
-REDIS_HOST=127.0.0.1
-REDIS_PORT=6379
-```
-
-Restart app + start the 4 workers:
-
-```bash
-pm2 restart vidhyalayam
-pm2 start "npm run worker:demand-slips" --name worker-demand
-pm2 start "npm run worker:notifications" --name worker-notifications
-pm2 start "npm run worker:exports" --name worker-exports
-pm2 start "npm run worker:audit-retention" --name worker-audit
-pm2 save
+sudo certbot --nginx -d erp.yourdomain.com
 ```
 
 ---
 
-## Part 12 — First login & security checklist
+## Part 4: Automated CI/CD Setup with GitHub Actions
 
-1. Open `https://erp.yourdomain.com` → login with `admin@dpsdelhi.in` / `admin123`
-2. **Immediately**: change the school admin password (your app has a change-password flow — check settings/profile)
-3. Log in as super admin (`sahyog.vidhyalayam@gmail.com` / `admin123`) and change that too
-4. Consider deleting/renaming the demo school or adding your real school
-5. Keep `.env` backed up somewhere safe (it's the only thing you can't regenerate)
+With this setup, **every `git push` to your repository automatically updates and reloads the Azure VM with zero downtime.**
+
+### 4.1 Generate a Dedicated Deployment SSH Key Pair
+On your local terminal or VM:
+```bash
+ssh-keygen -t ed25519 -C "github-actions-azure" -f ~/.ssh/github_actions_azure
+```
+Leave the passphrase blank.
+
+1. **Authorize Public Key on Azure VM**:
+   ```bash
+   cat ~/.ssh/github_actions_azure.pub >> ~/.ssh/authorized_keys
+   chmod 700 ~/.ssh
+   chmod 600 ~/.ssh/authorized_keys
+   ```
+
+2. **Copy the Private Key**:
+   - On Windows: `Get-Content ~/.ssh/github_actions_azure | Set-Clipboard`
+   - On Linux/Mac: `cat ~/.ssh/github_actions_azure`
+
+### 4.2 Configure GitHub Repository Secrets
+1. Go to your GitHub repository: `https://github.com/i-manish-3/my-digital-acadmey-v1.0`
+2. Navigate to **Settings** $\rightarrow$ **Secrets and variables** $\rightarrow$ **Actions** $\rightarrow$ **New repository secret**.
+3. Add the following secrets:
+
+| Secret Name | Value |
+|---|---|
+| `AZURE_VM_HOST` | Azure VM Public IP (e.g. `20.198.54.21`) or Azure DNS domain |
+| `AZURE_VM_USERNAME` | `azureuser` (or your VM SSH username) |
+| `AZURE_VM_SSH_KEY` | Entire private key contents including `-----BEGIN ...` and `-----END ...` |
+| `AZURE_VM_PORT` | `22` |
+
+### 4.3 How Automated Deployment Works
+When you push code to GitHub:
+```bash
+git add .
+git commit -m "feat: new feature update"
+git push origin test-deploy   # or git push origin main
+```
+1. **GitHub Actions Runner** checks out code, runs `npx prisma generate`, and performs a dry-run Next.js build.
+2. If verification passes, it connects to your Azure VM via SSH.
+3. It executes [`scripts/deploy-azure.sh`](file:///c:/Manish/my-digital-acadmey/scripts/deploy-azure.sh):
+   - Verifies Redis status.
+   - Pulls latest commits (`git reset --hard origin/<branch>`).
+   - Installs dependencies (`npm install --prefer-offline`).
+   - Syncs Prisma DB migrations (`npx prisma db push --accept-data-loss`).
+   - Compiles Next.js with `NODE_OPTIONS="--max-old-space-size=2048"`.
+   - Gracefully reloads PM2 (`pm2 reload ecosystem.config.cjs --update-env`).
+   - Runs post-deployment health check on `http://127.0.0.1:3000`.
 
 ---
 
-## Part 13 — Updating the app later
+## Part 5: Daily Operations & Maintenance Commands
 
+### PM2 Process Control
 ```bash
-cd /var/www/my-digital-acadmey-v1.0
-git pull
-npm install
-npx prisma generate
-npx prisma migrate deploy   # applies new migrations if any
-npm run build
-pm2 restart vidhyalayam
+# View live status of all 5 processes
+pm2 status
+
+# Live unified logs
+pm2 logs
+
+# Live logs for Next.js web application
+pm2 logs vidhyalayam --lines 50
+
+# Live logs for a background worker
+pm2 logs worker-demand
+pm2 logs worker-notifications
+
+# Restart all services manually
+pm2 restart ecosystem.config.cjs
+
+# Live resource monitor (CPU / Memory dashboard)
+pm2 monit
+```
+
+### Redis Monitoring
+```bash
+# Check Redis memory and queue statistics
+redis-cli info memory
+redis-cli info stats
+
+# Test Redis responsiveness
+redis-cli ping
+```
+
+### PostgreSQL Operations
+```bash
+# Open interactive database shell
+sudo -u postgres psql -d vidhyalayam
+
+# List all database tables
+sudo -u postgres psql -d vidhyalayam -c '\dt'
+
+# Create an immediate manual database backup
+pg_dump -h 127.0.0.1 -U vidhya -d vidhyalayam -F c -b -v -f "/var/www/vidhyalayam/backup_$(date +%Y%m%d_%H%M%S).dump"
 ```
 
 ---
 
-## Part 14 — Troubleshooting (the errors you'll actually hit)
+## Part 6: Comprehensive Troubleshooting Guide
 
-| Error / symptom | Cause | Fix |
-|---|---|---|
-| `prisma generate` fails with "engine not found" | wrong Node | `nvm use 22` first |
-| Build killed, exit code 137 | RAM exhausted | swap active? `free -h`; add `NODE_OPTIONS=--max-old-space-size=1536 npm run build` |
-| Nginx shows 502 Bad Gateway | app down | `pm2 status`; `pm2 logs vidhyalayam --lines 50` |
-| White page / "Application error" | app crashed after start | `pm2 logs vidhyalayam` |
-| Login fails immediately | wrong `JWT_SECRET` or DB connection | check `DATABASE_URL` in `.env`, then `pm2 restart vidhyalayam` |
-| Photos don't upload (500) | `public/uploads` not writable | `chown -R www-data:www-data /var/www/my-digital-acadmey/public/uploads` (or just `chmod -R 775`) |
-| Port 3000 already in use | app started twice | `pm2 delete vidhyalayam && pm2 start "npm run start" --name vidhyalayam` |
-| "Migrate: No migrations found" | wrong DB (fresh empty) | `npx prisma migrate deploy` from the project dir with correct `.env` |
-| Certificate expired | renewal timer broken | `systemctl list-timers | grep certbot`; re-run `certbot renew` |
-| Everything works but slow first load | cold start / no Redis | normal; add Redis + workers later (Part 11) |
-| `bun: command not found` on seed | shell not reloaded | `source ~/.bashrc` or re-login |
+| Symptom / Error | Root Cause | Solution |
+|:---|:---|:---|
+| **Infinite loading screen / browser stuck on load** | 1. Hardcoded external domain in `proxy.ts`.<br>2. PM2 crashed and Nginx is waiting for `proxy_read_timeout 300s`. | Verify `proxy.ts` allows direct VM IP access. Check `pm2 status` and `pm2 logs vidhyalayam`. |
+| **Build fails with Exit Code 137** | Linux OOM (Out of Memory) killer killed Node.js during `next build`. | 1. Ensure 4GB swap exists (`free -h`).<br>2. Build with `NODE_OPTIONS="--max-old-space-size=2048" npm run build`. |
+| **502 Bad Gateway (Nginx)** | Next.js server on port 3000 is not running or crashed. | Run `pm2 status`. If `vidhyalayam` is in `errored` state, run `pm2 logs vidhyalayam --lines 50` to inspect the stack trace. |
+| **GitHub Actions SSH Permission Denied (publickey)** | Public key missing in `~/.ssh/authorized_keys` or secret is incorrect. | Ensure `github_actions_azure.pub` is in `~/.ssh/authorized_keys` on VM and permissions are `chmod 600 ~/.ssh/authorized_keys`. |
+| **Redis connection refused (ECONNREFUSED 127.0.0.1:6379)** | Redis service is stopped. | Run `sudo systemctl restart redis-server && redis-cli ping`. |
+| **Port 3000 already in use (EADDRINUSE)** | Multiple orphaned Node processes bound to port 3000. | Run `sudo lsof -i :3000`, kill the orphaned PID, then `pm2 restart vidhyalayam`. |
+| **Prisma migration drift or schema mismatch** | Database schema out of sync with Prisma models. | Run `cd /var/www/vidhyalayam && npx prisma db push --accept-data-loss`. |
+| **SSL Certificate expired or failed renewal** | Certbot auto-renewal timer disabled or port 80 blocked. | Run `sudo certbot renew --dry-run`. Ensure port 80 is open in Azure NSG for HTTP-01 challenge. |
 
 ---
 
-## Part 15 — Handy commands
+## Part 7: Emergency Rollback Procedure
+
+If a deployed commit causes an issue in production, you can roll back instantly to the previous working commit:
 
 ```bash
-pm2 status                  # is the app running?
-pm2 logs vidhyalayam        # live logs (Ctrl+C to exit)
-pm2 restart vidhyalayam     # restart after config change
-pm2 startup                 # re-run if PM2 stops surviving reboots
-systemctl status nginx      # nginx health
-free -h                     # RAM/swap check
+cd /var/www/vidhyalayam
+
+# 1. View recent commit history
+git log -n 5 --oneline
+
+# 2. Reset to the desired working commit ID (e.g. 7524f79)
+git reset --hard <COMMIT_ID>
+
+# 3. Rebuild and reload PM2
+NODE_OPTIONS="--max-old-space-size=2048" npm run build
+pm2 reload ecosystem.config.cjs --update-env
 ```
-
----
-
-**Suggested first run:** do Parts 1–10 in one sitting (~1 hour). Two things to watch specifically: (1) don't skip `prisma generate` before `npm run build`, (2) make sure HTTPS is up before logging in, because the auth cookies are Secure-only in production.
