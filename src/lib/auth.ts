@@ -7,6 +7,9 @@ import { db } from '@/lib/db'
 function loadJwtSecret(): string {
   const secret = process.env.JWT_SECRET
   if (!secret || secret.length < 32) {
+    if (process.env.CI || process.env.NEXT_PHASE === 'phase-production-build') {
+      return 'ci_dummy_build_time_secret_must_be_at_least_32_characters_long'
+    }
     throw new Error(
       'JWT_SECRET environment variable is required and must be at least 32 characters. ' +
       'Generate one with: node -e "console.log(require(\'crypto\').randomBytes(48).toString(\'base64\'))"',

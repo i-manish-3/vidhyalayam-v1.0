@@ -31,6 +31,8 @@ jobs:
         env:
           NODE_ENV: production
           NEXT_TELEMETRY_DISABLED: 1
+          JWT_SECRET: "ci_build_dummy_jwt_secret_at_least_32_characters_long_for_nextjs"
+          DATABASE_URL: "postgresql://ci_dummy:ci_dummy@127.0.0.1:5432/ci_dummy"
 
   deploy-to-azure:
     name: Deploy to Azure Linux VM
