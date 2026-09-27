@@ -18,7 +18,7 @@ import {
   Menu, Star, Check, ArrowRight, UserPlus, Settings, Rocket, Mail, Phone,
   Sparkles, School, Bus, Library, Package, Calendar, MessageSquare, Wallet,
   UsersRound, Crown, Palette, Globe, Zap, CheckCircle2, Play, MapPin, Sun, Moon,
-  Award, Building2, Contact, FileText, BarChart3, Headphones, Heart,
+  Award, Building2, Contact, FileText, BarChart3, Headphones, Heart, HelpCircle,
 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -365,12 +365,30 @@ const DEFAULT_TEAM_MEMBERS = [
 ]
 
 const FAQ_DATA = [
-  { q: 'How long does it take to set up?', a: 'Most schools are up and running within 24-48 hours.' },
-  { q: 'Is my school\'s data secure?', a: 'Enterprise-grade encryption, regular backups, data protection compliance.' },
-  { q: 'Can I customize the platform for my school?', a: 'Yes, from branding to custom fee structures and role-based access.' },
-  { q: 'Do you provide training?', a: 'Comprehensive training including video tutorials, live sessions, and dedicated support.' },
-  { q: 'What about parent and student access?', a: 'Dedicated portals with real-time access to attendance, grades, fees.' },
-  { q: 'Can I migrate from my current system?', a: 'Yes, free data migration from spreadsheets or any existing software.' },
+  {
+    q: 'How long does it take to set up Vidhyalayam for our school?',
+    a: 'Most schools are completely set up and operational within 24 to 48 hours. Our dedicated team assists with onboarding, class structure configuration, and initial setup so you can start right away.',
+  },
+  {
+    q: 'Is our school and student data secure?',
+    a: 'Yes, data privacy and security are our highest priorities. We employ enterprise-grade encryption, role-based access control, regular automated backups, and strict security compliance protocols to safeguard your institution\'s data.',
+  },
+  {
+    q: 'Can we customize the platform to match our school\'s workflow?',
+    a: 'Absolutely! Vidhyalayam is built to be flexible. You can customize branding, fee heads, receipt formats, report cards, grading scales, academic terms, and permission levels for staff.',
+  },
+  {
+    q: 'Do you provide training and ongoing customer support?',
+    a: 'Yes, we provide comprehensive training sessions for administrators, teachers, and accountants, along with step-by-step documentation, video tutorials, and responsive direct support.',
+  },
+  {
+    q: 'How do parents and students access their portals?',
+    a: 'Parents and students receive dedicated secure logins to view attendance, exam report cards, fee status, digital receipts, homework assignments, and official school announcements in real-time.',
+  },
+  {
+    q: 'Can we migrate existing data from spreadsheets or older software?',
+    a: 'Yes! We offer free, hassle-free data migration assistance. You can import students, teachers, parents, and historical records from Excel or legacy software without any data loss.',
+  },
 ]
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -526,7 +544,7 @@ function HeroSection({ onLoginClick }: { onLoginClick: () => void }) {
   const heroY = useTransform(scrollY, [0, 400], [0, 60])
 
   return (
-    <section className="relative flex flex-col items-center justify-center overflow-hidden bg-gradient-to-br from-emerald-50 via-white to-teal-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 pt-24 pb-16 md:pt-32 md:pb-20">
+    <section className="relative flex flex-col items-center justify-center overflow-hidden bg-gradient-to-br from-emerald-50 via-white to-teal-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 pt-20 pb-10 md:pt-28 md:pb-14">
       {/* Animated background orbs */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <motion.div
@@ -699,7 +717,7 @@ function HeroSection({ onLoginClick }: { onLoginClick: () => void }) {
       </motion.div>
 
       {/* Scroll indicator */}
-      <div className="flex justify-center mt-8 relative z-10">
+      <div className="flex justify-center mt-6 relative z-10">
         <motion.button
           onClick={() => scrollToId('#features')}
           className="flex flex-col items-center gap-1 text-slate-400 dark:text-white/30 hover:text-emerald-500 dark:hover:text-emerald-400 transition-colors"
@@ -732,7 +750,7 @@ function StatItem({ stat }: { stat: (typeof STATS)[number] }) {
 
 function StatsBar() {
   return (
-    <Section className="py-16 relative bg-white dark:bg-slate-950 border-y border-emerald-500/10">
+    <Section className="py-10 md:py-12 relative bg-white dark:bg-slate-950 border-y border-emerald-500/10">
       <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/5 via-teal-500/5 to-cyan-500/5" />
       <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
@@ -750,15 +768,15 @@ function FeaturesSection() {
   const ref = useRef(null)
   const inView = useInView(ref, { once: true, margin: '-80px' })
   return (
-    <section id="features" className="py-20 md:py-28 bg-slate-50/50 dark:bg-slate-900/50 relative" ref={ref}>
+    <section id="features" className="py-12 md:py-16 bg-slate-50/50 dark:bg-slate-900/50 relative" ref={ref}>
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <motion.div className="text-center max-w-3xl mx-auto" initial="hidden" animate={inView ? 'visible' : 'hidden'} variants={fadeUp}>
-          <Badge variant="secondary" className="mb-4 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"><Sparkles className="size-3.5 mr-1.5" />Features</Badge>
+          <Badge variant="secondary" className="mb-3 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"><Sparkles className="size-3.5 mr-1.5" />Features</Badge>
           <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight">Everything You Need to <span className="bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">Run Your School</span></h2>
-          <p className="mt-4 text-lg text-slate-600 dark:text-white/60">Powerful tools designed specifically for modern school management</p>
+          <p className="mt-3 text-base sm:text-lg text-slate-600 dark:text-white/60">Powerful tools designed specifically for modern school management</p>
         </motion.div>
 
-        <div className="mt-14 grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="mt-8 sm:mt-10 grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {FEATURES.map((f, i) => (
             <motion.div key={f.title} custom={i} initial="hidden" animate={inView ? 'visible' : 'hidden'} variants={scaleIn}>
               <motion.div whileHover={{ y: -8, boxShadow: '0 20px 40px -12px rgba(5,150,105,0.15)' }} transition={{ duration: 0.3 }} className="h-full">
@@ -789,15 +807,15 @@ function ModulesSection() {
   const ref = useRef(null)
   const inView = useInView(ref, { once: true, margin: '-80px' })
   return (
-    <section id="modules" className="py-20 md:py-28 bg-white dark:bg-slate-950 relative" ref={ref}>
+    <section id="modules" className="py-12 md:py-16 bg-white dark:bg-slate-950 relative" ref={ref}>
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <motion.div className="text-center max-w-3xl mx-auto" initial="hidden" animate={inView ? 'visible' : 'hidden'} variants={fadeUp}>
-          <Badge variant="secondary" className="mb-4 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"><Zap className="size-3.5 mr-1.5" />Modules</Badge>
+          <Badge variant="secondary" className="mb-3 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"><Zap className="size-3.5 mr-1.5" />Modules</Badge>
           <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight">Powerful Modules for <span className="bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">Every Need</span></h2>
-          <p className="mt-4 text-lg text-slate-600 dark:text-white/60">20+ specialized modules covering every aspect of school operations</p>
+          <p className="mt-3 text-base sm:text-lg text-slate-600 dark:text-white/60">20+ specialized modules covering every aspect of school operations</p>
         </motion.div>
 
-        <div className="mt-14 grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className="mt-8 sm:mt-10 grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {MODULES.map((m, i) => (
             <motion.div key={m.name} custom={i} initial="hidden" animate={inView ? 'visible' : 'hidden'} variants={scaleIn} whileHover={{ y: -6 }} className="group">
               <Card className="h-full bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 hover:border-emerald-500/30 transition-all duration-300 rounded-2xl py-0 overflow-hidden">
@@ -826,31 +844,31 @@ function HowItWorksSection() {
   const ref = useRef(null)
   const inView = useInView(ref, { once: true, margin: '-80px' })
   return (
-    <section id="how-it-works" className="py-20 md:py-28 bg-slate-50/50 dark:bg-slate-900/50 relative" ref={ref}>
+    <section id="how-it-works" className="py-12 md:py-16 bg-slate-50/50 dark:bg-slate-900/50 relative" ref={ref}>
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <motion.div className="text-center max-w-3xl mx-auto" initial="hidden" animate={inView ? 'visible' : 'hidden'} variants={fadeUp}>
-          <Badge variant="secondary" className="mb-4 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"><Rocket className="size-3.5 mr-1.5" />How It Works</Badge>
+          <Badge variant="secondary" className="mb-3 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"><Rocket className="size-3.5 mr-1.5" />How It Works</Badge>
           <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight">Up and Running in <span className="bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">3 Simple Steps</span></h2>
-          <p className="mt-4 text-lg text-slate-600 dark:text-white/60">Getting started is easier than you think</p>
+          <p className="mt-3 text-base sm:text-lg text-slate-600 dark:text-white/60">Getting started is easier than you think</p>
         </motion.div>
 
-        <div className="mt-16 relative">
+        <div className="mt-10 sm:mt-12 relative">
           <div className="hidden md:block absolute top-24 left-[16.67%] right-[16.67%]">
             <motion.div className="h-0.5 bg-gradient-to-r from-emerald-500/50 via-teal-500/50 to-cyan-500/50 rounded-full" initial={{ scaleX: 0 }} animate={inView ? { scaleX: 1 } : {}} transition={{ duration: 1.5, delay: 0.5, ease: 'easeInOut' }} style={{ originX: 0 }} />
           </div>
-          <div className="grid md:grid-cols-3 gap-12 md:gap-8">
+          <div className="grid md:grid-cols-3 gap-10 md:gap-8">
             {STEPS.map((step, i) => (
               <motion.div key={step.num} custom={i} initial="hidden" animate={inView ? 'visible' : 'hidden'} variants={fadeUp} className="relative text-center">
                 <motion.div className="mx-auto size-20 rounded-full bg-gradient-to-br from-emerald-600 via-teal-600 to-cyan-600 text-white flex items-center justify-center text-2xl font-bold shadow-lg shadow-emerald-500/30 relative z-10" whileHover={{ scale: 1.1 }} transition={{ type: 'spring', stiffness: 200, damping: 15 }}>
                   {step.num}
                   <motion.div className="absolute inset-0 rounded-full border-2 border-emerald-400/50" animate={{ scale: [1, 1.3], opacity: [0.5, 0] }} transition={{ duration: 2, repeat: Infinity, delay: i * 0.3 }} />
                 </motion.div>
-                <motion.div className="mt-8" initial={{ opacity: 0, y: 15 }} animate={inView ? { opacity: 1, y: 0 } : {}} transition={{ duration: 0.5, delay: 0.4 + i * 0.15 }}>
+                <motion.div className="mt-6" initial={{ opacity: 0, y: 15 }} animate={inView ? { opacity: 1, y: 0 } : {}} transition={{ duration: 0.5, delay: 0.4 + i * 0.15 }}>
                   <div className="mx-auto size-14 rounded-xl bg-emerald-50 dark:bg-white/5 border border-emerald-200 dark:border-white/10 flex items-center justify-center mb-4 text-emerald-600 dark:text-emerald-400">
                     <step.icon className="size-7" />
                   </div>
                   <h3 className="text-xl font-bold">{step.title}</h3>
-                  <p className="mt-2 text-slate-600 dark:text-white/60 leading-relaxed max-w-xs mx-auto">{step.desc}</p>
+                  <p className="mt-2 text-slate-600 dark:text-white/60 leading-relaxed max-w-xs mx-auto text-sm sm:text-base">{step.desc}</p>
                 </motion.div>
               </motion.div>
             ))}
@@ -919,33 +937,33 @@ function PricingSection({ plans, addons }: { plans: PricingPlanData[]; addons: P
       }))
 
   return (
-    <section id="pricing" className="py-20 md:py-28 bg-white dark:bg-slate-950 relative" ref={ref}>
+    <section id="pricing" className="py-12 md:py-16 bg-white dark:bg-slate-950 relative" ref={ref}>
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <motion.div className="text-center max-w-3xl mx-auto" initial="hidden" animate={inView ? 'visible' : 'hidden'} variants={fadeUp}>
-          <Badge variant="secondary" className="mb-4 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"><CreditCard className="size-3.5 mr-1.5" />Pricing</Badge>
+          <Badge variant="secondary" className="mb-3 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"><CreditCard className="size-3.5 mr-1.5" />Pricing</Badge>
           <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight">Simple, <span className="bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">Transparent</span> Pricing</h2>
-          <p className="mt-4 text-lg text-slate-600 dark:text-white/60">One flat rate per student. Everything included. No hidden fees.</p>
+          <p className="mt-3 text-base sm:text-lg text-slate-600 dark:text-white/60">One flat rate per student. Everything included. No hidden fees.</p>
         </motion.div>
 
-        <motion.div className="mt-12 max-w-4xl mx-auto" initial={{ opacity: 0, y: 30 }} animate={inView ? { opacity: 1, y: 0 } : {}} transition={{ duration: 0.6, delay: 0.15 }}>
+        <motion.div className="mt-8 sm:mt-10 max-w-4xl mx-auto" initial={{ opacity: 0, y: 30 }} animate={inView ? { opacity: 1, y: 0 } : {}} transition={{ duration: 0.6, delay: 0.15 }}>
           <div className="rounded-2xl overflow-hidden border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 shadow-2xl shadow-emerald-500/5">
             <div className="grid md:grid-cols-5">
               {/* Left: Price */}
-              <div className="md:col-span-2 bg-gradient-to-br from-emerald-600 via-emerald-600 to-teal-600 p-8 md:p-10 flex flex-col justify-center text-white relative overflow-hidden">
+              <div className="md:col-span-2 bg-gradient-to-br from-emerald-600 via-emerald-600 to-teal-600 p-7 md:p-9 flex flex-col justify-center text-white relative overflow-hidden">
                 <motion.div className="absolute -top-12 -right-12 w-40 h-40 rounded-full bg-white/10 blur-xl" animate={{ scale: [1, 1.2, 1], opacity: [0.1, 0.2, 0.1] }} transition={{ duration: 5, repeat: Infinity }} />
                 <div className="relative z-10">
                   <p className="text-emerald-100 text-sm font-semibold uppercase tracking-widest">{planName}</p>
                   <div className="mt-4 flex items-baseline gap-1">
-                    <span className="text-6xl font-extrabold leading-none">₹{planPrice}</span>
+                    <span className="text-5xl sm:text-6xl font-extrabold leading-none">₹{planPrice}</span>
                     <div className="ml-1"><span className="text-lg font-medium text-white/90">/student</span><span className="block text-sm text-emerald-200">per month</span></div>
                   </div>
-                  <div className="mt-6 space-y-2.5">
+                  <div className="mt-5 space-y-2">
                     {planHighlights.map((item) => (
                       <div key={item} className="flex items-center gap-2 text-emerald-100"><Check className="size-4 shrink-0" /><span className="text-sm">{item}</span></div>
                     ))}
                   </div>
                   <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
-                    <Button size="lg" className="mt-8 w-full bg-white text-emerald-700 hover:bg-white/90 shadow-lg font-semibold text-base transition-all duration-300 [background-image:none]" onClick={() => scrollToId('#contact')}>
+                    <Button size="lg" className="mt-6 sm:mt-7 w-full bg-white text-emerald-700 hover:bg-white/90 shadow-lg font-semibold text-base transition-all duration-300 [background-image:none]" onClick={() => scrollToId('#contact')}>
                       Get Started <ArrowRight className="size-4 ml-2" />
                     </Button>
                   </motion.div>
@@ -953,8 +971,8 @@ function PricingSection({ plans, addons }: { plans: PricingPlanData[]; addons: P
               </div>
 
               {/* Right: Features */}
-              <div className="md:col-span-3 p-8 md:p-10">
-                <h3 className="font-bold text-lg mb-5">Everything included in your base plan</h3>
+              <div className="md:col-span-3 p-7 md:p-9">
+                <h3 className="font-bold text-lg mb-4">Everything included in your base plan</h3>
                 <div className="grid grid-cols-2 gap-x-6 gap-y-3">
                   {planFeatures.map((feature, i) => (
                     <motion.div key={feature} initial={{ opacity: 0, x: 10 }} animate={inView ? { opacity: 1, x: 0 } : {}} transition={{ duration: 0.3, delay: 0.3 + i * 0.03 }} className="flex items-center gap-2.5">
@@ -969,10 +987,10 @@ function PricingSection({ plans, addons }: { plans: PricingPlanData[]; addons: P
         </motion.div>
 
         {/* Add-ons */}
-        <motion.div className="mt-16" initial={{ opacity: 0, y: 30 }} animate={inView ? { opacity: 1, y: 0 } : {}} transition={{ duration: 0.5, delay: 0.3 }}>
-          <div className="text-center mb-10">
+        <motion.div className="mt-10 sm:mt-12" initial={{ opacity: 0, y: 30 }} animate={inView ? { opacity: 1, y: 0 } : {}} transition={{ duration: 0.5, delay: 0.3 }}>
+          <div className="text-center mb-6 sm:mb-8">
             <h3 className="text-2xl font-extrabold tracking-tight">Premium <span className="bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">Add-Ons</span></h3>
-            <p className="mt-2 text-slate-600 dark:text-white/60">Charged extra — pick what your school needs</p>
+            <p className="mt-2 text-sm sm:text-base text-slate-600 dark:text-white/60">Charged extra — pick what your school needs</p>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5 max-w-5xl mx-auto">
             {displayAddons.map((addon, i) => {
@@ -1058,15 +1076,15 @@ function TestimonialsSection() {
   // Don't render the section at all if no testimonials from the database
   if (!loaded || testimonials.length === 0) {
     return loaded && testimonials.length === 0 ? null : (
-      <section id="testimonials" className="py-20 md:py-28 bg-slate-50/50 dark:bg-slate-900/50 relative overflow-hidden" ref={ref}>
+      <section id="testimonials" className="py-12 md:py-16 bg-slate-50/50 dark:bg-slate-900/50 relative overflow-hidden" ref={ref}>
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <motion.div className="text-center max-w-3xl mx-auto" initial="hidden" animate={inView ? 'visible' : 'hidden'} variants={fadeUp}>
-            <Badge variant="secondary" className="mb-4 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"><Star className="size-3.5 mr-1.5" />Testimonials</Badge>
+            <Badge variant="secondary" className="mb-3 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"><Star className="size-3.5 mr-1.5" />Testimonials</Badge>
             <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight">Loved by Schools <span className="bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">Across India</span></h2>
-            <p className="mt-4 text-lg text-slate-600 dark:text-white/60">Hear from educators who transformed their schools</p>
+            <p className="mt-3 text-base sm:text-lg text-slate-600 dark:text-white/60">Hear from educators who transformed their schools</p>
           </motion.div>
         </div>
-        <div className="mt-14 flex gap-6 overflow-hidden">
+        <div className="mt-8 sm:mt-10 flex gap-6 overflow-hidden">
           {Array.from({ length: 6 }).map((_, i) => (
             <Card key={i} className="w-[300px] sm:w-[340px] shrink-0 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl animate-pulse">
               <CardContent className="p-5">
@@ -1088,17 +1106,17 @@ function TestimonialsSection() {
   const loopTestimonials = [...testimonials, ...testimonials]
 
   return (
-    <section id="testimonials" className="py-20 md:py-28 bg-slate-50/50 dark:bg-slate-900/50 relative overflow-hidden" ref={ref}>
+    <section id="testimonials" className="py-12 md:py-16 bg-slate-50/50 dark:bg-slate-900/50 relative overflow-hidden" ref={ref}>
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <motion.div className="text-center max-w-3xl mx-auto" initial="hidden" animate={inView ? 'visible' : 'hidden'} variants={fadeUp}>
-          <Badge variant="secondary" className="mb-4 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"><Star className="size-3.5 mr-1.5" />Testimonials</Badge>
+          <Badge variant="secondary" className="mb-3 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"><Star className="size-3.5 mr-1.5" />Testimonials</Badge>
           <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight">Loved by Schools <span className="bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">Across India</span></h2>
-          <p className="mt-4 text-lg text-slate-600 dark:text-white/60">Hear from educators who transformed their schools</p>
+          <p className="mt-3 text-base sm:text-lg text-slate-600 dark:text-white/60">Hear from educators who transformed their schools</p>
         </motion.div>
       </div>
 
       {/* Single-row seamless circular marquee — last card connects directly to first */}
-      <div className="mt-14 relative">
+      <div className="mt-8 sm:mt-10 relative">
         {/* Fade edges for smooth blend */}
         <div className="absolute left-0 top-0 bottom-0 w-24 bg-gradient-to-r from-slate-50/50 dark:from-slate-900/50 to-transparent z-10 pointer-events-none" />
         <div className="absolute right-0 top-0 bottom-0 w-24 bg-gradient-to-l from-slate-50/50 dark:from-slate-900/50 to-transparent z-10 pointer-events-none" />
@@ -1124,15 +1142,15 @@ function TeamSection({ members }: { members: TeamMemberData[] }) {
   const displayMembers = members.length > 0 ? members : DEFAULT_TEAM_MEMBERS
 
   return (
-    <section id="team" className="py-20 md:py-28 bg-white dark:bg-slate-950 relative" ref={ref}>
+    <section id="team" className="py-12 md:py-16 bg-white dark:bg-slate-950 relative" ref={ref}>
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <motion.div className="text-center max-w-3xl mx-auto" initial="hidden" animate={inView ? 'visible' : 'hidden'} variants={fadeUp}>
-          <Badge variant="secondary" className="mb-4 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"><UsersRound className="size-3.5 mr-1.5" />Our Team</Badge>
+          <Badge variant="secondary" className="mb-3 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"><UsersRound className="size-3.5 mr-1.5" />Our Team</Badge>
           <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight">Meet the <span className="bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">People</span> Behind the Platform</h2>
-          <p className="mt-4 text-lg text-slate-600 dark:text-white/60">Passionate minds building the future of school management</p>
+          <p className="mt-3 text-base sm:text-lg text-slate-600 dark:text-white/60">Passionate minds building the future of school management</p>
         </motion.div>
 
-        <div className="mt-14 grid md:grid-cols-2 gap-8 max-w-3xl mx-auto">
+        <div className="mt-8 sm:mt-10 grid md:grid-cols-2 gap-8 max-w-3xl mx-auto">
           {displayMembers.map((member, i) => (
             <motion.div key={member.id} custom={i} initial="hidden" animate={inView ? 'visible' : 'hidden'} variants={scaleIn} whileHover={{ y: -8 }} className="group">
               <Card className="h-full bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 hover:border-emerald-500/30 transition-all duration-300 rounded-2xl overflow-hidden">
@@ -1221,23 +1239,65 @@ function FAQSection() {
   const ref = useRef(null)
   const inView = useInView(ref, { once: true, margin: '-80px' })
   return (
-    <section id="faq" className="py-20 md:py-28 bg-white dark:bg-slate-950 relative" ref={ref}>
-      <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
+    <section id="faq" className="py-12 md:py-16 bg-gradient-to-b from-white via-slate-50/50 to-white dark:from-slate-950 dark:via-slate-900/30 dark:to-slate-950 relative overflow-hidden" ref={ref}>
+      {/* Decorative ambient background */}
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-emerald-500/5 dark:bg-emerald-500/[0.03] rounded-full blur-3xl pointer-events-none" />
+
+      <div className="relative mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
         <motion.div className="text-center" initial="hidden" animate={inView ? 'visible' : 'hidden'} variants={fadeUp}>
-          <Badge variant="secondary" className="mb-4 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"><MessageSquare className="size-3.5 mr-1.5" />FAQ</Badge>
-          <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight">Frequently Asked <span className="bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">Questions</span></h2>
-          <p className="mt-4 text-lg text-slate-600 dark:text-white/60">Everything you need to know about Vidhyalayam</p>
+          <Badge variant="secondary" className="mb-3 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20">
+            <HelpCircle className="size-3.5 mr-1.5" />Frequently Asked Questions
+          </Badge>
+          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight">
+            Got Questions? We&apos;ve Got <span className="bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 bg-clip-text text-transparent">Answers</span>
+          </h2>
+          <p className="mt-3 text-base sm:text-lg text-slate-600 dark:text-white/60 max-w-2xl mx-auto">
+            Everything you need to know about getting started, features, security, and setup with Vidhyalayam.
+          </p>
         </motion.div>
 
-        <motion.div className="mt-12" initial={{ opacity: 0, y: 20 }} animate={inView ? { opacity: 1, y: 0 } : {}} transition={{ duration: 0.5, delay: 0.2 }}>
-          <Accordion type="single" collapsible className="space-y-3">
+        <motion.div className="mt-8 sm:mt-10" initial={{ opacity: 0, y: 20 }} animate={inView ? { opacity: 1, y: 0 } : {}} transition={{ duration: 0.5, delay: 0.2 }}>
+          <Accordion type="single" collapsible className="space-y-4">
             {FAQ_DATA.map((faq, i) => (
-              <AccordionItem key={i} value={`faq-${i}`} className="px-6 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 data-[state=open]:border-emerald-500/30 rounded-2xl transition-colors overflow-hidden">
-                <AccordionTrigger className="text-left font-semibold hover:no-underline py-5 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">{faq.q}</AccordionTrigger>
-                <AccordionContent className="text-slate-600 dark:text-white/60 pb-5 leading-relaxed">{faq.a}</AccordionContent>
+              <AccordionItem
+                key={i}
+                value={`faq-${i}`}
+                className="group rounded-2xl border border-slate-200/80 dark:border-white/10 bg-white/90 dark:bg-white/[0.03] shadow-sm hover:shadow-md hover:border-emerald-500/30 data-[state=open]:border-emerald-500/40 data-[state=open]:bg-gradient-to-br data-[state=open]:from-emerald-50/40 data-[state=open]:via-white data-[state=open]:to-teal-50/20 dark:data-[state=open]:from-emerald-950/20 dark:data-[state=open]:via-slate-900/60 dark:data-[state=open]:to-teal-950/10 data-[state=open]:shadow-md data-[state=open]:shadow-emerald-500/5 transition-all duration-300 overflow-hidden px-5 sm:px-6"
+              >
+                <AccordionTrigger className="text-left font-semibold text-sm sm:text-base py-5 hover:no-underline text-slate-800 dark:text-white group-hover:text-emerald-700 dark:group-hover:text-emerald-400 data-[state=open]:text-emerald-700 dark:data-[state=open]:text-emerald-300 transition-colors [&>svg]:size-4 [&>svg]:text-slate-400 [&>svg]:transition-transform [&>svg]:duration-200 group-hover:[&>svg]:text-emerald-500 data-[state=open]:[&>svg]:text-emerald-600">
+                  <div className="flex items-center gap-3.5 pr-2">
+                    <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-emerald-100/80 text-emerald-700 text-xs font-bold dark:bg-emerald-500/15 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-500/20">
+                      {String(i + 1).padStart(2, '0')}
+                    </span>
+                    <span className="leading-snug">{faq.q}</span>
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent className="text-slate-600 dark:text-white/70 text-sm leading-relaxed pb-5 pl-10 sm:pl-10.5 pr-2 border-t border-slate-100/80 dark:border-white/5 pt-3.5">
+                  {faq.a}
+                </AccordionContent>
               </AccordionItem>
             ))}
           </Accordion>
+        </motion.div>
+
+        {/* FAQ Quick Support Callout */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={inView ? { opacity: 1, y: 0 } : {}}
+          transition={{ duration: 0.5, delay: 0.35 }}
+          className="mt-8 sm:mt-10 rounded-2xl border border-emerald-500/20 bg-gradient-to-r from-emerald-50/60 via-white to-teal-50/60 dark:from-emerald-950/20 dark:via-slate-900 dark:to-teal-950/20 p-6 text-center sm:flex sm:items-center sm:justify-between sm:text-left shadow-sm"
+        >
+          <div className="space-y-1">
+            <h4 className="text-base font-bold text-slate-900 dark:text-white">Still have questions?</h4>
+            <p className="text-xs sm:text-sm text-slate-600 dark:text-white/60">Our school specialists are ready to answer any questions about onboarding.</p>
+          </div>
+          <Button
+            size="sm"
+            onClick={() => scrollToId('#contact')}
+            className="mt-4 sm:mt-0 shrink-0 h-10 px-5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-semibold text-xs shadow-md shadow-emerald-600/20"
+          >
+            Talk to Our Team <ArrowRight className="size-3.5 ml-1.5" />
+          </Button>
         </motion.div>
       </div>
     </section>
@@ -1281,15 +1341,15 @@ function ContactSection({ onLoginClick, addons }: { onLoginClick: () => void; ad
   }
 
   return (
-    <section id="contact" className="py-14 md:py-20 bg-slate-50/50 dark:bg-slate-900/50 relative" ref={ref}>
+    <section id="contact" className="py-12 md:py-16 bg-slate-50/50 dark:bg-slate-900/50 relative" ref={ref}>
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <motion.div className="text-center max-w-3xl mx-auto" initial="hidden" animate={inView ? 'visible' : 'hidden'} variants={fadeUp}>
-          <Badge variant="secondary" className="mb-4 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"><Mail className="size-3.5 mr-1.5" />Contact Us</Badge>
+          <Badge variant="secondary" className="mb-3 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"><Mail className="size-3.5 mr-1.5" />Contact Us</Badge>
           <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight">Get Started <span className="bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">Today</span></h2>
-          <p className="mt-4 text-lg text-slate-600 dark:text-white/60">Fill out the form below and our team will get back to you within 24 hours</p>
+          <p className="mt-3 text-base sm:text-lg text-slate-600 dark:text-white/60">Fill out the form below and our team will get back to you within 24 hours</p>
         </motion.div>
 
-        <motion.div className="mt-12 max-w-2xl mx-auto" initial={{ opacity: 0, y: 30 }} animate={inView ? { opacity: 1, y: 0 } : {}} transition={{ duration: 0.6, delay: 0.2 }}>
+        <motion.div className="mt-8 sm:mt-10 max-w-2xl mx-auto" initial={{ opacity: 0, y: 30 }} animate={inView ? { opacity: 1, y: 0 } : {}} transition={{ duration: 0.6, delay: 0.2 }}>
           <AnimatePresence mode="wait">
             {submitted ? (
               <motion.div key="success" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} className="text-center py-16">
@@ -1378,17 +1438,17 @@ function CTASection({ onLoginClick }: { onLoginClick: () => void }) {
   const ref = useRef(null)
   const inView = useInView(ref, { once: true, margin: '-80px' })
   return (
-    <Section id="cta" className="py-14 md:py-16 bg-gradient-to-br from-emerald-600 via-emerald-600 to-teal-600 relative overflow-hidden">
+    <Section id="cta" className="py-10 md:py-14 bg-gradient-to-br from-emerald-600 via-emerald-600 to-teal-600 relative overflow-hidden">
       <motion.div className="absolute -top-20 -right-20 w-80 h-80 rounded-full bg-white/5 blur-3xl" animate={{ scale: [1, 1.2, 1] }} transition={{ duration: 8, repeat: Infinity }} />
       <motion.div className="absolute -bottom-20 -left-20 w-60 h-60 rounded-full bg-white/5 blur-3xl" animate={{ scale: [1, 1.1, 1] }} transition={{ duration: 6, repeat: Infinity, delay: 2 }} />
       <div ref={ref} className="relative mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 text-center">
         <motion.h2 className="text-3xl sm:text-4xl font-extrabold text-white" initial={{ opacity: 0, y: 20 }} animate={inView ? { opacity: 1, y: 0 } : {}} transition={{ duration: 0.6 }}>
           Ready to Transform Your School?
         </motion.h2>
-        <motion.p className="mt-4 text-lg text-emerald-100 max-w-2xl mx-auto" initial={{ opacity: 0, y: 20 }} animate={inView ? { opacity: 1, y: 0 } : {}} transition={{ duration: 0.6, delay: 0.15 }}>
+        <motion.p className="mt-3 text-base sm:text-lg text-emerald-100 max-w-2xl mx-auto" initial={{ opacity: 0, y: 20 }} animate={inView ? { opacity: 1, y: 0 } : {}} transition={{ duration: 0.6, delay: 0.15 }}>
           Be among the first schools to launch with Vidhyalayam and streamline your operations from day one.
         </motion.p>
-        <motion.div className="mt-8 flex flex-col sm:flex-row gap-4 justify-center" initial={{ opacity: 0, y: 20 }} animate={inView ? { opacity: 1, y: 0 } : {}} transition={{ duration: 0.6, delay: 0.3 }}>
+        <motion.div className="mt-6 sm:mt-7 flex flex-col sm:flex-row gap-4 justify-center" initial={{ opacity: 0, y: 20 }} animate={inView ? { opacity: 1, y: 0 } : {}} transition={{ duration: 0.6, delay: 0.3 }}>
           <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
             <Button size="lg" className="bg-white text-emerald-700 hover:bg-white/90 shadow-xl text-base px-8 h-12 font-semibold transition-all duration-300 [background-image:none]" onClick={() => scrollToId('#contact')}>
               Schedule Free Demo <ArrowRight className="size-4 ml-2" />
@@ -1459,7 +1519,7 @@ function Footer({ onLoginClick }: { onLoginClick: () => void }) {
   const [legalDocument, setLegalDocument] = useState<LegalDocument | null>(null)
 
   return (
-    <footer className="relative bg-slate-900 dark:bg-slate-950 text-white py-12 sm:py-16">
+    <footer className="relative bg-slate-900 dark:bg-slate-950 text-white py-10 sm:py-12">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 sm:gap-10 lg:gap-8">
           {/* Brand & About */}
@@ -1528,7 +1588,7 @@ function Footer({ onLoginClick }: { onLoginClick: () => void }) {
         </div>
 
         {/* Bottom Bar */}
-        <div className="mt-10 sm:mt-12 pt-6 sm:pt-8 border-t border-slate-800 flex flex-col md:flex-row justify-between items-center gap-4 text-center md:text-left">
+        <div className="mt-8 sm:mt-10 pt-5 sm:pt-6 border-t border-slate-800 flex flex-col md:flex-row justify-between items-center gap-4 text-center md:text-left">
           <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4 text-xs sm:text-sm text-slate-400">
             <p className="text-slate-500">&copy; {new Date().getFullYear()} Vidhyalayam. All rights reserved.</p>
             <span className="hidden sm:inline text-slate-700">•</span>
