@@ -397,53 +397,62 @@ function Navbar({ onLoginClick }: { onLoginClick: () => void }) {
 
   return (
     <motion.nav
-      initial={{ y: -80 }} animate={{ y: 0 }}
-      transition={{ duration: 0.6, ease: [0.25, 0.46, 0.45, 0.94] }}
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
-        scrolled
-          ? 'bg-white/90 dark:bg-slate-950/90 backdrop-blur-xl border-b border-slate-200/50 dark:border-white/10 shadow-lg shadow-black/5'
-          : 'bg-transparent'
-      }`}
+      initial={{ y: -80, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+      className="fixed top-0 left-0 right-0 z-50 px-3 sm:px-6 lg:px-8 pt-3 sm:pt-4 transition-all duration-300"
     >
-      <div className="mx-auto max-w-7xl flex items-center justify-between px-4 sm:px-6 lg:px-8 h-16">
-        <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="flex items-center gap-2.5 group" aria-label="Vidhyalayam">
-          <div className="flex size-9 items-center justify-center overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200/80 dark:ring-white/15 group-hover:shadow-md transition-all duration-300 group-hover:scale-105 p-0.5">
-            <img src="/logo.png" alt="Vidhyalayam" className="size-full object-contain" />
+      <div
+        className={`mx-auto max-w-7xl rounded-2xl sm:rounded-full transition-all duration-300 px-4 sm:px-6 h-16 flex items-center justify-between border ${
+          scrolled
+            ? 'bg-white/95 dark:bg-slate-950/90 backdrop-blur-2xl border-emerald-500/20 dark:border-emerald-500/20 shadow-xl shadow-emerald-950/5 dark:shadow-black/40'
+            : 'bg-white/85 dark:bg-slate-900/75 backdrop-blur-xl border-slate-200/80 dark:border-white/10 shadow-lg shadow-black/[0.03]'
+        }`}
+      >
+        {/* Brand Logo */}
+        <button
+          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+          className="flex items-center gap-3 group focus:outline-none"
+          aria-label="Vidhyalayam"
+        >
+          <div className="relative flex size-10 items-center justify-center rounded-xl bg-white/90 dark:bg-white/10 dark:backdrop-blur-md shadow-sm border border-slate-200/70 dark:border-white/10 p-1 transition-all duration-300 group-hover:scale-105 group-hover:shadow-emerald-500/20 group-hover:border-emerald-500/30">
+            <img src="/logo.png" alt="Vidhyalayam" className="size-full object-contain drop-shadow-sm" />
           </div>
-          <span className="text-lg font-bold leading-tight pb-0.5 bg-gradient-to-br from-slate-900 to-slate-700 dark:from-white dark:to-white/70 bg-clip-text text-transparent">
+          <span className="text-base sm:text-lg font-extrabold tracking-tight leading-tight bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 dark:from-white dark:via-white/90 dark:to-white/70 bg-clip-text text-transparent group-hover:from-emerald-600 group-hover:to-teal-600 transition-all duration-300">
             Vidhyalayam
           </span>
         </button>
 
-        <div className="hidden lg:flex items-center gap-1">
+        {/* Desktop Navigation Links */}
+        <div className="hidden lg:flex items-center gap-1 bg-slate-100/70 dark:bg-white/[0.06] p-1 rounded-full border border-slate-200/50 dark:border-white/5">
           {NAV_LINKS.map((link) => (
             <button
               key={link.label}
               onClick={() => handleNav(link.href)}
-              className="px-3 py-2 text-sm font-medium text-slate-600 dark:text-white/70 hover:text-slate-900 dark:hover:text-white hover:bg-emerald-50 dark:hover:bg-white/5 transition-colors rounded-lg relative group"
+              className="px-3.5 py-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-emerald-700 dark:hover:text-white hover:bg-white dark:hover:bg-white/10 transition-all duration-200 rounded-full"
             >
               {link.label}
-              <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-0 h-0.5 bg-gradient-to-r from-emerald-400 to-teal-400 group-hover:w-3/4 transition-all duration-300 rounded-full" />
             </button>
           ))}
         </div>
 
-        <div className="hidden lg:flex items-center gap-2">
+        {/* Action Buttons */}
+        <div className="hidden lg:flex items-center gap-2.5">
           <Button
-            variant="outline"
+            variant="ghost"
             size="sm"
             onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-            className="flex items-center gap-2 text-xs font-medium rounded-xl border-slate-200/80 bg-white/70 text-slate-700 shadow-sm backdrop-blur-sm hover:border-emerald-300 hover:bg-emerald-50/80 hover:text-emerald-700 dark:border-white/10 dark:bg-white/5 dark:text-white/85 dark:hover:border-emerald-500/30 dark:hover:bg-white/10 dark:hover:text-white transition-all duration-300"
+            className="h-9 px-3.5 rounded-full text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-emerald-50 hover:text-emerald-700 dark:hover:bg-white/10 dark:hover:text-white border border-slate-200/80 dark:border-white/10 transition-all duration-300 flex items-center gap-2"
           >
             {mounted ? (
               theme === 'dark' ? (
                 <>
-                  <Sun className="size-3.5 text-amber-400" />
+                  <Sun className="size-3.5 text-amber-400 transition-transform group-hover:rotate-45" />
                   <span>Light Mode</span>
                 </>
               ) : (
                 <>
-                  <Moon className="size-3.5 text-slate-600 dark:text-slate-300" />
+                  <Moon className="size-3.5 text-slate-600 transition-transform group-hover:-rotate-12" />
                   <span>Dark Mode</span>
                 </>
               )
@@ -456,33 +465,49 @@ function Navbar({ onLoginClick }: { onLoginClick: () => void }) {
           </Button>
         </div>
 
-        <div className="lg:hidden">
+        {/* Mobile Menu Trigger */}
+        <div className="flex lg:hidden items-center gap-2">
           <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
             <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="text-slate-900 dark:text-white">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-10 rounded-xl border border-slate-200/80 dark:border-white/10 text-slate-900 dark:text-white hover:bg-emerald-50 dark:hover:bg-white/10"
+              >
                 <Menu className="size-5" />
               </Button>
             </SheetTrigger>
-            <SheetContent side="right" className="w-72">
-              <SheetHeader>
-                <SheetTitle className="flex items-center gap-2.5">
-                  <div className="flex size-8 items-center justify-center overflow-hidden rounded-lg bg-white shadow-sm ring-1 ring-slate-200/80 dark:ring-white/15 p-0.5">
-                    <img src="/logo.png" alt="Vidhyalayam" className="size-full object-contain" />
+            <SheetContent side="right" className="w-80 p-0 overflow-hidden flex flex-col border-l border-slate-200 dark:border-white/10 bg-white/95 dark:bg-slate-950/95 backdrop-blur-2xl">
+              <SheetHeader className="p-6 border-b border-slate-200/70 dark:border-white/10 bg-gradient-to-br from-emerald-50/70 via-white to-teal-50/70 dark:from-slate-900 dark:via-slate-950 dark:to-slate-900 text-left">
+                <SheetTitle className="flex items-center gap-3">
+                  <div className="flex size-10 items-center justify-center rounded-xl bg-white/90 dark:bg-white/10 dark:backdrop-blur-md shadow-sm border border-slate-200/70 dark:border-white/10 p-1">
+                    <img src="/logo.png" alt="Vidhyalayam" className="size-full object-contain drop-shadow-sm" />
                   </div>
-                  <span className="text-base font-bold">Vidhyalayam</span>
+                  <span className="text-base font-extrabold leading-tight">Vidhyalayam</span>
                 </SheetTitle>
               </SheetHeader>
-              <div className="flex flex-col gap-1 mt-6">
+
+              <div className="flex-1 overflow-y-auto p-4 space-y-1">
                 {NAV_LINKS.map((link) => (
-                  <button key={link.href} onClick={() => handleNav(link.href)} className="px-4 py-3 text-sm font-medium text-left rounded-lg hover:bg-emerald-50 dark:hover:bg-white/5 transition-colors">
-                    {link.label}
+                  <button
+                    key={link.href}
+                    onClick={() => handleNav(link.href)}
+                    className="w-full flex items-center justify-between px-4 py-3 text-sm font-semibold text-left text-slate-700 dark:text-slate-200 rounded-xl hover:bg-emerald-50 hover:text-emerald-700 dark:hover:bg-white/5 dark:hover:text-white transition-all"
+                  >
+                    <span>{link.label}</span>
+                    <ArrowRight className="size-3.5 opacity-40" />
                   </button>
                 ))}
-                <div className="mt-4 flex flex-col gap-2 px-2">
-                  <Button variant="outline" onClick={() => { setTheme(theme === 'dark' ? 'light' : 'dark') }} className="flex items-center gap-2">
-                    {mounted && (theme === 'dark' ? <><Sun className="size-4" /> Light Mode</> : <><Moon className="size-4" /> Dark Mode</>)}
-                  </Button>
-                </div>
+              </div>
+
+              <div className="p-4 border-t border-slate-200/70 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.02]">
+                <Button
+                  variant="outline"
+                  onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                  className="w-full h-10 rounded-xl justify-center font-semibold text-xs border-slate-200 dark:border-white/10"
+                >
+                  {mounted && (theme === 'dark' ? <><Sun className="size-4 mr-2 text-amber-400" /> Light Mode</> : <><Moon className="size-4 mr-2 text-slate-600" /> Dark Mode</>)}
+                </Button>
               </div>
             </SheetContent>
           </Sheet>
@@ -1440,8 +1465,8 @@ function Footer({ onLoginClick }: { onLoginClick: () => void }) {
           {/* Brand & About */}
           <div className="sm:col-span-2 lg:col-span-1">
             <div className="flex items-center gap-2.5 mb-4">
-              <div className="flex size-9 items-center justify-center overflow-hidden rounded-xl bg-white shadow-lg p-0.5">
-                <img src="/logo.png" alt="Vidhyalayam" className="size-full object-contain" />
+              <div className="flex size-9 items-center justify-center rounded-xl bg-white/10 backdrop-blur-sm border border-white/15 shadow-md p-1">
+                <img src="/logo.png" alt="Vidhyalayam" className="size-full object-contain drop-shadow-sm" />
               </div>
               <span className="text-lg font-bold">Vidhyalayam</span>
             </div>
