@@ -73,14 +73,15 @@ echo "🔒 6. Setting permissions (chmod 755) on build artifacts..."
 sudo chown -R "$USER:$USER" "$APP_DIR"
 sudo chmod -R 755 "$APP_DIR"
 
-# 8. RESTART PM2 APP & WORKERS
-echo "♻️ 7. Restarting PM2 processes with updated config..."
-pm2 restart ecosystem.config.cjs --update-env || pm2 start ecosystem.config.cjs
-pm2 save
+# 8. RESTART PM2 APP & WORKERS FRESH (CLEARS STALE CLUSTER CONFIG)
+echo "♻️ 7. Restarting PM2 processes fresh with fork mode..."
+pm2 delete all || true
+pm2 start ecosystem.config.cjs
+pm2 save --force
 
 # 9. POST-DEPLOYMENT HEALTH CHECK
 echo "🩺 8. Running health check..."
-sleep 4
+sleep 6
 
 # Check API Version
 HEALTH_RESPONSE=$(curl -s http://127.0.0.1:3000/api/version || true)
