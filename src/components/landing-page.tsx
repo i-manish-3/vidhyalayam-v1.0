@@ -429,8 +429,30 @@ function Navbar({ onLoginClick }: { onLoginClick: () => void }) {
         </div>
 
         <div className="hidden lg:flex items-center gap-2">
-          <Button variant="ghost" size="icon" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} className="text-slate-600 dark:text-white/80 hover:text-slate-900 dark:hover:text-white hover:bg-emerald-50 dark:hover:bg-white/5 transition-all duration-300">
-            {mounted && (theme === 'dark' ? <Sun className="size-4" /> : <Moon className="size-4" />)}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+            className="flex items-center gap-2 text-xs font-medium rounded-xl border-slate-200/80 bg-white/70 text-slate-700 shadow-sm backdrop-blur-sm hover:border-emerald-300 hover:bg-emerald-50/80 hover:text-emerald-700 dark:border-white/10 dark:bg-white/5 dark:text-white/85 dark:hover:border-emerald-500/30 dark:hover:bg-white/10 dark:hover:text-white transition-all duration-300"
+          >
+            {mounted ? (
+              theme === 'dark' ? (
+                <>
+                  <Sun className="size-3.5 text-amber-400" />
+                  <span>Light Mode</span>
+                </>
+              ) : (
+                <>
+                  <Moon className="size-3.5 text-slate-600 dark:text-slate-300" />
+                  <span>Dark Mode</span>
+                </>
+              )
+            ) : (
+              <>
+                <Moon className="size-3.5" />
+                <span>Theme</span>
+              </>
+            )}
           </Button>
         </div>
 
