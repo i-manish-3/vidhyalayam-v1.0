@@ -784,14 +784,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
           <NotificationBell />
 
-          <Button
+          {/* <Button
             variant="ghost"
             size="icon"
             className="size-9 text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground dark:text-sidebar-foreground dark:hover:bg-sidebar-accent dark:hover:text-sidebar-foreground"
             onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
           >
             {theme === 'dark' ? <Sun className="size-[18px]" /> : <Moon className="size-[18px]" />}
-          </Button>
+          </Button> */}
 
           <div className="h-5 w-px bg-primary-foreground/25 shrink-0 hidden sm:block dark:bg-sidebar-border" />
 

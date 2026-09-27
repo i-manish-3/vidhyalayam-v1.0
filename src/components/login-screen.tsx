@@ -11,13 +11,7 @@ import { usePlatformLogo } from '@/hooks/use-platform-branding'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+
 import {
   GraduationCap,
   Eye,
@@ -28,13 +22,7 @@ import {
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 
-const DEMO_ACCOUNTS = [
-  { label: 'Super Admin', email: 'sahyog.vidhyalayam@gmail.com', password: 'admin123', role: 'SUPER_ADMIN' },
-  { label: 'School Admin', email: 'admin@dpsdelhi.in', password: 'admin123', role: 'SCHOOL_ADMIN' },
-  { label: 'Teacher', email: 'anita.sharma@dpsdelhi.in', password: 'teacher123', role: 'TEACHER' },
-  { label: 'Student', email: 'student@example.com', password: 'student123', role: 'STUDENT' },
-  { label: 'Parent', email: '9876543201', password: 'parent123', role: 'PARENT' },
-]
+
 
 const containerVariants: Variants = {
   hidden: { opacity: 0 },
@@ -76,8 +64,8 @@ function readCachedBranding(): CachedBranding {
 
 export function LoginScreen() {
   const router = useRouter()
-  const [email, setEmail] = useState('admin@dpsdelhi.in')
-  const [password, setPassword] = useState('admin123')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [branding, setBranding] = useState<CachedBranding>(DEFAULT_BRANDING)
@@ -92,14 +80,6 @@ export function LoginScreen() {
     setBranding(cachedBranding)
     applySchoolBranding(cachedBranding)
   }, [])
-
-  const handleDemoSelect = (value: string) => {
-    const account = DEMO_ACCOUNTS.find((a) => a.label === value)
-    if (account) {
-      setEmail(account.email)
-      setPassword(account.password)
-    }
-  }
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -252,31 +232,6 @@ export function LoginScreen() {
               </div>
 
               <div className="rounded-2xl border border-slate-200/70 bg-white/90 p-4 shadow-2xl shadow-emerald-500/10 backdrop-blur-xl dark:border-white/10 dark:bg-white/5 dark:shadow-black/20 sm:p-5">
-                <div className="mb-3">
-                  <Label className="text-xs font-medium uppercase text-slate-500 dark:text-white/50">Quick Demo</Label>
-                  <Select onValueChange={handleDemoSelect} defaultValue="School Admin">
-                    <SelectTrigger className="mt-1.5 h-10 rounded-xl bg-white text-sm transition-all focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 dark:border-white/10 dark:bg-slate-950/60 sm:h-11">
-                      <SelectValue placeholder="Select a role" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {DEMO_ACCOUNTS.map((account) => (
-                        <SelectItem key={account.label} value={account.label}>
-                          {account.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="relative mb-3">
-                  <div className="absolute inset-0 flex items-center">
-                    <span className="w-full border-t border-slate-100 dark:border-white/10" />
-                  </div>
-                  <div className="relative flex justify-center">
-                    <span className="bg-white px-3 text-[11px] uppercase text-slate-300 dark:bg-slate-900 dark:text-white/25">or</span>
-                  </div>
-                </div>
-
                 <div className="mb-2.5">
                   <Label htmlFor="email" className="text-xs font-medium uppercase text-slate-500 dark:text-white/50">
                     Email / Phone
