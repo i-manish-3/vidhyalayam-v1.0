@@ -117,7 +117,7 @@ const NAV_LINKS = [
   { label: 'Contact Us', href: '#contact' },
 ]
 
-const BRAND_TAGLINE = 'SCHOOL MANAGEMENT WITH TECHNOLOGY'
+const BRAND_TAGLINE = 'EMPOWERING MANAGEMENT WITH TECHNOLOGY'
 
 const LEGAL_DOCUMENTS: Record<'privacy' | 'terms', LegalDocument> = {
   privacy: {
