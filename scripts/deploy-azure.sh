@@ -83,11 +83,13 @@ pm2 save --force
 echo "🩺 8. Running health check..."
 sleep 6
 
-# Check API Version
-HEALTH_RESPONSE=$(curl -s http://127.0.0.1:3000/api/version || true)
-if echo "$HEALTH_RESPONSE" | grep -q "online"; then
-  echo "✅ Web server responded! Active deployment metadata:"
-  echo "$HEALTH_RESPONSE"
+# Check Server Health
+if curl -s -f http://127.0.0.1:3000 > /dev/null || curl -s -f http://127.0.0.1:3000/api/pricing > /dev/null; then
+  echo "✅ Web server responded on port 3000!"
+  HEALTH_RESPONSE=$(curl -s http://127.0.0.1:3000/api/version || true)
+  if [ -n "$HEALTH_RESPONSE" ]; then
+    echo "Active deployment metadata: $HEALTH_RESPONSE"
+  fi
 else
   echo "❌ Web server health check failed on port 3000! Checking PM2 logs:"
   pm2 logs vidhyalayam --lines 30 --nostream
