@@ -111,7 +111,7 @@ const NAV_LINKS = [
   { label: 'Modules', href: '#modules' },
   { label: 'How It Works', href: '#how-it-works' },
   { label: 'Pricing', href: '#pricing' },
-  { label: 'Testimonials', href: '#testimonials' },
+  // { label: 'Testimonials', href: '#testimonials' },
   { label: 'FAQ', href: '#faq' },
   { label: 'Team', href: '#team' },
   { label: 'Contact Us', href: '#contact' },
@@ -567,7 +567,7 @@ function HeroSection({ onLoginClick }: { onLoginClick: () => void }) {
             <motion.div className="mt-8 flex flex-col sm:flex-row gap-4 justify-center lg:justify-start" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, delay: 0.9 }}>
               <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.98 }} transition={{ type: 'spring', stiffness: 300 }}>
                 <Button size="lg" className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white shadow-lg shadow-emerald-500/30 hover:shadow-emerald-500/50 text-base px-8 h-12 transition-all duration-300" onClick={() => scrollToId('#contact')}>
-                  Schedule Demo <ArrowRight className="size-4 ml-2" />
+                  Schedule Free Demo <ArrowRight className="size-4 ml-2" />
                 </Button>
               </motion.div>
               {/* <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.98 }} transition={{ type: 'spring', stiffness: 300 }}>
@@ -1344,7 +1344,7 @@ function CTASection({ onLoginClick }: { onLoginClick: () => void }) {
         <motion.div className="mt-8 flex flex-col sm:flex-row gap-4 justify-center" initial={{ opacity: 0, y: 20 }} animate={inView ? { opacity: 1, y: 0 } : {}} transition={{ duration: 0.6, delay: 0.3 }}>
           <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
             <Button size="lg" className="bg-white text-emerald-700 hover:bg-white/90 shadow-xl text-base px-8 h-12 font-semibold transition-all duration-300 [background-image:none]" onClick={() => scrollToId('#contact')}>
-              Schedule Demo <ArrowRight className="size-4 ml-2" />
+              Schedule Free Demo <ArrowRight className="size-4 ml-2" />
             </Button>
           </motion.div>
           {/* <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
@@ -1452,7 +1452,7 @@ function Footer({ onLoginClick }: { onLoginClick: () => void }) {
             <ul className="space-y-2 sm:space-y-2.5">
               <li><button onClick={() => scrollToId('#faq')} className="py-1 text-sm text-slate-400 hover:text-emerald-400 transition-colors text-left">FAQ</button></li>
               <li><button onClick={() => scrollToId('#contact')} className="py-1 text-sm text-slate-400 hover:text-emerald-400 transition-colors text-left">Contact Us</button></li>
-              <li><button onClick={() => scrollToId('#testimonials')} className="py-1 text-sm text-slate-400 hover:text-emerald-400 transition-colors text-left">Testimonials</button></li>
+              {/* <li><button onClick={() => scrollToId('#testimonials')} className="py-1 text-sm text-slate-400 hover:text-emerald-400 transition-colors text-left">Testimonials</button></li> */}
               <li><button onClick={() => scrollToId('#team')} className="py-1 text-sm text-slate-400 hover:text-emerald-400 transition-colors text-left">Our Team</button></li>
             </ul>
           </div>
@@ -1582,7 +1582,7 @@ export function LandingPage({ onLoginClick }: LandingPageProps) {
         <ModulesSection />
         <HowItWorksSection />
         <PricingSection plans={pricingPlans} addons={pricingAddons} />
-        <TestimonialsSection />
+        {/* <TestimonialsSection /> */}
         <TeamSection members={teamMembers} />
         <FAQSection />
         <ContactSection onLoginClick={onLoginClick} addons={pricingAddons} />
