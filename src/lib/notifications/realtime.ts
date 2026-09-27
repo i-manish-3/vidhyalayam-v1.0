@@ -66,10 +66,11 @@ function getPublisher(): Redis | null {
       host: process.env.REDIS_HOST || 'localhost',
       port: parseInt(process.env.REDIS_PORT || '6379'),
       maxRetriesPerRequest: null,
-      lazyConnect: false,
+      lazyConnect: true,
+      enableOfflineQueue: false,
     })
     globalForBus.__notifPublisher.on('error', (err) => {
-      console.error('[notif-bus] publisher error:', err?.message)
+      console.warn('[notif-bus] publisher warning:', err?.message)
     })
   }
   return globalForBus.__notifPublisher

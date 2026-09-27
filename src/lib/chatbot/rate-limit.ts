@@ -21,12 +21,17 @@ function getRedis(): Redis | null {
   if (!redisEnabled()) return null
   if (globalForRl.__chatbotRedis === undefined) {
     try {
-      globalForRl.__chatbotRedis = new Redis({
+      const client = new Redis({
         host: process.env.REDIS_HOST || 'localhost',
         port: parseInt(process.env.REDIS_PORT || '6379'),
         maxRetriesPerRequest: null,
-        lazyConnect: false,
+        lazyConnect: true,
+        enableOfflineQueue: false,
       })
+      client.on('error', (err) => {
+        console.warn('[chatbot-rl] Redis warning, falling back to memory store:', err?.message || err)
+      })
+      globalForRl.__chatbotRedis = client
     } catch {
       globalForRl.__chatbotRedis = null
     }
