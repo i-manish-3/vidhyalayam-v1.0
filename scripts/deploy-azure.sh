@@ -2,14 +2,33 @@
 set -e
 
 APP_DIR="/var/www/vidhyalayam"
-REPO_URL="https://github.com/i-manish-3/my-digital-acadmey-v1.0.git"
+REPO_URL="https://github.com/i-manish-3/vidhyalayam-v1.0.git"
 BRANCH="${DEPLOY_BRANCH:-main}"
 
 echo "=========================================================="
 echo "🚀 [CI/CD] STARTING ZERO-DOWNTIME DEPLOYMENT FOR $BRANCH"
 echo "=========================================================="
 
-# 1. VERIFY REDIS (Compulsory for Vidhyalayam)
+# 1. ENSURE DIRECTORY & GIT REPOSITORY EXIST
+sudo mkdir -p "$APP_DIR"
+sudo chown -R "$USER:$USER" "$APP_DIR"
+
+if [ ! -d "$APP_DIR/.git" ]; then
+  echo "⚠️ $APP_DIR is not a Git repo; initializing repository..."
+  if [ -f "$APP_DIR/.env" ]; then
+    cp "$APP_DIR/.env" /tmp/vidhyalayam.env.bak
+  fi
+  cd "$APP_DIR"
+  git init
+  git remote add origin "$REPO_URL" || git remote set-url origin "$REPO_URL"
+  git fetch origin "$BRANCH"
+  git checkout -f -B "$BRANCH" "origin/$BRANCH"
+  if [ -f /tmp/vidhyalayam.env.bak ]; then
+    mv /tmp/vidhyalayam.env.bak "$APP_DIR/.env"
+  fi
+fi
+
+# 2. VERIFY REDIS (Compulsory for Vidhyalayam)
 echo "🔍 1. Verifying Redis Service..."
 if ! redis-cli ping | grep -q "PONG"; then
   echo "⚠️ Redis not responding. Attempting systemctl restart..."
@@ -19,11 +38,10 @@ if ! redis-cli ping | grep -q "PONG"; then
 fi
 echo "✅ Redis is active."
 
-# 2. NAVIGATE TO PROJECT DIRECTORY
+# 3. NAVIGATE TO PROJECT DIRECTORY & PULL
 cd "$APP_DIR"
-
-# 3. PULL LATEST COMMITS
 echo "📥 2. Fetching and updating code ($BRANCH)..."
+git remote set-url origin "$REPO_URL"
 git fetch origin "$BRANCH"
 git reset --hard "origin/$BRANCH"
 

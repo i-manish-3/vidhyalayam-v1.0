@@ -51,11 +51,35 @@ jobs:
           envs: GITHUB_REF_NAME
           script_stop: true
           script: |
-            echo "Triggering deployment for branch: ${GITHUB_REF_NAME}"
-            cd /var/www/vidhyalayam
-            git fetch origin "${GITHUB_REF_NAME}"
-            git checkout "${GITHUB_REF_NAME}" || git checkout -b "${GITHUB_REF_NAME}" "origin/${GITHUB_REF_NAME}"
-            git reset --hard "origin/${GITHUB_REF_NAME}"
+            set -e
+            APP_DIR="/var/www/vidhyalayam"
+            REPO_URL="https://github.com/i-manish-3/vidhyalayam-v1.0.git"
+            BRANCH="${GITHUB_REF_NAME:-main}"
+
+            echo "Triggering deployment for branch: ${BRANCH}"
+            sudo mkdir -p "$APP_DIR"
+            sudo chown -R "$USER:$USER" "$APP_DIR"
+
+            if [ ! -d "$APP_DIR/.git" ]; then
+              echo "Deployment directory is not a Git repository; initializing..."
+              if [ -f "$APP_DIR/.env" ]; then
+                cp "$APP_DIR/.env" /tmp/vidhyalayam.env.bak
+              fi
+              cd "$APP_DIR"
+              git init
+              git remote add origin "$REPO_URL" || git remote set-url origin "$REPO_URL"
+              git fetch origin "$BRANCH"
+              git checkout -f -B "$BRANCH" "origin/$BRANCH"
+              if [ -f /tmp/vidhyalayam.env.bak ]; then
+                mv /tmp/vidhyalayam.env.bak "$APP_DIR/.env"
+              fi
+            fi
+
+            cd "$APP_DIR"
+            git remote set-url origin "$REPO_URL"
+            git fetch origin "$BRANCH"
+            git checkout -f -B "$BRANCH" "origin/$BRANCH"
+            git reset --hard "origin/$BRANCH"
             chmod +x scripts/deploy-azure.sh
-            export DEPLOY_BRANCH="${GITHUB_REF_NAME}"
+            export DEPLOY_BRANCH="$BRANCH"
             ./scripts/deploy-azure.sh

@@ -145,7 +145,7 @@ sudo chown -R $USER:$USER /var/www/vidhyalayam
 ### 3.1 Clone Repository
 ```bash
 cd /var/www/vidhyalayam
-git clone https://github.com/i-manish-3/my-digital-acadmey-v1.0.git .
+git clone https://github.com/i-manish-3/vidhyalayam-v1.0.git .
 ```
 
 ### 3.2 Create Production `.env`
@@ -285,7 +285,7 @@ Leave the passphrase blank.
    - On Linux/Mac: `cat ~/.ssh/github_actions_azure`
 
 ### 4.2 Configure GitHub Repository Secrets
-1. Go to your GitHub repository: `https://github.com/i-manish-3/my-digital-acadmey-v1.0`
+1. Go to your GitHub repository: `https://github.com/i-manish-3/vidhyalayam-v1.0`
 2. Navigate to **Settings** $\rightarrow$ **Secrets and variables** $\rightarrow$ **Actions** $\rightarrow$ **New repository secret**.
 3. Add the following secrets:
 
