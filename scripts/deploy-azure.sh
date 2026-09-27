@@ -66,6 +66,9 @@ echo "🔖 Building commit: $CURRENT_COMMIT deployed at $DEPLOY_TIME"
 export NODE_OPTIONS="--max-old-space-size=2048"
 export NEXT_TELEMETRY_DISABLED=1
 
+echo "🧹 Cleaning previous build cache (.next)..."
+rm -rf .next
+
 npm run build
 
 # 7. ENSURE WORLD-READABLE PERMISSIONS FOR ALL BUILD ARTIFACTS & ASSETS
@@ -73,39 +76,54 @@ echo "🔒 6. Setting permissions (chmod 755) on build artifacts..."
 sudo chown -R "$USER:$USER" "$APP_DIR"
 sudo chmod -R 755 "$APP_DIR"
 
-# 8. RESTART PM2 APP & WORKERS FRESH (CLEARS STALE CLUSTER CONFIG)
-echo "♻️ 7. Restarting PM2 processes fresh with fork mode..."
+# 8. TERMINATE ANY ZOMBIE PROCESS ON PORT 3000 AND RESTART PM2 FRESH
+echo "♻️ 7. Terminating zombie processes and restarting PM2 fresh with fork mode..."
 pm2 delete all || true
+# Forcibly kill any orphaned process (e.g. node spawned by earlier npm) holding port 3000
+sudo fuser -k 3000/tcp 2>/dev/null || true
+(sudo lsof -t -i:3000 2>/dev/null | xargs -r sudo kill -9 2>/dev/null) || true
+sleep 1
+
 pm2 start ecosystem.config.cjs
 pm2 save --force
 
 # 9. POST-DEPLOYMENT HEALTH CHECK
 echo "🩺 8. Running health check..."
-sleep 6
-
-# Check Server Health
-if curl -s -f http://127.0.0.1:3000 > /dev/null || curl -s -f http://127.0.0.1:3000/api/pricing > /dev/null; then
-  echo "✅ Web server responded on port 3000!"
-  HEALTH_RESPONSE=$(curl -s http://127.0.0.1:3000/api/version || true)
-  if [ -n "$HEALTH_RESPONSE" ]; then
-    echo "Active deployment metadata: $HEALTH_RESPONSE"
+SUCCESS=false
+for i in {1..12}; do
+  sleep 2
+  STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:3000/api/version 2>/dev/null || true)
+  if [ "$STATUS" = "200" ]; then
+    SUCCESS=true
+    break
   fi
-else
-  echo "❌ Web server health check failed on port 3000! Checking PM2 logs:"
-  pm2 logs vidhyalayam --lines 30 --nostream
+  echo "Waiting for Next.js to start on port 3000 (attempt $i/12, status: $STATUS)..."
+done
+
+if [ "$SUCCESS" = false ]; then
+  echo "❌ Web server health check failed on http://127.0.0.1:3000/api/version! Checking PM2 logs:"
+  pm2 logs vidhyalayam --lines 40 --nostream
   exit 1
 fi
 
+echo "✅ Web server is online! Deployment metadata:"
+curl -s http://127.0.0.1:3000/api/version
+echo ""
+
 # Verify static asset serving
-STATIC_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:3000/logo.png || true)
+STATIC_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:3000/logo.png 2>/dev/null || true)
 echo "🖼️ Static asset test (/logo.png): HTTP $STATIC_STATUS"
+if [ "$STATIC_STATUS" != "200" ]; then
+  echo "❌ Warning: /logo.png returned HTTP $STATIC_STATUS! PM2 error logs:"
+  pm2 logs vidhyalayam --lines 30 --nostream
+fi
 
 FIRST_CSS=$(find .next/static/chunks -name "*.css" 2>/dev/null | head -n 1 | sed 's/^\.next\///')
 if [ -n "$FIRST_CSS" ]; then
-  CSS_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:3000/_next/$FIRST_CSS" || true)
+  CSS_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:3000/_next/$FIRST_CSS" 2>/dev/null || true)
   echo "🎨 CSS asset test (/_next/$FIRST_CSS): HTTP $CSS_STATUS"
   if [ "$CSS_STATUS" != "200" ]; then
-    echo "⚠️ Warning: CSS asset returned HTTP $CSS_STATUS! PM2 error logs:"
+    echo "❌ Warning: CSS asset returned HTTP $CSS_STATUS! PM2 error logs:"
     pm2 logs vidhyalayam --lines 30 --nostream
   fi
 fi

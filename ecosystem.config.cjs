@@ -2,8 +2,8 @@ module.exports = {
   apps: [
     {
       name: 'vidhyalayam',
-      script: 'npm',
-      args: 'run start',
+      script: 'node_modules/next/dist/bin/next',
+      args: 'start',
       cwd: __dirname,
       exec_mode: 'fork',
       instances: 1,
