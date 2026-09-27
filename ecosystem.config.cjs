@@ -2,14 +2,13 @@ module.exports = {
   apps: [
     {
       name: 'vidhyalayam',
-      script: 'node_modules/next/dist/bin/next',
-      args: 'start -p 3000',
+      script: 'npm',
+      args: 'run start',
       cwd: __dirname,
       instances: 1,
       autorestart: true,
       watch: false,
       max_memory_restart: '1200M',
-      kill_timeout: 5000,
       env: {
         NODE_ENV: 'production',
         PORT: 3000
