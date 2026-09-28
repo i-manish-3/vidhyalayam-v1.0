@@ -643,75 +643,187 @@ function HeroSection({ onLoginClick }: { onLoginClick: () => void }) {
             </motion.div>
           </div>
 
-          {/* Dashboard Preview */}
+          {/* Modular Feature Grid Preview */}
           <motion.div
             className="hidden lg:block relative"
-            initial={{ opacity: 0, scale: 0.9, y: 40 }}
+            initial={{ opacity: 0, scale: 0.92, y: 30 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            transition={{ duration: 1, delay: 0.5, type: 'spring', stiffness: 80 }}
+            transition={{ duration: 0.9, delay: 0.5, type: 'spring', stiffness: 85 }}
           >
-            {/* Shadow layer */}
+            {/* Ambient Multi-glow Backdrops */}
             <div
-              className="absolute -bottom-4 left-[5%] right-[5%] h-12 rounded-2xl blur-2xl"
-              style={{ background: 'linear-gradient(90deg, rgba(5,150,105,0.15), rgba(13,148,136,0.1), rgba(6,182,212,0.15))' }}
+              className="absolute -top-6 -left-6 size-48 rounded-full blur-3xl opacity-40 pointer-events-none"
+              style={{ background: 'radial-gradient(circle, rgba(16,185,129,0.35) 0%, rgba(20,184,166,0.1) 70%)' }}
             />
-            {/* Reflection layer */}
             <div
-              className="absolute -bottom-2 left-[10%] right-[10%] h-4 rounded-xl blur-lg opacity-30"
-              style={{ background: 'linear-gradient(90deg, rgba(5,150,105,0.3), rgba(13,148,136,0.2))' }}
+              className="absolute -bottom-8 -right-6 size-56 rounded-full blur-3xl opacity-35 pointer-events-none"
+              style={{ background: 'radial-gradient(circle, rgba(6,182,212,0.3) 0%, rgba(59,130,246,0.15) 70%)' }}
             />
+
+            {/* Floating Top Badge */}
             <motion.div
-              className="rounded-2xl bg-white/90 dark:bg-white/5 backdrop-blur-xl border border-slate-200 dark:border-white/10 p-6 shadow-2xl shadow-emerald-500/5"
-              whileHover={{ y: -8, boxShadow: '0 30px 60px -15px rgba(16, 185, 129, 0.2)' }}
-              transition={{ duration: 0.4 }}
+              initial={{ opacity: 0, y: -12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 1, duration: 0.5 }}
+              className="absolute -top-4 right-6 z-20 flex items-center gap-2 rounded-full border border-emerald-500/30 bg-white/95 dark:bg-slate-900/90 px-3.5 py-1.5 shadow-lg backdrop-blur-md"
             >
-              <div className="flex items-center gap-3 mb-6">
-                <div className="size-3 rounded-full bg-red-400" />
-                <div className="size-3 rounded-full bg-yellow-400" />
-                <div className="size-3 rounded-full bg-green-400" />
-                <span className="ml-2 text-xs text-slate-500 dark:text-white/50 font-medium">Vidhyalayam — Dashboard</span>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4 mb-6">
-                {[
-                  { label: 'Total Students', value: '2,847', change: '+12%', bg: 'bg-emerald-50 dark:bg-emerald-500/10', text: 'text-emerald-700 dark:text-emerald-400' },
-                  { label: 'Attendance', value: '94.2%', change: '+3%', bg: 'bg-teal-50 dark:bg-teal-500/10', text: 'text-teal-700 dark:text-teal-400' },
-                  { label: 'Fee Collection', value: '₹18.5L', change: '+8%', bg: 'bg-amber-50 dark:bg-cyan-500/10', text: 'text-amber-700 dark:text-cyan-400' },
-                  { label: 'Teachers', value: '156', change: '+5', bg: 'bg-rose-50 dark:bg-emerald-500/10', text: 'text-rose-700 dark:text-emerald-300' },
-                ].map((stat, i) => (
-                  <motion.div
-                    key={stat.label}
-                    initial={{ opacity: 0, y: 15 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.5, delay: 0.7 + i * 0.1, type: 'spring', stiffness: 100 }}
-                    className={`rounded-xl p-4 ${stat.bg} ${stat.text} border border-slate-100 dark:border-white/5`}
-                  >
-                    <p className="text-xs font-medium text-slate-500 dark:text-white/50">{stat.label}</p>
-                    <p className="text-xl font-bold mt-1">{stat.value}</p>
-                    <p className="text-xs font-medium mt-1 opacity-70">{stat.change} this month</p>
-                  </motion.div>
-                ))}
-              </div>
-
-              <div className="space-y-3">
-                <p className="text-xs font-medium text-slate-500 dark:text-white/50">Weekly Attendance</p>
-                <div className="flex items-end gap-2 h-20">
-                  {[65, 80, 72, 90, 85, 78, 92].map((h, i) => (
-                    <motion.div
-                      key={i}
-                      initial={{ height: 0, scaleY: 0 }}
-                      animate={{ height: `${h}%`, scaleY: 1 }}
-                      transition={{ duration: 0.6, delay: 0.9 + i * 0.06, type: 'spring', stiffness: 120 }}
-                      className="flex-1 rounded-md bg-gradient-to-t from-emerald-600 to-teal-500 min-h-[4px]"
-                      style={{ transformOrigin: 'bottom' }}
-                    />
-                  ))}
-                </div>
-                <div className="flex justify-between text-[10px] text-slate-400 dark:text-white/40">
-                  {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d) => <span key={d}>{d}</span>)}
-                </div>
-              </div>
+              <span className="relative flex size-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex size-2 rounded-full bg-emerald-500" />
+              </span>
+              <span className="text-[11px] font-semibold tracking-wide text-slate-700 dark:text-emerald-300">
+                Live School Operating System
+              </span>
             </motion.div>
+
+            {/* Main Glassmorphism Frame */}
+            <div className="relative rounded-3xl border border-slate-200/90 dark:border-white/10 bg-gradient-to-b from-white/95 via-white/80 to-slate-50/90 dark:from-slate-900/90 dark:via-slate-900/70 dark:to-slate-950/90 p-5 sm:p-6 shadow-2xl shadow-emerald-500/10 backdrop-blur-2xl">
+              {/* Header bar */}
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/10 pb-4 mb-5">
+                <div className="flex items-center gap-3">
+                  <div className="flex gap-1.5">
+                    <div className="size-2.5 rounded-full bg-rose-400/90" />
+                    <div className="size-2.5 rounded-full bg-amber-400/90" />
+                    <div className="size-2.5 rounded-full bg-emerald-400/90" />
+                  </div>
+                  <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 tracking-tight">
+                    Vidhyalayam Core Ecosystem
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5 text-[11px] font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20">
+                  <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  <span>All 4 Modules Synced</span>
+                </div>
+              </div>
+
+              {/* 2x2 Connected Grid */}
+              <div className="grid grid-cols-2 gap-3.5 relative">
+                {/* Connecting Crosshair Accent in Center */}
+                <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+                  <div className="size-7 rounded-full border border-emerald-500/20 bg-emerald-500/10 dark:bg-emerald-500/20 backdrop-blur flex items-center justify-center">
+                    <Zap className="size-3 text-emerald-600 dark:text-emerald-400" />
+                  </div>
+                </div>
+
+                {/* Card 1: Smart Attendance */}
+                <motion.div
+                  whileHover={{ y: -3, scale: 1.02 }}
+                  transition={{ duration: 0.2 }}
+                  className="group relative flex flex-col justify-between rounded-2xl border border-emerald-100 dark:border-emerald-500/20 bg-white/70 dark:bg-slate-800/50 p-4 shadow-sm hover:shadow-md hover:border-emerald-300 dark:hover:border-emerald-500/40 transition-all backdrop-blur-sm"
+                >
+                  <div>
+                    <div className="flex items-start justify-between gap-2 mb-2.5">
+                      <div className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-md shadow-emerald-500/20">
+                        <ClipboardCheck className="size-5" />
+                      </div>
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 dark:bg-emerald-500/15 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-500/30">
+                        <span className="size-1 rounded-full bg-emerald-500 animate-pulse" />
+                        98.4% Present
+                      </span>
+                    </div>
+                    <h3 className="text-xs font-bold text-slate-800 dark:text-slate-100">Smart Attendance</h3>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-1">Biometric & RFID Auto-Sync</p>
+                  </div>
+                  <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-white/5 flex items-center justify-between text-[10px]">
+                    <span className="text-slate-500 dark:text-slate-400 font-medium">Class 10-A (42/42)</span>
+                    <span className="text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
+                      <CheckCircle2 className="size-3" /> SMS Sent
+                    </span>
+                  </div>
+                </motion.div>
+
+                {/* Card 2: 1-Click Fee Desk */}
+                <motion.div
+                  whileHover={{ y: -3, scale: 1.02 }}
+                  transition={{ duration: 0.2 }}
+                  className="group relative flex flex-col justify-between rounded-2xl border border-teal-100 dark:border-teal-500/20 bg-white/70 dark:bg-slate-800/50 p-4 shadow-sm hover:shadow-md hover:border-teal-300 dark:hover:border-teal-500/40 transition-all backdrop-blur-sm"
+                >
+                  <div>
+                    <div className="flex items-start justify-between gap-2 mb-2.5">
+                      <div className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-teal-500 to-cyan-600 text-white shadow-md shadow-teal-500/20">
+                        <Wallet className="size-5" />
+                      </div>
+                      <span className="inline-flex items-center gap-1 rounded-full bg-teal-50 dark:bg-teal-500/15 px-2 py-0.5 text-[10px] font-semibold text-teal-700 dark:text-teal-300 border border-teal-200/60 dark:border-teal-500/30">
+                        ₹18.5L Collected
+                      </span>
+                    </div>
+                    <h3 className="text-xs font-bold text-slate-800 dark:text-slate-100">1-Click Fee Desk</h3>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-1">UPI, Gateways & Reconcile</p>
+                  </div>
+                  <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-white/5 flex items-center justify-between text-[10px]">
+                    <span className="text-slate-500 dark:text-slate-400 font-medium">Instant Receipts</span>
+                    <span className="text-teal-600 dark:text-teal-400 font-semibold">Auto WhatsApp</span>
+                  </div>
+                </motion.div>
+
+                {/* Card 3: Report Cards & Exams */}
+                <motion.div
+                  whileHover={{ y: -3, scale: 1.02 }}
+                  transition={{ duration: 0.2 }}
+                  className="group relative flex flex-col justify-between rounded-2xl border border-cyan-100 dark:border-cyan-500/20 bg-white/70 dark:bg-slate-800/50 p-4 shadow-sm hover:shadow-md hover:border-cyan-300 dark:hover:border-cyan-500/40 transition-all backdrop-blur-sm"
+                >
+                  <div>
+                    <div className="flex items-start justify-between gap-2 mb-2.5">
+                      <div className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 text-white shadow-md shadow-cyan-500/20">
+                        <Award className="size-5" />
+                      </div>
+                      <span className="inline-flex items-center gap-1 rounded-full bg-cyan-50 dark:bg-cyan-500/15 px-2 py-0.5 text-[10px] font-semibold text-cyan-700 dark:text-cyan-300 border border-cyan-200/60 dark:border-cyan-500/30">
+                        CBSE & ICSE
+                      </span>
+                    </div>
+                    <h3 className="text-xs font-bold text-slate-800 dark:text-slate-100">Report Cards & Exams</h3>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-1">Automated Grading & Marks</p>
+                  </div>
+                  <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-white/5 flex items-center justify-between text-[10px]">
+                    <span className="text-slate-500 dark:text-slate-400 font-medium">Term 1 Results</span>
+                    <span className="text-cyan-600 dark:text-cyan-400 font-semibold">1-Click PDF Ready</span>
+                  </div>
+                </motion.div>
+
+                {/* Card 4: GPS Bus Tracking */}
+                <motion.div
+                  whileHover={{ y: -3, scale: 1.02 }}
+                  transition={{ duration: 0.2 }}
+                  className="group relative flex flex-col justify-between rounded-2xl border border-amber-100 dark:border-amber-500/20 bg-white/70 dark:bg-slate-800/50 p-4 shadow-sm hover:shadow-md hover:border-amber-300 dark:hover:border-amber-500/40 transition-all backdrop-blur-sm"
+                >
+                  <div>
+                    <div className="flex items-start justify-between gap-2 mb-2.5">
+                      <div className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 text-white shadow-md shadow-amber-500/20">
+                        <Bus className="size-5" />
+                      </div>
+                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 dark:bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold text-amber-700 dark:text-amber-300 border border-amber-200/60 dark:border-amber-500/30">
+                        <span className="size-1 rounded-full bg-amber-500 animate-pulse" />
+                        Live On Map
+                      </span>
+                    </div>
+                    <h3 className="text-xs font-bold text-slate-800 dark:text-slate-100">GPS Transport Hub</h3>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-1">Real-Time Routes & Pickups</p>
+                  </div>
+                  <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-white/5 flex items-center justify-between text-[10px]">
+                    <span className="text-slate-500 dark:text-slate-400 font-medium">Route #4 • Green Park</span>
+                    <span className="text-amber-600 dark:text-amber-400 font-semibold">ETA: 4 Mins</span>
+                  </div>
+                </motion.div>
+              </div>
+
+              {/* Bottom Connected Banner: Unified Data Flow */}
+              <div className="mt-4 rounded-xl border border-slate-100 dark:border-white/5 bg-slate-50/70 dark:bg-white/[0.03] p-3 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                    <Shield className="size-3.5" />
+                  </div>
+                  <div className="text-left">
+                    <p className="text-[11px] font-bold text-slate-800 dark:text-slate-200">Zero Data Silos • Role-Based Access</p>
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400">Principal • Teachers • Accountants • Parents</p>
+                  </div>
+                </div>
+                <div className="hidden sm:flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-1 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
+                  <Sparkles className="size-3" />
+                  <span>Real-Time Sync</span>
+                </div>
+              </div>
+            </div>
+
           </motion.div>
         </div>
       </motion.div>
