@@ -5,6 +5,7 @@ import { unauthorizedError, internalError, apiError, notFoundError } from '@/lib
 import { getParentChildStudentIds } from '@/lib/parent-access'
 import {
   buildExamReportCard,
+  buildMultiExamReportCard,
   type AttendanceSnapshot,
   type ExamResultDef,
   type SchoolDef,
@@ -24,6 +25,7 @@ export async function POST(
     const body = await request.json().catch(() => ({}))
     const action = ['preview', 'print', 'download'].includes(body?.action) ? body.action : 'preview'
     const input = Array.isArray(body?.studentIds) ? body.studentIds : []
+    const examIdsInput: unknown = body?.examIds
     const studentIds = input.filter((id): id is string => typeof id === 'string' && id.length > 0).slice(0, 10)
     if (studentIds.length === 0) return apiError(400, 'Please select a student.')
 
@@ -41,22 +43,56 @@ export async function POST(
         publishedAt: { not: null },
       },
       include: {
-        group: { include: { paradigm: { select: { name: true } } } },
+        group: { include: { paradigm: { select: { name: true, academicYear: true } } } },
       },
     })
     if (!exam) return apiError(404, 'This report card is not published yet.')
+
+    // Find all published sibling exams in this term (ExamGroup)
+    const termExams = await db.exam.findMany({
+      where: {
+        schoolId: user.schoolId,
+        examGroupId: exam.examGroupId,
+        deletedAt: null,
+        visibleToParent: true,
+        publishedAt: { not: null },
+      },
+      select: {
+        id: true,
+        name: true,
+        shortCode: true,
+        status: true,
+        startDate: true,
+        publishedAt: true,
+      },
+      orderBy: { startDate: 'asc' },
+    })
+
+    const termExamMap = new Map(termExams.map((e) => [e.id, e]))
+
+    let selectedExamIds: string[] = []
+    if (Array.isArray(examIdsInput) && examIdsInput.length > 0) {
+      selectedExamIds = examIdsInput.filter((id): id is string => typeof id === 'string' && termExamMap.has(id))
+    }
+    if (selectedExamIds.length === 0) {
+      selectedExamIds = [examId]
+    }
+
+    const isMultiExam = selectedExamIds.length > 1
 
     const template = await db.reportCardTemplate.findFirst({
       where: { schoolId: user.schoolId, isDefault: true, deletedAt: null },
     })
     if (!template) return apiError(400, 'No report card template is configured yet.')
 
-    const [school, students, results] = await Promise.all([
+    const [school, students, results, gradeScale, highestMarksRows, subjectConfigs] = await Promise.all([
       db.school.findUnique({
         where: { id: user.schoolId },
         select: {
           name: true,
           logo: true,
+          printHeader: true,
+          board: true,
           address: true,
           city: true,
           state: true,
@@ -79,6 +115,7 @@ export async function POST(
           lastName: true,
           admissionNumber: true,
           rollNumber: true,
+          profileImage: true,
           dateOfBirth: true,
           gender: true,
           admissionDate: true,
@@ -117,15 +154,60 @@ export async function POST(
       db.examResult.findMany({
         where: {
           schoolId: user.schoolId,
-          examId,
+          examId: { in: selectedExamIds },
           studentId: { in: studentIds },
           deletedAt: null,
         },
         include: { subjectSummaries: true },
       }),
+      isMultiExam
+        ? db.gradeScale.findFirst({
+            where: { schoolId: user.schoolId, isActive: true, isDefault: true, deletedAt: null },
+            include: { bands: { orderBy: { sequence: 'asc' } } },
+          })
+        : null,
+      db.resultSubjectSummary.groupBy({
+        by: ['subjectId'],
+        where: {
+          result: {
+            schoolId: user.schoolId,
+            examId: { in: selectedExamIds },
+            deletedAt: null,
+          },
+          status: { not: 'absent' },
+        },
+        _max: {
+          obtainedMarks: true,
+        },
+      }),
+      db.examSubjectConfig.findMany({
+        where: {
+          schoolId: user.schoolId,
+          examId: { in: selectedExamIds },
+          deletedAt: null,
+        },
+        select: {
+          subjectId: true,
+          totalMarks: true,
+          passingPercentage: true,
+        },
+      }),
     ])
 
     if (!school) return notFoundError('School')
+
+    const highestMarksBySubject = new Map<string, number>()
+    for (const h of highestMarksRows) {
+      if (h._max.obtainedMarks != null) {
+        highestMarksBySubject.set(h.subjectId, h._max.obtainedMarks)
+      }
+    }
+
+    const passMarksBySubject = new Map<string, number>()
+    for (const sc of subjectConfigs) {
+      const passM = Math.round((sc.totalMarks * (sc.passingPercentage || 33)) / 100)
+      passMarksBySubject.set(sc.subjectId, passM)
+    }
 
     const attendanceRows = template.includeAttendance
       ? await db.attendance.findMany({
@@ -159,9 +241,16 @@ export async function POST(
     const schoolDef: SchoolDef = {
       name: school.name,
       logo: school.logo,
+      printHeader: school.printHeader,
+      board: school.board,
       address: [school.address, school.city, school.state, school.pincode].filter(Boolean).join(', '),
+      city: school.city,
+      state: school.state,
+      pincode: school.pincode,
       phone: school.contactPhone,
       email: school.contactEmail,
+      contactPhone: school.contactPhone,
+      contactEmail: school.contactEmail,
       website: school.website,
       affiliationNumber: school.affiliationNumber,
       registrationNumber: school.registrationNumber,
@@ -183,13 +272,54 @@ export async function POST(
     }
 
     const studentMap = new Map(students.map((student) => [student.id, student]))
-    const resultMap = new Map(results.map((result) => [result.studentId, result]))
+
+    const resultsByStudent = new Map<string, ExamResultDef[]>()
+    for (const r of results) {
+      const curExam = termExamMap.get(r.examId) || exam
+      const resultDef: ExamResultDef = {
+        examId: r.examId,
+        examName: curExam.name,
+        examGroupName: exam.group.name,
+        paradigmName: exam.group.paradigm?.name ?? null,
+        academicYear: r.academicYear,
+        totalMarks: r.totalMarks,
+        obtainedMarks: r.obtainedMarks,
+        percentage: r.percentage,
+        grade: r.grade,
+        gradePoint: r.gradePoint,
+        rankInClass: r.rankInClass,
+        rankInSection: r.rankInSection,
+        status: r.status,
+        failedSubjects: r.failedSubjects,
+        publishedAt: curExam.publishedAt ?? exam.publishedAt,
+        subjectSummaries: r.subjectSummaries.map((summary) => ({
+          subjectId: summary.subjectId,
+          subjectName: summary.subjectName,
+          totalMarks: summary.totalMarks,
+          obtainedMarks: summary.obtainedMarks,
+          percentage: summary.percentage,
+          grade: summary.grade,
+          gradePoint: summary.gradePoint,
+          status: summary.status,
+          componentsJson: summary.componentsJson,
+          passMarks: passMarksBySubject.get(summary.subjectId) ?? (summary.totalMarks === 100 ? 30 : Math.round(summary.totalMarks * 0.33)),
+          highestMarks: highestMarksBySubject.get(summary.subjectId) ?? summary.obtainedMarks,
+        })),
+      }
+      const existing = resultsByStudent.get(r.studentId) ?? []
+      existing.push(resultDef)
+      resultsByStudent.set(r.studentId, existing)
+    }
+
+    const selectedTermExams = selectedExamIds
+      .map((id) => termExamMap.get(id))
+      .filter((e): e is NonNullable<typeof e> => Boolean(e))
 
     const cards = studentIds
       .map((studentId) => {
         const student = studentMap.get(studentId)
-        const result = resultMap.get(studentId)
-        if (!student || !result) return null
+        const studentResults = resultsByStudent.get(studentId)
+        if (!student || !studentResults || studentResults.length === 0) return null
 
         const enrollment = student.academicEnrollments[0]
         const primaryParent = student.parentLinks.find((link) => link.isPrimary) || student.parentLinks[0]
@@ -205,6 +335,7 @@ export async function POST(
           lastName: student.lastName ?? null,
           admissionNumber: student.admissionNumber,
           rollNumber: enrollment?.rollNumber || student.rollNumber,
+          profileImage: student.profileImage,
           dateOfBirth: student.dateOfBirth,
           gender: student.gender,
           className: enrollment?.class?.name || student.class?.name || null,
@@ -217,44 +348,36 @@ export async function POST(
           withdrawal: withdrawal ? { effectiveDate: withdrawal.effectiveDate, reason: withdrawal.reason } : null,
         }
 
-        const resultDef: ExamResultDef = {
-          examId: result.examId,
-          examName: exam.name,
-          examGroupName: exam.group.name,
-          paradigmName: exam.group.paradigm?.name ?? null,
-          academicYear: result.academicYear,
-          totalMarks: result.totalMarks,
-          obtainedMarks: result.obtainedMarks,
-          percentage: result.percentage,
-          grade: result.grade,
-          gradePoint: result.gradePoint,
-          rankInClass: result.rankInClass,
-          rankInSection: result.rankInSection,
-          status: result.status,
-          failedSubjects: result.failedSubjects,
-          publishedAt: exam.publishedAt,
-          subjectSummaries: result.subjectSummaries.map((summary) => ({
-            subjectId: summary.subjectId,
-            subjectName: summary.subjectName,
-            totalMarks: summary.totalMarks,
-            obtainedMarks: summary.obtainedMarks,
-            percentage: summary.percentage,
-            grade: summary.grade,
-            gradePoint: summary.gradePoint,
-            status: summary.status,
-            componentsJson: summary.componentsJson,
-          })),
+        let data
+        if (isMultiExam) {
+          data = buildMultiExamReportCard({
+            template: templateDef,
+            school: schoolDef,
+            student: studentDef,
+            examGroup: {
+              id: exam.examGroupId,
+              name: exam.group.name,
+              paradigmName: exam.group.paradigm?.name ?? null,
+              academicYear: exam.academicYear,
+            },
+            exams: selectedTermExams,
+            examResults: studentResults,
+            attendance: attendanceByStudent.get(studentId) ?? null,
+            gradeScaleBands: gradeScale?.bands,
+          })
+        } else {
+          data = buildExamReportCard({
+            template: templateDef,
+            school: schoolDef,
+            student: studentDef,
+            result: studentResults[0],
+            attendance: attendanceByStudent.get(studentId) ?? null,
+          })
         }
 
         return {
           studentId,
-          data: buildExamReportCard({
-            template: templateDef,
-            school: schoolDef,
-            student: studentDef,
-            result: resultDef,
-            attendance: attendanceByStudent.get(studentId) ?? null,
-          }),
+          data,
         }
       })
       .filter((card): card is { studentId: string; data: ReturnType<typeof buildExamReportCard> } => card !== null)
@@ -264,8 +387,16 @@ export async function POST(
     void action
     return NextResponse.json({
       template: { id: template.id, name: template.name, format: template.format },
-      exam: { id: exam.id, name: exam.name, academicYear: exam.academicYear },
+      exam: {
+        id: exam.id,
+        name: exam.name,
+        academicYear: exam.academicYear,
+        groupName: exam.group.name,
+        paradigmName: exam.group.paradigm?.name ?? null,
+      },
       school: { name: school.name, academicYear: school.academicYear },
+      termExams,
+      selectedExamIds,
       cards,
     })
   } catch (error) {

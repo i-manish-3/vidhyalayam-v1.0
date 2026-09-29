@@ -27,38 +27,56 @@ export async function GET(
     const classId = searchParams.get('classId') ?? undefined
     const sectionId = searchParams.get('sectionId') ?? undefined
 
-    const results = await db.examResult.findMany({
-      where: {
-        schoolId: user.schoolId,
-        examId,
-        deletedAt: null,
-        ...(classId || sectionId
-          ? {
-              student: {
-                ...(classId ? { classId } : {}),
-                ...(sectionId ? { sectionId } : {}),
-                deletedAt: null,
-              },
-            }
-          : {}),
-      },
-      include: {
-        subjectSummaries: true,
-        student: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            rollNumber: true,
-            classId: true,
-            sectionId: true,
+    const [results, termExams] = await Promise.all([
+      db.examResult.findMany({
+        where: {
+          schoolId: user.schoolId,
+          examId,
+          deletedAt: null,
+          ...(classId || sectionId
+            ? {
+                student: {
+                  ...(classId ? { classId } : {}),
+                  ...(sectionId ? { sectionId } : {}),
+                  deletedAt: null,
+                },
+              }
+            : {}),
+        },
+        include: {
+          subjectSummaries: true,
+          student: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              rollNumber: true,
+              classId: true,
+              sectionId: true,
+            },
           },
         },
-      },
-      orderBy: [{ rankInClass: 'asc' }, { percentage: 'desc' }],
-    })
+        orderBy: [{ rankInClass: 'asc' }, { percentage: 'desc' }],
+      }),
+      db.exam.findMany({
+        where: {
+          schoolId: user.schoolId,
+          examGroupId: exam.examGroupId,
+          deletedAt: null,
+        },
+        select: {
+          id: true,
+          name: true,
+          shortCode: true,
+          status: true,
+          startDate: true,
+          publishedAt: true,
+        },
+        orderBy: { startDate: 'asc' },
+      }),
+    ])
 
-    return NextResponse.json({ results, exam })
+    return NextResponse.json({ results, exam, termExams })
   } catch (error) {
     console.error('List exam results error:', error)
     return internalError('loading the exam results')

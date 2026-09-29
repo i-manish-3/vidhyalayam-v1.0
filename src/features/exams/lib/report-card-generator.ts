@@ -21,6 +21,7 @@ export interface TemplateLayout {
     showLogo: boolean
     showAddress: boolean
     showAffiliation?: boolean
+    showPrintHeader?: boolean
     title?: string // override the default "Report Card"
   }
   studentBlock: ReadonlyArray<StudentFieldKey>
@@ -63,7 +64,7 @@ const DEFAULT_STUDENT_BLOCK: ReadonlyArray<StudentFieldKey> = [
 ]
 
 const DEFAULT_LAYOUT: TemplateLayout = {
-  header: { showLogo: true, showAddress: true },
+  header: { showLogo: true, showAddress: true, showPrintHeader: true },
   studentBlock: DEFAULT_STUDENT_BLOCK,
   subjectTable: { showComponents: true, showGrade: true, showRank: false, showMaxMarks: true, showPercentage: true },
   footer: { showAttendance: true, showRemarks: true, signatures: ['Class Teacher', 'Principal'] },
@@ -82,6 +83,7 @@ export function parseTemplateLayout(json: string | null | undefined): TemplateLa
         showLogo: parsed.header?.showLogo ?? true,
         showAddress: parsed.header?.showAddress ?? true,
         showAffiliation: parsed.header?.showAffiliation ?? false,
+        showPrintHeader: parsed.header?.showPrintHeader ?? true,
         title: parsed.header?.title ?? undefined,
       },
       studentBlock: Array.isArray(parsed.studentBlock) && parsed.studentBlock.length > 0
@@ -133,6 +135,13 @@ export interface SchoolDef {
   udiseNumber: string | null
   principalSignature: string | null
   academicYear: string
+  printHeader?: string | null
+  board?: string | null
+  city?: string | null
+  state?: string | null
+  pincode?: string | null
+  contactPhone?: string | null
+  contactEmail?: string | null
 }
 
 export interface StudentDef {
@@ -149,6 +158,7 @@ export interface StudentDef {
   motherName: string | null
   parentPhone: string | null
   admissionDate: Date | null
+  profileImage?: string | null
   // Phase 6: surface lifecycle context on the card. Caller passes a withdrawal
   // record when one exists for the student's academic year; renderer shows a
   // "Withdrawn on DD/MM/YYYY" banner so a printed historical card is unambiguous.
@@ -168,6 +178,8 @@ export interface SubjectSummaryDef {
   gradePoint: number | null
   status: string // pass | fail | absent | not_applicable
   componentsJson: string | null // JSON: {compName: {obtained, max}}
+  passMarks?: number
+  highestMarks?: number
 }
 
 export interface ExamResultDef {
@@ -219,6 +231,23 @@ export interface ReportCardComponentBreakdown {
   max: number
 }
 
+export interface ReportCardExamColumn {
+  examId: string
+  examName: string
+  shortCode: string | null
+  maxMarks?: number
+}
+
+export interface ReportCardSubjectExamScore {
+  examId: string
+  examName: string
+  obtainedMarks: number
+  totalMarks: number
+  percentage: number
+  grade: string | null
+  status: string
+}
+
 export interface ReportCardSubjectRow {
   subjectId: string
   subjectName: string
@@ -229,6 +258,9 @@ export interface ReportCardSubjectRow {
   gradePoint: number | null
   status: string
   components: ReadonlyArray<ReportCardComponentBreakdown>
+  examScores?: ReadonlyArray<ReportCardSubjectExamScore>
+  passMarks?: number
+  highestMarks?: number
 }
 
 export interface ReportCardStudentField {
@@ -244,9 +276,24 @@ export interface ReportCardLifecycle {
 }
 
 export interface ReportCardData {
-  kind: 'exam' | 'final'
+  kind: 'exam' | 'final' | 'term'
   title: string
   lifecycle: ReportCardLifecycle
+  selectedExams?: ReadonlyArray<ReportCardExamColumn>
+  termTotalsByExam?: Record<string, { obtainedMarks: number; totalMarks: number }>
+  studentPhoto?: string | null
+  studentDetails?: {
+    name: string
+    rollNumber: string | null
+    fatherName: string | null
+    motherName: string | null
+    className: string | null
+    sectionName: string | null
+    academicSession: string | null
+    admissionNumber: string | null
+  }
+  division?: string | null
+  remarks?: string | null
   school: {
     name: string
     logo: string | null
@@ -256,6 +303,14 @@ export interface ReportCardData {
     udise: string | null
     academicYear: string
     principalSignature: string | null
+    printHeader?: string | null
+    board?: string | null
+    city?: string | null
+    state?: string | null
+    pincode?: string | null
+    contactPhone?: string | null
+    contactEmail?: string | null
+    website?: string | null
   }
   examMeta: {
     name: string
@@ -279,6 +334,7 @@ export interface ReportCardData {
   promotion: { status: string; remarks: string | null } | null
   signatures: ReadonlyArray<string>
   options: {
+    showPrintHeader?: boolean
     showComponents: boolean
     showGrade: boolean
     showRank: boolean
@@ -360,6 +416,22 @@ function round2(n: number): number {
   return Math.round(n * 100) / 100
 }
 
+export function calculateDivision(percentage: number, status: string): string {
+  if (status === 'fail' || status === 'absent' || percentage < 33) return 'Fail'
+  if (percentage >= 60) return '1st Division'
+  if (percentage >= 45) return '2nd Division'
+  return '3rd Division'
+}
+
+export function calculateDefaultRemarks(percentage: number, status: string): string {
+  if (status === 'fail' || percentage < 33) return 'NEEDS IMPROVEMENT'
+  if (percentage >= 90) return 'OUTSTANDING PERFORMANCE'
+  if (percentage >= 75) return 'EXCELLENT'
+  if (percentage >= 60) return 'VERY GOOD'
+  if (percentage >= 45) return 'GOOD'
+  return 'CAN DO BETTER'
+}
+
 // ---------- Builders ----------
 
 export interface BuildExamCardInput {
@@ -372,7 +444,7 @@ export interface BuildExamCardInput {
 
 export function buildExamReportCard(input: BuildExamCardInput): ReportCardData {
   const layout = parseTemplateLayout(input.template.layoutJson)
-  const title = layout.header.title?.trim() || 'Report Card'
+  const title = layout.header.title?.trim() || 'ACADEMIC PROGRESS REPORT'
 
   const studentFields = layout.studentBlock.map((key) => ({
     key,
@@ -394,6 +466,8 @@ export function buildExamReportCard(input: BuildExamCardInput): ReportCardData {
       gradePoint: s.gradePoint,
       status: s.status,
       components: parseComponents(s.componentsJson),
+      passMarks: s.passMarks ?? (s.totalMarks === 100 ? 30 : Math.round(s.totalMarks * 0.33)),
+      highestMarks: s.highestMarks ?? round2(s.obtainedMarks),
     }))
 
   return {
@@ -404,6 +478,19 @@ export function buildExamReportCard(input: BuildExamCardInput): ReportCardData {
       withdrawalReason: input.student.withdrawal?.reason ?? null,
       joinedMidSession: Boolean(input.student.joinedMidSession),
     },
+    studentPhoto: input.student.profileImage ?? null,
+    studentDetails: {
+      name: fullName(input.student),
+      rollNumber: input.student.rollNumber,
+      fatherName: input.student.fatherName,
+      motherName: input.student.motherName,
+      className: input.student.className,
+      sectionName: input.student.sectionName,
+      academicSession: input.result.academicYear || input.school.academicYear,
+      admissionNumber: input.student.admissionNumber,
+    },
+    division: calculateDivision(input.result.percentage, input.result.status),
+    remarks: calculateDefaultRemarks(input.result.percentage, input.result.status),
     school: {
       name: input.school.name,
       logo: input.school.logo,
@@ -413,6 +500,14 @@ export function buildExamReportCard(input: BuildExamCardInput): ReportCardData {
       udise: input.school.udiseNumber,
       academicYear: input.school.academicYear,
       principalSignature: input.school.principalSignature,
+      printHeader: input.school.printHeader ?? null,
+      board: input.school.board ?? null,
+      city: input.school.city ?? null,
+      state: input.school.state ?? null,
+      pincode: input.school.pincode ?? null,
+      contactPhone: input.school.contactPhone ?? input.school.phone ?? null,
+      contactEmail: input.school.contactEmail ?? input.school.email ?? null,
+      website: input.school.website ?? null,
     },
     examMeta: {
       name: input.result.examName,
@@ -436,6 +531,7 @@ export function buildExamReportCard(input: BuildExamCardInput): ReportCardData {
     promotion: null,
     signatures: layout.footer.signatures,
     options: {
+      showPrintHeader: layout.header.showPrintHeader ?? true,
       showComponents: layout.subjectTable.showComponents,
       showGrade: layout.subjectTable.showGrade,
       showRank: layout.subjectTable.showRank && input.template.includeRank,
@@ -522,6 +618,8 @@ export function buildFinalReportCard(input: BuildFinalCardInput): ReportCardData
     gradePoint: v.gradePoint,
     status: v.status,
     components: v.components,
+    passMarks: v.total === 100 ? 30 : Math.round(v.total * 0.33),
+    highestMarks: round2(v.obtained),
   }))
 
   return {
@@ -532,6 +630,19 @@ export function buildFinalReportCard(input: BuildFinalCardInput): ReportCardData
       withdrawalReason: input.student.withdrawal?.reason ?? null,
       joinedMidSession: Boolean(input.student.joinedMidSession),
     },
+    studentPhoto: input.student.profileImage ?? null,
+    studentDetails: {
+      name: fullName(input.student),
+      rollNumber: input.student.rollNumber,
+      fatherName: input.student.fatherName,
+      motherName: input.student.motherName,
+      className: input.student.className,
+      sectionName: input.student.sectionName,
+      academicSession: input.result.academicYear || input.school.academicYear,
+      admissionNumber: input.student.admissionNumber,
+    },
+    division: calculateDivision(input.result.percentage, input.result.promotionStatus === 'detained' ? 'fail' : 'pass'),
+    remarks: input.result.remarks || calculateDefaultRemarks(input.result.percentage, input.result.promotionStatus === 'detained' ? 'fail' : 'pass'),
     school: {
       name: input.school.name,
       logo: input.school.logo,
@@ -541,6 +652,14 @@ export function buildFinalReportCard(input: BuildFinalCardInput): ReportCardData
       udise: input.school.udiseNumber,
       academicYear: input.school.academicYear,
       principalSignature: input.school.principalSignature,
+      printHeader: input.school.printHeader ?? null,
+      board: input.school.board ?? null,
+      city: input.school.city ?? null,
+      state: input.school.state ?? null,
+      pincode: input.school.pincode ?? null,
+      contactPhone: input.school.contactPhone ?? input.school.phone ?? null,
+      contactEmail: input.school.contactEmail ?? input.school.email ?? null,
+      website: input.school.website ?? null,
     },
     examMeta: {
       name: input.result.paradigmName,
@@ -571,6 +690,7 @@ export function buildFinalReportCard(input: BuildFinalCardInput): ReportCardData
     },
     signatures: layout.footer.signatures,
     options: {
+      showPrintHeader: layout.header.showPrintHeader ?? true,
       showComponents: layout.subjectTable.showComponents,
       showGrade: layout.subjectTable.showGrade,
       showRank: layout.subjectTable.showRank && input.template.includeRank,
@@ -585,3 +705,272 @@ export function buildFinalReportCard(input: BuildFinalCardInput): ReportCardData
     },
   }
 }
+
+export interface BuildMultiExamCardInput {
+  template: TemplateDef
+  school: SchoolDef
+  student: StudentDef
+  examGroup: {
+    id: string
+    name: string
+    paradigmName: string | null
+    academicYear: string
+  }
+  exams: ReadonlyArray<{
+    id: string
+    name: string
+    shortCode: string | null
+  }>
+  examResults: ReadonlyArray<ExamResultDef>
+  attendance?: AttendanceSnapshot | null
+  gradeScaleBands?: ReadonlyArray<{ code: string; minValue: number; maxValue: number; gradePoint?: number | null }>
+}
+
+function resolveBandGrade(
+  pct: number,
+  bands?: ReadonlyArray<{ code: string; minValue: number; maxValue: number; gradePoint?: number | null }>,
+): string | null {
+  if (bands && bands.length > 0) {
+    const match = bands.find((b) => pct >= b.minValue && pct <= b.maxValue)
+    if (match) return match.code
+  }
+  if (pct >= 91) return 'A1'
+  if (pct >= 81) return 'A2'
+  if (pct >= 71) return 'B1'
+  if (pct >= 61) return 'B2'
+  if (pct >= 51) return 'C1'
+  if (pct >= 41) return 'C2'
+  if (pct >= 33) return 'D'
+  return 'E'
+}
+
+export function buildMultiExamReportCard(input: BuildMultiExamCardInput): ReportCardData {
+  if (input.exams.length <= 1 && input.examResults.length <= 1) {
+    const singleResult = input.examResults[0]
+    if (singleResult) {
+      const card = buildExamReportCard({
+        template: input.template,
+        school: input.school,
+        student: input.student,
+        result: singleResult,
+        attendance: input.attendance,
+      })
+      return {
+        ...card,
+        selectedExams: input.exams.map((e) => ({
+          examId: e.id,
+          examName: e.name,
+          shortCode: e.shortCode,
+        })),
+      }
+    }
+  }
+
+  const layout = parseTemplateLayout(input.template.layoutJson)
+  const title = layout.header.title?.trim() || `${input.examGroup.name} Report Card`
+
+  const studentFields = layout.studentBlock.map((key) => ({
+    key,
+    label: studentFieldLabel(key),
+    value: studentFieldValue(key, input.student, input.school),
+  }))
+
+  const resultMap = new Map<string, ExamResultDef>(input.examResults.map((r) => [r.examId, r]))
+
+  // Preserve the caller-specified ordering of exams
+  const selectedExams: ReportCardExamColumn[] = input.exams.map((e) => {
+    const r = resultMap.get(e.id)
+    return {
+      examId: e.id,
+      examName: e.name,
+      shortCode: e.shortCode || null,
+      maxMarks: r ? round2(r.totalMarks) : undefined,
+    }
+  })
+
+  // Collect all unique subjects across the selected exams in deterministic order
+  const subjectMap = new Map<
+    string,
+    {
+      subjectName: string
+      scoresByExam: Map<string, SubjectSummaryDef>
+      latestComponents: ReportCardComponentBreakdown[]
+    }
+  >()
+
+  for (const exam of input.exams) {
+    const er = resultMap.get(exam.id)
+    if (!er) continue
+    for (const sm of er.subjectSummaries) {
+      if (!input.template.includeCoScholastic && sm.totalMarks === 0) continue
+      let existing = subjectMap.get(sm.subjectId)
+      if (!existing) {
+        existing = {
+          subjectName: sm.subjectName,
+          scoresByExam: new Map(),
+          latestComponents: [],
+        }
+        subjectMap.set(sm.subjectId, existing)
+      }
+      existing.scoresByExam.set(exam.id, sm)
+      const comps = parseComponents(sm.componentsJson)
+      if (comps.length > 0) {
+        existing.latestComponents = [...comps]
+      }
+    }
+  }
+
+  const termTotalsByExam: Record<string, { obtainedMarks: number; totalMarks: number }> = {}
+  for (const e of input.exams) {
+    termTotalsByExam[e.id] = { obtainedMarks: 0, totalMarks: 0 }
+  }
+
+  const subjects: ReportCardSubjectRow[] = Array.from(subjectMap.entries()).map(([subjectId, subj]) => {
+    const examScores: ReportCardSubjectExamScore[] = input.exams.map((e) => {
+      const sm = subj.scoresByExam.get(e.id)
+      if (!sm) {
+        return {
+          examId: e.id,
+          examName: e.shortCode || e.name,
+          obtainedMarks: 0,
+          totalMarks: 0,
+          percentage: 0,
+          grade: null,
+          status: 'not_applicable',
+        }
+      }
+
+      termTotalsByExam[e.id].obtainedMarks = round2(termTotalsByExam[e.id].obtainedMarks + sm.obtainedMarks)
+      termTotalsByExam[e.id].totalMarks = round2(termTotalsByExam[e.id].totalMarks + sm.totalMarks)
+
+      return {
+        examId: e.id,
+        examName: e.shortCode || e.name,
+        obtainedMarks: round2(sm.obtainedMarks),
+        totalMarks: round2(sm.totalMarks),
+        percentage: round2(sm.percentage),
+        grade: sm.grade,
+        status: sm.status,
+      }
+    })
+
+    const applicableScores = examScores.filter((s) => s.status !== 'not_applicable')
+    const combinedTotalMarks = round2(applicableScores.reduce((sum, s) => sum + s.totalMarks, 0))
+    const combinedObtainedMarks = round2(applicableScores.reduce((sum, s) => sum + s.obtainedMarks, 0))
+    const combinedPercentage =
+      combinedTotalMarks > 0 ? round2((combinedObtainedMarks / combinedTotalMarks) * 100) : 0
+    const resolvedGrade = resolveBandGrade(combinedPercentage, input.gradeScaleBands)
+
+    let subjectStatus = 'pass'
+    if (applicableScores.some((s) => s.status === 'fail')) {
+      subjectStatus = 'fail'
+    } else if (applicableScores.every((s) => s.status === 'absent')) {
+      subjectStatus = 'absent'
+    } else if (combinedPercentage < 33 && combinedTotalMarks > 0) {
+      subjectStatus = 'fail'
+    }
+
+    return {
+      subjectId,
+      subjectName: subj.subjectName,
+      totalMarks: combinedTotalMarks,
+      obtainedMarks: combinedObtainedMarks,
+      percentage: combinedPercentage,
+      grade: resolvedGrade,
+      gradePoint: null,
+      status: subjectStatus,
+      components: subj.latestComponents,
+      examScores,
+      passMarks: combinedTotalMarks === 100 ? 30 : Math.round(combinedTotalMarks * 0.33),
+      highestMarks: combinedObtainedMarks,
+    }
+  })
+
+  const grandTotalMarks = round2(subjects.reduce((sum, s) => sum + s.totalMarks, 0))
+  const grandObtainedMarks = round2(subjects.reduce((sum, s) => sum + s.obtainedMarks, 0))
+  const grandPercentage =
+    grandTotalMarks > 0 ? round2((grandObtainedMarks / grandTotalMarks) * 100) : 0
+  const grandGrade = resolveBandGrade(grandPercentage, input.gradeScaleBands)
+  const grandStatus = grandPercentage >= 33 ? 'pass' : 'fail'
+
+  const examNamesFormatted = input.exams.map((e) => e.shortCode || e.name).join(' + ')
+
+  return {
+    kind: 'term',
+    title,
+    lifecycle: {
+      withdrawnOn: input.student.withdrawal ? formatDate(input.student.withdrawal.effectiveDate) : null,
+      withdrawalReason: input.student.withdrawal?.reason ?? null,
+      joinedMidSession: Boolean(input.student.joinedMidSession),
+    },
+    studentPhoto: input.student.profileImage ?? null,
+    studentDetails: {
+      name: fullName(input.student),
+      rollNumber: input.student.rollNumber,
+      fatherName: input.student.fatherName,
+      motherName: input.student.motherName,
+      className: input.student.className,
+      sectionName: input.student.sectionName,
+      academicSession: input.examGroup.academicYear || input.school.academicYear,
+      admissionNumber: input.student.admissionNumber,
+    },
+    division: calculateDivision(grandPercentage, grandStatus),
+    remarks: calculateDefaultRemarks(grandPercentage, grandStatus),
+    school: {
+      name: input.school.name,
+      logo: input.school.logo,
+      address: input.school.address,
+      affiliation: input.school.affiliationNumber,
+      registration: input.school.registrationNumber,
+      udise: input.school.udiseNumber,
+      academicYear: input.school.academicYear,
+      principalSignature: input.school.principalSignature,
+      printHeader: input.school.printHeader ?? null,
+      board: input.school.board ?? null,
+      city: input.school.city ?? null,
+      state: input.school.state ?? null,
+      pincode: input.school.pincode ?? null,
+      contactPhone: input.school.contactPhone ?? input.school.phone ?? null,
+      contactEmail: input.school.contactEmail ?? input.school.email ?? null,
+      website: input.school.website ?? null,
+    },
+    examMeta: {
+      name: `${input.examGroup.name} (${examNamesFormatted})`,
+      paradigm: input.examGroup.paradigmName,
+      group: input.examGroup.name,
+      academicYear: input.examGroup.academicYear || input.school.academicYear,
+    },
+    selectedExams,
+    termTotalsByExam,
+    studentFields,
+    subjects,
+    totals: {
+      totalMarks: grandTotalMarks,
+      obtainedMarks: grandObtainedMarks,
+      percentage: grandPercentage,
+      grade: grandGrade,
+      gradePoint: null,
+      status: grandStatus,
+      rankInClass: null,
+      rankInSection: null,
+    },
+    attendance: input.template.includeAttendance ? (input.attendance ?? null) : null,
+    promotion: null,
+    signatures: layout.footer.signatures,
+    options: {
+      showPrintHeader: layout.header.showPrintHeader ?? true,
+      showComponents: layout.subjectTable.showComponents,
+      showGrade: layout.subjectTable.showGrade,
+      showRank: layout.subjectTable.showRank && input.template.includeRank,
+      showMaxMarks: layout.subjectTable.showMaxMarks ?? true,
+      showPercentage: layout.subjectTable.showPercentage ?? true,
+      showAttendance: layout.footer.showAttendance && input.template.includeAttendance,
+      showRemarks: layout.footer.showRemarks,
+      showLogo: layout.header.showLogo,
+      showAddress: layout.header.showAddress,
+      showAffiliation: layout.header.showAffiliation ?? false,
+      includeCoScholastic: input.template.includeCoScholastic,
+    },
+  }
+}
+

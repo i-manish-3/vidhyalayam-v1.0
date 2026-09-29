@@ -22,10 +22,12 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Textarea } from '@/components/ui/textarea'
+import { Checkbox } from '@/components/ui/checkbox'
 import { api } from '@/lib/api'
 import { useAppStore } from '@/lib/store'
 import { useToast } from '@/hooks/use-toast'
 import { PERMISSIONS, usePermissions } from '@/hooks/use-permissions'
+import { cn } from '@/lib/utils'
 import {
   AlertCircle,
   Award,
@@ -43,7 +45,26 @@ import {
   Trophy,
   Undo2,
   Users,
+  Layers,
+  LayoutTemplate,
+  Check,
 } from 'lucide-react'
+
+interface TermExamItem {
+  id: string
+  name: string
+  shortCode: string | null
+  status: string
+  startDate?: string | null
+  publishedAt?: string | null
+}
+
+interface TemplateOption {
+  id: string
+  name: string
+  format: string
+  isDefault: boolean
+}
 
 interface SubjectSummary {
   id: string
@@ -127,6 +148,11 @@ export function ExamResultPreviewPage({ examId }: Props) {
   const [publishing, setPublishing] = useState(false)
   const [unpublishOpen, setUnpublishOpen] = useState(false)
   const [unpublishReason, setUnpublishReason] = useState('')
+  const [termExams, setTermExams] = useState<TermExamItem[]>([])
+  const [templates, setTemplates] = useState<TemplateOption[]>([])
+  const [printDialogOpen, setPrintDialogOpen] = useState(false)
+  const [selectedExamIds, setSelectedExamIds] = useState<string[]>([])
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>('')
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -134,16 +160,29 @@ export function ExamResultPreviewPage({ examId }: Props) {
       const params: Record<string, string> = {}
       if (classFilter) params.classId = classFilter
       if (sectionFilter) params.sectionId = sectionFilter
-      const [resultsRes, classesRes] = await Promise.all([
-        api.get<{ results: ExamResultRow[]; exam: ExamInfo }>(
+      const [resultsRes, classesRes, templatesRes] = await Promise.all([
+        api.get<{ results: ExamResultRow[]; exam: ExamInfo; termExams?: TermExamItem[] }>(
           `/api/school/exams/${examId}/results`,
           params,
         ),
         api.get<{ classes: ClassOption[] }>('/api/school/classes'),
+        api.get<{ templates: TemplateOption[] }>('/api/school/exams/report-card-templates').catch(() => ({ templates: [] })),
       ])
       setResults(resultsRes.results)
       setExam(resultsRes.exam)
       setClasses(classesRes.classes)
+      const siblingExams = resultsRes.termExams || []
+      setTermExams(siblingExams)
+      setTemplates(templatesRes.templates || [])
+      if (siblingExams.length > 0) {
+        setSelectedExamIds(siblingExams.map((e) => e.id))
+      } else {
+        setSelectedExamIds([examId])
+      }
+      if (templatesRes.templates && templatesRes.templates.length > 0) {
+        const def = templatesRes.templates.find((t) => t.isDefault) || templatesRes.templates[0]
+        setSelectedTemplateId(def.id)
+      }
     } catch (err) {
       toast({
         variant: 'destructive',
@@ -247,8 +286,22 @@ export function ExamResultPreviewPage({ examId }: Props) {
       toast({ variant: 'destructive', title: 'No results to print yet.' })
       return
     }
+    if (selectedExamIds.length === 0) {
+      setSelectedExamIds(termExams.length > 0 ? termExams.map((e) => e.id) : [examId])
+    }
+    setPrintDialogOpen(true)
+  }
+
+  function handleConfirmPrint() {
+    if (results.length === 0) {
+      toast({ variant: 'destructive', title: 'No results to print yet.' })
+      return
+    }
     const ids = results.map((r) => r.student.id).join(',')
-    window.open(`/print/report-cards/${examId}?students=${ids}&action=print`, '_blank')
+    const examsParam = selectedExamIds.length > 0 ? `&examIds=${selectedExamIds.join(',')}` : ''
+    const templateParam = selectedTemplateId ? `&template=${selectedTemplateId}` : ''
+    window.open(`/print/report-cards/${examId}?students=${ids}${examsParam}${templateParam}&action=print`, '_blank')
+    setPrintDialogOpen(false)
   }
 
   const stats = useMemo(() => {
@@ -530,6 +583,188 @@ export function ExamResultPreviewPage({ examId }: Props) {
             <Button size="sm" className="h-8 gap-1.5 px-4 text-xs" onClick={() => void handleRecompute()} disabled={computing}>
               {computing ? <Loader2 className="size-4 animate-spin" /> : <Calculator className="size-4" />}
               {computing ? 'Computing…' : 'Compute results'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Print Report Cards Modal */}
+      <Dialog open={printDialogOpen} onOpenChange={setPrintDialogOpen}>
+        <DialogContent className="flex max-h-[90svh] flex-col overflow-hidden border-indigo-500/20 bg-card p-0 shadow-2xl shadow-indigo-500/15 sm:max-w-xl [&>button]:right-3 [&>button]:top-3 [&>button]:rounded-full [&>button]:text-white [&>button]:opacity-85 [&>button]:hover:bg-white/15 [&>button]:hover:opacity-100">
+          <DialogHeader className="relative shrink-0 overflow-hidden border-b border-white/15 bg-[linear-gradient(135deg,#4f46e5,#6366f1,#8b5cf6)] px-5 py-4 pr-12 text-white sm:px-6">
+            <div className="pointer-events-none absolute -right-6 -top-6 size-36 rounded-full border-[18px] border-white/10 bg-white/5 blur-2xl" />
+            <div className="pointer-events-none absolute -bottom-8 right-12 size-28 rounded-full border-[18px] border-white/10 bg-indigo-300/20 blur-xl" />
+            <div className="relative flex items-center gap-3">
+              <div className="flex size-11 items-center justify-center rounded-xl border border-white/25 bg-white/15 shadow-sm backdrop-blur-sm">
+                <Printer className="size-5 text-white" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <DialogTitle className="text-lg font-bold tracking-tight text-white">
+                  Generate & Print Report Cards
+                </DialogTitle>
+                <DialogDescription className="text-xs text-white/80 line-clamp-1">
+                  {exam.group.name} · {exam.group.paradigm.name}
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+
+          <div className="themed-scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain bg-gradient-to-br from-indigo-500/[0.03] via-background to-violet-500/[0.055] p-4 sm:p-5">
+            {/* Section 1: Term Exams (if multiple exams in term) */}
+            {termExams.length > 1 ? (
+              <div className="relative overflow-hidden rounded-xl border border-indigo-200/80 bg-gradient-to-br from-indigo-50 via-white to-indigo-50 p-4 shadow-sm dark:border-indigo-500/25 dark:from-indigo-500/15 dark:via-card dark:to-indigo-500/10">
+                <div className="mb-3 flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2.5">
+                    <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-indigo-600 text-white shadow-sm">
+                      <Layers className="size-4" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-semibold">Choose Term Exams</h3>
+                      <p className="text-[10px] text-muted-foreground">
+                        {termExams.length} exams found in {exam.group.name}. Select which exam marks to display.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0 text-xs">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 text-[11px] text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100/50"
+                      onClick={() => setSelectedExamIds(termExams.map((e) => e.id))}
+                    >
+                      Select all
+                    </Button>
+                    <span className="text-muted-foreground">·</span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 text-[11px] text-muted-foreground hover:text-foreground"
+                      onClick={() => setSelectedExamIds([examId])}
+                    >
+                      Current only
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  {termExams.map((te) => {
+                    const isChecked = selectedExamIds.includes(te.id)
+                    return (
+                      <label
+                        key={te.id}
+                        className={cn(
+                          'flex items-center justify-between gap-3 rounded-lg border p-2.5 text-xs cursor-pointer transition-colors',
+                          isChecked
+                            ? 'border-indigo-300 bg-indigo-50/70 dark:border-indigo-500/40 dark:bg-indigo-500/10'
+                            : 'border-border/70 bg-card hover:bg-muted/40',
+                        )}
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <Checkbox
+                            checked={isChecked}
+                            onCheckedChange={() => {
+                              if (isChecked) {
+                                if (selectedExamIds.length > 1) {
+                                  setSelectedExamIds(selectedExamIds.filter((id) => id !== te.id))
+                                }
+                              } else {
+                                setSelectedExamIds([...selectedExamIds, te.id])
+                              }
+                            }}
+                          />
+                          <div className="min-w-0">
+                            <p className="font-semibold text-foreground truncate">{te.name}</p>
+                            {te.shortCode && (
+                              <p className="text-[10px] text-muted-foreground font-mono">Code: {te.shortCode}</p>
+                            )}
+                          </div>
+                        </div>
+                        {te.id === examId && (
+                          <Badge variant="outline" className="text-[10px] border-indigo-200 text-indigo-700 bg-indigo-50 dark:bg-indigo-900/30">
+                            Current
+                          </Badge>
+                        )}
+                      </label>
+                    )
+                  })}
+                </div>
+
+                {selectedExamIds.length > 1 && (
+                  <div className="mt-3 rounded-md bg-indigo-100/60 p-2 text-[11px] text-indigo-800 dark:bg-indigo-950/40 dark:text-indigo-200">
+                    <span className="font-semibold">Dynamic multi-exam report card:</span> Separate mark columns will be rendered for each of the {selectedExamIds.length} chosen exams with combined totals.
+                  </div>
+                )}
+              </div>
+            ) : null}
+
+            {/* Section 2: Template Selection */}
+            <div className="relative overflow-hidden rounded-xl border border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-sky-50 p-4 shadow-sm dark:border-sky-500/25 dark:from-sky-500/15 dark:via-card dark:to-sky-500/10">
+              <div className="mb-3 flex items-center gap-2.5">
+                <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-sky-600 text-white shadow-sm">
+                  <LayoutTemplate className="size-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold">Report Card Template</h3>
+                  <p className="text-[10px] text-muted-foreground">Select formatting template for printing</p>
+                </div>
+              </div>
+
+              <Select value={selectedTemplateId} onValueChange={setSelectedTemplateId}>
+                <SelectTrigger className="w-full bg-white dark:bg-card">
+                  <SelectValue placeholder="Choose template" />
+                </SelectTrigger>
+                <SelectContent>
+                  {templates.map((tpl) => (
+                    <SelectItem key={tpl.id} value={tpl.id}>
+                      <div className="flex items-center gap-2">
+                        <span>{tpl.name}</span>
+                        {tpl.isDefault && (
+                          <span className="text-[10px] text-muted-foreground font-normal">(Default)</span>
+                        )}
+                        <Badge variant="secondary" className="text-[9px] uppercase">
+                          {tpl.format}
+                        </Badge>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Section 3: Students Scope */}
+            <div className="relative overflow-hidden rounded-xl border border-emerald-200/80 bg-gradient-to-br from-emerald-50 via-white to-emerald-50 p-4 shadow-sm dark:border-emerald-500/25 dark:from-emerald-500/15 dark:via-card dark:to-emerald-500/10">
+              <div className="flex items-center gap-2.5">
+                <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-sm">
+                  <Users className="size-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold">Students in Scope</h3>
+                  <p className="text-[10px] text-muted-foreground">
+                    {results.length} student{results.length === 1 ? '' : 's'} in current filtered list will be printed.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="shrink-0 border-t border-primary/10 bg-muted/30 px-4 py-3 sm:px-5">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 px-4 text-xs"
+              onClick={() => setPrintDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              className="h-8 px-4 text-xs bg-indigo-600 hover:bg-indigo-700 text-white"
+              onClick={handleConfirmPrint}
+            >
+              <Printer className="mr-1.5 size-3.5" />
+              Generate & Print
             </Button>
           </DialogFooter>
         </DialogContent>
