@@ -44,6 +44,8 @@ import {
   Sparkles,
   GraduationCap,
   Award,
+  FileText,
+  ClipboardCheck,
   Coins,
   CalendarDays,
   CalendarCheck,
@@ -57,6 +59,12 @@ import {
   UserRound,
   Users,
   CheckCircle2,
+  KeyRound,
+  Eye,
+  EyeOff,
+  Loader2,
+  ShieldAlert,
+  AlertCircle,
   type LucideIcon,
 } from 'lucide-react'
 import { AcademicYearSwitcher } from '@/components/academic-year-switcher'
@@ -484,6 +492,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [changingPassword, setChangingPassword] = useState(false)
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false)
+  const [showNewPassword, setShowNewPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [passwordChangeError, setPasswordChangeError] = useState<string | null>(null)
   const [showProfileDialog, setShowProfileDialog] = useState(false)
   const [savingAvatar, setSavingAvatar] = useState(false)
   const [profileName, setProfileName] = useState('')
@@ -522,6 +534,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const hideStickyQuickMenu = pathname === '/dashboard' && (role === 'PARENT' || (role === 'SUPER_ADMIN' && !isImpersonating))
 
   const visibleItems = useMemo(() => {
+    const examChildren: StickyQuickMenuLink[] = [
+      { type: 'link', label: 'Exam List', page: 'exam-list', href: '/exams/list', icon: FileText },
+      { type: 'link', label: 'Enter Marks', page: 'exam-marks-entry', href: '/exams/marks-entry', icon: ClipboardCheck },
+    ]
     const attendanceChildren: StickyQuickMenuLink[] = [
       { type: 'link', label: 'Student', page: 'mark-attendance', href: '/attendance/mark', icon: UserRound },
       { type: 'link', label: 'Staff', page: 'employee-attendance', href: '/attendance/staff', icon: Users },
@@ -535,7 +551,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     const items: StickyQuickMenuItem[] = [
       { type: 'link', label: 'Student List', page: 'students', href: '/students', icon: GraduationCap },
       { type: 'link', label: 'Timetable', page: 'timetable', href: '/academics/timetable', icon: CalendarDays },
-      { type: 'link', label: 'Exam', page: 'exam-dashboard', href: '/exams', icon: Award },
+      {
+        type: 'dropdown',
+        label: 'Exam',
+        icon: Award,
+        children: examChildren.filter(child => allowedTopMenuPages.has(child.page) && isPageVisible(child.page, permissions, effectiveRole, permissionsLoaded)),
+      },
       { type: 'link', label: 'Collect Fees', page: 'fee-collections', href: '/fees/collections', icon: IndianRupee },
       {
         type: 'dropdown',
@@ -568,6 +589,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       item.type === 'dropdown' ? item.children.map((child) => child.href) : [item.href]
     )
 
+    if (pathname.includes('/marks-entry') && hrefs.includes('/exams/marks-entry')) {
+      return '/exams/marks-entry'
+    }
+
     return hrefs
       .filter((href) => pathname === href || (href !== '/' && pathname.startsWith(href + '/')))
       .sort((a, b) => b.length - a.length)[0] ?? null
@@ -593,16 +618,29 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, [schoolThemeStyle])
 
   const handleRequiredPasswordChange = async () => {
+    setPasswordChangeError(null)
     if (!currentPassword || !newPassword || !confirmPassword) {
-      toast({ title: 'Missing Details', description: 'Please enter your current password and new password.', variant: 'destructive' })
+      const msg = 'Please enter your current temporary password and your new password.'
+      setPasswordChangeError(msg)
+      toast({ title: 'Missing Details', description: msg, variant: 'destructive' })
       return
     }
-    if (newPassword.length < 6) {
-      toast({ title: 'Password Too Short', description: 'Your new password must be at least 6 characters long.', variant: 'destructive' })
+    if (newPassword.length < 8) {
+      const msg = 'Your new password must be at least 8 characters long.'
+      setPasswordChangeError(msg)
+      toast({ title: 'Password Too Short', description: msg, variant: 'destructive' })
+      return
+    }
+    if (newPassword === currentPassword) {
+      const msg = 'Your new password must be different from your current temporary password.'
+      setPasswordChangeError(msg)
+      toast({ title: 'Same Password', description: msg, variant: 'destructive' })
       return
     }
     if (newPassword !== confirmPassword) {
-      toast({ title: "Passwords Don't Match", description: 'Please enter the same new password twice.', variant: 'destructive' })
+      const msg = 'New password and confirmation password do not match.'
+      setPasswordChangeError(msg)
+      toast({ title: "Passwords Don't Match", description: msg, variant: 'destructive' })
       return
     }
 
@@ -622,11 +660,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       setCurrentPassword('')
       setNewPassword('')
       setConfirmPassword('')
-      toast({ title: 'Password Changed', description: 'Your new password is active now.' })
+      setPasswordChangeError(null)
+      toast({ title: 'Password Changed Successfully 🎉', description: 'Your new password is now active. Welcome to your portal!' })
     } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Please check your current password and try again.'
+      setPasswordChangeError(msg)
       toast({
         title: "Couldn't Change Password",
-        description: err instanceof Error ? err.message : 'Please check the password and try again.',
+        description: msg,
         variant: 'destructive',
       })
     } finally {
@@ -893,9 +934,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                           align="start"
                           sideOffset={6}
                           className={cn(
-                            'w-[var(--radix-dropdown-menu-trigger-width)] min-w-0 overflow-hidden rounded-lg border p-1 shadow-xl backdrop-blur-md',
+                            'w-[var(--radix-dropdown-menu-trigger-width)] min-w-[155px] overflow-hidden rounded-lg border p-1 shadow-xl backdrop-blur-md',
                             item.label === 'Attendance' && 'border-rose-200/80 bg-gradient-to-br from-popover via-popover to-rose-50 dark:border-rose-500/25 dark:to-rose-500/10',
                             item.label === 'Account Reports' && 'border-indigo-200/80 bg-gradient-to-br from-popover via-popover to-indigo-50 dark:border-indigo-500/25 dark:to-indigo-500/10',
+                            item.label === 'Exam' && 'border-amber-200/80 bg-gradient-to-br from-popover via-popover to-amber-50 dark:border-amber-500/25 dark:to-amber-500/10',
                           )}
                         >
                           {item.children.map((child) => {
@@ -1177,56 +1219,239 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </DialogContent>
       </Dialog>
 
+      {/* First-Time Login / Required Password Change Dialog */}
       <Dialog open={!!user?.mustChangePassword}>
-        <DialogContent className="sm:max-w-md [&>button]:hidden">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Lock className="size-4" />
-              Change Password
-            </DialogTitle>
-            <DialogDescription>
-              You logged in with a generated password. Set a new password before continuing.
-            </DialogDescription>
+        <DialogContent className="flex max-h-[90svh] flex-col overflow-hidden border-primary/20 bg-card p-0 shadow-2xl shadow-primary/15 sm:max-w-md [&>button]:hidden">
+          {/* Brand Gradient Header (AGENTS.md Convention) */}
+          <DialogHeader className="relative shrink-0 overflow-hidden border-b border-white/15 bg-[linear-gradient(135deg,var(--primary)_0%,#0d9488_48%,#2563eb_100%)] px-5 py-4 text-white sm:px-6">
+            <div aria-hidden className="absolute -right-8 -top-12 size-36 rounded-full border-[18px] border-white/10" />
+            <div aria-hidden className="absolute -bottom-8 right-16 size-24 rounded-full bg-cyan-300/20 blur-2xl" />
+            <div className="relative flex items-center gap-3">
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-white/25 bg-white/15 text-white shadow-md backdrop-blur-sm">
+                <KeyRound className="size-5 text-white" />
+              </span>
+              <div>
+                <DialogTitle className="text-lg font-bold tracking-normal text-white">
+                  First-Time Setup: Set Password
+                </DialogTitle>
+                <DialogDescription className="mt-0.5 text-xs text-white/75">
+                  Welcome to Vidhyalayam! Please set a new personal password to secure your account.
+                </DialogDescription>
+              </div>
+            </div>
           </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label htmlFor="required-current-password">Current Password</Label>
-              <Input
-                id="required-current-password"
-                type="password"
-                value={currentPassword}
-                onChange={(event) => setCurrentPassword(event.target.value)}
-                autoComplete="current-password"
-              />
+
+          {/* Themed Scrollbar Body */}
+          <div className="themed-scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain bg-gradient-to-br from-primary/[0.03] via-background to-primary/[0.055] p-4 sm:p-5">
+            {/* Account Card */}
+            <div className="flex items-center justify-between rounded-xl border border-border/70 bg-card/90 p-3 shadow-2xs">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <Avatar className="size-9 border border-primary/20">
+                  {user?.avatar && <AvatarImage src={user.avatar} alt={user?.name || 'User'} />}
+                  <AvatarFallback className="bg-primary/10 text-primary font-bold text-xs">{initials}</AvatarFallback>
+                </Avatar>
+                <div className="min-w-0">
+                  <p className="truncate text-xs font-bold text-foreground">{user?.name || 'User'}</p>
+                  <p className="truncate text-[11px] text-muted-foreground">{user?.email}</p>
+                </div>
+              </div>
+              <Badge variant="outline" className="shrink-0 text-[10px] uppercase font-bold tracking-wider border-primary/30 text-primary bg-primary/5">
+                {roleBadge}
+              </Badge>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="required-new-password">New Password</Label>
-              <Input
-                id="required-new-password"
-                type="password"
-                value={newPassword}
-                onChange={(event) => setNewPassword(event.target.value)}
-                autoComplete="new-password"
-              />
+
+            {/* Safety Notice Card */}
+            <div className="flex items-start gap-2.5 rounded-xl border border-amber-500/25 bg-amber-500/10 p-3">
+              <ShieldAlert className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400" />
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-bold text-amber-800 dark:text-amber-300">
+                  Mandatory Security Step
+                </p>
+                <p className="mt-0.5 text-[11px] leading-relaxed text-amber-700/90 dark:text-amber-300/80">
+                  You are signed in with a temporary system password. You must set a new personal password before accessing school features.
+                </p>
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="required-confirm-password">Confirm New Password</Label>
-              <Input
-                id="required-confirm-password"
-                type="password"
-                value={confirmPassword}
-                onChange={(event) => setConfirmPassword(event.target.value)}
-                autoComplete="new-password"
-              />
-            </div>
+
+            {/* Credentials Card */}
+            <section className="relative overflow-hidden rounded-xl border border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-sky-50 p-4 shadow-sm dark:border-sky-500/25 dark:from-sky-500/15 dark:via-card dark:to-sky-500/10">
+              <div className="mb-3.5 flex items-center gap-2.5">
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-sky-600 text-white shadow-sm">
+                  <Lock className="size-4" />
+                </span>
+                <div>
+                  <h3 className="text-sm font-semibold text-foreground">Password Credentials</h3>
+                  <p className="text-[10px] text-muted-foreground">Minimum 8 characters required</p>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                {/* Current / Temporary Password */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="required-current-password" className="text-xs font-semibold text-foreground">
+                    Current (Temporary) Password <span className="text-destructive">*</span>
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      id="required-current-password"
+                      type={showCurrentPassword ? 'text' : 'password'}
+                      value={currentPassword}
+                      onChange={(event) => {
+                        setCurrentPassword(event.target.value)
+                        if (passwordChangeError) setPasswordChangeError(null)
+                      }}
+                      placeholder="Enter the password you just logged in with"
+                      autoComplete="current-password"
+                      disabled={changingPassword}
+                      className="h-9 pr-10 text-xs bg-background/80"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-1 top-1/2 size-7 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      onClick={() => setShowCurrentPassword((prev) => !prev)}
+                      disabled={!currentPassword}
+                    >
+                      {showCurrentPassword ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
+                    </Button>
+                  </div>
+                </div>
+
+                {/* New Password */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="required-new-password" className="text-xs font-semibold text-foreground">
+                    New Password <span className="text-destructive">*</span>
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      id="required-new-password"
+                      type={showNewPassword ? 'text' : 'password'}
+                      value={newPassword}
+                      onChange={(event) => {
+                        setNewPassword(event.target.value)
+                        if (passwordChangeError) setPasswordChangeError(null)
+                      }}
+                      placeholder="At least 8 characters"
+                      autoComplete="new-password"
+                      disabled={changingPassword}
+                      className={cn(
+                        'h-9 pr-10 text-xs bg-background/80',
+                        newPassword && newPassword.length < 8 && 'border-destructive focus-visible:ring-destructive/30'
+                      )}
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-1 top-1/2 size-7 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      onClick={() => setShowNewPassword((prev) => !prev)}
+                      disabled={!newPassword}
+                    >
+                      {showNewPassword ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
+                    </Button>
+                  </div>
+                  {newPassword && newPassword.length < 8 && (
+                    <p className="text-[11px] text-destructive">Password must be at least 8 characters long.</p>
+                  )}
+                  {newPassword && currentPassword && newPassword === currentPassword && (
+                    <p className="text-[11px] text-destructive">New password cannot be the same as your current password.</p>
+                  )}
+                </div>
+
+                {/* Confirm Password */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="required-confirm-password" className="text-xs font-semibold text-foreground">
+                    Confirm New Password <span className="text-destructive">*</span>
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      id="required-confirm-password"
+                      type={showConfirmPassword ? 'text' : 'password'}
+                      value={confirmPassword}
+                      onChange={(event) => {
+                        setConfirmPassword(event.target.value)
+                        if (passwordChangeError) setPasswordChangeError(null)
+                      }}
+                      placeholder="Re-enter your new password"
+                      autoComplete="new-password"
+                      disabled={changingPassword}
+                      className={cn(
+                        'h-9 pr-10 text-xs bg-background/80',
+                        confirmPassword && newPassword !== confirmPassword && 'border-destructive focus-visible:ring-destructive/30'
+                      )}
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-1 top-1/2 size-7 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      onClick={() => setShowConfirmPassword((prev) => !prev)}
+                      disabled={!confirmPassword}
+                    >
+                      {showConfirmPassword ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
+                    </Button>
+                  </div>
+                  {confirmPassword && newPassword !== confirmPassword && (
+                    <p className="text-[11px] text-destructive">Passwords do not match.</p>
+                  )}
+                  {confirmPassword && newPassword === confirmPassword && newPassword.length >= 8 && (
+                    <p className="flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
+                      <CheckCircle2 className="size-3" /> Passwords match
+                    </p>
+                  )}
+                </div>
+              </div>
+            </section>
+
+            {/* Error Banner */}
+            {passwordChangeError && (
+              <div className="flex items-start gap-2.5 rounded-xl border border-destructive/30 bg-destructive/10 p-3">
+                <AlertCircle className="mt-0.5 size-4 shrink-0 text-destructive" />
+                <p className="text-xs text-destructive font-medium leading-relaxed">{passwordChangeError}</p>
+              </div>
+            )}
           </div>
-          <DialogFooter>
+
+          {/* Footer Actions */}
+          <DialogFooter className="shrink-0 flex items-center justify-between border-t border-primary/10 bg-muted/30 px-4 py-3 sm:px-5">
             <Button
-              onClick={handleRequiredPasswordChange}
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={handleLogout}
               disabled={changingPassword}
-              className="w-full sm:w-auto"
+              className="h-8 px-3 text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10 gap-1.5"
             >
-              {changingPassword ? 'Saving...' : 'Change Password'}
+              <LogOut className="size-3.5" />
+              Sign Out
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={handleRequiredPasswordChange}
+              disabled={
+                changingPassword ||
+                !currentPassword ||
+                !newPassword ||
+                newPassword.length < 8 ||
+                !confirmPassword ||
+                newPassword !== confirmPassword ||
+                newPassword === currentPassword
+              }
+              className="h-8 px-4 text-xs font-semibold gap-1.5 shadow-sm"
+            >
+              {changingPassword ? (
+                <>
+                  <Loader2 className="size-3.5 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <KeyRound className="size-3.5" />
+                  Set Password & Continue
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

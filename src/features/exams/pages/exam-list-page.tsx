@@ -177,6 +177,23 @@ export function ExamListPage() {
         }
       />
 
+      {searchParams.get('filter') === 'marks' && (
+        <div className="flex items-center justify-between rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs font-medium text-emerald-800 dark:text-emerald-300">
+          <div className="flex items-center gap-2">
+            <ClipboardCheck className="size-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+            <span>Select an exam below and click <strong>Enter marks</strong> to record or update student grades.</span>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 px-2 text-[11px] text-emerald-700 hover:text-emerald-900 dark:text-emerald-300"
+            onClick={() => router.replace('/exams/list')}
+          >
+            Dismiss
+          </Button>
+        </div>
+      )}
+
       <Card className="gap-0 overflow-hidden border-sky-200/80 bg-gradient-to-r from-sky-50 via-white to-violet-50 py-0 shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10">
         <CardContent className="flex flex-wrap items-end gap-3 p-3">
           <div className="relative min-w-[200px] flex-1">

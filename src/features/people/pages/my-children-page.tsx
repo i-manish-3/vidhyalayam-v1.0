@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { EmptyState, LoadingState } from '@/components/shared'
+import { EmptyState, LoadingState, GradientHero } from '@/components/shared'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -117,34 +117,50 @@ function DetailItem({
 function Section({
   title,
   description,
+  icon: Icon,
   tone,
   children,
 }: {
   title: string
   description?: string
+  icon?: LucideIcon
   tone: 'sky' | 'emerald' | 'amber' | 'violet' | 'rose'
   children: React.ReactNode
 }) {
   const borderMap = {
-    sky: 'border-sky-200/80 dark:border-sky-800/30',
-    emerald: 'border-emerald-200/80 dark:border-emerald-800/30',
-    amber: 'border-amber-200/80 dark:border-amber-800/30',
-    violet: 'border-violet-200/80 dark:border-violet-800/30',
-    rose: 'border-rose-200/80 dark:border-rose-800/30',
+    sky: 'border-sky-200/80 dark:border-sky-500/20',
+    emerald: 'border-emerald-200/80 dark:border-emerald-500/20',
+    amber: 'border-amber-200/80 dark:border-amber-500/20',
+    violet: 'border-violet-200/80 dark:border-violet-500/20',
+    rose: 'border-rose-200/80 dark:border-rose-500/20',
   }
   const fromMap = {
-    sky: 'from-sky-50 via-white to-sky-50 dark:from-sky-950/20 dark:via-card dark:to-sky-950/20',
-    emerald: 'from-emerald-50 via-white to-emerald-50 dark:from-emerald-950/20 dark:via-card dark:to-emerald-950/20',
-    amber: 'from-amber-50 via-white to-amber-50 dark:from-amber-950/20 dark:via-card dark:to-amber-950/20',
-    violet: 'from-violet-50 via-white to-violet-50 dark:from-violet-950/20 dark:via-card dark:to-violet-950/20',
-    rose: 'from-rose-50 via-white to-rose-50 dark:from-rose-950/20 dark:via-card dark:to-rose-950/20',
+    sky: 'from-sky-50 via-white to-sky-50 dark:from-sky-500/10 dark:via-card dark:to-sky-500/5',
+    emerald: 'from-emerald-50 via-white to-emerald-50 dark:from-emerald-500/10 dark:via-card dark:to-emerald-500/5',
+    amber: 'from-amber-50 via-white to-amber-50 dark:from-amber-500/10 dark:via-card dark:to-amber-500/5',
+    violet: 'from-violet-50 via-white to-violet-50 dark:from-violet-500/10 dark:via-card dark:to-violet-500/5',
+    rose: 'from-rose-50 via-white to-rose-50 dark:from-rose-500/10 dark:via-card dark:to-rose-500/5',
+  }
+  const iconTileMap = {
+    sky: 'bg-gradient-to-br from-sky-500 to-sky-600 text-white',
+    emerald: 'bg-gradient-to-br from-emerald-500 to-teal-600 text-white',
+    amber: 'bg-gradient-to-br from-amber-500 to-orange-600 text-white',
+    violet: 'bg-gradient-to-br from-violet-500 to-indigo-600 text-white',
+    rose: 'bg-gradient-to-br from-rose-500 to-pink-600 text-white',
   }
   return (
-    <section className={cn('relative overflow-hidden rounded-xl border', borderMap[tone], 'bg-gradient-to-br', fromMap[tone])}>
+    <section className={cn('relative overflow-hidden rounded-xl border shadow-sm', borderMap[tone], 'bg-gradient-to-br', fromMap[tone])}>
       <div aria-hidden className="absolute -right-4 -top-4 size-14 rounded-full border-[10px] border-primary/5" />
-      <div className="relative border-b border-primary/5 px-4 py-3">
-        <h3 className="text-sm font-bold text-foreground">{title}</h3>
-        {description && <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>}
+      <div className="relative flex items-center gap-2.5 border-b border-primary/5 px-4 py-3">
+        {Icon && (
+          <span className={cn('flex size-7 shrink-0 items-center justify-center rounded-lg shadow-sm', iconTileMap[tone])}>
+            <Icon className="size-3.5" />
+          </span>
+        )}
+        <div>
+          <h3 className="text-sm font-bold text-foreground">{title}</h3>
+          {description && <p className="text-[11px] text-muted-foreground">{description}</p>}
+        </div>
       </div>
       <div className="relative px-4">{children}</div>
     </section>
@@ -241,21 +257,13 @@ export function MyChildrenPage() {
   return (
     <div className="space-y-5">
       {/* Gradient Header Banner */}
-      <div className="relative overflow-hidden rounded-2xl bg-[linear-gradient(135deg,var(--primary)_0%,#0d9488_48%,#2563eb_100%)] px-6 py-6 text-white shadow-lg">
-        <div aria-hidden className="absolute -right-10 -top-10 size-36 rounded-full border-[20px] border-cyan-200/15" />
-        <div aria-hidden className="absolute -bottom-8 right-16 size-20 rounded-full bg-cyan-300/8" />
-        <div aria-hidden className="absolute left-12 top-4 size-16 rounded-full bg-white/5 blur-md" />
-        <div aria-hidden className="absolute bottom-0 left-1/4 h-px w-48 bg-gradient-to-r from-transparent via-white/30 to-transparent" />
-        <div className="relative flex items-center gap-4">
-          <span className="flex size-12 items-center justify-center rounded-2xl border border-white/20 bg-white/15 shadow-md backdrop-blur-sm">
-            <Baby className="size-6 text-white" />
-          </span>
-          <div>
-            <h1 className="text-xl font-bold tracking-tight">My Children</h1>
-            <p className="mt-1 text-sm text-white/75">{studentCountLabel}</p>
-          </div>
-        </div>
-      </div>
+      <GradientHero
+        icon={Baby}
+        title="My Children"
+        description="View enrolled children, classroom assignments, academic year, and personal profiles."
+        badge={studentCountLabel}
+        gradientClassName="bg-[linear-gradient(135deg,var(--primary)_0%,#0d9488_48%,#0284c7_100%)]"
+      />
 
       <Tabs value={selectedChild.id} onValueChange={setSelectedId} className="space-y-5">
         <div className="overflow-x-auto pb-1">
@@ -288,11 +296,11 @@ export function MyChildrenPage() {
               {isCurrent && (
                 <div className="space-y-5">
                   {/* Profile Section */}
-                  <section className="relative overflow-hidden rounded-2xl border border-primary/10 bg-gradient-to-br from-primary/[0.04] via-card to-cyan-500/[0.04] shadow-sm">
-                    <div aria-hidden className="absolute -right-8 -top-8 size-28 rounded-full border-[15px] border-primary/5" />
-                    <div aria-hidden className="absolute -bottom-8 right-20 size-16 rounded-full bg-cyan-500/5" />
-                    <div className="relative grid gap-5 p-5 lg:grid-cols-[auto_1fr_auto] lg:items-center">
-                      <div className={cn('flex size-24 items-center justify-center overflow-hidden rounded-2xl border-2 border-primary/15 text-3xl font-black shadow-md', ACCENTS[index % ACCENTS.length])}>
+                  <section className="relative overflow-hidden rounded-2xl border border-border/70 bg-card shadow-xs">
+                    <div className="h-2 w-full bg-[linear-gradient(135deg,var(--primary)_0%,#0d9488_48%,#0284c7_100%)]" />
+                    <div className="p-5 sm:p-6">
+                    <div className="relative grid gap-5 lg:grid-cols-[auto_1fr_auto] lg:items-center">
+                      <div className={cn('flex size-24 items-center justify-center overflow-hidden rounded-2xl border-2 border-primary/20 text-3xl font-black shadow-md', ACCENTS[index % ACCENTS.length])}>
                         {child.profileImage ? (
                           <img src={child.profileImage} alt={child.fullName} className="size-full object-cover" />
                         ) : (
@@ -305,25 +313,25 @@ export function MyChildrenPage() {
                           <h2 className="truncate text-2xl font-extrabold tracking-tight text-foreground">{child.fullName}</h2>
                           <Badge className={cn(
                             child.isActive
-                              ? 'border-emerald-500/30 bg-gradient-to-r from-emerald-500/10 to-cyan-500/10 text-emerald-700 dark:text-emerald-300'
-                              : 'border-rose-500/30 bg-gradient-to-r from-rose-500/10 to-pink-500/10 text-rose-700 dark:text-rose-300'
+                              ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                              : 'border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-300'
                           )}>
-                            <span className={cn('mr-1 size-1.5 rounded-full', child.isActive ? 'bg-emerald-500' : 'bg-rose-500')} />
+                            <span className={cn('mr-1 size-1.5 rounded-full', child.isActive ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500')} />
                             {child.isActive ? child.admissionStatus || 'Admitted' : 'Disabled'}
                           </Badge>
                         </div>
                         <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground">
                           <span className="flex items-center gap-1.5">
-                            <GraduationCap className="size-4" />
+                            <GraduationCap className="size-4 text-primary" />
                             {childClassLabel}
                           </span>
                           <span className="flex items-center gap-1.5">
-                            <CalendarDays className="size-4" />
+                            <CalendarDays className="size-4 text-primary" />
                             {valueOrDash(child.academicYear)}
                           </span>
                           {child.admissionNumber && (
                             <span className="flex items-center gap-1.5 font-mono">
-                              <FileText className="size-4" />
+                              <FileText className="size-4 text-primary" />
                               {child.admissionNumber}
                             </span>
                           )}
@@ -341,37 +349,38 @@ export function MyChildrenPage() {
 
                       <div className="flex flex-col gap-2 lg:w-44">
                         <Button
-                          variant="secondary"
-                          style={{ backgroundColor: 'white', color: 'var(--primary)', border: '1px solid hsl(var(--primary)/0.2)' }}
+                          variant="outline"
+                          className="justify-start gap-2 h-9 text-xs font-semibold border-primary/20 hover:bg-primary/5 hover:text-primary dark:border-primary/30"
                           disabled={!child.isActive}
                           onClick={() => router.push(`/my-children/exams?studentId=${child.id}`)}
                         >
-                          <Award className="mr-2 size-4" />
-                          Exams
+                          <Award className="size-4 text-sky-600 dark:text-sky-400" />
+                          Exams & Grades
                         </Button>
                         <Button
-                          className="gap-2"
+                          className="justify-start gap-2 h-9 text-xs font-semibold shadow-sm"
                           disabled={!child.isActive}
                           onClick={() => router.push(`/my-children/fees?studentId=${child.id}`)}
                         >
                           <Receipt className="size-4" />
-                          Fees
+                          Fee Statements
                         </Button>
                         <Button
-                          variant="secondary"
-                          style={{ backgroundColor: 'white', color: 'var(--primary)', border: '1px solid hsl(var(--primary)/0.2)' }}
+                          variant="outline"
+                          className="justify-start gap-2 h-9 text-xs font-semibold border-primary/20 hover:bg-primary/5 hover:text-primary dark:border-primary/30"
                           disabled={!child.isActive}
                           onClick={() => router.push(`/my-children/attendance?studentId=${child.id}`)}
                         >
-                          <CalendarCheck className="mr-2 size-4" />
-                          Attendance
+                          <CalendarCheck className="size-4 text-emerald-600 dark:text-emerald-400" />
+                          Attendance History
                         </Button>
                       </div>
+                    </div>
                     </div>
                   </section>
 
                   <div className="grid gap-5 xl:grid-cols-[1fr_1fr]">
-                    <Section title="Academic Details" description="Class, roll, admission and session information" tone="sky">
+                    <Section title="Academic Details" description="Class, roll, admission and session information" icon={School} tone="sky">
                       <div className="grid gap-x-6 md:grid-cols-2">
                         <DetailItem icon={School} label="Class / Section" value={childClassLabel} />
                         <DetailItem icon={Hash} label="Roll Number" value={child.rollNumber} />
@@ -382,7 +391,7 @@ export function MyChildrenPage() {
                       </div>
                     </Section>
 
-                    <Section title="Personal Details" description="Identity and personal profile information" tone="violet">
+                    <Section title="Personal Details" description="Identity and personal profile information" icon={User} tone="violet">
                       <div className="grid gap-x-6 md:grid-cols-2">
                         <DetailItem icon={User} label="First Name" value={child.firstName} />
                         <DetailItem icon={User} label="Last Name" value={child.lastName} />
@@ -398,12 +407,12 @@ export function MyChildrenPage() {
                   </div>
 
                   <div className="grid gap-5 xl:grid-cols-[0.8fr_1.2fr]">
-                    <Section title="Parent / Guardian Details" description="Contact information recorded by the school" tone="amber">
+                    <Section title="Parent / Guardian Details" description="Contact information recorded by the school" icon={UsersRound} tone="amber">
                       <ParentLine title="Father" name={child.fatherName} phone={child.fatherPhone} />
                       <ParentLine title="Mother" name={child.motherName} phone={child.motherPhone} />
                     </Section>
 
-                    <Section title="Address" description="Residential address available on student record" tone="emerald">
+                    <Section title="Address" description="Residential address available on student record" icon={MapPin} tone="emerald">
                       <DetailItem icon={MapPin} label="Address" value={child.address} />
                     </Section>
                   </div>

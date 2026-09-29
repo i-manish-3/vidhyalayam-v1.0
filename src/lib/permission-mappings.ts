@@ -64,7 +64,7 @@ const MODULE_PERMISSION_MAP: Record<string, string[]> = {
   'exam-grade-scales': ['exam:manage', 'exam:gradescale:manage'],
   'exam-grade-scale-edit': ['exam:manage', 'exam:gradescale:manage'],
   'exam-result-preview': ['exam:results', 'exam:result:view', 'exam:result:compute'],
-  'exam-published-results': ['exam:results', 'exam:result:view'],
+  'exam-published-results': ['exam:results', 'exam:result:view', 'exam:view'],
   'exam-report-card-templates': ['exam:manage', 'exam:reportcard:manage'],
   'exam-report-card-template-edit': ['exam:manage', 'exam:reportcard:manage'],
   'exam-admit-cards': ['exam:manage', 'exam:admitcard:download'],

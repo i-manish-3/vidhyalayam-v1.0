@@ -16,6 +16,7 @@ interface GradientHeroProps {
   title: string
   badge?: ReactNode
   description?: string
+  gradientClassName?: string
   primaryAction?: GradientHeroAction
   secondaryAction?: GradientHeroAction
   extraActions?: ReactNode
@@ -26,12 +27,13 @@ export function GradientHero({
   title,
   badge,
   description,
+  gradientClassName = 'bg-gradient-to-r from-primary via-teal-600 to-cyan-600',
   primaryAction,
   secondaryAction,
   extraActions,
 }: GradientHeroProps) {
   return (
-    <section className="relative overflow-hidden rounded-xl border border-primary/25 bg-gradient-to-r from-primary via-teal-600 to-cyan-600 px-4 py-3 text-white shadow-lg shadow-primary/15">
+    <section className={`relative overflow-hidden rounded-xl border border-white/15 px-4 py-3 text-white shadow-lg shadow-black/10 ${gradientClassName}`}>
       <div aria-hidden className="absolute -right-9 -top-14 size-36 rounded-full border-[18px] border-white/10" />
       <div aria-hidden className="absolute -bottom-14 right-1/4 size-28 rounded-full bg-violet-300/10 blur-xl" />
       <div className="relative flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

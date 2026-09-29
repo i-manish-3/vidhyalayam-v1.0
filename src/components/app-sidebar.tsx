@@ -225,6 +225,7 @@ export const MENUS: Record<string, MenuItem[]> = {
       children: [
         { label: 'Dashboard', page: 'exam-dashboard', icon: LayoutDashboard },
         { label: 'Exam List', page: 'exam-list', icon: FileText },
+        { label: 'Enter Marks', page: 'exam-marks-entry', icon: ClipboardCheck },
         { label: 'Exam Patterns', page: 'exam-paradigms', icon: Layers },
         { label: 'Grade Scales', page: 'exam-grade-scales', icon: Award },
         { label: 'Report Card Templates', page: 'exam-report-card-templates', icon: LayoutTemplate },
@@ -367,7 +368,7 @@ export const MENUS: Record<string, MenuItem[]> = {
       children: [
         { label: 'Exam List', page: 'exam-list', icon: FileText },
         { label: 'Enter Marks', page: 'exam-marks-entry', icon: ClipboardCheck },
-        { label: 'Results', page: 'exam-result-preview', icon: BarChart3 },
+        { label: 'Results', page: 'exam-published-results', icon: BarChart3 },
       ],
     },
     { label: 'Library', page: 'library', icon: Library },
@@ -486,12 +487,38 @@ export const MENUS: Record<string, MenuItem[]> = {
 }
 
 function isPageActiveOnPath(page: PageName, pathname: string, exact = false): boolean {
+  // Specific checks for exam subpages to avoid false positive active states
+  if (page === 'exam-marks-entry') {
+    const isFilterMarks = typeof window !== 'undefined' && window.location.search.includes('filter=marks')
+    return pathname.includes('/marks-entry') || pathname.endsWith('/marks') || pathname.includes('/marksheet') || isFilterMarks
+  }
+  if (page === 'exam-result-preview' || page === 'exam-published-results') {
+    return pathname === '/exams/published' || (pathname.includes('/results') && !pathname.endsWith('/exams/list'))
+  }
+  if (page === 'exam-list') {
+    const isFilterMarks = typeof window !== 'undefined' && window.location.search.includes('filter=marks')
+    if (isFilterMarks) return false
+    if (
+      pathname.includes('/marks-entry') ||
+      pathname.includes('/marksheet') ||
+      pathname.includes('/results') ||
+      pathname === '/exams/published' ||
+      pathname.includes('/patterns') ||
+      pathname.includes('/grade-scales') ||
+      pathname.includes('/report-card-templates')
+    ) {
+      return false
+    }
+    return pathname === '/exams/list' || pathname === '/exams'
+  }
+
   const url = resolveMigratedUrl(page)
   if (!url) return false
-  if (exact) return pathname === url
+  const [baseUrl] = url.split('?')
+  if (exact) return pathname === baseUrl
   // Exact match OR pathname is a sub-route of this URL (covers e.g. /students/[id]
   // matching the "Students" menu item, /academics/classes/new matching "Classes").
-  return pathname === url || pathname.startsWith(url + '/')
+  return pathname === baseUrl || pathname.startsWith(baseUrl + '/')
 }
 
 function hasActiveDescendant(item: MenuChild, pathname: string): boolean {

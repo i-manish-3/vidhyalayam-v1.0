@@ -777,54 +777,100 @@ export function SchoolsPage() {
 
       {/* Reset Password Dialog */}
       <Dialog open={showResetDialog} onOpenChange={setShowResetDialog}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Reset Admin Password</DialogTitle>
-            <DialogDescription>
-              Set a new password for <strong>{resetSchool?.admin?.name}</strong> ({resetSchool?.admin?.email}). The admin will need to use this new password to log in.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label>New Password *</Label>
-              <div className="relative">
-                <Input
-                  type={showPassword ? 'text' : 'password'}
-                  placeholder="Minimum 6 characters"
-                  value={newPassword}
-                  onChange={e => setNewPassword(e.target.value)}
-                  className="pr-10"
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="absolute right-1 top-1/2 -translate-y-1/2 size-7"
-                  onClick={() => setShowPassword(!showPassword)}
-                >
-                  {showPassword ? <EyeOff className="size-3.5" /> : <EyeIcon className="size-3.5" />}
-                </Button>
+        <DialogContent className="flex max-h-[90svh] flex-col overflow-hidden border-primary/20 bg-card p-0 shadow-2xl shadow-primary/15 sm:max-w-md [&>button]:right-3 [&>button]:top-3 [&>button]:rounded-full [&>button]:text-white [&>button]:opacity-85 [&>button]:hover:bg-white/15 [&>button]:hover:opacity-100">
+          <DialogHeader className="relative shrink-0 overflow-hidden border-b border-white/15 bg-[linear-gradient(135deg,var(--primary)_0%,#0d9488_48%,#2563eb_100%)] px-5 py-4 pr-12 text-white sm:px-6">
+            <div aria-hidden className="absolute -right-8 -top-12 size-36 rounded-full border-[18px] border-white/10" />
+            <div aria-hidden className="absolute -bottom-8 right-16 size-24 rounded-full bg-cyan-300/20 blur-2xl" />
+            <div className="relative flex items-center gap-3">
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-white/25 bg-white/15 text-white shadow-md backdrop-blur-sm">
+                <KeyRound className="size-5 text-white" />
+              </span>
+              <div>
+                <DialogTitle className="text-lg font-bold tracking-normal text-white">Reset Admin Password</DialogTitle>
+                <DialogDescription className="mt-0.5 text-xs text-white/75">
+                  Set a new password for <span className="font-bold text-white">{resetSchool?.admin?.name}</span>
+                </DialogDescription>
               </div>
             </div>
-            <div className="space-y-2">
-              <Label>Confirm Password *</Label>
-              <Input
-                type={showPassword ? 'text' : 'password'}
-                placeholder="Re-enter the new password"
-                value={confirmPassword}
-                onChange={e => setConfirmPassword(e.target.value)}
-              />
+          </DialogHeader>
+
+          <div className="themed-scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain bg-gradient-to-br from-primary/[0.03] via-background to-primary/[0.055] p-4 sm:p-5">
+            <div className="rounded-xl border border-border/70 bg-card p-3 shadow-2xs">
+              <div className="flex items-center gap-2 text-xs font-medium text-foreground">
+                <Mail className="size-3.5 text-primary" />
+                <span className="text-muted-foreground">Admin Account:</span>
+                <span className="font-mono font-semibold">{resetSchool?.admin?.email}</span>
+              </div>
             </div>
-            {newPassword && confirmPassword && newPassword !== confirmPassword && (
-              <p className="text-sm text-destructive">Passwords do not match.</p>
-            )}
-            {newPassword && newPassword.length > 0 && newPassword.length < 6 && (
-              <p className="text-sm text-destructive">Password must be at least 6 characters.</p>
-            )}
+
+            <section className="relative overflow-hidden rounded-xl border border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-sky-50 p-4 shadow-sm dark:border-sky-500/25 dark:from-sky-500/15 dark:via-card dark:to-sky-500/10">
+              <div className="mb-3.5 flex items-center gap-2.5">
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-sky-600 text-white shadow-sm">
+                  <KeyRound className="size-4" />
+                </span>
+                <div>
+                  <h3 className="text-sm font-semibold text-foreground">Security Credentials</h3>
+                  <p className="text-[10px] text-muted-foreground">Minimum 6 characters required</p>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold">New Password <span className="text-destructive">*</span></Label>
+                  <div className="relative">
+                    <Input
+                      type={showPassword ? 'text' : 'password'}
+                      placeholder="Minimum 6 characters"
+                      value={newPassword}
+                      onChange={e => setNewPassword(e.target.value)}
+                      className={cn('h-9 pr-10 text-xs bg-background/80', newPassword && newPassword.length < 6 && 'border-destructive focus-visible:ring-destructive/30')}
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-1 top-1/2 -translate-y-1/2 size-7 text-muted-foreground hover:text-foreground"
+                      onClick={() => setShowPassword(!showPassword)}
+                    >
+                      {showPassword ? <EyeOff className="size-3.5" /> : <EyeIcon className="size-3.5" />}
+                    </Button>
+                  </div>
+                  {newPassword && newPassword.length > 0 && newPassword.length < 6 && (
+                    <p className="text-xs text-destructive">Password must be at least 6 characters.</p>
+                  )}
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold">Confirm Password <span className="text-destructive">*</span></Label>
+                  <Input
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="Re-enter the new password"
+                    value={confirmPassword}
+                    onChange={e => setConfirmPassword(e.target.value)}
+                    className={cn('h-9 text-xs bg-background/80', confirmPassword && newPassword !== confirmPassword && 'border-destructive focus-visible:ring-destructive/30')}
+                  />
+                  {confirmPassword && newPassword !== confirmPassword && (
+                    <p className="text-xs text-destructive">Passwords do not match.</p>
+                  )}
+                </div>
+              </div>
+            </section>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => { setShowResetDialog(false); setResetSchool(null) }}>Cancel</Button>
+
+          <DialogFooter className="shrink-0 border-t border-primary/10 bg-muted/30 px-4 py-3 sm:px-5">
             <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 px-4 text-xs font-medium"
+              onClick={() => { setShowResetDialog(false); setResetSchool(null) }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              className="h-8 px-4 text-xs font-semibold gap-1.5 shadow-sm"
               onClick={async () => {
                 if (!resetSchool || !newPassword || newPassword.length < 6 || newPassword !== confirmPassword) return
                 setResettingPassword(true)
@@ -843,7 +889,7 @@ export function SchoolsPage() {
               }}
               disabled={resettingPassword || !newPassword || newPassword.length < 6 || !confirmPassword || newPassword !== confirmPassword}
             >
-              {resettingPassword ? <><Loader2 className="size-4 animate-spin mr-2" />Resetting...</> : <><KeyRound className="size-4 mr-2" />Reset Password</>}
+              {resettingPassword ? <><Loader2 className="size-3.5 animate-spin mr-1.5" />Resetting...</> : <><KeyRound className="size-3.5 mr-1.5" />Reset Password</>}
             </Button>
           </DialogFooter>
         </DialogContent>

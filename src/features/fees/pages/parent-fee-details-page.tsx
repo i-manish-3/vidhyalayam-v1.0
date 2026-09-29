@@ -2,13 +2,14 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { PageHeader, EmptyState, LoadingState } from '@/components/shared'
+import { EmptyState, LoadingState, GradientHero } from '@/components/shared'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { api } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
-import { AlertCircle, CheckCircle2, ExternalLink, FileText, Receipt } from 'lucide-react'
+import { AlertCircle, CheckCircle2, ChevronDown, ExternalLink, FileText, IndianRupee, Receipt, Wallet } from 'lucide-react'
 
 interface FeeLine {
   id: string
@@ -121,6 +122,7 @@ export function ParentFeeDetailsPage() {
   const [slips, setSlips] = useState<DemandSlipRow[]>([])
   const [receipts, setReceipts] = useState<ReceiptRow[]>([])
   const [openMonth, setOpenMonth] = useState<string | null>(null)
+  const [showSlipsReceipts, setShowSlipsReceipts] = useState(false)
 
   const fetchFees = useCallback(async () => {
     try {
@@ -214,7 +216,11 @@ export function ParentFeeDetailsPage() {
   if (data.length === 0) {
     return (
       <div className="space-y-5">
-        <PageHeader title="Fee Details" description="Fees for your children" />
+        <GradientHero
+          icon={Receipt}
+          title="Fee Details"
+          description="Fees for your children"
+        />
         <EmptyState icon={Receipt} title="No fee records" description="There are no fee records for your children yet." />
       </div>
     )
@@ -228,157 +234,197 @@ export function ParentFeeDetailsPage() {
   const paidPct = total > 0 ? Math.min(100, Math.round((paid / total) * 100)) : pending === 0 ? 100 : 0
 
   return (
-    <div className="space-y-3">
-      <PageHeader title="Fee Details" description="Fees for your children" />
+    <div className="space-y-5">
+      <GradientHero
+        icon={Receipt}
+        title="Fee Details"
+        description="Fee statements, monthly breakdown, demand slips and payment receipts."
+        gradientClassName="bg-[linear-gradient(135deg,var(--primary)_0%,#0d9488_48%,#0284c7_100%)]"
+        badge={pending > 0 ? `Due: ${inr(pending)}` : 'All Fees Clear'}
+      />
 
-      <div className="overflow-hidden rounded-xl border bg-card">
-        <div className="flex flex-col gap-3 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
-          <div className="min-w-0">
-            <p className="truncate text-sm font-semibold">{selected?.studentName || 'Student'}</p>
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              {selected?.admissionNumber ? `Admission no. ${selected.admissionNumber}` : 'Fee summary'}
-            </p>
-          </div>
+      {/* Child Switcher (if multiple children) */}
+      {data.length > 1 && (
+        <div className="flex items-center gap-2 overflow-x-auto pb-1">
+          <span className="text-xs font-semibold text-muted-foreground mr-1 shrink-0">Child:</span>
+          {data.map((d) => {
+            const active = d.studentId === selectedId
+            return (
+              <button
+                key={d.studentId}
+                type="button"
+                onClick={() => setSelectedId(d.studentId)}
+                className={cn(
+                  'flex shrink-0 items-center gap-2 rounded-xl border px-3 py-1.5 text-xs font-semibold transition shadow-sm',
+                  active
+                    ? 'border-primary bg-primary text-primary-foreground shadow-primary/20'
+                    : 'border-border/70 bg-card hover:border-primary/40 hover:bg-muted/50 text-foreground',
+                )}
+              >
+                <span
+                  className={cn(
+                    'flex size-5 items-center justify-center rounded-full text-[9px] font-bold',
+                    active ? 'bg-primary-foreground/20 text-primary-foreground' : 'bg-primary/10 text-primary',
+                  )}
+                >
+                  {initials(d.studentName)}
+                </span>
+                <span>{d.studentName}</span>
+                {d.admissionNumber && (
+                  <span className={cn('text-[10px] opacity-75 font-mono', active ? 'text-white/80' : 'text-muted-foreground')}>
+                    #{d.admissionNumber}
+                  </span>
+                )}
+              </button>
+            )
+          })}
+        </div>
+      )}
 
-          {data.length > 1 && (
-            <div className="flex gap-1.5 overflow-x-auto sm:justify-end">
-              {data.map((d) => {
-                const active = d.studentId === selectedId
-                return (
-                  <button
-                    key={d.studentId}
-                    type="button"
-                    onClick={() => setSelectedId(d.studentId)}
-                    className={cn(
-                      'flex shrink-0 items-center gap-1.5 rounded-full border py-1 pl-1 pr-2.5 text-xs font-medium transition',
-                      active ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-background hover:bg-muted',
-                    )}
-                  >
-                    <span
-                      className={cn(
-                        'flex size-5 items-center justify-center rounded-full text-[9px] font-bold',
-                        active ? 'bg-primary-foreground/20 text-primary-foreground' : 'bg-primary/10 text-primary',
-                      )}
-                    >
-                      {initials(d.studentName)}
-                    </span>
-                    {d.studentName}
-                  </button>
-                )
-              })}
-            </div>
-          )}
+      {/* Summary KPI Cards */}
+      <div className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="rounded-xl border border-sky-200/80 bg-gradient-to-br from-sky-50/70 via-card to-sky-50/30 p-4 shadow-sm dark:border-sky-500/20 dark:from-sky-500/10 dark:via-card dark:to-sky-500/5">
+          <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Total Fee Assessment</p>
+          <p className="mt-1.5 text-xl font-extrabold tracking-tight text-foreground tabular-nums">{inr(total)}</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">Full academic session</p>
         </div>
 
-        <div className="grid grid-cols-3 border-t text-xs sm:grid-cols-4">
-          <div className="border-r px-3 py-2">
-            <p className="text-muted-foreground">Due</p>
-            <p className={cn('mt-0.5 font-bold tabular-nums', pending > 0 ? 'text-red-600' : 'text-emerald-600')}>
-              {inr(pending)}
-            </p>
-          </div>
-          <div className="border-r px-3 py-2">
-            <p className="text-muted-foreground">Paid</p>
-            <p className="mt-0.5 font-bold text-emerald-600 tabular-nums">{inr(paid)}</p>
-          </div>
-          <div className="px-3 py-2 sm:border-r">
-            <p className="text-muted-foreground">Total</p>
-            <p className="mt-0.5 font-bold tabular-nums">{inr(total)}</p>
-          </div>
-          <div className="col-span-3 flex items-center gap-2 border-t px-3 py-2 sm:col-span-1 sm:border-t-0">
+        <div className="rounded-xl border border-emerald-200/80 bg-gradient-to-br from-emerald-50/70 via-card to-emerald-50/30 p-4 shadow-sm dark:border-emerald-500/20 dark:from-emerald-500/10 dark:via-card dark:to-emerald-500/5">
+          <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Paid Amount</p>
+          <p className="mt-1.5 text-xl font-extrabold tracking-tight text-emerald-600 dark:text-emerald-400 tabular-nums">{inr(paid)}</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">{paidPct}% collected</p>
+        </div>
+
+        <div className="rounded-xl border border-rose-200/80 bg-gradient-to-br from-rose-50/70 via-card to-rose-50/30 p-4 shadow-sm dark:border-rose-500/20 dark:from-rose-500/10 dark:via-card dark:to-rose-500/5">
+          <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Pending Balance</p>
+          <p className={cn('mt-1.5 text-xl font-extrabold tracking-tight tabular-nums', pending > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400')}>
+            {inr(pending)}
+          </p>
+          <p className="mt-0.5 text-xs text-muted-foreground">{overdue > 0 ? `${inr(overdue)} overdue` : 'No overdue fine'}</p>
+        </div>
+
+        <div className="flex flex-col justify-between rounded-xl border border-border/70 bg-card p-4 shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Payment Progress</span>
             {pending > 0 ? (
-              <AlertCircle className="size-4 shrink-0 text-red-600" />
+              <Badge variant="outline" className="border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300 text-[10px]">
+                Pending
+              </Badge>
             ) : (
-              <CheckCircle2 className="size-4 shrink-0 text-emerald-600" />
+              <Badge variant="outline" className="border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 text-[10px]">
+                Fully Cleared
+              </Badge>
             )}
-            <span className={cn('text-xs font-medium', pending > 0 ? 'text-red-600' : 'text-emerald-600')}>
-              {pending > 0 ? `${paidPct}% paid${overdue > 0 ? `, ${inr(overdue)} overdue` : ''}` : 'All clear'}
-            </span>
           </div>
-        </div>
-        <div className="h-1 w-full bg-muted">
-          <div className="h-full rounded-full bg-brand" style={{ width: `${paidPct}%` }} />
+          <div className="mt-2 space-y-1.5">
+            <div className="flex items-center justify-between text-xs font-semibold">
+              <span className="text-muted-foreground">Overall</span>
+              <span>{paidPct}%</span>
+            </div>
+            <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 transition-all duration-500"
+                style={{ width: `${paidPct}%` }}
+              />
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Slips & receipts — collapsed by default to keep the page short */}
-      <details className="group overflow-hidden rounded-xl border bg-card">
-        <summary className="flex cursor-pointer list-none items-center justify-between px-3 py-2.5 text-sm font-semibold">
-          <span className="flex items-center gap-2">
-            <FileText className="size-4 text-muted-foreground" />
-            Slips &amp; Receipts
-            <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-              {slips.length} slips · {receipts.length} receipts
+      {/* Slips & receipts — modern collapsible card */}
+      <div className="overflow-hidden rounded-xl border border-border/70 bg-card shadow-sm">
+        <button
+          type="button"
+          onClick={() => setShowSlipsReceipts(!showSlipsReceipts)}
+          className="flex w-full items-center justify-between px-4 py-3 text-left transition hover:bg-muted/30"
+        >
+          <div className="flex items-center gap-3">
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <FileText className="size-4" />
             </span>
-          </span>
-          <span className="text-xs text-muted-foreground transition group-open:rotate-180">▾</span>
-        </summary>
-        <div className="border-t px-2 pb-2">
-          <Tabs defaultValue="slips" className="w-full">
-            <TabsList className="mt-2 grid h-8 w-full grid-cols-2 sm:w-64">
-              <TabsTrigger value="slips">Demand Slips</TabsTrigger>
-              <TabsTrigger value="receipts">Receipts</TabsTrigger>
-            </TabsList>
+            <div>
+              <p className="text-sm font-bold text-foreground">Demand Slips &amp; Receipts</p>
+              <p className="text-xs text-muted-foreground">
+                {slips.length} demand slip{slips.length === 1 ? '' : 's'} • {receipts.length} payment receipt{receipts.length === 1 ? '' : 's'}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary" className="text-[10px] font-semibold">
+              {showSlipsReceipts ? 'Hide Details' : 'View Slips & Receipts'}
+            </Badge>
+            <ChevronDown className={cn('size-4 text-muted-foreground transition-transform duration-200', showSlipsReceipts && 'rotate-180')} />
+          </div>
+        </button>
 
-            <TabsContent value="slips" className="mt-2">
-              {slips.length === 0 ? (
-                <p className="py-4 text-center text-xs text-muted-foreground">No demand slips.</p>
-              ) : (
-                <div className="divide-y rounded-lg border">
-                  {slips.map((s) => (
-                    <div key={s.id} className="flex items-center gap-2 px-2.5 py-2 hover:bg-muted/40">
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium">
-                          {s.billingMonth ? `${MONTHS[s.billingMonth - 1]} ${s.billingYear ?? ''}` : s.invoiceNumber}
-                        </p>
-                        <p className="truncate font-mono text-[10px] text-muted-foreground">{s.invoiceNumber}</p>
-                      </div>
-                      <p className="shrink-0 text-sm font-semibold tabular-nums">{inr(s.totalAmount)}</p>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 shrink-0 px-2 text-primary"
-                        onClick={() => window.open(`/api/parent/demand-slips/${s.id}/view`, '_blank', 'noopener')}
-                      >
-                        <ExternalLink className="mr-1 size-3.5" /> View
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </TabsContent>
+        {showSlipsReceipts && (
+          <div className="border-t border-border/60 p-4">
+            <Tabs defaultValue="slips" className="w-full">
+              <TabsList className="grid h-9 w-full grid-cols-2 sm:w-64">
+                <TabsTrigger value="slips" className="text-xs font-semibold">Demand Slips ({slips.length})</TabsTrigger>
+                <TabsTrigger value="receipts" className="text-xs font-semibold">Receipts ({receipts.length})</TabsTrigger>
+              </TabsList>
 
-            <TabsContent value="receipts" className="mt-2">
-              {receipts.length === 0 ? (
-                <p className="py-4 text-center text-xs text-muted-foreground">No receipts yet.</p>
-              ) : (
-                <div className="divide-y rounded-lg border">
-                  {receipts.map((r) => (
-                    <div key={r.id} className="flex items-center gap-2 px-2.5 py-2 hover:bg-muted/40">
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate font-mono text-sm font-medium">{r.receiptNumber}</p>
-                        <p className="truncate text-[10px] text-muted-foreground">
-                          {formatDate(r.paymentDate)}
-                          {r.paymentMethod ? ` · ${r.paymentMethod}` : ''}
-                        </p>
+              <TabsContent value="slips" className="mt-3">
+                {slips.length === 0 ? (
+                  <p className="py-6 text-center text-xs text-muted-foreground">No demand slips issued yet.</p>
+                ) : (
+                  <div className="divide-y divide-border/60 rounded-xl border border-border/70 overflow-hidden">
+                    {slips.map((s) => (
+                      <div key={s.id} className="flex items-center gap-3 px-3.5 py-2.5 hover:bg-muted/40 transition">
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-xs font-semibold text-foreground">
+                            {s.billingMonth ? `${MONTHS[s.billingMonth - 1]} ${s.billingYear ?? ''}` : s.invoiceNumber}
+                          </p>
+                          <p className="truncate font-mono text-[10px] text-muted-foreground">{s.invoiceNumber}</p>
+                        </div>
+                        <p className="shrink-0 text-sm font-bold tabular-nums text-foreground">{inr(s.totalAmount)}</p>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 shrink-0 px-2.5 text-xs text-primary font-semibold hover:bg-primary/10"
+                          onClick={() => window.open(`/api/parent/demand-slips/${s.id}/view`, '_blank', 'noopener')}
+                        >
+                          <ExternalLink className="mr-1.5 size-3.5" /> View Slip
+                        </Button>
                       </div>
-                      <p className="shrink-0 text-sm font-semibold tabular-nums">{inr(r.amount)}</p>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 shrink-0 px-2 text-primary"
-                        onClick={() => window.open(`/api/parent/receipts/${r.id}/view`, '_blank', 'noopener')}
-                      >
-                        <ExternalLink className="mr-1 size-3.5" /> View
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </TabsContent>
-          </Tabs>
-        </div>
-      </details>
+                    ))}
+                  </div>
+                )}
+              </TabsContent>
+
+              <TabsContent value="receipts" className="mt-3">
+                {receipts.length === 0 ? (
+                  <p className="py-6 text-center text-xs text-muted-foreground">No payment receipts yet.</p>
+                ) : (
+                  <div className="divide-y divide-border/60 rounded-xl border border-border/70 overflow-hidden">
+                    {receipts.map((r) => (
+                      <div key={r.id} className="flex items-center gap-3 px-3.5 py-2.5 hover:bg-muted/40 transition">
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate font-mono text-xs font-semibold text-foreground">{r.receiptNumber}</p>
+                          <p className="truncate text-[10px] text-muted-foreground">
+                            {formatDate(r.paymentDate)}
+                            {r.paymentMethod ? ` • ${r.paymentMethod}` : ''}
+                          </p>
+                        </div>
+                        <p className="shrink-0 text-sm font-bold tabular-nums text-emerald-600 dark:text-emerald-400">{inr(r.amount)}</p>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 shrink-0 px-2.5 text-xs text-primary font-semibold hover:bg-primary/10"
+                          onClick={() => window.open(`/api/parent/receipts/${r.id}/view`, '_blank', 'noopener')}
+                        >
+                          <ExternalLink className="mr-1.5 size-3.5" /> View Receipt
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
+          </div>
+        )}
+      </div>
 
       {/* Fee calendar — compact month grid */}
       {sortedFees.length === 0 ? (
