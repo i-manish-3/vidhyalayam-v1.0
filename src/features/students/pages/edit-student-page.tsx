@@ -1954,10 +1954,26 @@ export function EditStudentPage({ studentId }: { studentId: string }) {
               {form.academicYear || resolvedYear || 'Academic year'}
             </Badge>
             {student.class?.name && (
-              <Badge variant="outline" className="h-7 gap-1.5 border-white/25 bg-white/10 px-2.5 text-[11px] font-semibold text-white hover:bg-white/10">
+              <Badge variant="outline" className="h-8 gap-1.5 border-white/25 bg-white/10 px-2.5 text-[11px] font-semibold text-white hover:bg-white/10">
                 <GraduationCap className="size-3.5" />
                 {student.class.name}{student.section?.name ? ` - ${student.section.name}` : ''}
               </Badge>
+            )}
+            {canEdit && (
+              <Button
+                type="button"
+                onClick={handleSave}
+                disabled={saving}
+                size="sm"
+                className="h-8 gap-1.5 rounded-lg border border-white/30 bg-white/20 px-3.5 text-xs font-semibold text-white shadow-sm backdrop-blur-sm transition-all hover:bg-white hover:text-primary active:scale-95"
+              >
+                {saving ? (
+                  <div className="size-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                ) : (
+                  <Save className="size-3.5" />
+                )}
+                {saving ? 'Saving...' : 'Save Changes'}
+              </Button>
             )}
           </div>
         </div>
@@ -2026,9 +2042,27 @@ export function EditStudentPage({ studentId }: { studentId: string }) {
             <h2 className="text-base font-semibold leading-tight tracking-tight">{currentTabMeta.label}</h2>
             <p className="truncate text-xs text-muted-foreground">{EDIT_TAB_SUBTITLES[currentTab]}</p>
           </div>
-          <Badge variant="outline" className="ml-auto hidden h-6 shrink-0 border-primary/20 bg-white/80 px-2 text-[10px] font-semibold text-primary shadow-sm dark:bg-card/80 sm:inline-flex">
-            Tab {currentTab} of {EDIT_TABS.length}
-          </Badge>
+          <div className="ml-auto flex items-center gap-2">
+            <Badge variant="outline" className="hidden h-6 shrink-0 border-primary/20 bg-white/80 px-2 text-[10px] font-semibold text-primary shadow-sm dark:bg-card/80 sm:inline-flex">
+              Tab {currentTab} of {EDIT_TABS.length}
+            </Badge>
+            {canEdit && (
+              <Button
+                type="button"
+                onClick={handleSave}
+                disabled={saving}
+                size="sm"
+                className="h-7 gap-1.5 rounded-lg px-3 text-xs font-semibold shadow-xs"
+              >
+                {saving ? (
+                  <div className="size-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                ) : (
+                  <Save className="size-3" />
+                )}
+                {saving ? 'Saving...' : 'Save'}
+              </Button>
+            )}
+          </div>
         </div>
         <CardContent className="bg-gradient-to-br from-white via-primary/[0.015] to-sky-50/35 p-4 dark:from-card dark:via-card dark:to-sky-500/5 sm:p-6">
           {renderTabContent()}
@@ -2049,12 +2083,17 @@ export function EditStudentPage({ studentId }: { studentId: string }) {
             Cancel
           </Button>
           {currentTab < 5 && (
-            <Button onClick={() => setCurrentTab(prev => prev + 1)} className="h-9 gap-1 px-6 shadow-sm shadow-primary/20">
+            <Button variant="outline" onClick={() => setCurrentTab(prev => prev + 1)} className="h-9 gap-1 px-4 bg-white dark:bg-card">
               Next <ChevronRight className="size-4" />
             </Button>
           )}
-          {currentTab === 5 && canEdit && (
-            <Button onClick={handleSave} disabled={saving} className="h-9 gap-1 px-6 shadow-sm shadow-primary/20">
+          {canEdit && (
+            <Button
+              type="button"
+              onClick={handleSave}
+              disabled={saving}
+              className="h-9 gap-1.5 px-6 shadow-sm shadow-emerald-600/20 bg-gradient-to-r from-emerald-600 to-teal-600 text-white hover:from-emerald-700 hover:to-teal-700"
+            >
               {saving ? (
                 <div className="size-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
               ) : (
