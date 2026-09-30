@@ -147,7 +147,6 @@ function HeroStat({ title, value, icon: Icon, trend, trendLabel, tone = 'emerald
     >
       <div aria-hidden className={cn('absolute -bottom-6 -right-4 size-14 rounded-full transition-transform duration-300 group-hover:scale-125', t.decoration)} />
       <div aria-hidden className={cn('absolute right-12 top-2.5 size-1.5 rounded-full', t.decoration)} />
-      <div className={cn('absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r to-transparent', t.accent)} />
       <CardContent className="relative p-2.5">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">

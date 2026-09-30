@@ -390,7 +390,6 @@ export function SchoolAdminDashboard() {
           >
             <div aria-hidden className={cn('absolute -bottom-6 -right-4 size-14 rounded-full transition-transform duration-300 group-hover:scale-125', metric.decoration)} />
             <div aria-hidden className={cn('absolute right-12 top-2.5 size-1.5 rounded-full', metric.decoration)} />
-            <div className={cn('absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r to-transparent', metric.accent)} />
             <CardContent className="relative p-2.5">
               <div className="flex items-start justify-between gap-3">
                 <div>
@@ -445,6 +444,8 @@ export function SchoolAdminDashboard() {
                 </DashboardPanel>
               )}
 
+              {(canSeeStudents || canSeeTeachers) && <TodaysBirthdaysCard people={birthdays} compact />}
+
               {canSeeAttendance && (
                 <DashboardPanel
                   title="Student Attendance"
@@ -477,8 +478,6 @@ export function SchoolAdminDashboard() {
                   )}
                 </DashboardPanel>
               )}
-
-              {(canSeeStudents || canSeeTeachers) && <TodaysBirthdaysCard people={birthdays} compact />}
             </div>
 
             <div className="grid gap-4 lg:grid-cols-2">
