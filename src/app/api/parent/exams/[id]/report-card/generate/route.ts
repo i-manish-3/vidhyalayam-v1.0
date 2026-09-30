@@ -6,12 +6,16 @@ import { getParentChildStudentIds } from '@/lib/parent-access'
 import {
   buildExamReportCard,
   buildMultiExamReportCard,
+  resolveBandGrade,
   type AttendanceSnapshot,
   type ExamResultDef,
+  type SubjectSummaryDef,
   type SchoolDef,
   type StudentDef,
   type TemplateDef,
 } from '@/features/exams/lib/report-card-generator'
+
+const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100
 
 export async function POST(
   request: NextRequest,
@@ -48,11 +52,17 @@ export async function POST(
     })
     if (!exam) return apiError(404, 'This report card is not published yet.')
 
-    // Find all published sibling exams in this term (ExamGroup)
+    // Find all published sibling exams in this term (ExamGroup) or academic year
     const termExams = await db.exam.findMany({
       where: {
         schoolId: user.schoolId,
-        examGroupId: exam.examGroupId,
+        OR: [
+          { examGroupId: exam.examGroupId },
+          { academicYear: exam.academicYear },
+          ...(Array.isArray(examIdsInput) && examIdsInput.length > 0
+            ? [{ id: { in: examIdsInput.filter((id): id is string => typeof id === 'string') } }]
+            : []),
+        ],
         deletedAt: null,
         visibleToParent: true,
         publishedAt: { not: null },
@@ -64,6 +74,8 @@ export async function POST(
         status: true,
         startDate: true,
         publishedAt: true,
+        academicYear: true,
+        group: { select: { name: true, paradigm: { select: { name: true } } } },
       },
       orderBy: { startDate: 'asc' },
     })
@@ -76,6 +88,8 @@ export async function POST(
     }
     if (selectedExamIds.length === 0) {
       selectedExamIds = [examId]
+    } else if (!selectedExamIds.includes(examId)) {
+      selectedExamIds = [examId, ...selectedExamIds]
     }
 
     const isMultiExam = selectedExamIds.length > 1
@@ -85,7 +99,17 @@ export async function POST(
     })
     if (!template) return apiError(400, 'No report card template is configured yet.')
 
-    const [school, students, results, gradeScale, highestMarksRows, subjectConfigs] = await Promise.all([
+    const [
+      school,
+      students,
+      results,
+      gradeScale,
+      highestMarksRows,
+      subjectConfigs,
+      marksEntries,
+      fullSubjectConfigs,
+      schoolSubjects,
+    ] = await Promise.all([
       db.school.findUnique({
         where: { id: user.schoolId },
         select: {
@@ -119,14 +143,14 @@ export async function POST(
           dateOfBirth: true,
           gender: true,
           admissionDate: true,
-          class: { select: { name: true } },
-          section: { select: { name: true } },
+          class: { select: { id: true, name: true } },
+          section: { select: { id: true, name: true } },
           academicEnrollments: {
             where: { academicYear: exam.academicYear, deletedAt: null },
             select: {
               rollNumber: true,
-              class: { select: { name: true } },
-              section: { select: { name: true } },
+              class: { select: { id: true, name: true } },
+              section: { select: { id: true, name: true } },
             },
             take: 1,
           },
@@ -190,14 +214,51 @@ export async function POST(
           passingPercentage: true,
         },
       }),
+      db.marksEntry.findMany({
+        where: {
+          schoolId: user.schoolId,
+          examId: { in: selectedExamIds },
+          studentId: { in: studentIds },
+          deletedAt: null,
+        },
+        include: {
+          component: true,
+          subjectConfig: true,
+        },
+      }),
+      db.examSubjectConfig.findMany({
+        where: {
+          schoolId: user.schoolId,
+          examId: { in: selectedExamIds },
+          deletedAt: null,
+        },
+        include: {
+          components: true,
+        },
+      }),
+      db.subject.findMany({
+        where: { schoolId: user.schoolId },
+        select: { id: true, name: true },
+      }),
     ])
 
     if (!school) return notFoundError('School')
+
+    const subjectNameMap = new Map(schoolSubjects.map((s) => [s.id, s.name]))
 
     const highestMarksBySubject = new Map<string, number>()
     for (const h of highestMarksRows) {
       if (h._max.obtainedMarks != null) {
         highestMarksBySubject.set(h.subjectId, h._max.obtainedMarks)
+      }
+    }
+    for (const m of marksEntries) {
+      const subId = m.subjectConfig?.subjectId
+      if (subId && m.numericValue != null && m.status !== 'absent') {
+        const curMax = highestMarksBySubject.get(subId) ?? 0
+        if (m.numericValue > curMax) {
+          highestMarksBySubject.set(subId, m.numericValue)
+        }
       }
     }
 
@@ -313,6 +374,158 @@ export async function POST(
     const selectedTermExams = selectedExamIds
       .map((id) => termExamMap.get(id))
       .filter((e): e is NonNullable<typeof e> => Boolean(e))
+
+    // Ensure every selected exam has an ExamResultDef for every student.
+    // If an exam result was never calculated/computed or has missing summaries, synthesize it from marksEntries + examSubjectConfig.
+    for (const stu of students) {
+      const studentResults = resultsByStudent.get(stu.id) ?? []
+
+      for (const curExam of selectedTermExams) {
+        const existingResultDef = studentResults.find((r) => r.examId === curExam.id)
+        const studentExamMarks = marksEntries.filter(
+          (m) => m.studentId === stu.id && m.examId === curExam.id,
+        )
+
+        const stuClassId = stu.class?.id || stu.academicEnrollments[0]?.class?.id
+        const stuSectionId = stu.section?.id || stu.academicEnrollments[0]?.section?.id
+
+        let applicableConfigs = fullSubjectConfigs.filter((cfg) => {
+          if (cfg.examId !== curExam.id) return false
+          if (stuClassId && cfg.classId) {
+            return cfg.classId === stuClassId
+          }
+          return !cfg.classId
+        })
+
+        if (applicableConfigs.length === 0 && studentExamMarks.length > 0) {
+          const markConfigIds = new Set(studentExamMarks.map((m) => m.subjectConfigId).filter(Boolean))
+          applicableConfigs = fullSubjectConfigs.filter((cfg) => markConfigIds.has(cfg.id))
+        }
+
+        const uniqueConfigsBySubject = new Map<string, typeof fullSubjectConfigs[0]>()
+        for (const cfg of applicableConfigs) {
+          if (!uniqueConfigsBySubject.has(cfg.subjectId)) {
+            uniqueConfigsBySubject.set(cfg.subjectId, cfg)
+          }
+        }
+        applicableConfigs = Array.from(uniqueConfigsBySubject.values())
+
+        if (!existingResultDef || existingResultDef.subjectSummaries.length === 0) {
+          if (applicableConfigs.length === 0 && studentExamMarks.length === 0) {
+            continue
+          }
+
+          const synthesizedSummaries: SubjectSummaryDef[] = []
+
+          if (applicableConfigs.length > 0) {
+            for (const cfg of applicableConfigs) {
+              const cfgMarks = studentExamMarks.filter((m) => m.subjectConfigId === cfg.id)
+              const subName = subjectNameMap.get(cfg.subjectId) || 'Subject'
+
+              let obtMarks = 0
+              let isAbsent = false
+              let isMedicalLeave = false
+              let isEntered = false
+              const compBreakdown: Record<string, { obtained: number; max: number }> = {}
+
+              if (cfg.components && cfg.components.length > 0) {
+                for (const comp of cfg.components) {
+                  const m = cfgMarks.find((x) => x.componentId === comp.id)
+                  if (m?.status === 'absent') {
+                    isAbsent = true
+                    compBreakdown[comp.name] = { obtained: 0, max: comp.maxMarks }
+                  } else if (m?.status === 'medical_leave') {
+                    isMedicalLeave = true
+                    compBreakdown[comp.name] = { obtained: 0, max: comp.maxMarks }
+                  } else if (m && m.numericValue != null) {
+                    isEntered = true
+                    obtMarks += m.numericValue
+                    compBreakdown[comp.name] = { obtained: m.numericValue, max: comp.maxMarks }
+                  } else {
+                    compBreakdown[comp.name] = { obtained: 0, max: comp.maxMarks }
+                  }
+                }
+              } else {
+                const m = cfgMarks.find((x) => x.componentId === null) || cfgMarks[0]
+                if (m?.status === 'absent') {
+                  isAbsent = true
+                } else if (m?.status === 'medical_leave') {
+                  isMedicalLeave = true
+                } else if (m && m.numericValue != null) {
+                  isEntered = true
+                  obtMarks = m.numericValue
+                }
+              }
+
+              const tot = cfg.totalMarks || 100
+              const passPct = cfg.passingPercentage || 33
+              const passM = passMarksBySubject.get(cfg.subjectId) ?? Math.round((tot * passPct) / 100)
+              const pct = tot > 0 ? (obtMarks / tot) * 100 : 0
+              const subGrade = resolveBandGrade(pct, gradeScale?.bands)
+              const status = isAbsent
+                ? 'absent'
+                : isMedicalLeave
+                  ? 'medical_leave'
+                  : isEntered
+                    ? pct >= passPct
+                      ? 'pass'
+                      : 'fail'
+                    : 'not_applicable'
+
+              synthesizedSummaries.push({
+                subjectId: cfg.subjectId,
+                subjectName: subName,
+                totalMarks: tot,
+                obtainedMarks: obtMarks,
+                percentage: round2(pct),
+                grade: subGrade,
+                gradePoint: null,
+                status,
+                passMarks: passM,
+                highestMarks: highestMarksBySubject.get(cfg.subjectId) ?? obtMarks,
+                componentsJson: Object.keys(compBreakdown).length > 0 ? compBreakdown : null,
+              })
+            }
+          }
+
+          const totSum = synthesizedSummaries.reduce((acc, s) => acc + s.totalMarks, 0)
+          const obtSum = synthesizedSummaries.reduce(
+            (acc, s) => (s.status !== 'absent' && s.status !== 'medical_leave' && s.status !== 'not_applicable' ? acc + s.obtainedMarks : acc),
+            0,
+          )
+          const pct = totSum > 0 ? round2((obtSum / totSum) * 100) : 0
+          const ovGrade = resolveBandGrade(pct, gradeScale?.bands)
+          const failedCount = synthesizedSummaries.filter((s) => s.status === 'fail').length
+
+          const synthesizedResultDef: ExamResultDef = {
+            examId: curExam.id,
+            examName: curExam.name,
+            examGroupName: curExam.group?.name || exam.group.name,
+            paradigmName: curExam.group?.paradigm?.name ?? exam.group.paradigm?.name ?? null,
+            academicYear: curExam.academicYear || exam.academicYear,
+            totalMarks: totSum,
+            obtainedMarks: obtSum,
+            percentage: pct,
+            grade: ovGrade,
+            gradePoint: null,
+            rankInClass: null,
+            rankInSection: null,
+            status: failedCount > 0 ? 'fail' : 'pass',
+            remarks: null,
+            failedSubjects: failedCount,
+            publishedAt: curExam.publishedAt ?? exam.publishedAt,
+            subjectSummaries: synthesizedSummaries,
+          }
+
+          if (existingResultDef) {
+            Object.assign(existingResultDef, synthesizedResultDef)
+          } else {
+            studentResults.push(synthesizedResultDef)
+            resultsByStudent.set(stu.id, studentResults)
+          }
+        }
+      }
+    }
 
     const cards = studentIds
       .map((studentId) => {

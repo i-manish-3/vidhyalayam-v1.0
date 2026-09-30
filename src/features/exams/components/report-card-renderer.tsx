@@ -557,7 +557,13 @@ export function ReportCardRenderer({ data, className, showHeaderBanner }: Props)
                       {/* Exam / Component Marks */}
                       {isMultiExam ? (
                         selectedExams.map((e) => {
-                          const sc = s.examScores?.find((es) => es.examId === e.examId)
+                          const sc =
+                            s.examScores?.find((es) => es.examId === e.examId) ||
+                            s.examScores?.find(
+                              (es) =>
+                                es.examName &&
+                                (es.examName === e.shortCode || es.examName === e.examName),
+                            )
                           if (!sc || sc.status === 'not_applicable') {
                             return (
                               <td
@@ -575,6 +581,16 @@ export function ReportCardRenderer({ data, className, showHeaderBanner }: Props)
                                 className="border-l border-sky-100 px-2 py-2 print:px-1 print:py-0.5 text-center font-bold text-rose-600"
                               >
                                 AB
+                              </td>
+                            )
+                          }
+                          if (sc.status === 'medical_leave') {
+                            return (
+                              <td
+                                key={e.examId}
+                                className="border-l border-sky-100 px-2 py-2 print:px-1 print:py-0.5 text-center font-bold text-amber-600"
+                              >
+                                ML
                               </td>
                             )
                           }

@@ -766,7 +766,7 @@ export interface BuildMultiExamCardInput {
   gradeScaleBands?: ReadonlyArray<{ code: string; minValue: number; maxValue: number; gradePoint?: number | null }>
 }
 
-function resolveBandGrade(
+export function resolveBandGrade(
   pct: number,
   bands?: ReadonlyArray<{ code: string; minValue: number; maxValue: number; gradePoint?: number | null }>,
 ): string | null {
@@ -824,35 +824,57 @@ export function buildMultiExamReportCard(input: BuildMultiExamCardInput): Report
       examId: e.id,
       examName: e.name,
       shortCode: e.shortCode || null,
-      maxMarks: r ? round2(r.totalMarks) : undefined,
+      maxMarks: r && r.totalMarks > 0 ? round2(r.totalMarks) : undefined,
     }
   })
 
-  // Collect all unique subjects across the selected exams in deterministic order
+  // Collect all unique subjects across the selected exams in deterministic order.
+  // We track both subjectId and normalized subjectName so different exams with the same subject align in one row.
   const subjectMap = new Map<
     string,
     {
+      subjectId: string
       subjectName: string
       scoresByExam: Map<string, SubjectSummaryDef>
       latestComponents: ReportCardComponentBreakdown[]
     }
   >()
 
+  const keyToCanonicalKey = new Map<string, string>()
+
   for (const exam of input.exams) {
     const er = resultMap.get(exam.id)
     if (!er) continue
     for (const sm of er.subjectSummaries) {
       if (!input.template.includeCoScholastic && sm.totalMarks === 0) continue
-      let existing = subjectMap.get(sm.subjectId)
+
+      const normName = (sm.subjectName || '').trim().toLowerCase()
+      let canonicalKey =
+        (sm.subjectId && keyToCanonicalKey.get(sm.subjectId)) ||
+        (normName && keyToCanonicalKey.get(normName))
+
+      let existing = canonicalKey ? subjectMap.get(canonicalKey) : undefined
+
       if (!existing) {
+        canonicalKey = sm.subjectId || normName || `subj_${subjectMap.size}`
         existing = {
+          subjectId: sm.subjectId || canonicalKey,
           subjectName: sm.subjectName,
           scoresByExam: new Map(),
           latestComponents: [],
         }
-        subjectMap.set(sm.subjectId, existing)
+        subjectMap.set(canonicalKey, existing)
       }
-      existing.scoresByExam.set(exam.id, sm)
+
+      if (sm.subjectId) keyToCanonicalKey.set(sm.subjectId, canonicalKey)
+      const curExamScore = existing.scoresByExam.get(exam.id)
+      if (
+        !curExamScore ||
+        (curExamScore.status === 'not_applicable' && sm.status !== 'not_applicable') ||
+        (curExamScore.obtainedMarks === 0 && sm.obtainedMarks > 0)
+      ) {
+        existing.scoresByExam.set(exam.id, sm)
+      }
       const comps = parseComponents(sm.componentsJson)
       if (comps.length > 0) {
         existing.latestComponents = [...comps]
@@ -865,7 +887,7 @@ export function buildMultiExamReportCard(input: BuildMultiExamCardInput): Report
     termTotalsByExam[e.id] = { obtainedMarks: 0, totalMarks: 0 }
   }
 
-  const subjects: ReportCardSubjectRow[] = Array.from(subjectMap.entries()).map(([subjectId, subj]) => {
+  const subjects: ReportCardSubjectRow[] = Array.from(subjectMap.values()).map((subj) => {
     const examScores: ReportCardSubjectExamScore[] = input.exams.map((e) => {
       const sm = subj.scoresByExam.get(e.id)
       if (!sm) {
@@ -911,7 +933,7 @@ export function buildMultiExamReportCard(input: BuildMultiExamCardInput): Report
     }
 
     return {
-      subjectId,
+      subjectId: subj.subjectId,
       subjectName: subj.subjectName,
       totalMarks: combinedTotalMarks,
       obtainedMarks: combinedObtainedMarks,

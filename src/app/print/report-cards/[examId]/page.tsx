@@ -97,7 +97,15 @@ function PrintReportCardsContent() {
         if (!cancelled) {
           setData(res)
           if (res.selectedExamIds && res.selectedExamIds.length > 0) {
-            setSelectedExamIds(res.selectedExamIds)
+            setSelectedExamIds((prev) => {
+              if (
+                prev.length === res.selectedExamIds!.length &&
+                prev.every((id, idx) => id === res.selectedExamIds![idx])
+              ) {
+                return prev
+              }
+              return res.selectedExamIds!
+            })
           }
         }
       })
