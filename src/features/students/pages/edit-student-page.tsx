@@ -17,6 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/components/ui/separator'
 import { Checkbox } from '@/components/ui/checkbox'
 import { DatePicker } from '@/components/date-picker'
+import { ProfilePhotoDialog } from '@/components/shared'
 import { cn } from '@/lib/utils'
 import {
   Save, User, Phone, MapPin, GraduationCap, Banknote,
@@ -397,6 +398,7 @@ export function EditStudentPage({ studentId }: { studentId: string }) {
 
   // Form state
   const [form, setForm] = useState<EditForm | null>(null)
+  const [showPhotoDialog, setShowPhotoDialog] = useState(false)
 
   // Document state — files held in browser memory as data URLs until Save.
   // Server enforces a 200 KB cap; we mirror it here.
@@ -1008,8 +1010,9 @@ export function EditStudentPage({ studentId }: { studentId: string }) {
       {/* Photo Upload */}
       <div className="flex items-center gap-4">
         <div
-          className="size-20 rounded-full bg-muted flex items-center justify-center border-2 border-dashed border-muted-foreground/30 shrink-0 overflow-hidden cursor-pointer hover:border-primary/50 transition-colors"
-          onClick={() => (document.getElementById('edit-photo-input') as HTMLInputElement)?.click()}
+          className="size-20 rounded-full bg-muted flex items-center justify-center border-2 border-dashed border-muted-foreground/30 shrink-0 overflow-hidden cursor-pointer hover:border-primary/50 transition-colors shadow-xs"
+          onClick={() => setShowPhotoDialog(true)}
+          title="Click to change photo"
         >
           {form.profileImage ? (
             <img src={form.profileImage} alt="Student photo" className="size-full object-cover" />
@@ -1018,38 +1021,27 @@ export function EditStudentPage({ studentId }: { studentId: string }) {
           )}
         </div>
         <div>
-          <input
-            id="edit-photo-input"
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            className="hidden"
-            onChange={async (e) => {
-              const file = e.target.files?.[0]
-              if (!file) return
-              try {
-                const { dataUrl, finalBytes, compressed } = await compressImage(file)
-                if (finalBytes > 200 * 1024) {
-                  toast({ title: 'Photo Too Large', description: 'This image format cannot be compressed under 200 KB. Please upload a JPG, PNG, or WebP.', variant: 'destructive' })
-                  return
-                }
-                updateForm('profileImage', dataUrl)
-                if (compressed) {
-                  toast({ title: 'Photo Compressed', description: `Resized to ${Math.round(finalBytes / 1024)} KB for upload.` })
-                }
-              } catch {
-                toast({ title: 'Could Not Read Photo', description: 'Please try a different image.', variant: 'destructive' })
-              }
-            }}
-          />
-          <Button variant="outline" size="sm" onClick={() => (document.getElementById('edit-photo-input') as HTMLInputElement)?.click()} className="gap-1">
-            <Upload className="size-3" /> {form.profileImage ? 'Change Photo' : 'Upload Photo'}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setShowPhotoDialog(true)}
+            className="gap-1.5 shadow-xs"
+          >
+            <Camera className="size-3.5" /> {form.profileImage ? 'Change Photo' : 'Upload Photo'}
           </Button>
           {form.profileImage && (
-            <Button variant="ghost" size="sm" onClick={() => updateForm('profileImage', '')} className="gap-1 ml-1 text-destructive">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => updateForm('profileImage', '')}
+              className="gap-1 ml-1 text-destructive hover:bg-destructive/10"
+            >
               <X className="size-3" /> Remove
             </Button>
           )}
-          <p className="text-xs text-muted-foreground mt-1">JPG/PNG/WebP — auto-compressed to 200 KB</p>
+          <p className="text-xs text-muted-foreground mt-1">Upload from device or capture live using camera</p>
         </div>
       </div>
 
@@ -2104,6 +2096,13 @@ export function EditStudentPage({ studentId }: { studentId: string }) {
           )}
         </div>
       </div>
+
+      <ProfilePhotoDialog
+        open={showPhotoDialog}
+        onOpenChange={setShowPhotoDialog}
+        currentPhoto={form?.profileImage}
+        onPhotoSelected={(url) => updateForm('profileImage', url)}
+      />
     </div>
   )
 }

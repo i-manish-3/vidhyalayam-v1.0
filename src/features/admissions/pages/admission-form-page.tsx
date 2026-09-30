@@ -19,6 +19,7 @@ import { Separator } from '@/components/ui/separator'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { DatePicker } from '@/components/date-picker'
+import { ProfilePhotoDialog } from '@/components/shared'
 import { cn } from '@/lib/utils'
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden'
 import {
@@ -551,6 +552,7 @@ export function AdmissionFormPage() {
 
   // Form state
   const [form, setForm] = useState<WizardForm>({ ...DEFAULT_FORM })
+  const [showPhotoDialog, setShowPhotoDialog] = useState(false)
 
   // Document uploads — files held in browser memory as data URLs until submit.
   // Backend cap is 200 KB per file; we enforce the same on the client.
@@ -1491,7 +1493,7 @@ export function AdmissionFormPage() {
             <button
               type="button"
               className="group relative flex size-20 items-center justify-center overflow-hidden rounded-xl border-2 border-dashed border-sky-300 bg-white shadow-sm transition-all hover:-translate-y-0.5 hover:border-sky-500 hover:shadow-md dark:border-sky-500/40 dark:bg-card"
-              onClick={() => (document.getElementById('photo-input') as HTMLInputElement)?.click()}
+              onClick={() => setShowPhotoDialog(true)}
               aria-label={form.profileImage ? 'Change student photo' : 'Upload student photo'}
             >
               {form.profileImage ? (
@@ -1504,13 +1506,26 @@ export function AdmissionFormPage() {
               </span>
             </button>
             <p className="mt-1.5 text-[11px] font-semibold text-foreground/80">Student Photo</p>
-            <p className="text-[9px] leading-3 text-muted-foreground">JPG/PNG/WebP · 200 KB</p>
+            <p className="text-[9px] leading-3 text-muted-foreground">Device file or camera</p>
             <div className="mt-1.5 flex items-center justify-center gap-1">
-              <Button variant="outline" size="sm" onClick={() => (document.getElementById('photo-input') as HTMLInputElement)?.click()} className="h-7 gap-1 bg-white px-2 text-[10px] dark:bg-card">
-                <Upload className="size-3" /> {form.profileImage ? 'Change' : 'Upload'}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setShowPhotoDialog(true)}
+                className="h-7 gap-1 bg-white px-2 text-[10px] dark:bg-card"
+              >
+                <Camera className="size-3" /> {form.profileImage ? 'Change' : 'Upload'}
               </Button>
               {form.profileImage && (
-                <Button variant="ghost" size="sm" onClick={() => updateForm('profileImage', '')} className="size-7 p-0 text-destructive hover:bg-destructive/10 hover:text-destructive" aria-label="Remove student photo">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => updateForm('profileImage', '')}
+                  className="size-7 p-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  aria-label="Remove student photo"
+                >
                   <X className="size-3.5" />
                 </Button>
               )}
@@ -3108,6 +3123,13 @@ export function AdmissionFormPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <ProfilePhotoDialog
+        open={showPhotoDialog}
+        onOpenChange={setShowPhotoDialog}
+        currentPhoto={form.profileImage}
+        onPhotoSelected={(url) => updateForm('profileImage', url)}
+      />
     </div>
   )
 }
