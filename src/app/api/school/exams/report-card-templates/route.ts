@@ -99,7 +99,7 @@ export async function POST(request: NextRequest) {
         header: { showLogo: true, showAddress: true },
         studentBlock: ['name', 'admissionNumber', 'rollNumber', 'class', 'section', 'fatherName', 'motherName'],
         subjectTable: { showComponents: true, showGrade: true, showRank: false },
-        footer: { showAttendance: true, showRemarks: true, signatures: ['Class Teacher', 'Principal'] },
+        footer: { showAttendance: true, showRemarks: true, signatures: ['Parent / Guardian', 'Class Teacher', 'Principal'] },
       })
     }
 

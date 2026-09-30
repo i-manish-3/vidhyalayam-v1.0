@@ -70,7 +70,11 @@ function studentMeta(s: StudentRow): string {
   return parts.join(' · ')
 }
 
-function buildPreviewSnapshot(student: StudentRow, academicYear: string): CertificateSnapshot | null {
+function buildPreviewSnapshot(
+  student: StudentRow,
+  academicYear: string,
+  school?: Partial<CertificateSnapshot['school']> | null,
+): CertificateSnapshot | null {
   if (!student) return null
   const primary = student.parentLinks.find((p) => p.isPrimary) || student.parentLinks[0]
   return {
@@ -80,45 +84,50 @@ function buildPreviewSnapshot(student: StudentRow, academicYear: string): Certif
       firstName: student.firstName,
       lastName: student.lastName,
       fullName: [student.firstName, student.lastName].filter(Boolean).join(' '),
-      admissionNumber: student.admissionNumber,
-      rollNumber: student.rollNumber,
+      admissionNumber: student.admissionNumber || '0300/022',
+      rollNumber: student.rollNumber || '12',
       className: student.class?.name || '',
       sectionName: student.section ? `, Section ${student.section.name}` : '',
       academicYear,
-      dateOfBirth: '',
-      gender: '',
+      dateOfBirth: '08/10/2013',
+      gender: 'Male',
       nationality: 'Indian',
       religion: '',
-      category: '',
-      motherTongue: '',
-      bloodGroup: '',
+      category: 'General',
+      motherTongue: 'Hindi',
+      bloodGroup: 'B+',
       address: '',
       city: '',
       state: '',
       pincode: '',
-      dateOfAdmission: '',
+      dateOfAdmission: '05/04/2023',
+      admissionClass: student.class?.name || '',
       previousSchool: '',
       previousClass: '',
       fatherName: primary?.parent.fatherName || '',
       motherName: primary?.parent.motherName || '',
       parentPhone: primary?.parent.phone || '',
+      penNumber: '229/2013/561',
+      apaarId: '498266827646',
     },
     school: {
-      id: '',
-      name: 'School Name',
-      address: '',
-      city: '',
-      state: '',
-      pincode: '',
-      phone: '',
-      email: '',
-      website: '',
-      board: '',
-      registrationNumber: '',
-      affiliationNumber: '',
-      udiseNumber: '',
-      principalName: '',
-      trustName: '',
+      id: school?.id || '',
+      name: school?.name || 'DAYARAMKA INTERNATIONAL PUBLIC SCHOOL',
+      logo: school?.logo || null,
+      printHeader: school?.printHeader || null,
+      address: school?.address || 'Akash Chowk, Bypass Road, Bairgania, Sitamarhi-843313',
+      city: school?.city || 'Sitamarhi',
+      state: school?.state || 'Bihar',
+      pincode: school?.pincode || '843313',
+      phone: school?.phone || '+919470878835, 9470877835',
+      email: school?.email || 'dipsbairgania@gmail.com',
+      website: school?.website || 'www.dips.org.in',
+      board: school?.board || 'CBSE',
+      registrationNumber: school?.registrationNumber || 'REG-843313',
+      affiliationNumber: school?.affiliationNumber || 'AFF-843313',
+      udiseNumber: school?.udiseNumber || 'UDISE-100203',
+      principalName: school?.principalName || 'Principal',
+      trustName: school?.trustName || 'Under Dayaramka Educational And Charitable Trust',
       academicYear,
     },
   }
@@ -203,8 +212,8 @@ export function CertificateIssuePage() {
 
   const academicYear = currentSchool?.academicYear || ''
   const previewSnapshot = useMemo(
-    () => (selectedStudent ? buildPreviewSnapshot(selectedStudent, academicYear) : null),
-    [selectedStudent, academicYear],
+    () => (selectedStudent ? buildPreviewSnapshot(selectedStudent, academicYear, currentSchool) : null),
+    [selectedStudent, academicYear, currentSchool],
   )
 
   const selectedClass = useMemo(() => classes.find((c) => c.id === classId) || null, [classes, classId])
@@ -770,6 +779,8 @@ export function CertificateIssuePage() {
                       effectiveDate={effectiveDate ? new Date(effectiveDate) : null}
                       purpose={purpose}
                       remarks={remarks}
+                      type={selectedTemplate.type}
+                      isTemporary={isTemporary}
                     />
                     <div className="flex items-start gap-2 text-xs text-muted-foreground">
                       <Info className="mt-0.5 size-3.5 shrink-0" />

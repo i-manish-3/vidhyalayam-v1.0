@@ -37,48 +37,54 @@ const SAMPLE_SNAPSHOT: CertificateSnapshot = {
   issuedAt: new Date().toISOString(),
   student: {
     id: 'sample',
-    firstName: 'Aarav',
-    lastName: 'Sharma',
-    fullName: 'Aarav Sharma',
-    admissionNumber: 'STD-2025-001',
+    firstName: 'Ayush',
+    lastName: 'Kumar',
+    fullName: 'Ayush Kumar',
+    admissionNumber: '0300/022',
     rollNumber: '12',
-    className: 'Class 8',
-    sectionName: ', Section A',
+    className: 'VIII (Eight)',
+    sectionName: '',
     academicYear: '2025-2026',
-    dateOfBirth: '12 Aug 2012',
+    dateOfBirth: '08/10/2013',
     gender: 'Male',
     nationality: 'Indian',
     religion: 'Hindu',
-    category: 'General',
+    category: 'SC',
     motherTongue: 'Hindi',
     bloodGroup: 'B+',
-    address: '12, Gandhi Nagar',
-    city: 'Delhi',
-    state: 'Delhi',
-    pincode: '110001',
-    dateOfAdmission: '02 Apr 2019',
-    previousSchool: 'ABC Public School',
-    previousClass: 'Class 4',
-    fatherName: 'Ramesh Sharma',
-    motherName: 'Sunita Sharma',
-    parentPhone: '9876543210',
+    address: 'Bairgania, Sitamarhi',
+    city: 'Sitamarhi',
+    state: 'Bihar',
+    pincode: '843313',
+    dateOfAdmission: '05/04/2023',
+    admissionClass: 'IV (Four)',
+    previousSchool: 'Dayaramka International Public School',
+    previousClass: 'IV (Four)',
+    fatherName: 'Suresh Kumar',
+    motherName: 'Asha Kumari',
+    parentPhone: '+919470878835',
+    penNumber: '229/2013/561',
+    apaarId: '498266827646',
+    subjectsStudied: 'English, Hindi, Maths, Science, Social, G.K., Moral and Computer.',
+    workingDays: '222',
+    presentDays: '183',
   },
   school: {
     id: 'sample-school',
-    name: 'Vidyalayam Public School',
-    address: '1, Main Road',
-    city: 'Delhi',
-    state: 'Delhi',
-    pincode: '110001',
-    phone: '011-12345678',
-    email: 'office@vidyalayam.edu',
-    website: 'www.vidyalayam.edu',
+    name: 'DAYARAMKA INTERNATIONAL PUBLIC SCHOOL',
+    trustName: 'Under Dayaramka Educational And Charitable Trust',
+    address: 'Akash Chowk, Bypass Road, Bairgania, Sitamarhi-843313',
+    city: 'Sitamarhi',
+    state: 'Bihar',
+    pincode: '843313',
+    phone: '+919470878835, 9470877835',
+    email: 'dipsbairgania@gmail.com',
+    website: 'www.dips.org.in',
     board: 'CBSE',
-    registrationNumber: 'REG-001',
-    affiliationNumber: 'AFF-001',
-    udiseNumber: 'UDISE-001',
-    principalName: 'Dr. Meera Krishnan',
-    trustName: 'Vidyalayam Educational Trust',
+    registrationNumber: 'REG-843313',
+    affiliationNumber: 'AFF-843313',
+    udiseNumber: 'UDISE-100203',
+    principalName: 'Principal',
     academicYear: '2025-2026',
   },
 }
@@ -298,9 +304,20 @@ export function CertificateTemplateEditorPage({ templateId }: { templateId?: str
                 <h3 className="text-sm font-semibold leading-tight">Certificate body</h3>
                 <p className="text-[10px] text-muted-foreground">HTML with {'{{placeholders}}'}. Sanitized on save.</p>
               </div>
-              <Badge variant="outline" className="ml-auto shrink-0 gap-1 border-violet-200 bg-violet-50 text-violet-700 text-[10px] dark:border-violet-500/25 dark:bg-violet-500/10 dark:text-violet-300">
-                <Braces className="size-3" /> HTML
-              </Badge>
+              <div className="ml-auto flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs border-violet-300 text-violet-700 bg-white hover:bg-violet-50"
+                  onClick={() => set('bodyHtml', defaultBodyForType(form.type, false))}
+                >
+                  Load Standard Format
+                </Button>
+                <Badge variant="outline" className="shrink-0 gap-1 border-violet-200 bg-violet-50 text-violet-700 text-[10px] dark:border-violet-500/25 dark:bg-violet-500/10 dark:text-violet-300">
+                  <Braces className="size-3" /> HTML
+                </Badge>
+              </div>
             </div>
             <CardContent className="space-y-3 p-4">
               <Textarea
@@ -345,7 +362,8 @@ export function CertificateTemplateEditorPage({ templateId }: { templateId?: str
                 bodyHtml={previewBody}
                 snapshot={SAMPLE_SNAPSHOT}
                 certificateNumber={`${form.numberPrefix || 'CERT'}-${new Date().getFullYear()}-0001`}
-                purpose="bank loan"
+                purpose="Due to change of residence."
+                type={form.type}
               />
               <div className="flex items-start gap-2 text-xs text-muted-foreground">
                 <Info className="mt-0.5 size-3.5 shrink-0" />

@@ -1,7 +1,7 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { Suspense, useCallback, useEffect, useMemo, useState } from 'react'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { LoadingState } from '@/components/shared'
 import { Button } from '@/components/ui/button'
@@ -146,8 +146,20 @@ const DEFAULT_LAYOUT: LayoutShape = {
   header: { showPrintHeader: true, showLogo: true, showAddress: true, showAffiliation: false, title: '' },
   studentBlock: ['name', 'admissionNumber', 'rollNumber', 'class', 'section', 'fatherName', 'motherName'],
   subjectTable: { showComponents: true, showGrade: true, showRank: false, showMaxMarks: true, showPercentage: true },
-  footer: { showAttendance: true, showRemarks: true, signatures: ['Class Teacher', 'Principal'] },
+  footer: { showAttendance: true, showRemarks: true, signatures: ['Parent / Guardian', 'Class Teacher', 'Principal'] },
 }
+
+const DEFAULT_PREVIEW_BANDS = [
+  { code: 'A1', minValue: 91, maxValue: 100, gradePoint: 10, remark: 'Outstanding' },
+  { code: 'A2', minValue: 81, maxValue: 90, gradePoint: 9, remark: 'Excellent' },
+  { code: 'B1', minValue: 71, maxValue: 80, gradePoint: 8, remark: 'Very Good' },
+  { code: 'B2', minValue: 61, maxValue: 70, gradePoint: 7, remark: 'Good' },
+  { code: 'C1', minValue: 51, maxValue: 60, gradePoint: 6, remark: 'Fair' },
+  { code: 'C2', minValue: 41, maxValue: 50, gradePoint: 5, remark: 'Average' },
+  { code: 'D', minValue: 33, maxValue: 40, gradePoint: 4, remark: 'Needs Improvement' },
+  { code: 'E1', minValue: 21, maxValue: 32, gradePoint: null, remark: 'Needs Substantial Improvement' },
+  { code: 'E2', minValue: 0, maxValue: 20, gradePoint: null, remark: 'Unsatisfactory' },
+]
 
 function parseLayoutSafe(json: string): LayoutShape {
   try {
@@ -183,10 +195,13 @@ function parseLayoutSafe(json: string): LayoutShape {
   }
 }
 
-export function ReportCardTemplateEditPage() {
+function ReportCardTemplateEditPageInner() {
   const router = useRouter()
   const params = useParams<{ id: string }>()
+  const searchParams = useSearchParams()
   const id = params?.id ?? ''
+  const isNew = id === 'new' || !id
+  const cloneFromId = searchParams.get('cloneFrom')
   const { toast } = useToast()
   const { hasAnyPermission } = usePermissions()
   const currentSchool = useAppStore((state) => state.currentSchool)
@@ -212,26 +227,79 @@ export function ReportCardTemplateEditPage() {
   const [zoomLevel, setZoomLevel] = useState<number>(95)
 
   const load = useCallback(async () => {
-    if (!id) return
     setLoading(true)
     try {
-      const [tplRes, parRes] = await Promise.all([
-        api.get<{ template: ReportCardTemplate }>(`/api/school/exams/report-card-templates/${id}`),
-        api.get<{ paradigms: ParadigmOption[] }>('/api/school/exams/paradigms'),
-      ])
-      setTemplate(tplRes.template)
-      setName(tplRes.template.name)
-      setDescription(tplRes.template.description ?? '')
-      setFormat(tplRes.template.format)
-      setParadigmId(tplRes.template.appliesToParadigmId ?? '')
-      setIncludeAttendance(tplRes.template.includeAttendance)
-      setIncludeRank(tplRes.template.includeRank)
-      setIncludeCoScholastic(tplRes.template.includeCoScholastic)
-      setShowPrincipalRemarks(tplRes.template.showPrincipalRemarks)
-      setShowTeacherRemarks(tplRes.template.showTeacherRemarks)
-      setIsActive(tplRes.template.isActive)
-      setLayout(parseLayoutSafe(tplRes.template.layoutJson))
+      const parRes = await api.get<{ paradigms: ParadigmOption[] }>('/api/school/exams/paradigms')
       setParadigms(parRes.paradigms ?? [])
+
+      if (isNew) {
+        if (cloneFromId) {
+          const srcRes = await api.get<{ template: ReportCardTemplate }>(
+            `/api/school/exams/report-card-templates/${cloneFromId}`,
+          )
+          const src = srcRes.template
+          const draft: ReportCardTemplate = {
+            ...src,
+            id: 'new',
+            name: `${src.name} (Copy)`,
+          }
+          setTemplate(draft)
+          setName(draft.name)
+          setDescription(src.description ?? '')
+          setFormat(src.format)
+          setParadigmId(src.appliesToParadigmId ?? '')
+          setIncludeAttendance(src.includeAttendance)
+          setIncludeRank(src.includeRank)
+          setIncludeCoScholastic(src.includeCoScholastic)
+          setShowPrincipalRemarks(src.showPrincipalRemarks)
+          setShowTeacherRemarks(src.showTeacherRemarks)
+          setIsActive(src.isActive)
+          setLayout(parseLayoutSafe(src.layoutJson))
+        } else {
+          const draft: ReportCardTemplate = {
+            id: 'new',
+            name: 'New Report Card Template',
+            description: null,
+            format: 'cbse',
+            appliesToParadigmId: null,
+            layoutJson: JSON.stringify(DEFAULT_LAYOUT),
+            includeAttendance: true,
+            includeRank: true,
+            includeCoScholastic: true,
+            showPrincipalRemarks: true,
+            showTeacherRemarks: true,
+            isActive: true,
+          }
+          setTemplate(draft)
+          setName(draft.name)
+          setDescription('')
+          setFormat('cbse')
+          setParadigmId('')
+          setIncludeAttendance(true)
+          setIncludeRank(true)
+          setIncludeCoScholastic(true)
+          setShowPrincipalRemarks(true)
+          setShowTeacherRemarks(true)
+          setIsActive(true)
+          setLayout(DEFAULT_LAYOUT)
+        }
+      } else {
+        const tplRes = await api.get<{ template: ReportCardTemplate }>(
+          `/api/school/exams/report-card-templates/${id}`,
+        )
+        setTemplate(tplRes.template)
+        setName(tplRes.template.name)
+        setDescription(tplRes.template.description ?? '')
+        setFormat(tplRes.template.format)
+        setParadigmId(tplRes.template.appliesToParadigmId ?? '')
+        setIncludeAttendance(tplRes.template.includeAttendance)
+        setIncludeRank(tplRes.template.includeRank)
+        setIncludeCoScholastic(tplRes.template.includeCoScholastic)
+        setShowPrincipalRemarks(tplRes.template.showPrincipalRemarks)
+        setShowTeacherRemarks(tplRes.template.showTeacherRemarks)
+        setIsActive(tplRes.template.isActive)
+        setLayout(parseLayoutSafe(tplRes.template.layoutJson))
+      }
     } catch (err) {
       toast({
         variant: 'destructive',
@@ -241,7 +309,7 @@ export function ReportCardTemplateEditPage() {
     } finally {
       setLoading(false)
     }
-  }, [id, toast])
+  }, [id, isNew, cloneFromId, toast])
 
   useEffect(() => {
     void load()
@@ -315,21 +383,50 @@ export function ReportCardTemplateEditPage() {
         ...layout,
         footer: { ...layout.footer, signatures: cleanSignatures },
       })
-      await api.patch(`/api/school/exams/report-card-templates/${id}`, {
-        name: name.trim(),
-        description: description.trim() || null,
-        format,
-        appliesToParadigmId: paradigmId || null,
-        includeAttendance,
-        includeRank,
-        includeCoScholastic,
-        showPrincipalRemarks,
-        showTeacherRemarks,
-        isActive,
-        layoutJson,
-      })
-      toast({ title: 'Template saved successfully', description: 'All changes are now active.' })
-      void load()
+      if (isNew) {
+        const res = await api.post<{ template: { id: string } }>(
+          '/api/school/exams/report-card-templates',
+          {
+            name: name.trim(),
+            description: description.trim() || null,
+            format,
+            appliesToParadigmId: paradigmId || null,
+            includeAttendance,
+            includeRank,
+            includeCoScholastic,
+            showPrincipalRemarks,
+            showTeacherRemarks,
+            isActive,
+            layoutJson,
+          },
+        )
+        toast({
+          variant: 'success',
+          title: 'Template created',
+          description: 'Your new template has been saved.',
+        })
+        router.replace(`/exams/report-card-templates/${res.template.id}/edit`)
+      } else {
+        await api.patch(`/api/school/exams/report-card-templates/${id}`, {
+          name: name.trim(),
+          description: description.trim() || null,
+          format,
+          appliesToParadigmId: paradigmId || null,
+          includeAttendance,
+          includeRank,
+          includeCoScholastic,
+          showPrincipalRemarks,
+          showTeacherRemarks,
+          isActive,
+          layoutJson,
+        })
+        toast({
+          variant: 'success',
+          title: 'Template saved successfully',
+          description: 'All changes are now active.',
+        })
+        void load()
+      }
     } catch (err) {
       toast({
         variant: 'destructive',
@@ -501,6 +598,7 @@ export function ReportCardTemplateEditPage() {
           },
         ],
         attendance: { totalDays: 230, presentDays: 210, percentage: 91.3 },
+        gradeScaleBands: DEFAULT_PREVIEW_BANDS,
       })
     }
 
@@ -620,6 +718,7 @@ export function ReportCardTemplateEditPage() {
         ],
       },
       attendance: { totalDays: 230, presentDays: 210, percentage: 91.3 },
+      gradeScaleBands: DEFAULT_PREVIEW_BANDS,
     })
   }, [
     template,
@@ -671,7 +770,9 @@ export function ReportCardTemplateEditPage() {
                 </Link>
               </Button>
               <span className="text-muted-foreground/60">/</span>
-              <span className="text-xs font-semibold text-foreground">{name || 'Untitled Template'}</span>
+              <span className="text-xs font-semibold text-foreground">
+                {name || (isNew ? 'New Template' : 'Untitled Template')}
+              </span>
             </div>
 
             <div className="flex flex-wrap items-center gap-2.5">
@@ -680,7 +781,9 @@ export function ReportCardTemplateEditPage() {
               </div>
               <div>
                 <h1 className="text-lg font-bold tracking-tight text-foreground sm:text-xl">
-                  {name || 'Edit Report Card Template'}
+                  {isNew
+                    ? (cloneFromId ? `Clone: ${name}` : 'New Report Card Template')
+                    : (name || 'Edit Report Card Template')}
                 </h1>
                 <p className="text-xs text-muted-foreground">
                   Customize layout sections, marks display, branding headers, and print styling with instant live preview.
@@ -715,7 +818,7 @@ export function ReportCardTemplateEditPage() {
                 className="h-9 gap-1.5 bg-gradient-to-r from-sky-600 to-[#0a4d8c] px-4 font-semibold text-white shadow-sm hover:from-sky-700 hover:to-[#083e70]"
               >
                 <Save className="size-4" />
-                {saving ? 'Saving...' : 'Save Changes'}
+                {saving ? (isNew ? 'Creating...' : 'Saving...') : (isNew ? 'Create Template' : 'Save Changes')}
                 <span className="hidden opacity-75 sm:inline text-[10px] ml-1 font-mono">(Ctrl+S)</span>
               </Button>
             )}
@@ -1186,10 +1289,10 @@ export function ReportCardTemplateEditPage() {
                   </div>
 
                   <div className="grid gap-3 sm:grid-cols-2">
-                    <div className="space-y-1.5">
+                    <div className="min-w-0 space-y-1.5">
                       <Label className="text-xs font-semibold">Report Format</Label>
                       <Select value={format} onValueChange={setFormat}>
-                        <SelectTrigger className="h-9 bg-background text-xs">
+                        <SelectTrigger className="h-9 w-full min-w-0 bg-background text-xs">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -1202,13 +1305,13 @@ export function ReportCardTemplateEditPage() {
                       </Select>
                     </div>
 
-                    <div className="space-y-1.5">
+                    <div className="min-w-0 space-y-1.5">
                       <Label className="text-xs font-semibold">Applies To Exam Pattern</Label>
                       <Select
                         value={paradigmId || '__any'}
                         onValueChange={(v) => setParadigmId(v === '__any' ? '' : v)}
                       >
-                        <SelectTrigger className="h-9 bg-background text-xs">
+                        <SelectTrigger className="h-9 w-full min-w-0 bg-background text-xs">
                           <SelectValue placeholder="Any pattern" />
                         </SelectTrigger>
                         <SelectContent>
@@ -1406,5 +1509,13 @@ function EnhancedSwitchCard({
         className="shrink-0 mt-0.5"
       />
     </div>
+  )
+}
+
+export function ReportCardTemplateEditPage() {
+  return (
+    <Suspense fallback={<LoadingState />}>
+      <ReportCardTemplateEditPageInner />
+    </Suspense>
   )
 }

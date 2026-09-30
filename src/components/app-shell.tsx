@@ -43,6 +43,7 @@ import {
   ShieldCheck,
   Sparkles,
   GraduationCap,
+  LayoutDashboard,
   Award,
   FileText,
   ClipboardCheck,
@@ -535,6 +536,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   const visibleItems = useMemo(() => {
     const examChildren: StickyQuickMenuLink[] = [
+      { type: 'link', label: 'Dashboard', page: 'exam-dashboard', href: '/exams', icon: LayoutDashboard },
       { type: 'link', label: 'Exam List', page: 'exam-list', href: '/exams/list', icon: FileText },
       { type: 'link', label: 'Enter Marks', page: 'exam-marks-entry', href: '/exams/marks-entry', icon: ClipboardCheck },
     ]

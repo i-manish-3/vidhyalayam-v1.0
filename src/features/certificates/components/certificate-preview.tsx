@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react'
 import { renderCertificateBody, type CertificateSnapshot } from '../lib/certificate-types'
+import { TransferCertificateRenderer } from './transfer-certificate-renderer'
 
 /**
  * Live certificate preview — renders a template body with either real
@@ -17,6 +18,8 @@ export function CertificatePreview({
   effectiveDate,
   purpose,
   remarks,
+  type = 'tc',
+  isTemporary = false,
 }: {
   bodyHtml: string
   snapshot: CertificateSnapshot | null
@@ -25,21 +28,41 @@ export function CertificatePreview({
   effectiveDate?: Date | null
   purpose?: string
   remarks?: string
+  type?: string
+  isTemporary?: boolean
 }) {
+  const isTc = type === 'tc'
+
   const html = useMemo(() => {
     if (!snapshot) return bodyHtml
     return renderCertificateBody(
       bodyHtml,
       snapshot,
       {
-        certificateNumber: certificateNumber || 'TC-2026-0001',
+        certificateNumber: certificateNumber || 'DIPS/TC/0083',
         issueDate: issueDate || new Date(),
         effectiveDate,
-        purpose: purpose || 'bank loan',
+        purpose: purpose || 'Due to change of residence.',
         remarks,
       },
     )
   }, [bodyHtml, snapshot, certificateNumber, issueDate, effectiveDate, purpose, remarks])
+
+  if (isTc && snapshot) {
+    return (
+      <div className="rounded-lg border border-dashed bg-slate-50/50 p-2 shadow-sm overflow-x-auto">
+        <TransferCertificateRenderer
+          snapshot={snapshot}
+          certificateNumber={certificateNumber || 'DIPS/TC/0083'}
+          issueDate={issueDate || new Date()}
+          effectiveDate={effectiveDate}
+          purpose={purpose}
+          remarks={remarks}
+          isTemporary={isTemporary}
+        />
+      </div>
+    )
+  }
 
   return (
     <div className="rounded-lg border border-dashed bg-white p-2 shadow-sm">

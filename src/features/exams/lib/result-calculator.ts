@@ -62,6 +62,7 @@ export interface GradeBandDef {
   minValue: number
   maxValue: number
   gradePoint: number | null
+  remark?: string | null
   sequence: number
 }
 
@@ -91,6 +92,7 @@ export interface ExamResultShape {
   percentage: number
   grade: string | null
   gradePoint: number | null
+  remarks?: string | null
   status: 'pass' | 'fail' | 'absent' | 'partial'
   failedSubjects: string | null // JSON array
   rankInClass: number | null
@@ -156,10 +158,10 @@ export function parsePassingRule(json: string): PassingRule {
 export function resolveGrade(
   value: number,
   scale: GradeScaleDef,
-): { code: string; gradePoint: number | null } | null {
+): { code: string; gradePoint: number | null; remark?: string | null } | null {
   for (const band of scale.bands) {
     if (value >= band.minValue && value <= band.maxValue) {
-      return { code: band.code, gradePoint: band.gradePoint }
+      return { code: band.code, gradePoint: band.gradePoint, remark: band.remark ?? null }
     }
   }
   return null
@@ -372,6 +374,7 @@ export function computeExamResult(
     percentage: Math.round(pct * 100) / 100,
     grade: grade?.code ?? null,
     gradePoint: grade?.gradePoint ?? null,
+    remarks: grade?.remark ?? null,
     status,
     failedSubjects: failedSubjects.length > 0 ? JSON.stringify(failedSubjects) : null,
     rankInClass: null,

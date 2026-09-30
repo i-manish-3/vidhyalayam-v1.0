@@ -208,7 +208,7 @@ function statusLabel(status: string | null): string {
     case 'absent':
       return 'Absent'
     case 'partial':
-      return 'Partial'
+      return 'Compartment'
     case 'not_applicable':
       return 'N/A'
     default:

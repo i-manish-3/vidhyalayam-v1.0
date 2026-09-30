@@ -47,6 +47,14 @@ export async function buildCertificateSnapshot(
         previousClass: true,
         class: { select: { name: true } },
         section: { select: { name: true } },
+        admission: {
+          select: {
+            penNumber: true,
+            apaarId: true,
+            dateOfAdmission: true,
+            admissionNumber: true,
+          },
+        },
         parentLinks: {
           select: {
             isPrimary: true,
@@ -68,6 +76,8 @@ export async function buildCertificateSnapshot(
       select: {
         id: true,
         name: true,
+        logo: true,
+        printHeader: true,
         address: true,
         city: true,
         state: true,
@@ -80,6 +90,7 @@ export async function buildCertificateSnapshot(
         affiliationNumber: true,
         udiseNumber: true,
         principalName: true,
+        principalSignature: true,
         trustName: true,
         academicYear: true,
       },
@@ -132,6 +143,14 @@ export async function buildCertificateSnapshots(
         previousClass: true,
         class: { select: { name: true } },
         section: { select: { name: true } },
+        admission: {
+          select: {
+            penNumber: true,
+            apaarId: true,
+            dateOfAdmission: true,
+            admissionNumber: true,
+          },
+        },
         parentLinks: {
           select: {
             isPrimary: true,
@@ -153,6 +172,8 @@ export async function buildCertificateSnapshots(
       select: {
         id: true,
         name: true,
+        logo: true,
+        printHeader: true,
         address: true,
         city: true,
         state: true,
@@ -165,6 +186,7 @@ export async function buildCertificateSnapshots(
         affiliationNumber: true,
         udiseNumber: true,
         principalName: true,
+        principalSignature: true,
         trustName: true,
         academicYear: true,
       },
@@ -204,6 +226,12 @@ interface SnapshotStudent {
   previousClass: string | null
   class: { name: string } | null
   section: { name: string } | null
+  admission?: {
+    penNumber: string | null
+    apaarId: string | null
+    dateOfAdmission: Date | null
+    admissionNumber: string | null
+  } | null
   parentLinks: Array<{
     isPrimary: boolean
     relation: string
@@ -214,6 +242,8 @@ interface SnapshotStudent {
 interface SnapshotSchool {
   id: string
   name: string
+  logo?: string | null
+  printHeader?: string | null
   address: string | null
   city: string | null
   state: string | null
@@ -226,6 +256,7 @@ interface SnapshotSchool {
   affiliationNumber: string | null
   udiseNumber: string | null
   principalName: string | null
+  principalSignature?: string | null
   trustName: string | null
   academicYear: string
 }
@@ -235,6 +266,9 @@ function toSnapshot(
   school: SnapshotSchool,
   primaryParent?: SnapshotStudent['parentLinks'][number],
 ): CertificateSnapshot {
+  const admDate = student.admissionDate || student.admission?.dateOfAdmission
+  const admNo = student.admissionNumber || student.admission?.admissionNumber
+
   return {
     issuedAt: new Date().toISOString(),
     student: {
@@ -242,14 +276,14 @@ function toSnapshot(
       firstName: student.firstName,
       lastName: student.lastName,
       fullName: [student.firstName, student.lastName].filter(Boolean).join(' '),
-      admissionNumber: student.admissionNumber,
+      admissionNumber: admNo,
       rollNumber: student.rollNumber,
       className: student.class?.name || '',
       sectionName: student.section ? `, Section ${student.section.name}` : '',
       academicYear: school.academicYear,
       dateOfBirth: fmt(student.dateOfBirth),
       gender: student.gender || '',
-      nationality: student.nationality || '',
+      nationality: student.nationality || 'Indian',
       religion: student.religion || '',
       category: student.category || '',
       motherTongue: student.motherTongue || '',
@@ -258,16 +292,21 @@ function toSnapshot(
       city: student.city || '',
       state: student.state || '',
       pincode: student.pincode || '',
-      dateOfAdmission: fmt(student.admissionDate),
+      dateOfAdmission: fmt(admDate),
+      admissionClass: student.previousClass || student.class?.name || '',
       previousSchool: student.previousSchool || '',
       previousClass: student.previousClass || '',
       fatherName: primaryParent?.parent.fatherName || '',
       motherName: primaryParent?.parent.motherName || '',
       parentPhone: primaryParent?.parent.phone || primaryParent?.parent.alternatePhone || '',
+      penNumber: student.admission?.penNumber || null,
+      apaarId: student.admission?.apaarId || null,
     },
     school: {
       id: school.id,
       name: school.name,
+      logo: school.logo || null,
+      printHeader: school.printHeader || null,
       address: school.address || '',
       city: school.city || '',
       state: school.state || '',
@@ -280,6 +319,7 @@ function toSnapshot(
       affiliationNumber: school.affiliationNumber || '',
       udiseNumber: school.udiseNumber || '',
       principalName: school.principalName || '',
+      principalSignature: school.principalSignature || null,
       trustName: school.trustName || '',
       academicYear: school.academicYear || academicYearOf(),
     },

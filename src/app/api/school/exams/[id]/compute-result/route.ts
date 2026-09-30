@@ -365,6 +365,7 @@ export async function POST(
           percentage: er.percentage,
           grade: er.grade,
           gradePoint: er.gradePoint,
+          remarks: er.remarks ?? null,
           rankInClass: rank?.rankInClass ?? null,
           rankInSection: rank?.rankInSection ?? null,
           status: er.status,

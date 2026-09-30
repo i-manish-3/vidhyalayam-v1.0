@@ -431,7 +431,7 @@ export function ExamResultPreviewPage({ examId }: Props) {
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
             <TintedStatCard icon={Users} label="Total" value={stats.total} tone="sky" />
             <TintedStatCard icon={CircleCheck} label="Passed" value={stats.passed} tone="emerald" />
-            <TintedStatCard icon={CircleAlert} label="Partial" value={stats.partial} tone="violet" />
+            <TintedStatCard icon={CircleAlert} label="Compartment" value={stats.partial} tone="violet" />
             <TintedStatCard icon={CircleX} label="Failed" value={stats.failed} tone="amber" />
             <TintedStatCard icon={Percent} label="Average" value={`${stats.avg.toFixed(1)}%`} tone="sky" />
           </div>
@@ -475,7 +475,7 @@ export function ExamResultPreviewPage({ examId }: Props) {
                             {r.grade ? <Badge variant="outline" className="font-mono text-[10px]">{r.grade}</Badge> : '—'}
                           </td>
                           <td className="px-3 py-2">
-                            <Badge className={tone}>{r.status}</Badge>
+                            <Badge className={tone}>{r.status === 'partial' ? 'compartment' : r.status}</Badge>
                           </td>
                         </tr>
                       )
@@ -555,7 +555,7 @@ export function ExamResultPreviewPage({ examId }: Props) {
                 {[
                   'Rebuilds ExamResult and ResultSubjectSummary rows from the latest marks.',
                   'Applies grace where eligible and resolves grades from the exam band.',
-                  'Computes pass / fail / partial and assigns class & section ranks.',
+                  'Computes pass / fail / compartment and assigns class & section ranks.',
                 ].map((step, i) => (
                   <li key={i} className="flex gap-2 text-xs text-muted-foreground">
                     <span className="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-sky-500 to-cyan-600 text-[9px] font-bold text-white">{i + 1}</span>

@@ -172,13 +172,33 @@ function PrintReportCardsContent() {
       <style jsx global>{`
         @page {
           size: A4 portrait;
-          margin: 10mm;
+          margin: 6mm 8mm;
         }
         @media print {
-          html, body { background: white !important; }
-          .no-print { display: none !important; }
-          .report-page { page-break-after: always; }
-          .report-page:last-child { page-break-after: auto; }
+          html, body {
+            background: white !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          .no-print {
+            display: none !important;
+          }
+          .report-page {
+            margin: 0 !important;
+            padding: 0 !important;
+            background: transparent !important;
+            box-shadow: none !important;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+            page-break-after: always !important;
+            break-after: page !important;
+          }
+          .report-page:last-child {
+            page-break-after: auto !important;
+            break-after: auto !important;
+          }
         }
       `}</style>
 

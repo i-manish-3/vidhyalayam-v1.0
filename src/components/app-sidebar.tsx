@@ -488,6 +488,9 @@ export const MENUS: Record<string, MenuItem[]> = {
 
 function isPageActiveOnPath(page: PageName, pathname: string, exact = false): boolean {
   // Specific checks for exam subpages to avoid false positive active states
+  if (page === 'exam-dashboard') {
+    return pathname === '/exams'
+  }
   if (page === 'exam-marks-entry') {
     const isFilterMarks = typeof window !== 'undefined' && window.location.search.includes('filter=marks')
     return pathname.includes('/marks-entry') || pathname.endsWith('/marks') || pathname.includes('/marksheet') || isFilterMarks
@@ -499,6 +502,7 @@ function isPageActiveOnPath(page: PageName, pathname: string, exact = false): bo
     const isFilterMarks = typeof window !== 'undefined' && window.location.search.includes('filter=marks')
     if (isFilterMarks) return false
     if (
+      pathname === '/exams' ||
       pathname.includes('/marks-entry') ||
       pathname.includes('/marksheet') ||
       pathname.includes('/results') ||
@@ -509,7 +513,7 @@ function isPageActiveOnPath(page: PageName, pathname: string, exact = false): bo
     ) {
       return false
     }
-    return pathname === '/exams/list' || pathname === '/exams'
+    return pathname === '/exams/list' || pathname.startsWith('/exams/list/') || pathname.startsWith('/exams/new') || /^\/exams\/[^/]+(\/(edit|configure|schedule))?$/.test(pathname)
   }
 
   const url = resolveMigratedUrl(page)

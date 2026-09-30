@@ -175,12 +175,10 @@ export async function POST(
           subjectSummaries: true,
         },
       }),
-      isMultiExam
-        ? db.gradeScale.findFirst({
-            where: { schoolId, isActive: true, isDefault: true, deletedAt: null },
-            include: { bands: { orderBy: { sequence: 'asc' } } },
-          })
-        : null,
+      db.gradeScale.findFirst({
+        where: { schoolId, isActive: true, isDefault: true, deletedAt: null },
+        include: { bands: { orderBy: { sequence: 'asc' } } },
+      }),
       db.resultSubjectSummary.groupBy({
         by: ['subjectId'],
         where: {
@@ -308,6 +306,7 @@ export async function POST(
         rankInClass: r.rankInClass,
         rankInSection: r.rankInSection,
         status: r.status,
+        remarks: r.remarks,
         failedSubjects: r.failedSubjects,
         publishedAt: curExam.publishedAt ?? exam.publishedAt,
         subjectSummaries: r.subjectSummaries.map((sm) => ({
@@ -392,6 +391,7 @@ export async function POST(
             student: studentDef,
             result: studentResults[0],
             attendance: attendanceByStudent.get(sid) ?? null,
+            gradeScaleBands: gradeScale?.bands,
           })
         }
 

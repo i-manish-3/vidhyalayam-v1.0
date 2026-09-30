@@ -41,7 +41,7 @@ function SelectTrigger({
       data-slot="select-trigger"
       data-size={size}
       className={cn(
-        "group border-primary/20 data-[placeholder]:text-muted-foreground [&_svg:not([class*='text-'])]:text-muted-foreground focus-visible:border-primary/50 focus-visible:ring-primary/20 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive flex w-fit items-center justify-between gap-2 rounded-lg border bg-gradient-to-r from-primary/[0.045] via-background to-sky-500/[0.055] px-2.5 py-2 text-sm whitespace-nowrap shadow-xs transition-[color,box-shadow,transform] outline-none hover:border-primary/35 hover:shadow-sm focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50 dark:border-primary/25 dark:from-primary/15 dark:via-input/30 dark:to-sky-500/10 data-[size=default]:h-9 data-[size=sm]:h-8 *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-2 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+        "group border-primary/20 data-[placeholder]:text-muted-foreground [&_svg:not([class*='text-'])]:text-muted-foreground focus-visible:border-primary/50 focus-visible:ring-primary/20 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive flex w-full min-w-0 items-center justify-between gap-2 rounded-lg border bg-gradient-to-r from-primary/[0.045] via-background to-sky-500/[0.055] px-2.5 py-2 text-sm whitespace-nowrap shadow-xs transition-[color,box-shadow,transform] outline-none hover:border-primary/35 hover:shadow-sm focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50 dark:border-primary/25 dark:from-primary/15 dark:via-input/30 dark:to-sky-500/10 data-[size=default]:h-9 data-[size=sm]:h-8 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-2 *:data-[slot=select-value]:flex-1 *:data-[slot=select-value]:min-w-0 *:data-[slot=select-value]:truncate *:data-[slot=select-value]:text-left [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
         className
       )}
       {...props}
@@ -57,7 +57,7 @@ function SelectTrigger({
       </span>
       {children}
       <SelectPrimitive.Icon asChild>
-        <ChevronDownIcon className="size-3.5 text-muted-foreground/70 transition-transform duration-200 group-data-[state=open]:rotate-180" />
+        <ChevronDownIcon className="size-3.5 shrink-0 text-muted-foreground/70 transition-transform duration-200 group-data-[state=open]:rotate-180" />
       </SelectPrimitive.Icon>
     </SelectPrimitive.Trigger>
   )

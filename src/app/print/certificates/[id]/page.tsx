@@ -11,6 +11,7 @@ import {
   certificateTypeDef,
   type CertificateSnapshot,
 } from '@/features/certificates/lib/certificate-types'
+import { TransferCertificateRenderer } from '@/features/certificates/components/transfer-certificate-renderer'
 
 interface RenderResponse {
   certificate: {
@@ -155,49 +156,69 @@ function PrintCertificateContent() {
             </div>
           </div>
 
-          <div className="relative rounded-sm border bg-white p-8 shadow-sm print:border-0 print:p-0 print:shadow-none">
-            {isVoid && (
-              <div className="no-print absolute inset-0 z-10 flex items-center justify-center bg-white/60">
-                <span className="rotate-[-12deg] rounded border-4 border-destructive px-6 py-2 text-3xl font-black tracking-widest text-destructive">
-                  VOID
-                </span>
-              </div>
-            )}
-
-            <SchoolPrintHeader school={school} />
-
-            <div className="mt-6 flex flex-col gap-8">
-              <div
-                className="certificate-body text-[13px] leading-relaxed text-slate-900"
-                // Template body was sanitized on save and placeholder values are
-                // HTML-escaped by renderCertificateBody — no scripts can run.
-                dangerouslySetInnerHTML={{ __html: bodyHtml }}
+          {certificate.type === 'tc' ? (
+            <div className="relative">
+              {isVoid && (
+                <div className="no-print pointer-events-none absolute inset-0 z-30 flex items-center justify-center bg-white/60">
+                  <span className="rotate-[-12deg] rounded border-4 border-destructive px-6 py-2 text-3xl font-black tracking-widest text-destructive">
+                    VOID
+                  </span>
+                </div>
+              )}
+              <TransferCertificateRenderer
+                snapshot={snapshot}
+                certificateNumber={certificate.certificateNumber}
+                issueDate={certificate.issueDate}
+                effectiveDate={certificate.effectiveDate}
+                purpose={certificate.purpose}
+                remarks={certificate.remarks}
+                isTemporary={certificate.isTemporary}
+                schoolOverride={school}
               />
-
-              <div className="mt-auto grid grid-cols-2 gap-8 pt-10">
-                <div className="text-center">
-                  {school.principalSignature && (
-                    <img src={school.principalSignature} alt="" className="mx-auto h-14 object-contain" />
-                  )}
-                  <div className="mx-auto border-t border-black pt-1 text-xs">
-                    {school.principalName || 'Principal'}
-                  </div>
-                  <p className="mt-0.5 text-[10px] text-slate-500">Principal</p>
+            </div>
+          ) : (
+            <div className="relative rounded-sm border bg-white p-8 shadow-sm print:border-0 print:p-0 print:shadow-none">
+              {isVoid && (
+                <div className="no-print absolute inset-0 z-10 flex items-center justify-center bg-white/60">
+                  <span className="rotate-[-12deg] rounded border-4 border-destructive px-6 py-2 text-3xl font-black tracking-widest text-destructive">
+                    VOID
+                  </span>
                 </div>
-                <div className="text-center">
-                  <div className="mx-auto border-t border-black pt-1 text-xs">{school.trustName || 'Manager'}</div>
-                  <p className="mt-0.5 text-[10px] text-slate-500">Authorised Signatory</p>
+              )}
+
+              <SchoolPrintHeader school={school} />
+
+              <div className="mt-6 flex flex-col gap-8">
+                <div
+                  className="certificate-body text-[13px] leading-relaxed text-slate-900"
+                  dangerouslySetInnerHTML={{ __html: bodyHtml }}
+                />
+
+                <div className="mt-auto grid grid-cols-2 gap-8 pt-10">
+                  <div className="text-center">
+                    {school.principalSignature && (
+                      <img src={school.principalSignature} alt="" className="mx-auto h-14 object-contain" />
+                    )}
+                    <div className="mx-auto border-t border-black pt-1 text-xs">
+                      {school.principalName || 'Principal'}
+                    </div>
+                    <p className="mt-0.5 text-[10px] text-slate-500">Principal</p>
+                  </div>
+                  <div className="text-center">
+                    <div className="mx-auto border-t border-black pt-1 text-xs">{school.trustName || 'Manager'}</div>
+                    <p className="mt-0.5 text-[10px] text-slate-500">Authorised Signatory</p>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div className="mt-8 flex items-end justify-between border-t border-slate-200 pt-2 text-[10px] text-slate-500">
-              <span>
-                {snapshot.student.fullName} · {snapshot.student.admissionNumber || '—'} · {snapshot.student.className}
-              </span>
-              <span>{school.name} · {snapshot.student.academicYear}</span>
+              <div className="mt-8 flex items-end justify-between border-t border-slate-200 pt-2 text-[10px] text-slate-500">
+                <span>
+                  {snapshot.student.fullName} · {snapshot.student.admissionNumber || '—'} · {snapshot.student.className}
+                </span>
+                <span>{school.name} · {snapshot.student.academicYear}</span>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </>

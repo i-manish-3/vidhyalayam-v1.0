@@ -67,7 +67,7 @@ const DEFAULT_LAYOUT: TemplateLayout = {
   header: { showLogo: true, showAddress: true, showPrintHeader: true },
   studentBlock: DEFAULT_STUDENT_BLOCK,
   subjectTable: { showComponents: true, showGrade: true, showRank: false, showMaxMarks: true, showPercentage: true },
-  footer: { showAttendance: true, showRemarks: true, signatures: ['Class Teacher', 'Principal'] },
+  footer: { showAttendance: true, showRemarks: true, signatures: ['Parent / Guardian', 'Class Teacher', 'Principal'] },
 }
 
 /**
@@ -196,6 +196,7 @@ export interface ExamResultDef {
   rankInClass: number | null
   rankInSection: number | null
   status: string // pass | fail | absent | partial
+  remarks?: string | null
   failedSubjects: string | null // JSON array
   publishedAt: Date | null
   subjectSummaries: ReadonlyArray<SubjectSummaryDef>
@@ -342,11 +343,20 @@ export interface ReportCardData {
     showPercentage: boolean
     showAttendance: boolean
     showRemarks: boolean
+    showTeacherRemarks?: boolean
+    showPrincipalRemarks?: boolean
     showLogo: boolean
     showAddress: boolean
     showAffiliation: boolean
     includeCoScholastic: boolean
   }
+  gradeScaleBands?: ReadonlyArray<{
+    code: string
+    minValue: number
+    maxValue: number
+    gradePoint?: number | null
+    remark?: string | null
+  }>
 }
 
 // ---------- Field formatters ----------
@@ -432,6 +442,23 @@ export function calculateDefaultRemarks(percentage: number, status: string): str
   return 'CAN DO BETTER'
 }
 
+function resolveGradeBandRemark(
+  bands?: ReadonlyArray<{ code: string; minValue: number; maxValue: number; remark?: string | null }>,
+  grade?: string | null,
+  percentage?: number,
+): string | null {
+  if (!bands || bands.length === 0) return null
+  if (grade) {
+    const match = bands.find((b) => b.code.trim().toLowerCase() === grade.trim().toLowerCase())
+    if (match?.remark?.trim()) return match.remark.trim()
+  }
+  if (percentage !== undefined && Number.isFinite(percentage)) {
+    const match = bands.find((b) => percentage >= b.minValue && percentage <= b.maxValue)
+    if (match?.remark?.trim()) return match.remark.trim()
+  }
+  return null
+}
+
 // ---------- Builders ----------
 
 export interface BuildExamCardInput {
@@ -440,6 +467,7 @@ export interface BuildExamCardInput {
   student: StudentDef
   result: ExamResultDef
   attendance?: AttendanceSnapshot | null
+  gradeScaleBands?: ReadonlyArray<{ code: string; minValue: number; maxValue: number; gradePoint?: number | null; remark?: string | null }>
 }
 
 export function buildExamReportCard(input: BuildExamCardInput): ReportCardData {
@@ -490,7 +518,11 @@ export function buildExamReportCard(input: BuildExamCardInput): ReportCardData {
       admissionNumber: input.student.admissionNumber,
     },
     division: calculateDivision(input.result.percentage, input.result.status),
-    remarks: calculateDefaultRemarks(input.result.percentage, input.result.status),
+    remarks:
+      input.result.remarks ||
+      resolveGradeBandRemark(input.gradeScaleBands, input.result.grade, input.result.percentage) ||
+      calculateDefaultRemarks(input.result.percentage, input.result.status),
+    gradeScaleBands: input.gradeScaleBands,
     school: {
       name: input.school.name,
       logo: input.school.logo,
@@ -538,7 +570,11 @@ export function buildExamReportCard(input: BuildExamCardInput): ReportCardData {
       showMaxMarks: layout.subjectTable.showMaxMarks ?? true,
       showPercentage: layout.subjectTable.showPercentage ?? true,
       showAttendance: layout.footer.showAttendance && input.template.includeAttendance,
-      showRemarks: layout.footer.showRemarks,
+      showRemarks:
+        layout.footer.showRemarks &&
+        (input.template.showTeacherRemarks || input.template.showPrincipalRemarks),
+      showTeacherRemarks: input.template.showTeacherRemarks,
+      showPrincipalRemarks: input.template.showPrincipalRemarks,
       showLogo: layout.header.showLogo,
       showAddress: layout.header.showAddress,
       showAffiliation: layout.header.showAffiliation ?? false,
@@ -697,7 +733,11 @@ export function buildFinalReportCard(input: BuildFinalCardInput): ReportCardData
       showMaxMarks: layout.subjectTable.showMaxMarks ?? true,
       showPercentage: layout.subjectTable.showPercentage ?? true,
       showAttendance: layout.footer.showAttendance && input.template.includeAttendance,
-      showRemarks: layout.footer.showRemarks,
+      showRemarks:
+        layout.footer.showRemarks &&
+        (input.template.showTeacherRemarks || input.template.showPrincipalRemarks),
+      showTeacherRemarks: input.template.showTeacherRemarks,
+      showPrincipalRemarks: input.template.showPrincipalRemarks,
       showLogo: layout.header.showLogo,
       showAddress: layout.header.showAddress,
       showAffiliation: layout.header.showAffiliation ?? false,
@@ -915,7 +955,10 @@ export function buildMultiExamReportCard(input: BuildMultiExamCardInput): Report
       admissionNumber: input.student.admissionNumber,
     },
     division: calculateDivision(grandPercentage, grandStatus),
-    remarks: calculateDefaultRemarks(grandPercentage, grandStatus),
+    remarks:
+      resolveGradeBandRemark(input.gradeScaleBands, grandGrade, grandPercentage) ||
+      calculateDefaultRemarks(grandPercentage, grandStatus),
+    gradeScaleBands: input.gradeScaleBands,
     school: {
       name: input.school.name,
       logo: input.school.logo,
@@ -965,7 +1008,11 @@ export function buildMultiExamReportCard(input: BuildMultiExamCardInput): Report
       showMaxMarks: layout.subjectTable.showMaxMarks ?? true,
       showPercentage: layout.subjectTable.showPercentage ?? true,
       showAttendance: layout.footer.showAttendance && input.template.includeAttendance,
-      showRemarks: layout.footer.showRemarks,
+      showRemarks:
+        layout.footer.showRemarks &&
+        (input.template.showTeacherRemarks || input.template.showPrincipalRemarks),
+      showTeacherRemarks: input.template.showTeacherRemarks,
+      showPrincipalRemarks: input.template.showPrincipalRemarks,
       showLogo: layout.header.showLogo,
       showAddress: layout.header.showAddress,
       showAffiliation: layout.header.showAffiliation ?? false,

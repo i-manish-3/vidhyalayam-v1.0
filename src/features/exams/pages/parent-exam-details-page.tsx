@@ -140,7 +140,7 @@ const STATUS_CONFIG: Record<
     dot: 'bg-rose-500',
   },
   partial: {
-    label: 'Partial',
+    label: 'Compartment',
     badge: 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300',
     dot: 'bg-amber-500',
   },
