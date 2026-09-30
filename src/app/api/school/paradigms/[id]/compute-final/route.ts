@@ -339,7 +339,7 @@ export async function POST(
 
     return NextResponse.json({
       computed: result,
-      message: `Computed ${result.finalWritten} final result(s) across ${result.groupWritten} group result(s).`,
+      message: `Calculated ${result.finalWritten} final result(s) across ${result.groupWritten} group result(s).`,
     })
   } catch (error) {
     console.error('Compute final result error:', error)

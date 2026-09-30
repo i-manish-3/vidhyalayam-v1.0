@@ -290,7 +290,9 @@ export function ReportCardRenderer({ data, className, showHeaderBanner }: Props)
         {/* ============================================================== */}
         <div className="relative z-10 flex flex-col items-center justify-center pb-2 pt-1 print:pb-1 print:pt-0 text-center">
           <div className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-[#0d69ac] via-[#107bbb] to-[#2cb28d] px-8 py-1.5 print:px-5 print:py-0.5 text-center text-xs font-black tracking-widest text-white shadow-sm sm:text-sm print:text-xs uppercase">
-            {data.title || 'ACADEMIC PROGRESS REPORT'}
+            {!data.title || /academic report card/i.test(data.title)
+              ? 'ACADEMIC PROGRESS REPORT'
+              : data.title}
           </div>
           <div className="mt-1.5 print:mt-0.5 inline-flex items-center justify-center rounded-full bg-[#094178] px-6 py-0.5 print:px-4 print:py-0 text-[10px] font-bold tracking-wide text-white shadow-2xs sm:text-[11px] print:text-[9px]">
             Session : {academicSession || '2025-2026'}

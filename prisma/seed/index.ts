@@ -221,7 +221,7 @@ async function seed() {
           format: 'cbse',
           appliesToParadigmId: paradigm.id,
           layoutJson: JSON.stringify({
-            header: { showLogo: true, showAddress: true, showAffiliation: true, title: 'Academic Report Card' },
+            header: { showLogo: true, showAddress: true, showAffiliation: true, title: 'Academic Progress Report' },
             studentBlock: ['name', 'admissionNumber', 'rollNumber', 'class', 'section', 'fatherName', 'motherName'],
             subjectTable: { showComponents: true, showGrade: true, showRank: true, showMaxMarks: true, showPercentage: true },
             footer: { showAttendance: true, showRemarks: true, signatures: ['Class Teacher', 'Principal'] },

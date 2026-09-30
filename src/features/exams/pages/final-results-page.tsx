@@ -167,12 +167,12 @@ export function FinalResultsPage({ paradigmId }: Props) {
           ...(classFilter ? { classIds: [classFilter] } : {}),
         },
       )
-      toast({ title: 'Final results computed', description: res.message })
+      toast({ title: 'Final results calculated', description: res.message })
       void load()
     } catch (err) {
       toast({
         variant: 'destructive',
-        title: 'Could not compute',
+        title: 'Could not calculate',
         description: err instanceof Error ? err.message : 'Please try again.',
       })
     } finally {
@@ -202,7 +202,7 @@ export function FinalResultsPage({ paradigmId }: Props) {
         primaryAction={
           hasAnyPermission([PERMISSIONS.EXAM_RESULTS])
             ? {
-                label: computing ? 'Computing…' : 'Recompute final',
+                label: computing ? 'Calculating…' : results.length > 0 ? 'Re-calculate final' : 'Calculate final',
                 icon: Calculator,
                 onClick: () => setConfirmingRecompute(true),
               }
@@ -251,9 +251,9 @@ export function FinalResultsPage({ paradigmId }: Props) {
         <GradientEmptyState
           icon={Award}
           title={emptyMessage ? 'No final results yet' : 'No results found'}
-          description={emptyMessage ?? 'Try a different class or section, or recompute.'}
+          description={emptyMessage ?? 'Try a different class or section, or re-calculate.'}
           {...(hasAnyPermission([PERMISSIONS.EXAM_RESULTS])
-            ? { actionLabel: 'Compute final results', onAction: () => setConfirmingRecompute(true) }
+            ? { actionLabel: 'Calculate final results', onAction: () => setConfirmingRecompute(true) }
             : {})}
         />
       ) : (
@@ -331,7 +331,9 @@ export function FinalResultsPage({ paradigmId }: Props) {
                 <Calculator className="size-5 text-white" />
               </span>
               <div>
-                <DialogTitle className="text-lg font-bold tracking-normal text-white">Compute / recompute final results?</DialogTitle>
+                <DialogTitle className="text-lg font-bold tracking-normal text-white">
+                  Calculate / re-calculate final results?
+                </DialogTitle>
                 <DialogDescription className="mt-0.5 text-xs text-white/75">
                   Roll up every exam result under this pattern into term and final results.
                 </DialogDescription>
@@ -369,7 +371,7 @@ export function FinalResultsPage({ paradigmId }: Props) {
 
             <p className="flex items-start gap-2 rounded-md border border-amber-200/80 bg-amber-50 px-3 py-2.5 text-xs text-amber-800 dark:border-amber-500/25 dark:bg-amber-950/30 dark:text-amber-200">
               <AlertCircle className="mt-0.5 size-3.5 shrink-0" />
-              <span>Existing final results will be overwritten. Recompute as many times as needed — each run is recorded in the audit trail.</span>
+              <span>Existing final results will be overwritten. Re-calculate as many times as needed — each run is recorded in the audit trail.</span>
             </p>
           </div>
 
@@ -377,7 +379,7 @@ export function FinalResultsPage({ paradigmId }: Props) {
             <Button variant="outline" size="sm" className="h-8 px-4 text-xs" onClick={() => setConfirmingRecompute(false)} disabled={computing}>Cancel</Button>
             <Button size="sm" className="h-8 gap-1.5 px-4 text-xs" onClick={() => void handleRecompute()} disabled={computing}>
               {computing ? <Loader2 className="size-4 animate-spin" /> : <Calculator className="size-4" />}
-              {computing ? 'Computing…' : 'Compute final results'}
+              {computing ? 'Calculating…' : results.length > 0 ? 'Re-calculate final results' : 'Calculate final results'}
             </Button>
           </DialogFooter>
         </DialogContent>

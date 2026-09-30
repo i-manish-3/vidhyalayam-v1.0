@@ -472,7 +472,10 @@ export interface BuildExamCardInput {
 
 export function buildExamReportCard(input: BuildExamCardInput): ReportCardData {
   const layout = parseTemplateLayout(input.template.layoutJson)
-  const title = layout.header.title?.trim() || 'ACADEMIC PROGRESS REPORT'
+  const rawTitle = layout.header.title?.trim()
+  const title = !rawTitle || /academic report card/i.test(rawTitle)
+    ? 'ACADEMIC PROGRESS REPORT'
+    : rawTitle
 
   const studentFields = layout.studentBlock.map((key) => ({
     key,
@@ -596,7 +599,10 @@ export interface BuildFinalCardInput {
 
 export function buildFinalReportCard(input: BuildFinalCardInput): ReportCardData {
   const layout = parseTemplateLayout(input.template.layoutJson)
-  const title = layout.header.title?.trim() || 'Annual Report Card'
+  const rawTitle = layout.header.title?.trim()
+  const title = rawTitle && !/academic report card/i.test(rawTitle)
+    ? rawTitle
+    : 'Annual Report Card'
 
   const studentFields = layout.studentBlock.map((key) => ({
     key,
@@ -807,7 +813,10 @@ export function buildMultiExamReportCard(input: BuildMultiExamCardInput): Report
   }
 
   const layout = parseTemplateLayout(input.template.layoutJson)
-  const title = layout.header.title?.trim() || `${input.examGroup.name} Report Card`
+  const rawTitle = layout.header.title?.trim()
+  const title = !rawTitle || /academic report card/i.test(rawTitle)
+    ? 'ACADEMIC PROGRESS REPORT'
+    : rawTitle
 
   const studentFields = layout.studentBlock.map((key) => ({
     key,
@@ -866,7 +875,7 @@ export function buildMultiExamReportCard(input: BuildMultiExamCardInput): Report
         subjectMap.set(canonicalKey, existing)
       }
 
-      if (sm.subjectId) keyToCanonicalKey.set(sm.subjectId, canonicalKey)
+      if (sm.subjectId && canonicalKey) keyToCanonicalKey.set(sm.subjectId, canonicalKey)
       const curExamScore = existing.scoresByExam.get(exam.id)
       if (
         !curExamScore ||

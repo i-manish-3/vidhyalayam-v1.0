@@ -31,9 +31,12 @@ import {
   Layers3,
   X,
   FileSpreadsheet,
+  Pencil,
+  Trash2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { examStatusMeta } from '@/features/exams/lib/status-meta'
+import { DeleteExamDialog } from '@/features/exams/components/delete-exam-dialog'
 
 interface ExamRow {
   id: string
@@ -45,8 +48,15 @@ interface ExamRow {
   endDate: string | null
   academicYear: string
   examGroupId: string
+  lockedAt?: string | null
+  publishedAt?: string | null
   group: { id: string; name: string; paradigmId: string }
-  _count: { subjectConfigs: number; schedules: number }
+  _count: {
+    subjectConfigs: number
+    schedules: number
+    marks?: number
+    results?: number
+  }
 }
 
 interface GroupOption {
@@ -111,6 +121,7 @@ export function ExamListPage() {
   const [statusFilter, setStatusFilter] = useState(savedListState?.statusFilter ?? '')
   const [groupFilter, setGroupFilter] = useState(initialGroup || savedListState?.groupFilter || '')
   const [search, setSearch] = useState(savedListState?.search ?? '')
+  const [examToDelete, setExamToDelete] = useState<ExamRow | null>(null)
 
   const rememberListState = useCallback((patch: Partial<ExamListState>) => {
     setPageState(EXAM_LIST_STATE_KEY, {
@@ -327,13 +338,65 @@ export function ExamListPage() {
                       {e.endDate && e.endDate !== e.startDate ? ` – ${formatDate(e.endDate)}` : ''}
                     </p>
                   </div>
+                  <div className="flex shrink-0 items-center gap-1">
+                    {hasAnyPermission([PERMISSIONS.EXAM_MANAGE]) && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="size-8 rounded-lg text-muted-foreground transition-colors hover:bg-black/5 hover:text-foreground dark:hover:bg-white/10"
+                        title="Edit exam"
+                        onClick={(ev) => {
+                          ev.stopPropagation()
+                          router.push(`/exams/${e.id}/edit`)
+                        }}
+                      >
+                        <Pencil className="size-4" />
+                        <span className="sr-only">Edit exam</span>
+                      </Button>
+                    )}
+                    {hasAnyPermission([PERMISSIONS.EXAM_MANAGE]) && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="size-8 rounded-lg text-muted-foreground transition-colors hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-500/20 dark:hover:text-rose-400"
+                        title="Delete exam"
+                        onClick={(ev) => {
+                          ev.stopPropagation()
+                          setExamToDelete(e)
+                        }}
+                      >
+                        <Trash2 className="size-4" />
+                        <span className="sr-only">Delete exam</span>
+                      </Button>
+                    )}
+                  </div>
                 </div>
                 <div className="flex flex-wrap items-center justify-between gap-3 p-3">
                   <p className="text-xs text-muted-foreground">
                     {e._count.subjectConfigs} subject{e._count.subjectConfigs === 1 ? '' : 's'} ·{' '}
                     {e._count.schedules} schedule row{e._count.schedules === 1 ? '' : 's'}
+                    {typeof e._count.marks === 'number' && e._count.marks > 0 ? (
+                      <span className="ml-1 font-medium text-amber-600 dark:text-amber-400">
+                        · {e._count.marks} marks entered
+                      </span>
+                    ) : null}
                   </p>
                   <div className="flex flex-wrap gap-2">
+                    {hasAnyPermission([PERMISSIONS.EXAM_MANAGE]) && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 gap-1.5 border-slate-200 bg-white/80 text-foreground hover:bg-muted dark:border-border dark:bg-card"
+                        onClick={(ev) => {
+                          ev.stopPropagation()
+                          router.push(`/exams/${e.id}/edit`)
+                        }}
+                      >
+                        <Pencil className="size-3.5" /> Edit
+                      </Button>
+                    )}
                     {hasAnyPermission([PERMISSIONS.EXAM_MANAGE]) && (
                       <Button
                         variant="outline"
@@ -419,6 +482,18 @@ export function ExamListPage() {
           })}
         </div>
       )}
+
+      <DeleteExamDialog
+        open={Boolean(examToDelete)}
+        onOpenChange={(open) => {
+          if (!open) setExamToDelete(null)
+        }}
+        exam={examToDelete}
+        onDeleted={() => {
+          setExamToDelete(null)
+          void load()
+        }}
+      />
     </div>
   )
 }

@@ -88,7 +88,14 @@ export async function GET(request: NextRequest) {
           },
         },
         examClasses: { select: { classId: true, sectionIds: true } },
-        _count: { select: { subjectConfigs: true, schedules: true } },
+        _count: {
+          select: {
+            subjectConfigs: { where: { deletedAt: null } },
+            schedules: true,
+            marks: { where: { deletedAt: null } },
+            results: { where: { deletedAt: null } },
+          },
+        },
       },
       orderBy: [{ academicYear: 'desc' }, { startDate: 'desc' }, { name: 'asc' }],
     })

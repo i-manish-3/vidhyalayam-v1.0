@@ -156,19 +156,19 @@ const STAGES: ReadonlyArray<StageDef> = [
   },
   {
     num: 7,
-    title: 'Compute Results',
+    title: 'Calculate Results',
     who: 'School admin',
-    where: 'Exam List → click Results → Recompute',
+    where: 'Exam List → click Results → Calculate / Re-calculate Result',
     frequency: 'After all marks are locked',
     icon: Calculator,
     description:
-      'Pure computation. The engine builds subject summaries, applies grace where eligible, resolves grades from the band, computes pass/fail, and assigns class/section ranks.',
+      'Pure calculation. The engine builds subject summaries, applies grace where eligible, resolves grades from the band, calculates pass/fail, and assigns class/section ranks.',
     steps: [
-      'Click Recompute. Engine runs in seconds.',
+      'Click Calculate Result. Engine runs in seconds.',
       'Page reloads with stat cards (Total / Passed / Failed / Average) + ranked table.',
-      'Recompute as many times as needed — results are stable until you do.',
+      'Re-calculate as many times as needed — results are stable until you do.',
     ],
-    tip: 'Tweak a mark in marks-entry → unlock → fix → re-lock → recompute. Each step writes an audit row.',
+    tip: 'Tweak a mark in marks-entry → unlock → fix → re-lock → re-calculate. Each step writes an audit row.',
   },
   {
     num: 8,
@@ -317,12 +317,12 @@ const TROUBLESHOOTING: ReadonlyArray<{ symptom: string; fix: string }> = [
     fix: 'Go to Configure, add the subject for that (class, section).',
   },
   {
-    symptom: 'Compute button says "No students with marks"',
+    symptom: 'Calculate button says "No students with marks"',
     fix: 'Enter at least one component for one student first.',
   },
   {
-    symptom: 'Publish button says "No computed results to publish"',
-    fix: 'Click Recompute first on the Results page.',
+    symptom: 'Publish button says "No calculated results to publish"',
+    fix: 'Click Calculate Result first on the Results page.',
   },
   {
     symptom: "Teacher can't edit marks (read-only grid)",
@@ -345,8 +345,8 @@ const WALKTHROUGH_STEPS: ReadonlyArray<string> = [
   'Teachers run papers, correct them.',
   'Maths teacher: Marks Entry → Class 10 → Section A → Maths. Enters marks for 30 students. Submit. Repeats per section.',
   'All teachers finish. Admin locks the marks per (class, section, subject).',
-  'Admin: Results page → Recompute. Engine assigns A1/A2/B1 etc., ranks 1–60.',
-  'Admin spots a typo → unlock → fix → re-lock → recompute.',
+  'Admin: Results page → Calculate Result. Engine assigns A1/A2/B1 etc., ranks 1–60.',
+  'Admin spots a typo → unlock → fix → re-lock → re-calculate.',
   'Principal: Results page → Publish.',
   'Class teachers: Print report cards → browser opens 60 cards → print.',
 ]

@@ -421,7 +421,7 @@ export async function POST(
 
     return NextResponse.json({
       computed: result,
-      message: `Computed results for ${result} student(s).`,
+      message: `Calculated results for ${result} student(s).`,
     })
   } catch (error) {
     console.error('Compute exam result error:', error)

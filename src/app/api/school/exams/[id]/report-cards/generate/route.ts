@@ -111,7 +111,17 @@ export async function POST(
 
     const isMultiExam = selectedExamIds.length > 1
 
-    const [school, students, results, gradeScale, highestMarksRows, subjectConfigs] = await Promise.all([
+    const [
+      school,
+      students,
+      results,
+      gradeScale,
+      highestMarksRows,
+      subjectConfigs,
+      marksEntries,
+      fullSubjectConfigs,
+      schoolSubjects,
+    ] = await Promise.all([
       db.school.findUnique({
         where: { id: schoolId },
         select: {
@@ -152,8 +162,8 @@ export async function POST(
             where: { academicYear: exam.academicYear },
             select: {
               rollNumber: true,
-              class: { select: { name: true } },
-              section: { select: { name: true } },
+              class: { select: { id: true, name: true } },
+              section: { select: { id: true, name: true } },
             },
             take: 1,
           },
@@ -542,7 +552,7 @@ export async function POST(
               rankInSection: null,
               status: grandStatus,
               remarks: null,
-              failedSubjects: synthesizedSummaries.filter((s) => s.status === 'fail').map((s) => s.subjectName),
+              failedSubjects: JSON.stringify(synthesizedSummaries.filter((s) => s.status === 'fail').map((s) => s.subjectName)),
               publishedAt: curExam.publishedAt ?? null,
               subjectSummaries: synthesizedSummaries,
             }

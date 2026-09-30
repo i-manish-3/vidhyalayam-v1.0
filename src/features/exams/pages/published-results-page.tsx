@@ -67,7 +67,7 @@ export function PublishedResultsPage() {
         <GradientEmptyState
           icon={Award}
           title="Nothing published yet"
-          description="Compute exam results, review them, then click Publish on the results screen to surface them to parents."
+          description="Calculate exam results, review them, then click Publish on the results screen to surface them to parents."
         />
       ) : (
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">

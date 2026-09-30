@@ -483,7 +483,7 @@ export async function POST(
                 status,
                 passMarks: passM,
                 highestMarks: highestMarksBySubject.get(cfg.subjectId) ?? obtMarks,
-                componentsJson: Object.keys(compBreakdown).length > 0 ? compBreakdown : null,
+                componentsJson: Object.keys(compBreakdown).length > 0 ? JSON.stringify(compBreakdown) : null,
               })
             }
           }
@@ -512,7 +512,7 @@ export async function POST(
             rankInSection: null,
             status: failedCount > 0 ? 'fail' : 'pass',
             remarks: null,
-            failedSubjects: failedCount,
+            failedSubjects: failedCount > 0 ? JSON.stringify(synthesizedSummaries.filter((s) => s.status === 'fail').map((s) => s.subjectName)) : null,
             publishedAt: curExam.publishedAt ?? exam.publishedAt,
             subjectSummaries: synthesizedSummaries,
           }

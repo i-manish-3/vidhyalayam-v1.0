@@ -600,7 +600,7 @@ export function MarksheetPage({ examId }: Props) {
                 <span>— = Not applicable</span>
                 <span className="text-red-600 dark:text-red-400">red = below passing marks</span>
                 {classSheet.resultComputed && (
-                  <span>Results computed — ranks shown</span>
+                  <span>Results calculated — ranks shown</span>
                 )}
               </div>
             </Card>

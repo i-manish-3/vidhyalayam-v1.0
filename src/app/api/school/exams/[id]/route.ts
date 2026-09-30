@@ -81,6 +81,14 @@ export async function GET(
           },
         },
         schedules: { orderBy: [{ examDate: 'asc' }, { startTime: 'asc' }] },
+        _count: {
+          select: {
+            subjectConfigs: { where: { deletedAt: null } },
+            schedules: true,
+            marks: { where: { deletedAt: null } },
+            results: { where: { deletedAt: null } },
+          },
+        },
       },
     })
 
@@ -366,7 +374,7 @@ export async function PATCH(
   }
 }
 
-// DELETE /api/school/exams/[id] - Soft delete (rejected if marks already entered)
+// DELETE /api/school/exams/[id] - Soft delete (strictly blocked if exam is conducted or marks/results exist)
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -380,21 +388,101 @@ export async function DELETE(
 
     const existing = await db.exam.findFirst({
       where: { id, schoolId: user.schoolId, deletedAt: null },
+      include: {
+        _count: {
+          select: {
+            marks: { where: { deletedAt: null } },
+            results: { where: { deletedAt: null } },
+            schedules: true,
+            subjectConfigs: { where: { deletedAt: null } },
+          },
+        },
+        schedules: {
+          select: { examDate: true },
+        },
+      },
     })
     if (!existing) return notFoundError('Exam')
 
-    if (existing.status === 'result_published') {
-      return apiError(409, 'You cannot delete an exam whose results have been published.')
-    }
-    if (existing.lockedAt) {
-      return apiError(423, 'This exam is locked. Unlock it first.')
+    const reasons: string[] = []
+
+    // 1. Marks check
+    if (existing._count.marks > 0) {
+      reasons.push(
+        `Marks have already been entered (${existing._count.marks} student mark ${
+          existing._count.marks === 1 ? 'record' : 'records'
+        }).`,
+      )
     }
 
-    const liveMarks = await db.marksEntry.count({
-      where: { examId: id, deletedAt: null },
+    // 2. Results check
+    if (existing._count.results > 0) {
+      reasons.push(
+        `Report results have already been calculated for ${existing._count.results} student${
+          existing._count.results === 1 ? '' : 's'
+        }.`,
+      )
+    }
+    if (existing.status === 'result_published' || existing.publishedAt) {
+      reasons.push('Results for this exam have already been published.')
+    }
+
+    // 3. Admin lock check
+    if (existing.lockedAt) {
+      reasons.push('This exam has been locked by an administrator.')
+    }
+
+    // 4. Conducted check
+    if (existing.status === 'completed') {
+      reasons.push('This exam has already been conducted and marked as completed.')
+    } else if (existing.status === 'ongoing') {
+      reasons.push('This exam is currently ongoing.')
+    }
+
+    const now = new Date()
+    if (existing.endDate) {
+      const end = new Date(existing.endDate)
+      const endOfDay = new Date(end)
+      endOfDay.setHours(23, 59, 59, 999)
+      if (!Number.isNaN(end.getTime()) && endOfDay < now) {
+        reasons.push(
+          `Exam timetable concluded on ${end.toLocaleDateString(undefined, {
+            day: 'numeric',
+            month: 'short',
+            year: 'numeric',
+          })}. Conducted exams cannot be deleted.`,
+        )
+      }
+    } else if (existing.startDate && existing.status !== 'draft') {
+      const start = new Date(existing.startDate)
+      if (!Number.isNaN(start.getTime()) && start < now) {
+        reasons.push(
+          `Exam commenced on ${start.toLocaleDateString(undefined, {
+            day: 'numeric',
+            month: 'short',
+            year: 'numeric',
+          })}. Conducted exams cannot be deleted.`,
+        )
+      }
+    }
+
+    const pastSchedules = existing.schedules.filter((s) => {
+      const d = new Date(s.examDate)
+      d.setHours(23, 59, 59, 999)
+      return d < now
     })
-    if (liveMarks > 0) {
-      return apiError(409, 'Marks have already been entered for this exam. Soft-delete the marks first.')
+    if (pastSchedules.length > 0 && existing.status !== 'draft') {
+      reasons.push(`${pastSchedules.length} scheduled exam date(s) have already taken place.`)
+    }
+
+    if (reasons.length > 0) {
+      return NextResponse.json(
+        {
+          error: `Cannot delete exam because it is protected: ${reasons.join(' ')}`,
+          reasons,
+        },
+        { status: 409 },
+      )
     }
 
     const schoolId = user.schoolId
@@ -411,6 +499,13 @@ export async function DELETE(
         where: { examId: id, deletedAt: null },
         data: { deletedAt: now },
       })
+      // Clear empty schedules and class bindings
+      await tx.examSchedule.deleteMany({
+        where: { examId: id },
+      })
+      await tx.examClass.deleteMany({
+        where: { examId: id },
+      })
       await logExamChange(
         tx,
         schoolId,
@@ -423,7 +518,7 @@ export async function DELETE(
       )
     })
 
-    return NextResponse.json({ message: 'Exam deleted.' })
+    return NextResponse.json({ message: 'Exam deleted successfully.' })
   } catch (error) {
     console.error('Delete exam error:', error)
     return internalError('deleting the exam')

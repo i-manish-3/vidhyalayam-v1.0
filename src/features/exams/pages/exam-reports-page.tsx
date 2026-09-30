@@ -198,8 +198,8 @@ export function ExamReportsPage() {
           {classSummary.length === 0 ? (
             <GradientEmptyState
               icon={BarChart3}
-              title="No computed results yet"
-              description="Compute results on the Results page first."
+              title="No calculated results yet"
+              description="Calculate results on the Results page first."
             />
           ) : (
             <Card className="gap-0 overflow-hidden rounded-lg border border-sky-200/80 bg-gradient-to-r from-sky-50 via-white to-violet-50 py-0 shadow-sm dark:border-sky-500/25 dark:from-sky-500/12 dark:via-card dark:to-violet-500/10">
