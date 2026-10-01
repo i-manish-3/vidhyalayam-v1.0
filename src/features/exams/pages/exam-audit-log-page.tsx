@@ -499,7 +499,7 @@ export function ExamAuditLogPage() {
                 <SelectItem value="__all">All Entities</SelectItem>
                 {ENTITY_TYPES.map((e) => (
                   <SelectItem key={e} value={e}>
-                    {e}
+                    {e === 'ExamComponent' ? 'ExamPartition' : e}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -689,7 +689,7 @@ export function ExamAuditLogPage() {
                           variant="outline"
                           className="border-slate-200/90 bg-slate-50 px-2 py-0.5 text-[10px] font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
                         >
-                          {log.entityType}
+                          {log.entityType === 'ExamComponent' ? 'ExamPartition' : log.entityType}
                         </Badge>
 
                         {/* Associated Exam Pill */}
@@ -714,7 +714,7 @@ export function ExamAuditLogPage() {
                         </p>
                       ) : (
                         <p className="text-xs text-muted-foreground italic">
-                          {log.action} performed on {log.entityType} ({log.entityId.slice(0, 12)}…)
+                          {log.action} performed on {log.entityType === 'ExamComponent' ? 'ExamPartition' : log.entityType} ({log.entityId.slice(0, 12)}…)
                         </p>
                       )}
 

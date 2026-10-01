@@ -214,13 +214,13 @@ export function ExamConfigurePage({ examId }: Props) {
         `/api/school/exams/subject-configs/${componentEditing.id}/components`,
         { components: rows },
       )
-      toast({ title: 'Components saved' })
+      toast({ title: 'Partitions saved' })
       setComponentEditing(null)
       void load()
     } catch (err) {
       toast({
         variant: 'destructive',
-        title: 'Could not save components',
+        title: 'Could not save partitions',
         description: err instanceof Error ? err.message : 'Please try again.',
       })
     } finally {
@@ -273,7 +273,7 @@ export function ExamConfigurePage({ examId }: Props) {
         primaryAction={
           hasAnyPermission([PERMISSIONS.EXAM_MANAGE])
             ? {
-                label: 'Bulk components',
+                label: 'Bulk partitions',
                 icon: Wand2,
                 onClick: () => setBulkOpen(true),
               }
@@ -400,7 +400,7 @@ export function ExamConfigurePage({ examId }: Props) {
                                 : `${c.totalMarks} marks · pass at ${c.passingPercentage}%`}
                             </p>
                             <p className="mt-0.5 text-xs">
-                              <span className="text-muted-foreground">Components: </span>
+                              <span className="text-muted-foreground">Partitions: </span>
                               {c.components.length === 0 ? (
                                 <span className="text-amber-600">none yet</span>
                               ) : (
@@ -419,7 +419,7 @@ export function ExamConfigurePage({ examId }: Props) {
                                 className="h-8 gap-1.5 border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100 dark:border-sky-500/25 dark:bg-sky-500/10 dark:text-sky-300"
                                 onClick={() => setComponentEditing(c)}
                               >
-                                <Settings2 className="size-3.5" /> Components
+                                <Settings2 className="size-3.5" /> Partitions
                               </Button>
                             )}
                             {hasAnyPermission([PERMISSIONS.EXAM_MANAGE]) && (
@@ -1001,7 +1001,7 @@ function BulkComponentsDialog({
           components: buildForTotal(rows, c.totalMarks),
         })),
       })
-      toast({ title: 'Components applied', description: res.message })
+      toast({ title: 'Partitions applied', description: res.message })
       if (res.errors.length > 0) {
         toast({
           variant: 'destructive',
@@ -1013,7 +1013,7 @@ function BulkComponentsDialog({
     } catch (err) {
       toast({
         variant: 'destructive',
-        title: 'Could not apply components',
+        title: 'Could not apply partitions',
         description: err instanceof Error ? err.message : 'Please try again.',
       })
     } finally {
@@ -1060,7 +1060,7 @@ function BulkComponentsDialog({
         configIds: deleteMatches.map((c) => c.id),
         componentName: deleteName.trim(),
       })
-      toast({ title: 'Components deleted', description: res.message })
+      toast({ title: 'Partitions deleted', description: res.message })
       if (res.errors.length > 0) {
         toast({
           variant: 'destructive',
@@ -1072,7 +1072,7 @@ function BulkComponentsDialog({
     } catch (err) {
       toast({
         variant: 'destructive',
-        title: 'Could not delete components',
+        title: 'Could not delete partitions',
         description: err instanceof Error ? err.message : 'Please try again.',
       })
     } finally {
@@ -1085,8 +1085,8 @@ function BulkComponentsDialog({
       <DialogContent className="flex max-h-[90svh] flex-col overflow-hidden border-primary/20 bg-card p-0 shadow-2xl shadow-primary/15 sm:max-w-2xl [&>button]:right-3 [&>button]:top-3 [&>button]:rounded-full [&>button]:text-white [&>button]:opacity-80 [&>button]:hover:bg-white/15 [&>button]:hover:opacity-100">
         <GradientDialogHeader
           icon={Wand2}
-          title="Bulk components"
-          description="Build a component split once and apply it to every subject at once."
+          title="Bulk partitions"
+          description="Build a partition split once and apply it to every subject at once."
         />
 
         <div className="themed-scrollbar min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain bg-gradient-to-br from-primary/[0.025] via-background to-violet-500/[0.035] p-4 sm:p-5">
@@ -1113,7 +1113,7 @@ function BulkComponentsDialog({
                   : 'text-muted-foreground hover:text-foreground',
               )}
             >
-              Delete component
+              Delete partition
             </button>
           </div>
 
@@ -1121,7 +1121,7 @@ function BulkComponentsDialog({
           <section className="relative overflow-hidden rounded-xl border border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-violet-50 p-4 shadow-sm dark:border-sky-500/25 dark:from-sky-500/15 dark:via-card dark:to-violet-500/10">
             <div className="relative mb-3 flex items-center gap-2">
               <span className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-violet-600 text-white shadow-sm"><Layers3 className="size-4 text-white" /></span>
-              <div><h3 className="text-sm font-semibold">Component split</h3><p className="text-[10px] text-muted-foreground">Build your own split — marks scale proportionally to each subject's total</p></div>
+              <div><h3 className="text-sm font-semibold">Partition split</h3><p className="text-[10px] text-muted-foreground">Build your own split — marks scale proportionally to each subject's total</p></div>
             </div>
             <div className="relative space-y-2">
               {rows.map((row, idx) => (
@@ -1207,7 +1207,7 @@ function BulkComponentsDialog({
               <div className="relative mb-3 flex items-center gap-2">
                 <span className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-red-500 to-rose-600 text-white shadow-sm"><Trash2 className="size-4 text-white" /></span>
                 <div>
-                  <h3 className="text-sm font-semibold">Delete component</h3>
+                  <h3 className="text-sm font-semibold">Delete partition</h3>
                   <p className="text-[10px] text-muted-foreground">
                     Remaining marks are redistributed proportionally to fill each subject's total
                   </p>
@@ -1217,7 +1217,7 @@ function BulkComponentsDialog({
                 <Input
                   list="bulk-delete-component-names"
                   className="h-9"
-                  placeholder="Component name, e.g. Viva"
+                  placeholder="Partition name, e.g. Viva"
                   value={deleteName}
                   onChange={(e) => setDeleteName(e.target.value)}
                 />
@@ -1299,7 +1299,7 @@ function BulkComponentsDialog({
                 Will update <strong className="text-foreground">{eligible.length}</strong> subject
                 {eligible.length === 1 ? '' : 's'}
                 {gradeOnlyInScope > 0 && ` · ${gradeOnlyInScope} grade-only skipped`}
-                {onlyMissing && ` · subjects with components already set are untouched`}
+                {onlyMissing && ` · subjects with partitions already set are untouched`}
               </p>
 
               <div className="flex justify-end gap-2 pt-1">
@@ -1320,7 +1320,7 @@ function BulkComponentsDialog({
                     each subject's total. Subjects with marks already entered are skipped.
                   </>
                 ) : (
-                  'Type a component name (or pick from the suggestions) to delete it across the selected classes.'
+                  'Type a partition name (or pick from the suggestions) to delete it across the selected classes.'
                 )}
               </p>
 

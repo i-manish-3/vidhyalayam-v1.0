@@ -38,6 +38,7 @@ import {
   UserRound,
   Wallet,
 } from 'lucide-react'
+import { triggerFeeSync } from '@/lib/attendance-sync'
 import { cn } from '@/lib/utils'
 import {
   SLIP_MONTHS as MONTHS,
@@ -1662,6 +1663,8 @@ export function FeeCollectionsPage() {
         // doesn't know about.
         slipLines: slipInputsSnapshot,
       })
+
+      triggerFeeSync()
 
       const liveSplits: ReceiptSplit[] = activePaymentSplits.map((split) => ({
         paymentMethod: split.paymentMethod,

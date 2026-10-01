@@ -10,6 +10,9 @@ import {
   Dialog,
   DialogContent,
   DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
 } from '@/components/ui/dialog'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { api } from '@/lib/api'
@@ -22,7 +25,7 @@ import {
   type BirthdayCardSchool,
   type BirthdayCardStudent,
 } from '@/features/birthdays/components/school-birthday-card'
-import { Cake, Download, Loader2, PartyPopper } from 'lucide-react'
+import { Cake, Download, Loader2, PartyPopper, Sparkles } from 'lucide-react'
 
 interface BirthdayPerson {
   id: string
@@ -328,41 +331,113 @@ function BirthdayCardDialog({
 
   return (
     <Dialog open={open} onOpenChange={(o) => !downloading && !o && onClose()}>
-      <DialogContent className="flex max-h-[90svh] flex-col overflow-hidden border-rose-500/20 bg-card p-0 shadow-2xl shadow-rose-500/15 sm:max-w-3xl [&>button]:right-3 [&>button]:top-3 [&>button]:rounded-full [&>button]:text-white [&>button]:opacity-85 [&>button]:hover:bg-white/15 [&>button]:hover:opacity-100">
-        <GradientDialogHeader
-          icon={Cake}
-          title={person ? `${person.name}'s birthday card` : 'Birthday card'}
-          description="1080×1080 — a square birthday card. Download as a high-resolution PNG."
-        />
+      <DialogContent className="flex max-h-[90svh] flex-col overflow-hidden border-rose-500/20 bg-card p-0 shadow-2xl shadow-rose-500/15 sm:max-w-2xl lg:max-w-3xl [&>button]:right-3 [&>button]:top-3 [&>button]:rounded-full [&>button]:text-white [&>button]:opacity-85 [&>button]:hover:bg-white/15 [&>button]:hover:opacity-100">
+        <DialogHeader className="relative shrink-0 overflow-hidden border-b border-white/15 bg-[linear-gradient(135deg,#e11d48_0%,#c026d3_48%,#f59e0b_100%)] px-5 py-4 pr-12 text-white sm:px-6">
+          <div aria-hidden className="absolute -right-10 -top-16 size-40 rounded-full border-[18px] border-white/10" />
+          <div aria-hidden className="absolute -bottom-14 left-10 size-28 rounded-full bg-rose-300/20 blur-2xl" />
+          <div aria-hidden className="absolute bottom-0 right-24 h-24 w-44 rounded-full bg-amber-300/15 blur-2xl" />
+          <div className="relative flex items-center gap-3">
+            <span className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-white/25 bg-white/15 text-white shadow-md backdrop-blur-sm">
+              <Cake className="size-5 text-white" />
+            </span>
+            <div>
+              <DialogTitle className="text-lg font-bold tracking-normal text-white">
+                {person ? `${person.name}'s Birthday Card` : 'Birthday Card'}
+              </DialogTitle>
+              <DialogDescription className="mt-0.5 text-xs text-white/75">
+                1080×1080 high-resolution greeting card · Ready to download & share
+              </DialogDescription>
+            </div>
+          </div>
+        </DialogHeader>
 
-        <div className="themed-scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain bg-gradient-to-br from-rose-500/[0.04] via-background to-amber-500/[0.055] p-4 sm:p-5">
+        <div className="themed-scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain bg-gradient-to-br from-rose-500/[0.03] via-background to-amber-500/[0.055] p-4 sm:p-5">
           {!person || !student ? (
             <p className="py-12 text-center text-sm text-muted-foreground">Select a person to preview their card.</p>
           ) : (
-            <ScaledBirthdayCard ref={cardRef} student={student} school={school} />
+            <>
+              {/* Section 1: Celebrant Overview */}
+              <section className="relative overflow-hidden rounded-xl border border-rose-200/80 bg-gradient-to-br from-rose-50 via-white to-amber-50 p-4 shadow-sm dark:border-rose-500/25 dark:from-rose-500/15 dark:via-card dark:to-amber-500/10">
+                <div aria-hidden className="absolute -right-7 -top-10 size-28 rounded-full bg-rose-200/35 blur-xl dark:bg-rose-500/15" />
+                <div className="relative mb-3 flex items-center gap-2">
+                  <span className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-rose-500 to-pink-600 text-white shadow-sm">
+                    <Sparkles className="size-4 text-white" />
+                  </span>
+                  <div>
+                    <h3 className="text-sm font-semibold">Celebrant Information</h3>
+                    <p className="text-[10px] text-muted-foreground">Birthday details and digital card overview</p>
+                  </div>
+                </div>
+
+                <div className="relative grid gap-3 sm:grid-cols-3">
+                  <div className="rounded-lg border border-rose-200/60 bg-white/80 p-2.5 dark:border-rose-500/20 dark:bg-card/60">
+                    <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Name</p>
+                    <p className="mt-0.5 truncate text-sm font-bold text-foreground/90">{person.name}</p>
+                  </div>
+                  <div className="rounded-lg border border-rose-200/60 bg-white/80 p-2.5 dark:border-rose-500/20 dark:bg-card/60">
+                    <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Role / Class</p>
+                    <p className="mt-0.5 truncate text-sm font-semibold text-foreground/90">
+                      {person.label || person.className || (person.type.charAt(0).toUpperCase() + person.type.slice(1))}
+                    </p>
+                  </div>
+                  <div className="rounded-lg border border-rose-200/60 bg-white/80 p-2.5 dark:border-rose-500/20 dark:bg-card/60">
+                    <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Card Format</p>
+                    <p className="mt-0.5 truncate text-sm font-semibold text-rose-700 dark:text-rose-300">1080×1080 (1:1 PNG)</p>
+                  </div>
+                </div>
+              </section>
+
+              {/* Section 2: Card Live Preview */}
+              <section className="relative overflow-hidden rounded-xl border border-amber-200/80 bg-gradient-to-br from-amber-50/40 via-white to-rose-50/40 p-4 shadow-sm dark:border-amber-500/25 dark:from-amber-500/10 dark:via-card dark:to-rose-500/10">
+                <div className="relative mb-3 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-amber-500 to-rose-500 text-white shadow-sm">
+                      <Cake className="size-4 text-white" />
+                    </span>
+                    <div>
+                      <h3 className="text-sm font-semibold">Birthday Card Preview</h3>
+                      <p className="text-[10px] text-muted-foreground">High-resolution preview with school branding and photo</p>
+                    </div>
+                  </div>
+                  <Badge variant="outline" className="border-amber-300/80 bg-amber-50/60 text-[10px] font-medium text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
+                    Ready to Export
+                  </Badge>
+                </div>
+
+                <div className="flex justify-center overflow-hidden rounded-xl border border-rose-100 bg-white/70 p-2 shadow-inner dark:border-rose-900/30 dark:bg-card/70">
+                  <ScaledBirthdayCard ref={cardRef} student={student} school={school} />
+                </div>
+              </section>
+            </>
           )}
         </div>
 
-        <DialogFooter className="shrink-0 border-t border-primary/10 bg-muted/30 px-4 py-3 sm:px-5">
-          <Button variant="outline" size="sm" className="h-8 px-4 text-xs" onClick={onClose} disabled={downloading}>
-            Close
-          </Button>
-          <Button
-            size="sm"
-            className="h-8 gap-1.5 px-4 text-xs"
-            onClick={() => void handleDownload()}
-            disabled={!person || downloading}
-          >
-            {downloading ? (
-              <>
-                <Loader2 className="size-3.5 animate-spin" /> Preparing…
-              </>
-            ) : (
-              <>
-                <Download className="size-3.5" /> Download PNG
-              </>
-            )}
-          </Button>
+        <DialogFooter className="shrink-0 border-t border-primary/10 bg-muted/30 px-4 py-3 sm:px-5 flex flex-row items-center justify-between sm:justify-between">
+          <div className="hidden sm:flex items-center gap-1.5 text-xs text-muted-foreground">
+            <PartyPopper className="size-3.5 text-rose-500" />
+            <span>Optimized for WhatsApp status, Instagram & print</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" className="h-8 px-4 text-xs" onClick={onClose} disabled={downloading}>
+              Close
+            </Button>
+            <Button
+              size="sm"
+              className="h-8 gap-1.5 bg-gradient-to-r from-rose-500 via-pink-600 to-amber-500 px-4 text-xs font-semibold text-white shadow-sm hover:from-rose-600 hover:to-pink-700 disabled:opacity-50"
+              onClick={() => void handleDownload()}
+              disabled={!person || downloading}
+            >
+              {downloading ? (
+                <>
+                  <Loader2 className="size-3.5 animate-spin" /> Preparing…
+                </>
+              ) : (
+                <>
+                  <Download className="size-3.5" /> Download PNG
+                </>
+              )}
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>

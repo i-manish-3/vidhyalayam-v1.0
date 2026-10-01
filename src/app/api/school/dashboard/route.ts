@@ -168,32 +168,42 @@ async function getAdminDashboard(schoolId: string, perms: string[]) {
     ? await isSchoolTeachingDay(schoolId, adminAcademicYear, today)
     : { teaching: true as const }
 
-  const attendanceToday = canAttendance && teachingInfo.teaching
+  // Attendance today - support both local midnight and UTC midnight
+  const localTodayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0, 0)
+  const localTomorrowStart = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1, 0, 0, 0, 0)
+  const utcTodayStart = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0, 0))
+  const utcTomorrowStart = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate() + 1, 0, 0, 0, 0))
+  const todayStart = new Date(Math.min(localTodayStart.getTime(), utcTodayStart.getTime()))
+  const todayEnd = new Date(Math.max(localTomorrowStart.getTime(), utcTomorrowStart.getTime()))
+
+  const attendanceTodayRecords = canAttendance
     ? await db.attendance.findMany({
-        where: { schoolId, date: today },
+        where: { schoolId, date: { gte: todayStart, lt: todayEnd } },
         select: { status: true },
       })
     : []
 
+  const isTeaching = attendanceTodayRecords.length > 0 || teachingInfo.teaching
+
   const attendanceStats = {
-    total: attendanceToday.length,
-    present: attendanceToday.filter((a) => a.status === 'present').length,
-    absent: attendanceToday.filter((a) => a.status === 'absent').length,
-    leave: attendanceToday.filter((a) => a.status === 'leave').length,
-    isTeachingDay: teachingInfo.teaching,
-    nonTeachingReason: !teachingInfo.teaching ? teachingInfo.reason : undefined,
-    holidayName: !teachingInfo.teaching && teachingInfo.reason === 'holiday' ? teachingInfo.holiday?.name : undefined,
+    total: attendanceTodayRecords.length,
+    present: attendanceTodayRecords.filter((a) => a.status === 'present').length,
+    absent: attendanceTodayRecords.filter((a) => a.status === 'absent').length,
+    leave: attendanceTodayRecords.filter((a) => a.status === 'leave').length,
+    isTeachingDay: isTeaching,
+    nonTeachingReason: !isTeaching ? teachingInfo.reason : undefined,
+    holidayName: !isTeaching && teachingInfo.reason === 'holiday' ? teachingInfo.holiday?.name : undefined,
   }
 
-  // Weekly attendance series for the dashboard trend chart — the last 5 days
-  // with attendance records (real data, unlike the old synthetic multipliers).
+  // Weekly attendance series for the dashboard trend chart — the last 6 days
+  // with real attendance records, plus today so real-time attendance appears immediately.
   const recentAttendanceDates = canAttendance
     ? await db.attendance.findMany({
-        where: { schoolId, date: { lte: today } },
+        where: { schoolId, date: { lte: todayEnd } },
         select: { date: true },
         distinct: ['date'],
         orderBy: { date: 'desc' },
-        take: 5,
+        take: 6,
       })
     : []
   const attendanceWeekDates = recentAttendanceDates
@@ -211,7 +221,7 @@ async function getAdminDashboard(schoolId: string, perms: string[]) {
 
   const attendanceWeekMap = new Map<string, { present: number; absent: number; leave: number; total: number }>()
   for (const g of attendanceWeekRows) {
-    const key = `${g.date.getFullYear()}-${String(g.date.getMonth() + 1).padStart(2, '0')}-${String(g.date.getDate()).padStart(2, '0')}`
+    const key = g.date.toISOString().slice(0, 10)
     const entry = attendanceWeekMap.get(key) || { present: 0, absent: 0, leave: 0, total: 0 }
     if (g.status === 'present') entry.present = g._count._all
     else if (g.status === 'absent') entry.absent = g._count._all
@@ -221,17 +231,39 @@ async function getAdminDashboard(schoolId: string, perms: string[]) {
   }
 
   const attendanceWeek = attendanceWeekDates.map((d) => {
-    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    const key = d.toISOString().slice(0, 10)
     const s = attendanceWeekMap.get(key)
+    const isToday = d.getTime() >= todayStart.getTime() && d.getTime() < todayEnd.getTime()
     return {
       date: key,
-      day: d.toLocaleDateString('en-IN', { weekday: 'short' }),
+      day: d.toLocaleDateString('en-IN', { weekday: 'short', timeZone: 'Asia/Kolkata' }),
+      dateLabel: d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'Asia/Kolkata' }),
+      shortLabel: isToday ? 'Today' : d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'Asia/Kolkata' }),
+      isToday,
       present: s?.present ?? 0,
       absent: s?.absent ?? 0,
       leave: s?.leave ?? 0,
       total: s?.total ?? 0,
+      marked: (s?.total ?? 0) > 0,
     }
   })
+
+  // Ensure today is always in the chart if attendance hasn't been saved yet
+  const todayIsoKey = today.toISOString().slice(0, 10)
+  if (canAttendance && !attendanceWeek.some((w) => w.isToday || w.date === todayIsoKey)) {
+    attendanceWeek.push({
+      date: todayIsoKey,
+      day: today.toLocaleDateString('en-IN', { weekday: 'short', timeZone: 'Asia/Kolkata' }),
+      dateLabel: 'Today',
+      shortLabel: 'Today',
+      isToday: true,
+      present: attendanceStats.present,
+      absent: attendanceStats.absent,
+      leave: attendanceStats.leave,
+      total: attendanceStats.total,
+      marked: attendanceStats.total > 0,
+    })
+  }
 
   // Overdue fees
   const overdueFees = canFees
@@ -250,8 +282,19 @@ async function getAdminDashboard(schoolId: string, perms: string[]) {
   // the current one). Collected buckets by payment date; pending buckets by
   // due date, so a bill shows up as pending in the month it was due and any
   // payment lands in the month it was actually paid.
+  // Monthly fee trend — collected vs pending for the last 6 months (including
+  // the current live month). Collected buckets by payment date; pending buckets by
+  // due date or invoice creation date so bills without a dueDate are tracked properly.
   const FEE_TREND_MONTHS = 6
-  let feeTrend: Array<{ month: string; collected: number; pending: number }> = []
+  let feeTrend: Array<{
+    month: string
+    fullMonth: string
+    collected: number
+    pending: number
+    total: number
+    collectionRate: number
+    isCurrentMonth: boolean
+  }> = []
   if (canFees) {
     const now = new Date()
     const windowStart = new Date(now.getFullYear(), now.getMonth() - (FEE_TREND_MONTHS - 1), 1)
@@ -260,33 +303,56 @@ async function getAdminDashboard(schoolId: string, perms: string[]) {
         schoolId,
         deletedAt: null,
         paymentStatus: { in: ['paid', 'partial', 'unpaid'] },
-        OR: [{ paymentDate: { gte: windowStart } }, { dueDate: { gte: windowStart } }],
+        OR: [
+          { paymentDate: { gte: windowStart } },
+          { dueDate: { gte: windowStart } },
+          { createdAt: { gte: windowStart } },
+        ],
       },
-      select: { paymentDate: true, dueDate: true, amount: true, paidAmount: true, paymentStatus: true },
+      select: { paymentDate: true, dueDate: true, createdAt: true, amount: true, paidAmount: true, paymentStatus: true },
     })
-    const buckets = new Map<string, { collected: number; pending: number }>()
+    const buckets = new Map<string, { month: string; fullMonth: string; collected: number; pending: number; isCurrentMonth: boolean }>()
     for (let i = FEE_TREND_MONTHS - 1; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
-      buckets.set(`${d.getFullYear()}-${d.getMonth()}`, { collected: 0, pending: 0 })
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+      buckets.set(key, {
+        month: d.toLocaleDateString('en-IN', { month: 'short' }),
+        fullMonth: d.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' }),
+        collected: 0,
+        pending: 0,
+        isCurrentMonth: i === 0,
+      })
     }
     for (const r of trendRows) {
       if ((r.paymentStatus === 'paid' || r.paymentStatus === 'partial') && r.paymentDate) {
-        const key = `${r.paymentDate.getFullYear()}-${r.paymentDate.getMonth()}`
+        const key = `${r.paymentDate.getFullYear()}-${String(r.paymentDate.getMonth() + 1).padStart(2, '0')}`
         const bucket = buckets.get(key)
         if (bucket) bucket.collected += r.paidAmount || 0
       }
-      if ((r.paymentStatus === 'unpaid' || r.paymentStatus === 'partial') && r.dueDate) {
-        const key = `${r.dueDate.getFullYear()}-${r.dueDate.getMonth()}`
-        const bucket = buckets.get(key)
-        if (bucket) bucket.pending += (r.amount || 0) - (r.paidAmount || 0)
+      if (r.paymentStatus === 'unpaid' || r.paymentStatus === 'partial') {
+        const billDate = r.dueDate || r.createdAt
+        if (billDate) {
+          const key = `${billDate.getFullYear()}-${String(billDate.getMonth() + 1).padStart(2, '0')}`
+          const bucket = buckets.get(key)
+          if (bucket) bucket.pending += Math.max(0, (r.amount || 0) - (r.paidAmount || 0))
+        }
       }
     }
-    feeTrend = [...buckets.entries()].map(([key, bucket]) => ({
-      month: new Intl.DateTimeFormat('en-IN', { month: 'short' })
-        .format(new Date(Number(key.split('-')[0]), Number(key.split('-')[1]), 1)),
-      collected: Math.round(bucket.collected),
-      pending: Math.round(bucket.pending),
-    }))
+    feeTrend = [...buckets.values()].map((bucket) => {
+      const collected = Math.round(bucket.collected)
+      const pending = Math.round(bucket.pending)
+      const total = collected + pending
+      const collectionRate = total > 0 ? Math.round((collected / total) * 100) : 0
+      return {
+        month: bucket.month,
+        fullMonth: bucket.fullMonth,
+        collected,
+        pending,
+        total,
+        collectionRate,
+        isCurrentMonth: bucket.isCurrentMonth,
+      }
+    })
   }
 
   // Salary stats
@@ -449,6 +515,63 @@ async function getAdminDashboard(schoolId: string, perms: string[]) {
 
   recentActivities.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
 
+  // Academic performance / grade trends for exams with results
+  let studentPerformance: Array<{
+    term: string
+    gradeA: number
+    gradeB: number
+    gradeC: number
+    total: number
+    avgScore: number
+    passRate: number
+  }> = []
+
+  if (canStudents) {
+    const recentExams = await db.exam.findMany({
+      where: { schoolId, deletedAt: null, results: { some: {} } },
+      select: {
+        id: true,
+        name: true,
+        startDate: true,
+        results: {
+          select: { grade: true, percentage: true, status: true },
+        },
+      },
+      orderBy: { startDate: 'desc' },
+      take: 6,
+    })
+
+    if (recentExams.length > 0) {
+      studentPerformance = [...recentExams].reverse().map((e) => {
+        const total = e.results.length
+        const gA = e.results.filter(
+          (r) => (r.percentage ?? 0) >= 75 || (r.grade && /^A/i.test(r.grade))
+        ).length
+        const gB = e.results.filter(
+          (r) =>
+            ((r.percentage ?? 0) >= 50 && (r.percentage ?? 0) < 75) ||
+            (r.grade && /^[BC]/i.test(r.grade))
+        ).length
+        const gC = e.results.filter(
+          (r) => (r.percentage ?? 0) < 50 || (r.grade && /^[DE]/i.test(r.grade))
+        ).length
+        const passedCount = e.results.filter((r) => r.status === 'pass' || (r.percentage ?? 0) >= 33).length
+        const avgScore = total > 0 ? Math.round(e.results.reduce((acc, r) => acc + (r.percentage ?? 0), 0) / total) : 0
+        const passRate = total > 0 ? Math.round((passedCount / total) * 100) : 0
+
+        return {
+          term: e.name,
+          gradeA: gA,
+          gradeB: gB,
+          gradeC: gC,
+          total,
+          avgScore,
+          passRate,
+        }
+      })
+    }
+  }
+
   return NextResponse.json({
     role: 'SCHOOL_ADMIN',
     stats: {
@@ -468,6 +591,7 @@ async function getAdminDashboard(schoolId: string, perms: string[]) {
     attendance: attendanceStats,
     attendanceWeek,
     feeTrend,
+    studentPerformance,
     recentActivities,
     notices: canAnnouncements
       ? recentAnnouncements.map((a) => ({

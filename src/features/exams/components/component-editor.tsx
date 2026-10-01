@@ -120,11 +120,11 @@ export function ComponentEditor({
       <DialogContent className="flex max-h-[90svh] flex-col overflow-hidden border-primary/20 bg-card p-0 shadow-2xl shadow-primary/15 sm:max-w-2xl [&>button]:right-3 [&>button]:top-3 [&>button]:rounded-full [&>button]:text-white [&>button]:opacity-80 [&>button]:hover:bg-white/15 [&>button]:hover:opacity-100">
         <GradientDialogHeader
           icon={Settings2}
-          title={`Components${subjectLabel ? ` — ${subjectLabel}` : ''}`}
+          title={`Partitions${subjectLabel ? ` — ${subjectLabel}` : ''}`}
           description={
             isGradeOnlySubject
               ? 'Grade-only subject. Add channels that capture grades (no numeric marks).'
-              : `Split the ${totalMarks}-mark total across scoring channels. Component max marks must sum to ${totalMarks}.`
+              : `Split the ${totalMarks}-mark total across scoring channels. Partition max marks must sum to ${totalMarks}.`
           }
         />
 
@@ -182,7 +182,7 @@ export function ComponentEditor({
                   size="icon"
                   className="size-8"
                   onClick={() => removeRow(idx)}
-                  aria-label="Remove component"
+                  aria-label="Remove partition"
                 >
                   <Trash2 className="size-4" />
                 </Button>
@@ -199,7 +199,7 @@ export function ComponentEditor({
           <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
             <div className="flex gap-2">
               <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={() => addRow(false)}>
-                <Plus className="size-3.5" /> Add component
+                <Plus className="size-3.5" /> Add partition
               </Button>
               <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={() => addRow(true)}>
                 <Plus className="size-3.5" /> Add grade-only
@@ -223,7 +223,7 @@ export function ComponentEditor({
               Cancel
             </Button>
             <Button type="button" disabled={!canSave} onClick={() => void handleSave()}>
-              {saving ? 'Saving…' : 'Save components'}
+              {saving ? 'Saving…' : 'Save partitions'}
             </Button>
           </DialogFooter>
         </div>

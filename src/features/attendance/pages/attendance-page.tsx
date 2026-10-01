@@ -41,6 +41,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { usePermissions, PERMISSIONS } from '@/hooks/use-permissions'
+import { triggerAttendanceSync } from '@/lib/attendance-sync'
 
 // ── Types ──────────────────────────────────────────────────────────────
 
@@ -491,6 +492,7 @@ export function AttendancePage() {
             : `Saved for ${recordsToSend.length} students. ${unmarked} still unmarked — mark them before finalizing.`,
       })
       fetchAttendanceData()
+      triggerAttendanceSync()
     } catch (err) {
       toast({ title: 'Save Failed', description: err instanceof Error ? err.message : 'Something went wrong.', variant: 'destructive' })
     } finally {
@@ -532,6 +534,7 @@ export function AttendancePage() {
       })
       setIsFinalized(true)
       fetchAttendanceData()
+      triggerAttendanceSync()
     } catch (err) {
       toast({
         title: 'Finalize Failed',
@@ -565,6 +568,7 @@ export function AttendancePage() {
       setReopenReason('')
       setIsFinalized(false)
       fetchAttendanceData()
+      triggerAttendanceSync()
     } catch (err) {
       toast({
         title: 'Reopen Failed',

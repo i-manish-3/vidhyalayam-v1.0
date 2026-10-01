@@ -105,16 +105,16 @@ const STAGES: ReadonlyArray<StageDef> = [
   },
   {
     num: 4,
-    title: 'Configure Subjects + Components',
+    title: 'Configure Subjects + Partitions',
     who: 'School admin',
     where: 'Exam List → click Configure',
     frequency: 'Once per exam (only when pattern changes)',
     icon: Settings2,
     description:
-      'Defines what each (class × subject) exam looks like. Total marks, passing marks, grace marks, and the component split (Theory 80 + Practical 20, etc.).',
+      'Defines what each (class × subject) exam looks like. Total marks, passing marks, grace marks, and the partition split (Theory 80 + Practical 20, etc.).',
     steps: [
       'Click + Add subject for each (class, subject) row.',
-      'Set component split — component marks MUST sum to subject total (the page enforces this).',
+      'Set partition split — partition marks MUST sum to subject total (the page enforces this).',
       'For co-scholastic subjects (Discipline, Art) toggle "Grade only".',
       'Status moves Draft → Scheduled when subjects are configured.',
     ],
@@ -144,7 +144,7 @@ const STAGES: ReadonlyArray<StageDef> = [
     frequency: 'After each paper is corrected',
     icon: ClipboardCheck,
     description:
-      'The day-to-day grid: one row per student, one column per component. Filter by Class → Section → Subject.',
+      'The day-to-day grid: one row per student, one column per partition. Filter by Class → Section → Subject.',
     steps: [
       'Pick Class, Section, Subject from filter bar.',
       'Type a number in any cell — auto-saves 1.5s after you stop typing.',
@@ -318,7 +318,7 @@ const TROUBLESHOOTING: ReadonlyArray<{ symptom: string; fix: string }> = [
   },
   {
     symptom: 'Calculate button says "No students with marks"',
-    fix: 'Enter at least one component for one student first.',
+    fix: 'Enter at least one partition for one student first.',
   },
   {
     symptom: 'Publish button says "No calculated results to publish"',

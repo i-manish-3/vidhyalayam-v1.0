@@ -974,7 +974,7 @@ function ReportCardTemplateEditPageInner() {
                 <CardContent className="space-y-2.5">
                   <EnhancedSwitchCard
                     icon={Layers}
-                    title="Component Breakdown"
+                    title="Partition Breakdown"
                     description="Display sub-scores like Theory, Practical, and Viva columns for single exams."
                     checked={layout.subjectTable.showComponents}
                     onChange={(v) =>

@@ -645,7 +645,7 @@ export function MarksGrid({ examId, examStatus, subjectConfigs }: MarksGridProps
               </Badge>
             )}
             <span className="text-muted-foreground">
-              {allLabels.length} component{allLabels.length === 1 ? '' : 's'} / {config.totalMarks} marks
+              {allLabels.length} partition{allLabels.length === 1 ? '' : 's'} / {config.totalMarks} marks
               {' · '}pass {config.passingPercentage}%
             </span>
             {published && (

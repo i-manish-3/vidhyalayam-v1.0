@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useCallback, useRef } from 'react'
 import {
   AlertCircle,
   ArrowRight,
@@ -17,12 +17,18 @@ import {
   IndianRupee,
   Megaphone,
   MoonStar,
+  PartyPopper,
+  RefreshCw,
   School,
+  Sparkles,
   Sun,
   Sunrise,
   Sunset,
+  Target,
+  TrendingUp,
   Users,
 } from 'lucide-react'
+import { ATTENDANCE_SYNC_EVENT, FEE_SYNC_EVENT } from '@/lib/attendance-sync'
 import {
   Area,
   AreaChart,
@@ -46,14 +52,18 @@ import { useRouter } from 'next/navigation'
 import { usePermissions } from '@/hooks/use-permissions'
 import { cn } from '@/lib/utils'
 import { useAppStore } from '@/lib/store'
+import {
+  SchoolBirthdayCardDialog,
+  type BirthdayCardStudent,
+} from '@/features/birthdays/components/school-birthday-card'
 
-const studentPerformanceData = [
-  { month: 'Jul', gradeA: 62, gradeB: 54, gradeC: 43 },
-  { month: 'Aug', gradeA: 66, gradeB: 58, gradeC: 46 },
-  { month: 'Sep', gradeA: 70, gradeB: 61, gradeC: 49 },
-  { month: 'Oct', gradeA: 74, gradeB: 64, gradeC: 52 },
-  { month: 'Nov', gradeA: 78, gradeB: 67, gradeC: 55 },
-  { month: 'Dec', gradeA: 82, gradeB: 70, gradeC: 58 },
+const defaultStudentPerformanceData = [
+  { term: 'Unit 1', gradeA: 62, gradeB: 54, gradeC: 23, total: 139, avgScore: 78, passRate: 92 },
+  { term: 'Unit 2', gradeA: 66, gradeB: 58, gradeC: 21, total: 145, avgScore: 81, passRate: 94 },
+  { term: 'Quarterly', gradeA: 70, gradeB: 61, gradeC: 19, total: 150, avgScore: 83, passRate: 95 },
+  { term: 'Mid-Term', gradeA: 74, gradeB: 64, gradeC: 18, total: 156, avgScore: 84, passRate: 96 },
+  { term: 'Unit 3', gradeA: 78, gradeB: 67, gradeC: 15, total: 160, avgScore: 86, passRate: 97 },
+  { term: 'Half Yearly', gradeA: 82, gradeB: 70, gradeC: 14, total: 166, avgScore: 88, passRate: 98 },
 ]
 
 const tooltipStyle = {
@@ -93,6 +103,10 @@ interface DashboardData {
     absent: number
     leave: number
     total: number
+    dateLabel?: string
+    shortLabel?: string
+    isToday?: boolean
+    marked?: boolean
   }>
   feeStats: {
     totalCollected: number
@@ -103,7 +117,24 @@ interface DashboardData {
     monthlyCollected: number
     collectionRate: number
   }
-  feeTrend: Array<{ month: string; collected: number; pending: number }>
+  feeTrend: Array<{
+    month: string
+    fullMonth?: string
+    collected: number
+    pending: number
+    total?: number
+    collectionRate?: number
+    isCurrentMonth?: boolean
+  }>
+  studentPerformance?: Array<{
+    term: string
+    gradeA: number
+    gradeB: number
+    gradeC: number
+    total: number
+    avgScore?: number
+    passRate?: number
+  }>
   recentActivities: Array<{ id: string; type: string; message: string; time: string }>
   notices: Array<{
     id: string
@@ -148,9 +179,11 @@ function formatMoney(value: number) {
 
 export function SchoolAdminDashboard() {
   const [loading, setLoading] = useState(true)
+  const [isRefreshing, setIsRefreshing] = useState(false)
   const [data, setData] = useState<DashboardData | null>(null)
   const [birthdays, setBirthdays] = useState<BirthdayPerson[]>([])
   const [currentHour, setCurrentHour] = useState(() => new Date().getHours())
+  const isFetchingRef = useRef(false)
   const router = useRouter()
   const { hasPermission } = usePermissions()
   const user = useAppStore((state) => state.user)
@@ -166,46 +199,54 @@ export function SchoolAdminDashboard() {
   const canSeeAttendance = hasPermission('attendance:read')
   const canSeeClasses = hasPermission('class:read')
 
-  useEffect(() => {
-    async function fetchData() {
-      try {
-        const dashboardData = await api.get<Record<string, unknown>>('/api/school/dashboard')
-        const stats = (dashboardData.stats || {}) as Record<string, unknown>
-        const collectionRate = Number(stats.collectionRate || 0)
+  const fetchData = useCallback(async (isSilent = false) => {
+    if (isFetchingRef.current) return
+    isFetchingRef.current = true
+    if (isSilent) setIsRefreshing(true)
+    try {
+      const dashboardData = await api.get<Record<string, unknown>>('/api/school/dashboard')
+      const stats = (dashboardData.stats || {}) as Record<string, unknown>
+      const collectionRate = Number(stats.collectionRate || 0)
 
-        setData({
-          totalStudents: Number(stats.totalStudents || 0),
-          totalTeachers: Number(stats.totalTeachers || 0),
-          totalClasses: Number(stats.totalClasses || 0),
-          totalSections: Number(stats.totalSections || 0),
-          attendanceToday: (dashboardData.attendance as DashboardData['attendanceToday']) || { present: 0, absent: 0, leave: 0, total: 0 },
-          attendanceWeek: Array.isArray(dashboardData.attendanceWeek)
-            ? (dashboardData.attendanceWeek as DashboardData['attendanceWeek'])
-            : [],
-          feeStats: {
-            totalCollected: Number(stats.collectedFees || 0),
-            totalPending: Number(stats.pendingFees || 0),
-            totalFees: Number(stats.totalFees || 0),
-            overdueFees: Number(stats.overdueFees || 0),
-            todayCollected: Number(stats.todayCollected || 0),
-            monthlyCollected: Number(stats.monthlyCollected || 0),
-            collectionRate,
-          },
-          feeTrend: Array.isArray(dashboardData.feeTrend)
-            ? (dashboardData.feeTrend as DashboardData['feeTrend'])
-            : [],
-          recentActivities: Array.isArray(dashboardData.recentActivities)
-            ? (dashboardData.recentActivities as DashboardData['recentActivities'])
-            : [],
-          notices: Array.isArray(dashboardData.notices)
-            ? (dashboardData.notices as DashboardData['notices'])
-            : [],
-        })
-      } finally {
-        setLoading(false)
-      }
+      setData({
+        totalStudents: Number(stats.totalStudents || 0),
+        totalTeachers: Number(stats.totalTeachers || 0),
+        totalClasses: Number(stats.totalClasses || 0),
+        totalSections: Number(stats.totalSections || 0),
+        attendanceToday: (dashboardData.attendance as DashboardData['attendanceToday']) || { present: 0, absent: 0, leave: 0, total: 0 },
+        attendanceWeek: Array.isArray(dashboardData.attendanceWeek)
+          ? (dashboardData.attendanceWeek as DashboardData['attendanceWeek'])
+          : [],
+        feeStats: {
+          totalCollected: Number(stats.collectedFees || 0),
+          totalPending: Number(stats.pendingFees || 0),
+          totalFees: Number(stats.totalFees || 0),
+          overdueFees: Number(stats.overdueFees || 0),
+          todayCollected: Number(stats.todayCollected || 0),
+          monthlyCollected: Number(stats.monthlyCollected || 0),
+          collectionRate,
+        },
+        feeTrend: Array.isArray(dashboardData.feeTrend)
+          ? (dashboardData.feeTrend as DashboardData['feeTrend'])
+          : [],
+        studentPerformance: Array.isArray(dashboardData.studentPerformance)
+          ? (dashboardData.studentPerformance as DashboardData['studentPerformance'])
+          : [],
+        recentActivities: Array.isArray(dashboardData.recentActivities)
+          ? (dashboardData.recentActivities as DashboardData['recentActivities'])
+          : [],
+        notices: Array.isArray(dashboardData.notices)
+          ? (dashboardData.notices as DashboardData['notices'])
+          : [],
+      })
+    } finally {
+      if (!isSilent) setLoading(false)
+      setIsRefreshing(false)
+      isFetchingRef.current = false
     }
+  }, [])
 
+  useEffect(() => {
     async function fetchBirthdays() {
       try {
         const res = await api.get<{
@@ -223,9 +264,58 @@ export function SchoolAdminDashboard() {
       }
     }
 
-    fetchData()
+    fetchData(false)
     fetchBirthdays()
-  }, [])
+
+    // 1. Live polling every 20 seconds
+    const pollInterval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        fetchData(true)
+      }
+    }, 20000)
+
+    // 2. Tab focus / visibility sync
+    const handleVisibilityChange = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        fetchData(true)
+      }
+    }
+    window.addEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('focus', handleVisibilityChange)
+
+    // 3. Local custom event listener
+    const handleSyncEvent = () => {
+      fetchData(true)
+    }
+    window.addEventListener(ATTENDANCE_SYNC_EVENT, handleSyncEvent)
+    window.addEventListener(FEE_SYNC_EVENT, handleSyncEvent)
+
+    // 4. Cross-tab BroadcastChannel listener
+    let channel: BroadcastChannel | null = null
+    let feeChannel: BroadcastChannel | null = null
+    try {
+      if ('BroadcastChannel' in window) {
+        channel = new BroadcastChannel('attendance-sync-channel')
+        channel.onmessage = () => {
+          fetchData(true)
+        }
+        feeChannel = new BroadcastChannel('fee-sync-channel')
+        feeChannel.onmessage = () => {
+          fetchData(true)
+        }
+      }
+    } catch {}
+
+    return () => {
+      clearInterval(pollInterval)
+      window.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('focus', handleVisibilityChange)
+      window.removeEventListener(ATTENDANCE_SYNC_EVENT, handleSyncEvent)
+      window.removeEventListener(FEE_SYNC_EVENT, handleSyncEvent)
+      if (channel) channel.close()
+      if (feeChannel) feeChannel.close()
+    }
+  }, [fetchData])
 
   useEffect(() => {
     const interval = setInterval(() => setCurrentHour(new Date().getHours()), 60000)
@@ -243,6 +333,7 @@ export function SchoolAdminDashboard() {
     feeTrend: [],
     recentActivities: [],
     notices: [],
+    studentPerformance: [],
   }
 
   const dashboard = data || fallbackData
@@ -258,6 +349,23 @@ export function SchoolAdminDashboard() {
     ? Math.round(dashboard.totalStudents / dashboard.totalClasses)
     : 0
 
+  const performanceData = useMemo(() => {
+    if (dashboard.studentPerformance && dashboard.studentPerformance.length > 0) {
+      return dashboard.studentPerformance
+    }
+    return defaultStudentPerformanceData
+  }, [dashboard.studentPerformance])
+
+  const latestPerformance = performanceData[performanceData.length - 1] || {
+    term: 'Current',
+    gradeA: 0,
+    gradeB: 0,
+    gradeC: 0,
+    total: 0,
+    avgScore: 0,
+    passRate: 0,
+  }
+
   const attendanceData = [
     { name: 'Present', value: dashboard.attendanceToday.present, color: 'var(--primary)' },
     { name: 'Absent', value: dashboard.attendanceToday.absent, color: 'var(--destructive)' },
@@ -265,13 +373,23 @@ export function SchoolAdminDashboard() {
   ]
   const boysCount = Math.round(dashboard.totalStudents * 0.52)
   const girlsCount = Math.max(0, dashboard.totalStudents - boysCount)
+  const boysPct = dashboard.totalStudents > 0 ? Math.round((boysCount / dashboard.totalStudents) * 100) : 0
+  const girlsPct = dashboard.totalStudents > 0 ? 100 - boysPct : 0
   const genderData = [
     { name: 'Boys', value: boysCount, color: '#0ea5e9' },
     { name: 'Girls', value: girlsCount, color: '#ec4899' },
   ]
   const weeklyAttendanceData = dashboard.attendanceWeek.map((d) => ({
+    date: d.date,
     day: d.day,
+    label: d.shortLabel || d.dateLabel || d.day,
+    dateLabel: d.dateLabel || d.day,
+    isToday: Boolean(d.isToday),
     present: d.present,
+    absent: d.absent ?? 0,
+    leave: d.leave ?? 0,
+    total: d.total ?? (d.present + (d.absent ?? 0) + (d.leave ?? 0)),
+    marked: Boolean(d.marked ?? ((d.present + (d.absent ?? 0) + (d.leave ?? 0)) > 0)),
   }))
   const feeTrendData = dashboard.feeTrend
   const latestFeeMonth = feeTrendData[feeTrendData.length - 1] || { month: '', collected: 0, pending: 0 }
@@ -416,30 +534,111 @@ export function SchoolAdminDashboard() {
           <div className="grid gap-4">
             <div className="grid gap-4 lg:grid-cols-3">
               {canSeeStudents && (
-                <DashboardPanel title="Students by Gender" description={`${dashboard.totalStudents} enrolled students`} icon={Users} tone="sky">
-                  <div className="relative h-44">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie data={genderData} cx="50%" cy="50%" innerRadius={48} outerRadius={70} paddingAngle={4} dataKey="value">
-                          {genderData.map((entry) => (
-                            <Cell key={entry.name} fill={entry.color} />
-                          ))}
-                        </Pie>
-                        <Tooltip contentStyle={tooltipStyle} />
-                      </PieChart>
-                    </ResponsiveContainer>
-                    <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                      <span className="text-2xl font-bold text-foreground/85">{dashboard.totalStudents}</span>
-                      <span className="text-[11px] text-muted-foreground">Students</span>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 text-xs">
-                    {genderData.map((item) => (
-                      <div key={item.name} className="flex items-center justify-center gap-1.5 rounded-lg bg-muted/45 px-2 py-1.5">
-                        <span className="size-2 rounded-full" style={{ backgroundColor: item.color }} />
-                        <span>{item.name} {item.value}</span>
+                <DashboardPanel
+                  title="Students by Gender"
+                  description={`${dashboard.totalStudents} enrolled students`}
+                  icon={Users}
+                  tone="sky"
+                  action={(
+                    <Badge variant="outline" className="h-5.5 shrink-0 border-sky-300/80 bg-sky-50/80 px-2 text-[10px] font-bold text-sky-700 dark:border-sky-500/30 dark:bg-sky-500/15 dark:text-sky-300">
+                      Total {dashboard.totalStudents}
+                    </Badge>
+                  )}
+                >
+                  <div className="flex flex-1 flex-col justify-between gap-3">
+                    {/* Donut Chart */}
+                    <div className="relative h-44 sm:h-48">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <defs>
+                            <linearGradient id="boysGradient" x1="0" y1="0" x2="1" y2="1">
+                              <stop offset="0%" stopColor="#38bdf8" />
+                              <stop offset="100%" stopColor="#0284c7" />
+                            </linearGradient>
+                            <linearGradient id="girlsGradient" x1="0" y1="0" x2="1" y2="1">
+                              <stop offset="0%" stopColor="#f472b6" />
+                              <stop offset="100%" stopColor="#db2777" />
+                            </linearGradient>
+                          </defs>
+                          <Pie
+                            data={genderData}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={50}
+                            outerRadius={74}
+                            paddingAngle={5}
+                            dataKey="value"
+                            stroke="none"
+                          >
+                            <Cell fill="url(#boysGradient)" />
+                            <Cell fill="url(#girlsGradient)" />
+                          </Pie>
+                          <Tooltip contentStyle={tooltipStyle} />
+                        </PieChart>
+                      </ResponsiveContainer>
+                      <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+                        <span className="text-2xl font-black tracking-tight text-foreground/90">{dashboard.totalStudents}</span>
+                        <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Students</span>
                       </div>
-                    ))}
+                    </div>
+
+                    {/* Ratio / Distribution bar */}
+                    <div className="space-y-1 rounded-xl border border-sky-100/80 bg-sky-50/40 p-2 dark:border-sky-500/15 dark:bg-sky-950/15">
+                      <div className="flex items-center justify-between text-[11px] font-medium">
+                        <span className="font-semibold text-sky-700 dark:text-sky-300">Boys {boysPct}%</span>
+                        <span className="text-[10px] text-muted-foreground">Ratio {(boysCount / (girlsCount || 1)).toFixed(2)} : 1</span>
+                        <span className="font-semibold text-pink-700 dark:text-pink-300">Girls {girlsPct}%</span>
+                      </div>
+                      <div className="flex h-2 w-full overflow-hidden rounded-full bg-slate-200/70 p-0.5 dark:bg-slate-800">
+                        <div className="h-full rounded-full bg-gradient-to-r from-sky-400 to-sky-600 transition-all duration-500" style={{ width: `${boysPct}%` }} />
+                        <div className="h-full rounded-full bg-gradient-to-r from-pink-400 to-pink-600 transition-all duration-500" style={{ width: `${girlsPct}%` }} />
+                      </div>
+                    </div>
+
+                    {/* Gender Breakdown Cards */}
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div className="flex items-center justify-between rounded-xl border border-sky-200/80 bg-gradient-to-br from-sky-50/90 via-white to-sky-100/50 p-2.5 shadow-2xs dark:border-sky-500/20 dark:from-sky-950/20 dark:via-card dark:to-sky-900/10">
+                        <div className="flex items-center gap-2">
+                          <span className="flex size-7 items-center justify-center rounded-lg bg-gradient-to-br from-sky-400 to-sky-600 text-white font-bold text-xs shadow-xs">
+                            👦
+                          </span>
+                          <div>
+                            <p className="text-[11px] font-semibold text-sky-900 dark:text-sky-200">Boys</p>
+                            <p className="text-xs font-bold text-foreground">{boysCount}</p>
+                          </div>
+                        </div>
+                        <Badge variant="secondary" className="border-0 bg-sky-500/15 text-[10px] font-bold text-sky-700 dark:text-sky-300">
+                          {boysPct}%
+                        </Badge>
+                      </div>
+
+                      <div className="flex items-center justify-between rounded-xl border border-pink-200/80 bg-gradient-to-br from-pink-50/90 via-white to-pink-100/50 p-2.5 shadow-2xs dark:border-pink-500/20 dark:from-pink-950/20 dark:via-card dark:to-pink-900/10">
+                        <div className="flex items-center gap-2">
+                          <span className="flex size-7 items-center justify-center rounded-lg bg-gradient-to-br from-pink-400 to-pink-600 text-white font-bold text-xs shadow-xs">
+                            👧
+                          </span>
+                          <div>
+                            <p className="text-[11px] font-semibold text-pink-900 dark:text-pink-200">Girls</p>
+                            <p className="text-xs font-bold text-foreground">{girlsCount}</p>
+                          </div>
+                        </div>
+                        <Badge variant="secondary" className="border-0 bg-pink-500/15 text-[10px] font-bold text-pink-700 dark:text-pink-300">
+                          {girlsPct}%
+                        </Badge>
+                      </div>
+                    </div>
+
+                    {/* Bottom Action */}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => router.push('/students')}
+                      className="h-7.5 w-full gap-1.5 border-sky-200/80 bg-white/80 text-xs font-semibold text-sky-700 shadow-2xs hover:bg-sky-50 hover:text-sky-800 dark:border-sky-500/30 dark:bg-card dark:text-sky-300 dark:hover:bg-sky-500/20"
+                    >
+                      <Users className="size-3.5" />
+                      <span>View Students Directory</span>
+                      <ArrowRight className="ml-auto size-3 opacity-60" />
+                    </Button>
                   </div>
                 </DashboardPanel>
               )}
@@ -449,31 +648,216 @@ export function SchoolAdminDashboard() {
               {canSeeAttendance && (
                 <DashboardPanel
                   title="Student Attendance"
-                  description={isTeachingDayToday ? `${attendancePercent}% present today` : 'Attendance paused today'}
+                  description={isTeachingDayToday ? 'Daily student tracking' : 'Attendance paused today'}
                   icon={CalendarCheck}
                   tone="pink"
+                  action={(
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <Badge
+                        variant="secondary"
+                        className={cn(
+                          'h-5.5 gap-1 border-0 px-2 text-[10px] font-bold transition-all',
+                          isTeachingDayToday
+                            ? attendancePercent >= 75
+                              ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
+                              : 'bg-amber-500/15 text-amber-700 dark:text-amber-300'
+                            : 'bg-muted text-muted-foreground',
+                        )}
+                      >
+                        <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                        {isRefreshing ? 'Syncing...' : isTeachingDayToday ? `${attendancePercent}% Today` : 'Day Paused'}
+                      </Badge>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => fetchData(true)}
+                        disabled={isRefreshing}
+                        className="size-6 rounded-md text-muted-foreground hover:bg-pink-500/10 hover:text-pink-600 dark:hover:text-pink-400"
+                        title="Refresh live attendance"
+                      >
+                        <RefreshCw className={cn('size-3', isRefreshing && 'animate-spin')} />
+                      </Button>
+                    </div>
+                  )}
                 >
                   {isTeachingDayToday ? (
-                    <div className="h-56">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={weeklyAttendanceData} margin={{ left: -22, right: 4, top: 8 }}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-                          <XAxis dataKey="day" tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} axisLine={false} tickLine={false} />
-                          <YAxis tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} axisLine={false} tickLine={false} />
-                          <Tooltip contentStyle={tooltipStyle} />
-                          <Bar dataKey="present" name="Present" fill="#ec4899" radius={[8, 8, 0, 0]} />
-                        </BarChart>
-                      </ResponsiveContainer>
+                    <div className="flex flex-1 flex-col justify-between gap-3">
+                      {/* Today Snapshot Pills */}
+                      <div className="grid grid-cols-3 gap-1.5 text-center">
+                        <div className="rounded-lg border border-emerald-200/80 bg-emerald-50/70 p-1.5 dark:border-emerald-500/20 dark:bg-emerald-950/20">
+                          <p className="text-[10px] font-medium text-emerald-700 dark:text-emerald-300">Present</p>
+                          <p className="text-xs font-extrabold text-emerald-800 dark:text-emerald-200">
+                            {dashboard.attendanceToday.present}
+                          </p>
+                        </div>
+                        <div className="rounded-lg border border-rose-200/80 bg-rose-50/70 p-1.5 dark:border-rose-500/20 dark:bg-rose-950/20">
+                          <p className="text-[10px] font-medium text-rose-700 dark:text-rose-300">Absent</p>
+                          <p className="text-xs font-extrabold text-rose-800 dark:text-rose-200">
+                            {dashboard.attendanceToday.absent}
+                          </p>
+                        </div>
+                        <div className="rounded-lg border border-amber-200/80 bg-amber-50/70 p-1.5 dark:border-amber-500/20 dark:bg-amber-950/20">
+                          <p className="text-[10px] font-medium text-amber-700 dark:text-amber-300">On Leave</p>
+                          <p className="text-xs font-extrabold text-amber-800 dark:text-amber-200">
+                            {dashboard.attendanceToday.leave}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Legend for marked attendance status */}
+                      <div className="flex items-center justify-between px-1 text-[11px]">
+                        <div className="flex items-center gap-2.5 text-[10px] font-semibold">
+                          <span className="flex items-center gap-1 text-emerald-700 dark:text-emerald-400">
+                            <span className="size-2 rounded-full bg-emerald-500" />
+                            Present
+                          </span>
+                          <span className="flex items-center gap-1 text-rose-700 dark:text-rose-400">
+                            <span className="size-2 rounded-full bg-rose-500" />
+                            Absent
+                          </span>
+                          <span className="flex items-center gap-1 text-amber-700 dark:text-amber-400">
+                            <span className="size-2 rounded-full bg-amber-500" />
+                            Leave
+                          </span>
+                        </div>
+                        <span className="text-[10px] font-medium text-muted-foreground">
+                          Marked per day
+                        </span>
+                      </div>
+
+                      {/* Weekly Stacked Bar Chart with Breakdown */}
+                      <div className="h-44 sm:h-48">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={weeklyAttendanceData} margin={{ left: -22, right: 4, top: 6, bottom: -4 }}>
+                            <defs>
+                              <linearGradient id="attendancePresentGradient" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" stopColor="#10b981" stopOpacity={0.95} />
+                                <stop offset="100%" stopColor="#059669" stopOpacity={0.8} />
+                              </linearGradient>
+                              <linearGradient id="attendanceAbsentGradient" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" stopColor="#f43f5e" stopOpacity={0.95} />
+                                <stop offset="100%" stopColor="#e11d48" stopOpacity={0.8} />
+                              </linearGradient>
+                              <linearGradient id="attendanceLeaveGradient" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" stopColor="#f59e0b" stopOpacity={0.95} />
+                                <stop offset="100%" stopColor="#d97706" stopOpacity={0.8} />
+                              </linearGradient>
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} opacity={0.6} />
+                            <XAxis dataKey="label" tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }} axisLine={false} tickLine={false} />
+                            <YAxis tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }} axisLine={false} tickLine={false} />
+                            <Tooltip
+                              content={({ active, payload }) => {
+                                if (!active || !payload || !payload.length) return null
+                                const item = payload[0].payload as {
+                                  dateLabel?: string
+                                  day: string
+                                  isToday?: boolean
+                                  present: number
+                                  absent: number
+                                  leave: number
+                                  total: number
+                                  marked?: boolean
+                                }
+                                const total = item.total || (item.present + item.absent + item.leave)
+                                const rate = total > 0 ? Math.round((item.present / total) * 100) : 0
+                                return (
+                                  <div className="rounded-xl border border-pink-200/80 bg-popover/95 p-2.5 text-xs shadow-xl backdrop-blur-md dark:border-pink-500/25">
+                                    <div className="flex items-center justify-between gap-3 border-b border-border/60 pb-1.5 font-bold">
+                                      <span className="text-foreground">{item.dateLabel || item.day} ({item.day})</span>
+                                      {item.isToday && (
+                                        <span className="rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-bold text-emerald-600 dark:text-emerald-300">
+                                          Live Today
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="mt-2 space-y-1">
+                                      <div className="flex items-center justify-between gap-4 font-semibold text-emerald-600 dark:text-emerald-400">
+                                        <span className="flex items-center gap-1.5">
+                                          <span className="size-2 rounded-full bg-emerald-500" />
+                                          Present:
+                                        </span>
+                                        <span>{item.present}</span>
+                                      </div>
+                                      <div className="flex items-center justify-between gap-4 font-semibold text-rose-600 dark:text-rose-400">
+                                        <span className="flex items-center gap-1.5">
+                                          <span className="size-2 rounded-full bg-rose-500" />
+                                          Absent:
+                                        </span>
+                                        <span>{item.absent}</span>
+                                      </div>
+                                      {item.leave > 0 && (
+                                        <div className="flex items-center justify-between gap-4 font-semibold text-amber-600 dark:text-amber-400">
+                                          <span className="flex items-center gap-1.5">
+                                            <span className="size-2 rounded-full bg-amber-500" />
+                                            On Leave:
+                                          </span>
+                                          <span>{item.leave}</span>
+                                        </div>
+                                      )}
+                                      <div className="mt-1.5 flex items-center justify-between gap-4 border-t border-border/60 pt-1 text-[11px] font-bold text-foreground">
+                                        <span>Marked on day:</span>
+                                        <span>{total} students ({rate}%)</span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )
+                              }}
+                            />
+                            <Bar dataKey="present" name="Present" stackId="attendance" fill="url(#attendancePresentGradient)" radius={[0, 0, 2, 2]} />
+                            <Bar dataKey="absent" name="Absent" stackId="attendance" fill="url(#attendanceAbsentGradient)" />
+                            <Bar dataKey="leave" name="On Leave" stackId="attendance" fill="url(#attendanceLeaveGradient)" radius={[4, 4, 0, 0]} />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+
+                      {/* Bottom Summary Pill */}
+                      <div className="flex items-center justify-between rounded-xl border border-pink-200/70 bg-gradient-to-r from-pink-50/70 via-white to-rose-50/70 px-3 py-1.5 text-xs shadow-2xs dark:border-pink-500/20 dark:from-pink-950/20 dark:via-card dark:to-rose-950/20">
+                        <span className="text-[11px] font-medium text-muted-foreground flex items-center gap-1.5">
+                          <span className="relative flex size-2">
+                            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                            <span className="relative inline-flex size-2 rounded-full bg-emerald-500" />
+                          </span>
+                          Realtime Feed
+                        </span>
+                        <span className="text-[11px] font-bold text-pink-700 dark:text-pink-300">
+                          {weeklyAttendanceData.length > 0 ? `${weeklyAttendanceData.length} Days Tracked` : 'Active Term'}
+                        </span>
+                      </div>
+
+                      {/* Bottom Action */}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => router.push('/attendance')}
+                        className="h-7.5 w-full gap-1.5 border-pink-200/80 bg-white/80 text-xs font-semibold text-pink-700 shadow-2xs hover:bg-pink-50 hover:text-pink-800 dark:border-pink-500/30 dark:bg-card dark:text-pink-300 dark:hover:bg-pink-500/20"
+                      >
+                        <CalendarCheck className="size-3.5" />
+                        <span>Open Attendance Register</span>
+                        <ArrowRight className="ml-auto size-3 opacity-60" />
+                      </Button>
                     </div>
                   ) : (
-                    <div className="flex h-56 flex-col items-center justify-center gap-2 rounded-xl border border-dashed bg-muted/30 text-center">
-                      <CalendarCheck className="size-9 text-pink-500" />
-                      <p className="text-sm font-medium text-foreground/85">
-                        {dashboard.attendanceToday.nonTeachingReason === 'holiday'
-                          ? (dashboard.attendanceToday.holidayName || 'Holiday today')
-                          : 'Weekly Off'}
-                      </p>
-                      <p className="text-xs text-muted-foreground">No attendance is recorded today.</p>
+                    <div className="flex flex-1 flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-pink-200 bg-pink-50/30 p-6 text-center dark:border-pink-500/20 dark:bg-card/40">
+                      <div className="flex size-14 items-center justify-center rounded-2xl bg-gradient-to-br from-pink-100 to-rose-100 text-pink-600 shadow-inner dark:bg-pink-500/20 dark:text-pink-300">
+                        <CalendarCheck className="size-7" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-foreground/90">
+                          {dashboard.attendanceToday.nonTeachingReason === 'holiday'
+                            ? (dashboard.attendanceToday.holidayName || 'Holiday today')
+                            : 'Weekly Off'}
+                        </p>
+                        <p className="mt-0.5 text-xs text-muted-foreground">No attendance is scheduled or recorded today.</p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => router.push('/attendance')}
+                        className="mt-1 h-7.5 border-pink-200 text-xs font-medium text-pink-700 hover:bg-pink-50 dark:border-pink-500/30 dark:text-pink-300"
+                      >
+                        View Attendance Hub
+                      </Button>
                     </div>
                   )}
                 </DashboardPanel>
@@ -484,23 +868,175 @@ export function SchoolAdminDashboard() {
               {canSeeStudents && (
                 <DashboardPanel
                   title="Student Performance"
-                  description="Grade-wise academic trend"
+                  description="Grade-wise academic trend & term benchmarks"
                   icon={Award}
                   tone="violet"
-                  action={<Badge variant="secondary" className="bg-violet-500/10 text-violet-700 dark:text-violet-300">Last Semester</Badge>}
+                  action={(
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <Badge
+                        variant="secondary"
+                        className="h-5.5 gap-1 border-0 bg-violet-500/15 px-2 text-[10px] font-bold text-violet-700 dark:text-violet-300"
+                      >
+                        <Sparkles className="size-3 text-amber-500" />
+                        Academic Stream
+                      </Badge>
+                      <Button
+                        size="sm"
+                        onClick={() => router.push('/exams')}
+                        className="h-7 gap-1 bg-violet-600 hover:bg-violet-700 text-white font-semibold text-xs shadow-xs px-2.5"
+                      >
+                        View Exams
+                        <ArrowRight className="size-3" />
+                      </Button>
+                    </div>
+                  )}
                 >
-                  <div className="h-56">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={studentPerformanceData} barGap={4} margin={{ left: -18, right: 4, top: 8 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-                        <XAxis dataKey="month" tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} axisLine={false} tickLine={false} />
-                        <YAxis tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} axisLine={false} tickLine={false} />
-                        <Tooltip contentStyle={tooltipStyle} />
-                        <Bar dataKey="gradeA" name="Grade A" fill="#8b5cf6" radius={[6, 6, 0, 0]} />
-                        <Bar dataKey="gradeB" name="Grade B" fill="#06b6d4" radius={[6, 6, 0, 0]} />
-                        <Bar dataKey="gradeC" name="Grade C" fill="#f59e0b" radius={[6, 6, 0, 0]} />
-                      </BarChart>
-                    </ResponsiveContainer>
+                  <div className="flex flex-col gap-3">
+                    {/* Live Academic Metric Row */}
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                      <div className="rounded-xl border border-violet-200/80 bg-gradient-to-br from-violet-50/90 via-white to-violet-100/40 p-2 shadow-2xs dark:border-violet-500/20 dark:from-violet-950/20 dark:via-card dark:to-violet-900/10">
+                        <div className="flex items-center justify-center gap-1 text-[10px] font-semibold text-violet-700 dark:text-violet-300">
+                          <Award className="size-3 text-violet-600 dark:text-violet-400" />
+                          Distinction (A)
+                        </div>
+                        <p className="text-sm font-extrabold text-violet-800 dark:text-violet-200 mt-0.5">
+                          {latestPerformance.gradeA} Students
+                        </p>
+                        <p className="text-[10px] text-muted-foreground">Score ≥75%</p>
+                      </div>
+
+                      <div className="rounded-xl border border-cyan-200/80 bg-gradient-to-br from-cyan-50/90 via-white to-cyan-100/40 p-2 shadow-2xs dark:border-cyan-500/20 dark:from-cyan-950/20 dark:via-card dark:to-cyan-900/10">
+                        <div className="flex items-center justify-center gap-1 text-[10px] font-semibold text-cyan-700 dark:text-cyan-300">
+                          <Target className="size-3 text-cyan-600 dark:text-cyan-400" />
+                          Proficient (B)
+                        </div>
+                        <p className="text-sm font-extrabold text-cyan-800 dark:text-cyan-200 mt-0.5">
+                          {latestPerformance.gradeB} Students
+                        </p>
+                        <p className="text-[10px] text-muted-foreground">Score 50-74%</p>
+                      </div>
+
+                      <div className="rounded-xl border border-amber-200/80 bg-gradient-to-br from-amber-50/90 via-white to-amber-100/40 p-2 shadow-2xs dark:border-amber-500/20 dark:from-amber-950/20 dark:via-card dark:to-amber-900/10">
+                        <div className="flex items-center justify-center gap-1 text-[10px] font-semibold text-amber-700 dark:text-amber-300">
+                          <TrendingUp className="size-3 text-amber-600 dark:text-amber-400" />
+                          Class Benchmark
+                        </div>
+                        <p className="text-sm font-extrabold text-amber-800 dark:text-amber-200 mt-0.5">
+                          {latestPerformance.passRate || 92}% Pass
+                        </p>
+                        <p className="text-[10px] text-muted-foreground">{latestPerformance.total} Evaluated</p>
+                      </div>
+                    </div>
+
+                    {/* Chart Container */}
+                    <div className="h-52 sm:h-56">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={performanceData} barGap={4} margin={{ left: -14, right: 6, top: 10, bottom: -4 }}>
+                          <defs>
+                            <linearGradient id="gradeAGradient" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="#8b5cf6" stopOpacity={0.95} />
+                              <stop offset="100%" stopColor="#6d28d9" stopOpacity={0.8} />
+                            </linearGradient>
+                            <linearGradient id="gradeBGradient" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="#06b6d4" stopOpacity={0.95} />
+                              <stop offset="100%" stopColor="#0891b2" stopOpacity={0.8} />
+                            </linearGradient>
+                            <linearGradient id="gradeCGradient" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="#f59e0b" stopOpacity={0.95} />
+                              <stop offset="100%" stopColor="#d97706" stopOpacity={0.8} />
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} opacity={0.5} />
+                          <XAxis dataKey="term" tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} axisLine={false} tickLine={false} />
+                          <YAxis tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }} axisLine={false} tickLine={false} />
+                          <Tooltip
+                            content={({ active, payload }) => {
+                              if (!active || !payload || !payload.length) return null
+                              const item = payload[0].payload as {
+                                term: string
+                                gradeA: number
+                                gradeB: number
+                                gradeC: number
+                                total: number
+                                avgScore?: number
+                                passRate?: number
+                              }
+                              const total = item.total || (item.gradeA + item.gradeB + item.gradeC)
+                              const aPct = total > 0 ? Math.round((item.gradeA / total) * 100) : 0
+                              const bPct = total > 0 ? Math.round((item.gradeB / total) * 100) : 0
+                              const cPct = total > 0 ? Math.round((item.gradeC / total) * 100) : 0
+                              return (
+                                <div className="rounded-xl border border-violet-200/80 bg-popover/95 p-3 text-xs shadow-xl backdrop-blur-md dark:border-violet-500/25">
+                                  <div className="flex items-center justify-between gap-3 border-b border-border/60 pb-1.5 font-bold">
+                                    <span className="text-foreground">{item.term}</span>
+                                    <span className="rounded-full bg-violet-500/15 px-1.5 py-0.5 text-[9px] font-bold text-violet-700 dark:text-violet-300">
+                                      {item.passRate ? `${item.passRate}% Pass Rate` : 'Evaluated'}
+                                    </span>
+                                  </div>
+                                  <div className="mt-2 space-y-1.5">
+                                    <div className="flex items-center justify-between gap-5 font-semibold text-violet-600 dark:text-violet-400">
+                                      <span className="flex items-center gap-1.5">
+                                        <span className="size-2 rounded-full bg-violet-500" />
+                                        Grade A (≥75%):
+                                      </span>
+                                      <span>{item.gradeA} students ({aPct}%)</span>
+                                    </div>
+                                    <div className="flex items-center justify-between gap-5 font-semibold text-cyan-600 dark:text-cyan-400">
+                                      <span className="flex items-center gap-1.5">
+                                        <span className="size-2 rounded-full bg-cyan-500" />
+                                        Grade B (50-74%):
+                                      </span>
+                                      <span>{item.gradeB} students ({bPct}%)</span>
+                                    </div>
+                                    <div className="flex items-center justify-between gap-5 font-semibold text-amber-600 dark:text-amber-400">
+                                      <span className="flex items-center gap-1.5">
+                                        <span className="size-2 rounded-full bg-amber-500" />
+                                        Grade C (&lt;50%):
+                                      </span>
+                                      <span>{item.gradeC} students ({cPct}%)</span>
+                                    </div>
+                                    <div className="mt-1 flex items-center justify-between gap-5 border-t border-border/60 pt-1 text-[11px] font-bold text-foreground">
+                                      <span>Total Evaluated:</span>
+                                      <span>{total} students</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              )
+                            }}
+                          />
+                          <Bar dataKey="gradeA" name="Grade A" fill="url(#gradeAGradient)" radius={[6, 6, 0, 0]} maxBarSize={28} />
+                          <Bar dataKey="gradeB" name="Grade B" fill="url(#gradeBGradient)" radius={[6, 6, 0, 0]} maxBarSize={28} />
+                          <Bar dataKey="gradeC" name="Grade C" fill="url(#gradeCGradient)" radius={[6, 6, 0, 0]} maxBarSize={28} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+
+                    {/* Bottom Summary & Legend Row */}
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-xs border-t border-violet-100/70 pt-2 dark:border-violet-500/15">
+                      <div className="flex items-center gap-3 text-muted-foreground">
+                        <span className="flex items-center gap-1.5 font-medium text-violet-700 dark:text-violet-400">
+                          <span className="size-2 rounded-full bg-violet-500" />
+                          Grade A (≥75%)
+                        </span>
+                        <span className="flex items-center gap-1.5 font-medium text-cyan-700 dark:text-cyan-400">
+                          <span className="size-2 rounded-full bg-cyan-500" />
+                          Grade B (50-74%)
+                        </span>
+                        <span className="flex items-center gap-1.5 font-medium text-amber-700 dark:text-amber-400">
+                          <span className="size-2 rounded-full bg-amber-500" />
+                          Grade C (&lt;50%)
+                        </span>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => router.push('/exams/results')}
+                        className="h-6 gap-1 px-2 text-[11px] font-semibold text-violet-700 hover:bg-violet-500/10 hover:text-violet-800 dark:text-violet-300 dark:hover:bg-violet-500/20"
+                      >
+                        <span>Open Gradebook</span>
+                        <ArrowRight className="size-3" />
+                      </Button>
+                    </div>
                   </div>
                 </DashboardPanel>
               )}
@@ -508,61 +1044,201 @@ export function SchoolAdminDashboard() {
               {canSeeFees && (
                 <DashboardPanel
                   title="Fee Collection"
-                  description={latestFeeMonth.month
-                    ? `${latestFeeMonth.month}: ₹${latestFeeMonth.collected.toLocaleString('en-IN')} collected · ₹${latestFeeMonth.pending.toLocaleString('en-IN')} pending`
-                    : 'Collected versus pending fee trend'}
+                  description="Monthly collection & dues recovery trend"
                   icon={IndianRupee}
                   tone="emerald"
                   action={(
-                    <Button className="h-7 gap-1.5 bg-primary px-2.5 text-xs text-primary-foreground shadow-sm hover:bg-primary/90" size="sm" onClick={() => router.push('/fees/collections')}>
-                      View Fees
-                      <ArrowRight className="size-3.5" />
-                    </Button>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <Badge
+                        variant="secondary"
+                        className="h-5.5 gap-1 border-0 bg-emerald-500/15 px-2 text-[10px] font-bold text-emerald-700 dark:text-emerald-300"
+                      >
+                        <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                        {isRefreshing ? 'Syncing...' : 'Live Stream'}
+                      </Badge>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => fetchData(true)}
+                        disabled={isRefreshing}
+                        className="size-6 rounded-md text-muted-foreground hover:bg-emerald-500/10 hover:text-emerald-600 dark:hover:text-emerald-400"
+                        title="Refresh live fee collections"
+                      >
+                        <RefreshCw className={cn('size-3', isRefreshing && 'animate-spin')} />
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={() => router.push('/fees/collections')}
+                        className="h-7 gap-1 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs shadow-xs px-2.5"
+                      >
+                        Collect Fee
+                        <ArrowRight className="size-3" />
+                      </Button>
+                    </div>
                   )}
                 >
-                  {feeTrendData.every((m) => m.collected === 0 && m.pending === 0) ? (
-                    <div className="flex h-56 flex-col items-center justify-center gap-2 text-center">
-                      <IndianRupee className="size-7 text-muted-foreground/40" />
-                      <p className="text-sm text-muted-foreground">No fee activity in the last 6 months</p>
-                      <p className="max-w-xs text-xs text-muted-foreground/70">Records of collected and pending fees will appear here as soon as fees are billed or paid.</p>
-                    </div>
-                  ) : (
-                    <>
-                      <div className="h-56">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <AreaChart data={feeTrendData} margin={{ left: -10, right: 8, top: 8 }}>
-                            <defs>
-                              <linearGradient id="dashboardEarningsCollected" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.32} />
-                                <stop offset="95%" stopColor="var(--primary)" stopOpacity={0} />
-                              </linearGradient>
-                              <linearGradient id="dashboardEarningsPending" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor="var(--warning)" stopOpacity={0.28} />
-                                <stop offset="95%" stopColor="var(--warning)" stopOpacity={0} />
-                              </linearGradient>
-                            </defs>
-                            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-                            <XAxis dataKey="month" tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} axisLine={false} tickLine={false} />
-                            <YAxis tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} axisLine={false} tickLine={false} tickFormatter={(v) => `₹${Math.round(Number(v)).toLocaleString('en-IN')}`} />
-                            <Tooltip formatter={(value: number, name: string) => [`₹${Math.round(value).toLocaleString('en-IN')}`, name === 'collected' ? 'Collected' : 'Pending']} contentStyle={tooltipStyle} />
-                            <Area type="monotone" dataKey="collected" name="collected" stroke="var(--primary)" strokeWidth={2.5} fillOpacity={1} fill="url(#dashboardEarningsCollected)" />
-                            <Area type="monotone" dataKey="pending" name="pending" stroke="var(--warning)" strokeWidth={2.5} fillOpacity={1} fill="url(#dashboardEarningsPending)" />
-                          </AreaChart>
-                        </ResponsiveContainer>
-                      </div>
-                      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs">
-                        <div className="flex items-center gap-3 text-muted-foreground">
-                          <span className="flex items-center gap-1.5"><span className="size-2 rounded-full bg-primary" /> Collected</span>
-                          <span className="flex items-center gap-1.5"><span className="size-2 rounded-full" style={{ backgroundColor: 'var(--warning)' }} /> Pending</span>
+                  <div className="flex flex-col gap-3">
+                    {/* Live Metric Row */}
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                      <div className="rounded-xl border border-emerald-200/80 bg-gradient-to-br from-emerald-50/90 via-white to-emerald-100/40 p-2 shadow-2xs dark:border-emerald-500/20 dark:from-emerald-950/20 dark:via-card dark:to-emerald-900/10">
+                        <div className="flex items-center justify-center gap-1 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300">
+                          <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                          This Month
                         </div>
-                        {latestFeeMonth.month && (
-                          <p className="font-medium text-foreground/80">
-                            {latestFeeMonth.month}: <span className="text-primary">₹{latestFeeMonth.collected.toLocaleString('en-IN')}</span> collected · <span style={{ color: 'var(--warning)' }}>₹{latestFeeMonth.pending.toLocaleString('en-IN')}</span> pending
-                          </p>
-                        )}
+                        <p className="text-sm font-extrabold text-emerald-800 dark:text-emerald-200 mt-0.5">
+                          ₹{dashboard.feeStats.monthlyCollected.toLocaleString('en-IN')}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground">Live Received</p>
                       </div>
-                    </>
-                  )}
+
+                      <div className="rounded-xl border border-teal-200/80 bg-gradient-to-br from-teal-50/90 via-white to-teal-100/40 p-2 shadow-2xs dark:border-teal-500/20 dark:from-teal-950/20 dark:via-card dark:to-teal-900/10">
+                        <div className="flex items-center justify-center gap-1 text-[10px] font-semibold text-teal-700 dark:text-teal-300">
+                          <CalendarCheck className="size-3 text-teal-600 dark:text-teal-400" />
+                          Today
+                        </div>
+                        <p className="text-sm font-extrabold text-teal-800 dark:text-teal-200 mt-0.5">
+                          ₹{dashboard.feeStats.todayCollected.toLocaleString('en-IN')}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground">Collected Today</p>
+                      </div>
+
+                      <div className="rounded-xl border border-amber-200/80 bg-gradient-to-br from-amber-50/90 via-white to-amber-100/40 p-2 shadow-2xs dark:border-amber-500/20 dark:from-amber-950/20 dark:via-card dark:to-amber-900/10">
+                        <div className="flex items-center justify-center gap-1 text-[10px] font-semibold text-amber-700 dark:text-amber-300">
+                          <AlertCircle className="size-3 text-amber-600 dark:text-amber-400" />
+                          Pending Dues
+                        </div>
+                        <p className="text-sm font-extrabold text-amber-800 dark:text-amber-200 mt-0.5">
+                          ₹{dashboard.feeStats.totalPending.toLocaleString('en-IN')}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground">Outstanding</p>
+                      </div>
+                    </div>
+
+                    {feeTrendData.every((m) => m.collected === 0 && m.pending === 0) ? (
+                      <div className="flex h-52 flex-col items-center justify-center gap-2 text-center rounded-xl border border-dashed border-emerald-200 bg-emerald-50/20 p-6 dark:border-emerald-500/20">
+                        <IndianRupee className="size-7 text-muted-foreground/40" />
+                        <p className="text-sm text-muted-foreground">No fee activity in the last 6 months</p>
+                        <p className="max-w-xs text-xs text-muted-foreground/70">Records of collected and pending fees will appear here as soon as fees are billed or paid.</p>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="h-52 sm:h-56">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <AreaChart data={feeTrendData} margin={{ left: -14, right: 6, top: 10, bottom: -4 }}>
+                              <defs>
+                                <linearGradient id="dashboardFeeCollected" x1="0" y1="0" x2="0" y2="1">
+                                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
+                                  <stop offset="95%" stopColor="#059669" stopOpacity={0.02} />
+                                </linearGradient>
+                                <linearGradient id="dashboardFeePending" x1="0" y1="0" x2="0" y2="1">
+                                  <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.35} />
+                                  <stop offset="95%" stopColor="#d97706" stopOpacity={0.02} />
+                                </linearGradient>
+                              </defs>
+                              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} opacity={0.5} />
+                              <XAxis dataKey="month" tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} axisLine={false} tickLine={false} />
+                              <YAxis
+                                tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }}
+                                axisLine={false}
+                                tickLine={false}
+                                tickFormatter={(v) => {
+                                  const num = Number(v)
+                                  if (num >= 10000000) return `₹${(num / 10000000).toFixed(1)}Cr`
+                                  if (num >= 100000) return `₹${(num / 100000).toFixed(1)}L`
+                                  if (num >= 1000) return `₹${(num / 1000).toFixed(0)}k`
+                                  return `₹${num}`
+                                }}
+                              />
+                              <Tooltip
+                                content={({ active, payload }) => {
+                                  if (!active || !payload || !payload.length) return null
+                                  const item = payload[0].payload as {
+                                    month: string
+                                    fullMonth?: string
+                                    collected: number
+                                    pending: number
+                                    total?: number
+                                    collectionRate?: number
+                                    isCurrentMonth?: boolean
+                                  }
+                                  const total = item.total || (item.collected + item.pending)
+                                  const rate = total > 0 ? Math.round((item.collected / total) * 100) : 0
+                                  return (
+                                    <div className="rounded-xl border border-emerald-200/80 bg-popover/95 p-3 text-xs shadow-xl backdrop-blur-md dark:border-emerald-500/25">
+                                      <div className="flex items-center justify-between gap-3 border-b border-border/60 pb-1.5 font-bold">
+                                        <span className="text-foreground">{item.fullMonth || item.month}</span>
+                                        {item.isCurrentMonth && (
+                                          <span className="rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-bold text-emerald-600 dark:text-emerald-300">
+                                            Live Month
+                                          </span>
+                                        )}
+                                      </div>
+                                      <div className="mt-2 space-y-1.5">
+                                        <div className="flex items-center justify-between gap-5 font-semibold text-emerald-600 dark:text-emerald-400">
+                                          <span className="flex items-center gap-1.5">
+                                            <span className="size-2 rounded-full bg-emerald-500" />
+                                            Collected Fees:
+                                          </span>
+                                          <span>₹{item.collected.toLocaleString('en-IN')}</span>
+                                        </div>
+                                        <div className="flex items-center justify-between gap-5 font-semibold text-amber-600 dark:text-amber-400">
+                                          <span className="flex items-center gap-1.5">
+                                            <span className="size-2 rounded-full bg-amber-500" />
+                                            Pending Dues:
+                                          </span>
+                                          <span>₹{item.pending.toLocaleString('en-IN')}</span>
+                                        </div>
+                                        <div className="mt-1 flex items-center justify-between gap-5 border-t border-border/60 pt-1 text-[11px] font-bold text-foreground">
+                                          <span>Recovery Rate:</span>
+                                          <span>{rate}% of ₹{total.toLocaleString('en-IN')}</span>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  )
+                                }}
+                              />
+                              <Area
+                                type="monotone"
+                                dataKey="collected"
+                                name="Collected"
+                                stroke="#059669"
+                                strokeWidth={2.5}
+                                fillOpacity={1}
+                                fill="url(#dashboardFeeCollected)"
+                              />
+                              <Area
+                                type="monotone"
+                                dataKey="pending"
+                                name="Pending"
+                                stroke="#d97706"
+                                strokeWidth={2}
+                                strokeDasharray="3 3"
+                                fillOpacity={1}
+                                fill="url(#dashboardFeePending)"
+                              />
+                            </AreaChart>
+                          </ResponsiveContainer>
+                        </div>
+                        <div className="flex flex-wrap items-center justify-between gap-2 text-xs border-t border-emerald-100/70 pt-2 dark:border-emerald-500/15">
+                          <div className="flex items-center gap-3 text-muted-foreground">
+                            <span className="flex items-center gap-1.5 font-medium text-emerald-700 dark:text-emerald-400">
+                              <span className="size-2 rounded-full bg-emerald-500" />
+                              Collected (Live)
+                            </span>
+                            <span className="flex items-center gap-1.5 font-medium text-amber-700 dark:text-amber-400">
+                              <span className="size-2 rounded-full bg-amber-500" />
+                              Pending Dues
+                            </span>
+                          </div>
+                          {latestFeeMonth.month && (
+                            <p className="font-semibold text-foreground/80 text-[11px]">
+                              {latestFeeMonth.fullMonth || latestFeeMonth.month}: <span className="text-emerald-600 dark:text-emerald-400">₹{latestFeeMonth.collected.toLocaleString('en-IN')}</span> collected · <span className="text-amber-600 dark:text-amber-400">₹{latestFeeMonth.pending.toLocaleString('en-IN')}</span> pending
+                            </p>
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </DashboardPanel>
               )}
             </div>
@@ -677,7 +1353,7 @@ function DashboardPanel({
 }) {
   return (
     <Card className={cn(
-      'gap-0 overflow-hidden py-0 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md',
+      'gap-0 overflow-hidden py-0 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md flex flex-col h-full',
       tone === 'emerald' && 'border-emerald-200/80 bg-gradient-to-br from-white via-white to-emerald-50 hover:shadow-emerald-500/10 dark:border-emerald-500/25 dark:from-card dark:to-emerald-500/10',
       tone === 'sky' && 'border-sky-200/80 bg-gradient-to-br from-white via-white to-sky-50 hover:shadow-sky-500/10 dark:border-sky-500/25 dark:from-card dark:to-sky-500/10',
       tone === 'violet' && 'border-violet-200/80 bg-gradient-to-br from-white via-white to-violet-50 hover:shadow-violet-500/10 dark:border-violet-500/25 dark:from-card dark:to-violet-500/10',
@@ -685,14 +1361,14 @@ function DashboardPanel({
       tone === 'amber' && 'border-amber-200/80 bg-gradient-to-br from-white via-white to-amber-50 hover:shadow-amber-500/10 dark:border-amber-500/25 dark:from-card dark:to-amber-500/10',
     )}>
       <CardHeader className={cn(
-        'flex flex-row items-start justify-between gap-3 border-b px-4 py-3',
+        'flex flex-row items-center justify-between gap-2.5 border-b px-3.5 py-2.5 sm:px-4 sm:py-3',
         tone === 'emerald' && 'border-emerald-500/10 bg-emerald-500/[0.08]',
         tone === 'sky' && 'border-sky-500/10 bg-sky-500/[0.08]',
         tone === 'violet' && 'border-violet-500/10 bg-violet-500/[0.08]',
         tone === 'pink' && 'border-pink-500/10 bg-pink-500/[0.08]',
         tone === 'amber' && 'border-amber-500/10 bg-amber-500/[0.08]',
       )}>
-        <div className="flex min-w-0 items-center gap-2.5">
+        <div className="flex min-w-0 flex-1 items-center gap-2.5">
           <div className={cn(
             'flex size-9 shrink-0 items-center justify-center rounded-lg text-white shadow-sm',
             tone === 'emerald' && 'bg-gradient-to-br from-emerald-500 to-primary shadow-emerald-500/20',
@@ -703,14 +1379,18 @@ function DashboardPanel({
           )}>
             <Icon className="size-4" />
           </div>
-          <div className="min-w-0">
-            <CardTitle className="truncate text-base">{title}</CardTitle>
-            <CardDescription className="truncate text-xs">{description}</CardDescription>
+          <div className="min-w-0 flex-1">
+            <CardTitle className="text-sm font-bold tracking-tight text-foreground sm:text-[15px] leading-tight">
+              {title}
+            </CardTitle>
+            <CardDescription className="text-xs text-muted-foreground leading-tight">
+              {description}
+            </CardDescription>
           </div>
         </div>
         {action && <div className="shrink-0">{action}</div>}
       </CardHeader>
-      <CardContent className="p-3">{children}</CardContent>
+      <CardContent className="flex flex-1 flex-col justify-between p-3.5 sm:p-4">{children}</CardContent>
     </Card>
   )
 }
@@ -1053,98 +1733,280 @@ function getInitials(name: string): string {
 }
 
 function TodaysBirthdaysCard({ people, compact = false }: { people: BirthdayPerson[]; compact?: boolean }) {
+  const router = useRouter()
+  const currentSchool = useAppStore((state) => state.currentSchool)
   const [currentIndex, setCurrentIndex] = useState(0)
+  const [cardStudent, setCardStudent] = useState<BirthdayCardStudent | null>(null)
 
   const prev = () => setCurrentIndex((i) => (i > 0 ? i - 1 : people.length - 1))
   const next = () => setCurrentIndex((i) => (i < people.length - 1 ? i + 1 : 0))
 
   return (
-    <Card className="h-full gap-3 overflow-hidden border-rose-200/80 bg-gradient-to-br from-white via-white to-rose-50 py-0 shadow-sm dark:border-rose-500/25 dark:from-card dark:via-rose-500/[0.025] dark:to-rose-500/10">
-      <CardHeader className="flex flex-col gap-1 border-b border-rose-500/10 bg-rose-500/[0.08] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-2">
-          <div className="flex size-9 items-center justify-center rounded-lg bg-gradient-to-br from-rose-500 to-pink-500 text-white shadow-sm shadow-rose-500/20">
-            <Cake className="size-4" />
+    <>
+      <Card className="relative flex h-full flex-col justify-between overflow-hidden border-rose-200/90 bg-gradient-to-br from-rose-50/70 via-background to-amber-50/50 p-0 shadow-sm transition-all duration-300 hover:shadow-md hover:shadow-rose-500/10 dark:border-rose-500/25 dark:from-card dark:via-card dark:to-rose-950/20">
+      {/* Decorative ambient blur spheres */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -right-6 -top-6 size-24 rounded-full bg-gradient-to-br from-rose-400/20 to-pink-500/20 blur-xl"
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -bottom-8 -left-8 size-28 rounded-full bg-gradient-to-tr from-amber-400/15 to-rose-400/15 blur-2xl"
+      />
+
+      {/* Header */}
+      <CardHeader className="relative flex flex-row items-center justify-between border-b border-rose-500/15 bg-gradient-to-r from-rose-500/10 via-pink-500/5 to-amber-500/10 px-3.5 py-2.5 sm:px-4 sm:py-3">
+        <div className="flex min-w-0 flex-1 items-center gap-2.5">
+          <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-rose-500 via-pink-500 to-amber-500 text-white shadow-sm shadow-rose-500/25">
+            <Cake className="size-4.5" />
           </div>
-          <div>
-            <CardTitle className="text-base">Today&apos;s Birthdays</CardTitle>
-            <CardDescription>
+          <div className="min-w-0 flex-1">
+            <CardTitle className="text-sm font-bold tracking-tight text-foreground sm:text-[15px] leading-tight">
+              Today&apos;s Birthdays
+            </CardTitle>
+            <CardDescription className="text-xs text-muted-foreground leading-tight">
               {people.length === 0
-                ? 'No birthdays today — check back tomorrow'
-                : `${people.length} birthday${people.length === 1 ? '' : 's'} today`}
+                ? 'No birthdays today'
+                : `${people.length} celebration${people.length === 1 ? '' : 's'} today 🎉`}
             </CardDescription>
           </div>
         </div>
-      </CardHeader>
-      <CardContent className="px-4 pb-4 pt-3">
-        {people.length === 0 ? (
-          <div className={cn('flex items-center justify-center rounded-lg border border-dashed bg-white/60 text-sm text-muted-foreground dark:bg-background/40', compact ? 'min-h-44 py-4' : 'py-4')}>
-            Nobody is celebrating today.
+
+        {people.length > 0 ? (
+          <div className="flex shrink-0 items-center gap-1.5">
+            <Badge
+              variant="secondary"
+              className="flex items-center gap-1 border border-rose-200/80 bg-white/90 px-2.5 py-0.5 text-xs font-semibold text-rose-700 shadow-xs dark:border-rose-500/30 dark:bg-card dark:text-rose-300"
+            >
+              <PartyPopper className="size-3 text-rose-500" />
+              <span>
+                {currentIndex + 1} of {people.length}
+              </span>
+            </Badge>
           </div>
         ) : (
-          <div className="flex flex-col gap-3">
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => router.push('/birthdays')}
+            className="h-7 gap-1 px-2 text-xs text-rose-600 hover:bg-rose-100/60 hover:text-rose-700 dark:text-rose-400 dark:hover:bg-rose-500/20"
+          >
+            <Calendar className="size-3" />
+            <span>Calendar</span>
+          </Button>
+        )}
+      </CardHeader>
+
+      {/* Main Content */}
+      <CardContent className="relative flex flex-1 flex-col justify-between p-4">
+        {people.length === 0 ? (
+          <div className="flex min-h-52 flex-1 flex-col items-center justify-center gap-2.5 rounded-2xl border border-dashed border-rose-200/80 bg-white/60 p-6 text-center dark:border-rose-500/20 dark:bg-card/40">
+            <div className="flex size-14 items-center justify-center rounded-2xl bg-gradient-to-br from-rose-100 to-amber-100 text-rose-500 shadow-inner dark:from-rose-500/20 dark:to-amber-500/15">
+              <Cake className="size-7" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-foreground/90">No Birthdays Today</p>
+              <p className="mt-0.5 max-w-xs text-xs text-muted-foreground">
+                Check upcoming celebrations in the calendar or prepare greeting cards in advance.
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => router.push('/birthdays')}
+              className="mt-1 h-7 gap-1.5 border-rose-200 text-xs font-medium text-rose-700 hover:bg-rose-50 hover:text-rose-800 dark:border-rose-500/30 dark:text-rose-300 dark:hover:bg-rose-500/20"
+            >
+              <Calendar className="size-3.5" />
+              View Upcoming Celebrations
+            </Button>
+          </div>
+        ) : (
+          <div className="flex flex-1 flex-col justify-between gap-3">
             {(() => {
               const person = people[currentIndex]
               return (
-                <div className="flex flex-col items-center gap-3 rounded-xl border border-rose-200/60 bg-white/80 p-5 text-center dark:border-rose-500/20 dark:bg-card/60">
-                  <div className="relative size-16 shrink-0 overflow-hidden rounded-full bg-gradient-to-br from-rose-400 to-pink-500 text-white shadow-md shadow-rose-500/20">
-                    {person.profileImage ? (
-                      <img src={person.profileImage} alt="" className="size-full object-cover" />
-                    ) : (
-                      <div className="flex size-full items-center justify-center text-xl font-bold">
-                        {getInitials(person.name)}
+                <div className="relative overflow-hidden rounded-2xl border border-rose-200/80 bg-gradient-to-b from-white via-white to-rose-50/50 p-4 text-center shadow-xs backdrop-blur-xs transition-all dark:border-rose-500/25 dark:from-card dark:via-card dark:to-rose-950/20">
+                  {/* Decorative corner sparkles */}
+                  <Sparkles className="pointer-events-none absolute right-3 top-3 size-4 text-amber-400/90 animate-pulse" />
+                  <Sparkles className="pointer-events-none absolute left-3 top-3 size-3.5 text-rose-400/80" />
+
+                  {/* Top celebration tag */}
+                  <div className="mb-2 flex items-center justify-center">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-rose-500/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-rose-600 dark:bg-rose-500/20 dark:text-rose-300">
+                      <Sparkles className="size-3 text-amber-500" />
+                      Birthday Star
+                    </span>
+                  </div>
+
+                  {/* Celebrant Avatar with festive aura */}
+                  <div className="relative mx-auto flex justify-center">
+                    <div className="relative">
+                      {/* Gradient border ring */}
+                      <div className="size-20 rounded-full p-[3px] bg-gradient-to-tr from-amber-400 via-rose-500 to-pink-500 shadow-md shadow-rose-500/25">
+                        <div className="size-full overflow-hidden rounded-full bg-white dark:bg-card">
+                          {person.profileImage ? (
+                            <img src={person.profileImage} alt={person.name} className="size-full object-cover" />
+                          ) : (
+                            <div className="flex size-full items-center justify-center bg-gradient-to-br from-rose-400 via-pink-500 to-rose-600 text-xl font-extrabold text-white">
+                              {getInitials(person.name)}
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    )}
-                    <div className="absolute -bottom-0.5 -right-0.5 flex size-5 items-center justify-center rounded-full border-2 border-background bg-rose-500 text-white">
-                      <Cake className="size-3" />
+
+                      {/* Floating Cake Badge at bottom right */}
+                      <span className="absolute -bottom-1 -right-1 flex size-6 items-center justify-center rounded-full border-2 border-white bg-gradient-to-br from-rose-500 to-pink-500 text-white shadow-xs dark:border-card">
+                        <Cake className="size-3.5" />
+                      </span>
                     </div>
                   </div>
-                  <div className="min-w-0">
-                    <p className="text-base font-bold text-foreground/90">{person.name}</p>
-                    <div className="mt-1.5 flex items-center justify-center gap-2">
+
+                  {/* Person Details */}
+                  <div className="mt-3">
+                    <h4 className="truncate text-base font-bold text-foreground/90 tracking-tight">
+                      {person.name}
+                    </h4>
+
+                    {/* Role & Class Badges */}
+                    <div className="mt-1.5 flex flex-wrap items-center justify-center gap-1.5">
                       <Badge
                         variant="secondary"
                         className={cn(
-                          'h-5 px-2 text-[11px] capitalize',
-                          person.type === 'teacher' && 'bg-sky-500/10 text-sky-700 dark:text-sky-300',
-                          person.type === 'staff' && 'bg-amber-500/10 text-amber-700 dark:text-amber-300',
-                          person.type === 'student' && 'bg-primary/10 text-primary',
+                          'h-5 px-2 text-[11px] font-medium capitalize',
+                          person.type === 'teacher' && 'bg-sky-500/10 text-sky-700 border border-sky-500/20 dark:text-sky-300',
+                          person.type === 'staff' && 'bg-amber-500/10 text-amber-700 border border-amber-500/20 dark:text-amber-300',
+                          person.type === 'student' && 'bg-primary/10 text-primary border border-primary/20',
                         )}
                       >
                         {person.type === 'staff' && person.roleName ? person.roleName : person.type}
                       </Badge>
+
                       {person.className && (
-                        <span className="text-xs text-muted-foreground">{person.className}</span>
+                        <Badge
+                          variant="outline"
+                          className="h-5 gap-1 border-rose-200/80 bg-rose-50/50 px-2 text-[11px] text-muted-foreground dark:border-rose-500/20 dark:bg-rose-500/10"
+                        >
+                          <GraduationCap className="size-3 text-rose-500" />
+                          {person.className.startsWith('Class') ? person.className : `Class ${person.className}`}
+                        </Badge>
                       )}
                     </div>
-                    {person.age != null && (
-                      <p className="mt-2 text-xs text-muted-foreground">Turns <span className="font-semibold text-rose-600 dark:text-rose-400">{person.age}</span> today!</p>
-                    )}
+
+                    {/* Birthday Wish Pill */}
+                    <div className="mt-3 flex items-center justify-center">
+                      <div className="inline-flex items-center gap-1.5 rounded-full border border-rose-200/80 bg-gradient-to-r from-rose-100/70 via-pink-50 to-amber-100/70 px-3.5 py-1 text-xs font-semibold text-rose-800 shadow-2xs dark:border-rose-500/30 dark:from-rose-950/40 dark:via-card dark:to-amber-950/30 dark:text-rose-200">
+                        <PartyPopper className="size-3.5 text-rose-500" />
+                        {person.age != null ? (
+                          <span>
+                            Turns <span className="font-extrabold text-rose-600 dark:text-rose-400">{person.age}</span> today! 🎈
+                          </span>
+                        ) : (
+                          <span>Wishing a Joyous Birthday! 🎂</span>
+                        )}
+                      </div>
+                    </div>
+                    {/* Make Card Button */}
+                    <div className="mt-2.5 flex items-center justify-center">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          const [first, ...rest] = person.name.split(' ')
+                          setCardStudent({
+                            id: person.id,
+                            fullName: person.name,
+                            firstName: first || person.name,
+                            lastName: rest.join(' '),
+                            dateOfBirth: null,
+                            profileImage: person.profileImage,
+                            admissionNumber: null,
+                            rollNumber: null,
+                            class: person.className ? { id: '', name: person.className } : null,
+                            section: null,
+                            admission: null,
+                          })
+                        }}
+                        className="h-7 gap-1.5 rounded-lg border-rose-200/80 bg-white/90 px-3 text-xs font-semibold text-rose-700 shadow-2xs hover:bg-rose-100 hover:text-rose-800 dark:border-rose-500/30 dark:bg-card dark:text-rose-300 dark:hover:bg-rose-500/20"
+                      >
+                        <Cake className="size-3.5 text-rose-500" />
+                        <span>Make Birthday Card</span>
+                      </Button>
+                    </div>
                   </div>
                 </div>
               )
             })()}
-            <div className="flex items-center justify-between">
-              <button
+
+            {/* Bottom Controls / Dots */}
+            <div className="flex items-center justify-between pt-1">
+              <Button
                 type="button"
+                variant="ghost"
+                size="icon"
                 onClick={prev}
-                className="flex size-7 items-center justify-center rounded-full border border-rose-200 bg-white/70 text-rose-600 transition-colors hover:bg-rose-100 dark:border-rose-500/25 dark:bg-card dark:text-rose-400 dark:hover:bg-rose-500/20"
+                disabled={people.length <= 1}
+                aria-label="Previous birthday"
+                className="size-8 rounded-full border border-rose-200/80 bg-white/80 text-rose-600 shadow-xs hover:bg-rose-100 hover:text-rose-700 disabled:opacity-40 dark:border-rose-500/25 dark:bg-card dark:text-rose-400 dark:hover:bg-rose-500/20"
               >
                 <ChevronLeft className="size-4" />
-              </button>
-              <span className="text-xs text-muted-foreground">
-                {currentIndex + 1} of {people.length}
-              </span>
-              <button
+              </Button>
+
+              {/* Dots indicator */}
+              <div className="flex items-center gap-1.5">
+                {people.length <= 8 ? (
+                  people.map((_, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => setCurrentIndex(idx)}
+                      aria-label={`Go to person ${idx + 1}`}
+                      className={cn(
+                        'h-1.5 rounded-full transition-all duration-300',
+                        idx === currentIndex
+                          ? 'w-5 bg-gradient-to-r from-rose-500 to-pink-500'
+                          : 'size-1.5 bg-rose-200 hover:bg-rose-300 dark:bg-rose-500/30 dark:hover:bg-rose-500/50',
+                      )}
+                    />
+                  ))
+                ) : (
+                  <span className="text-xs font-medium text-muted-foreground">
+                    {currentIndex + 1} of {people.length}
+                  </span>
+                )}
+              </div>
+
+              <Button
                 type="button"
+                variant="ghost"
+                size="icon"
                 onClick={next}
-                className="flex size-7 items-center justify-center rounded-full border border-rose-200 bg-white/70 text-rose-600 transition-colors hover:bg-rose-100 dark:border-rose-500/25 dark:bg-card dark:text-rose-400 dark:hover:bg-rose-500/20"
+                disabled={people.length <= 1}
+                aria-label="Next birthday"
+                className="size-8 rounded-full border border-rose-200/80 bg-white/80 text-rose-600 shadow-xs hover:bg-rose-100 hover:text-rose-700 disabled:opacity-40 dark:border-rose-500/25 dark:bg-card dark:text-rose-400 dark:hover:bg-rose-500/20"
               >
                 <ChevronRight className="size-4" />
-              </button>
+              </Button>
             </div>
           </div>
         )}
       </CardContent>
     </Card>
+
+    <SchoolBirthdayCardDialog
+      open={cardStudent !== null}
+      student={cardStudent}
+      school={{
+        name: currentSchool?.name,
+        logo: currentSchool?.logo,
+        address: currentSchool?.address,
+        city: currentSchool?.city,
+        state: currentSchool?.state,
+        pincode: currentSchool?.pincode,
+        contactPhone: currentSchool?.contactPhone,
+        academicYear: currentSchool?.academicYear,
+      }}
+      onClose={() => setCardStudent(null)}
+    />
+  </>
   )
 }
