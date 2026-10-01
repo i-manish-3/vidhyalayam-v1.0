@@ -71,7 +71,7 @@ export function MarksEntryPage({ examId }: Props) {
         description={`${exam.group.paradigm.name} / ${exam.group.name}`}
         secondaryAction={canManageExam
           ? {
-              label: 'Configure',
+              label: 'Exam Setting',
               icon: Settings2,
               onClick: () => router.push(`/exams/${examId}/configure`),
             }

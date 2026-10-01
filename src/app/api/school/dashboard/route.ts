@@ -371,12 +371,48 @@ async function getAdminDashboard(schoolId: string, perms: string[]) {
   // Recent activities — only pull from sources the user can see
   const [recentFeePayments, recentStudents, recentAnnouncements, recentAttendanceLogs, recentHolidays, recentTeachers, recentSalaries] = await Promise.all([
     canFees
-      ? db.feeCollection.findMany({
-          where: { schoolId, paymentStatus: { in: ['paid', 'partial'] }, deletedAt: null },
-          include: { student: { select: { firstName: true, lastName: true } } },
-          orderBy: { paymentDate: 'desc' },
-          take: 5,
-        })
+      ? db.studentFeePayment
+          .findMany({
+            where: { schoolId, cancelledAt: null },
+            include: { student: { select: { firstName: true, lastName: true } } },
+            orderBy: { paymentDate: 'desc' },
+            take: 6,
+          })
+          .then(async (payments) => {
+            if (payments.length > 0) {
+              return payments.map((p) => ({
+                id: p.id,
+                receiptNumber: p.receiptNumber,
+                amount: p.amount,
+                student: p.student,
+                paymentDate: p.paymentDate,
+              }))
+            }
+            // Fallback for legacy collections if no StudentFeePayment records exist
+            const rawCollections = await db.feeCollection.findMany({
+              where: { schoolId, paymentStatus: { in: ['paid', 'partial'] }, deletedAt: null },
+              include: { student: { select: { firstName: true, lastName: true } } },
+              orderBy: { paymentDate: 'desc' },
+              take: 25,
+            })
+            const receiptMap = new Map<string, { id: string; receiptNumber: string | null; amount: number; student: { firstName: string; lastName: string | null } | null; paymentDate: Date | null }>()
+            for (const c of rawCollections) {
+              const key = c.receiptNumber ? `rcpt_${c.receiptNumber}` : `col_${c.id}`
+              const existing = receiptMap.get(key)
+              if (existing) {
+                existing.amount += c.paidAmount || 0
+              } else {
+                receiptMap.set(key, {
+                  id: c.id,
+                  receiptNumber: c.receiptNumber,
+                  amount: c.paidAmount || 0,
+                  student: c.student,
+                  paymentDate: c.paymentDate,
+                })
+              }
+            }
+            return Array.from(receiptMap.values()).slice(0, 6)
+          })
       : Promise.resolve([]),
     canStudents
       ? db.student.findMany({
@@ -451,10 +487,17 @@ async function getAdminDashboard(schoolId: string, perms: string[]) {
   const recentActivities: Array<{ id: string; type: string; message: string; time: string }> = []
 
   recentFeePayments.forEach((p) => {
+    const studentName = p.student
+      ? `${p.student.firstName}${p.student.lastName ? ` ${p.student.lastName}` : ''}`.trim()
+      : 'Student'
+    const receiptLabel = p.receiptNumber
+      ? (p.receiptNumber.startsWith('#') || p.receiptNumber.toLowerCase().startsWith('rec') ? p.receiptNumber : `Receipt #${p.receiptNumber}`)
+      : 'Fee collection'
+
     recentActivities.push({
       id: p.id,
       type: 'fee',
-      message: `Fee payment of ₹${(p.paidAmount || 0).toLocaleString()} received from ${p.student ? `${p.student.firstName} ${p.student.lastName}` : 'Unknown'}`,
+      message: `${receiptLabel}: ₹${Math.round(p.amount || 0).toLocaleString('en-IN')} fee collected from ${studentName}`,
       time: (p.paymentDate || new Date()).toISOString(),
     })
   })

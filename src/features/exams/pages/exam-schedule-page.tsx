@@ -451,9 +451,9 @@ export function ExamSchedulePage({ examId }: Props) {
         <GradientEmptyState
           icon={CalIcon}
           title="No subjects configured"
-          description="Add subjects on the configure page before scheduling."
+          description="Add subjects in Exam Setting before scheduling."
           {...(hasAnyPermission([PERMISSIONS.EXAM_MANAGE])
-            ? { actionLabel: 'Go to configure', onAction: () => void router.push(`/exams/${examId}/configure`) }
+            ? { actionLabel: 'Go to Exam Setting', onAction: () => void router.push(`/exams/${examId}/configure`) }
             : {})}
         />
       ) : (
@@ -673,7 +673,7 @@ export function ExamSchedulePage({ examId }: Props) {
           <TicketCheck className="size-4" /> Admit cards
         </Button>
         <Button variant="outline" onClick={() => router.push(`/exams/${examId}/configure`)} disabled={saving}>
-          Back to configure
+          Back to Exam Setting
         </Button>
         <Button
           onClick={() => void handleSaveAll()}

@@ -370,7 +370,7 @@ export function ExamResultPreviewPage({ examId }: Props) {
           size="sm"
           onClick={() => router.push(`/exams/${examId}/configure`)}
         >
-          <FileText className="mr-1.5 size-3.5" /> Configure
+          <Settings2 className="mr-1.5 size-3.5" /> Exam Setting
         </Button>
         <Button
           variant="outline"

@@ -107,7 +107,7 @@ const STAGES: ReadonlyArray<StageDef> = [
     num: 4,
     title: 'Configure Subjects + Partitions',
     who: 'School admin',
-    where: 'Exam List → click Configure',
+    where: 'Exam List → click Exam Setting',
     frequency: 'Once per exam (only when pattern changes)',
     icon: Settings2,
     description:
@@ -314,7 +314,7 @@ const ROLE_PERMS: ReadonlyArray<{ role: string; can: string }> = [
 const TROUBLESHOOTING: ReadonlyArray<{ symptom: string; fix: string }> = [
   {
     symptom: 'Marks grid shows "No subject config found"',
-    fix: 'Go to Configure, add the subject for that (class, section).',
+    fix: 'Go to Exam Setting, add the subject for that (class, section).',
   },
   {
     symptom: 'Calculate button says "No students with marks"',

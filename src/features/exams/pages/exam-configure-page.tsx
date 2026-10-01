@@ -267,7 +267,7 @@ export function ExamConfigurePage({ examId }: Props) {
     <div className="space-y-4">
       <GradientHero
         icon={Settings2}
-        title={`Configure: ${exam.name}`}
+        title={`Exam Setting: ${exam.name}`}
         badge={status.label}
         description={`${exam.group.paradigm.name} · ${exam.group.name}`}
         primaryAction={

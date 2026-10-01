@@ -262,8 +262,8 @@ export function ExamFormPage({ examId }: Props) {
         toast({
           title: 'Exam created',
           description: autoAdded > 0
-            ? `${autoAdded} subject(s) auto-included. Next, set up components.`
-            : 'Next, configure subjects and components.',
+            ? `${autoAdded} subject(s) auto-included. Next, set up partitions in Exam Setting.`
+            : 'Next, configure subjects and partitions in Exam Setting.',
         })
         router.push(`/exams/${res.exam.id}/configure`)
       }
@@ -531,7 +531,7 @@ export function ExamFormPage({ examId }: Props) {
             </label>
             <p className="ml-6 mt-0.5 text-[11px] text-muted-foreground">
               {isEdit
-                ? 'Subject inclusion is managed on the configure page.'
+                ? 'Subject inclusion is managed in Exam Setting.'
                 : 'Every subject mapped to the selected classes is added at creation — no manual entry needed.'}
             </p>
           </div>

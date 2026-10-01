@@ -829,7 +829,7 @@ export function SchoolAdminDashboard() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => router.push('/attendance')}
+                        onClick={() => router.push('/attendance/mark')}
                         className="h-7.5 w-full gap-1.5 border-pink-200/80 bg-white/80 text-xs font-semibold text-pink-700 shadow-2xs hover:bg-pink-50 hover:text-pink-800 dark:border-pink-500/30 dark:bg-card dark:text-pink-300 dark:hover:bg-pink-500/20"
                       >
                         <CalendarCheck className="size-3.5" />
@@ -853,10 +853,10 @@ export function SchoolAdminDashboard() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => router.push('/attendance')}
+                        onClick={() => router.push('/attendance/mark')}
                         className="mt-1 h-7.5 border-pink-200 text-xs font-medium text-pink-700 hover:bg-pink-50 dark:border-pink-500/30 dark:text-pink-300"
                       >
-                        View Attendance Hub
+                        Mark Attendance
                       </Button>
                     </div>
                   )}
@@ -1686,7 +1686,8 @@ function relativeTime(iso: string): string {
 }
 
 function RecentActivityCard({ activities }: { activities: DashboardData['recentActivities'] }) {
-  const displayActivities = activities.slice(0, 4)
+  const router = useRouter()
+  const displayActivities = activities.slice(0, 5)
 
   if (displayActivities.length === 0) {
     return (
@@ -1702,19 +1703,48 @@ function RecentActivityCard({ activities }: { activities: DashboardData['recentA
     )
   }
 
+  const getTargetRoute = (type: string) => {
+    switch (type) {
+      case 'fee':
+        return '/fees/list'
+      case 'student':
+        return '/students'
+      case 'attendance':
+        return '/attendance'
+      case 'announcement':
+        return '/announcements'
+      case 'teacher':
+        return '/team'
+      case 'salary':
+        return '/payroll'
+      default:
+        return null
+    }
+  }
+
   return (
     <DashboardPanel title="Recent Activity" description="Latest updates" icon={Bell} tone="violet">
       <div className="space-y-2">
         {displayActivities.map((activity, index) => {
           const style = ACTIVITY_STYLES[activity.type] || { icon: Bell, badge: 'bg-muted-foreground/60' }
           const ActivityIcon = style.icon
+          const targetRoute = getTargetRoute(activity.type)
           return (
-            <div key={activity.id || `${activity.message}-${index}`} className="flex gap-2.5 rounded-xl border border-violet-500/10 bg-white/70 p-2.5 shadow-sm dark:bg-background/40">
-              <span className={cn('mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full text-white', style.badge)}>
+            <div
+              key={activity.id || `${activity.message}-${index}`}
+              onClick={() => {
+                if (targetRoute) router.push(targetRoute)
+              }}
+              className={cn(
+                'flex gap-2.5 rounded-xl border border-violet-500/10 bg-white/70 p-2.5 shadow-sm transition-all dark:bg-background/40',
+                targetRoute && 'cursor-pointer hover:border-violet-500/30 hover:bg-violet-500/[0.04] hover:shadow-xs'
+              )}
+            >
+              <span className={cn('mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full text-white shadow-2xs', style.badge)}>
                 <ActivityIcon className="size-3.5" />
               </span>
-              <div className="min-w-0">
-                <p className="line-clamp-2 text-xs font-medium text-foreground/85">{activity.message}</p>
+              <div className="min-w-0 flex-1">
+                <p className="line-clamp-2 text-xs font-medium text-foreground/85 leading-snug">{activity.message}</p>
                 <p className="mt-0.5 text-[10px] text-muted-foreground">{relativeTime(activity.time)}</p>
               </div>
             </div>

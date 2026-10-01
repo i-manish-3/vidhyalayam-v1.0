@@ -407,7 +407,7 @@ export function ExamListPage() {
                           router.push(`/exams/${e.id}/configure`)
                         }}
                       >
-                        <Settings2 className="size-3.5" /> Configure
+                        <Settings2 className="size-3.5" /> Exam Setting
                       </Button>
                     )}
                     {hasAnyPermission([PERMISSIONS.EXAM_MANAGE]) && (
