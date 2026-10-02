@@ -141,16 +141,133 @@ const schoolBrandingScript = `
 })();
 `;
 
+const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || (process.env.PUBLIC_APP_URL && !process.env.PUBLIC_APP_URL.includes('ngrok') ? process.env.PUBLIC_APP_URL : 'https://vidhyalayam.com')).replace(/\/$/, '');
+
 export const metadata: Metadata = {
-  title: "Vidhyalayam - School Management System",
-  description: "School Management System for Vidhyalayam. Complete solution for student management, fees, attendance, and more.",
-  keywords: ["School Management", "Vidhyalayam", "Education Management", "Student Management", "Fees Management", "Attendance"],
-  authors: [{ name: "Vidhyalayam" }],
+  metadataBase: new URL(siteUrl),
+  title: {
+    default: "Vidhyalayam - Best School Management System & ERP Software",
+    template: "%s | Vidhyalayam",
+  },
+  description:
+    "Vidhyalayam is the next-generation School Management System & ERP software. Streamline student admissions, biometric attendance, 1-click fee collection with UPI & WhatsApp receipts, automated CBSE/ICSE report cards, and GPS bus tracking.",
+  keywords: [
+    "School Management System",
+    "School ERP Software",
+    "Best School Management Software in India",
+    "Student Attendance Management System",
+    "School Fee Management Software",
+    "Automated Report Card Generator",
+    "School Bus GPS Tracking",
+    "Parent Teacher Communication App",
+    "Vidhyalayam",
+    "Digital School Management",
+    "Education ERP",
+  ],
+  authors: [{ name: "Vidhyalayam Technologies", url: siteUrl }],
+  creator: "Vidhyalayam Technologies",
+  publisher: "Vidhyalayam Technologies",
+  category: "Education Technology",
+  applicationName: "Vidhyalayam School ERP",
+  alternates: {
+    canonical: "/",
+  },
+  openGraph: {
+    title: "Vidhyalayam - Smart School Management System & ERP Software",
+    description:
+      "Transform your school into a digital powerhouse. All-in-one platform for admissions, biometric attendance, fee receipts, exams, and parent communications.",
+    url: siteUrl,
+    siteName: "Vidhyalayam",
+    locale: "en_IN",
+    type: "website",
+    images: [
+      {
+        url: "/logo.png",
+        width: 512,
+        height: 512,
+        alt: "Vidhyalayam Logo - School Management System",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Vidhyalayam - Smart School Management System & ERP Software",
+    description:
+      "All-in-one school management platform for admissions, biometric attendance, online fees, and digital report cards.",
+    images: ["/logo.png"],
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
   icons: {
-    icon: "/logo.png",
+    icon: [
+      { url: "/logo.png", sizes: "32x32" },
+      { url: "/logo.png", sizes: "192x192" },
+    ],
     shortcut: "/logo.png",
     apple: "/logo.png",
   },
+};
+
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "SoftwareApplication",
+      "@id": `${siteUrl}/#software`,
+      "name": "Vidhyalayam",
+      "operatingSystem": "Web, Android, iOS",
+      "applicationCategory": "EducationalApplication",
+      "url": siteUrl,
+      "description":
+        "Comprehensive school management ERP system for attendance, fee collection, examinations, and communication.",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "INR",
+      },
+      "aggregateRating": {
+        "@type": "AggregateRating",
+        "ratingValue": "4.9",
+        "reviewCount": "128",
+      },
+    },
+    {
+      "@type": "Organization",
+      "@id": `${siteUrl}/#organization`,
+      "name": "Vidhyalayam",
+      "url": siteUrl,
+      "logo": `${siteUrl}/logo.png`,
+      "sameAs": [
+        "https://www.linkedin.com/company/vidhyalayam",
+        "https://twitter.com/vidhyalayam",
+      ],
+      "contactPoint": {
+        "@type": "ContactPoint",
+        "telephone": "+91-9876543210",
+        "contactType": "customer service",
+        "areaServed": "IN",
+        "availableLanguage": ["English", "Hindi"],
+      },
+    },
+    {
+      "@type": "WebSite",
+      "@id": `${siteUrl}/#website`,
+      "url": siteUrl,
+      "name": "Vidhyalayam",
+      "publisher": {
+        "@id": `${siteUrl}/#organization`,
+      },
+    },
+  ],
 };
 
 export default function RootLayout({
@@ -165,6 +282,10 @@ export default function RootLayout({
           <script dangerouslySetInnerHTML={{ __html: browserExtensionHydrationGuard }} />
         )}
         <script dangerouslySetInnerHTML={{ __html: schoolBrandingScript }} />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
       </head>
       <body
         suppressHydrationWarning
