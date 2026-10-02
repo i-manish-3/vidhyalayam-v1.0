@@ -1,8 +1,30 @@
 User-agent: Googlebot
 Allow: /
+Disallow: /api/
+Disallow: /dashboard/
+Disallow: /print/
+Disallow: /fees/
+Disallow: /attendance/
+Disallow: /students/
+Disallow: /employees/
+Disallow: /exams/
+Disallow: /settings/
+Disallow: /reset-password/
+Disallow: /forgot-password/
 
 User-agent: Bingbot
 Allow: /
+Disallow: /api/
+Disallow: /dashboard/
+Disallow: /print/
+Disallow: /fees/
+Disallow: /attendance/
+Disallow: /students/
+Disallow: /employees/
+Disallow: /exams/
+Disallow: /settings/
+Disallow: /reset-password/
+Disallow: /forgot-password/
 
 User-agent: Twitterbot
 Allow: /
@@ -12,3 +34,16 @@ Allow: /
 
 User-agent: *
 Allow: /
+Disallow: /api/
+Disallow: /dashboard/
+Disallow: /print/
+Disallow: /fees/
+Disallow: /attendance/
+Disallow: /students/
+Disallow: /employees/
+Disallow: /exams/
+Disallow: /settings/
+Disallow: /reset-password/
+Disallow: /forgot-password/
+
+Sitemap: https://vidhyalayam.com/sitemap.xml
