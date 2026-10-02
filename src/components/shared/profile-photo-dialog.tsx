@@ -31,9 +31,10 @@ interface ProfilePhotoDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   currentPhoto?: string | null
-  onPhotoSelected: (dataUrl: string) => void
+  onPhotoSelected: (dataUrl: string) => void | Promise<void>
   title?: string
   description?: string
+  initialMode?: 'choose' | 'camera'
 }
 
 export function ProfilePhotoDialog({
@@ -43,6 +44,7 @@ export function ProfilePhotoDialog({
   onPhotoSelected,
   title = 'Student Profile Photo',
   description = 'Upload a photo from your device or capture one using your camera.',
+  initialMode = 'choose',
 }: ProfilePhotoDialogProps) {
   const { toast } = useToast()
   const fileInputRef = useRef<HTMLInputElement | null>(null)
@@ -50,7 +52,7 @@ export function ProfilePhotoDialog({
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
 
-  const [mode, setMode] = useState<'choose' | 'camera'>('choose')
+  const [mode, setMode] = useState<'choose' | 'camera'>(initialMode)
   const [cameraLoading, setCameraLoading] = useState(false)
   const [cameraError, setCameraError] = useState<string | null>(null)
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user')
@@ -91,9 +93,24 @@ export function ProfilePhotoDialog({
         streamRef.current = stream
         if (videoRef.current) {
           videoRef.current.srcObject = stream
-          await videoRef.current.play()
+          try {
+            const playPromise = videoRef.current.play()
+            if (playPromise !== undefined) {
+              await playPromise
+            }
+          } catch (playErr) {
+            // AbortError is normal when stream is re-loaded or cancelled before playback starts
+            if (playErr instanceof DOMException && playErr.name === 'AbortError') {
+              return
+            }
+            console.warn('Video play was suppressed or handled:', playErr)
+          }
         }
       } catch (err) {
+        // Only log and show error if stream wasn't simply aborted
+        if (err instanceof DOMException && err.name === 'AbortError') {
+          return
+        }
         console.error('Camera access error:', err)
         let msg = 'Could not access the camera.'
         if (err instanceof DOMException) {
@@ -113,21 +130,28 @@ export function ProfilePhotoDialog({
     [stopStream],
   )
 
-  // Switch camera when mode changes to 'camera'
+  // Manage camera stream when dialog is open and mode === 'camera'
   useEffect(() => {
-    if (open && mode === 'camera' && !capturedPreview) {
-      void startCamera(facingMode)
-    }
-    if (!open) {
+    let cancelled = false
+
+    if (open) {
+      setMode(initialMode)
+      setCapturedPreview(null)
+      setCameraError(null)
+      if (initialMode === 'camera' && !cancelled) {
+        void startCamera(facingMode)
+      }
+    } else {
       stopStream()
-      setMode('choose')
       setCapturedPreview(null)
       setCameraError(null)
     }
+
     return () => {
+      cancelled = true
       stopStream()
     }
-  }, [open, mode, facingMode, startCamera, stopStream, capturedPreview])
+  }, [open, initialMode, facingMode, startCamera, stopStream])
 
   // Handle file input selection
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -144,7 +168,7 @@ export function ProfilePhotoDialog({
         })
         return
       }
-      onPhotoSelected(dataUrl)
+      await onPhotoSelected(dataUrl)
       onOpenChange(false)
       toast({
         title: 'Photo updated',
@@ -203,7 +227,7 @@ export function ProfilePhotoDialog({
       const file = new File([blob], 'camera-capture.jpg', { type: 'image/jpeg' })
       const { dataUrl, finalBytes } = await compressImage(file)
 
-      onPhotoSelected(dataUrl)
+      await onPhotoSelected(dataUrl)
       onOpenChange(false)
       toast({
         title: 'Photo captured',
@@ -431,6 +455,7 @@ export function ProfilePhotoDialog({
                         onClick={() => {
                           const next = facingMode === 'user' ? 'environment' : 'user'
                           setFacingMode(next)
+                          void startCamera(next)
                         }}
                         disabled={cameraLoading}
                       >

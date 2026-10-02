@@ -67,6 +67,7 @@ import {
   Home,
   Trash2,
   Cake,
+  Camera,
 } from 'lucide-react'
 
 export interface MenuChild {
@@ -137,6 +138,7 @@ export const MENUS: Record<string, MenuItem[]> = {
         { label: 'Add New Admission', page: 'admission-form', icon: UserPlus },
         { label: 'Bulk Admission', page: 'bulk-admission', icon: Upload },
         { label: 'Student List', page: 'students', icon: Users },
+        { label: 'Bulk Photo Upload', page: 'student-photos', icon: Camera },
         { label: 'Student Houses', page: 'student-houses', icon: Home },
         { label: 'Alumni', page: 'alumni', icon: GraduationCap },
       ],

@@ -11,6 +11,7 @@ export const MIGRATED_PAGES: Partial<Record<PageName, (...args: string[]) => str
   'edit-student': (id?: string) => (id ? `/students/${id}/edit` : '/students'),
   'admission-form': () => '/students/admit',
   'bulk-admission': () => '/students/admit/bulk',
+  'student-photos': () => '/students/photos',
   'alumni': () => '/students/alumni',
   'attendance': () => '/attendance/mark',
   'mark-attendance': () => '/attendance/mark',

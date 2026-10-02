@@ -1825,35 +1825,55 @@ export function StudentDetailPage({ studentId }: { studentId: string }) {
 
 
       <Tabs defaultValue="personal" className="min-w-0 gap-2">
-        <div className="sticky top-0 z-10 -mx-1 flex justify-center overflow-x-auto bg-gradient-to-r from-transparent via-background/75 to-transparent px-1 py-2 backdrop-blur-sm">
-          <TabsList className="h-10 w-max rounded-xl border border-sky-200/80 bg-gradient-to-r from-sky-100/90 via-cyan-50 to-violet-100/90 p-1 shadow-md shadow-primary/10 ring-1 ring-white/70 dark:border-sky-500/25 dark:from-sky-500/15 dark:via-card dark:to-violet-500/15 dark:ring-white/5">
-            <TabsTrigger value="personal" className="h-8 gap-1.5 rounded-lg px-2.5 text-xs data-[state=active]:bg-sky-500 data-[state=active]:text-white data-[state=active]:shadow-sm [&[data-state=active]_svg]:text-white">
-              <User className="size-3.5" />
-              Personal
-            </TabsTrigger>
-            <TabsTrigger value="contact" className="h-8 gap-1.5 rounded-lg px-2.5 text-xs data-[state=active]:bg-cyan-500 data-[state=active]:text-white data-[state=active]:shadow-sm [&[data-state=active]_svg]:text-white">
-              <Phone className="size-3.5" />
-              Contact
-            </TabsTrigger>
-            <TabsTrigger value="general" className="h-8 gap-1.5 rounded-lg px-2.5 text-xs data-[state=active]:bg-violet-500 data-[state=active]:text-white data-[state=active]:shadow-sm [&[data-state=active]_svg]:text-white">
-              <GraduationCap className="size-3.5" />
-              General
-            </TabsTrigger>
-            <TabsTrigger value="accounts" className="h-8 gap-1.5 rounded-lg px-2.5 text-xs data-[state=active]:bg-emerald-500 data-[state=active]:text-white data-[state=active]:shadow-sm [&[data-state=active]_svg]:text-white">
-              <Banknote className="size-3.5" />
-              Accounts
-            </TabsTrigger>
-            <TabsTrigger value="documents" className="h-8 gap-1.5 rounded-lg px-2.5 text-xs data-[state=active]:bg-amber-500 data-[state=active]:text-white data-[state=active]:shadow-sm [&[data-state=active]_svg]:text-white">
-              <FileText className="size-3.5" />
-              Documents
-            </TabsTrigger>
-            {(student.siblings?.length || 0) > 0 && (
-              <TabsTrigger value="sibling" className="h-8 gap-1.5 rounded-lg px-2.5 text-xs data-[state=active]:bg-rose-500 data-[state=active]:text-white data-[state=active]:shadow-sm [&[data-state=active]_svg]:text-white">
-                <Heart className="size-3.5" />
-                Siblings
+        <div className="no-scrollbar sticky top-10 z-10 -mx-3 sm:mx-0 flex w-[calc(100%+1.5rem)] sm:w-full overflow-x-auto overscroll-x-contain scroll-smooth px-3 py-2 sm:px-0 bg-background/90 backdrop-blur-md border-b border-border/40 sm:border-none">
+          <div className="flex w-max min-w-full justify-start sm:justify-center">
+            <TabsList className="h-10 w-max shrink-0 rounded-xl border border-sky-200/80 bg-gradient-to-r from-sky-100/90 via-cyan-50 to-violet-100/90 p-1 shadow-md shadow-primary/10 ring-1 ring-white/70 dark:border-sky-500/25 dark:from-sky-500/15 dark:via-card dark:to-violet-500/15 dark:ring-white/5">
+              <TabsTrigger
+                value="personal"
+                className="h-8 shrink-0 whitespace-nowrap gap-1.5 rounded-lg px-3 text-xs font-medium data-[state=active]:bg-sky-500 data-[state=active]:text-white data-[state=active]:shadow-sm [&[data-state=active]_svg]:text-white"
+              >
+                <User className="size-3.5" />
+                Personal
               </TabsTrigger>
-            )}
-          </TabsList>
+              <TabsTrigger
+                value="contact"
+                className="h-8 shrink-0 whitespace-nowrap gap-1.5 rounded-lg px-3 text-xs font-medium data-[state=active]:bg-cyan-500 data-[state=active]:text-white data-[state=active]:shadow-sm [&[data-state=active]_svg]:text-white"
+              >
+                <Phone className="size-3.5" />
+                Contact
+              </TabsTrigger>
+              <TabsTrigger
+                value="general"
+                className="h-8 shrink-0 whitespace-nowrap gap-1.5 rounded-lg px-3 text-xs font-medium data-[state=active]:bg-violet-500 data-[state=active]:text-white data-[state=active]:shadow-sm [&[data-state=active]_svg]:text-white"
+              >
+                <GraduationCap className="size-3.5" />
+                General
+              </TabsTrigger>
+              <TabsTrigger
+                value="accounts"
+                className="h-8 shrink-0 whitespace-nowrap gap-1.5 rounded-lg px-3 text-xs font-medium data-[state=active]:bg-emerald-500 data-[state=active]:text-white data-[state=active]:shadow-sm [&[data-state=active]_svg]:text-white"
+              >
+                <Banknote className="size-3.5" />
+                Accounts
+              </TabsTrigger>
+              <TabsTrigger
+                value="documents"
+                className="h-8 shrink-0 whitespace-nowrap gap-1.5 rounded-lg px-3 text-xs font-medium data-[state=active]:bg-amber-500 data-[state=active]:text-white data-[state=active]:shadow-sm [&[data-state=active]_svg]:text-white"
+              >
+                <FileText className="size-3.5" />
+                Documents
+              </TabsTrigger>
+              {(student.siblings?.length || 0) > 0 && (
+                <TabsTrigger
+                  value="sibling"
+                  className="h-8 shrink-0 whitespace-nowrap gap-1.5 rounded-lg px-3 text-xs font-medium data-[state=active]:bg-rose-500 data-[state=active]:text-white data-[state=active]:shadow-sm [&[data-state=active]_svg]:text-white"
+                >
+                  <Heart className="size-3.5" />
+                  Siblings
+                </TabsTrigger>
+              )}
+            </TabsList>
+          </div>
         </div>
 
         <TabsContent value="personal" className="mt-0">

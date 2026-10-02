@@ -3,7 +3,7 @@ import { cacheSchoolBranding } from '@/lib/branding'
 
 export type PageName =
   | 'dashboard'
-  | 'students' | 'student-houses' | 'teachers' | 'add-teacher' | 'parents' | 'admission-form' | 'student-detail' | 'bulk-admission' | 'alumni'
+  | 'students' | 'student-houses' | 'student-photos' | 'teachers' | 'add-teacher' | 'parents' | 'admission-form' | 'student-detail' | 'bulk-admission' | 'alumni'
   | 'attendance' | 'mark-attendance' | 'view-attendance' | 'employee-attendance' | 'attendance-audit-log' | 'attendance-reports' | 'attendance-credentials' | 'rfid-audit'
   | 'fees-heads' | 'fees-groups' | 'fees-structures' | 'fee-collections' | 'fee-change-group' | 'fee-demand-config' | 'fee-demand-slips' | 'fee-audit-log' | 'fee-reports' | 'fee-list'
   | 'salary' | 'salary-structure' | 'salary-payments' | 'salary-advance' | 'salary-payroll' | 'salary-reports'

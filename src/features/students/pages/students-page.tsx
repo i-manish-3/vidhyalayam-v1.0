@@ -63,6 +63,7 @@ import {
   Heart,
   Edit,
   User,
+  Camera,
   Image as ImageIcon,
   Hash,
   FileText,
@@ -1069,16 +1070,25 @@ export function StudentsPage() {
             <p className="mt-0.5 text-xs text-white/80">Profiles, admissions and student status in one place</p>
           </div>
         </div>
-        {canAdmit && (
+        <div className="flex flex-wrap items-center gap-2">
           <Button
             variant="secondary"
-            onClick={() => router.push('/students/admit')}
-            className="relative shrink-0 gap-2 border border-white/60 shadow-md transition-transform hover:-translate-y-0.5 hover:shadow-lg"
-            style={{ backgroundColor: 'white', color: 'var(--primary)' }}
+            onClick={() => router.push('/students/photos')}
+            className="relative shrink-0 gap-1.5 border border-white/40 bg-white/20 text-white backdrop-blur-xs transition-transform hover:-translate-y-0.5 hover:bg-white/30 hover:text-white"
           >
-            <GraduationCap className="size-4" /> Admit Student
+            <Camera className="size-4" /> Bulk Photo Upload
           </Button>
-        )}
+          {canAdmit && (
+            <Button
+              variant="secondary"
+              onClick={() => router.push('/students/admit')}
+              className="relative shrink-0 gap-2 border border-white/60 shadow-md transition-transform hover:-translate-y-0.5 hover:shadow-lg"
+              style={{ backgroundColor: 'white', color: 'var(--primary)' }}
+            >
+              <GraduationCap className="size-4" /> Admit Student
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Stats Cards */}
