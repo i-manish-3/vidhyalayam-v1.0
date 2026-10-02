@@ -436,9 +436,19 @@ function Navbar({ onLoginClick }: { onLoginClick: () => void }) {
           <div className="relative flex size-10 items-center justify-center rounded-xl bg-white/90 dark:bg-white/10 dark:backdrop-blur-md shadow-sm border border-slate-200/70 dark:border-white/10 p-1 transition-all duration-300 group-hover:scale-105 group-hover:shadow-emerald-500/20 group-hover:border-emerald-500/30">
             <img src="/logo.png" alt="Vidhyalayam" className="size-full object-contain drop-shadow-sm" />
           </div>
-          <span className="text-base sm:text-lg font-extrabold tracking-tight leading-tight bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 dark:from-white dark:via-white/90 dark:to-white/70 bg-clip-text text-transparent group-hover:from-emerald-600 group-hover:to-teal-600 transition-all duration-300">
-            VIDHYALAYAM
-          </span>
+          <div className="flex items-center select-none">
+            <span
+              className="text-lg sm:text-[1.25rem] font-black tracking-[0.14em] uppercase leading-none transition-all duration-300"
+              style={{ fontFamily: 'var(--font-poppins), sans-serif' }}
+            >
+              <span className="text-slate-900 dark:text-white transition-colors duration-300 group-hover:text-emerald-950 dark:group-hover:text-emerald-100">
+                VIDHYA
+              </span>
+              <span className="bg-gradient-to-r from-emerald-600 via-teal-500 to-emerald-500 dark:from-emerald-400 dark:via-teal-300 dark:to-emerald-300 bg-clip-text text-transparent drop-shadow-xs">
+                LAYAM
+              </span>
+            </span>
+          </div>
         </button>
 
         {/* Desktop Navigation Links */}
@@ -501,7 +511,15 @@ function Navbar({ onLoginClick }: { onLoginClick: () => void }) {
                   <div className="flex size-10 items-center justify-center rounded-xl bg-white/90 dark:bg-white/10 dark:backdrop-blur-md shadow-sm border border-slate-200/70 dark:border-white/10 p-1">
                     <img src="/logo.png" alt="Vidhyalayam" className="size-full object-contain drop-shadow-sm" />
                   </div>
-                  <span className="text-base font-extrabold leading-tight">Vidhyalayam</span>
+                  <div className="flex items-center select-none">
+                    <span
+                      className="text-base sm:text-lg font-black tracking-[0.14em] uppercase leading-none"
+                      style={{ fontFamily: 'var(--font-poppins), sans-serif' }}
+                    >
+                      <span className="text-slate-900 dark:text-white">VIDHYA</span>
+                      <span className="bg-gradient-to-r from-emerald-600 via-teal-500 to-emerald-500 dark:from-emerald-400 dark:via-teal-300 dark:to-emerald-300 bg-clip-text text-transparent">LAYAM</span>
+                    </span>
+                  </div>
                 </SheetTitle>
               </SheetHeader>
 
@@ -1791,7 +1809,7 @@ export function LandingPage({ onLoginClick }: LandingPageProps) {
   }, [])
 
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col landing-font-poppins" style={{ fontFamily: 'var(--font-poppins), sans-serif' }}>
       <ScrollProgress />
       <Navbar onLoginClick={onLoginClick} />
       <main>

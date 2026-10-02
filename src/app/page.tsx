@@ -33,10 +33,19 @@ function AppContent() {
 }
 
 export default function Home() {
+  useEffect(() => {
+    document.body.classList.add('landing-font-poppins')
+    return () => {
+      document.body.classList.remove('landing-font-poppins')
+    }
+  }, [])
+
   return (
     <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
       <BrandHeadManager />
-      <AppContent />
+      <div className="landing-font-poppins min-h-screen" style={{ fontFamily: 'var(--font-poppins), sans-serif' }}>
+        <AppContent />
+      </div>
     </ThemeProvider>
   )
 }

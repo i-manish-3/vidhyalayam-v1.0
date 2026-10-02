@@ -29,7 +29,8 @@ const greatVibes = Great_Vibes({
 const poppins = Poppins({
   variable: "--font-poppins",
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
+  weight: ["300", "400", "500", "600", "700", "800", "900"],
+  display: "swap",
 });
 
 // Some browser security/VPN extensions (notably ones that use the `bis_*`
