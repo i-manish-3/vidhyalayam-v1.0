@@ -1892,18 +1892,18 @@ export function FeeCollectionsPage() {
 
           {/* ── Available Advance ───────────────────────────── */}
           {advanceBalance > 0 && (
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-2.5 dark:border-emerald-500/30 dark:bg-emerald-500/10">
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-red-300 bg-red-50/90 px-4 py-2.5 dark:border-red-500/40 dark:bg-red-500/15">
               <div className="flex items-center gap-2 text-sm">
-                <Wallet className="size-4 text-emerald-600 dark:text-emerald-400" />
-                <span className="text-emerald-900 dark:text-emerald-200">
+                <Wallet className="size-4 text-red-600 dark:text-red-400" />
+                <span className="text-red-950 dark:text-red-200">
                   This student has an advance of{' '}
-                  <strong className="tabular-nums">{receiptMoney(advanceBalance)}</strong>
+                  <strong className="tabular-nums font-bold text-red-700 dark:text-red-300">{receiptMoney(advanceBalance)}</strong>
                   {' '}on their account (from a reversed sale or over-payment).
                 </span>
               </div>
               <Button
                 size="sm"
-                className="h-8 bg-emerald-600 text-white hover:bg-emerald-700"
+                className="h-8 bg-red-600 font-semibold text-white shadow-sm hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-800 dark:text-red-50"
                 onClick={() => handleApplyAdvance(selectedStudent.id)}
                 disabled={applyingAdvance || !canCollect}
               >
@@ -2040,11 +2040,11 @@ export function FeeCollectionsPage() {
                   )}
 
                   {inventoryItems.length > 0 && (
-                    <div className="rounded-lg border border-primary/30 bg-primary/5 p-2.5">
-                      <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold">
-                        <ShoppingBag className="size-3.5 text-primary" />
+                    <div className="rounded-lg border border-red-300 bg-red-50/70 p-2.5 dark:border-red-500/35 dark:bg-red-500/10">
+                      <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-red-900 dark:text-red-300">
+                        <ShoppingBag className="size-3.5 text-red-600 dark:text-red-400" />
                         Store Dues
-                        <span className="text-[10px] font-normal text-muted-foreground">
+                        <span className="text-[10px] font-normal text-red-700/70 dark:text-red-400/70">
                           · items taken on due
                         </span>
                       </div>
@@ -2059,17 +2059,23 @@ export function FeeCollectionsPage() {
                             <div
                               key={entryKey}
                               className={cn(
-                                'overflow-hidden rounded-md border bg-card transition-all hover:border-primary/40 hover:bg-primary/5',
-                                checked && 'border-primary bg-primary/10 ring-1 ring-primary/20'
+                                'overflow-hidden rounded-md border bg-card transition-all hover:border-red-400 hover:bg-red-50/40 dark:hover:bg-red-500/10',
+                                checked && 'border-red-500 bg-red-50/80 ring-1 ring-red-400/30 dark:border-red-500/60 dark:bg-red-500/20'
                               )}
                             >
                               <label className="flex cursor-pointer items-center gap-2 px-2 py-2 text-xs">
-                                <Checkbox checked={checked} onCheckedChange={() => toggleInventoryDue(item)} />
+                                <Checkbox
+                                  checked={checked}
+                                  onCheckedChange={() => toggleInventoryDue(item)}
+                                  className="data-[state=checked]:bg-red-600 data-[state=checked]:border-red-600"
+                                />
                                 <span className="min-w-0 flex-1 truncate" title={detail}>
-                                  <span className="font-medium">Inventory Purchase</span>
+                                  <span className="font-medium text-foreground">Inventory Purchase</span>
                                   {detail && <span className="ml-1 text-muted-foreground">{detail}</span>}
                                 </span>
-                                <span className="ml-auto shrink-0 font-semibold tabular-nums">{money(remainingAmount(item))}</span>
+                                <span className="ml-auto shrink-0 font-semibold tabular-nums text-red-700 dark:text-red-400">
+                                  {money(remainingAmount(item))}
+                                </span>
                                 <button
                                   type="button"
                                   onClick={(e) => {
@@ -2082,19 +2088,19 @@ export function FeeCollectionsPage() {
                                   className={cn(
                                     'inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md border transition-all',
                                     detailsOpen
-                                      ? 'border-primary/40 bg-primary/10 text-primary'
-                                      : 'border-border text-muted-foreground hover:border-primary/40 hover:bg-primary/5 hover:text-primary'
+                                      ? 'border-red-400/40 bg-red-100/60 text-red-700 dark:bg-red-950/40 dark:text-red-300'
+                                      : 'border-border text-muted-foreground hover:border-red-400/40 hover:bg-red-50/50 hover:text-red-700 dark:hover:text-red-300'
                                   )}
                                 >
                                   <ChevronDown className={cn('size-3.5 transition-transform', detailsOpen && 'rotate-180')} />
                                 </button>
                               </label>
                               {detailsOpen && (
-                                <div className="border-t border-primary/10 bg-muted/20 px-2 py-2">
+                                <div className="border-t border-red-200/60 bg-muted/20 px-2 py-2 dark:border-red-500/20">
                                   <div className="space-y-2">
                                     {parsed.receipt && (
                                       <div className="flex items-center gap-2 text-[10px]">
-                                        <span className="inline-flex items-center gap-1 rounded bg-primary/10 px-1.5 py-0.5 font-medium text-primary">
+                                        <span className="inline-flex items-center gap-1 rounded bg-red-100/80 px-1.5 py-0.5 font-medium text-red-700 dark:bg-red-950/40 dark:text-red-300">
                                           <ShoppingBag className="size-2.5" /> Receipt {parsed.receipt}
                                         </span>
                                       </div>
