@@ -18,6 +18,7 @@ export const MIGRATED_PAGES: Partial<Record<PageName, (...args: string[]) => str
   'view-attendance': () => '/attendance/view',
   'employee-attendance': () => '/attendance/staff',
   'attendance-audit-log': () => '/audit-logs/attendance',
+  'audit-logs': () => '/audit-logs',
   'attendance-reports': () => '/attendance/reports',
   'attendance-credentials': () => '/attendance/credentials',
   'rfid-audit': () => '/audit-logs/punches',

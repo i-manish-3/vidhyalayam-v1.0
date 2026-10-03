@@ -329,12 +329,14 @@ export const MENUS: Record<string, MenuItem[]> = {
     { label: 'Roles & Permissions', page: 'school-roles', icon: ShieldCheck },
     {
       label: 'Audit Logs',
-      page: 'attendance-audit-log',
+      page: 'audit-logs',
       icon: History,
       children: [
-        { label: 'Attendance', page: 'attendance-audit-log', icon: ClipboardList },
+        { label: 'All Log Reports', page: 'audit-logs', icon: ShieldCheck },
+        { label: 'Fees & Collections', page: 'fee-audit-log', icon: Receipt },
+        { label: 'Attendance Logs', page: 'attendance-audit-log', icon: ClipboardList },
         { label: 'Device Punches', page: 'rfid-audit', icon: Fingerprint },
-        { label: 'Fees', page: 'fee-audit-log', icon: Receipt },
+        { label: 'Exams & Marks', page: 'exam-audit-log', icon: Award },
       ],
     },
     {

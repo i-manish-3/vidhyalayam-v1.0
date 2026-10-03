@@ -43,6 +43,7 @@ const MODULE_PERMISSION_MAP: Record<string, string[]> = {
   'view-attendance': ['attendance:read'],
   'employee-attendance': ['attendance:staff'],
   'attendance-audit-log': ['attendance:audit:view'],
+  'audit-logs': ['attendance:audit:view', 'fees:audit', 'fees:read', 'exam:audit', 'exam:audit:view', 'rfid:taps:view', 'salary:read'],
   'attendance-reports': ['attendance:report:view'],
   'attendance-credentials': ['rfid:devices:manage'],
   'rfid-audit': ['rfid:taps:view', 'attendance:audit:view'],
