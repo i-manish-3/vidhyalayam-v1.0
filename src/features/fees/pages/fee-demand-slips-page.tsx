@@ -532,7 +532,6 @@ export function FeeDemandSlipsPage() {
           icon={Receipt}
           title="No demand slips yet"
           description={`No slips generated for ${MONTHS[month - 1].label} ${year}${classId ? ' in the selected class' : ''}.`}
-          action={canCreate ? { label: 'Generate Slips', onClick: () => setGeneratorOpen(true) } : undefined}
         />
       ) : (
         <div className="space-y-4">
