@@ -23,14 +23,18 @@ import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuIte
 import { DatePicker } from '@/components/date-picker'
 import {
   AlertCircle,
+  Banknote,
+  Building2,
   Bus,
   CalendarDays,
   ChevronDown,
+  CreditCard,
   Home,
   Loader2,
   MessageCircle,
   Printer,
   PlusCircle,
+  QrCode,
   ReceiptText,
   Search,
   ShoppingBag,
@@ -2694,57 +2698,138 @@ export function FeeCollectionsPage() {
                   </div>
                 </div>
 
-                {/* Payment Splits */}
-                <div className="space-y-2">
+                {/* Payment Splits - Blinking Attention Section */}
+                <div className="attention-blink-box relative space-y-2 rounded-xl border-2 border-amber-400 bg-gradient-to-br from-amber-50/70 via-background to-orange-50/70 p-2.5 shadow-md shadow-amber-500/15 dark:border-amber-400/80 dark:from-amber-500/10 dark:via-background dark:to-orange-500/10">
                   <div className="flex items-center justify-between">
-                    <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Payment Method</Label>
-                    <Button type="button" variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={addPaymentSplit}>
-                      <PlusCircle className="mr-1 size-3" />
+                    <div className="flex items-center gap-1.5">
+                      <span className="relative flex size-2.5">
+                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-500 opacity-80" />
+                        <span className="relative inline-flex size-2.5 rounded-full bg-amber-600" />
+                      </span>
+                      <Label className="text-xs font-bold uppercase tracking-wider text-amber-950 dark:text-amber-200">
+                        Payment Method
+                      </Label>
+                      <span className="rounded-full border border-amber-400/80 bg-amber-100/90 px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wide text-amber-800 animate-pulse dark:border-amber-400/40 dark:bg-amber-950/60 dark:text-amber-300">
+                        Attention
+                      </span>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-6 border-amber-300/80 bg-white/90 px-2 text-[11px] font-semibold text-amber-900 shadow-2xs hover:bg-amber-100 dark:border-amber-500/40 dark:bg-card dark:text-amber-200"
+                      onClick={addPaymentSplit}
+                    >
+                      <PlusCircle className="mr-1 size-3 text-amber-600" />
                       Split
                     </Button>
                   </div>
-                  {paymentSplits.map((split, splitIdx) => (
-                    <div key={split.id} className="space-y-1.5 rounded-md border bg-background p-2">
-                      <div className="grid grid-cols-[110px_1fr_28px] gap-1.5">
-                        <Select
-                          value={split.paymentMethod}
-                          onValueChange={(value) => updatePaymentSplit(split.id, { paymentMethod: value as Exclude<PaymentMethod, 'SPLIT'> })}
-                        >
-                          <SelectTrigger className="h-8 bg-white text-xs dark:bg-background">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {SELECTABLE_PAYMENT_METHODS.map((method) => (
-                              <SelectItem key={method} value={method}>{PAYMENT_METHOD_LABELS[method]}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <Input
-                          type="number"
-                          value={split.amount}
-                          onChange={(event) => updatePaymentSplit(split.id, { amount: event.target.value })}
-                          placeholder="Amount"
-                          className="h-8 bg-white text-xs dark:bg-background"
-                        />
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="size-8 text-muted-foreground"
-                          onClick={() => removePaymentSplit(split.id)}
-                          disabled={paymentSplits.length === 1}
-                        >
-                          <Trash2 className="size-3.5" />
-                        </Button>
+
+                  {paymentSplits.length === 1 ? (
+                    <div className="space-y-2">
+                      {/* Segmented Switch Buttons */}
+                      <div className="grid grid-cols-4 gap-1 rounded-lg border border-amber-300/70 bg-white/80 p-1 shadow-2xs dark:border-amber-500/30 dark:bg-background/80">
+                        {SELECTABLE_PAYMENT_METHODS.map((method) => {
+                          const isSelected = paymentSplits[0].paymentMethod === method
+                          return (
+                            <button
+                              key={method}
+                              type="button"
+                              onClick={() =>
+                                updatePaymentSplit(paymentSplits[0].id, {
+                                  paymentMethod: method as Exclude<PaymentMethod, 'SPLIT'>,
+                                })
+                              }
+                              className={cn(
+                                'flex flex-col items-center justify-center rounded-md py-1.5 px-1 text-[11px] font-bold transition-all',
+                                isSelected
+                                  ? 'bg-gradient-to-br from-amber-500 to-amber-600 text-white shadow-sm ring-1 ring-amber-600/40'
+                                  : 'text-muted-foreground hover:bg-amber-100/60 hover:text-foreground dark:hover:bg-amber-950/40'
+                              )}
+                            >
+                              <span className="flex items-center gap-1">
+                                {method === 'CASH' && <Banknote className="size-3.5" />}
+                                {method === 'UPI' && <QrCode className="size-3.5" />}
+                                {method === 'ONLINE' && <CreditCard className="size-3.5" />}
+                                {method === 'CHEQUE' && <Building2 className="size-3.5" />}
+                                <span>{PAYMENT_METHOD_LABELS[method]}</span>
+                              </span>
+                            </button>
+                          )
+                        })}
                       </div>
-                      <Input
-                        value={split.remarks}
-                        onChange={(event) => updatePaymentSplit(split.id, { remarks: event.target.value })}
-                        placeholder={paymentSplits.length > 1 ? `Remarks for split ${splitIdx + 1} (optional)` : 'Remarks (optional)'}
-                        className="h-7 bg-white text-xs dark:bg-background"
-                      />
+
+                      {/* Amount & Remarks for Single Payment */}
+                      <div className="space-y-1.5 rounded-md border border-amber-200/80 bg-white/90 p-2 shadow-2xs dark:border-amber-500/20 dark:bg-background">
+                        <div className="grid grid-cols-[1fr_auto] gap-1.5">
+                          <div className="relative">
+                            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-semibold text-muted-foreground">₹</span>
+                            <Input
+                              type="number"
+                              value={paymentSplits[0].amount}
+                              onChange={(event) => updatePaymentSplit(paymentSplits[0].id, { amount: event.target.value })}
+                              placeholder="Amount"
+                              className="h-8 border-amber-200 bg-white pl-6 text-xs font-bold text-foreground shadow-2xs focus-visible:border-amber-400 focus-visible:ring-amber-400/20 dark:border-amber-500/30 dark:bg-background"
+                            />
+                          </div>
+                          <span className="flex items-center rounded-md border border-amber-300/80 bg-amber-100/70 px-2.5 text-[11px] font-bold text-amber-800 dark:border-amber-500/30 dark:bg-amber-950/50 dark:text-amber-300">
+                            {PAYMENT_METHOD_LABELS[paymentSplits[0].paymentMethod]}
+                          </span>
+                        </div>
+                        <Input
+                          value={paymentSplits[0].remarks}
+                          onChange={(event) => updatePaymentSplit(paymentSplits[0].id, { remarks: event.target.value })}
+                          placeholder="Transaction / Reference ID or Remarks (optional)"
+                          className="h-7 border-amber-200/70 bg-white text-xs dark:border-amber-500/30 dark:bg-background"
+                        />
+                      </div>
                     </div>
-                  ))}
+                  ) : (
+                    <div className="space-y-1.5">
+                      {paymentSplits.map((split, splitIdx) => (
+                        <div key={split.id} className="space-y-1.5 rounded-md border border-amber-200/80 bg-white/95 p-2 shadow-2xs dark:border-amber-500/20 dark:bg-background">
+                          <div className="grid grid-cols-[115px_1fr_28px] gap-1.5">
+                            <Select
+                              value={split.paymentMethod}
+                              onValueChange={(value) => updatePaymentSplit(split.id, { paymentMethod: value as Exclude<PaymentMethod, 'SPLIT'> })}
+                            >
+                              <SelectTrigger className="h-8 border-amber-200 bg-white text-xs font-bold text-amber-950 shadow-2xs dark:border-amber-500/30 dark:bg-background dark:text-amber-200">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {SELECTABLE_PAYMENT_METHODS.map((method) => (
+                                  <SelectItem key={method} value={method}>{PAYMENT_METHOD_LABELS[method]}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <Input
+                              type="number"
+                              value={split.amount}
+                              onChange={(event) => updatePaymentSplit(split.id, { amount: event.target.value })}
+                              placeholder="Amount"
+                              className="h-8 border-amber-200 bg-white text-xs font-semibold dark:border-amber-500/30 dark:bg-background"
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="size-8 text-muted-foreground hover:text-destructive"
+                              onClick={() => removePaymentSplit(split.id)}
+                              disabled={paymentSplits.length === 1}
+                            >
+                              <Trash2 className="size-3.5" />
+                            </Button>
+                          </div>
+                          <Input
+                            value={split.remarks}
+                            onChange={(event) => updatePaymentSplit(split.id, { remarks: event.target.value })}
+                            placeholder={`Remarks for split ${splitIdx + 1} (optional)`}
+                            className="h-7 border-amber-200/70 bg-white text-xs dark:border-amber-500/30 dark:bg-background"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   {paymentSplits.length > 1 && (
                     <div
                       className={`flex items-center justify-between rounded-md bg-muted/40 px-2 py-1 text-[11px] ${
