@@ -8,6 +8,7 @@ export type PageName =
   | 'fees-heads' | 'fees-groups' | 'fees-structures' | 'fee-collections' | 'fee-change-group' | 'fee-demand-config' | 'fee-demand-slips' | 'fee-audit-log' | 'fee-reports' | 'fee-list'
   | 'salary' | 'salary-structure' | 'salary-payments' | 'salary-advance' | 'salary-payroll' | 'salary-reports'
   | 'timetable' | 'exams' | 'exam-results'
+  | 'homework' | 'homework-new' | 'homework-detail' | 'homework-submissions' | 'student-homework' | 'parent-homework'
   | 'exam-dashboard' | 'exam-paradigms' | 'exam-paradigm-edit' | 'exam-groups'
   | 'exam-list' | 'exam-create' | 'exam-edit' | 'exam-configure' | 'exam-schedule'
   | 'exam-marks-entry' | 'exam-marksheet' | 'exam-grade-scales' | 'exam-grade-scale-edit'

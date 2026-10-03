@@ -184,6 +184,8 @@ model School {
   certificates                Certificate[]
   exportJobs                  ExportJob[]
   chatConversations           ChatConversation[]
+  homeworks                   Homework[]
+  homeworkSubmissions         HomeworkSubmission[]
 
   @@index([subdomain])
   @@index([status])
@@ -249,6 +251,7 @@ model Class {
   feeAssignments             StudentFeeAssignment[]
   classSubjects              ClassSubject[]
   classTeacherAssignments    ClassTeacherAssignment[]
+  homeworks                  Homework[]
 
   @@index([schoolId])
 }
@@ -272,6 +275,7 @@ model Section {
   feesStructures             FeesStructure[]
   feeAssignments             StudentFeeAssignment[]
   classTeacherAssignments    ClassTeacherAssignment[]
+  homeworks                  Homework[]
 
   @@unique([schoolId, classId, name])
   @@index([schoolId])
@@ -315,6 +319,7 @@ model Subject {
   school        School         @relation(fields: [schoolId], references: [id])
   timetables    Timetable[]
   classSubjects ClassSubject[]
+  homeworks     Homework[]
 
   @@unique([schoolId, code])
   @@index([schoolId])
@@ -401,6 +406,7 @@ model Student {
   feeAuditLogs         FeeAuditLog[]
   inventorySales       InventorySale[]
   certificates         Certificate[]
+  homeworkSubmissions  HomeworkSubmission[]
 
   @@index([schoolId])
   @@index([classId])
@@ -773,6 +779,7 @@ model Teacher {
   school                  School                   @relation(fields: [schoolId], references: [id])
   timetables              Timetable[]
   classTeacherAssignments ClassTeacherAssignment[]
+  homeworks               Homework[]
 
   @@index([schoolId])
   @@index([schoolId, employeeId])
@@ -3879,5 +3886,69 @@ model ChatMessage {
 }
 
 // ============================================
-// SCHOOL EVENTS CALENDAR
+// HOMEWORK & ASSIGNMENTS
 // ============================================
+
+model Homework {
+  id             String    @id @default(cuid())
+  schoolId       String
+  academicYear   String
+  classId        String
+  sectionId      String?   // null = all sections of the class
+  subjectId      String
+  teacherId      String    // Teacher who assigned the homework
+  title          String
+  description    String    @db.Text
+  assignedDate   DateTime  @default(now())
+  dueDate        DateTime
+  submissionType String    @default("ONLINE") // ONLINE, OFFLINE, BOTH
+  maxMarks       Float?    // Optional max marks
+  attachments    Json?     // Array of { name: string, url: string, size?: number, type?: string }
+  status         String    @default("PUBLISHED") // DRAFT, PUBLISHED, CLOSED, ARCHIVED
+  notifyStudents Boolean   @default(true)
+  notifyParents  Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+
+  school         School               @relation(fields: [schoolId], references: [id])
+  class          Class                @relation(fields: [classId], references: [id])
+  section        Section?             @relation(fields: [sectionId], references: [id])
+  subject        Subject              @relation(fields: [subjectId], references: [id])
+  teacher        Teacher              @relation(fields: [teacherId], references: [id])
+  submissions    HomeworkSubmission[]
+
+  @@index([schoolId, academicYear])
+  @@index([schoolId, classId, sectionId])
+  @@index([teacherId, academicYear])
+  @@index([subjectId])
+  @@index([dueDate])
+  @@index([status])
+}
+
+model HomeworkSubmission {
+  id            String    @id @default(cuid())
+  schoolId      String
+  homeworkId    String
+  studentId     String
+  status        String    @default("PENDING") // PENDING, SUBMITTED, LATE, EVALUATED, RESUBMISSION
+  submittedAt   DateTime?
+  content       String?   @db.Text
+  attachments   Json?     // Array of { name: string, url: string, size?: number, type?: string }
+  marksObtained Float?
+  feedback      String?   @db.Text
+  evaluatedAt   DateTime?
+  evaluatedBy   String?   // teacherId or employeeId
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
+
+  school        School    @relation(fields: [schoolId], references: [id])
+  homework      Homework  @relation(fields: [homeworkId], references: [id], onDelete: Cascade)
+  student       Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([homeworkId, studentId])
+  @@index([schoolId, studentId])
+  @@index([homeworkId, status])
+}
+

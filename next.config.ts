@@ -10,7 +10,7 @@ const nextConfig: NextConfig = {
   // sharp) and pulls in heavy Node-only modules (pino, @hapi/boom, etc.).
   // Marking it external keeps it out of the Turbopack bundle so those
   // runtime-only imports are never statically resolved.
-  serverExternalPackages: ['@whiskeysockets/baileys'],
+  serverExternalPackages: ['@whiskeysockets/baileys', '@prisma/client', '.prisma/client'],
 };
 
 export default nextConfig;

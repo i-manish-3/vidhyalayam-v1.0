@@ -73,6 +73,14 @@ const MODULE_PERMISSION_MAP: Record<string, string[]> = {
   'teacher-subject-assignments': ['exam:manage', 'exam:configure', 'role:read'],
   'student-subject-mappings': ['exam:manage', 'exam:configure', 'student:read'],
 
+  // Homework Module
+  'homework': ['homework:read', 'homework:create', 'teacher:read', 'class:read', 'subject:read'],
+  'homework-new': ['homework:create', 'teacher:create', 'class:create'],
+  'homework-detail': ['homework:read', 'teacher:read', 'class:read'],
+  'homework-submissions': ['homework:evaluate', 'homework:read', 'teacher:read'],
+  'student-homework': ['student:read'],
+  'parent-homework': ['student:read'],
+
   // Fees
   'fees-heads': ['fees:read'],
   'fees-groups': ['fees:read'],
@@ -174,6 +182,7 @@ const PARENT_MENU_MODULES: Record<string, string> = {
   'ID Cards': 'id-cards',
   'Certificates': 'certificates',
   'Exams': 'exam-dashboard',
+  'Homework': 'homework',
 }
 
 /**

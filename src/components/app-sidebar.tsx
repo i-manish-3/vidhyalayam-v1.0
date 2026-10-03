@@ -90,7 +90,8 @@ const PREFERRED_MENU_ORDER = new Map<string, number>([
   ['Dashboard', 0],
   ['Students', 1],
   ['Academics', 2],
-  ['Fees', 3],
+  ['Homework', 3],
+  ['Fees', 4],
   ['Transport', 4],
   ['Hostel', 5],
   ['Exams', 6],
@@ -181,6 +182,15 @@ export const MENUS: Record<string, MenuItem[]> = {
             { label: 'Reports', page: 'attendance-reports', icon: BarChart3 },
           ],
         },
+      ],
+    },
+    {
+      label: 'Homework',
+      page: 'homework',
+      icon: BookOpenCheck,
+      children: [
+        { label: 'Homework List', page: 'homework', icon: BookOpenCheck },
+        { label: 'Assign Homework', page: 'homework-new', icon: PlusCircle },
       ],
     },
     {
@@ -344,6 +354,15 @@ export const MENUS: Record<string, MenuItem[]> = {
     { label: 'Birthdays', page: 'birthdays', icon: Cake },
     { label: 'My Classes', page: 'my-classes', icon: GraduationCap },
     {
+      label: 'Homework',
+      page: 'homework',
+      icon: BookOpenCheck,
+      children: [
+        { label: 'My Homework', page: 'homework', icon: BookOpenCheck },
+        { label: 'Assign Homework', page: 'homework-new', icon: PlusCircle },
+      ],
+    },
+    {
       label: 'Attendance',
       page: 'mark-attendance',
       icon: ClipboardList,
@@ -378,6 +397,7 @@ export const MENUS: Record<string, MenuItem[]> = {
   ],
   STUDENT: [
     { label: 'Dashboard', page: 'dashboard', icon: LayoutDashboard },
+    { label: 'My Homework', page: 'student-homework', icon: BookOpenCheck },
     { label: 'My Attendance', page: 'my-attendance', icon: ClipboardList },
     { label: 'Fees', page: 'fee-collections', icon: Receipt },
     { label: 'Timetable', page: 'timetable', icon: Calendar },
@@ -388,6 +408,7 @@ export const MENUS: Record<string, MenuItem[]> = {
   PARENT: [
     { label: 'Dashboard', page: 'dashboard', icon: LayoutDashboard },
     { label: 'My Children', page: 'parent-children', icon: Baby },
+    { label: 'Homework Diary', page: 'parent-homework', icon: BookOpenCheck },
     { label: 'Fee Details', page: 'parent-fees', icon: Receipt },
     { label: 'Attendance', page: 'parent-attendance', icon: UserCheck },
     { label: 'Exams', page: 'parent-exams', icon: Award },
