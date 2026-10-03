@@ -48,6 +48,7 @@ import {
   Layers,
   LayoutTemplate,
   Check,
+  Settings2,
 } from 'lucide-react'
 
 interface TermExamItem {
